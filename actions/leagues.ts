@@ -1,0 +1,96 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
+import { z } from 'zod'
+import { createServerClient } from '@/lib/supabase/server'
+import { getCurrentOrg } from '@/lib/tenant'
+import { canAccess, getActiveLeagueCount } from '@/lib/features'
+import type { Database } from '@/types/database'
+
+type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
+
+const createLeagueSchema = z.object({
+  name: z.string().min(2),
+  slug: z.string().min(2).regex(/^[a-z0-9-]+$/),
+  description: z.string().optional(),
+  league_type: z.enum(['team', 'individual', 'dropin', 'tournament']),
+  sport: z.string().default('beach_volleyball'),
+  price_cents: z.coerce.number().min(0).default(0),
+  payment_mode: z.enum(['per_player', 'per_team']).default('per_player'),
+  max_teams: z.coerce.number().optional(),
+  min_team_size: z.coerce.number().default(4),
+  max_team_size: z.coerce.number().default(8),
+  season_start_date: z.string().optional(),
+  season_end_date: z.string().optional(),
+  registration_opens_at: z.string().optional(),
+  registration_closes_at: z.string().optional(),
+})
+
+export async function createLeague(input: z.infer<typeof createLeagueSchema>) {
+  const parsed = createLeagueSchema.safeParse(input)
+  if (!parsed.success) return { data: null, error: 'Invalid input' }
+
+  const headersList = headers()
+  const org = await getCurrentOrg(headersList)
+
+  const hasMultiple = await canAccess(org.id, 'multiple_leagues')
+  if (!hasMultiple) {
+    const count = await getActiveLeagueCount(org.id)
+    if (count >= 1) return { data: null, error: 'UPGRADE_REQUIRED' }
+  }
+
+  const supabase = await createServerClient()
+  const { data, error } = await supabase
+    .from('leagues')
+    .insert({
+      organization_id: org.id,
+      ...parsed.data,
+      season_start_date: parsed.data.season_start_date || null,
+      season_end_date: parsed.data.season_end_date || null,
+      registration_opens_at: parsed.data.registration_opens_at || null,
+      registration_closes_at: parsed.data.registration_closes_at || null,
+      max_teams: parsed.data.max_teams ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (error) return { data: null, error: error.message }
+
+  revalidatePath('/admin/leagues')
+  return { data, error: null }
+}
+
+export async function updateLeagueStatus(leagueId: string, status: LeagueStatus) {
+  const headersList = headers()
+  const org = await getCurrentOrg(headersList)
+
+  const supabase = await createServerClient()
+  const { error } = await supabase
+    .from('leagues')
+    .update({ status })
+    .eq('id', leagueId)
+    .eq('organization_id', org.id)
+
+  if (error) return { data: null, error: error.message }
+
+  revalidatePath(`/admin/leagues/${leagueId}`)
+  return { data: null, error: null }
+}
+
+export async function updateLeague(leagueId: string, updates: Partial<z.infer<typeof createLeagueSchema>>) {
+  const headersList = headers()
+  const org = await getCurrentOrg(headersList)
+
+  const supabase = await createServerClient()
+  const { error } = await supabase
+    .from('leagues')
+    .update(updates)
+    .eq('id', leagueId)
+    .eq('organization_id', org.id)
+
+  if (error) return { data: null, error: error.message }
+
+  revalidatePath(`/admin/leagues/${leagueId}`)
+  return { data: null, error: null }
+}
