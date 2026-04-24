@@ -16,11 +16,22 @@ interface League {
   min_team_size: number | null
   max_team_size: number | null
   max_teams: number | null
+  max_participants: number | null
   season_start_date: string | null
   season_end_date: string | null
   registration_opens_at: string | null
   registration_closes_at: string | null
   waiver_version_id: string | null
+  age_group: string | null
+  venue_name: string | null
+  venue_address: string | null
+  venue_maps_url: string | null
+  venue_type: 'indoor' | 'outdoor' | 'both' | null
+  venue_surface: string | null
+  organizer_name: string | null
+  organizer_email: string | null
+  organizer_phone: string | null
+  team_join_policy: string
 }
 
 interface Waiver {
@@ -73,11 +84,22 @@ export function EditLeagueForm({ league, waivers }: Props) {
       min_team_size: Number(fd.get('min_team_size')),
       max_team_size: Number(fd.get('max_team_size')),
       max_teams: fd.get('max_teams') ? Number(fd.get('max_teams')) : undefined,
+      max_participants: fd.get('max_participants') ? Number(fd.get('max_participants')) : undefined,
       season_start_date: (fd.get('season_start_date') as string) || undefined,
       season_end_date: (fd.get('season_end_date') as string) || undefined,
       registration_opens_at: (fd.get('registration_opens_at') as string) || undefined,
       registration_closes_at: (fd.get('registration_closes_at') as string) || undefined,
       waiver_version_id: waiverVal || undefined,
+      age_group: (fd.get('age_group') as string) || undefined,
+      venue_name: (fd.get('venue_name') as string) || undefined,
+      venue_address: (fd.get('venue_address') as string) || undefined,
+      venue_maps_url: (fd.get('venue_maps_url') as string) || undefined,
+      venue_type: (fd.get('venue_type') as 'indoor' | 'outdoor' | 'both') || undefined,
+      venue_surface: (fd.get('venue_surface') as string) || undefined,
+      organizer_name: (fd.get('organizer_name') as string) || undefined,
+      organizer_email: (fd.get('organizer_email') as string) || undefined,
+      organizer_phone: (fd.get('organizer_phone') as string) || undefined,
+      team_join_policy: (fd.get('team_join_policy') as 'open' | 'captain_invite' | 'admin_only') || 'open',
     })
 
     setLoading(false)
@@ -158,7 +180,28 @@ export function EditLeagueForm({ league, waivers }: Props) {
           </Field>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Age Group">
+            <select name="age_group" defaultValue={league.age_group ?? ''} className="input">
+              <option value="">All ages</option>
+              <option value="Youth (U18)">Youth (U18)</option>
+              <option value="Adult 18+">Adult 18+</option>
+              <option value="Adult 19+">Adult 19+</option>
+              <option value="Adult 25+">Adult 25+</option>
+              <option value="Adult 35+">Adult 35+</option>
+              <option value="Seniors 55+">Seniors 55+</option>
+            </select>
+          </Field>
+          <Field label="Team Join Policy">
+            <select name="team_join_policy" defaultValue={league.team_join_policy ?? 'open'} className="input">
+              <option value="open">Open (anyone can join)</option>
+              <option value="captain_invite">Captain invite only</option>
+              <option value="admin_only">Admin managed</option>
+            </select>
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-4 gap-3">
           <Field label="Min Team Size">
             <input name="min_team_size" type="number" min="1" defaultValue={league.min_team_size ?? 1} className="input" />
           </Field>
@@ -168,6 +211,56 @@ export function EditLeagueForm({ league, waivers }: Props) {
           <Field label="Max Teams">
             <input name="max_teams" type="number" min="1" defaultValue={league.max_teams ?? ''} placeholder="Unlimited" className="input" />
           </Field>
+          <Field label="Max Participants">
+            <input name="max_participants" type="number" min="1" defaultValue={league.max_participants ?? ''} placeholder="Unlimited" className="input" />
+          </Field>
+        </div>
+
+        {/* Venue */}
+        <div className="border-t pt-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Venue</p>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Venue Name">
+                <input name="venue_name" type="text" defaultValue={league.venue_name ?? ''} placeholder="e.g. Ashbridges Bay" className="input" />
+              </Field>
+              <Field label="Surface">
+                <input name="venue_surface" type="text" defaultValue={league.venue_surface ?? ''} placeholder="Sand, Hardwood…" className="input" />
+              </Field>
+            </div>
+            <Field label="Address">
+              <input name="venue_address" type="text" defaultValue={league.venue_address ?? ''} className="input" />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Google Maps URL">
+                <input name="venue_maps_url" type="url" defaultValue={league.venue_maps_url ?? ''} className="input" />
+              </Field>
+              <Field label="Type">
+                <select name="venue_type" defaultValue={league.venue_type ?? ''} className="input">
+                  <option value="">Select…</option>
+                  <option value="outdoor">Outdoor</option>
+                  <option value="indoor">Indoor</option>
+                  <option value="both">Both</option>
+                </select>
+              </Field>
+            </div>
+          </div>
+        </div>
+
+        {/* Organizer */}
+        <div className="border-t pt-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Organizer</p>
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Name">
+              <input name="organizer_name" type="text" defaultValue={league.organizer_name ?? ''} className="input" />
+            </Field>
+            <Field label="Email">
+              <input name="organizer_email" type="email" defaultValue={league.organizer_email ?? ''} className="input" />
+            </Field>
+            <Field label="Phone">
+              <input name="organizer_phone" type="tel" defaultValue={league.organizer_phone ?? ''} className="input" />
+            </Field>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

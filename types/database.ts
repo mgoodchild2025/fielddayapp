@@ -211,6 +211,17 @@ export type Database = {
           early_bird_deadline: string | null
           payment_mode: 'per_player' | 'per_team'
           waiver_version_id: string | null
+          age_group: string | null
+          venue_name: string | null
+          venue_address: string | null
+          venue_maps_url: string | null
+          venue_type: 'indoor' | 'outdoor' | 'both' | null
+          venue_surface: string | null
+          organizer_name: string | null
+          organizer_email: string | null
+          organizer_phone: string | null
+          max_participants: number | null
+          team_join_policy: 'open' | 'captain_invite' | 'admin_only'
           created_at: string
           updated_at: string
         }
@@ -236,6 +247,17 @@ export type Database = {
           early_bird_deadline?: string | null
           payment_mode?: 'per_player' | 'per_team'
           waiver_version_id?: string | null
+          age_group?: string | null
+          venue_name?: string | null
+          venue_address?: string | null
+          venue_maps_url?: string | null
+          venue_type?: 'indoor' | 'outdoor' | 'both' | null
+          venue_surface?: string | null
+          organizer_name?: string | null
+          organizer_email?: string | null
+          organizer_phone?: string | null
+          max_participants?: number | null
+          team_join_policy?: 'open' | 'captain_invite' | 'admin_only'
           created_at?: string
           updated_at?: string
         }
@@ -554,8 +576,10 @@ export type Database = {
           id: string
           organization_id: string
           league_id: string | null
+          team_id: string | null
           title: string
           body: string
+          audience_type: 'org' | 'league' | 'team'
           sent_by: string | null
           sent_at: string | null
           created_at: string
@@ -564,15 +588,49 @@ export type Database = {
           id?: string
           organization_id: string
           league_id?: string | null
+          team_id?: string | null
           title: string
           body: string
+          audience_type?: 'org' | 'league' | 'team'
           sent_by?: string | null
           sent_at?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['announcements']['Insert']>
         Relationships: [
-          { foreignKeyName: 'announcements_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] }
+          { foreignKeyName: 'announcements_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] },
+          { foreignKeyName: 'announcements_league_id_fkey'; columns: ['league_id']; isOneToOne: false; referencedRelation: 'leagues'; referencedColumns: ['id'] },
+          { foreignKeyName: 'announcements_sent_by_fkey'; columns: ['sent_by']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] }
+        ]
+      }
+      team_join_requests: {
+        Row: {
+          id: string
+          team_id: string
+          organization_id: string
+          user_id: string
+          status: 'pending' | 'approved' | 'rejected'
+          message: string | null
+          reviewed_by: string | null
+          reviewed_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          team_id: string
+          organization_id: string
+          user_id: string
+          status?: 'pending' | 'approved' | 'rejected'
+          message?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['team_join_requests']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'team_join_requests_team_id_fkey'; columns: ['team_id']; isOneToOne: false; referencedRelation: 'teams'; referencedColumns: ['id'] },
+          { foreignKeyName: 'team_join_requests_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] },
+          { foreignKeyName: 'team_join_requests_user_id_fkey'; columns: ['user_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] }
         ]
       }
       notifications: {

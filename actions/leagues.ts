@@ -19,6 +19,7 @@ const createLeagueSchema = z.object({
   price_cents: z.coerce.number().min(0).default(0),
   payment_mode: z.enum(['per_player', 'per_team']).default('per_player'),
   max_teams: z.coerce.number().optional(),
+  max_participants: z.coerce.number().optional(),
   min_team_size: z.coerce.number().default(4),
   max_team_size: z.coerce.number().default(8),
   season_start_date: z.string().optional(),
@@ -26,6 +27,16 @@ const createLeagueSchema = z.object({
   registration_opens_at: z.string().optional(),
   registration_closes_at: z.string().optional(),
   waiver_version_id: z.string().uuid().optional(),
+  age_group: z.string().optional(),
+  venue_name: z.string().optional(),
+  venue_address: z.string().optional(),
+  venue_maps_url: z.string().url().optional().or(z.literal('')),
+  venue_type: z.enum(['indoor', 'outdoor', 'both']).optional(),
+  venue_surface: z.string().optional(),
+  organizer_name: z.string().optional(),
+  organizer_email: z.string().email().optional().or(z.literal('')),
+  organizer_phone: z.string().optional(),
+  team_join_policy: z.enum(['open', 'captain_invite', 'admin_only']).default('open'),
 })
 
 export async function createLeague(input: z.infer<typeof createLeagueSchema>) {
@@ -52,7 +63,18 @@ export async function createLeague(input: z.infer<typeof createLeagueSchema>) {
       registration_opens_at: parsed.data.registration_opens_at || null,
       registration_closes_at: parsed.data.registration_closes_at || null,
       max_teams: parsed.data.max_teams ?? null,
+      max_participants: parsed.data.max_participants ?? null,
       waiver_version_id: parsed.data.waiver_version_id ?? null,
+      age_group: parsed.data.age_group || null,
+      venue_name: parsed.data.venue_name || null,
+      venue_address: parsed.data.venue_address || null,
+      venue_maps_url: parsed.data.venue_maps_url || null,
+      venue_type: parsed.data.venue_type ?? null,
+      venue_surface: parsed.data.venue_surface || null,
+      organizer_name: parsed.data.organizer_name || null,
+      organizer_email: parsed.data.organizer_email || null,
+      organizer_phone: parsed.data.organizer_phone || null,
+      team_join_policy: parsed.data.team_join_policy,
     })
     .select('id')
     .single()

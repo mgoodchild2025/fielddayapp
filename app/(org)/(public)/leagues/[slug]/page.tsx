@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
+import { requireOrgMember } from '@/lib/auth'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { notFound } from 'next/navigation'
@@ -14,6 +15,7 @@ export default async function LeagueDetailPage({
   const { slug } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  await requireOrgMember(org)
 
   const supabase = await createServerClient()
   const { data: league } = await supabase
@@ -60,6 +62,12 @@ export default async function LeagueDetailPage({
         )}
 
         <div className="mt-8 grid grid-cols-2 gap-4">
+          {league.age_group && (
+            <div className="bg-white rounded-lg border p-4">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Age Group</p>
+              <p className="font-semibold mt-1">{league.age_group}</p>
+            </div>
+          )}
           {league.season_start_date && (
             <div className="bg-white rounded-lg border p-4">
               <p className="text-xs text-gray-500 uppercase tracking-wide">Season Start</p>
@@ -85,6 +93,44 @@ export default async function LeagueDetailPage({
             </div>
           )}
         </div>
+
+        {/* Venue */}
+        {league.venue_name && (
+          <div className="mt-6 bg-white rounded-lg border p-5">
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Location</p>
+            <p className="font-semibold">{league.venue_name}</p>
+            {league.venue_address && <p className="text-sm text-gray-600 mt-1">{league.venue_address}</p>}
+            <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
+              {league.venue_type && <span className="capitalize">{league.venue_type}</span>}
+              {league.venue_surface && <><span>·</span><span>{league.venue_surface}</span></>}
+            </div>
+            {league.venue_maps_url && (
+              <a
+                href={league.venue_maps_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-3 text-sm font-medium hover:underline"
+                style={{ color: 'var(--brand-primary)' }}
+              >
+                View on Google Maps →
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Organizer */}
+        {(league.organizer_name || league.organizer_email) && (
+          <div className="mt-4 bg-white rounded-lg border p-5">
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Organizer</p>
+            {league.organizer_name && <p className="font-semibold">{league.organizer_name}</p>}
+            {league.organizer_email && (
+              <a href={`mailto:${league.organizer_email}`} className="text-sm text-blue-600 hover:underline mt-1 block">
+                {league.organizer_email}
+              </a>
+            )}
+            {league.organizer_phone && <p className="text-sm text-gray-600 mt-1">{league.organizer_phone}</p>}
+          </div>
+        )}
 
         {isOpen && (
           <Link

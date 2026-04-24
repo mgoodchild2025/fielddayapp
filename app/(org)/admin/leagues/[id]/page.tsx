@@ -68,6 +68,7 @@ export default async function LeagueOverviewPage({ params }: { params: Promise<{
         <dl className="space-y-3 text-sm mt-4">
           <Row label="Type" value={league.league_type} />
           <Row label="Sport" value={league.sport ?? '—'} />
+          {league.age_group && <Row label="Age Group" value={league.age_group} />}
           <Row
             label="Price"
             value={league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency.toUpperCase()}`}
@@ -75,6 +76,10 @@ export default async function LeagueOverviewPage({ params }: { params: Promise<{
           <Row label="Payment Mode" value={league.payment_mode.replace('_', ' ')} />
           <Row label="Team Size" value={`${league.min_team_size ?? 1}–${league.max_team_size ?? '∞'} players`} />
           {league.max_teams && <Row label="Max Teams" value={String(league.max_teams)} />}
+          {league.max_participants && <Row label="Max Participants" value={String(league.max_participants)} />}
+          <Row label="Join Policy" value={(league.team_join_policy ?? 'open').replace('_', ' ')} />
+          {league.venue_name && <Row label="Venue" value={league.venue_name} />}
+          {league.venue_address && <Row label="Address" value={league.venue_address} />}
           {league.season_start_date && (
             <Row label="Season Start" value={new Date(league.season_start_date).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })} />
           )}

@@ -19,7 +19,7 @@ export default async function AdminLeaguesPage() {
 
   const { data: leagues } = await supabase
     .from('leagues')
-    .select('id, name, slug, status, league_type, price_cents, currency, season_start_date, created_at')
+    .select('id, name, slug, status, league_type, price_cents, currency, season_start_date, venue_name, created_at')
     .eq('organization_id', org.id)
     .order('created_at', { ascending: false })
 
@@ -43,6 +43,7 @@ export default async function AdminLeaguesPage() {
               <th className="px-4 py-3 font-medium text-gray-500">Name</th>
               <th className="px-4 py-3 font-medium text-gray-500">Type</th>
               <th className="px-4 py-3 font-medium text-gray-500">Status</th>
+              <th className="px-4 py-3 font-medium text-gray-500">Location</th>
               <th className="px-4 py-3 font-medium text-gray-500">Price</th>
               <th className="px-4 py-3 font-medium text-gray-500">Start Date</th>
               <th className="px-4 py-3 font-medium text-gray-500"></th>
@@ -57,6 +58,9 @@ export default async function AdminLeaguesPage() {
                   <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[league.status] ?? 'bg-gray-100 text-gray-600'}`}>
                     {league.status.replace('_', ' ')}
                   </span>
+                </td>
+                <td className="px-4 py-3 text-gray-500 text-sm">
+                  {(league as unknown as { venue_name?: string }).venue_name ?? '—'}
                 </td>
                 <td className="px-4 py-3">
                   {league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency.toUpperCase()}`}
@@ -74,7 +78,7 @@ export default async function AdminLeaguesPage() {
             ))}
             {(!leagues || leagues.length === 0) && (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+                <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
                   No leagues yet.{' '}
                   <Link href="/admin/leagues/new" className="underline" style={{ color: 'var(--brand-primary)' }}>Create your first league</Link>
                 </td>
