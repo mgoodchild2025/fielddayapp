@@ -5,6 +5,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { PendingPaymentButton } from '@/components/dashboard/pending-payment-button'
+import { formatGameTime } from '@/lib/format-time'
 import Link from 'next/link'
 
 export default async function PlayerDashboardPage() {
@@ -20,8 +21,10 @@ export default async function PlayerDashboardPage() {
     { data: registrations },
     { data: upcomingGames },
     { data: notifications },
+    { data: myTeams },
+    { data: pendingJoinRequests },
   ] = await Promise.all([
-    supabase.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
+    supabase.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
     supabase.from('registrations').select(`
       id, status, created_at,
       waiver_signature_id,
@@ -30,15 +33,34 @@ export default async function PlayerDashboardPage() {
     `).eq('organization_id', org.id).eq('user_id', user.id).order('created_at', { ascending: false }),
     supabase.from('games').select(`
       id, scheduled_at, court,
-      home_team:teams!games_home_team_id_fkey(name),
-      away_team:teams!games_away_team_id_fkey(name),
+      home_team:teams!games_home_team_id_fkey(id, name),
+      away_team:teams!games_away_team_id_fkey(id, name),
       league:leagues!games_league_id_fkey(name)
     `).eq('organization_id', org.id)
       .gte('scheduled_at', new Date().toISOString())
       .order('scheduled_at', { ascending: true })
-      .limit(3),
+      .limit(5),
     supabase.from('notifications').select('id, title, body, read, created_at').eq('organization_id', org.id).eq('user_id', user.id).eq('read', false).order('created_at', { ascending: false }).limit(5),
+    // My team memberships
+    supabase.from('team_members').select(`
+      id, role,
+      team:teams!team_members_team_id_fkey(
+        id, name, color, league_id,
+        league:leagues!teams_league_id_fkey(id, name, slug),
+        team_members(
+          id, role, status,
+          profile:profiles!team_members_user_id_fkey(full_name, email, phone)
+        )
+      )
+    `).eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active'),
+    // My pending join requests
+    supabase.from('team_join_requests').select(`
+      id, status, created_at,
+      team:teams!team_join_requests_team_id_fkey(name)
+    `).eq('user_id', user.id).eq('organization_id', org.id).eq('status', 'pending'),
   ])
+
+  const timezone = branding?.timezone ?? 'America/Toronto'
 
   // Fetch the org-wide active waiver id once (used as fallback when league has no specific waiver)
   const { data: orgActiveWaiver } = await supabase
@@ -59,6 +81,23 @@ export default async function PlayerDashboardPage() {
     return needsPayment || needsWaiver
   })
 
+  // Filter upcoming games to only ones for my teams
+  const myTeamIds = new Set(
+    (myTeams ?? []).map((mt) => {
+      const team = Array.isArray(mt.team) ? mt.team[0] : mt.team
+      return team?.id
+    }).filter(Boolean)
+  )
+
+  const myGames = (upcomingGames ?? []).filter((g) => {
+    const homeTeam = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
+    const awayTeam = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
+    return myTeamIds.has(homeTeam?.id) || myTeamIds.has(awayTeam?.id)
+  })
+
+  // Use all upcoming games if no team membership
+  const gamesToShow = myTeamIds.size > 0 ? myGames : (upcomingGames ?? []).slice(0, 3)
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
@@ -74,6 +113,39 @@ export default async function PlayerDashboardPage() {
               ⚠️ Action required on {pendingActions.length === 1 ? '1 registration' : `${pendingActions.length} registrations`}
             </p>
             <p className="text-xs text-amber-700">Complete the steps below to finish your registration.</p>
+          </div>
+        )}
+
+        {/* Notifications */}
+        {notifications && notifications.length > 0 && (
+          <div className="mb-6 space-y-2">
+            {notifications.map((n) => (
+              <div key={n.id} className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 flex items-start gap-3">
+                <span className="text-blue-500 mt-0.5 shrink-0">🔔</span>
+                <div>
+                  <p className="text-sm font-semibold text-blue-900">{n.title}</p>
+                  {n.body && <p className="text-xs text-blue-700 mt-0.5">{n.body}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Pending join requests */}
+        {pendingJoinRequests && pendingJoinRequests.length > 0 && (
+          <div className="mb-6 space-y-2">
+            {pendingJoinRequests.map((req) => {
+              const team = Array.isArray(req.team) ? req.team[0] : req.team
+              return (
+                <div key={req.id} className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5">
+                  <p className="text-sm text-amber-800">
+                    <span className="font-semibold">Join request pending</span> for{' '}
+                    <span className="font-semibold">{(team as { name?: string } | null)?.name ?? '—'}</span>
+                    {' '}— waiting for captain approval.
+                  </p>
+                </div>
+              )
+            })}
           </div>
         )}
 
@@ -95,7 +167,13 @@ export default async function PlayerDashboardPage() {
                 return (
                   <div key={reg.id} className={`border rounded-md p-3 ${(needsWaiver || needsPayment) ? 'border-amber-200 bg-amber-50' : ''}`}>
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium">{league?.name ?? '—'}</p>
+                      <Link
+                        href={`/leagues/${league?.slug ?? ''}`}
+                        className="font-medium hover:underline"
+                        style={{ color: 'var(--brand-primary)' }}
+                      >
+                        {league?.name ?? '—'}
+                      </Link>
                       <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
                         isComplete ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
                       }`}>
@@ -103,7 +181,6 @@ export default async function PlayerDashboardPage() {
                       </span>
                     </div>
 
-                    {/* Status badges — only show waiver badge if the league requires one */}
                     <div className="flex gap-2 mt-1.5 flex-wrap">
                       {payment && (
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -121,7 +198,6 @@ export default async function PlayerDashboardPage() {
                       )}
                     </div>
 
-                    {/* Action buttons */}
                     {needsWaiver && league?.slug && (
                       <Link
                         href={`/register/${league.slug}`}
@@ -156,24 +232,27 @@ export default async function PlayerDashboardPage() {
 
           {/* Upcoming Games */}
           <div className="bg-white rounded-lg border p-5">
-            <h2 className="font-semibold mb-4">Upcoming Games</h2>
+            <h2 className="font-semibold mb-4">
+              {myTeamIds.size > 0 ? 'My Upcoming Games' : 'Upcoming Games'}
+            </h2>
             <div className="space-y-3">
-              {upcomingGames?.map((g) => {
+              {gamesToShow.map((g) => {
                 const homeTeam = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
                 const awayTeam = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
                 const league = Array.isArray(g.league) ? g.league[0] : g.league
+                const { date: gameDate, time: gameTime } = formatGameTime(g.scheduled_at, timezone)
                 return (
                   <div key={g.id} className="border rounded-md p-3">
                     <p className="text-sm text-gray-500">
-                      {new Date(g.scheduled_at).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(g.scheduled_at).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })}
+                      {gameDate} · {gameTime}
                       {g.court ? ` · Court ${g.court}` : ''}
                     </p>
                     <p className="font-medium mt-0.5">{homeTeam?.name ?? 'TBD'} vs {awayTeam?.name ?? 'TBD'}</p>
-                    <p className="text-xs text-gray-400">{league?.name}</p>
+                    <p className="text-xs text-gray-400">{(league as { name?: string } | null)?.name}</p>
                   </div>
                 )
               })}
-              {(!upcomingGames || upcomingGames.length === 0) && (
+              {gamesToShow.length === 0 && (
                 <p className="text-sm text-gray-400 text-center py-4">No upcoming games.</p>
               )}
             </div>
@@ -182,6 +261,87 @@ export default async function PlayerDashboardPage() {
             </Link>
           </div>
         </div>
+
+        {/* My Teams */}
+        {myTeams && myTeams.length > 0 && (
+          <div className="mt-6">
+            <h2 className="text-lg font-semibold mb-4">My Teams</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {myTeams.map((mt) => {
+                const team = Array.isArray(mt.team) ? mt.team[0] : mt.team
+                if (!team) return null
+                const league = Array.isArray(team.league) ? team.league[0] : team.league
+                const members = (team.team_members ?? []) as Array<{
+                  id: string; role: string; status: string
+                  profile: { full_name: string; email: string; phone: string | null } | { full_name: string; email: string; phone: string | null }[] | null
+                }>
+                const activeMembers = members.filter((m) => m.status === 'active')
+                const captain = activeMembers.find((m) => m.role === 'captain')
+                const captainProfile = Array.isArray(captain?.profile) ? captain?.profile[0] : captain?.profile
+                const isCaptain = mt.role === 'captain'
+
+                return (
+                  <div key={mt.id} className="bg-white rounded-lg border p-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      {team.color && (
+                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
+                      )}
+                      <h3 className="font-semibold">{team.name}</h3>
+                      {isCaptain && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Captain</span>
+                      )}
+                    </div>
+                    {league && (
+                      <p className="text-xs text-gray-500 mb-3">
+                        League: <span className="font-medium text-gray-700">{(league as { name?: string }).name}</span>
+                      </p>
+                    )}
+
+                    {/* Team roster */}
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                      Roster ({activeMembers.length} players)
+                    </p>
+                    <div className="space-y-1.5">
+                      {activeMembers.map((m) => {
+                        const profile = Array.isArray(m.profile) ? m.profile[0] : m.profile
+                        return (
+                          <div key={m.id} className="flex items-center justify-between gap-2">
+                            <div>
+                              <span className="text-sm font-medium">{profile?.full_name ?? '—'}</span>
+                              {m.role === 'captain' && (
+                                <span className="ml-1.5 text-xs text-blue-600">Captain</span>
+                              )}
+                            </div>
+                            {/* Show contact info to captain/admin */}
+                            {isCaptain && profile?.email && (
+                              <a href={`mailto:${profile.email}`} className="text-xs text-gray-400 hover:text-blue-600 transition-colors">
+                                {profile.email}
+                              </a>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Captain contact (for non-captains) */}
+                    {!isCaptain && captainProfile && (
+                      <div className="mt-3 pt-3 border-t">
+                        <p className="text-xs text-gray-500">
+                          Captain: <span className="font-medium text-gray-700">{captainProfile.full_name}</span>
+                          {captainProfile.email && (
+                            <a href={`mailto:${captainProfile.email}`} className="ml-2 text-blue-600 hover:underline">
+                              {captainProfile.email}
+                            </a>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
       <Footer org={org} />
     </div>

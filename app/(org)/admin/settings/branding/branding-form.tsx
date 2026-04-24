@@ -9,6 +9,23 @@ import type { Database } from '@/types/database'
 
 type OrgBranding = Database['public']['Tables']['org_branding']['Row']
 
+const TIMEZONES = [
+  'America/Toronto',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Vancouver',
+  'America/Edmonton',
+  'America/Winnipeg',
+  'America/Halifax',
+  'America/St_Johns',
+  'Europe/London',
+  'Europe/Paris',
+  'Australia/Sydney',
+  'Pacific/Auckland',
+]
+
 const schema = z.object({
   primary_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Must be a hex color'),
   secondary_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Must be a hex color'),
@@ -22,6 +39,7 @@ const schema = z.object({
   social_instagram: z.string().optional(),
   social_facebook: z.string().optional(),
   social_x: z.string().optional(),
+  timezone: z.string(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -45,6 +63,7 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
       social_instagram: branding?.social_instagram ?? '',
       social_facebook: branding?.social_facebook ?? '',
       social_x: branding?.social_x ?? '',
+      timezone: branding?.timezone ?? 'America/Toronto',
     },
   })
 
@@ -115,6 +134,15 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
               <input {...register(name)} type="text" className="w-full border rounded-md px-3 py-2 text-sm" />
             </div>
           ))}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
+            <select {...register('timezone')} className="w-full border rounded-md px-3 py-2 text-sm">
+              {TIMEZONES.map((tz) => (
+                <option key={tz} value={tz}>{tz.replace('_', ' ')}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">Used for displaying game times in schedules.</p>
+          </div>
         </div>
       </div>
 

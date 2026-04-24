@@ -29,7 +29,11 @@ export function AddGameForm({ leagueId, teams }: Props) {
   async function onSubmit(data: FormData) {
     setLoading(true)
     setSuccess(false)
-    const result = await addGame({ leagueId, ...data })
+    // Convert datetime-local string (treated as local time by the browser) to UTC ISO
+    const scheduledAtUtc = data.scheduledAt
+      ? new Date(data.scheduledAt).toISOString()
+      : data.scheduledAt
+    const result = await addGame({ leagueId, ...data, scheduledAt: scheduledAtUtc })
     if (!result.error) { setSuccess(true); reset() }
     setLoading(false)
   }

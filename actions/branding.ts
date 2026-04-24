@@ -18,6 +18,7 @@ const brandingSchema = z.object({
   social_instagram: z.string().optional(),
   social_facebook: z.string().optional(),
   social_x: z.string().optional(),
+  timezone: z.string().optional(),
 })
 
 export async function updateBranding(input: z.infer<typeof brandingSchema>) {
@@ -38,6 +39,7 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
       social_instagram: brandingData.social_instagram || null,
       social_facebook: brandingData.social_facebook || null,
       social_x: brandingData.social_x || null,
+      timezone: brandingData.timezone || 'America/Toronto',
     }, { onConflict: 'organization_id' })
 
   if (error) return { data: null, error: error.message }

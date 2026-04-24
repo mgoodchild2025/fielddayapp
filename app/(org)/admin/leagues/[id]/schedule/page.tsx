@@ -3,12 +3,20 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { AddGameForm } from '@/components/schedule/add-game-form'
 import { ScheduleImport } from '@/components/schedule/schedule-import'
+import { formatGameTime } from '@/lib/format-time'
 
 export default async function AdminSchedulePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+
+  const { data: branding } = await supabase
+    .from('org_branding')
+    .select('timezone')
+    .eq('organization_id', org.id)
+    .single()
+  const timezone = branding?.timezone ?? 'America/Toronto'
 
   const [{ data: games }, { data: teams }] = await Promise.all([
     supabase
@@ -52,18 +60,14 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
                   const home = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team
                   const away = Array.isArray(game.away_team) ? game.away_team[0] : game.away_team
                   const result = Array.isArray(game.game_results) ? game.game_results[0] : game.game_results
-                  const d = new Date(game.scheduled_at)
+                  const { date: gameDate, time: gameTime } = formatGameTime(game.scheduled_at, timezone)
 
                   return (
                     <tr key={game.id} className="border-b last:border-0 hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-400 text-xs">{game.week_number ?? '—'}</td>
                       <td className="px-4 py-3">
-                        <div className="font-medium text-gray-700">
-                          {d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </div>
+                        <div className="font-medium text-gray-700">{gameDate}</div>
+                        <div className="text-xs text-gray-400">{gameTime}</div>
                       </td>
                       <td className="px-4 py-3 font-medium">
                         {home?.name ?? 'TBD'}{' '}

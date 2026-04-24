@@ -316,6 +316,182 @@ export async function adminAddTeamMember(input: z.infer<typeof adminAddMemberSch
   return { data: null, error: null, invited: true }
 }
 
+// ─── Request to join a team ──────────────────────────────────────────────────
+
+export async function requestToJoinTeam(teamId: string, message?: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  // Can't request to join if already a member
+  const { data: existing } = await supabase
+    .from('team_members')
+    .select('id')
+    .eq('team_id', teamId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (existing) return { error: 'You are already on this team' }
+
+  const { error } = await supabase
+    .from('team_join_requests')
+    .upsert({
+      team_id: teamId,
+      organization_id: org.id,
+      user_id: user.id,
+      message: message ?? null,
+      status: 'pending',
+    }, { onConflict: 'team_id,user_id' })
+
+  if (error) return { error: error.message }
+
+  // Notify the team captain
+  const { data: captain } = await supabase
+    .from('team_members')
+    .select('user_id, profiles!team_members_user_id_fkey(full_name)')
+    .eq('team_id', teamId)
+    .eq('role', 'captain')
+    .single()
+
+  const requesterProfile = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', user.id)
+    .single()
+
+  if (captain?.user_id) {
+    const requesterName = requesterProfile.data?.full_name ?? 'Someone'
+    await supabase.from('notifications').insert({
+      organization_id: org.id,
+      user_id: captain.user_id,
+      type: 'join_request',
+      title: `New join request`,
+      body: `${requesterName} wants to join your team.`,
+      data: { team_id: teamId, user_id: user.id },
+    })
+  }
+
+  revalidatePath('/dashboard')
+  return { error: null }
+}
+
+// ─── Approve a join request ───────────────────────────────────────────────────
+
+export async function approveJoinRequest(requestId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: req } = await supabase
+    .from('team_join_requests')
+    .select('team_id, user_id, organization_id')
+    .eq('id', requestId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (!req) return { error: 'Request not found' }
+
+  // Verify caller is captain of this team or org admin
+  const { data: callerMember } = await supabase
+    .from('team_members')
+    .select('role')
+    .eq('team_id', req.team_id)
+    .eq('user_id', user.id)
+    .single()
+
+  const { data: orgMember } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .single()
+
+  const canApprove =
+    callerMember?.role === 'captain' ||
+    ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
+
+  if (!canApprove) return { error: 'Unauthorized' }
+
+  // Add to team
+  await supabase.from('team_members').upsert({
+    organization_id: org.id,
+    team_id: req.team_id,
+    user_id: req.user_id,
+    role: 'player',
+    status: 'active',
+  }, { onConflict: 'team_id,user_id' })
+
+  // Ensure org membership
+  await supabase.from('org_members').upsert({
+    organization_id: org.id,
+    user_id: req.user_id,
+    role: 'player',
+    status: 'active',
+  }, { onConflict: 'organization_id,user_id', ignoreDuplicates: true })
+
+  // Update request status
+  await supabase
+    .from('team_join_requests')
+    .update({ status: 'approved', reviewed_by: user.id, reviewed_at: new Date().toISOString() })
+    .eq('id', requestId)
+
+  // Notify the requester
+  await supabase.from('notifications').insert({
+    organization_id: org.id,
+    user_id: req.user_id,
+    type: 'join_approved',
+    title: 'Join request approved!',
+    body: 'Your request to join the team has been approved.',
+  })
+
+  revalidatePath(`/admin/leagues`)
+  revalidatePath('/dashboard')
+  return { error: null }
+}
+
+// ─── Reject a join request ────────────────────────────────────────────────────
+
+export async function rejectJoinRequest(requestId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: req } = await supabase
+    .from('team_join_requests')
+    .select('team_id, user_id, organization_id')
+    .eq('id', requestId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (!req) return { error: 'Request not found' }
+
+  await supabase
+    .from('team_join_requests')
+    .update({ status: 'rejected', reviewed_by: user.id, reviewed_at: new Date().toISOString() })
+    .eq('id', requestId)
+
+  // Notify the requester
+  await supabase.from('notifications').insert({
+    organization_id: org.id,
+    user_id: req.user_id,
+    type: 'join_rejected',
+    title: 'Join request declined',
+    body: 'Your request to join the team was not approved. Contact the captain for more info.',
+  })
+
+  revalidatePath(`/admin/leagues`)
+  return { error: null }
+}
+
 // ─── Captain: invite player by email ─────────────────────────────────────────
 
 const invitePlayerSchema = z.object({

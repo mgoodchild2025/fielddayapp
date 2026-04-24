@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { requireOrgMember } from '@/lib/auth'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
+import { formatGameTime } from '@/lib/format-time'
 
 export default async function SchedulePage() {
   const headersList = await headers()
@@ -13,9 +14,10 @@ export default async function SchedulePage() {
   const supabase = await createServerClient()
   const { data: branding } = await supabase
     .from('org_branding')
-    .select('logo_url')
+    .select('logo_url, timezone')
     .eq('organization_id', org.id)
     .single()
+  const timezone = branding?.timezone ?? 'America/Toronto'
 
   const { data: games } = await supabase
     .from('games')
@@ -44,10 +46,11 @@ export default async function SchedulePage() {
               const homeTeam = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team
               const awayTeam = Array.isArray(game.away_team) ? game.away_team[0] : game.away_team
               const league = Array.isArray(game.league) ? game.league[0] : game.league
+              const { date: gameDate, time: gameTime } = formatGameTime(game.scheduled_at, timezone)
               return (
                 <div key={game.id} className="bg-white rounded-lg border p-4 flex flex-col sm:flex-row sm:items-center gap-4">
                   <div className="flex-1">
-                    <p className="text-sm text-gray-500">{new Date(game.scheduled_at).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(game.scheduled_at).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })}{game.court ? ` · Court ${game.court}` : ''}</p>
+                    <p className="text-sm text-gray-500">{gameDate} · {gameTime}{game.court ? ` · Court ${game.court}` : ''}</p>
                     <p className="font-semibold mt-1">{homeTeam?.name ?? 'TBD'} <span className="text-gray-400 font-normal">vs</span> {awayTeam?.name ?? 'TBD'}</p>
                     {league && <p className="text-xs text-gray-400 mt-0.5">{league.name}</p>}
                   </div>

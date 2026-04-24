@@ -6,6 +6,7 @@ import { AdminAddMemberForm } from '@/components/teams/admin-add-member-form'
 import { TeamCodeBadge } from '@/components/teams/team-code-badge'
 import { RemovePlayerButton } from '@/components/teams/remove-player-button'
 import { DeleteTeamButton } from '@/components/teams/delete-team-button'
+import { JoinRequestButtons } from '@/components/teams/join-request-buttons'
 
 export default async function TeamsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -13,21 +14,70 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
-  const { data: teams } = await supabase
-    .from('teams')
-    .select(`
-      id, name, color, team_code, created_at,
-      team_members(
-        id, role, status, invited_email,
-        profiles!team_members_user_id_fkey(full_name)
+  const [{ data: teams }, { data: joinRequests }] = await Promise.all([
+    supabase
+      .from('teams')
+      .select(`
+        id, name, color, team_code, created_at,
+        team_members(
+          id, role, status, invited_email,
+          profiles!team_members_user_id_fkey(full_name)
+        )
+      `)
+      .eq('league_id', id)
+      .eq('organization_id', org.id)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('team_join_requests')
+      .select(`
+        id, message, created_at,
+        team:teams!team_join_requests_team_id_fkey(id, name),
+        requester:profiles!team_join_requests_user_id_fkey(full_name, email)
+      `)
+      .eq('organization_id', org.id)
+      .eq('status', 'pending')
+      .in('team_id',
+        // filter to teams in this league — will be empty array on first load before teams fetch
+        (await supabase.from('teams').select('id').eq('league_id', id).eq('organization_id', org.id))
+          .data?.map((t) => t.id) ?? []
       )
-    `)
-    .eq('league_id', id)
-    .eq('organization_id', org.id)
-    .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false }),
+  ])
+
+  const pendingRequests = joinRequests ?? []
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Pending join requests banner */}
+      {pendingRequests.length > 0 && (
+        <div className="md:col-span-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <p className="text-sm font-semibold text-amber-800 mb-3">
+            {pendingRequests.length} pending join request{pendingRequests.length !== 1 ? 's' : ''}
+          </p>
+          <div className="space-y-2">
+            {pendingRequests.map((req) => {
+              type ReqRow = typeof req & {
+                team: { id: string; name: string } | { id: string; name: string }[] | null
+                requester: { full_name: string; email: string } | { full_name: string; email: string }[] | null
+              }
+              const r = req as ReqRow
+              const team = Array.isArray(r.team) ? r.team[0] : r.team
+              const requester = Array.isArray(r.requester) ? r.requester[0] : r.requester
+              return (
+                <div key={req.id} className="flex items-center justify-between gap-4 bg-white rounded border p-3">
+                  <div>
+                    <p className="text-sm font-medium">{requester?.full_name ?? '—'}</p>
+                    <p className="text-xs text-gray-500">{requester?.email ?? ''} · wants to join {team?.name ?? '—'}</p>
+                    {req.message && <p className="text-xs text-gray-600 mt-1 italic">&ldquo;{req.message}&rdquo;</p>}
+                  </div>
+                  <JoinRequestButtons requestId={req.id} />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="md:col-span-2 space-y-4">
         {teams && teams.length > 0 ? (
           teams.map((team) => {

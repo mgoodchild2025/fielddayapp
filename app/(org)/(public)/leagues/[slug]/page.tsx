@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { requireOrgMember } from '@/lib/auth'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
+import { RequestJoinButton } from '@/components/teams/request-join-button'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 
@@ -18,21 +19,50 @@ export default async function LeagueDetailPage({
   await requireOrgMember(org)
 
   const supabase = await createServerClient()
-  const { data: league } = await supabase
-    .from('leagues')
-    .select('*')
-    .eq('organization_id', org.id)
-    .eq('slug', slug)
-    .neq('status', 'draft')
-    .single()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const [{ data: league }, { data: branding }] = await Promise.all([
+    supabase.from('leagues').select('*').eq('organization_id', org.id).eq('slug', slug).neq('status', 'draft').single(),
+    supabase.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
+  ])
 
   if (!league) notFound()
 
-  const { data: branding } = await supabase
-    .from('org_branding')
-    .select('logo_url')
-    .eq('organization_id', org.id)
-    .single()
+  // Load teams if joining is open or captain_invite
+  const canJoinTeam = league.team_join_policy !== 'admin_only' && league.league_type === 'team'
+  const { data: teams } = canJoinTeam
+    ? await supabase
+        .from('teams')
+        .select(`
+          id, name, color,
+          team_members(id, status)
+        `)
+        .eq('league_id', league.id)
+        .eq('organization_id', org.id)
+        .eq('status', 'active')
+        .order('name')
+    : { data: null }
+
+  // Check if current user already has a join request or is a member of any team
+  const { data: myMemberships } = user
+    ? await supabase
+        .from('team_members')
+        .select('team_id')
+        .eq('user_id', user.id)
+        .in('team_id', teams?.map((t) => t.id) ?? [])
+    : { data: null }
+
+  const { data: myRequests } = user
+    ? await supabase
+        .from('team_join_requests')
+        .select('team_id, status')
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .in('team_id', teams?.map((t) => t.id) ?? [])
+    : { data: null }
+
+  const myTeamIds = new Set(myMemberships?.map((m) => m.team_id) ?? [])
+  const myRequestTeamIds = new Set(myRequests?.map((r) => r.team_id) ?? [])
 
   const isOpen = league.status === 'registration_open'
   const price = league.price_cents === 0
@@ -129,6 +159,45 @@ export default async function LeagueDetailPage({
               </a>
             )}
             {league.organizer_phone && <p className="text-sm text-gray-600 mt-1">{league.organizer_phone}</p>}
+          </div>
+        )}
+
+        {/* Teams list with join requests */}
+        {canJoinTeam && teams && teams.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-xl font-bold mb-4" style={{ fontFamily: 'var(--brand-heading-font)' }}>Teams</h2>
+            <div className="space-y-2">
+              {teams.map((team) => {
+                const memberCount = (team.team_members ?? []).filter(
+                  (m: { status: string }) => m.status === 'active'
+                ).length
+                const isMember = myTeamIds.has(team.id)
+                const hasRequest = myRequestTeamIds.has(team.id)
+
+                return (
+                  <div key={team.id} className="bg-white rounded-lg border p-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {team.color && (
+                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
+                      )}
+                      <div>
+                        <p className="font-semibold">{team.name}</p>
+                        <p className="text-xs text-gray-500">{memberCount} player{memberCount !== 1 ? 's' : ''}</p>
+                      </div>
+                    </div>
+                    <div>
+                      {isMember ? (
+                        <span className="text-xs text-green-600 font-medium">You&apos;re on this team</span>
+                      ) : hasRequest ? (
+                        <span className="text-xs text-amber-600 font-medium">Request pending…</span>
+                      ) : league.team_join_policy !== 'admin_only' ? (
+                        <RequestJoinButton teamId={team.id} teamName={team.name} />
+                      ) : null}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
 

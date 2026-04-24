@@ -98,6 +98,7 @@ export type Database = {
           social_facebook: string | null
           social_x: string | null
           social_tiktok: string | null
+          timezone: string
           updated_at: string
         }
         Insert: {
@@ -118,6 +119,7 @@ export type Database = {
           social_instagram?: string | null
           social_facebook?: string | null
           social_x?: string | null
+          timezone?: string
           social_tiktok?: string | null
           updated_at?: string
         }
