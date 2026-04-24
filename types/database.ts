@@ -25,6 +25,7 @@ export type Database = {
           updated_at?: string
         }
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>
+        Relationships: []
       }
       organizations: {
         Row: {
@@ -50,6 +51,7 @@ export type Database = {
           updated_at?: string
         }
         Update: Partial<Database['public']['Tables']['organizations']['Insert']>
+        Relationships: []
       }
       org_members: {
         Row: {
@@ -71,6 +73,10 @@ export type Database = {
           joined_at?: string
         }
         Update: Partial<Database['public']['Tables']['org_members']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'org_members_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] },
+          { foreignKeyName: 'org_members_user_id_fkey'; columns: ['user_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] }
+        ]
       }
       org_branding: {
         Row: {
@@ -116,6 +122,9 @@ export type Database = {
           updated_at?: string
         }
         Update: Partial<Database['public']['Tables']['org_branding']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'org_branding_organization_id_fkey'; columns: ['organization_id']; isOneToOne: true; referencedRelation: 'organizations'; referencedColumns: ['id'] }
+        ]
       }
       subscriptions: {
         Row: {
@@ -151,6 +160,9 @@ export type Database = {
           updated_at?: string
         }
         Update: Partial<Database['public']['Tables']['subscriptions']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'subscriptions_organization_id_fkey'; columns: ['organization_id']; isOneToOne: true; referencedRelation: 'organizations'; referencedColumns: ['id'] }
+        ]
       }
       stripe_connect_accounts: {
         Row: {
@@ -172,6 +184,9 @@ export type Database = {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['stripe_connect_accounts']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'stripe_connect_accounts_organization_id_fkey'; columns: ['organization_id']; isOneToOne: true; referencedRelation: 'organizations'; referencedColumns: ['id'] }
+        ]
       }
       leagues: {
         Row: {
@@ -225,6 +240,10 @@ export type Database = {
           updated_at?: string
         }
         Update: Partial<Database['public']['Tables']['leagues']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'leagues_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] },
+          { foreignKeyName: 'leagues_waiver_version_id_fkey'; columns: ['waiver_version_id']; isOneToOne: false; referencedRelation: 'waivers'; referencedColumns: ['id'] }
+        ]
       }
       divisions: {
         Row: {
@@ -244,6 +263,10 @@ export type Database = {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['divisions']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'divisions_league_id_fkey'; columns: ['league_id']; isOneToOne: false; referencedRelation: 'leagues'; referencedColumns: ['id'] },
+          { foreignKeyName: 'divisions_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] }
+        ]
       }
       teams: {
         Row: {
@@ -271,6 +294,10 @@ export type Database = {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['teams']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'teams_league_id_fkey'; columns: ['league_id']; isOneToOne: false; referencedRelation: 'leagues'; referencedColumns: ['id'] },
+          { foreignKeyName: 'teams_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] }
+        ]
       }
       team_members: {
         Row: {
@@ -294,6 +321,11 @@ export type Database = {
           joined_at?: string
         }
         Update: Partial<Database['public']['Tables']['team_members']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'team_members_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] },
+          { foreignKeyName: 'team_members_team_id_fkey'; columns: ['team_id']; isOneToOne: false; referencedRelation: 'teams'; referencedColumns: ['id'] },
+          { foreignKeyName: 'team_members_user_id_fkey'; columns: ['user_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] }
+        ]
       }
       waivers: {
         Row: {
@@ -315,6 +347,9 @@ export type Database = {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['waivers']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'waivers_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] }
+        ]
       }
       waiver_signatures: {
         Row: {
@@ -338,6 +373,11 @@ export type Database = {
           pdf_url?: string | null
         }
         Update: Partial<Database['public']['Tables']['waiver_signatures']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'waiver_signatures_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] },
+          { foreignKeyName: 'waiver_signatures_user_id_fkey'; columns: ['user_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] },
+          { foreignKeyName: 'waiver_signatures_waiver_id_fkey'; columns: ['waiver_id']; isOneToOne: false; referencedRelation: 'waivers'; referencedColumns: ['id'] }
+        ]
       }
       registrations: {
         Row: {
@@ -363,6 +403,12 @@ export type Database = {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['registrations']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'registrations_league_id_fkey'; columns: ['league_id']; isOneToOne: false; referencedRelation: 'leagues'; referencedColumns: ['id'] },
+          { foreignKeyName: 'registrations_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] },
+          { foreignKeyName: 'registrations_user_id_fkey'; columns: ['user_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] },
+          { foreignKeyName: 'registrations_waiver_signature_id_fkey'; columns: ['waiver_signature_id']; isOneToOne: false; referencedRelation: 'waiver_signatures'; referencedColumns: ['id'] }
+        ]
       }
       player_details: {
         Row: {
@@ -390,6 +436,10 @@ export type Database = {
           updated_at?: string
         }
         Update: Partial<Database['public']['Tables']['player_details']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'player_details_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] },
+          { foreignKeyName: 'player_details_user_id_fkey'; columns: ['user_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] }
+        ]
       }
       payments: {
         Row: {
@@ -425,6 +475,11 @@ export type Database = {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['payments']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'payments_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] },
+          { foreignKeyName: 'payments_registration_id_fkey'; columns: ['registration_id']; isOneToOne: false; referencedRelation: 'registrations'; referencedColumns: ['id'] },
+          { foreignKeyName: 'payments_user_id_fkey'; columns: ['user_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] }
+        ]
       }
       games: {
         Row: {
@@ -454,6 +509,12 @@ export type Database = {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['games']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'games_league_id_fkey'; columns: ['league_id']; isOneToOne: false; referencedRelation: 'leagues'; referencedColumns: ['id'] },
+          { foreignKeyName: 'games_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] },
+          { foreignKeyName: 'games_home_team_id_fkey'; columns: ['home_team_id']; isOneToOne: false; referencedRelation: 'teams'; referencedColumns: ['id'] },
+          { foreignKeyName: 'games_away_team_id_fkey'; columns: ['away_team_id']; isOneToOne: false; referencedRelation: 'teams'; referencedColumns: ['id'] }
+        ]
       }
       game_results: {
         Row: {
@@ -483,6 +544,10 @@ export type Database = {
           confirmed_at?: string | null
         }
         Update: Partial<Database['public']['Tables']['game_results']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'game_results_game_id_fkey'; columns: ['game_id']; isOneToOne: true; referencedRelation: 'games'; referencedColumns: ['id'] },
+          { foreignKeyName: 'game_results_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] }
+        ]
       }
       announcements: {
         Row: {
@@ -506,6 +571,9 @@ export type Database = {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['announcements']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'announcements_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] }
+        ]
       }
       notifications: {
         Row: {
@@ -531,6 +599,10 @@ export type Database = {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['notifications']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'notifications_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] },
+          { foreignKeyName: 'notifications_user_id_fkey'; columns: ['user_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] }
+        ]
       }
     }
     Views: Record<string, never>
