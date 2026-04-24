@@ -77,7 +77,7 @@ export function EditLeagueForm({ league, waivers }: Props) {
       season_end_date: (fd.get('season_end_date') as string) || undefined,
       registration_opens_at: (fd.get('registration_opens_at') as string) || undefined,
       registration_closes_at: (fd.get('registration_closes_at') as string) || undefined,
-      waiver_version_id: waiverVal || null,
+      waiver_version_id: waiverVal || undefined,
     })
 
     setLoading(false)

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { createLeague } from '@/actions/leagues'
@@ -13,11 +13,11 @@ const schema = z.object({
   description: z.string().optional(),
   league_type: z.enum(['team', 'individual', 'dropin', 'tournament']),
   sport: z.string().default('beach_volleyball'),
-  price_cents: z.coerce.number().min(0).default(0),
+  price_cents: z.number().min(0).default(0),
   payment_mode: z.enum(['per_player', 'per_team']).default('per_player'),
-  max_teams: z.coerce.number().optional(),
-  min_team_size: z.coerce.number().default(4),
-  max_team_size: z.coerce.number().default(8),
+  max_teams: z.number().optional(),
+  min_team_size: z.number().default(4),
+  max_team_size: z.number().default(8),
   season_start_date: z.string().optional(),
   season_end_date: z.string().optional(),
   registration_opens_at: z.string().optional(),
@@ -43,7 +43,7 @@ export function NewLeagueForm({ waivers }: Props) {
   const [error, setError] = useState<string | null>(null)
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormData>,
     defaultValues: {
       league_type: 'team',
       sport: 'beach_volleyball',
@@ -135,7 +135,9 @@ export function NewLeagueForm({ waivers }: Props) {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Price (cents, 0 = free)" name="price_cents" type="number" />
+          <Field label="Price (cents, 0 = free)" name="price_cents">
+            <input {...register('price_cents', { valueAsNumber: true })} type="number" min={0} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2" />
+          </Field>
           <Field label="Payment Mode" name="payment_mode">
             <select {...register('payment_mode')} className="w-full border rounded-md px-3 py-2 text-sm">
               <option value="per_player">Per Player</option>
@@ -145,8 +147,12 @@ export function NewLeagueForm({ waivers }: Props) {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Min Team Size" name="min_team_size" type="number" />
-          <Field label="Max Team Size" name="max_team_size" type="number" />
+          <Field label="Min Team Size" name="min_team_size">
+            <input {...register('min_team_size', { valueAsNumber: true })} type="number" min={1} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2" />
+          </Field>
+          <Field label="Max Team Size" name="max_team_size">
+            <input {...register('max_team_size', { valueAsNumber: true })} type="number" min={1} className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2" />
+          </Field>
         </div>
 
         <div className="grid grid-cols-2 gap-4">

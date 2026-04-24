@@ -10,7 +10,7 @@ import { sendRegistrationConfirmation } from './emails'
 const createRegistrationSchema = z.object({
   leagueId: z.string().uuid(),
   waiverSignatureId: z.string().uuid().optional(),
-  formData: z.record(z.unknown()).optional(),
+  formData: z.record(z.string(), z.unknown()).optional(),
 })
 
 export async function createRegistration(input: z.infer<typeof createRegistrationSchema>) {

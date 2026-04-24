@@ -7,8 +7,8 @@ import { z } from 'zod'
 import { submitScore, confirmScore } from '@/actions/scores'
 
 const schema = z.object({
-  homeScore: z.coerce.number().min(0),
-  awayScore: z.coerce.number().min(0),
+  homeScore: z.number().min(0),
+  awayScore: z.number().min(0),
 })
 
 type FormData = z.infer<typeof schema>
@@ -87,13 +87,13 @@ export function ScoreSubmitForm({ gameId, homeTeamName, awayTeamName, existingRe
       <div className="flex items-center gap-3">
         <div className="flex-1">
           <label className="block text-xs font-medium text-gray-600 mb-1">{homeTeamName}</label>
-          <input {...register('homeScore')} type="number" min={0} className="w-full border rounded-md px-3 py-2 text-center text-lg font-bold" />
+          <input {...register('homeScore', { valueAsNumber: true })} type="number" min={0} className="w-full border rounded-md px-3 py-2 text-center text-lg font-bold" />
           {errors.homeScore && <p className="text-red-500 text-xs">{errors.homeScore.message}</p>}
         </div>
         <span className="text-2xl font-bold text-gray-300 mt-4">–</span>
         <div className="flex-1">
           <label className="block text-xs font-medium text-gray-600 mb-1">{awayTeamName}</label>
-          <input {...register('awayScore')} type="number" min={0} className="w-full border rounded-md px-3 py-2 text-center text-lg font-bold" />
+          <input {...register('awayScore', { valueAsNumber: true })} type="number" min={0} className="w-full border rounded-md px-3 py-2 text-center text-lg font-bold" />
           {errors.awayScore && <p className="text-red-500 text-xs">{errors.awayScore.message}</p>}
         </div>
       </div>

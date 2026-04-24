@@ -7,8 +7,8 @@ import { z } from 'zod'
 import { submitScore } from '@/actions/scores'
 
 const schema = z.object({
-  homeScore: z.coerce.number().min(0, 'Required'),
-  awayScore: z.coerce.number().min(0, 'Required'),
+  homeScore: z.number().min(0, 'Required'),
+  awayScore: z.number().min(0, 'Required'),
 })
 
 type FormData = z.infer<typeof schema>
@@ -61,7 +61,7 @@ export function ScoreSubmissionForm({ gameId, homeTeamName, awayTeamName, onSucc
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1 truncate">{homeTeamName}</label>
           <input
-            {...register('homeScore')}
+            {...register('homeScore', { valueAsNumber: true })}
             type="number"
             min={0}
             className="w-full border rounded-md px-3 py-2 text-center text-lg font-bold focus:outline-none focus:ring-2"
@@ -71,7 +71,7 @@ export function ScoreSubmissionForm({ gameId, homeTeamName, awayTeamName, onSucc
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1 truncate">{awayTeamName}</label>
           <input
-            {...register('awayScore')}
+            {...register('awayScore', { valueAsNumber: true })}
             type="number"
             min={0}
             className="w-full border rounded-md px-3 py-2 text-center text-lg font-bold focus:outline-none focus:ring-2"

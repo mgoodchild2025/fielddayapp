@@ -11,7 +11,7 @@ const schema = z.object({
   awayTeamId: z.string().uuid().optional(),
   scheduledAt: z.string().min(1, 'Date and time required'),
   court: z.string().optional(),
-  weekNumber: z.coerce.number().optional(),
+  weekNumber: z.number().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -65,7 +65,7 @@ export function AddGameForm({ leagueId, teams }: Props) {
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Week #</label>
-            <input {...register('weekNumber')} type="number" className="w-full border rounded px-2 py-1.5 text-sm" />
+            <input {...register('weekNumber', { valueAsNumber: true })} type="number" className="w-full border rounded px-2 py-1.5 text-sm" />
           </div>
         </div>
         <button type="submit" disabled={loading} className="w-full py-2 rounded text-sm font-semibold text-white disabled:opacity-60" style={{ backgroundColor: 'var(--brand-primary)' }}>

@@ -16,7 +16,7 @@ const createOrgSchema = z.object({
 
 export async function createOrganization(input: z.infer<typeof createOrgSchema>) {
   const parsed = createOrgSchema.safeParse(input)
-  if (!parsed.success) return { data: null, error: parsed.error.errors[0]?.message ?? 'Invalid input' }
+  if (!parsed.success) return { data: null, error: parsed.error.issues[0]?.message ?? 'Invalid input' }
 
   const supabase = createServiceRoleClient()
 
@@ -71,7 +71,7 @@ const updateOrgSchema = z.object({
 
 export async function updateOrganization(input: z.infer<typeof updateOrgSchema>) {
   const parsed = updateOrgSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.errors[0]?.message ?? 'Invalid input' }
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid input' }
 
   const supabase = createServiceRoleClient()
   const { id, ...updates } = parsed.data

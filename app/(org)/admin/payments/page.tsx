@@ -2,6 +2,19 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 
+type PaymentRow = {
+  id: string
+  amount_cents: number
+  currency: string
+  status: string
+  payment_method: string
+  created_at: string
+  paid_at: string | null
+  notes: string | null
+  user: { full_name: string; email: string } | { full_name: string; email: string }[] | null
+  league: { name: string } | { name: string }[] | null
+}
+
 const statusColors: Record<string, string> = {
   paid: 'bg-green-100 text-green-700',
   pending: 'bg-yellow-100 text-yellow-700',
@@ -24,7 +37,7 @@ export default async function AdminPaymentsPage() {
     `)
     .eq('organization_id', org.id)
     .order('created_at', { ascending: false })
-    .limit(100)
+    .limit(100) as { data: PaymentRow[] | null; error: unknown }
 
   const totalPaid = payments?.filter((p) => p.status === 'paid').reduce((acc, p) => acc + p.amount_cents, 0) ?? 0
   const pendingCount = payments?.filter((p) => p.status === 'pending').length ?? 0
