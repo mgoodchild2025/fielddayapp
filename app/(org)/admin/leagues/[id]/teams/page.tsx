@@ -7,8 +7,9 @@ import { TeamCodeBadge } from '@/components/teams/team-code-badge'
 import { RemovePlayerButton } from '@/components/teams/remove-player-button'
 import { DeleteTeamButton } from '@/components/teams/delete-team-button'
 
-export default async function TeamsPage({ params }: { params: { id: string } }) {
-  const headersList = headers()
+export default async function TeamsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
@@ -21,7 +22,7 @@ export default async function TeamsPage({ params }: { params: { id: string } }) 
         profiles!team_members_user_id_fkey(full_name)
       )
     `)
-    .eq('league_id', params.id)
+    .eq('league_id', id)
     .eq('organization_id', org.id)
     .order('created_at', { ascending: true })
 
@@ -45,7 +46,7 @@ export default async function TeamsPage({ params }: { params: { id: string } }) 
                   <span className="text-xs text-gray-400 ml-auto">
                     {activePlayers.length} player{activePlayers.length !== 1 ? 's' : ''}
                   </span>
-                  <DeleteTeamButton teamId={team.id} teamName={team.name} leagueId={params.id} />
+                  <DeleteTeamButton teamId={team.id} teamName={team.name} leagueId={id} />
                 </div>
 
                 {captainProfile?.full_name && (
@@ -74,7 +75,7 @@ export default async function TeamsPage({ params }: { params: { id: string } }) 
                         {m.status === 'invited' && ' (invited)'}
                         <RemovePlayerButton
                           memberId={m.id}
-                          leagueId={params.id}
+                          leagueId={id}
                           playerName={displayName}
                         />
                       </span>
@@ -90,7 +91,7 @@ export default async function TeamsPage({ params }: { params: { id: string } }) 
                     Add Player
                   </summary>
                   <div className="mt-3 pt-3 border-t">
-                    <AdminAddMemberForm teamId={team.id} leagueId={params.id} />
+                    <AdminAddMemberForm teamId={team.id} leagueId={id} />
                   </div>
                 </details>
               </div>
@@ -104,7 +105,7 @@ export default async function TeamsPage({ params }: { params: { id: string } }) 
       </div>
 
       <div>
-        <AdminCreateTeamForm leagueId={params.id} />
+        <AdminCreateTeamForm leagueId={id} />
       </div>
     </div>
   )

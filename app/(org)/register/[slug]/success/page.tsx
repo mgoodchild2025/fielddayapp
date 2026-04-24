@@ -9,15 +9,17 @@ export default async function RegistrationSuccessPage({
   params,
   searchParams,
 }: {
-  params: { slug: string }
-  searchParams: { session_id?: string }
+  params: Promise<{ slug: string }>
+  searchParams: Promise<{ session_id?: string }>
 }) {
-  const headersList = headers()
+  const { slug } = await params
+  await searchParams // resolve but unused
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
   const { data: branding } = await supabase.from('org_branding').select('logo_url').eq('organization_id', org.id).single()
-  const { data: league } = await supabase.from('leagues').select('name, season_start_date').eq('organization_id', org.id).eq('slug', params.slug).single()
+  const { data: league } = await supabase.from('leagues').select('name, season_start_date').eq('organization_id', org.id).eq('slug', slug).single()
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>

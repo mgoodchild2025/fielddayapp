@@ -8,21 +8,22 @@ import { RegistrationFlow } from '@/components/registration/registration-flow'
 export default async function RegisterLeaguePage({
   params,
 }: {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }) {
-  const headersList = headers()
+  const { slug } = await params
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect(`/login?redirect=/register/${params.slug}`)
+  if (!user) redirect(`/login?redirect=/register/${slug}`)
 
   // Fetch league first so we have its id for downstream queries
   const { data: league } = await supabase
     .from('leagues')
     .select('*')
     .eq('organization_id', org.id)
-    .eq('slug', params.slug)
+    .eq('slug', slug)
     .eq('status', 'registration_open')
     .single()
 
@@ -70,7 +71,7 @@ export default async function RegisterLeaguePage({
 
     if (existingReg.status === 'active' && !needsPayment) {
       // Fully complete — redirect to success page
-      redirect(`/register/${params.slug}/success`)
+      redirect(`/register/${slug}/success`)
     } else if (needsPayment && (waiverSigned || !waiver)) {
       initialStep = 3 // jump to payment
     } else if (waiver && !waiverSigned) {

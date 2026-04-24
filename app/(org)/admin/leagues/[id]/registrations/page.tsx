@@ -16,8 +16,9 @@ const paymentStatusColors: Record<string, string> = {
   failed: 'bg-red-100 text-red-600',
 }
 
-export default async function RegistrationsPage({ params }: { params: { id: string } }) {
-  const headersList = headers()
+export default async function RegistrationsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
@@ -28,7 +29,7 @@ export default async function RegistrationsPage({ params }: { params: { id: stri
       profiles!registrations_user_id_fkey(full_name, email),
       payments(status, amount_cents, currency)
     `)
-    .eq('league_id', params.id)
+    .eq('league_id', id)
     .eq('organization_id', org.id)
     .order('created_at', { ascending: false })
 

@@ -18,16 +18,17 @@ export default async function LeagueAdminLayout({
   params,
 }: {
   children: React.ReactNode
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
-  const headersList = headers()
+  const { id } = await params
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
   const { data: league } = await supabase
     .from('leagues')
     .select('id, name, status')
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('organization_id', org.id)
     .single()
 
@@ -46,7 +47,7 @@ export default async function LeagueAdminLayout({
           </span>
         </div>
       </div>
-      <LeagueAdminTabs leagueId={params.id} />
+      <LeagueAdminTabs leagueId={id} />
       {children}
     </div>
   )

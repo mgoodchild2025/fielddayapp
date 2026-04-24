@@ -4,8 +4,9 @@ import { createServerClient } from '@/lib/supabase/server'
 import { AddGameForm } from '@/components/schedule/add-game-form'
 import { ScheduleImport } from '@/components/schedule/schedule-import'
 
-export default async function AdminSchedulePage({ params }: { params: { id: string } }) {
-  const headersList = headers()
+export default async function AdminSchedulePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
@@ -18,13 +19,13 @@ export default async function AdminSchedulePage({ params }: { params: { id: stri
         away_team:teams!games_away_team_id_fkey(name),
         game_results(home_score, away_score, status)
       `)
-      .eq('league_id', params.id)
+      .eq('league_id', id)
       .eq('organization_id', org.id)
       .order('scheduled_at', { ascending: true }),
     supabase
       .from('teams')
       .select('id, name')
-      .eq('league_id', params.id)
+      .eq('league_id', id)
       .eq('organization_id', org.id)
       .order('name'),
   ])
@@ -103,8 +104,8 @@ export default async function AdminSchedulePage({ params }: { params: { id: stri
 
       {/* Sidebar tools */}
       <div className="space-y-4">
-        <AddGameForm leagueId={params.id} teams={teams ?? []} />
-        <ScheduleImport leagueId={params.id} />
+        <AddGameForm leagueId={id} teams={teams ?? []} />
+        <ScheduleImport leagueId={id} />
       </div>
     </div>
   )

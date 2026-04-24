@@ -16,8 +16,9 @@ const statusFlow: Record<string, { next: LeagueStatus; label: string }> = {
   completed: { next: 'archived', label: 'Archive League' },
 }
 
-export default async function LeagueOverviewPage({ params }: { params: { id: string } }) {
-  const headersList = headers()
+export default async function LeagueOverviewPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
@@ -28,10 +29,10 @@ export default async function LeagueOverviewPage({ params }: { params: { id: str
     { count: gameCount },
     { data: waivers },
   ] = await Promise.all([
-    supabase.from('leagues').select('*').eq('id', params.id).eq('organization_id', org.id).single(),
-    supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('league_id', params.id).eq('organization_id', org.id),
-    supabase.from('teams').select('*', { count: 'exact', head: true }).eq('league_id', params.id).eq('organization_id', org.id),
-    supabase.from('games').select('*', { count: 'exact', head: true }).eq('league_id', params.id).eq('organization_id', org.id),
+    supabase.from('leagues').select('*').eq('id', id).eq('organization_id', org.id).single(),
+    supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
+    supabase.from('teams').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
+    supabase.from('games').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
     supabase.from('waivers').select('id, title, version').eq('organization_id', org.id).order('created_at', { ascending: false }),
   ])
 
@@ -42,7 +43,7 @@ export default async function LeagueOverviewPage({ params }: { params: { id: str
   async function changeStatus() {
     'use server'
     if (!transition) return
-    await updateLeagueStatus(params.id, transition.next)
+    await updateLeagueStatus(id, transition.next)
   }
 
   return (
@@ -50,9 +51,9 @@ export default async function LeagueOverviewPage({ params }: { params: { id: str
       {/* Stats row */}
       <div className="md:col-span-3 grid grid-cols-3 gap-4">
         {[
-          { label: 'Registrations', value: regCount ?? 0, href: `/admin/leagues/${params.id}/registrations` },
-          { label: 'Teams', value: teamCount ?? 0, href: `/admin/leagues/${params.id}/teams` },
-          { label: 'Games', value: gameCount ?? 0, href: `/admin/leagues/${params.id}/schedule` },
+          { label: 'Registrations', value: regCount ?? 0, href: `/admin/leagues/${id}/registrations` },
+          { label: 'Teams', value: teamCount ?? 0, href: `/admin/leagues/${id}/teams` },
+          { label: 'Games', value: gameCount ?? 0, href: `/admin/leagues/${id}/schedule` },
         ].map((stat) => (
           <a key={stat.label} href={stat.href} className="bg-white rounded-lg border p-4 hover:shadow-sm transition-shadow">
             <p className="text-sm text-gray-500">{stat.label}</p>

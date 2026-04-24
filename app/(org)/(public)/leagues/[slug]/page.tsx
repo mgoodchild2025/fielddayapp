@@ -9,8 +9,9 @@ import Link from 'next/link'
 export default async function LeagueDetailPage({
   params,
 }: {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }) {
+  const { slug } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
@@ -19,7 +20,7 @@ export default async function LeagueDetailPage({
     .from('leagues')
     .select('*')
     .eq('organization_id', org.id)
-    .eq('slug', params.slug)
+    .eq('slug', slug)
     .neq('status', 'draft')
     .single()
 
