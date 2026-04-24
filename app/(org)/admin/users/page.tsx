@@ -3,7 +3,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { ChangeMemberRoleForm } from './change-role-form'
 import { InviteMemberForm } from './invite-form'
-import { RemoveMemberButton } from './remove-member-button'
+import { MemberActions } from './member-actions'
 
 export default async function AdminUsersPage() {
   const headersList = await headers()
@@ -117,8 +117,12 @@ export default async function AdminUsersPage() {
                   </td>
                   {isOrgAdmin && (
                     <td className="px-4 py-3">
-                      {!isSelf && m.status === 'active' && (
-                        <RemoveMemberButton memberId={m.id} memberName={profile?.full_name ?? 'this member'} />
+                      {!isSelf && (
+                        <MemberActions
+                          memberId={m.id}
+                          memberName={profile?.full_name ?? 'this member'}
+                          status={m.status}
+                        />
                       )}
                     </td>
                   )}

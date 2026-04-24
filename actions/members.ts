@@ -39,8 +39,8 @@ export async function changeMemberRole(memberId: string, newRole: OrgRole) {
   return { error: null }
 }
 
-/** Remove (suspend) an org member. Only org_admin can do this. */
-export async function removeMember(memberId: string) {
+/** Suspend an org member (soft removal). Only org_admin can do this. */
+export async function suspendMember(memberId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
@@ -67,6 +67,93 @@ export async function removeMember(memberId: string) {
 
   revalidatePath('/admin/users')
   return { error: null }
+}
+
+/** Reinstate a suspended member back to active. Only org_admin can do this. */
+export async function reinstateMember(memberId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { data: caller } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!caller || caller.role !== 'org_admin') return { error: 'Unauthorized' }
+
+  const { error } = await supabase
+    .from('org_members')
+    .update({ status: 'active' })
+    .eq('id', memberId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin/users')
+  return { error: null }
+}
+
+/**
+ * Permanently delete an org member. Only org_admin can do this.
+ * Removes team_members rows first, then the org_members row.
+ * This is irreversible — the user loses all org access and team memberships.
+ */
+export async function deleteMember(memberId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { data: caller } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!caller || caller.role !== 'org_admin') return { error: 'Unauthorized' }
+
+  // Look up the member's user_id so we can clean up team_members
+  const { data: member } = await supabase
+    .from('org_members')
+    .select('user_id')
+    .eq('id', memberId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (!member) return { error: 'Member not found' }
+
+  // Remove from all teams in this org
+  await supabase
+    .from('team_members')
+    .delete()
+    .eq('user_id', member.user_id)
+    .eq('organization_id', org.id)
+
+  // Hard-delete the org_members row
+  const { error } = await supabase
+    .from('org_members')
+    .delete()
+    .eq('id', memberId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin/users')
+  return { error: null }
+}
+
+/** @deprecated Use suspendMember or deleteMember instead */
+export async function removeMember(memberId: string) {
+  return suspendMember(memberId)
 }
 
 const inviteSchema = z.object({
