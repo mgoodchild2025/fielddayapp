@@ -37,7 +37,8 @@ export default async function AdminLeaguesPage() {
       </div>
 
       <div className="bg-white rounded-lg border overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="border-b bg-gray-50 text-left">
               <th className="px-4 py-3 font-medium text-gray-500">Name</th>
@@ -86,6 +87,7 @@ export default async function AdminLeaguesPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

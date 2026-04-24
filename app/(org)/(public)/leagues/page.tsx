@@ -35,8 +35,8 @@ export default async function LeaguesPage() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
-      <div className="max-w-5xl mx-auto px-6 py-12">
-        <h1 className="text-4xl font-bold uppercase mb-8" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        <h1 className="text-3xl sm:text-4xl font-bold uppercase mb-6 sm:mb-8" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           Leagues
         </h1>
         <div className="space-y-4">
@@ -44,13 +44,13 @@ export default async function LeaguesPage() {
             <Link
               key={league.id}
               href={`/leagues/${league.slug}`}
-              className="flex items-center justify-between bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white rounded-lg shadow-sm border p-4 sm:p-6 hover:shadow-md transition-shadow gap-3"
             >
               <div>
                 <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</h2>
                 <p className="text-sm text-gray-500 mt-1 capitalize">{league.league_type} · {league.sport?.replace('_', ' ')}</p>
               </div>
-              <div className="text-right">
+              <div className="sm:text-right flex sm:flex-col items-center sm:items-end gap-2">
                 <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
                   league.status === 'registration_open' ? 'bg-green-100 text-green-800' :
                   league.status === 'active' ? 'bg-blue-100 text-blue-800' :

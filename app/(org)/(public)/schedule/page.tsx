@@ -36,8 +36,8 @@ export default async function SchedulePage() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
-      <div className="max-w-5xl mx-auto px-6 py-12">
-        <h1 className="text-4xl font-bold uppercase mb-8" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        <h1 className="text-3xl sm:text-4xl font-bold uppercase mb-6 sm:mb-8" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           Schedule
         </h1>
         {games && games.length > 0 ? (

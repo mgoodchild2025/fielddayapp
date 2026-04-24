@@ -43,7 +43,8 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
       {/* Game list */}
       <div className="md:col-span-2">
         <div className="bg-white rounded-lg border overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[520px]">
             <thead>
               <tr className="border-b bg-gray-50 text-left">
                 <th className="px-4 py-3 font-medium text-gray-500">Wk</th>
@@ -103,6 +104,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 

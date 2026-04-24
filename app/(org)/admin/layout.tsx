@@ -32,7 +32,8 @@ export default async function AdminLayout({
     <div className="min-h-screen flex" style={{ backgroundColor: '#F8F8F8' }}>
       <AdminSidebar org={org} role={member.role} />
       <main className="flex-1 overflow-auto">
-        <div className="p-6 max-w-6xl mx-auto">{children}</div>
+        {/* pt-14 on mobile accounts for the fixed top bar; removed on lg where sidebar is visible */}
+        <div className="pt-14 lg:pt-0 p-4 lg:p-6 max-w-6xl mx-auto">{children}</div>
       </main>
     </div>
   )

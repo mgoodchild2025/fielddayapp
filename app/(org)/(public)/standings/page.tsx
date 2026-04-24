@@ -73,8 +73,8 @@ export default async function StandingsPage() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
-      <div className="max-w-5xl mx-auto px-6 py-12">
-        <h1 className="text-4xl font-bold uppercase mb-8" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        <h1 className="text-3xl sm:text-4xl font-bold uppercase mb-6 sm:mb-8" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           Standings
         </h1>
         {leagues?.map((league) => {
@@ -87,7 +87,8 @@ export default async function StandingsPage() {
             <div key={league.id} className="mb-10">
               <h2 className="text-2xl font-bold mb-4" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</h2>
               <div className="bg-white rounded-lg border overflow-hidden">
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[360px]">
                   <thead>
                     <tr className="border-b bg-gray-50">
                       <th className="text-left px-4 py-3 font-medium text-gray-500">#</th>
@@ -116,6 +117,7 @@ export default async function StandingsPage() {
                     )}
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
           )

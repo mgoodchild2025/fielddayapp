@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { createServerClient } from '@/lib/supabase/server'
 import { NavUserMenu } from './nav-user-menu'
+import { MobileNav } from './mobile-nav'
 import type { OrgContext } from '@/lib/tenant'
 
 interface OrgNavProps {
@@ -59,11 +60,7 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
           )}
         </div>
 
-        <button className="md:hidden p-2 rounded opacity-80 hover:opacity-100" aria-label="Open menu">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+        <MobileNav userName={userName} isAdmin={isAdmin} />
       </div>
     </nav>
   )

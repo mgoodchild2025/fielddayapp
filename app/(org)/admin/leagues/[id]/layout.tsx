@@ -41,7 +41,7 @@ export default async function LeagueAdminLayout({
           ← Leagues
         </Link>
         <div className="flex items-center gap-3 mt-1">
-          <h1 className="text-2xl font-bold">{league.name}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">{league.name}</h1>
           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[league.status] ?? 'bg-gray-100 text-gray-600'}`}>
             {league.status.replace(/_/g, ' ')}
           </span>
