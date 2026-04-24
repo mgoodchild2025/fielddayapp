@@ -8,6 +8,24 @@ interface Props {
   leagueId: string
 }
 
+const CSV_TEMPLATE_ROWS = [
+  ['date', 'time', 'home_team', 'away_team', 'court', 'week'],
+  ['2024-09-07', '19:00', 'Team A', 'Team B', 'A', '1'],
+  ['2024-09-07', '20:00', 'Team C', 'Team D', 'B', '1'],
+  ['2024-09-14', '19:00', 'Team B', 'Team C', 'A', '2'],
+]
+
+function downloadTemplate() {
+  const csv = CSV_TEMPLATE_ROWS.map((r) => r.join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'schedule_template.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export function ScheduleImport({ leagueId }: Props) {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<{ count: number } | null>(null)
@@ -30,6 +48,8 @@ export function ScheduleImport({ leagueId }: Props) {
         if (imported.error) setError(imported.error)
         else setResult(imported.data!)
         setLoading(false)
+        // Reset file input
+        if (inputRef.current) inputRef.current.value = ''
       },
       error: (err) => { setError(err.message); setLoading(false) },
     })
@@ -38,17 +58,34 @@ export function ScheduleImport({ leagueId }: Props) {
   return (
     <div className="bg-white rounded-lg border p-4">
       <h3 className="font-semibold mb-1 text-sm">Import from CSV</h3>
-      <p className="text-xs text-gray-400 mb-3">Columns: date, time, home_team, away_team, court, week</p>
+      <p className="text-xs text-gray-400 mb-1">
+        Columns: date (YYYY-MM-DD), time (HH:MM), home_team, away_team, court, week
+      </p>
+      <p className="text-xs text-gray-400 mb-3">
+        Times are interpreted in your org&apos;s configured timezone.
+      </p>
+
       {error && <p className="text-red-500 text-xs mb-2">{error}</p>}
-      {result && <p className="text-green-600 text-xs mb-2">{result.count} games imported.</p>}
+      {result && <p className="text-green-600 text-xs mb-2">{result.count} game{result.count !== 1 ? 's' : ''} imported.</p>}
+
       <input ref={inputRef} type="file" accept=".csv" onChange={handleFile} className="hidden" />
-      <button
-        onClick={() => inputRef.current?.click()}
-        disabled={loading}
-        className="w-full py-2 rounded text-sm font-medium border hover:bg-gray-50 disabled:opacity-60"
-      >
-        {loading ? 'Importing…' : 'Upload CSV'}
-      </button>
+
+      <div className="flex flex-col gap-2">
+        <button
+          onClick={() => inputRef.current?.click()}
+          disabled={loading}
+          className="w-full py-2 rounded text-sm font-medium border hover:bg-gray-50 disabled:opacity-60 transition-colors"
+        >
+          {loading ? 'Importing…' : 'Upload CSV'}
+        </button>
+        <button
+          onClick={downloadTemplate}
+          type="button"
+          className="w-full py-2 rounded text-xs font-medium text-gray-500 border border-dashed hover:bg-gray-50 transition-colors"
+        >
+          Download Template
+        </button>
+      </div>
     </div>
   )
 }

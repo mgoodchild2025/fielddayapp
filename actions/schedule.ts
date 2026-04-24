@@ -5,6 +5,7 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentOrg } from '@/lib/tenant'
+import { parseLocalToUtc } from '@/lib/format-time'
 
 const addGameSchema = z.object({
   leagueId: z.string().uuid(),
@@ -60,6 +61,14 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
 
   const supabase = await createServerClient()
 
+  // Get org timezone for correct UTC conversion
+  const { data: branding } = await supabase
+    .from('org_branding')
+    .select('timezone')
+    .eq('organization_id', org.id)
+    .single()
+  const timezone = branding?.timezone ?? 'America/Toronto'
+
   // Fetch all teams for this league to match by name
   const { data: teams } = await supabase
     .from('teams')
@@ -72,7 +81,7 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
   const games = rows.map((row) => ({
     organization_id: org.id,
     league_id: leagueId,
-    scheduled_at: new Date(`${row.date} ${row.time}`).toISOString(),
+    scheduled_at: parseLocalToUtc(row.date, row.time, timezone),
     home_team_id: teamMap.get(row.home_team.toLowerCase()) ?? null,
     away_team_id: teamMap.get(row.away_team.toLowerCase()) ?? null,
     court: row.court ?? null,
