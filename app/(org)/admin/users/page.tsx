@@ -3,7 +3,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 
 export default async function AdminUsersPage() {
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 

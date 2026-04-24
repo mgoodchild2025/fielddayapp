@@ -11,7 +11,7 @@ export default async function LeagueDetailPage({
 }: {
   params: { slug: string }
 }) {
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()

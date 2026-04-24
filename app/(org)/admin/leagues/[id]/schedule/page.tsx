@@ -1,0 +1,111 @@
+import { headers } from 'next/headers'
+import { getCurrentOrg } from '@/lib/tenant'
+import { createServerClient } from '@/lib/supabase/server'
+import { AddGameForm } from '@/components/schedule/add-game-form'
+import { ScheduleImport } from '@/components/schedule/schedule-import'
+
+export default async function AdminSchedulePage({ params }: { params: { id: string } }) {
+  const headersList = headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+
+  const [{ data: games }, { data: teams }] = await Promise.all([
+    supabase
+      .from('games')
+      .select(`
+        id, scheduled_at, court, week_number, status,
+        home_team:teams!games_home_team_id_fkey(name),
+        away_team:teams!games_away_team_id_fkey(name),
+        game_results(home_score, away_score, status)
+      `)
+      .eq('league_id', params.id)
+      .eq('organization_id', org.id)
+      .order('scheduled_at', { ascending: true }),
+    supabase
+      .from('teams')
+      .select('id, name')
+      .eq('league_id', params.id)
+      .eq('organization_id', org.id)
+      .order('name'),
+  ])
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Game list */}
+      <div className="md:col-span-2">
+        <div className="bg-white rounded-lg border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-gray-50 text-left">
+                <th className="px-4 py-3 font-medium text-gray-500">Wk</th>
+                <th className="px-4 py-3 font-medium text-gray-500">Date & Time</th>
+                <th className="px-4 py-3 font-medium text-gray-500">Matchup</th>
+                <th className="px-4 py-3 font-medium text-gray-500">Court</th>
+                <th className="px-4 py-3 font-medium text-gray-500">Score</th>
+                <th className="px-4 py-3 font-medium text-gray-500">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {games && games.length > 0 ? (
+                games.map((game) => {
+                  const home = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team
+                  const away = Array.isArray(game.away_team) ? game.away_team[0] : game.away_team
+                  const result = Array.isArray(game.game_results) ? game.game_results[0] : game.game_results
+                  const d = new Date(game.scheduled_at)
+
+                  return (
+                    <tr key={game.id} className="border-b last:border-0 hover:bg-gray-50">
+                      <td className="px-4 py-3 text-gray-400 text-xs">{game.week_number ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-700">
+                          {d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-medium">
+                        {home?.name ?? 'TBD'}{' '}
+                        <span className="text-gray-400 font-normal text-xs">vs</span>{' '}
+                        {away?.name ?? 'TBD'}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">{game.court ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        {result ? (
+                          <span className="font-semibold">
+                            {result.home_score} – {result.away_score}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                          game.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {game.status}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })
+              ) : (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+                    No games scheduled yet. Add a game or import from CSV.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Sidebar tools */}
+      <div className="space-y-4">
+        <AddGameForm leagueId={params.id} teams={teams ?? []} />
+        <ScheduleImport leagueId={params.id} />
+      </div>
+    </div>
+  )
+}

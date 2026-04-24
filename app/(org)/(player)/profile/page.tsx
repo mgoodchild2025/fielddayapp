@@ -7,7 +7,7 @@ import { Footer } from '@/components/layout/footer'
 import { ProfileForm } from './profile-form'
 
 export default async function ProfilePage() {
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 

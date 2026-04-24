@@ -25,6 +25,7 @@ export function Step3Payment({ org, league, userId, registrationId }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           leagueId: league.id,
+          leagueSlug: league.slug,
           userId,
           registrationId,
           orgId: org.id,

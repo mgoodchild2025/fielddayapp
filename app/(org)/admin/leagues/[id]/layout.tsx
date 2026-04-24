@@ -1,0 +1,53 @@
+import { headers } from 'next/headers'
+import { notFound } from 'next/navigation'
+import Link from 'next/link'
+import { getCurrentOrg } from '@/lib/tenant'
+import { createServerClient } from '@/lib/supabase/server'
+import { LeagueAdminTabs } from '@/components/layout/league-admin-tabs'
+
+const statusColors: Record<string, string> = {
+  draft: 'bg-gray-100 text-gray-600',
+  registration_open: 'bg-green-100 text-green-700',
+  active: 'bg-blue-100 text-blue-700',
+  completed: 'bg-purple-100 text-purple-700',
+  archived: 'bg-gray-100 text-gray-400',
+}
+
+export default async function LeagueAdminLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode
+  params: { id: string }
+}) {
+  const headersList = headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+
+  const { data: league } = await supabase
+    .from('leagues')
+    .select('id, name, status')
+    .eq('id', params.id)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (!league) notFound()
+
+  return (
+    <div>
+      <div className="mb-6">
+        <Link href="/admin/leagues" className="text-sm text-gray-400 hover:text-gray-600">
+          ← Leagues
+        </Link>
+        <div className="flex items-center gap-3 mt-1">
+          <h1 className="text-2xl font-bold">{league.name}</h1>
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[league.status] ?? 'bg-gray-100 text-gray-600'}`}>
+            {league.status.replace(/_/g, ' ')}
+          </span>
+        </div>
+      </div>
+      <LeagueAdminTabs leagueId={params.id} />
+      {children}
+    </div>
+  )
+}

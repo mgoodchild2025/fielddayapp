@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { DeleteLeagueRowButton } from '@/components/leagues/delete-league-row-button'
 
 const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-600',
@@ -12,7 +13,7 @@ const statusColors: Record<string, string> = {
 }
 
 export default async function AdminLeaguesPage() {
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
@@ -63,10 +64,11 @@ export default async function AdminLeaguesPage() {
                 <td className="px-4 py-3 text-gray-500">
                   {league.season_start_date ? new Date(league.season_start_date).toLocaleDateString() : '—'}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 flex items-center">
                   <Link href={`/admin/leagues/${league.id}`} className="text-xs font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
                     Manage →
                   </Link>
+                  <DeleteLeagueRowButton leagueId={league.id} leagueName={league.name} />
                 </td>
               </tr>
             ))}

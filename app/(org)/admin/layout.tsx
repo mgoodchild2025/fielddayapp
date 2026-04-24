@@ -9,7 +9,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()

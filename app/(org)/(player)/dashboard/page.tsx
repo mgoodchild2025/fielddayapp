@@ -4,10 +4,11 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
+import { PendingPaymentButton } from '@/components/dashboard/pending-payment-button'
 import Link from 'next/link'
 
 export default async function PlayerDashboardPage() {
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
@@ -23,9 +24,9 @@ export default async function PlayerDashboardPage() {
     supabase.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
     supabase.from('registrations').select(`
       id, status, created_at,
-      league:leagues!registrations_league_id_fkey(id, name, slug, status),
-      payment:payments!payments_registration_id_fkey(status, amount_cents, currency),
-      waiver_signature:waiver_signatures!registrations_waiver_signature_id_fkey(id)
+      waiver_signature_id,
+      league:leagues!registrations_league_id_fkey(id, name, slug, status, price_cents, currency, waiver_version_id),
+      payment:payments!payments_registration_id_fkey(id, status, amount_cents, currency)
     `).eq('organization_id', org.id).eq('user_id', user.id).order('created_at', { ascending: false }),
     supabase.from('games').select(`
       id, scheduled_at, court,
@@ -39,6 +40,25 @@ export default async function PlayerDashboardPage() {
     supabase.from('notifications').select('id, title, body, read, created_at').eq('organization_id', org.id).eq('user_id', user.id).eq('read', false).order('created_at', { ascending: false }).limit(5),
   ])
 
+  // Fetch the org-wide active waiver id once (used as fallback when league has no specific waiver)
+  const { data: orgActiveWaiver } = await supabase
+    .from('waivers')
+    .select('id')
+    .eq('organization_id', org.id)
+    .eq('is_active', true)
+    .single()
+
+  // Determine pending actions across all registrations
+  const pendingActions = (registrations ?? []).filter((reg) => {
+    const payment = Array.isArray(reg.payment) ? reg.payment[0] : reg.payment
+    const waiverSigned = !!reg.waiver_signature_id
+    const league = Array.isArray(reg.league) ? reg.league[0] : reg.league
+    const leagueRequiresWaiver = !!(league?.waiver_version_id ?? orgActiveWaiver?.id)
+    const needsPayment = payment && payment.status !== 'paid'
+    const needsWaiver = leagueRequiresWaiver && !waiverSigned && reg.status !== 'active'
+    return needsPayment || needsWaiver
+  })
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
@@ -46,6 +66,16 @@ export default async function PlayerDashboardPage() {
         <h1 className="text-3xl font-bold uppercase mb-6" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           My Dashboard
         </h1>
+
+        {/* Pending actions banner */}
+        {pendingActions.length > 0 && (
+          <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <p className="text-sm font-semibold text-amber-800 mb-1">
+              ⚠️ Action required on {pendingActions.length === 1 ? '1 registration' : `${pendingActions.length} registrations`}
+            </p>
+            <p className="text-xs text-amber-700">Complete the steps below to finish your registration.</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Registrations */}
@@ -55,27 +85,63 @@ export default async function PlayerDashboardPage() {
               {registrations?.map((reg) => {
                 const league = Array.isArray(reg.league) ? reg.league[0] : reg.league
                 const payment = Array.isArray(reg.payment) ? reg.payment[0] : reg.payment
-                const hasWaiver = Array.isArray(reg.waiver_signature) ? reg.waiver_signature.length > 0 : !!reg.waiver_signature
+                const waiverSigned = !!reg.waiver_signature_id
+                const leagueRequiresWaiver = !!(league?.waiver_version_id ?? orgActiveWaiver?.id)
+
+                const needsWaiver = leagueRequiresWaiver && !waiverSigned && reg.status !== 'active'
+                const needsPayment = payment && payment.status !== 'paid'
+                const isComplete = reg.status === 'active' && !needsPayment
+
                 return (
-                  <div key={reg.id} className="border rounded-md p-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-medium">{league?.name ?? '—'}</p>
-                        <div className="flex gap-2 mt-1 flex-wrap">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${reg.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                            {reg.status}
-                          </span>
-                          {payment && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${payment.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                              {payment.status === 'paid' ? 'Paid' : 'Payment pending'}
-                            </span>
-                          )}
-                          {!hasWaiver && (
-                            <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-orange-100 text-orange-700">Waiver pending</span>
-                          )}
-                        </div>
-                      </div>
+                  <div key={reg.id} className={`border rounded-md p-3 ${(needsWaiver || needsPayment) ? 'border-amber-200 bg-amber-50' : ''}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium">{league?.name ?? '—'}</p>
+                      <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
+                        isComplete ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {isComplete ? 'Active' : reg.status}
+                      </span>
                     </div>
+
+                    {/* Status badges — only show waiver badge if the league requires one */}
+                    <div className="flex gap-2 mt-1.5 flex-wrap">
+                      {payment && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          payment.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        }`}>
+                          {payment.status === 'paid' ? '✓ Paid' : 'Payment pending'}
+                        </span>
+                      )}
+                      {leagueRequiresWaiver && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          waiverSigned ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                        }`}>
+                          {waiverSigned ? '✓ Waiver signed' : 'Waiver pending'}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Action buttons */}
+                    {needsWaiver && league?.slug && (
+                      <Link
+                        href={`/register/${league.slug}`}
+                        className="mt-2 block w-full py-2 px-3 rounded-md text-sm font-semibold text-center border-2 hover:bg-amber-50 transition-colors"
+                        style={{ borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
+                      >
+                        Sign Waiver →
+                      </Link>
+                    )}
+                    {needsPayment && !needsWaiver && league?.slug && (
+                      <PendingPaymentButton
+                        leagueId={league.id}
+                        leagueSlug={league.slug}
+                        registrationId={reg.id}
+                        orgId={org.id}
+                        userId={user.id}
+                        amountCents={payment.amount_cents}
+                        currency={payment.currency}
+                      />
+                    )}
                   </div>
                 )
               })}

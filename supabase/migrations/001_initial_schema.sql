@@ -328,16 +328,26 @@ create policy "profiles_self_update" on public.profiles
 create policy "profiles_service_all" on public.profiles
   for all using (auth.role() = 'service_role');
 
--- organizations: readable by org members
+-- organizations: publicly readable (active orgs have public-facing sites)
+create policy "orgs_read_public" on public.organizations
+  for select using (status = 'active');
+-- Security definer function: checks org membership without triggering RLS on org_members
+create or replace function public.is_org_member(org_id uuid)
+returns boolean
+language sql
+security definer
+stable
+as $$
+  select exists (
+    select 1 from public.org_members
+    where org_members.organization_id = org_id
+      and org_members.user_id = auth.uid()
+  )
+$$;
+
+-- organizations: readable by org members (includes inactive orgs)
 create policy "orgs_read_by_member" on public.organizations
-  for select using (
-    id = current_org_id()
-    or exists (
-      select 1 from public.org_members
-      where org_members.organization_id = organizations.id
-        and org_members.user_id = auth.uid()
-    )
-  );
+  for select using (public.is_org_member(id));
 create policy "orgs_service_all" on public.organizations
   for all using (auth.role() = 'service_role');
 

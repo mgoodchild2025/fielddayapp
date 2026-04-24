@@ -25,13 +25,14 @@ const createLeagueSchema = z.object({
   season_end_date: z.string().optional(),
   registration_opens_at: z.string().optional(),
   registration_closes_at: z.string().optional(),
+  waiver_version_id: z.string().uuid().optional(),
 })
 
 export async function createLeague(input: z.infer<typeof createLeagueSchema>) {
   const parsed = createLeagueSchema.safeParse(input)
   if (!parsed.success) return { data: null, error: 'Invalid input' }
 
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
   const hasMultiple = await canAccess(org.id, 'multiple_leagues')
@@ -51,6 +52,7 @@ export async function createLeague(input: z.infer<typeof createLeagueSchema>) {
       registration_opens_at: parsed.data.registration_opens_at || null,
       registration_closes_at: parsed.data.registration_closes_at || null,
       max_teams: parsed.data.max_teams ?? null,
+      waiver_version_id: parsed.data.waiver_version_id ?? null,
     })
     .select('id')
     .single()
@@ -62,7 +64,7 @@ export async function createLeague(input: z.infer<typeof createLeagueSchema>) {
 }
 
 export async function updateLeagueStatus(leagueId: string, status: LeagueStatus) {
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()
@@ -78,8 +80,40 @@ export async function updateLeagueStatus(leagueId: string, status: LeagueStatus)
   return { data: null, error: null }
 }
 
-export async function updateLeague(leagueId: string, updates: Partial<z.infer<typeof createLeagueSchema>>) {
-  const headersList = headers()
+export async function deleteLeague(leagueId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+
+  // Delete child records in safe order (cascade may not cover everything)
+  await supabase.from('team_members').delete().eq('organization_id', org.id)
+    // only members belonging to teams in this league
+    .in('team_id',
+      (await supabase.from('teams').select('id').eq('league_id', leagueId).eq('organization_id', org.id))
+        .data?.map((t) => t.id) ?? []
+    )
+
+  await supabase.from('teams').delete().eq('league_id', leagueId).eq('organization_id', org.id)
+  await supabase.from('registrations').delete().eq('league_id', leagueId).eq('organization_id', org.id)
+  await supabase.from('games').delete().eq('league_id', leagueId).eq('organization_id', org.id)
+
+  const { error } = await supabase
+    .from('leagues')
+    .delete()
+    .eq('id', leagueId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin/leagues')
+  return { error: null }
+}
+
+export async function updateLeague(
+  leagueId: string,
+  updates: Partial<z.infer<typeof createLeagueSchema>> & { waiver_version_id?: string | null }
+) {
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()

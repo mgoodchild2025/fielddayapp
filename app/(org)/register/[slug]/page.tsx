@@ -17,16 +17,68 @@ export default async function RegisterLeaguePage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/login?redirect=/register/${params.slug}`)
 
-  const [{ data: league }, { data: waiver }, { data: playerDetails }, { data: existingReg }] = await Promise.all([
-    supabase.from('leagues').select('*').eq('organization_id', org.id).eq('slug', params.slug).eq('status', 'registration_open').single(),
-    supabase.from('waivers').select('*').eq('organization_id', org.id).eq('is_active', true).single(),
-    supabase.from('player_details').select('*').eq('organization_id', org.id).eq('user_id', user.id).single(),
-    supabase.from('registrations').select('id, status').eq('organization_id', org.id).eq('league_id', '').eq('user_id', user.id).maybeSingle(),
-  ])
+  // Fetch league first so we have its id for downstream queries
+  const { data: league } = await supabase
+    .from('leagues')
+    .select('*')
+    .eq('organization_id', org.id)
+    .eq('slug', params.slug)
+    .eq('status', 'registration_open')
+    .single()
 
   if (!league) notFound()
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+  const [{ data: playerDetails }, { data: existingReg }, { data: profile }] = await Promise.all([
+    supabase.from('player_details').select('*').eq('organization_id', org.id).eq('user_id', user.id).single(),
+    supabase.from('registrations')
+      .select('id, status, waiver_signature_id')
+      .eq('organization_id', org.id)
+      .eq('league_id', league.id)
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    supabase.from('profiles').select('*').eq('id', user.id).single(),
+  ])
+
+  // Use the league's specific waiver if set, otherwise fall back to the org-wide active waiver
+  let waiver = null
+  if (league.waiver_version_id) {
+    const { data } = await supabase.from('waivers').select('*').eq('id', league.waiver_version_id).single()
+    waiver = data
+  } else {
+    const { data } = await supabase.from('waivers').select('*').eq('organization_id', org.id).eq('is_active', true).single()
+    waiver = data
+  }
+
+  // Determine the right step to resume at if the player has an existing registration
+  let initialStep = 1
+  let initialRegistrationId: string | null = null
+
+  if (existingReg) {
+    initialRegistrationId = existingReg.id
+
+    const waiverSigned = !!existingReg.waiver_signature_id
+
+    // Check if they have a completed payment
+    const { data: payment } = await supabase
+      .from('payments')
+      .select('status')
+      .eq('registration_id', existingReg.id)
+      .maybeSingle()
+
+    const paymentComplete = payment?.status === 'paid'
+    const needsPayment = league.price_cents > 0 && !paymentComplete
+
+    if (existingReg.status === 'active' && !needsPayment) {
+      // Fully complete — redirect to success page
+      redirect(`/register/${params.slug}/success`)
+    } else if (needsPayment && (waiverSigned || !waiver)) {
+      initialStep = 3 // jump to payment
+    } else if (waiver && !waiverSigned) {
+      initialStep = 2 // jump to waiver
+    } else {
+      initialStep = league.price_cents > 0 ? 3 : 4
+    }
+  }
 
   return (
     <RegistrationFlow
@@ -36,6 +88,8 @@ export default async function RegisterLeaguePage({
       profile={profile}
       playerDetails={playerDetails}
       userId={user.id}
+      initialStep={initialStep}
+      initialRegistrationId={initialRegistrationId}
     />
   )
 }

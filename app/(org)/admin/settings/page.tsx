@@ -4,7 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 
 export default async function AdminSettingsPage() {
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
@@ -35,6 +35,18 @@ export default async function AdminSettingsPage() {
               <p className="text-sm text-gray-500">Colours, fonts, logo, and custom domain.</p>
             </div>
             <Link href="/admin/settings/branding" className="text-sm font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
+              Manage →
+            </Link>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg border p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold">Waivers</h2>
+              <p className="text-sm text-gray-500">Liability waiver shown during player registration.</p>
+            </div>
+            <Link href="/admin/settings/waivers" className="text-sm font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
               Manage →
             </Link>
           </div>

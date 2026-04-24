@@ -20,7 +20,7 @@ export async function addGame(input: z.infer<typeof addGameSchema>) {
   const parsed = addGameSchema.safeParse(input)
   if (!parsed.success) return { data: null, error: 'Invalid input' }
 
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()
@@ -55,7 +55,7 @@ export type CsvGameRow = {
 }
 
 export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { z } from 'zod'
 
 const loginSchema = z.object({
@@ -48,16 +49,49 @@ export async function signUp(input: { email: string; password: string; fullName:
 
   if (error) return { data: null, error: error.message }
 
+  if (!data.user) return { data: null, error: 'Sign-up failed' }
+
+  const userId = data.user.id
+  const email = parsed.data.email
+
   // Create profile record
-  if (data.user) {
-    await supabase.from('profiles').upsert({
-      id: data.user.id,
-      full_name: parsed.data.fullName,
-      email: parsed.data.email,
-    })
+  await supabase.from('profiles').upsert({
+    id: userId,
+    full_name: parsed.data.fullName,
+    email,
+  })
+
+  // Link any pending team invites for this email
+  const service = createServiceRoleClient()
+  const { data: pendingInvites } = await service
+    .from('team_members')
+    .select('id, organization_id, team_id')
+    .eq('invited_email', email)
+    .is('user_id', null)
+    .eq('status', 'invited')
+
+  if (pendingInvites && pendingInvites.length > 0) {
+    // Update all pending invites to link this user
+    await service
+      .from('team_members')
+      .update({ user_id: userId, status: 'active' })
+      .eq('invited_email', email)
+      .is('user_id', null)
+      .eq('status', 'invited')
+
+    // Ensure org membership for each org they were invited into
+    const orgIds = [...new Set(pendingInvites.map((i) => i.organization_id))]
+    for (const orgId of orgIds) {
+      await service.from('org_members').upsert({
+        organization_id: orgId,
+        user_id: userId,
+        role: 'player',
+        status: 'active',
+      }, { onConflict: 'organization_id,user_id', ignoreDuplicates: true })
+    }
   }
 
-  return { data: { userId: data.user?.id }, error: null }
+  return { data: { userId }, error: null }
 }
 
 export async function logout() {
@@ -68,7 +102,7 @@ export async function logout() {
 
 export async function resetPassword(email: string) {
   const supabase = await createServerClient()
-  const origin = headers().get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const origin = (await headers()).get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
   await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${origin}/reset-password/confirm`,
   })

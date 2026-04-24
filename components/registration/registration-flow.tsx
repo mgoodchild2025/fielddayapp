@@ -5,6 +5,7 @@ import { Step1PlayerDetails } from './step1-player-details'
 import { Step2Waiver } from './step2-waiver'
 import { Step3Payment } from './step3-payment'
 import { Step4Confirmation } from './step4-confirmation'
+import { linkWaiverToRegistration } from '@/actions/registrations'
 import type { Database } from '@/types/database'
 
 type League = Database['public']['Tables']['leagues']['Row']
@@ -19,13 +20,15 @@ interface Props {
   profile: Profile | null
   playerDetails: PlayerDetails | null
   userId: string
+  initialStep?: number
+  initialRegistrationId?: string | null
 }
 
 const STEPS = ['Player Details', 'Waiver', 'Payment', 'Confirmation']
 
-export function RegistrationFlow({ org, league, waiver, profile, playerDetails, userId }: Props) {
-  const [step, setStep] = useState(1)
-  const [registrationId, setRegistrationId] = useState<string | null>(null)
+export function RegistrationFlow({ org, league, waiver, profile, playerDetails, userId, initialStep = 1, initialRegistrationId = null }: Props) {
+  const [step, setStep] = useState(initialStep)
+  const [registrationId, setRegistrationId] = useState<string | null>(initialRegistrationId)
   const [waiverSignatureId, setWaiverSignatureId] = useState<string | null>(null)
 
   return (
@@ -77,8 +80,12 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
             org={org}
             waiver={waiver}
             userId={userId}
-            onComplete={(sigId) => {
+            onComplete={async (sigId) => {
               setWaiverSignatureId(sigId)
+              // Persist the signature ID on the registration row so the dashboard reflects it
+              if (registrationId) {
+                await linkWaiverToRegistration(registrationId, sigId)
+              }
               if (league.price_cents === 0) setStep(4)
               else setStep(3)
             }}

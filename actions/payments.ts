@@ -20,7 +20,7 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
   const parsed = recordManualPaymentSchema.safeParse(input)
   if (!parsed.success) return { data: null, error: 'Invalid input' }
 
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()

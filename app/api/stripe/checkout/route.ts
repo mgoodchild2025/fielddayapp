@@ -7,6 +7,7 @@ import { getPlatformFeeBps } from '@/lib/features'
 
 const schema = z.object({
   leagueId: z.string().uuid(),
+  leagueSlug: z.string(),
   userId: z.string().uuid(),
   registrationId: z.string().uuid(),
   orgId: z.string().uuid(),
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const { leagueId, userId, registrationId, orgId } = parsed.data
+  const { leagueId, leagueSlug, userId, registrationId, orgId } = parsed.data
   const supabase = createServiceRoleClient()
 
   const [{ data: league }, { data: connectAccount }, { data: profile }] = await Promise.all([
@@ -51,8 +52,8 @@ export async function POST(request: NextRequest) {
     ],
     customer_email: profile?.email ?? undefined,
     metadata: { registrationId, leagueId, userId, orgId },
-    success_url: `${origin}/register/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/register?step=3`,
+    success_url: `${origin}/register/${leagueSlug}/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}/register/${leagueSlug}`,
     ...(hasConnectAccount && {
       payment_intent_data: {
         transfer_data: { destination: connectAccount!.stripe_account_id },

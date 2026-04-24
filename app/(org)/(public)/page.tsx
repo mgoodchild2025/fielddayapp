@@ -76,7 +76,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
 }
 
 export default async function RootPage() {
-  const headersList = headers()
+  const headersList = await headers()
   const orgId = headersList.get('x-org-id')
 
   if (!orgId) return <MarketingPage />

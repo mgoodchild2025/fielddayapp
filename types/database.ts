@@ -254,6 +254,7 @@ export type Database = {
           name: string
           color: string | null
           logo_url: string | null
+          team_code: string
           status: 'active' | 'inactive' | 'withdrawn'
           created_at: string
         }
@@ -265,6 +266,7 @@ export type Database = {
           name: string
           color?: string | null
           logo_url?: string | null
+          team_code?: string
           status?: 'active' | 'inactive' | 'withdrawn'
           created_at?: string
         }

@@ -17,7 +17,7 @@ export async function submitScore(input: z.infer<typeof submitScoreSchema>) {
   const parsed = submitScoreSchema.safeParse(input)
   if (!parsed.success) return { data: null, error: 'Invalid input' }
 
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()
@@ -79,7 +79,7 @@ export async function submitScore(input: z.infer<typeof submitScoreSchema>) {
 }
 
 export async function confirmScore(gameId: string) {
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()

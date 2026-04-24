@@ -11,7 +11,7 @@ const statusColors: Record<string, string> = {
 }
 
 export default async function AdminPaymentsPage() {
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 

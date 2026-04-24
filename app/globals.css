@@ -1,6 +1,16 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@layer base {
+  html, body {
+    height: 100%;
+  }
+}
+
+@layer components {
+  .input {
+    @apply w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white;
+  }
+}
 
 @layer base {
   :root {
@@ -37,10 +47,11 @@
 
 @layer base {
   * {
-    @apply border-border;
-  }
+  border-color: hsl(var(--border));
+}
   body {
-    @apply bg-background text-foreground;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
     font-family: var(--brand-body-font);
   }
   h1, h2, h3, h4, h5, h6 {

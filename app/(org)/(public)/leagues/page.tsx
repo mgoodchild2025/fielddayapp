@@ -6,7 +6,7 @@ import { Footer } from '@/components/layout/footer'
 import Link from 'next/link'
 
 export default async function LeaguesPage() {
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()

@@ -8,7 +8,7 @@ export default async function OrgLayout({
 }: {
   children: React.ReactNode
 }) {
-  const headersList = headers()
+  const headersList = await headers()
   const orgId = headersList.get('x-org-id')
 
   // No org context = marketing domain (fielddayapp.ca) — render without org branding

@@ -4,7 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { BrandingForm } from './branding-form'
 
 export default async function AdminBrandingPage() {
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 

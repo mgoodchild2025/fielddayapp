@@ -4,7 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 
 export default async function AdminDashboardPage() {
-  const headersList = headers()
+  const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 

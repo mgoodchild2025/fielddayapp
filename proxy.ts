@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const hostname = request.headers.get('host') ?? ''
   const baseHost = hostname.split(':')[0] // strip port for local dev
 
@@ -61,16 +61,16 @@ export async function middleware(request: NextRequest) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
   const restHeaders = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
 
-  console.log('[middleware] host:', baseHost, '| subdomainMatch:', subdomainMatch?.[1] ?? null)
-
   if (subdomainMatch) {
     const slug = subdomainMatch[1]
     const url = `${supabaseUrl}/rest/v1/organizations?slug=eq.${slug}&status=eq.active&select=id&limit=1`
-    const res = await fetch(url, { headers: restHeaders })
-    const body = await res.json()
-    console.log('[middleware] org lookup status:', res.status, '| body:', JSON.stringify(body))
-    const [org] = body
-    orgId = org?.id ?? null
+    try {
+      const res = await fetch(url, { headers: restHeaders })
+      const [org] = await res.json()
+      orgId = org?.id ?? null
+    } catch (err) {
+      console.error('[proxy] org lookup error:', err)
+    }
   } else {
     // Custom domain lookup
     const res = await fetch(

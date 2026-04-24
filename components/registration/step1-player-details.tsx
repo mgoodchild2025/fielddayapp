@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { createRegistration } from '@/actions/registrations'
 import { updateProfile } from '@/actions/auth'
+import { validateTeamCode, joinTeamByCode } from '@/actions/teams'
 import type { Database } from '@/types/database'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -37,6 +38,10 @@ interface Props {
 export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, onComplete }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [teamCode, setTeamCode] = useState('')
+  const [teamCodeError, setTeamCodeError] = useState<string | null>(null)
+  const [teamCodeValid, setTeamCodeValid] = useState<{ id: string; name: string } | null>(null)
+  const [validating, setValidating] = useState(false)
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -52,7 +57,28 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
     },
   })
 
+  async function handleTeamCodeBlur() {
+    const code = teamCode.trim().toUpperCase()
+    if (!code) { setTeamCodeValid(null); setTeamCodeError(null); return }
+    setValidating(true)
+    setTeamCodeError(null)
+    const result = await validateTeamCode(code)
+    setValidating(false)
+    if (result.error) {
+      setTeamCodeValid(null)
+      setTeamCodeError(result.error)
+    } else {
+      setTeamCodeValid(result.data)
+    }
+  }
+
   async function onSubmit(data: FormData) {
+    // Block submit if a code was typed but didn't validate
+    if (teamCode.trim() && !teamCodeValid) {
+      setTeamCodeError('Please enter a valid team code or leave it blank.')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
@@ -63,6 +89,11 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
       setError(result.error)
       setLoading(false)
       return
+    }
+
+    // If a valid team code was provided, join the team now
+    if (teamCodeValid) {
+      await joinTeamByCode(teamCode.trim().toUpperCase())
     }
 
     onComplete(result.data!.registrationId)
@@ -127,6 +158,33 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">How did you hear about us?</label>
           <input {...register('how_did_you_hear')} type="text" className="w-full border rounded-md px-3 py-2 text-sm" />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg border p-5 space-y-2">
+        <h2 className="font-semibold">Have a Team Code? <span className="text-gray-400 font-normal text-sm">(optional)</span></h2>
+        <p className="text-xs text-gray-500">If your captain gave you a 6-character code, enter it here to join your team automatically.</p>
+        <div className="flex gap-2 items-start">
+          <div className="flex-1">
+            <input
+              type="text"
+              value={teamCode}
+              onChange={(e) => {
+                setTeamCode(e.target.value.toUpperCase())
+                setTeamCodeValid(null)
+                setTeamCodeError(null)
+              }}
+              onBlur={handleTeamCodeBlur}
+              placeholder="e.g. AB3X7K"
+              maxLength={6}
+              className="w-full border rounded-md px-3 py-2 text-sm font-mono tracking-widest uppercase"
+            />
+            {teamCodeError && <p className="text-red-500 text-xs mt-1">{teamCodeError}</p>}
+            {teamCodeValid && (
+              <p className="text-green-600 text-xs mt-1">✓ Joining <strong>{teamCodeValid.name}</strong></p>
+            )}
+          </div>
+          {validating && <span className="text-xs text-gray-400 mt-2.5">Checking…</span>}
         </div>
       </div>
 
