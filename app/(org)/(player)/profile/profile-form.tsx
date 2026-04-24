@@ -32,6 +32,7 @@ export function ProfileForm({
 }) {
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [serverError, setServerError] = useState<string | null>(null)
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -47,10 +48,15 @@ export function ProfileForm({
 
   async function onSubmit(data: FormData) {
     setLoading(true)
-    await updateProfile({ ...data, orgId })
-    setSaved(true)
+    setServerError(null)
+    const result = await updateProfile({ ...data, orgId })
+    if (result.error) {
+      setServerError(result.error)
+    } else {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    }
     setLoading(false)
-    setTimeout(() => setSaved(false), 3000)
   }
 
   return (
@@ -58,10 +64,13 @@ export function ProfileForm({
       {saved && (
         <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded text-sm">Profile saved.</div>
       )}
+      {serverError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">{serverError}</div>
+      )}
 
       <div className="bg-white rounded-lg border p-5 space-y-4">
         <h2 className="font-semibold">Basic Info</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
             <input {...register('full_name')} type="text" className="w-full border rounded-md px-3 py-2 text-sm" />
@@ -72,7 +81,7 @@ export function ProfileForm({
             <input {...register('phone')} type="tel" className="w-full border rounded-md px-3 py-2 text-sm" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Skill Level</label>
             <select {...register('skill_level')} className="w-full border rounded-md px-3 py-2 text-sm">
@@ -94,7 +103,7 @@ export function ProfileForm({
 
       <div className="bg-white rounded-lg border p-5 space-y-4">
         <h2 className="font-semibold">Emergency Contact</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
             <input {...register('emergency_contact_name')} type="text" className="w-full border rounded-md px-3 py-2 text-sm" />
