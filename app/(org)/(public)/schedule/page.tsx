@@ -19,19 +19,50 @@ export default async function SchedulePage() {
     .single()
   const timezone = branding?.timezone ?? 'America/Toronto'
 
-  const { data: games } = await supabase
-    .from('games')
-    .select(`
-      id, scheduled_at, court, status, week_number,
-      home_team:teams!games_home_team_id_fkey(id, name),
-      away_team:teams!games_away_team_id_fkey(id, name),
-      league:leagues!games_league_id_fkey(id, name, slug),
-      game_results(home_score, away_score, status)
-    `)
-    .eq('organization_id', org.id)
-    .gte('scheduled_at', new Date().toISOString())
-    .order('scheduled_at', { ascending: true })
-    .limit(50)
+  // Load all games for the org — no date filter so past games show too
+  const [{ data: games }, { data: leagues }] = await Promise.all([
+    supabase
+      .from('games')
+      .select(`
+        id, scheduled_at, court, status, week_number, league_id,
+        home_team:teams!games_home_team_id_fkey(id, name),
+        away_team:teams!games_away_team_id_fkey(id, name),
+        league:leagues!games_league_id_fkey(id, name, slug),
+        game_results(home_score, away_score, status)
+      `)
+      .eq('organization_id', org.id)
+      .order('scheduled_at', { ascending: true })
+      .limit(200),
+    supabase
+      .from('leagues')
+      .select('id, name')
+      .eq('organization_id', org.id)
+      .in('status', ['registration_open', 'active', 'completed'])
+      .order('name'),
+  ])
+
+  const now = new Date()
+  const allGames = games ?? []
+
+  // Group by date string (in org timezone)
+  type GameRow = NonNullable<typeof allGames>[number]
+  const byDate = new Map<string, GameRow[]>()
+
+  for (const game of allGames) {
+    const { date } = formatGameTime(game.scheduled_at, timezone)
+    if (!byDate.has(date)) byDate.set(date, [])
+    byDate.get(date)!.push(game)
+  }
+
+  const dateGroups = Array.from(byDate.entries())
+
+  // Separate into upcoming and past based on scheduled_at
+  const upcomingGroups = dateGroups.filter(([, g]) =>
+    new Date(g[0].scheduled_at) >= now
+  )
+  const pastGroups = dateGroups.filter(([, g]) =>
+    new Date(g[0].scheduled_at) < now
+  )
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
@@ -40,36 +71,113 @@ export default async function SchedulePage() {
         <h1 className="text-3xl sm:text-4xl font-bold uppercase mb-6 sm:mb-8" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           Schedule
         </h1>
-        {games && games.length > 0 ? (
-          <div className="space-y-3">
-            {games.map((game) => {
-              const homeTeam = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team
-              const awayTeam = Array.isArray(game.away_team) ? game.away_team[0] : game.away_team
-              const league = Array.isArray(game.league) ? game.league[0] : game.league
-              const { date: gameDate, time: gameTime } = formatGameTime(game.scheduled_at, timezone)
-              return (
-                <div key={game.id} className="bg-white rounded-lg border p-4 flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-500">{gameDate} · {gameTime}{game.court ? ` · Court ${game.court}` : ''}</p>
-                    <p className="font-semibold mt-1">{homeTeam?.name ?? 'TBD'} <span className="text-gray-400 font-normal">vs</span> {awayTeam?.name ?? 'TBD'}</p>
-                    {league && <p className="text-xs text-gray-400 mt-0.5">{league.name}</p>}
-                  </div>
-                  <div className="text-sm text-gray-500 shrink-0">
-                    {game.status === 'completed' ? (
-                      <span className="text-green-600 font-medium">Final</span>
-                    ) : (
-                      <span className="capitalize">{game.status}</span>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+
+        {allGames.length === 0 ? (
+          <p className="text-gray-500 text-center py-16">No games scheduled yet.</p>
         ) : (
-          <p className="text-gray-500 text-center py-16">No upcoming games scheduled.</p>
+          <div className="space-y-10">
+            {/* Upcoming */}
+            {upcomingGroups.length > 0 && (
+              <section>
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-4">Upcoming</h2>
+                <div className="space-y-6">
+                  {upcomingGroups.map(([date, dayGames]) => (
+                    <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast={false} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Past results */}
+            {pastGroups.length > 0 && (
+              <section>
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-4">Results</h2>
+                <div className="space-y-6">
+                  {[...pastGroups].reverse().map(([date, dayGames]) => (
+                    <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
         )}
       </div>
       <Footer org={org} />
+    </div>
+  )
+}
+
+type AnyGame = {
+  id: string
+  scheduled_at: string
+  court: string | null
+  status: string
+  week_number: number | null
+  home_team: { name: string } | { name: string }[] | null
+  away_team: { name: string } | { name: string }[] | null
+  league: { name: string } | { name: string }[] | null
+  game_results: { home_score: number | null; away_score: number | null } | { home_score: number | null; away_score: number | null }[] | null
+}
+
+function DateGroup({ date, games, timezone, isPast }: {
+  date: string
+  games: AnyGame[]
+  timezone: string
+  isPast: boolean
+}) {
+  return (
+    <div>
+      <p className={`text-sm font-semibold mb-2 ${isPast ? 'text-gray-400' : 'text-gray-700'}`}>{date}</p>
+      <div className="space-y-2">
+        {games.map((game) => {
+          const homeTeam = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team
+          const awayTeam = Array.isArray(game.away_team) ? game.away_team[0] : game.away_team
+          const league = Array.isArray(game.league) ? game.league[0] : game.league
+          const result = Array.isArray(game.game_results) ? game.game_results[0] : game.game_results
+          const { time: gameTime } = formatGameTime(game.scheduled_at, timezone)
+
+          return (
+            <div
+              key={game.id}
+              className={`bg-white rounded-lg border p-4 flex items-center gap-4 ${isPast ? 'opacity-75' : ''}`}
+            >
+              {/* Time */}
+              <div className="w-16 shrink-0 text-xs text-gray-400 tabular-nums">{gameTime}</div>
+
+              {/* Matchup */}
+              <div className="flex-1 min-w-0">
+                <p className={`font-semibold truncate ${isPast ? 'text-gray-500' : ''}`}>
+                  {homeTeam?.name ?? 'TBD'}
+                  <span className="mx-2 font-normal text-gray-400 text-sm">vs</span>
+                  {awayTeam?.name ?? 'TBD'}
+                </p>
+                <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
+                  {league && <span>{(league as { name: string }).name}</span>}
+                  {game.court && <><span>·</span><span>Court {game.court}</span></>}
+                  {game.week_number && <><span>·</span><span>Wk {game.week_number}</span></>}
+                </div>
+              </div>
+
+              {/* Score or status */}
+              <div className="shrink-0 text-right">
+                {result && result.home_score !== null && result.away_score !== null ? (
+                  <p className="font-bold tabular-nums text-sm">
+                    {result.home_score} – {result.away_score}
+                  </p>
+                ) : (
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                    game.status === 'completed'
+                      ? 'bg-gray-100 text-gray-500'
+                      : 'bg-blue-50 text-blue-600'
+                  }`}>
+                    {game.status === 'completed' ? 'Final' : game.status}
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
