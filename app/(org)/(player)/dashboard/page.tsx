@@ -5,6 +5,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { PendingPaymentButton } from '@/components/dashboard/pending-payment-button'
+import { TeamMessageForm } from '@/components/teams/team-message-form'
 import { formatGameTime } from '@/lib/format-time'
 import Link from 'next/link'
 
@@ -335,6 +336,11 @@ export default async function PlayerDashboardPage() {
                           )}
                         </p>
                       </div>
+                    )}
+
+                    {/* Captain: message the whole team */}
+                    {isCaptain && activeMembers.length > 1 && (
+                      <TeamMessageForm teamId={team.id} memberCount={activeMembers.length} />
                     )}
                   </div>
                 )

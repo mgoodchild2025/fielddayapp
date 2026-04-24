@@ -499,6 +499,84 @@ const invitePlayerSchema = z.object({
   email: z.string().email(),
 })
 
+const sendTeamMessageSchema = z.object({
+  teamId: z.string().uuid(),
+  subject: z.string().min(1).max(120),
+  body: z.string().min(1).max(2000),
+})
+
+/**
+ * Captain sends a message to all active team members.
+ * Creates a notification for every active member (excluding the sender).
+ */
+export async function sendTeamMessage(input: z.infer<typeof sendTeamMessageSchema>) {
+  const parsed = sendTeamMessageSchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid input' }
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  // Verify sender is a captain (or org_admin)
+  const { data: callerMembership } = await supabase
+    .from('team_members')
+    .select('role')
+    .eq('team_id', parsed.data.teamId)
+    .eq('user_id', user.id)
+    .eq('organization_id', org.id)
+    .single()
+
+  const { data: orgMembership } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .single()
+
+  const isCaptain = callerMembership?.role === 'captain'
+  const isAdmin = ['org_admin', 'league_admin'].includes(orgMembership?.role ?? '')
+  if (!isCaptain && !isAdmin) return { error: 'Only captains can message their team' }
+
+  // Get team name for notification title
+  const { data: team } = await supabase
+    .from('teams')
+    .select('name')
+    .eq('id', parsed.data.teamId)
+    .eq('organization_id', org.id)
+    .single()
+
+  // Fetch all active team members (excluding the sender)
+  const { data: members } = await supabase
+    .from('team_members')
+    .select('user_id')
+    .eq('team_id', parsed.data.teamId)
+    .eq('organization_id', org.id)
+    .eq('status', 'active')
+    .neq('user_id', user.id)
+
+  if (!members || members.length === 0) return { error: null }
+
+  // Create a notification for each member (skip rows with null user_id)
+  const notifications = members
+    .filter((m): m is typeof m & { user_id: string } => m.user_id !== null)
+    .map((m) => ({
+      organization_id: org.id,
+      user_id: m.user_id,
+      type: 'team_message',
+      title: `📢 ${team?.name ?? 'Your team'}: ${parsed.data.subject}`,
+      body: parsed.data.body,
+      read: false,
+    }))
+
+  const { error } = await supabase.from('notifications').insert(notifications)
+  if (error) return { error: error.message }
+
+  return { error: null }
+}
+
 export async function invitePlayerToTeam(input: z.infer<typeof invitePlayerSchema>) {
   const parsed = invitePlayerSchema.safeParse(input)
   if (!parsed.success) return { data: null, error: 'Invalid input' }
