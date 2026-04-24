@@ -25,7 +25,6 @@ interface League {
   age_group: string | null
   venue_name: string | null
   venue_address: string | null
-  venue_maps_url: string | null
   venue_type: 'indoor' | 'outdoor' | 'both' | null
   venue_surface: string | null
   organizer_name: string | null
@@ -93,7 +92,6 @@ export function EditLeagueForm({ league, waivers }: Props) {
       age_group: (fd.get('age_group') as string) || undefined,
       venue_name: (fd.get('venue_name') as string) || undefined,
       venue_address: (fd.get('venue_address') as string) || undefined,
-      venue_maps_url: (fd.get('venue_maps_url') as string) || undefined,
       venue_type: (fd.get('venue_type') as 'indoor' | 'outdoor' | 'both') || undefined,
       venue_surface: (fd.get('venue_surface') as string) || undefined,
       organizer_name: (fd.get('organizer_name') as string) || undefined,
@@ -220,20 +218,15 @@ export function EditLeagueForm({ league, waivers }: Props) {
         <div className="border-t pt-3">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Venue</p>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Venue Name">
-                <input name="venue_name" type="text" defaultValue={league.venue_name ?? ''} placeholder="e.g. Ashbridges Bay" className="input" />
-              </Field>
-              <Field label="Surface">
-                <input name="venue_surface" type="text" defaultValue={league.venue_surface ?? ''} placeholder="Sand, Hardwood…" className="input" />
-              </Field>
-            </div>
+            <Field label="Venue Name">
+              <input name="venue_name" type="text" defaultValue={league.venue_name ?? ''} placeholder="e.g. Ashbridges Bay" className="input" />
+            </Field>
             <Field label="Address">
-              <input name="venue_address" type="text" defaultValue={league.venue_address ?? ''} className="input" />
+              <input name="venue_address" type="text" defaultValue={league.venue_address ?? ''} placeholder="123 Main St, Toronto, ON" className="input" />
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Google Maps URL">
-                <input name="venue_maps_url" type="url" defaultValue={league.venue_maps_url ?? ''} className="input" />
+              <Field label="Surface">
+                <input name="venue_surface" type="text" defaultValue={league.venue_surface ?? ''} placeholder="Sand, Hardwood…" className="input" />
               </Field>
               <Field label="Type">
                 <select name="venue_type" defaultValue={league.venue_type ?? ''} className="input">

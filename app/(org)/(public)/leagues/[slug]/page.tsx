@@ -125,26 +125,41 @@ export default async function LeagueDetailPage({
         </div>
 
         {/* Venue */}
-        {league.venue_name && (
+        {(league.venue_name || league.venue_address) && (
           <div className="mt-6 bg-white rounded-lg border p-5">
             <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Location</p>
-            <p className="font-semibold">{league.venue_name}</p>
-            {league.venue_address && <p className="text-sm text-gray-600 mt-1">{league.venue_address}</p>}
-            <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
-              {league.venue_type && <span className="capitalize">{league.venue_type}</span>}
-              {league.venue_surface && <><span>·</span><span>{league.venue_surface}</span></>}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                {league.venue_name && <p className="font-semibold">{league.venue_name}</p>}
+                {league.venue_address && (
+                  <p className="text-sm text-gray-600 mt-0.5">{league.venue_address}</p>
+                )}
+                {(league.venue_type || league.venue_surface) && (
+                  <div className="flex items-center gap-2 mt-1.5 text-sm text-gray-500">
+                    {league.venue_type && <span className="capitalize">{league.venue_type}</span>}
+                    {league.venue_type && league.venue_surface && <span>·</span>}
+                    {league.venue_surface && <span>{league.venue_surface}</span>}
+                  </div>
+                )}
+              </div>
+              {league.venue_address && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(league.venue_address)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="View on Google Maps"
+                  className="shrink-0 flex items-center justify-center w-10 h-10 rounded-full border hover:bg-gray-50 transition-colors"
+                  style={{ color: 'var(--brand-primary)' }}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </a>
+              )}
             </div>
-            {league.venue_maps_url && (
-              <a
-                href={league.venue_maps_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block mt-3 text-sm font-medium hover:underline"
-                style={{ color: 'var(--brand-primary)' }}
-              >
-                View on Google Maps →
-              </a>
-            )}
           </div>
         )}
 

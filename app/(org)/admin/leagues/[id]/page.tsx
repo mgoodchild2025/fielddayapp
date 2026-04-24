@@ -79,7 +79,28 @@ export default async function LeagueOverviewPage({ params }: { params: Promise<{
           {league.max_participants && <Row label="Max Participants" value={String(league.max_participants)} />}
           <Row label="Join Policy" value={(league.team_join_policy ?? 'open').replace('_', ' ')} />
           {league.venue_name && <Row label="Venue" value={league.venue_name} />}
-          {league.venue_address && <Row label="Address" value={league.venue_address} />}
+          {league.venue_address && (
+            <div className="flex justify-between items-center">
+              <dt className="text-gray-500 text-sm">Address</dt>
+              <dd className="font-medium text-sm flex items-center gap-2">
+                <span>{league.venue_address}</span>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(league.venue_address)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="View on Google Maps"
+                  className="shrink-0 text-gray-400 hover:text-blue-600 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </a>
+              </dd>
+            </div>
+          )}
           {league.season_start_date && (
             <Row label="Season Start" value={new Date(league.season_start_date).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })} />
           )}

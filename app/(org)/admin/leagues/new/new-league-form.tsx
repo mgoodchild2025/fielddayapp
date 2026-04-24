@@ -54,7 +54,6 @@ const schema = z.object({
   registration_closes_at: z.string().optional(),
   venue_name: z.string().optional(),
   venue_address: z.string().optional(),
-  venue_maps_url: z.string().optional(),
   venue_type: z.enum(['indoor', 'outdoor', 'both']).optional(),
   venue_surface: z.string().optional(),
   organizer_name: z.string().optional(),
@@ -273,20 +272,15 @@ export function NewLeagueForm({ waivers }: Props) {
         <div className="border-t pt-4">
           <p className="text-sm font-semibold text-gray-700 mb-3">Venue / Location</p>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Venue Name" error={errors.venue_name?.message}>
-                <input {...register('venue_name')} type="text" placeholder="e.g. Ashbridges Bay" className={INPUT} />
-              </Field>
-              <Field label="Surface" error={errors.venue_surface?.message}>
-                <input {...register('venue_surface')} type="text" placeholder="e.g. Sand, Hardwood, Grass" className={INPUT} />
-              </Field>
-            </div>
+            <Field label="Venue Name" error={errors.venue_name?.message}>
+              <input {...register('venue_name')} type="text" placeholder="e.g. Ashbridges Bay" className={INPUT} />
+            </Field>
             <Field label="Address" error={errors.venue_address?.message}>
               <input {...register('venue_address')} type="text" placeholder="123 Main St, Toronto, ON" className={INPUT} />
             </Field>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Google Maps URL" error={errors.venue_maps_url?.message}>
-                <input {...register('venue_maps_url')} type="url" placeholder="https://maps.google.com/..." className={INPUT} />
+              <Field label="Surface" error={errors.venue_surface?.message}>
+                <input {...register('venue_surface')} type="text" placeholder="e.g. Sand, Hardwood, Grass" className={INPUT} />
               </Field>
               <Field label="Indoor / Outdoor" error={errors.venue_type?.message}>
                 <select {...register('venue_type')} className={SELECT}>
