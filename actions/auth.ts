@@ -25,7 +25,9 @@ export async function login(input: { email: string; password: string }) {
   if (error) return { data: null, error: error.message }
 
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  const headersList = await headers()
+  const orgId = headersList.get('x-org-id')
+  redirect(orgId ? '/dashboard' : '/super')
 }
 
 const signUpSchema = z.object({
