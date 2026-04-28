@@ -84,12 +84,12 @@ export async function linkWaiverToRegistration(registrationId: string, signature
 export async function removeRegistration(registrationId: string, leagueId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  // Use service role to bypass RLS — org scoping enforced via organization_id filter
+  const { createServiceRoleClient } = await import('@/lib/supabase/service')
+  const db = createServiceRoleClient()
 
-  const { error } = await supabase
+  const { error } = await db
     .from('registrations')
     .delete()
     .eq('id', registrationId)
