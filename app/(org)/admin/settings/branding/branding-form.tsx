@@ -127,13 +127,22 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
           {[
             { label: 'Tagline', name: 'tagline' as keyof FormData },
             { label: 'Contact Email', name: 'contact_email' as keyof FormData },
-            { label: 'Custom Domain', name: 'custom_domain' as keyof FormData },
           ].map(({ label, name }) => (
             <div key={name}>
               <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
               <input {...register(name)} type="text" className="w-full border rounded-md px-3 py-2 text-sm" />
             </div>
           ))}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Custom Domain</label>
+            <input {...register('custom_domain')} type="text" placeholder="leagues.yourclub.com" className="w-full border rounded-md px-3 py-2 text-sm font-mono" />
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-100 rounded-md text-xs text-blue-800 space-y-1">
+              <p className="font-semibold">DNS Setup Instructions</p>
+              <p>Add a <strong>CNAME</strong> record in your DNS provider pointing to:</p>
+              <code className="block mt-1 px-2 py-1 bg-white border border-blue-200 rounded font-mono select-all">app.fielddayapp.ca</code>
+              <p className="text-blue-600 mt-1">Changes may take up to 24 hours to propagate. Leave blank to use your free subdomain.</p>
+            </div>
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
             <select {...register('timezone')} className="w-full border rounded-md px-3 py-2 text-sm">

@@ -114,6 +114,7 @@ export async function resetPassword(email: string) {
 const updateProfileSchema = z.object({
   full_name: z.string().min(2),
   phone: z.string().optional(),
+  sms_opted_in: z.boolean().optional(),
   skill_level: z.enum(['beginner', 'intermediate', 'competitive']).optional(),
   t_shirt_size: z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']).optional(),
   emergency_contact_name: z.string().optional(),
@@ -130,7 +131,11 @@ export async function updateProfile(input: z.infer<typeof updateProfileSchema>) 
   if (!user) return { data: null, error: 'Not authenticated' }
 
   const [profileRes, detailsRes] = await Promise.all([
-    supabase.from('profiles').update({ full_name: parsed.data.full_name, phone: parsed.data.phone ?? null }).eq('id', user.id),
+    supabase.from('profiles').update({
+      full_name: parsed.data.full_name,
+      phone: parsed.data.phone ?? null,
+      sms_opted_in: parsed.data.sms_opted_in ?? false,
+    }).eq('id', user.id),
     supabase.from('player_details').upsert({
       organization_id: parsed.data.orgId,
       user_id: user.id,

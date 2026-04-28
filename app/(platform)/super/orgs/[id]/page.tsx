@@ -2,6 +2,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { EditOrgForm } from './edit-org-form'
+import { ImpersonateButton } from './impersonate-button'
 
 const STATUS_STYLES: Record<string, string> = {
   active: 'bg-green-100 text-green-800',
@@ -88,6 +89,7 @@ export default async function PlatformOrgDetailPage({
             <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${STATUS_STYLES[org.status] ?? 'bg-gray-100 text-gray-700'}`}>
               {org.status}
             </span>
+            <ImpersonateButton orgId={org.id} />
             <a
               href={siteUrl}
               target="_blank"

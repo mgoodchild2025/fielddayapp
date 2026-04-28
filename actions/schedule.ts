@@ -55,6 +55,52 @@ export type CsvGameRow = {
   week?: string
 }
 
+export async function generateRoundRobinSchedule(input: {
+  leagueId: string
+  startDate: string
+  gameTime: string
+  daysBetweenRounds: number
+  courts: number
+}) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+
+  const { data: teams } = await supabase
+    .from('teams')
+    .select('id, name')
+    .eq('league_id', input.leagueId)
+    .eq('organization_id', org.id)
+    .eq('status', 'active')
+
+  if (!teams || teams.length < 2) return { error: 'Need at least 2 active teams to generate a schedule', count: 0 }
+
+  const { generateRoundRobin, assignDates } = await import('@/lib/scheduler')
+  const fixtures = generateRoundRobin(teams)
+  const scheduled = assignDates(fixtures, {
+    startDate: input.startDate,
+    gameTime: input.gameTime,
+    daysBetweenRounds: input.daysBetweenRounds,
+    courts: input.courts,
+  })
+
+  const games = scheduled.map(g => ({
+    organization_id: org.id,
+    league_id: input.leagueId,
+    home_team_id: g.homeTeamId,
+    away_team_id: g.awayTeamId,
+    scheduled_at: g.scheduledAt,
+    week_number: g.weekNumber,
+    court: g.court,
+  }))
+
+  const { error } = await supabase.from('games').insert(games)
+  if (error) return { error: error.message, count: 0 }
+
+  revalidatePath(`/admin/leagues/${input.leagueId}/schedule`)
+  return { error: null, count: games.length }
+}
+
 export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)

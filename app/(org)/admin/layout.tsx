@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { AdminSidebar } from '@/components/layout/admin-sidebar'
+import { ImpersonationBanner } from '@/components/layout/impersonation-banner'
 
 export default async function AdminLayout({
   children,
@@ -10,6 +11,7 @@ export default async function AdminLayout({
   children: React.ReactNode
 }) {
   const headersList = await headers()
+  const isImpersonating = headersList.get('x-impersonating') === '1'
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()
@@ -29,7 +31,8 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen flex" style={{ backgroundColor: '#F8F8F8' }}>
+    <div className={`min-h-screen flex ${isImpersonating ? 'pt-10' : ''}`} style={{ backgroundColor: '#F8F8F8' }}>
+      {isImpersonating && <ImpersonationBanner orgName={org.name} />}
       <AdminSidebar org={org} role={member.role} />
       <main className="flex-1 overflow-auto">
         {/* pt-14 on mobile accounts for the fixed top bar; removed on lg where sidebar is visible */}

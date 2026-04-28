@@ -87,13 +87,23 @@ export function ComposeMessageForm({ leagues }: { leagues: League[] }) {
         <p className="text-sm text-green-600">Announcement sent successfully!</p>
       )}
 
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Schedule (optional)</label>
+        <input
+          name="scheduled_for"
+          type="datetime-local"
+          className="border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2"
+        />
+        <p className="text-xs text-gray-400 mt-1">Leave blank to send immediately.</p>
+      </div>
+
       <button
         type="submit"
         disabled={isPending}
         className="px-6 py-2.5 rounded-md font-semibold text-white disabled:opacity-60"
         style={{ backgroundColor: 'var(--brand-primary)' }}
       >
-        {isPending ? 'Sending…' : 'Send Announcement'}
+        {isPending ? 'Saving…' : 'Send / Schedule'}
       </button>
     </form>
   )

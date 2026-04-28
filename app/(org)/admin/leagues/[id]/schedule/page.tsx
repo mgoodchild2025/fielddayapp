@@ -3,6 +3,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { AddGameForm } from '@/components/schedule/add-game-form'
 import { ScheduleImport } from '@/components/schedule/schedule-import'
+import { RoundRobinGenerator } from '@/components/schedule/round-robin-generator'
 import { formatGameTime } from '@/lib/format-time'
 
 export default async function AdminSchedulePage({ params }: { params: Promise<{ id: string }> }) {
@@ -110,6 +111,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
 
       {/* Sidebar tools */}
       <div className="space-y-4">
+        <RoundRobinGenerator leagueId={id} teamCount={(teams ?? []).length} />
         <AddGameForm leagueId={id} teams={teams ?? []} />
         <ScheduleImport leagueId={id} />
       </div>

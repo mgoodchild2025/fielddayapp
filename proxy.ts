@@ -35,8 +35,15 @@ export async function proxy(request: NextRequest) {
 
   await supabase.auth.getUser()
 
-  // Platform super admin
+  // Platform super admin — check for impersonation cookie
   if (baseHost === `app.${PLATFORM_DOMAIN}` || baseHost === 'app.localhost') {
+    const impersonateOrgId = request.cookies.get('fieldday_impersonate_org_id')?.value
+    if (impersonateOrgId) {
+      const requestHeaders = new Headers(request.headers)
+      requestHeaders.set('x-org-id', impersonateOrgId)
+      requestHeaders.set('x-impersonating', '1')
+      return NextResponse.next({ request: { headers: requestHeaders } })
+    }
     return response
   }
 
@@ -63,7 +70,7 @@ export async function proxy(request: NextRequest) {
 
   if (subdomainMatch) {
     const slug = subdomainMatch[1]
-    const url = `${supabaseUrl}/rest/v1/organizations?slug=eq.${slug}&status=eq.active&select=id&limit=1`
+    const url = `${supabaseUrl}/rest/v1/organizations?slug=eq.${slug}&status=neq.suspended&select=id&limit=1`
     try {
       const res = await fetch(url, { headers: restHeaders })
       const [org] = await res.json()
@@ -80,7 +87,7 @@ export async function proxy(request: NextRequest) {
     const [branding] = await res.json()
     if (branding?.organization_id) {
       const res2 = await fetch(
-        `${supabaseUrl}/rest/v1/organizations?id=eq.${branding.organization_id}&status=eq.active&select=id&limit=1`,
+        `${supabaseUrl}/rest/v1/organizations?id=eq.${branding.organization_id}&status=neq.suspended&select=id&limit=1`,
         { headers: restHeaders }
       )
       const [org] = await res2.json()

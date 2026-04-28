@@ -42,7 +42,15 @@
       "Bash(git reset *)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(gh pr create --title 'fix: league admin layout 404 \\(service role client + restore middleware\\)' --body ' *)",
+      "Bash(where gh *)",
+      "Bash(git commit -m 'fix: approve/reject join requests broken for org admins *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(find \"C:\\\\Users\\\\cgtech\\\\Fieldday\\\\supabase\\\\migrations\" -type f -exec grep -l \"team_join_requests\" {} \\\\;)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(npm run *)",
+      "Bash(find . -type f -name \"*.sql\" -exec wc -l {} +)"
     ]
   }
 }

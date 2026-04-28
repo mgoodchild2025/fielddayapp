@@ -5,6 +5,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { updateLeagueStatus } from '@/actions/leagues'
 import { EditLeagueForm } from '@/components/leagues/edit-league-form'
 import { DeleteLeagueButton } from '@/components/leagues/delete-league-button'
+import { PaymentPlanConfig } from '@/components/leagues/payment-plan-config'
 import type { Database } from '@/types/database'
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
@@ -28,12 +29,14 @@ export default async function LeagueOverviewPage({ params }: { params: Promise<{
     { count: teamCount },
     { count: gameCount },
     { data: waivers },
+    { data: paymentPlan },
   ] = await Promise.all([
     supabase.from('leagues').select('*').eq('id', id).eq('organization_id', org.id).single(),
     supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
     supabase.from('teams').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
     supabase.from('games').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
     supabase.from('waivers').select('id, title, version').eq('organization_id', org.id).order('created_at', { ascending: false }),
+    supabase.from('payment_plans').select('*').eq('league_id', id).maybeSingle(),
   ])
 
   if (!league) notFound()
@@ -142,6 +145,8 @@ export default async function LeagueOverviewPage({ params }: { params: Promise<{
           <h2 className="font-semibold text-sm mb-2">URL Slug</h2>
           <code className="text-xs bg-gray-50 border rounded px-2 py-1.5 block break-all">{league.slug}</code>
         </div>
+
+        <PaymentPlanConfig leagueId={league.id} existing={paymentPlan ?? null} />
 
         <div className="bg-white rounded-lg border p-5">
           <h2 className="font-semibold text-sm mb-3 text-red-600">Danger Zone</h2>

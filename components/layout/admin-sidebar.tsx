@@ -14,8 +14,9 @@ interface AdminSidebarProps {
 const navItems = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: '▣' },
   { label: 'Leagues', href: '/admin/leagues', icon: '🏆' },
+  { label: 'Drop-ins', href: '/admin/dropins', icon: '⚡' },
   { label: 'Payments', href: '/admin/payments', icon: '💳' },
-  { label: 'Members', href: '/admin/users', icon: '👥' },
+  { label: 'Teams', href: '/admin/teams', icon: '👥' },
   { label: 'Players', href: '/admin/players', icon: '🏃' },
   { label: 'Messages', href: '/admin/messages', icon: '✉️' },
   { label: 'Settings', href: '/admin/settings', icon: '⚙️' },

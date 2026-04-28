@@ -188,6 +188,22 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
         </div>
       </div>
 
+      <div className="bg-white rounded-lg border p-5">
+        <h2 className="font-semibold mb-3">Notifications</h2>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            name="sms_opted_in"
+            defaultChecked
+            className="mt-0.5 h-4 w-4 rounded border-gray-300"
+          />
+          <span className="text-sm text-gray-700">
+            Send me SMS game reminders to my phone number above.
+            <span className="block text-xs text-gray-400 mt-0.5">Reply STOP at any time to unsubscribe.</span>
+          </span>
+        </label>
+      </div>
+
       <button
         type="submit"
         disabled={loading}

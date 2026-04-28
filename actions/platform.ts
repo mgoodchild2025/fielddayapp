@@ -2,7 +2,11 @@
 
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+
+const IMPERSONATE_COOKIE = 'fieldday_impersonate_org_id'
 
 // ─── Create Organisation ──────────────────────────────────────────────────────
 
@@ -128,6 +132,49 @@ export async function updateSubscription(input: z.infer<typeof updateSubscriptio
   if (error) return { error: error.message }
   revalidatePath(`/super/orgs/${parsed.data.orgId}`)
   return { error: null }
+}
+
+// ─── Suspend / Activate Organisation ─────────────────────────────────────────
+
+// ─── Set Org Admin ────────────────────────────────────────────────────────────
+
+export async function setOrgAdmin(orgId: string, email: string) {
+  const supabase = createServiceRoleClient()
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .eq('email', email.toLowerCase().trim())
+    .single()
+  if (!profile) return { error: `No user found with email "${email}"` }
+  const { error } = await supabase
+    .from('org_members')
+    .upsert(
+      { organization_id: orgId, user_id: profile.id, role: 'org_admin', status: 'active' },
+      { onConflict: 'organization_id,user_id' }
+    )
+  if (error) return { error: error.message }
+  revalidatePath(`/super/orgs/${orgId}`)
+  return { error: null, name: profile.full_name }
+}
+
+// ─── Impersonation ────────────────────────────────────────────────────────────
+
+export async function startImpersonation(orgId: string) {
+  const jar = await cookies()
+  jar.set(IMPERSONATE_COOKIE, orgId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60, // 1 hour
+  })
+  redirect('/admin/dashboard')
+}
+
+export async function exitImpersonation() {
+  const jar = await cookies()
+  jar.delete(IMPERSONATE_COOKIE)
+  redirect('/super')
 }
 
 // ─── Suspend / Activate Organisation ─────────────────────────────────────────
