@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -384,11 +385,13 @@ export async function approveJoinRequest(requestId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: req } = await supabase
+  // Use service role — RLS only allows users to read their own requests
+  const { data: req } = await db
     .from('team_join_requests')
     .select('team_id, user_id, organization_id')
     .eq('id', requestId)
@@ -397,15 +400,15 @@ export async function approveJoinRequest(requestId: string) {
 
   if (!req) return { error: 'Request not found' }
 
-  // Verify caller is captain of this team or org admin
-  const { data: callerMember } = await supabase
+  // Verify caller is captain of this team or org/league admin
+  const { data: callerMember } = await db
     .from('team_members')
     .select('role')
     .eq('team_id', req.team_id)
     .eq('user_id', user.id)
     .single()
 
-  const { data: orgMember } = await supabase
+  const { data: orgMember } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -418,8 +421,15 @@ export async function approveJoinRequest(requestId: string) {
 
   if (!canApprove) return { error: 'Unauthorized' }
 
+  // Fetch league_id for revalidation
+  const { data: team } = await db
+    .from('teams')
+    .select('league_id')
+    .eq('id', req.team_id)
+    .single()
+
   // Add to team
-  await supabase.from('team_members').upsert({
+  await db.from('team_members').upsert({
     organization_id: org.id,
     team_id: req.team_id,
     user_id: req.user_id,
@@ -428,7 +438,7 @@ export async function approveJoinRequest(requestId: string) {
   }, { onConflict: 'team_id,user_id' })
 
   // Ensure org membership
-  await supabase.from('org_members').upsert({
+  await db.from('org_members').upsert({
     organization_id: org.id,
     user_id: req.user_id,
     role: 'player',
@@ -436,13 +446,13 @@ export async function approveJoinRequest(requestId: string) {
   }, { onConflict: 'organization_id,user_id', ignoreDuplicates: true })
 
   // Update request status
-  await supabase
+  await db
     .from('team_join_requests')
     .update({ status: 'approved', reviewed_by: user.id, reviewed_at: new Date().toISOString() })
     .eq('id', requestId)
 
   // Notify the requester
-  await supabase.from('notifications').insert({
+  await db.from('notifications').insert({
     organization_id: org.id,
     user_id: req.user_id,
     type: 'join_approved',
@@ -450,7 +460,7 @@ export async function approveJoinRequest(requestId: string) {
     body: 'Your request to join the team has been approved.',
   })
 
-  revalidatePath(`/admin/leagues`)
+  if (team?.league_id) revalidatePath(`/admin/leagues/${team.league_id}/teams`)
   revalidatePath('/dashboard')
   return { error: null }
 }
@@ -461,11 +471,13 @@ export async function rejectJoinRequest(requestId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: req } = await supabase
+  // Use service role — RLS only allows users to read their own requests
+  const { data: req } = await db
     .from('team_join_requests')
     .select('team_id, user_id, organization_id')
     .eq('id', requestId)
@@ -474,13 +486,20 @@ export async function rejectJoinRequest(requestId: string) {
 
   if (!req) return { error: 'Request not found' }
 
-  await supabase
+  // Fetch league_id for revalidation
+  const { data: team } = await db
+    .from('teams')
+    .select('league_id')
+    .eq('id', req.team_id)
+    .single()
+
+  await db
     .from('team_join_requests')
     .update({ status: 'rejected', reviewed_by: user.id, reviewed_at: new Date().toISOString() })
     .eq('id', requestId)
 
   // Notify the requester
-  await supabase.from('notifications').insert({
+  await db.from('notifications').insert({
     organization_id: org.id,
     user_id: req.user_id,
     type: 'join_rejected',
@@ -488,7 +507,8 @@ export async function rejectJoinRequest(requestId: string) {
     body: 'Your request to join the team was not approved. Contact the captain for more info.',
   })
 
-  revalidatePath(`/admin/leagues`)
+  if (team?.league_id) revalidatePath(`/admin/leagues/${team.league_id}/teams`)
+  revalidatePath('/dashboard')
   return { error: null }
 }
 
