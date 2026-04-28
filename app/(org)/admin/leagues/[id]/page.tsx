@@ -28,12 +28,14 @@ export default async function LeagueOverviewPage({ params }: { params: Promise<{
     { count: teamCount },
     { count: gameCount },
     { data: waivers },
+    { data: ruleTemplates },
   ] = await Promise.all([
     supabase.from('leagues').select('*').eq('id', id).eq('organization_id', org.id).single(),
     supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
     supabase.from('teams').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
     supabase.from('games').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
     supabase.from('waivers').select('id, title, version').eq('organization_id', org.id).order('created_at', { ascending: false }),
+    supabase.from('league_rule_templates').select('id, title, content').eq('organization_id', org.id).order('created_at', { ascending: false }),
   ])
 
   if (!league) notFound()
@@ -64,7 +66,8 @@ export default async function LeagueOverviewPage({ params }: { params: Promise<{
 
       {/* Details */}
       <div className="md:col-span-2 bg-white rounded-lg border p-5">
-        <EditLeagueForm league={league} waivers={waivers ?? []} />
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        <EditLeagueForm league={league as any} waivers={waivers ?? []} ruleTemplates={ruleTemplates ?? []} />
         <dl className="space-y-3 text-sm mt-4">
           <Row label="Type" value={league.league_type} />
           <Row label="Sport" value={league.sport ?? '—'} />

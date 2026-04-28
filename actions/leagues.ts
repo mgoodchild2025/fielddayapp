@@ -131,13 +131,18 @@ export async function deleteLeague(leagueId: string) {
 
 export async function updateLeague(
   leagueId: string,
-  updates: Partial<z.infer<typeof createLeagueSchema>> & { waiver_version_id?: string | null }
+  updates: Partial<z.infer<typeof createLeagueSchema>> & {
+    waiver_version_id?: string | null
+    rule_template_id?: string | null
+    rules_content?: string | null
+  }
 ) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()
-  const { error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
     .from('leagues')
     .update(updates)
     .eq('id', leagueId)
