@@ -41,11 +41,13 @@ export async function signUp(input: { email: string; password: string; fullName:
   if (!parsed.success) return { data: null, error: 'Invalid input' }
 
   const supabase = await createServerClient()
+  const origin = (await headers()).get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
       data: { full_name: parsed.data.fullName },
+      emailRedirectTo: `${origin}/auth/callback`,
     },
   })
 
