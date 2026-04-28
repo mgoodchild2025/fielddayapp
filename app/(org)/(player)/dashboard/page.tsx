@@ -287,7 +287,13 @@ export default async function PlayerDashboardPage() {
                       {team.color && (
                         <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
                       )}
-                      <h3 className="font-semibold">{team.name}</h3>
+                      <Link
+                        href={`/teams/${team.id}`}
+                        className="font-semibold hover:underline"
+                        style={{ color: 'var(--brand-primary)' }}
+                      >
+                        {team.name}
+                      </Link>
                       {isCaptain && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Captain</span>
                       )}
