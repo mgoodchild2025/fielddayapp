@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -384,11 +385,13 @@ export async function approveJoinRequest(requestId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: req } = await supabase
+  // Use service role — RLS only allows users to read their own requests
+  const { data: req } = await db
     .from('team_join_requests')
     .select('team_id, user_id, organization_id')
     .eq('id', requestId)
@@ -397,15 +400,15 @@ export async function approveJoinRequest(requestId: string) {
 
   if (!req) return { error: 'Request not found' }
 
-  // Verify caller is captain of this team or org admin
-  const { data: callerMember } = await supabase
+  // Verify caller is captain of this team or org/league admin
+  const { data: callerMember } = await db
     .from('team_members')
     .select('role')
     .eq('team_id', req.team_id)
     .eq('user_id', user.id)
     .single()
 
-  const { data: orgMember } = await supabase
+  const { data: orgMember } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -413,13 +416,20 @@ export async function approveJoinRequest(requestId: string) {
     .single()
 
   const canApprove =
-    callerMember?.role === 'captain' ||
+    ['captain', 'coach'].includes(callerMember?.role ?? '') ||
     ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
 
   if (!canApprove) return { error: 'Unauthorized' }
 
+  // Fetch league_id for revalidation
+  const { data: team } = await db
+    .from('teams')
+    .select('league_id')
+    .eq('id', req.team_id)
+    .single()
+
   // Add to team
-  await supabase.from('team_members').upsert({
+  await db.from('team_members').upsert({
     organization_id: org.id,
     team_id: req.team_id,
     user_id: req.user_id,
@@ -428,7 +438,7 @@ export async function approveJoinRequest(requestId: string) {
   }, { onConflict: 'team_id,user_id' })
 
   // Ensure org membership
-  await supabase.from('org_members').upsert({
+  await db.from('org_members').upsert({
     organization_id: org.id,
     user_id: req.user_id,
     role: 'player',
@@ -436,13 +446,13 @@ export async function approveJoinRequest(requestId: string) {
   }, { onConflict: 'organization_id,user_id', ignoreDuplicates: true })
 
   // Update request status
-  await supabase
+  await db
     .from('team_join_requests')
     .update({ status: 'approved', reviewed_by: user.id, reviewed_at: new Date().toISOString() })
     .eq('id', requestId)
 
   // Notify the requester
-  await supabase.from('notifications').insert({
+  await db.from('notifications').insert({
     organization_id: org.id,
     user_id: req.user_id,
     type: 'join_approved',
@@ -450,7 +460,8 @@ export async function approveJoinRequest(requestId: string) {
     body: 'Your request to join the team has been approved.',
   })
 
-  revalidatePath(`/admin/leagues`)
+  if (team?.league_id) revalidatePath(`/admin/leagues/${team.league_id}/teams`)
+  revalidatePath(`/teams/${req.team_id}`)
   revalidatePath('/dashboard')
   return { error: null }
 }
@@ -461,11 +472,13 @@ export async function rejectJoinRequest(requestId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: req } = await supabase
+  // Use service role — RLS only allows users to read their own requests
+  const { data: req } = await db
     .from('team_join_requests')
     .select('team_id, user_id, organization_id')
     .eq('id', requestId)
@@ -474,13 +487,20 @@ export async function rejectJoinRequest(requestId: string) {
 
   if (!req) return { error: 'Request not found' }
 
-  await supabase
+  // Fetch league_id for revalidation
+  const { data: team } = await db
+    .from('teams')
+    .select('league_id')
+    .eq('id', req.team_id)
+    .single()
+
+  await db
     .from('team_join_requests')
     .update({ status: 'rejected', reviewed_by: user.id, reviewed_at: new Date().toISOString() })
     .eq('id', requestId)
 
   // Notify the requester
-  await supabase.from('notifications').insert({
+  await db.from('notifications').insert({
     organization_id: org.id,
     user_id: req.user_id,
     type: 'join_rejected',
@@ -488,7 +508,9 @@ export async function rejectJoinRequest(requestId: string) {
     body: 'Your request to join the team was not approved. Contact the captain for more info.',
   })
 
-  revalidatePath(`/admin/leagues`)
+  if (team?.league_id) revalidatePath(`/admin/leagues/${team.league_id}/teams`)
+  revalidatePath(`/teams/${req.team_id}`)
+  revalidatePath('/dashboard')
   return { error: null }
 }
 
@@ -618,4 +640,137 @@ export async function invitePlayerToTeam(input: z.infer<typeof invitePlayerSchem
 
   revalidatePath(`/teams/${parsed.data.teamId}`)
   return { data: null, error: null }
+}
+
+// ─── Admin: update team details ───────────────────────────────────────────────
+
+export async function updateTeam(
+  teamId: string,
+  leagueId: string,
+  updates: { name?: string; color?: string | null; logo_url?: string | null }
+) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const db = createServiceRoleClient()
+
+  const { error } = await db
+    .from('teams')
+    .update(updates)
+    .eq('id', teamId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/leagues/${leagueId}/teams`)
+  revalidatePath(`/teams/${teamId}`)
+  return { error: null }
+}
+
+// ─── Admin: upload team logo ──────────────────────────────────────────────────
+
+export async function uploadTeamLogo(teamId: string, formData: FormData) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const db = createServiceRoleClient()
+
+  const file = formData.get('file') as File | null
+  if (!file || file.size === 0) return { url: null, error: 'No file provided' }
+  if (file.size > 2 * 1024 * 1024) return { url: null, error: 'File must be under 2 MB' }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const path = `${org.id}/${teamId}/logo.${ext}`
+  const buffer = Buffer.from(await file.arrayBuffer())
+
+  const { error: uploadError } = await db.storage
+    .from('team-logos')
+    .upload(path, buffer, { contentType: file.type, upsert: true })
+
+  if (uploadError) return { url: null, error: uploadError.message }
+
+  const { data: { publicUrl } } = db.storage.from('team-logos').getPublicUrl(path)
+  return { url: publicUrl, error: null }
+}
+
+// ─── Captain / coach: manage roster ──────────────────────────────────────────
+
+type TeamRole = 'captain' | 'coach' | 'player' | 'sub'
+
+async function requireCaptainOrCoach(teamId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' as const, user: null as never, org: null as never, db: null as never }
+
+  const db = createServiceRoleClient()
+
+  // Allow team captain/coach OR org/league admin
+  const [{ data: teamMember }, { data: orgMember }] = await Promise.all([
+    db.from('team_members').select('role').eq('team_id', teamId).eq('user_id', user.id)
+      .eq('organization_id', org.id).eq('status', 'active').single(),
+    db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single(),
+  ])
+
+  const isTeamManager = teamMember && ['captain', 'coach'].includes(teamMember.role)
+  const isOrgAdmin = orgMember && ['org_admin', 'league_admin'].includes(orgMember.role)
+  if (!isTeamManager && !isOrgAdmin) {
+    return { error: 'Not authorized' as const, user: null as never, org: null as never, db: null as never }
+  }
+  return { error: null as null, user, org, db }
+}
+
+export async function captainSetMemberRole(memberId: string, teamId: string, role: TeamRole) {
+  const { error, org, db } = await requireCaptainOrCoach(teamId)
+  if (error) return { error }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: e } = await (db as any)
+    .from('team_members')
+    .update({ role })
+    .eq('id', memberId)
+    .eq('team_id', teamId)
+    .eq('organization_id', org.id)
+
+  if (e) return { error: e.message }
+
+  revalidatePath(`/teams/${teamId}`)
+  return { error: null }
+}
+
+export async function captainRemoveTeamMember(memberId: string, teamId: string) {
+  const { error, org, db } = await requireCaptainOrCoach(teamId)
+  if (error) return { error }
+
+  const { error: e } = await db
+    .from('team_members')
+    .delete()
+    .eq('id', memberId)
+    .eq('team_id', teamId)
+    .eq('organization_id', org.id)
+
+  if (e) return { error: e.message }
+
+  revalidatePath(`/teams/${teamId}`)
+  return { error: null }
+}
+
+const captainAddSchema = z.object({
+  teamId: z.string().uuid(),
+  email: z.string().email(),
+  role: z.enum(['captain', 'coach', 'player', 'sub']).default('player'),
+})
+
+export async function captainAddPlayerByEmail(input: z.infer<typeof captainAddSchema>) {
+  const parsed = captainAddSchema.safeParse(input)
+  if (!parsed.success) return { error: 'Invalid input', invited: false }
+
+  // Delegate to the invite flow — player must accept before being added
+  const { sendTeamInvite } = await import('@/actions/invitations')
+  const result = await sendTeamInvite({
+    teamId: parsed.data.teamId,
+    email: parsed.data.email,
+    role: parsed.data.role,
+  })
+
+  return { error: result.error, invited: true }
 }

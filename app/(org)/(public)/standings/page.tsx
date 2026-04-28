@@ -1,14 +1,14 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
-import { requireOrgMember } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 
 export default async function StandingsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  await requireOrgMember(org)
+  await requireAuth()
 
   const supabase = await createServerClient()
   const { data: branding } = await supabase

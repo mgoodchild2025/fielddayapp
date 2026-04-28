@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { EditOrgForm } from './edit-org-form'
 import { ImpersonateButton } from './impersonate-button'
+import { SetOrgAdminForm } from './set-org-admin-form'
 
 const STATUS_STYLES: Record<string, string> = {
   active: 'bg-green-100 text-green-800',
@@ -64,6 +65,12 @@ export default async function PlatformOrgDetailPage({
 
   const totalRevenueCents = payments.reduce((sum, p) => sum + (p.amount_cents ?? 0), 0)
   const adminCount = members.filter(m => m.role === 'org_admin').length
+  const currentAdmins = members
+    .filter(m => m.role === 'org_admin')
+    .map(m => {
+      const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
+      return { name: profile?.full_name ?? null, email: profile?.email ?? null }
+    })
   const playerCount = members.filter(m => m.role === 'player').length
 
   const siteUrl = branding?.custom_domain
@@ -136,6 +143,7 @@ export default async function PlatformOrgDetailPage({
               current_period_end: sub.current_period_end ?? null,
             } : null}
           />
+          <SetOrgAdminForm orgId={org.id} currentAdmins={currentAdmins} />
         </div>
 
         {/* Right col: members + leagues */}

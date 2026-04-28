@@ -22,6 +22,8 @@ interface League {
   registration_opens_at: string | null
   registration_closes_at: string | null
   waiver_version_id: string | null
+  rule_template_id: string | null
+  rules_content: string | null
   age_group: string | null
   venue_name: string | null
   venue_address: string | null
@@ -39,9 +41,16 @@ interface Waiver {
   version: number
 }
 
+interface RuleTemplate {
+  id: string
+  title: string
+  content: string
+}
+
 interface Props {
   league: League
   waivers: Waiver[]
+  ruleTemplates: RuleTemplate[]
 }
 
 const SPORTS = [
@@ -58,11 +67,12 @@ function toDateTimeInput(iso: string | null) {
   return iso ? iso.slice(0, 16) : ''
 }
 
-export function EditLeagueForm({ league, waivers }: Props) {
+export function EditLeagueForm({ league, waivers, ruleTemplates }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [rulesContent, setRulesContent] = useState(league.rules_content ?? '')
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -72,6 +82,7 @@ export function EditLeagueForm({ league, waivers }: Props) {
 
     const fd = new FormData(e.currentTarget)
     const waiverVal = fd.get('waiver_version_id') as string
+    const ruleTemplateVal = fd.get('rule_template_id') as string
 
     const result = await updateLeague(league.id, {
       name: fd.get('name') as string,
@@ -89,6 +100,8 @@ export function EditLeagueForm({ league, waivers }: Props) {
       registration_opens_at: (fd.get('registration_opens_at') as string) || undefined,
       registration_closes_at: (fd.get('registration_closes_at') as string) || undefined,
       waiver_version_id: waiverVal || undefined,
+      rule_template_id: ruleTemplateVal || undefined,
+      rules_content: rulesContent || undefined,
       age_group: (fd.get('age_group') as string) || undefined,
       venue_name: (fd.get('venue_name') as string) || undefined,
       venue_address: (fd.get('venue_address') as string) || undefined,
@@ -112,12 +125,18 @@ export function EditLeagueForm({ league, waivers }: Props) {
 
   if (!open) {
     const activeWaiver = waivers.find((w) => w.id === league.waiver_version_id)
+    const activeTemplate = ruleTemplates.find((t) => t.id === league.rule_template_id)
     return (
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="font-semibold">League Details</h2>
           {activeWaiver && (
             <p className="text-xs text-gray-400 mt-0.5">Waiver: {activeWaiver.title}</p>
+          )}
+          {(activeTemplate || league.rules_content) && (
+            <p className="text-xs text-gray-400 mt-0.5">
+              Rules: {activeTemplate ? activeTemplate.title : 'Custom'}
+            </p>
           )}
         </div>
         <button
@@ -290,6 +309,42 @@ export function EditLeagueForm({ league, waivers }: Props) {
             </p>
           )}
         </Field>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">League Rules</label>
+          <select
+            name="rule_template_id"
+            defaultValue={league.rule_template_id ?? ''}
+            className="input mb-2"
+            onChange={(e) => {
+              const tpl = ruleTemplates.find((t) => t.id === e.target.value)
+              if (tpl) setRulesContent(tpl.content)
+            }}
+          >
+            <option value="">No template / custom</option>
+            {ruleTemplates.map((t) => (
+              <option key={t.id} value={t.id}>{t.title}</option>
+            ))}
+          </select>
+          <textarea
+            value={rulesContent}
+            onChange={(e) => setRulesContent(e.target.value)}
+            rows={10}
+            placeholder="League rules shown to players during registration and on the league page…"
+            className="input font-mono text-xs leading-relaxed resize-y"
+          />
+          {ruleTemplates.length === 0 && (
+            <p className="text-xs text-amber-600 mt-1">
+              No rule templates set up.{' '}
+              <a href="/admin/settings/league-rules" className="underline">Create one in Settings → League Rules</a>.
+            </p>
+          )}
+          {rulesContent && (
+            <p className="text-xs text-gray-400 mt-1">
+              Editing the content here only affects this league — the template is not modified.
+            </p>
+          )}
+        </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 

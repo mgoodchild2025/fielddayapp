@@ -35,6 +35,20 @@ export async function requireOrgMember(org: OrgContext, allowedRoles?: OrgRole[]
 }
 
 /**
+ * Require the user to be authenticated (any logged-in user, no org membership check).
+ * Use this for public-facing org pages (Leagues, Schedule, Standings).
+ * Redirects to /login if not authenticated.
+ */
+export async function requireAuth() {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+  return user
+}
+
+/**
  * Get the current user without throwing — returns null if unauthenticated.
  */
 export async function getCurrentUser() {

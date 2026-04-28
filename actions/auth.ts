@@ -12,7 +12,7 @@ const loginSchema = z.object({
   password: z.string().min(8),
 })
 
-export async function login(input: { email: string; password: string }) {
+export async function login(input: { email: string; password: string; redirectTo?: string }) {
   const parsed = loginSchema.safeParse(input)
   if (!parsed.success) return { data: null, error: 'Invalid input' }
 
@@ -27,7 +27,10 @@ export async function login(input: { email: string; password: string }) {
   revalidatePath('/', 'layout')
   const headersList = await headers()
   const orgId = headersList.get('x-org-id')
-  redirect(orgId ? '/dashboard' : '/super')
+
+  // Only allow relative paths to prevent open redirect
+  const safeRedirect = input.redirectTo?.startsWith('/') ? input.redirectTo : '/dashboard'
+  redirect(orgId ? safeRedirect : '/super')
 }
 
 const signUpSchema = z.object({
@@ -41,11 +44,13 @@ export async function signUp(input: { email: string; password: string; fullName:
   if (!parsed.success) return { data: null, error: 'Invalid input' }
 
   const supabase = await createServerClient()
+  const origin = (await headers()).get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
       data: { full_name: parsed.data.fullName },
+      emailRedirectTo: `${origin}/auth/callback`,
     },
   })
 

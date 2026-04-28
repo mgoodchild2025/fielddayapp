@@ -38,8 +38,14 @@ const createLeagueSchema = z.object({
   team_join_policy: z.enum(['open', 'captain_invite', 'admin_only']).default('open'),
 })
 
-export async function createLeague(input: z.infer<typeof createLeagueSchema>) {
-  const parsed = createLeagueSchema.safeParse(input)
+export async function createLeague(
+  input: z.infer<typeof createLeagueSchema> & {
+    rule_template_id?: string
+    rules_content?: string
+  }
+) {
+  const { rule_template_id, rules_content, ...rest } = input
+  const parsed = createLeagueSchema.safeParse(rest)
   if (!parsed.success) return { data: null, error: 'Invalid input' }
 
   const headersList = await headers()
@@ -52,7 +58,8 @@ export async function createLeague(input: z.infer<typeof createLeagueSchema>) {
   }
 
   const supabase = await createServerClient()
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from('leagues')
     .insert({
       organization_id: org.id,
@@ -73,6 +80,8 @@ export async function createLeague(input: z.infer<typeof createLeagueSchema>) {
       organizer_email: parsed.data.organizer_email || null,
       organizer_phone: parsed.data.organizer_phone || null,
       team_join_policy: parsed.data.team_join_policy,
+      rule_template_id: rule_template_id || null,
+      rules_content: rules_content || null,
     })
     .select('id')
     .single()
@@ -116,6 +125,7 @@ export async function deleteLeague(leagueId: string) {
   await supabase.from('teams').delete().eq('league_id', leagueId).eq('organization_id', org.id)
   await supabase.from('registrations').delete().eq('league_id', leagueId).eq('organization_id', org.id)
   await supabase.from('games').delete().eq('league_id', leagueId).eq('organization_id', org.id)
+  await supabase.from('payments').delete().eq('league_id', leagueId).eq('organization_id', org.id)
 
   const { error } = await supabase
     .from('leagues')
@@ -131,13 +141,18 @@ export async function deleteLeague(leagueId: string) {
 
 export async function updateLeague(
   leagueId: string,
-  updates: Partial<z.infer<typeof createLeagueSchema>> & { waiver_version_id?: string | null }
+  updates: Partial<z.infer<typeof createLeagueSchema>> & {
+    waiver_version_id?: string | null
+    rule_template_id?: string | null
+    rules_content?: string | null
+  }
 ) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()
-  const { error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
     .from('leagues')
     .update(updates)
     .eq('id', leagueId)

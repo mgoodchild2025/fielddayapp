@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { createServerClient } from '@/lib/supabase/server'
 import { NavUserMenu } from './nav-user-menu'
 import { MobileNav } from './mobile-nav'
+import { NotificationBell } from './notification-bell'
 import type { OrgContext } from '@/lib/tenant'
 
 interface OrgNavProps {
@@ -16,14 +17,23 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
 
   let userName: string | null = null
   let isAdmin = false
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let unreadNotifications: { id: string; title: string; body: string | null; created_at: string; data: any }[] = []
 
   if (user) {
-    const [{ data: profile }, { data: member }] = await Promise.all([
+    const [{ data: profile }, { data: member }, { data: notifs }] = await Promise.all([
       supabase.from('profiles').select('full_name').eq('id', user.id).single(),
       supabase.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single(),
+      supabase.from('notifications').select('id, title, body, created_at, data')
+        .eq('organization_id', org.id)
+        .eq('user_id', user.id)
+        .eq('read', false)
+        .order('created_at', { ascending: false })
+        .limit(20),
     ])
     userName = profile?.full_name ?? user.email ?? null
     isAdmin = ['org_admin', 'league_admin'].includes(member?.role ?? '')
+    unreadNotifications = notifs ?? []
   }
 
   return (
@@ -42,25 +52,34 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
           )}
         </Link>
 
-        <div className="hidden md:flex items-center gap-6 text-sm font-medium">
-          <Link href="/leagues" className="opacity-80 hover:opacity-100 transition-opacity">Leagues</Link>
-          <Link href="/schedule" className="opacity-80 hover:opacity-100 transition-opacity">Schedule</Link>
-          <Link href="/standings" className="opacity-80 hover:opacity-100 transition-opacity">Standings</Link>
+        <div className="flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-6 text-sm font-medium">
+            <Link href="/leagues" className="opacity-80 hover:opacity-100 transition-opacity">Leagues</Link>
+            <Link href="/schedule" className="opacity-80 hover:opacity-100 transition-opacity">Schedule</Link>
+            <Link href="/standings" className="opacity-80 hover:opacity-100 transition-opacity">Standings</Link>
+          </div>
 
           {user ? (
-            <NavUserMenu userName={userName} isAdmin={isAdmin} />
+            <>
+              <NotificationBell initialNotifications={unreadNotifications} />
+              <div className="hidden md:block">
+                <NavUserMenu userName={userName} isAdmin={isAdmin} />
+              </div>
+            </>
           ) : (
-            <Link
-              href="/login"
-              className="px-4 py-1.5 rounded-md font-semibold transition-opacity hover:opacity-90"
-              style={{ backgroundColor: 'var(--brand-primary)' }}
-            >
-              Sign In
-            </Link>
+            <div className="hidden md:block">
+              <Link
+                href="/login"
+                className="px-4 py-1.5 rounded-md font-semibold transition-opacity hover:opacity-90"
+                style={{ backgroundColor: 'var(--brand-primary)' }}
+              >
+                Sign In
+              </Link>
+            </div>
           )}
-        </div>
 
-        <MobileNav userName={userName} isAdmin={isAdmin} />
+          <MobileNav userName={userName} isAdmin={isAdmin} />
+        </div>
       </div>
     </nav>
   )

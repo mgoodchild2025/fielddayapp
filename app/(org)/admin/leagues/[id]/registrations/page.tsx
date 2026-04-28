@@ -1,7 +1,8 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { activateRegistration } from '@/actions/registrations'
+import { RemoveRegistrationButton } from '@/components/registrations/remove-registration-button'
 
 const regStatusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -21,9 +22,9 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   const { id } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
-  const { data: registrations } = await supabase
+  const { data: registrations } = await db
     .from('registrations')
     .select(`
       id, status, created_at, user_id, waiver_signature_id,
@@ -118,17 +119,24 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                     })}
                   </td>
                   <td className="px-4 py-3">
-                    {reg.status === 'pending' && (
-                      <form action={approveAction}>
-                        <button
-                          type="submit"
-                          className="text-xs font-medium hover:underline"
-                          style={{ color: 'var(--brand-primary)' }}
-                        >
-                          Approve
-                        </button>
-                      </form>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {reg.status === 'pending' && (
+                        <form action={approveAction}>
+                          <button
+                            type="submit"
+                            className="text-xs font-medium hover:underline"
+                            style={{ color: 'var(--brand-primary)' }}
+                          >
+                            Approve
+                          </button>
+                        </form>
+                      )}
+                      <RemoveRegistrationButton
+                        registrationId={reg.id}
+                        leagueId={id}
+                        playerName={profile?.full_name ?? 'this player'}
+                      />
+                    </div>
                   </td>
                 </tr>
               )

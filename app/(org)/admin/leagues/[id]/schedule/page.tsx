@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { AddGameForm } from '@/components/schedule/add-game-form'
 import { ScheduleImport } from '@/components/schedule/schedule-import'
 import { RoundRobinGenerator } from '@/components/schedule/round-robin-generator'
+import { AdminScoreEntry } from '@/components/scores/admin-score-entry'
 import { formatGameTime } from '@/lib/format-time'
 
 export default async function AdminSchedulePage({ params }: { params: Promise<{ id: string }> }) {
@@ -53,7 +54,6 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
                 <th className="px-4 py-3 font-medium text-gray-500">Matchup</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Court</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Score</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -78,27 +78,24 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
                       </td>
                       <td className="px-4 py-3 text-gray-500">{game.court ?? '—'}</td>
                       <td className="px-4 py-3">
-                        {result ? (
-                          <span className="font-semibold">
-                            {result.home_score} – {result.away_score}
-                          </span>
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                          game.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                        }`}>
-                          {game.status}
-                        </span>
+                        <AdminScoreEntry
+                          gameId={game.id}
+                          leagueId={id}
+                          homeTeamName={home?.name ?? 'Home'}
+                          awayTeamName={away?.name ?? 'Away'}
+                          existingResult={result ? {
+                            homeScore: result.home_score,
+                            awayScore: result.away_score,
+                            status: result.status,
+                          } : null}
+                        />
                       </td>
                     </tr>
                   )
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+                  <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
                     No games scheduled yet. Add a game or import from CSV.
                   </td>
                 </tr>

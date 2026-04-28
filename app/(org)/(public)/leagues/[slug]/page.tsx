@@ -1,12 +1,12 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
-import { requireOrgMember } from '@/lib/auth'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { RequestJoinButton } from '@/components/teams/request-join-button'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { LeagueRulesModal } from '@/components/leagues/league-rules-modal'
 
 export default async function LeagueDetailPage({
   params,
@@ -16,7 +16,6 @@ export default async function LeagueDetailPage({
   const { slug } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  await requireOrgMember(org)
 
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -63,6 +62,17 @@ export default async function LeagueDetailPage({
 
   const myTeamIds = new Set(myMemberships?.map((m) => m.team_id) ?? [])
   const myRequestTeamIds = new Set(myRequests?.map((r) => r.team_id) ?? [])
+
+  // Check if the current user is already registered for this league
+  const { data: myRegistration } = user
+    ? await supabase
+        .from('registrations')
+        .select('id, status')
+        .eq('league_id', league.id)
+        .eq('organization_id', org.id)
+        .eq('user_id', user.id)
+        .single()
+    : { data: null }
 
   const isOpen = league.status === 'registration_open'
   const price = league.price_cents === 0
@@ -177,6 +187,17 @@ export default async function LeagueDetailPage({
           </div>
         )}
 
+        {/* League Rules */}
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        {(league as any).rules_content && (
+          <div className="mt-6 bg-white rounded-lg border p-5">
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">League Rules</p>
+            <p className="text-sm text-gray-500">Rules and regulations for this league.</p>
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            <LeagueRulesModal content={(league as any).rules_content} />
+          </div>
+        )}
+
         {/* Teams list with join requests */}
         {canJoinTeam && teams && teams.length > 0 && (
           <div className="mt-8">
@@ -205,8 +226,10 @@ export default async function LeagueDetailPage({
                         <span className="text-xs text-green-600 font-medium">You&apos;re on this team</span>
                       ) : hasRequest ? (
                         <span className="text-xs text-amber-600 font-medium">Request pending…</span>
-                      ) : league.team_join_policy !== 'admin_only' ? (
+                      ) : (league.team_join_policy !== 'admin_only' && myRegistration) ? (
                         <RequestJoinButton teamId={team.id} teamName={team.name} />
+                      ) : !myRegistration ? (
+                        <span className="text-xs text-gray-400">Register to join</span>
                       ) : null}
                     </div>
                   </div>
@@ -216,7 +239,14 @@ export default async function LeagueDetailPage({
           </div>
         )}
 
-        {isOpen && (
+        {myRegistration ? (
+          <div className="mt-8 w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide bg-green-50 border border-green-200 text-green-700" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+            ✓ You&apos;re registered
+            {myRegistration.status === 'pending' && (
+              <span className="block text-sm font-normal normal-case text-green-600 mt-1">Your registration is pending approval</span>
+            )}
+          </div>
+        ) : isOpen && (
           <Link
             href={`/register/${league.slug}`}
             className="mt-8 inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90"

@@ -18,8 +18,9 @@ const createOrgSchema = z.object({
   plan_tier: z.enum(['starter', 'pro', 'club', 'internal']).default('starter'),
 })
 
-export async function createOrganization(input: z.infer<typeof createOrgSchema>) {
-  const parsed = createOrgSchema.safeParse(input)
+export async function createOrganization(input: z.infer<typeof createOrgSchema> & { adminEmail?: string }) {
+  const { adminEmail, ...rest } = input
+  const parsed = createOrgSchema.safeParse(rest)
   if (!parsed.success) return { data: null, error: parsed.error.issues[0]?.message ?? 'Invalid input' }
 
   const supabase = createServiceRoleClient()
@@ -57,6 +58,10 @@ export async function createOrganization(input: z.infer<typeof createOrgSchema>)
       trial_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     }),
   ])
+
+  if (adminEmail) {
+    await setOrgAdmin(org.id, adminEmail)
+  }
 
   revalidatePath('/super')
   return { data: { id: org.id }, error: null }
@@ -132,6 +137,38 @@ export async function updateSubscription(input: z.infer<typeof updateSubscriptio
   if (error) return { error: error.message }
   revalidatePath(`/super/orgs/${parsed.data.orgId}`)
   return { error: null }
+}
+
+// ─── Set Org Admin ────────────────────────────────────────────────────────────
+
+export async function setOrgAdmin(orgId: string, email: string) {
+  if (!email) return { error: 'Email is required' }
+
+  const supabase = createServiceRoleClient()
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .eq('email', email.toLowerCase().trim())
+    .single()
+
+  if (!profile) return { error: `No user found with email "${email}"` }
+
+  const { error } = await supabase
+    .from('org_members')
+    .upsert(
+      {
+        organization_id: orgId,
+        user_id: profile.id,
+        role: 'org_admin',
+        status: 'active',
+      },
+      { onConflict: 'organization_id,user_id' }
+    )
+
+  if (error) return { error: error.message }
+  revalidatePath(`/super/orgs/${orgId}`)
+  return { error: null, name: profile.full_name }
 }
 
 // ─── Suspend / Activate Organisation ─────────────────────────────────────────

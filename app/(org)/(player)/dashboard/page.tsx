@@ -21,9 +21,7 @@ export default async function PlayerDashboardPage() {
     { data: branding },
     { data: registrations },
     { data: upcomingGames },
-    { data: notifications },
     { data: myTeams },
-    { data: pendingJoinRequests },
   ] = await Promise.all([
     supabase.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
     supabase.from('registrations').select(`
@@ -41,7 +39,6 @@ export default async function PlayerDashboardPage() {
       .gte('scheduled_at', new Date().toISOString())
       .order('scheduled_at', { ascending: true })
       .limit(5),
-    supabase.from('notifications').select('id, title, body, read, created_at').eq('organization_id', org.id).eq('user_id', user.id).eq('read', false).order('created_at', { ascending: false }).limit(5),
     // My team memberships
     supabase.from('team_members').select(`
       id, role,
@@ -54,11 +51,6 @@ export default async function PlayerDashboardPage() {
         )
       )
     `).eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active'),
-    // My pending join requests
-    supabase.from('team_join_requests').select(`
-      id, status, created_at,
-      team:teams!team_join_requests_team_id_fkey(name)
-    `).eq('user_id', user.id).eq('organization_id', org.id).eq('status', 'pending'),
   ])
 
   const timezone = branding?.timezone ?? 'America/Toronto'
@@ -114,39 +106,6 @@ export default async function PlayerDashboardPage() {
               ⚠️ Action required on {pendingActions.length === 1 ? '1 registration' : `${pendingActions.length} registrations`}
             </p>
             <p className="text-xs text-amber-700">Complete the steps below to finish your registration.</p>
-          </div>
-        )}
-
-        {/* Notifications */}
-        {notifications && notifications.length > 0 && (
-          <div className="mb-6 space-y-2">
-            {notifications.map((n) => (
-              <div key={n.id} className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 flex items-start gap-3">
-                <span className="text-blue-500 mt-0.5 shrink-0">🔔</span>
-                <div>
-                  <p className="text-sm font-semibold text-blue-900">{n.title}</p>
-                  {n.body && <p className="text-xs text-blue-700 mt-0.5">{n.body}</p>}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Pending join requests */}
-        {pendingJoinRequests && pendingJoinRequests.length > 0 && (
-          <div className="mb-6 space-y-2">
-            {pendingJoinRequests.map((req) => {
-              const team = Array.isArray(req.team) ? req.team[0] : req.team
-              return (
-                <div key={req.id} className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5">
-                  <p className="text-sm text-amber-800">
-                    <span className="font-semibold">Join request pending</span> for{' '}
-                    <span className="font-semibold">{(team as { name?: string } | null)?.name ?? '—'}</span>
-                    {' '}— waiting for captain approval.
-                  </p>
-                </div>
-              )
-            })}
           </div>
         )}
 
@@ -287,7 +246,13 @@ export default async function PlayerDashboardPage() {
                       {team.color && (
                         <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
                       )}
-                      <h3 className="font-semibold">{team.name}</h3>
+                      <Link
+                        href={`/teams/${team.id}`}
+                        className="font-semibold hover:underline"
+                        style={{ color: 'var(--brand-primary)' }}
+                      >
+                        {team.name}
+                      </Link>
                       {isCaptain && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Captain</span>
                       )}
