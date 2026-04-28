@@ -7,6 +7,7 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { TeamMessageForm } from '@/components/teams/team-message-form'
 import { CaptainRosterManager } from '@/components/teams/captain-roster-manager'
+import { AdminEditTeamForm } from '@/components/teams/admin-edit-team-form'
 import Link from 'next/link'
 
 export default async function TeamDetailPage({ params }: { params: Promise<{ teamId: string }> }) {
@@ -20,12 +21,12 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
 
   const db = createServiceRoleClient()
 
-  const [{ data: branding }, { data: team }, { data: myMembership }] = await Promise.all([
+  const [{ data: branding }, { data: team }, { data: myMembership }, { data: orgMember }] = await Promise.all([
     supabase.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
     db
       .from('teams')
       .select(`
-        id, name, color, logo_url, team_code, status,
+        id, name, color, logo_url, team_code, league_id,
         league:leagues!teams_league_id_fkey(id, name, slug),
         team_members(
           id, role, status, user_id,
@@ -35,19 +36,30 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
       .eq('id', teamId)
       .eq('organization_id', org.id)
       .single(),
-    // Verify the current user is a member of this team
     db
       .from('team_members')
       .select('id, role')
       .eq('team_id', teamId)
       .eq('user_id', user.id)
       .eq('status', 'active')
+      .maybeSingle(),
+    db
+      .from('org_members')
+      .select('role')
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
       .single(),
   ])
 
-  if (!team || !myMembership) notFound()
+  if (!team) notFound()
+
+  const isOrgAdmin = ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
+  // Must be a team member OR an org admin
+  if (!myMembership && !isOrgAdmin) notFound()
 
   const league = Array.isArray(team.league) ? team.league[0] : team.league
+  const leagueId = (league as { id?: string } | null)?.id ?? ''
+
   const allMembers = (team.team_members ?? []) as Array<{
     id: string
     role: string
@@ -56,8 +68,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
     profile: { full_name: string; email: string; phone: string | null } | { full_name: string; email: string; phone: string | null }[] | null
   }>
   const activeMembers = allMembers.filter((m) => m.status === 'active')
-  const isCaptain = myMembership.role === 'captain'
-  const isManager = ['captain', 'coach'].includes(myMembership.role)
+  const isManager = isOrgAdmin || ['captain', 'coach'].includes(myMembership?.role ?? '')
   const captain = activeMembers.find((m) => m.role === 'captain')
   const captainProfile = captain ? (Array.isArray(captain.profile) ? captain.profile[0] : captain.profile) : null
 
@@ -66,7 +77,6 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
 
-        {/* Back */}
         <Link href="/dashboard" className="text-sm text-gray-500 hover:underline">← Dashboard</Link>
 
         {/* Team header */}
@@ -77,7 +87,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
           ) : team.color ? (
             <div className="w-16 h-16 rounded-xl shrink-0 shadow-sm" style={{ backgroundColor: team.color }} />
           ) : null}
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)' }}>{team.name}</h1>
             {league && (
               <Link
@@ -88,10 +98,19 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
               </Link>
             )}
           </div>
+          {/* Edit team details — managers and org admins only */}
+          {isManager && (
+            <div className="shrink-0">
+              <AdminEditTeamForm
+                team={{ id: team.id, name: team.name, color: team.color, logo_url: team.logo_url ?? null }}
+                leagueId={leagueId}
+              />
+            </div>
+          )}
         </div>
 
-        {/* Team code */}
-        {team.team_code && (
+        {/* Team code — managers and org admins only */}
+        {isManager && team.team_code && (
           <div className="mt-6 bg-white rounded-lg border p-4 flex items-center justify-between gap-4">
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Team Code</p>
@@ -101,7 +120,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
           </div>
         )}
 
-        {/* Roster — editable for captains/coaches, read-only for players */}
+        {/* Roster — editable for managers, read-only for players */}
         {isManager ? (
           <CaptainRosterManager
             teamId={team.id}
@@ -165,7 +184,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
           </div>
         )}
 
-        {/* Captain/coach contact — shown to regular players */}
+        {/* Captain contact — shown to regular players */}
         {!isManager && captainProfile && (
           <div className="mt-4 bg-white rounded-lg border p-4">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Team Captain</p>
@@ -183,7 +202,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
           </div>
         )}
 
-        {/* Message team — captains and coaches */}
+        {/* Message team — managers only */}
         {isManager && activeMembers.length > 1 && (
           <div className="mt-4 bg-white rounded-lg border p-5">
             <h2 className="font-semibold mb-3">Message Team</h2>

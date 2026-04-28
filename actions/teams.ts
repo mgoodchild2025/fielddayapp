@@ -660,6 +660,7 @@ export async function updateTeam(
   if (error) return { error: error.message }
 
   revalidatePath(`/admin/leagues/${leagueId}/teams`)
+  revalidatePath(`/teams/${teamId}`)
   return { error: null }
 }
 
