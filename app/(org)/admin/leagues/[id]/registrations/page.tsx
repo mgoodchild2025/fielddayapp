@@ -1,6 +1,6 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { activateRegistration } from '@/actions/registrations'
 import { RemoveRegistrationButton } from '@/components/registrations/remove-registration-button'
 
@@ -22,9 +22,9 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   const { id } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
-  const { data: registrations } = await supabase
+  const { data: registrations } = await db
     .from('registrations')
     .select(`
       id, status, created_at, user_id, waiver_signature_id,
