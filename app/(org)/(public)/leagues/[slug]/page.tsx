@@ -7,6 +7,7 @@ import { Footer } from '@/components/layout/footer'
 import { RequestJoinButton } from '@/components/teams/request-join-button'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { LeagueRulesModal } from '@/components/leagues/league-rules-modal'
 
 export default async function LeagueDetailPage({
   params,
@@ -181,9 +182,10 @@ export default async function LeagueDetailPage({
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         {(league as any).rules_content && (
           <div className="mt-6 bg-white rounded-lg border p-5">
-            <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">League Rules</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">League Rules</p>
+            <p className="text-sm text-gray-500">Rules and regulations for this league.</p>
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{(league as any).rules_content}</pre>
+            <LeagueRulesModal content={(league as any).rules_content} />
           </div>
         )}
 
