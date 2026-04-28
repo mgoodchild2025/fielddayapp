@@ -687,3 +687,101 @@ export async function uploadTeamLogo(teamId: string, formData: FormData) {
   const { data: { publicUrl } } = db.storage.from('team-logos').getPublicUrl(path)
   return { url: publicUrl, error: null }
 }
+
+// ─── Captain / coach: manage roster ──────────────────────────────────────────
+
+type TeamRole = 'captain' | 'coach' | 'player' | 'sub'
+
+async function requireCaptainOrCoach(teamId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' as const, user: null as never, org: null as never, db: null as never }
+
+  const db = createServiceRoleClient()
+
+  // Allow team captain/coach OR org/league admin
+  const [{ data: teamMember }, { data: orgMember }] = await Promise.all([
+    db.from('team_members').select('role').eq('team_id', teamId).eq('user_id', user.id)
+      .eq('organization_id', org.id).eq('status', 'active').single(),
+    db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single(),
+  ])
+
+  const isTeamManager = teamMember && ['captain', 'coach'].includes(teamMember.role)
+  const isOrgAdmin = orgMember && ['org_admin', 'league_admin'].includes(orgMember.role)
+  if (!isTeamManager && !isOrgAdmin) {
+    return { error: 'Not authorized' as const, user: null as never, org: null as never, db: null as never }
+  }
+  return { error: null as null, user, org, db }
+}
+
+export async function captainSetMemberRole(memberId: string, teamId: string, role: TeamRole) {
+  const { error, org, db } = await requireCaptainOrCoach(teamId)
+  if (error) return { error }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: e } = await (db as any)
+    .from('team_members')
+    .update({ role })
+    .eq('id', memberId)
+    .eq('team_id', teamId)
+    .eq('organization_id', org.id)
+
+  if (e) return { error: e.message }
+
+  revalidatePath(`/teams/${teamId}`)
+  return { error: null }
+}
+
+export async function captainRemoveTeamMember(memberId: string, teamId: string) {
+  const { error, org, db } = await requireCaptainOrCoach(teamId)
+  if (error) return { error }
+
+  const { error: e } = await db
+    .from('team_members')
+    .delete()
+    .eq('id', memberId)
+    .eq('team_id', teamId)
+    .eq('organization_id', org.id)
+
+  if (e) return { error: e.message }
+
+  revalidatePath(`/teams/${teamId}`)
+  return { error: null }
+}
+
+const captainAddSchema = z.object({
+  teamId: z.string().uuid(),
+  email: z.string().email(),
+  role: z.enum(['captain', 'coach', 'player', 'sub']).default('player'),
+})
+
+export async function captainAddPlayerByEmail(input: z.infer<typeof captainAddSchema>) {
+  const parsed = captainAddSchema.safeParse(input)
+  if (!parsed.success) return { error: 'Invalid input', invited: false }
+
+  const { error, org, db } = await requireCaptainOrCoach(parsed.data.teamId)
+  if (error) return { error, invited: false }
+
+  const { data: profile } = await db
+    .from('profiles')
+    .select('id')
+    .eq('email', parsed.data.email)
+    .single()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: e } = await (db as any).from('team_members').insert({
+    organization_id: org.id,
+    team_id: parsed.data.teamId,
+    user_id: profile?.id ?? null,
+    invited_email: parsed.data.email,
+    role: parsed.data.role,
+    status: profile ? 'active' : 'invited',
+  })
+
+  if (e) return { error: e.message, invited: false }
+
+  revalidatePath(`/teams/${parsed.data.teamId}`)
+  return { error: null, invited: !profile }
+}

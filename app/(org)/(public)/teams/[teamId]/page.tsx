@@ -6,6 +6,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { TeamMessageForm } from '@/components/teams/team-message-form'
+import { CaptainRosterManager } from '@/components/teams/captain-roster-manager'
 import Link from 'next/link'
 
 export default async function TeamDetailPage({ params }: { params: Promise<{ teamId: string }> }) {
@@ -56,6 +57,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
   }>
   const activeMembers = allMembers.filter((m) => m.status === 'active')
   const isCaptain = myMembership.role === 'captain'
+  const isManager = ['captain', 'coach'].includes(myMembership.role)
   const captain = activeMembers.find((m) => m.role === 'captain')
   const captainProfile = captain ? (Array.isArray(captain.profile) ? captain.profile[0] : captain.profile) : null
 
@@ -99,54 +101,72 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
           </div>
         )}
 
-        {/* Roster */}
-        <div className="mt-6 bg-white rounded-lg border overflow-hidden">
-          <div className="px-5 py-4 border-b">
-            <h2 className="font-semibold">
-              Roster <span className="text-gray-400 font-normal text-sm ml-1">{activeMembers.length} player{activeMembers.length !== 1 ? 's' : ''}</span>
-            </h2>
-          </div>
-          <ul className="divide-y">
-            {activeMembers.map((m) => {
+        {/* Roster — editable for captains/coaches, read-only for players */}
+        {isManager ? (
+          <CaptainRosterManager
+            teamId={team.id}
+            initialMembers={activeMembers.map((m) => {
               const profile = Array.isArray(m.profile) ? m.profile[0] : m.profile
-              const isMe = m.user_id === user.id
-              return (
-                <li key={m.id} className="px-5 py-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0 text-sm font-semibold text-gray-500">
-                      {(profile?.full_name ?? '?')[0].toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {profile?.full_name ?? '—'}
-                        {isMe && <span className="ml-1.5 text-xs text-gray-400">(you)</span>}
-                      </p>
-                      {/* Show email to captains, or show own email */}
-                      {(isCaptain || isMe) && profile?.email && (
-                        <a href={`mailto:${profile.email}`} className="text-xs text-gray-400 hover:text-blue-600 truncate block">
-                          {profile.email}
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                  {m.role !== 'player' && (
-                    <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
-                      m.role === 'captain' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {m.role}
-                    </span>
-                  )}
-                </li>
-              )
+              return {
+                id: m.id,
+                role: m.role,
+                userId: m.user_id,
+                isMe: m.user_id === user.id,
+                name: profile?.full_name ?? '',
+                email: profile?.email ?? '',
+              }
             })}
-            {activeMembers.length === 0 && (
-              <li className="px-5 py-8 text-center text-sm text-gray-400">No active members yet.</li>
-            )}
-          </ul>
-        </div>
+          />
+        ) : (
+          <div className="mt-6 bg-white rounded-lg border overflow-hidden">
+            <div className="px-5 py-4 border-b">
+              <h2 className="font-semibold">
+                Roster <span className="text-gray-400 font-normal text-sm ml-1">{activeMembers.length} player{activeMembers.length !== 1 ? 's' : ''}</span>
+              </h2>
+            </div>
+            <ul className="divide-y">
+              {activeMembers.map((m) => {
+                const profile = Array.isArray(m.profile) ? m.profile[0] : m.profile
+                const isMe = m.user_id === user.id
+                return (
+                  <li key={m.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0 text-sm font-semibold text-gray-500">
+                        {(profile?.full_name ?? '?')[0].toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {profile?.full_name ?? '—'}
+                          {isMe && <span className="ml-1.5 text-xs text-gray-400">(you)</span>}
+                        </p>
+                        {isMe && profile?.email && (
+                          <a href={`mailto:${profile.email}`} className="text-xs text-gray-400 hover:text-blue-600 truncate block">
+                            {profile.email}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                    {m.role !== 'player' && (
+                      <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
+                        m.role === 'captain' ? 'bg-blue-100 text-blue-700' :
+                        m.role === 'coach' ? 'bg-purple-100 text-purple-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {m.role}
+                      </span>
+                    )}
+                  </li>
+                )
+              })}
+              {activeMembers.length === 0 && (
+                <li className="px-5 py-8 text-center text-sm text-gray-400">No active members yet.</li>
+              )}
+            </ul>
+          </div>
+        )}
 
-        {/* Captain contact — shown to non-captains */}
-        {!isCaptain && captainProfile && (
+        {/* Captain/coach contact — shown to regular players */}
+        {!isManager && captainProfile && (
           <div className="mt-4 bg-white rounded-lg border p-4">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Team Captain</p>
             <p className="font-medium">{captainProfile.full_name}</p>
@@ -163,8 +183,8 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
           </div>
         )}
 
-        {/* Captain: message the whole team */}
-        {isCaptain && activeMembers.length > 1 && (
+        {/* Message team — captains and coaches */}
+        {isManager && activeMembers.length > 1 && (
           <div className="mt-4 bg-white rounded-lg border p-5">
             <h2 className="font-semibold mb-3">Message Team</h2>
             <TeamMessageForm teamId={team.id} memberCount={activeMembers.length} />
