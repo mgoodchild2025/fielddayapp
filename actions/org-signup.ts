@@ -52,23 +52,37 @@ export async function orgSignup(input: z.infer<typeof signupSchema>) {
     ? `${appUrl}/auth/callback?next=/admin/dashboard`
     : `https://${slug}.${platformDomain}/auth/callback?next=/admin/dashboard`
 
-  // Create user + generate confirmation link via admin API so we can send
-  // the verification email through Resend instead of Supabase's email system.
-  const { data: linkData, error: authError } = await service.auth.admin.generateLink({
-    type: 'signup',
-    email,
-    password,
-    options: {
-      data: { full_name: fullName },
-      redirectTo: orgCallbackUrl,
-    },
-  })
+  // Check if a Supabase auth user already exists for this email
+  const { data: existingUsers } = await service.auth.admin.listUsers({ perPage: 1000 })
+  const existingAuthUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
 
-  if (authError) return { error: authError.message, slug: null }
-  if (!linkData?.user) return { error: 'Failed to create account', slug: null }
+  let userId: string
+  let confirmationUrl: string | undefined
 
-  const userId = linkData.user.id
-  const confirmationUrl = linkData.properties?.action_link
+  if (existingAuthUser) {
+    // User already exists — update their password to what they entered on the signup form,
+    // then skip email verification (they're already confirmed).
+    userId = existingAuthUser.id
+    await service.auth.admin.updateUserById(userId, { password })
+    confirmationUrl = undefined
+  } else {
+    // New user — create via generateLink so we can send verification through Resend.
+    const { data: linkData, error: authError } = await service.auth.admin.generateLink({
+      type: 'signup',
+      email,
+      password,
+      options: {
+        data: { full_name: fullName },
+        redirectTo: orgCallbackUrl,
+      },
+    })
+
+    if (authError) return { error: authError.message, slug: null }
+    if (!linkData?.user) return { error: 'Failed to create account', slug: null }
+
+    userId = linkData.user.id
+    confirmationUrl = linkData.properties?.action_link
+  }
 
   // Create profile row
   await service.from('profiles').upsert({ id: userId, full_name: fullName, email })
@@ -100,17 +114,25 @@ export async function orgSignup(input: z.infer<typeof signupSchema>) {
     }),
   ])
 
-  // Send verification email via Resend
+  // Send email via Resend — verification for new users, welcome for existing ones
+  const resend = getResend()
   if (confirmationUrl) {
-    const resend = getResend()
     await resend.emails.send({
       from: FROM_EMAIL,
       to: email,
       subject: 'Confirm your Fieldday account',
       html: buildVerificationEmail({ fullName, orgName, confirmationUrl }),
-    }).catch(() => {
-      // non-fatal — user can request a resend
-    })
+    }).catch(() => {})
+  } else {
+    const orgDashboard = isDev
+      ? `${appUrl}/admin/dashboard`
+      : `https://${slug}.${platformDomain}/admin/dashboard`
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: email,
+      subject: `Your Fieldday organization is ready: ${orgName}`,
+      html: buildWelcomeEmail({ fullName, orgName, orgDashboard }),
+    }).catch(() => {})
   }
 
   // Notify all platform admins
@@ -136,6 +158,42 @@ export async function orgSignup(input: z.infer<typeof signupSchema>) {
   }
 
   return { error: null, slug }
+}
+
+function buildWelcomeEmail({
+  fullName, orgName, orgDashboard,
+}: {
+  fullName: string
+  orgName: string
+  orgDashboard: string
+}): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+    <div style="background:#111827;padding:24px 32px;">
+      <h1 style="color:#fff;margin:0;font-size:16px;font-weight:700;letter-spacing:1px;">⚡ Fieldday</h1>
+    </div>
+    <div style="padding:32px;">
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Your organization is ready</h2>
+      <p style="color:#6b7280;margin:0 0 8px;font-size:15px;line-height:1.6;">Hi ${fullName},</p>
+      <p style="color:#6b7280;margin:0 0 28px;font-size:15px;line-height:1.6;">
+        <strong>${orgName}</strong> has been created on Fieldday. Your 15-day free trial starts now — head to your dashboard to get set up.
+      </p>
+      <div style="text-align:center;margin:0 0 28px;">
+        <a href="${orgDashboard}"
+           style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:700;font-size:16px;">
+          Go to Dashboard →
+        </a>
+      </div>
+      <p style="color:#9ca3af;font-size:13px;text-align:center;margin:0;">
+        You can sign in using your existing Fieldday password.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`
 }
 
 function buildVerificationEmail({
