@@ -1,7 +1,6 @@
 'use server'
 
 import { z } from 'zod'
-import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getResend, FROM_EMAIL } from '@/lib/resend'
 
@@ -53,21 +52,23 @@ export async function orgSignup(input: z.infer<typeof signupSchema>) {
     ? `${appUrl}/auth/callback?next=/admin/dashboard`
     : `https://${slug}.${platformDomain}/auth/callback?next=/admin/dashboard`
 
-  // Create Supabase auth user (sends verification email automatically)
-  const supabase = await createServerClient()
-  const { data: authData, error: authError } = await supabase.auth.signUp({
+  // Create user + generate confirmation link via admin API so we can send
+  // the verification email through Resend instead of Supabase's email system.
+  const { data: linkData, error: authError } = await service.auth.admin.generateLink({
+    type: 'signup',
     email,
     password,
     options: {
       data: { full_name: fullName },
-      emailRedirectTo: orgCallbackUrl,
+      redirectTo: orgCallbackUrl,
     },
   })
 
   if (authError) return { error: authError.message, slug: null }
-  if (!authData.user) return { error: 'Failed to create account', slug: null }
+  if (!linkData?.user) return { error: 'Failed to create account', slug: null }
 
-  const userId = authData.user.id
+  const userId = linkData.user.id
+  const confirmationUrl = linkData.properties?.action_link
 
   // Create profile row
   await service.from('profiles').upsert({ id: userId, full_name: fullName, email })
@@ -99,6 +100,19 @@ export async function orgSignup(input: z.infer<typeof signupSchema>) {
     }),
   ])
 
+  // Send verification email via Resend
+  if (confirmationUrl) {
+    const resend = getResend()
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: email,
+      subject: 'Confirm your Fieldday account',
+      html: buildVerificationEmail({ fullName, orgName, confirmationUrl }),
+    }).catch(() => {
+      // non-fatal — user can request a resend
+    })
+  }
+
   // Notify all platform admins
   const { data: admins } = await service
     .from('profiles')
@@ -122,6 +136,42 @@ export async function orgSignup(input: z.infer<typeof signupSchema>) {
   }
 
   return { error: null, slug }
+}
+
+function buildVerificationEmail({
+  fullName, orgName, confirmationUrl,
+}: {
+  fullName: string
+  orgName: string
+  confirmationUrl: string
+}): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+    <div style="background:#111827;padding:24px 32px;">
+      <h1 style="color:#fff;margin:0;font-size:16px;font-weight:700;letter-spacing:1px;">⚡ Fieldday</h1>
+    </div>
+    <div style="padding:32px;">
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Confirm your email</h2>
+      <p style="color:#6b7280;margin:0 0 8px;font-size:15px;line-height:1.6;">Hi ${fullName},</p>
+      <p style="color:#6b7280;margin:0 0 28px;font-size:15px;line-height:1.6;">
+        Thanks for signing up <strong>${orgName}</strong> on Fieldday. Click the button below to verify your email address and activate your 15-day free trial.
+      </p>
+      <div style="text-align:center;margin:0 0 28px;">
+        <a href="${confirmationUrl}"
+           style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:700;font-size:16px;">
+          Confirm Email →
+        </a>
+      </div>
+      <p style="color:#9ca3af;font-size:13px;text-align:center;margin:0;">
+        This link expires in 24 hours. If you didn't sign up for Fieldday, you can safely ignore this email.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`
 }
 
 function buildNewOrgEmail({
