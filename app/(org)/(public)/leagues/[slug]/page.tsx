@@ -1,7 +1,7 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
-import { requireOrgMember } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { RequestJoinButton } from '@/components/teams/request-join-button'
@@ -16,7 +16,7 @@ export default async function LeagueDetailPage({
   const { slug } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  await requireOrgMember(org)
+  await requireAuth()
 
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -174,6 +174,16 @@ export default async function LeagueDetailPage({
               </a>
             )}
             {league.organizer_phone && <p className="text-sm text-gray-600 mt-1">{league.organizer_phone}</p>}
+          </div>
+        )}
+
+        {/* League Rules */}
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        {(league as any).rules_content && (
+          <div className="mt-6 bg-white rounded-lg border p-5">
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">League Rules</p>
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{(league as any).rules_content}</pre>
           </div>
         )}
 
