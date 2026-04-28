@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { getResend, FROM_EMAIL } from '@/lib/resend'
 
 const signupSchema = z.object({
   orgName: z.string().min(2, 'Organization name must be at least 2 characters').max(60),
@@ -98,7 +99,93 @@ export async function orgSignup(input: z.infer<typeof signupSchema>) {
     }),
   ])
 
+  // Notify all platform admins
+  const { data: admins } = await service
+    .from('profiles')
+    .select('email')
+    .eq('platform_role', 'platform_admin')
+
+  if (admins && admins.length > 0) {
+    const platformDomain2 = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+    const orgUrl = `https://app.${platformDomain2}/super`
+    const resend = getResend()
+    const adminEmails = admins.map((a) => a.email).filter(Boolean) as string[]
+
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: adminEmails,
+      subject: `New organization signed up: ${orgName}`,
+      html: buildNewOrgEmail({ orgName, slug, fullName, email, plan, orgUrl, platformDomain: platformDomain2 }),
+    }).catch(() => {
+      // non-fatal
+    })
+  }
+
   return { error: null, slug }
+}
+
+function buildNewOrgEmail({
+  orgName, slug, fullName, email, plan, orgUrl, platformDomain,
+}: {
+  orgName: string
+  slug: string
+  fullName: string
+  email: string
+  plan: string
+  orgUrl: string
+  platformDomain: string
+}): string {
+  const planLabels: Record<string, string> = { starter: 'Starter', pro: 'Pro', club: 'Club' }
+  const planLabel = planLabels[plan] ?? plan
+  const orgDashboard = `https://${slug}.${platformDomain}/admin/dashboard`
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+    <div style="background:#111827;padding:24px 32px;">
+      <h1 style="color:#fff;margin:0;font-size:16px;font-weight:700;letter-spacing:1px;">⚡ Fieldday Platform</h1>
+    </div>
+    <div style="padding:32px;">
+      <h2 style="margin:0 0 4px;color:#111827;font-size:22px;">New Organization Signed Up</h2>
+      <p style="color:#6b7280;margin:0 0 28px;font-size:14px;">A new organization has started a 15-day free trial.</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;">
+        <tr style="border-bottom:1px solid #f3f4f6;">
+          <td style="padding:10px 0;color:#6b7280;width:40%;">Organization</td>
+          <td style="padding:10px 0;color:#111827;font-weight:600;">${orgName}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6;">
+          <td style="padding:10px 0;color:#6b7280;">Subdomain</td>
+          <td style="padding:10px 0;color:#111827;">${slug}.${platformDomain}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6;">
+          <td style="padding:10px 0;color:#6b7280;">Owner</td>
+          <td style="padding:10px 0;color:#111827;">${fullName}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6;">
+          <td style="padding:10px 0;color:#6b7280;">Email</td>
+          <td style="padding:10px 0;color:#111827;">${email}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;color:#6b7280;">Plan</td>
+          <td style="padding:10px 0;color:#111827;">${planLabel} (trialing)</td>
+        </tr>
+      </table>
+      <div style="text-align:center;margin:32px 0 8px;">
+        <a href="${orgDashboard}"
+           style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:14px;margin-right:12px;">
+          View Org Dashboard
+        </a>
+        <a href="${orgUrl}"
+           style="display:inline-block;background:#f3f4f6;color:#374151;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:14px;">
+          Platform Admin
+        </a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`
 }
 
 export async function checkSlugAvailable(slug: string): Promise<{ available: boolean }> {
