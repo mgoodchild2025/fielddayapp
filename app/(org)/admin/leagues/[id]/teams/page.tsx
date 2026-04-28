@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { AdminCreateTeamForm } from '@/components/teams/admin-create-team-form'
 import { AdminAddMemberForm } from '@/components/teams/admin-add-member-form'
 import { TeamCodeBadge } from '@/components/teams/team-code-badge'
@@ -13,38 +14,68 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
-  const [{ data: teams }, { data: joinRequests }] = await Promise.all([
-    supabase
-      .from('teams')
-      .select(`
-        id, name, color, team_code, created_at,
-        team_members(
-          id, role, status, invited_email,
-          profiles!team_members_user_id_fkey(full_name)
-        )
-      `)
-      .eq('league_id', id)
-      .eq('organization_id', org.id)
-      .order('created_at', { ascending: true }),
-    supabase
-      .from('team_join_requests')
-      .select(`
-        id, message, created_at,
-        team:teams!team_join_requests_team_id_fkey(id, name),
-        requester:profiles!team_join_requests_user_id_fkey(full_name, email)
-      `)
-      .eq('organization_id', org.id)
-      .eq('status', 'pending')
-      .in('team_id',
-        // filter to teams in this league — will be empty array on first load before teams fetch
-        (await supabase.from('teams').select('id').eq('league_id', id).eq('organization_id', org.id))
-          .data?.map((t) => t.id) ?? []
-      )
-      .order('created_at', { ascending: false }),
-  ])
+  // Fetch team ids first so we can filter join requests and team members
+  const { data: teamIds } = await db
+    .from('teams')
+    .select('id')
+    .eq('league_id', id)
+    .eq('organization_id', org.id)
+
+  const leagueTeamIds = teamIds?.map((t) => t.id) ?? []
+
+  const [{ data: teams }, { data: joinRequests }, { data: registrations }, { data: assignedMembers }] =
+    await Promise.all([
+      supabase
+        .from('teams')
+        .select(`
+          id, name, color, team_code, created_at,
+          team_members(
+            id, role, status, user_id, invited_email,
+            profiles!team_members_user_id_fkey(full_name)
+          )
+        `)
+        .eq('league_id', id)
+        .eq('organization_id', org.id)
+        .order('created_at', { ascending: true }),
+      db
+        .from('team_join_requests')
+        .select(`
+          id, message, created_at,
+          team:teams!team_join_requests_team_id_fkey(id, name),
+          requester:profiles!team_join_requests_user_id_fkey(full_name, email)
+        `)
+        .eq('organization_id', org.id)
+        .eq('status', 'pending')
+        .in('team_id', leagueTeamIds)
+        .order('created_at', { ascending: false }),
+      // All players registered for this league
+      db
+        .from('registrations')
+        .select('user_id, profiles!registrations_user_id_fkey(full_name, email)')
+        .eq('league_id', id)
+        .eq('organization_id', org.id),
+      // All user_ids currently assigned to any team in this league
+      leagueTeamIds.length > 0
+        ? db.from('team_members').select('user_id').in('team_id', leagueTeamIds)
+        : Promise.resolve({ data: [] as { user_id: string | null }[], error: null }),
+    ])
 
   const pendingRequests = joinRequests ?? []
+
+  // Players registered for the league but not yet on any team
+  const assignedUserIds = new Set((assignedMembers ?? []).map((m) => m.user_id).filter(Boolean))
+  const unassignedPlayers = (registrations ?? [])
+    .filter((r) => r.user_id && !assignedUserIds.has(r.user_id))
+    .map((r) => {
+      const profile = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles
+      return {
+        userId: r.user_id!,
+        name: profile?.full_name ?? '—',
+        email: (profile as { email?: string } | null)?.email ?? '',
+      }
+    })
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -141,7 +172,11 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
                     Add Player
                   </summary>
                   <div className="mt-3 pt-3 border-t">
-                    <AdminAddMemberForm teamId={team.id} leagueId={id} />
+                    <AdminAddMemberForm
+                      teamId={team.id}
+                      leagueId={id}
+                      registeredPlayers={unassignedPlayers}
+                    />
                   </div>
                 </details>
               </div>

@@ -81,6 +81,26 @@ export async function linkWaiverToRegistration(registrationId: string, signature
   return { error: null }
 }
 
+export async function removeRegistration(registrationId: string, leagueId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error } = await supabase
+    .from('registrations')
+    .delete()
+    .eq('id', registrationId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/leagues/${leagueId}/registrations`)
+  return { error: null }
+}
+
 export async function activateRegistration(registrationId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
