@@ -1,17 +1,19 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
-import { requireOrgMember } from '@/lib/auth'
+import { redirect } from 'next/navigation'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { formatGameTime } from '@/lib/format-time'
+import { CaptainScoreEntry } from '@/components/scores/captain-score-entry'
 
 export default async function SchedulePage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  await requireOrgMember(org)
-
   const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
   const { data: branding } = await supabase
     .from('org_branding')
     .select('logo_url, timezone')
@@ -20,26 +22,31 @@ export default async function SchedulePage() {
   const timezone = branding?.timezone ?? 'America/Toronto'
 
   // Load all games for the org — no date filter so past games show too
-  const [{ data: games }, { data: leagues }] = await Promise.all([
-    supabase
-      .from('games')
-      .select(`
-        id, scheduled_at, court, status, week_number, league_id,
-        home_team:teams!games_home_team_id_fkey(id, name),
-        away_team:teams!games_away_team_id_fkey(id, name),
-        league:leagues!games_league_id_fkey(id, name, slug),
-        game_results(home_score, away_score, status)
-      `)
-      .eq('organization_id', org.id)
-      .order('scheduled_at', { ascending: true })
-      .limit(200),
-    supabase
-      .from('leagues')
-      .select('id, name')
-      .eq('organization_id', org.id)
-      .in('status', ['registration_open', 'active', 'completed'])
-      .order('name'),
-  ])
+  const { data: games } = await supabase
+    .from('games')
+    .select(`
+      id, scheduled_at, court, status, week_number, league_id,
+      home_team_id, away_team_id,
+      home_team:teams!games_home_team_id_fkey(id, name),
+      away_team:teams!games_away_team_id_fkey(id, name),
+      league:leagues!games_league_id_fkey(id, name, slug),
+      game_results(home_score, away_score, status, submitted_by)
+    `)
+    .eq('organization_id', org.id)
+    .order('scheduled_at', { ascending: true })
+    .limit(200)
+
+  // Fetch current user's captain team IDs (if logged in)
+  const captainTeamIds = new Set<string>()
+  if (user) {
+    const { data: captainships } = await supabase
+      .from('team_members')
+      .select('team_id')
+      .eq('user_id', user.id)
+      .eq('role', 'captain')
+      .eq('status', 'active')
+    for (const c of captainships ?? []) captainTeamIds.add(c.team_id)
+  }
 
   const now = new Date()
   const allGames = games ?? []
@@ -82,7 +89,7 @@ export default async function SchedulePage() {
                 <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-4">Upcoming</h2>
                 <div className="space-y-6">
                   {upcomingGroups.map(([date, dayGames]) => (
-                    <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast={false} />
+                    <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast={false} captainTeamIds={captainTeamIds} userId={user?.id ?? null} />
                   ))}
                 </div>
               </section>
@@ -94,7 +101,7 @@ export default async function SchedulePage() {
                 <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-4">Results</h2>
                 <div className="space-y-6">
                   {[...pastGroups].reverse().map(([date, dayGames]) => (
-                    <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast />
+                    <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast captainTeamIds={captainTeamIds} userId={user?.id ?? null} />
                   ))}
                 </div>
               </section>
@@ -113,17 +120,21 @@ type AnyGame = {
   court: string | null
   status: string
   week_number: number | null
-  home_team: { name: string } | { name: string }[] | null
-  away_team: { name: string } | { name: string }[] | null
+  home_team_id: string | null
+  away_team_id: string | null
+  home_team: { id: string; name: string } | { id: string; name: string }[] | null
+  away_team: { id: string; name: string } | { id: string; name: string }[] | null
   league: { name: string } | { name: string }[] | null
-  game_results: { home_score: number | null; away_score: number | null } | { home_score: number | null; away_score: number | null }[] | null
+  game_results: { home_score: number | null; away_score: number | null; status: string; submitted_by: string | null } | { home_score: number | null; away_score: number | null; status: string; submitted_by: string | null }[] | null
 }
 
-function DateGroup({ date, games, timezone, isPast }: {
+function DateGroup({ date, games, timezone, isPast, captainTeamIds, userId }: {
   date: string
   games: AnyGame[]
   timezone: string
   isPast: boolean
+  captainTeamIds: Set<string>
+  userId: string | null
 }) {
   return (
     <div>
@@ -136,44 +147,79 @@ function DateGroup({ date, games, timezone, isPast }: {
           const result = Array.isArray(game.game_results) ? game.game_results[0] : game.game_results
           const { time: gameTime } = formatGameTime(game.scheduled_at, timezone)
 
+          const homeTeamId = homeTeam?.id ?? game.home_team_id ?? ''
+          const awayTeamId = awayTeam?.id ?? game.away_team_id ?? ''
+          const isCaptainOfHome = captainTeamIds.has(homeTeamId)
+          const isCaptainOfAway = captainTeamIds.has(awayTeamId)
+          const isCaptain = isCaptainOfHome || isCaptainOfAway
+
+          // Determine if the opposing captain submitted (so this captain can confirm)
+          const submittedByOpponent = result?.submitted_by != null && result.submitted_by !== userId
+
           return (
             <div
               key={game.id}
-              className={`bg-white rounded-lg border p-4 flex items-center gap-4 ${isPast ? 'opacity-75' : ''}`}
+              className={`bg-white rounded-lg border p-4 ${isPast ? 'opacity-75' : ''}`}
             >
-              {/* Time */}
-              <div className="w-16 shrink-0 text-xs text-gray-400 tabular-nums">{gameTime}</div>
+              <div className="flex items-center gap-4">
+                {/* Time */}
+                <div className="w-16 shrink-0 text-xs text-gray-400 tabular-nums">{gameTime}</div>
 
-              {/* Matchup */}
-              <div className="flex-1 min-w-0">
-                <p className={`font-semibold truncate ${isPast ? 'text-gray-500' : ''}`}>
-                  {homeTeam?.name ?? 'TBD'}
-                  <span className="mx-2 font-normal text-gray-400 text-sm">vs</span>
-                  {awayTeam?.name ?? 'TBD'}
-                </p>
-                <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
-                  {league && <span>{(league as { name: string }).name}</span>}
-                  {game.court && <><span>·</span><span>Court {game.court}</span></>}
-                  {game.week_number && <><span>·</span><span>Wk {game.week_number}</span></>}
+                {/* Matchup */}
+                <div className="flex-1 min-w-0">
+                  <p className={`font-semibold truncate ${isPast ? 'text-gray-500' : ''}`}>
+                    {homeTeam?.name ?? 'TBD'}
+                    <span className="mx-2 font-normal text-gray-400 text-sm">vs</span>
+                    {awayTeam?.name ?? 'TBD'}
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
+                    {league && <span>{(league as { name: string }).name}</span>}
+                    {game.court && <><span>·</span><span>Court {game.court}</span></>}
+                    {game.week_number && <><span>·</span><span>Wk {game.week_number}</span></>}
+                  </div>
+                </div>
+
+                {/* Score or status */}
+                <div className="shrink-0 text-right">
+                  {result && result.home_score !== null && result.away_score !== null ? (
+                    <div>
+                      <p className="font-bold tabular-nums text-sm">
+                        {result.home_score} – {result.away_score}
+                      </p>
+                      {result.status === 'confirmed' ? (
+                        <p className="text-[10px] text-green-600 mt-0.5">✓ confirmed</p>
+                      ) : (
+                        <p className="text-[10px] text-amber-600 mt-0.5">pending</p>
+                      )}
+                    </div>
+                  ) : (
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      game.status === 'completed'
+                        ? 'bg-gray-100 text-gray-500'
+                        : 'bg-blue-50 text-blue-600'
+                    }`}>
+                      {game.status === 'completed' ? 'Final' : game.status}
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {/* Score or status */}
-              <div className="shrink-0 text-right">
-                {result && result.home_score !== null && result.away_score !== null ? (
-                  <p className="font-bold tabular-nums text-sm">
-                    {result.home_score} – {result.away_score}
-                  </p>
-                ) : (
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                    game.status === 'completed'
-                      ? 'bg-gray-100 text-gray-500'
-                      : 'bg-blue-50 text-blue-600'
-                  }`}>
-                    {game.status === 'completed' ? 'Final' : game.status}
-                  </span>
-                )}
-              </div>
+              {/* Captain score entry — only for past games where user is a captain */}
+              {isPast && isCaptain && result?.status !== 'confirmed' && (
+                <CaptainScoreEntry
+                  gameId={game.id}
+                  homeTeamName={homeTeam?.name ?? 'Home'}
+                  awayTeamName={awayTeam?.name ?? 'Away'}
+                  isCaptainOfHome={isCaptainOfHome}
+                  isCaptainOfAway={isCaptainOfAway}
+                  existingResult={result ? {
+                    homeScore: result.home_score,
+                    awayScore: result.away_score,
+                    status: result.status,
+                    submittedByOpponent,
+                  } : null}
+                />
+              )}
             </div>
           )
         })}

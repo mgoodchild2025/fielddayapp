@@ -125,6 +125,7 @@ export async function deleteLeague(leagueId: string) {
   await supabase.from('teams').delete().eq('league_id', leagueId).eq('organization_id', org.id)
   await supabase.from('registrations').delete().eq('league_id', leagueId).eq('organization_id', org.id)
   await supabase.from('games').delete().eq('league_id', leagueId).eq('organization_id', org.id)
+  await supabase.from('payments').delete().eq('league_id', leagueId).eq('organization_id', org.id)
 
   const { error } = await supabase
     .from('leagues')

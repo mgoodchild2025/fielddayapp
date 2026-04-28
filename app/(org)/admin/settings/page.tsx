@@ -65,6 +65,18 @@ export default async function AdminSettingsPage() {
         </div>
 
         <div className="bg-white rounded-lg border p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold">Members</h2>
+              <p className="text-sm text-gray-500">Org-level admins, coaches, and staff.</p>
+            </div>
+            <Link href="/admin/users" className="text-sm font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
+              Manage →
+            </Link>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg border p-5">
           <h2 className="font-semibold mb-1">Subscription</h2>
           <div className="flex items-center gap-3 mt-2">
             <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-700 capitalize">
