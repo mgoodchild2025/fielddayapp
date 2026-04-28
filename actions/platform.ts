@@ -191,6 +191,33 @@ export async function exitImpersonation() {
   redirect('/super')
 }
 
+// ─── Delete Organisation ──────────────────────────────────────────────────────
+
+export async function deleteOrganization(orgId: string): Promise<{ error: string | null }> {
+  if (!orgId) return { error: 'Invalid org ID' }
+
+  const supabase = createServiceRoleClient()
+
+  // Safety check: only suspended orgs may be deleted
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('status, slug')
+    .eq('id', orgId)
+    .single()
+
+  if (!org) return { error: 'Organization not found' }
+  if (org.status !== 'suspended') return { error: 'Only suspended organizations can be deleted' }
+
+  // Clean up storage objects for this org (non-fatal if bucket doesn't exist yet)
+  await supabase.storage.from('org-branding').remove([`${orgId}/logo.png`, `${orgId}/logo.jpg`, `${orgId}/logo.webp`, `${orgId}/logo.svg`, `${orgId}/logo.gif`]).catch(() => {})
+
+  const { error } = await supabase.from('organizations').delete().eq('id', orgId)
+  if (error) return { error: error.message }
+
+  revalidatePath('/super')
+  return { error: null }
+}
+
 // ─── Suspend / Activate Organisation ─────────────────────────────────────────
 
 export async function setOrgStatus(orgId: string, status: 'active' | 'suspended' | 'trial') {

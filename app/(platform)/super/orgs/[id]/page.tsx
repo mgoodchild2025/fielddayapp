@@ -194,8 +194,11 @@ export default async function PlatformOrgDetailPage({
           {/* Danger zone */}
           <div className="bg-white rounded-lg border border-red-100 p-5">
             <h2 className="font-semibold text-red-700 mb-3">Danger Zone</h2>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <SuspendButton orgId={org.id} currentStatus={org.status} />
+              {org.status === 'suspended' && (
+                <DeleteButton orgId={org.id} orgName={org.name} />
+              )}
             </div>
           </div>
         </div>
@@ -204,9 +207,13 @@ export default async function PlatformOrgDetailPage({
   )
 }
 
-// Inline server-renderable suspend button (needs client for interaction)
 import { SuspendOrgButton } from './suspend-org-button'
+import { DeleteOrgButton } from './delete-org-button'
 
 function SuspendButton({ orgId, currentStatus }: { orgId: string; currentStatus: string }) {
   return <SuspendOrgButton orgId={orgId} currentStatus={currentStatus} />
+}
+
+function DeleteButton({ orgId, orgName }: { orgId: string; orgName: string }) {
+  return <DeleteOrgButton orgId={orgId} orgName={orgName} />
 }
