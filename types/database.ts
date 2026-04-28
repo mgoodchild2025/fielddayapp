@@ -11,6 +11,7 @@ export type Database = {
           phone: string | null
           avatar_url: string | null
           platform_role: 'platform_admin' | null
+          sms_opted_in: boolean
           created_at: string
           updated_at: string
         }
@@ -21,6 +22,7 @@ export type Database = {
           phone?: string | null
           avatar_url?: string | null
           platform_role?: 'platform_admin' | null
+          sms_opted_in?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -267,6 +269,26 @@ export type Database = {
         Relationships: [
           { foreignKeyName: 'leagues_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] },
           { foreignKeyName: 'leagues_waiver_version_id_fkey'; columns: ['waiver_version_id']; isOneToOne: false; referencedRelation: 'waivers'; referencedColumns: ['id'] }
+        ]
+      }
+      league_rule_templates: {
+        Row: {
+          id: string
+          organization_id: string
+          title: string
+          content: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          title: string
+          content: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['league_rule_templates']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'league_rule_templates_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] }
         ]
       }
       divisions: {
@@ -517,6 +539,8 @@ export type Database = {
           scheduled_at: string
           week_number: number | null
           status: 'scheduled' | 'completed' | 'cancelled' | 'postponed'
+          reminder_sent: string | null
+          sms_reminder_sent: string | null
           created_at: string
         }
         Insert: {
@@ -530,6 +554,8 @@ export type Database = {
           scheduled_at: string
           week_number?: number | null
           status?: 'scheduled' | 'completed' | 'cancelled' | 'postponed'
+          reminder_sent?: string | null
+          sms_reminder_sent?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['games']['Insert']>
@@ -584,6 +610,8 @@ export type Database = {
           audience_type: 'org' | 'league' | 'team'
           sent_by: string | null
           sent_at: string | null
+          scheduled_for: string | null
+          email_sent: boolean
           created_at: string
         }
         Insert: {
@@ -596,6 +624,8 @@ export type Database = {
           audience_type?: 'org' | 'league' | 'team'
           sent_by?: string | null
           sent_at?: string | null
+          scheduled_for?: string | null
+          email_sent?: boolean
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['announcements']['Insert']>
@@ -664,9 +694,207 @@ export type Database = {
           { foreignKeyName: 'notifications_user_id_fkey'; columns: ['user_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] }
         ]
       }
+      drop_in_sessions: {
+        Row: {
+          id: string
+          organization_id: string
+          name: string
+          sport: string | null
+          scheduled_at: string
+          location: string | null
+          capacity: number
+          price_cents: number
+          status: 'open' | 'full' | 'cancelled' | 'completed'
+          description: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          name: string
+          sport?: string | null
+          scheduled_at: string
+          location?: string | null
+          capacity?: number
+          price_cents?: number
+          status?: 'open' | 'full' | 'cancelled' | 'completed'
+          description?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['drop_in_sessions']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'drop_in_sessions_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] }
+        ]
+      }
+      drop_in_registrations: {
+        Row: {
+          id: string
+          session_id: string
+          user_id: string
+          organization_id: string
+          status: 'registered' | 'waitlisted' | 'cancelled' | 'attended'
+          qr_token: string
+          checked_in_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          user_id: string
+          organization_id: string
+          status?: 'registered' | 'waitlisted' | 'cancelled' | 'attended'
+          qr_token?: string
+          checked_in_at?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['drop_in_registrations']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'drop_in_registrations_session_id_fkey'; columns: ['session_id']; isOneToOne: false; referencedRelation: 'drop_in_sessions'; referencedColumns: ['id'] },
+          { foreignKeyName: 'drop_in_registrations_user_id_fkey'; columns: ['user_id']; isOneToOne: false; referencedRelation: 'profiles'; referencedColumns: ['id'] }
+        ]
+      }
+      discount_codes: {
+        Row: {
+          id: string
+          organization_id: string
+          code: string
+          type: 'percent' | 'fixed'
+          value: number
+          applies_to: 'all' | 'leagues' | 'dropins'
+          max_uses: number | null
+          use_count: number
+          expires_at: string | null
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          code: string
+          type: 'percent' | 'fixed'
+          value: number
+          applies_to?: 'all' | 'leagues' | 'dropins'
+          max_uses?: number | null
+          use_count?: number
+          expires_at?: string | null
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['discount_codes']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'discount_codes_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] }
+        ]
+      }
+      payment_plans: {
+        Row: {
+          id: string
+          organization_id: string
+          league_id: string
+          name: string
+          installments: number
+          interval_days: number
+          upfront_percent: number
+          enabled: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          league_id: string
+          name: string
+          installments: number
+          interval_days: number
+          upfront_percent?: number
+          enabled?: boolean
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['payment_plans']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'payment_plans_league_id_fkey'; columns: ['league_id']; isOneToOne: true; referencedRelation: 'leagues'; referencedColumns: ['id'] },
+          { foreignKeyName: 'payment_plans_organization_id_fkey'; columns: ['organization_id']; isOneToOne: false; referencedRelation: 'organizations'; referencedColumns: ['id'] }
+        ]
+      }
+      payment_plan_enrollments: {
+        Row: {
+          id: string
+          organization_id: string
+          registration_id: string
+          league_id: string
+          plan_id: string
+          total_cents: number
+          status: 'active' | 'completed' | 'cancelled'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          registration_id: string
+          league_id: string
+          plan_id: string
+          total_cents: number
+          status?: 'active' | 'completed' | 'cancelled'
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['payment_plan_enrollments']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'payment_plan_enrollments_plan_id_fkey'; columns: ['plan_id']; isOneToOne: false; referencedRelation: 'payment_plans'; referencedColumns: ['id'] },
+          { foreignKeyName: 'payment_plan_enrollments_registration_id_fkey'; columns: ['registration_id']; isOneToOne: false; referencedRelation: 'registrations'; referencedColumns: ['id'] }
+        ]
+      }
+      payment_plan_installments: {
+        Row: {
+          id: string
+          organization_id: string
+          enrollment_id: string
+          installment_number: number
+          amount_cents: number
+          due_date: string
+          status: 'pending' | 'paid' | 'overdue'
+          reminder_sent: boolean
+          paid_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          enrollment_id: string
+          installment_number: number
+          amount_cents: number
+          due_date: string
+          status?: 'pending' | 'paid' | 'overdue'
+          reminder_sent?: boolean
+          paid_at?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['payment_plan_installments']['Insert']>
+        Relationships: [
+          { foreignKeyName: 'payment_plan_installments_enrollment_id_fkey'; columns: ['enrollment_id']; isOneToOne: false; referencedRelation: 'payment_plan_enrollments'; referencedColumns: ['id'] }
+        ]
+      }
+      platform_settings: {
+        Row: {
+          key: string
+          value: string
+          updated_at: string
+        }
+        Insert: {
+          key: string
+          value: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['platform_settings']['Insert']>
+        Relationships: []
+      }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      increment_discount_use: {
+        Args: { discount_id: string }
+        Returns: undefined
+      }
+    }
     Enums: Record<string, never>
   }
 }
@@ -681,3 +909,6 @@ export type Game = Database['public']['Tables']['games']['Row']
 export type GameResult = Database['public']['Tables']['game_results']['Row']
 export type Waiver = Database['public']['Tables']['waivers']['Row']
 export type WaiverSignature = Database['public']['Tables']['waiver_signatures']['Row']
+export type DropInSession = Database['public']['Tables']['drop_in_sessions']['Row']
+export type DiscountCode = Database['public']['Tables']['discount_codes']['Row']
+export type PaymentPlan = Database['public']['Tables']['payment_plans']['Row']
