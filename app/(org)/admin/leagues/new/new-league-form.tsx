@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { createLeague } from '@/actions/leagues'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
 
 // ── Field component defined outside so it never gets remounted on re-render ──
 function Field({
@@ -70,14 +69,23 @@ interface Waiver {
   version: number
 }
 
-interface Props {
-  waivers: Waiver[]
+interface RuleTemplate {
+  id: string
+  title: string
+  content: string
 }
 
-export function NewLeagueForm({ waivers }: Props) {
+interface Props {
+  waivers: Waiver[]
+  ruleTemplates: RuleTemplate[]
+}
+
+export function NewLeagueForm({ waivers, ruleTemplates }: Props) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [rulesContent, setRulesContent] = useState('')
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
   // Track whether slug was manually edited so we stop auto-generating it
   const slugEditedRef = useRef(false)
 
@@ -119,7 +127,11 @@ export function NewLeagueForm({ waivers }: Props) {
   async function onSubmit(data: FormData) {
     setLoading(true)
     setError(null)
-    const result = await createLeague(data as Parameters<typeof createLeague>[0])
+    const result = await createLeague({
+      ...(data as Parameters<typeof createLeague>[0]),
+      rule_template_id: selectedTemplateId || undefined,
+      rules_content: rulesContent || undefined,
+    })
     if (result.error) {
       setError(
         result.error === 'UPGRADE_REQUIRED'
@@ -331,6 +343,53 @@ export function NewLeagueForm({ waivers }: Props) {
               </p>
             )}
           </Field>
+        </div>
+
+        {/* ── League Rules ── */}
+        <div className="border-t pt-4">
+          <p className="text-sm font-semibold text-gray-700 mb-3">League Rules</p>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Template</label>
+              <select
+                value={selectedTemplateId}
+                onChange={(e) => {
+                  setSelectedTemplateId(e.target.value)
+                  const tpl = ruleTemplates.find((t) => t.id === e.target.value)
+                  if (tpl) setRulesContent(tpl.content)
+                }}
+                className={SELECT}
+              >
+                <option value="">No template / custom</option>
+                {ruleTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </select>
+              {ruleTemplates.length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  No rule templates set up yet.{' '}
+                  <a href="/admin/settings/league-rules" className="underline">
+                    Create one in Settings → League Rules
+                  </a>.
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Rules Content</label>
+              <textarea
+                value={rulesContent}
+                onChange={(e) => setRulesContent(e.target.value)}
+                rows={10}
+                placeholder="League rules shown to players on the league page…"
+                className={`${INPUT} font-mono text-xs leading-relaxed resize-y`}
+              />
+              {rulesContent && selectedTemplateId && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Editing here only affects this league — the template is not modified.
+                </p>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="flex gap-3 pt-2">
