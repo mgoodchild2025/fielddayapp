@@ -639,3 +639,51 @@ export async function invitePlayerToTeam(input: z.infer<typeof invitePlayerSchem
   revalidatePath(`/teams/${parsed.data.teamId}`)
   return { data: null, error: null }
 }
+
+// ─── Admin: update team details ───────────────────────────────────────────────
+
+export async function updateTeam(
+  teamId: string,
+  leagueId: string,
+  updates: { name?: string; color?: string | null; logo_url?: string | null }
+) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const db = createServiceRoleClient()
+
+  const { error } = await db
+    .from('teams')
+    .update(updates)
+    .eq('id', teamId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/leagues/${leagueId}/teams`)
+  return { error: null }
+}
+
+// ─── Admin: upload team logo ──────────────────────────────────────────────────
+
+export async function uploadTeamLogo(teamId: string, formData: FormData) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const db = createServiceRoleClient()
+
+  const file = formData.get('file') as File | null
+  if (!file || file.size === 0) return { url: null, error: 'No file provided' }
+  if (file.size > 2 * 1024 * 1024) return { url: null, error: 'File must be under 2 MB' }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const path = `${org.id}/${teamId}/logo.${ext}`
+  const buffer = Buffer.from(await file.arrayBuffer())
+
+  const { error: uploadError } = await db.storage
+    .from('team-logos')
+    .upload(path, buffer, { contentType: file.type, upsert: true })
+
+  if (uploadError) return { url: null, error: uploadError.message }
+
+  const { data: { publicUrl } } = db.storage.from('team-logos').getPublicUrl(path)
+  return { url: publicUrl, error: null }
+}
