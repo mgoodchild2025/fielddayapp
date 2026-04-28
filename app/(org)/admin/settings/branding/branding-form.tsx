@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useTransition } from 'react'
+import Image from 'next/image'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { updateBranding } from '@/actions/branding'
+import { updateBranding, uploadOrgLogo } from '@/actions/branding'
 import type { Database } from '@/types/database'
 
 type OrgBranding = Database['public']['Tables']['org_branding']['Row']
@@ -47,6 +48,26 @@ type FormData = z.infer<typeof schema>
 export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null; orgId: string }) {
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [logoUrl, setLogoUrl] = useState<string | null>(branding?.logo_url ?? null)
+  const [logoError, setLogoError] = useState<string | null>(null)
+  const [logoUploading, startLogoUpload] = useTransition()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const fd = new FormData()
+    fd.append('logo', file)
+    setLogoError(null)
+    startLogoUpload(async () => {
+      const result = await uploadOrgLogo(fd)
+      if (result.error) {
+        setLogoError(result.error)
+      } else if (result.url) {
+        setLogoUrl(result.url)
+      }
+    })
+  }
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -95,6 +116,40 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
           Branding saved successfully.
         </div>
       )}
+
+      <div className="bg-white rounded-lg border p-5 space-y-4">
+        <h2 className="font-semibold">Logo</h2>
+        <div className="flex items-center gap-5">
+          <div className="h-20 w-40 rounded-lg border bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
+            {logoUploading ? (
+              <span className="text-xs text-gray-400">Uploading…</span>
+            ) : logoUrl ? (
+              <Image src={logoUrl} alt="Org logo" width={160} height={80} className="object-contain h-full w-full p-2" unoptimized />
+            ) : (
+              <span className="text-xs text-gray-400">No logo</span>
+            )}
+          </div>
+          <div className="space-y-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+              className="hidden"
+              onChange={handleLogoChange}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={logoUploading}
+              className="px-4 py-2 text-sm font-medium border rounded-md hover:bg-gray-50 disabled:opacity-60"
+            >
+              {logoUrl ? 'Replace logo' : 'Upload logo'}
+            </button>
+            <p className="text-xs text-gray-400">PNG, JPG, SVG or WebP · max 2 MB</p>
+            {logoError && <p className="text-xs text-red-500">{logoError}</p>}
+          </div>
+        </div>
+      </div>
 
       <div className="bg-white rounded-lg border p-5 space-y-4">
         <h2 className="font-semibold">Colours</h2>
