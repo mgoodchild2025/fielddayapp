@@ -65,10 +65,7 @@ export function CaptainRosterManager({ teamId, initialMembers }: Props) {
       if (result.error) {
         setAddError(result.error)
       } else {
-        setAddSuccess(result.invited
-          ? `Invite sent to ${addEmail} — they'll appear once they accept.`
-          : `${addEmail} added to the team.`
-        )
+        setAddSuccess(`Invite sent to ${addEmail} — they'll appear on the roster once they accept.`)
         setAddEmail('')
         setAddRole('player')
       }

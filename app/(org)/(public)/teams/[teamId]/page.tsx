@@ -8,6 +8,7 @@ import { Footer } from '@/components/layout/footer'
 import { TeamMessageForm } from '@/components/teams/team-message-form'
 import { CaptainRosterManager } from '@/components/teams/captain-roster-manager'
 import { AdminEditTeamForm } from '@/components/teams/admin-edit-team-form'
+import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
 import Link from 'next/link'
 
 export default async function TeamDetailPage({ params }: { params: Promise<{ teamId: string }> }) {
@@ -21,7 +22,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
 
   const db = createServiceRoleClient()
 
-  const [{ data: branding }, { data: team }, { data: myMembership }, { data: orgMember }] = await Promise.all([
+  const [{ data: branding }, { data: team }, { data: myMembership }, { data: orgMember }, { data: joinRequests }] = await Promise.all([
     supabase.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
     db
       .from('teams')
@@ -49,6 +50,15 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
       .eq('organization_id', org.id)
       .eq('user_id', user.id)
       .single(),
+    db
+      .from('team_join_requests')
+      .select(`
+        id, message, created_at,
+        profile:profiles!team_join_requests_user_id_fkey(full_name, email)
+      `)
+      .eq('team_id', teamId)
+      .eq('organization_id', org.id)
+      .eq('status', 'pending'),
   ])
 
   if (!team) notFound()
@@ -182,6 +192,23 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
               )}
             </ul>
           </div>
+        )}
+
+        {/* Pending join requests — managers only */}
+        {isManager && (
+          <PendingJoinRequests
+            teamId={team.id}
+            initialRequests={(joinRequests ?? []).map((req) => {
+              const profile = Array.isArray(req.profile) ? req.profile[0] : req.profile
+              return {
+                id: req.id,
+                playerName: (profile as { full_name?: string } | null)?.full_name ?? '',
+                playerEmail: (profile as { email?: string } | null)?.email ?? '',
+                message: req.message ?? null,
+                createdAt: req.created_at,
+              }
+            })}
+          />
         )}
 
         {/* Captain contact — shown to regular players */}

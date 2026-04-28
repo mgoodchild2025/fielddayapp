@@ -17,13 +17,14 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
 
   let userName: string | null = null
   let isAdmin = false
-  let unreadNotifications: { id: string; title: string; body: string | null; created_at: string }[] = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let unreadNotifications: { id: string; title: string; body: string | null; created_at: string; data: any }[] = []
 
   if (user) {
     const [{ data: profile }, { data: member }, { data: notifs }] = await Promise.all([
       supabase.from('profiles').select('full_name').eq('id', user.id).single(),
       supabase.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single(),
-      supabase.from('notifications').select('id, title, body, created_at')
+      supabase.from('notifications').select('id, title, body, created_at, data')
         .eq('organization_id', org.id)
         .eq('user_id', user.id)
         .eq('read', false)

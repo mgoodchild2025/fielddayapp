@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useTransition } from 'react'
+import Link from 'next/link'
 import { markAllNotificationsRead } from '@/actions/notifications'
 
 interface Notification {
@@ -8,6 +9,8 @@ interface Notification {
   title: string
   body: string | null
   created_at: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: any
 }
 
 interface Props {
@@ -90,13 +93,27 @@ export function NotificationBell({ initialNotifications }: Props) {
             </div>
           ) : (
             <ul className="divide-y max-h-96 overflow-y-auto">
-              {notifications.map((n) => (
-                <li key={n.id} className="px-4 py-3">
-                  <p className="text-sm font-medium text-gray-900">{n.title}</p>
-                  {n.body && <p className="text-xs text-gray-500 mt-0.5">{n.body}</p>}
-                  <p className="text-[10px] text-gray-400 mt-1">{relativeTime(n.created_at)}</p>
-                </li>
-              ))}
+              {notifications.map((n) => {
+                const acceptUrl = n.data?.accept_url as string | undefined
+                return (
+                  <li key={n.id} className="px-4 py-3">
+                    <p className="text-sm font-medium text-gray-900">{n.title}</p>
+                    {n.body && <p className="text-xs text-gray-500 mt-0.5">{n.body}</p>}
+                    <div className="flex items-center justify-between mt-1.5">
+                      <p className="text-[10px] text-gray-400">{relativeTime(n.created_at)}</p>
+                      {acceptUrl && (
+                        <Link
+                          href={acceptUrl}
+                          onClick={() => setOpen(false)}
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+                        >
+                          View Invite →
+                        </Link>
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>

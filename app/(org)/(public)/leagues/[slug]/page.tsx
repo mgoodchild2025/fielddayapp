@@ -228,8 +228,10 @@ export default async function LeagueDetailPage({
                         <span className="text-xs text-green-600 font-medium">You&apos;re on this team</span>
                       ) : hasRequest ? (
                         <span className="text-xs text-amber-600 font-medium">Request pending…</span>
-                      ) : league.team_join_policy !== 'admin_only' ? (
+                      ) : (league.team_join_policy !== 'admin_only' && myRegistration) ? (
                         <RequestJoinButton teamId={team.id} teamName={team.name} />
+                      ) : !myRegistration ? (
+                        <span className="text-xs text-gray-400">Register to join</span>
                       ) : null}
                     </div>
                   </div>

@@ -416,7 +416,7 @@ export async function approveJoinRequest(requestId: string) {
     .single()
 
   const canApprove =
-    callerMember?.role === 'captain' ||
+    ['captain', 'coach'].includes(callerMember?.role ?? '') ||
     ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
 
   if (!canApprove) return { error: 'Unauthorized' }
@@ -461,6 +461,7 @@ export async function approveJoinRequest(requestId: string) {
   })
 
   if (team?.league_id) revalidatePath(`/admin/leagues/${team.league_id}/teams`)
+  revalidatePath(`/teams/${req.team_id}`)
   revalidatePath('/dashboard')
   return { error: null }
 }
@@ -508,6 +509,7 @@ export async function rejectJoinRequest(requestId: string) {
   })
 
   if (team?.league_id) revalidatePath(`/admin/leagues/${team.league_id}/teams`)
+  revalidatePath(`/teams/${req.team_id}`)
   revalidatePath('/dashboard')
   return { error: null }
 }
@@ -762,27 +764,13 @@ export async function captainAddPlayerByEmail(input: z.infer<typeof captainAddSc
   const parsed = captainAddSchema.safeParse(input)
   if (!parsed.success) return { error: 'Invalid input', invited: false }
 
-  const { error, org, db } = await requireCaptainOrCoach(parsed.data.teamId)
-  if (error) return { error, invited: false }
-
-  const { data: profile } = await db
-    .from('profiles')
-    .select('id')
-    .eq('email', parsed.data.email)
-    .single()
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: e } = await (db as any).from('team_members').insert({
-    organization_id: org.id,
-    team_id: parsed.data.teamId,
-    user_id: profile?.id ?? null,
-    invited_email: parsed.data.email,
+  // Delegate to the invite flow — player must accept before being added
+  const { sendTeamInvite } = await import('@/actions/invitations')
+  const result = await sendTeamInvite({
+    teamId: parsed.data.teamId,
+    email: parsed.data.email,
     role: parsed.data.role,
-    status: profile ? 'active' : 'invited',
   })
 
-  if (e) return { error: e.message, invited: false }
-
-  revalidatePath(`/teams/${parsed.data.teamId}`)
-  return { error: null, invited: !profile }
+  return { error: result.error, invited: true }
 }
