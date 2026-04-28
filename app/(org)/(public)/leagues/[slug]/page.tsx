@@ -65,6 +65,17 @@ export default async function LeagueDetailPage({
   const myTeamIds = new Set(myMemberships?.map((m) => m.team_id) ?? [])
   const myRequestTeamIds = new Set(myRequests?.map((r) => r.team_id) ?? [])
 
+  // Check if the current user is already registered for this league
+  const { data: myRegistration } = user
+    ? await supabase
+        .from('registrations')
+        .select('id, status')
+        .eq('league_id', league.id)
+        .eq('organization_id', org.id)
+        .eq('user_id', user.id)
+        .single()
+    : { data: null }
+
   const isOpen = league.status === 'registration_open'
   const price = league.price_cents === 0
     ? 'Free'
@@ -228,7 +239,14 @@ export default async function LeagueDetailPage({
           </div>
         )}
 
-        {isOpen && (
+        {myRegistration ? (
+          <div className="mt-8 w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide bg-green-50 border border-green-200 text-green-700" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+            ✓ You&apos;re registered
+            {myRegistration.status === 'pending' && (
+              <span className="block text-sm font-normal normal-case text-green-600 mt-1">Your registration is pending approval</span>
+            )}
+          </div>
+        ) : isOpen && (
           <Link
             href={`/register/${league.slug}`}
             className="mt-8 inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90"
