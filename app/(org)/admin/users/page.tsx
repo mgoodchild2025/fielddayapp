@@ -1,4 +1,5 @@
 import { headers } from 'next/headers'
+import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { ChangeMemberRoleForm } from './change-role-form'
@@ -117,13 +118,24 @@ export default async function AdminUsersPage() {
                   </td>
                   {isOrgAdmin && (
                     <td className="px-4 py-3">
-                      {!isSelf && (
-                        <MemberActions
-                          memberId={m.id}
-                          memberName={profile?.full_name ?? 'this member'}
-                          status={m.status}
-                        />
-                      )}
+                      <div className="flex items-center gap-3">
+                        {m.user_id && (
+                          <Link
+                            href={`/admin/players/${m.user_id}`}
+                            className="text-xs font-medium hover:underline"
+                            style={{ color: 'var(--brand-primary)' }}
+                          >
+                            Manage
+                          </Link>
+                        )}
+                        {!isSelf && (
+                          <MemberActions
+                            memberId={m.id}
+                            memberName={profile?.full_name ?? 'this member'}
+                            status={m.status}
+                          />
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>

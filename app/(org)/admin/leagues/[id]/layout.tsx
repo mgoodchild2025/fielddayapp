@@ -2,7 +2,7 @@ import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { LeagueAdminTabs } from '@/components/layout/league-admin-tabs'
 
 const statusColors: Record<string, string> = {
@@ -23,7 +23,7 @@ export default async function LeagueAdminLayout({
   const { id } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
+  const supabase = createServiceRoleClient()
 
   const { data: league } = await supabase
     .from('leagues')
