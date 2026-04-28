@@ -14,6 +14,7 @@ export function CreateOrgForm({ onClose }: { onClose: () => void }) {
     sport: 'beach_volleyball',
     city: '',
     plan_tier: 'starter' as 'starter' | 'pro' | 'club' | 'internal',
+    adminEmail: '',
   })
 
   function handleNameChange(name: string) {
@@ -28,7 +29,7 @@ export function CreateOrgForm({ onClose }: { onClose: () => void }) {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const result = await createOrganization(form)
+    const result = await createOrganization({ ...form, adminEmail: form.adminEmail || undefined })
     if (result.error) {
       setError(result.error)
       setLoading(false)
@@ -120,6 +121,18 @@ export function CreateOrgForm({ onClose }: { onClose: () => void }) {
               <option value="club">Club</option>
               <option value="internal">Internal</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Org Admin Email <span className="text-gray-400 font-normal">(optional)</span></label>
+            <input
+              type="email"
+              value={form.adminEmail}
+              onChange={e => setForm(f => ({ ...f, adminEmail: e.target.value }))}
+              className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              placeholder="admin@example.com"
+            />
+            <p className="text-xs text-gray-400 mt-1">Must be an existing user. They will be assigned as org admin.</p>
           </div>
 
           <div className="flex gap-3 pt-2">
