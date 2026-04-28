@@ -50,7 +50,10 @@
       "Bash(find \"C:\\\\Users\\\\cgtech\\\\Fieldday\\\\supabase\\\\migrations\" -type f -exec grep -l \"team_join_requests\" {} \\\\;)",
       "mcp__Claude_in_Chrome__tabs_context_mcp",
       "Bash(npm run *)",
-      "Bash(find . -type f -name \"*.sql\" -exec wc -l {} +)"
+      "Bash(find . -type f -name \"*.sql\" -exec wc -l {} +)",
+      "Bash(git fetch *)",
+      "Bash(git merge *)",
+      "Bash(grep -E '\\\\.\\(ts|tsx\\)$')"
     ]
   }
 }

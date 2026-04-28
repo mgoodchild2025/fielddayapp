@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createServerClient } from '@/lib/supabase/server'
 
 export default async function PlatformAdminLayout({
@@ -25,12 +26,12 @@ export default async function PlatformAdminLayout({
         <div className="flex items-center gap-6">
           <span className="text-lg font-bold tracking-tight">⚡ Fieldday</span>
           <span className="text-xs text-gray-400 uppercase tracking-widest font-medium">Platform Admin</span>
+          <Link href="/super" className="text-sm text-gray-400 hover:text-white transition-colors">Organizations</Link>
+          <Link href="/super/settings" className="text-sm text-gray-400 hover:text-white transition-colors">Settings</Link>
         </div>
         <div className="flex items-center gap-4 text-sm">
           <span className="text-gray-400">{user.email}</span>
-          <form action="/api/auth/logout" method="post">
-            <a href="/login" className="text-gray-400 hover:text-white">Sign out</a>
-          </form>
+          <a href="/login" className="text-gray-400 hover:text-white">Sign out</a>
         </div>
       </nav>
       <main className="max-w-7xl mx-auto px-6 py-8">{children}</main>

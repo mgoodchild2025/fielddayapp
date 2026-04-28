@@ -12,7 +12,12 @@ export async function GET(request: NextRequest) {
     const supabase = await createServerClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
+      // Support absolute URLs for cross-subdomain post-verification redirects
+      const redirectTo =
+        next.startsWith('https://') || next.startsWith('http://')
+          ? next
+          : `${origin}${next}`
+      return NextResponse.redirect(redirectTo)
     }
   }
 

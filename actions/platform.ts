@@ -171,29 +171,6 @@ export async function setOrgAdmin(orgId: string, email: string) {
   return { error: null, name: profile.full_name }
 }
 
-// ─── Suspend / Activate Organisation ─────────────────────────────────────────
-
-// ─── Set Org Admin ────────────────────────────────────────────────────────────
-
-export async function setOrgAdmin(orgId: string, email: string) {
-  const supabase = createServiceRoleClient()
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, full_name')
-    .eq('email', email.toLowerCase().trim())
-    .single()
-  if (!profile) return { error: `No user found with email "${email}"` }
-  const { error } = await supabase
-    .from('org_members')
-    .upsert(
-      { organization_id: orgId, user_id: profile.id, role: 'org_admin', status: 'active' },
-      { onConflict: 'organization_id,user_id' }
-    )
-  if (error) return { error: error.message }
-  revalidatePath(`/super/orgs/${orgId}`)
-  return { error: null, name: profile.full_name }
-}
-
 // ─── Impersonation ────────────────────────────────────────────────────────────
 
 export async function startImpersonation(orgId: string) {
