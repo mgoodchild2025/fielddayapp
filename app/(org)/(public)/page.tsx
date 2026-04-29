@@ -23,7 +23,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
   const [{ data: org }, { data: branding }, { data: leagues }] = await Promise.all([
     supabase.from('organizations').select('id, slug, name').eq('id', orgId).single(),
     supabase.from('org_branding').select('tagline, hero_image_url, logo_url').eq('organization_id', orgId).single(),
-    supabase.from('leagues').select('id, name, slug, league_type, status, season_start_date, price_cents, currency').eq('organization_id', orgId).in('status', ['registration_open', 'active']).order('season_start_date', { ascending: true }).limit(6),
+    supabase.from('leagues').select('id, name, slug, league_type, event_type, status, season_start_date, price_cents, currency').eq('organization_id', orgId).neq('status', 'draft').neq('status', 'archived').order('season_start_date', { ascending: true }).limit(12),
   ])
 
   if (!org) return <MarketingPage />
@@ -44,31 +44,81 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           </h1>
           {branding?.tagline && <p className="mt-4 text-xl md:text-2xl opacity-80">{branding.tagline}</p>}
           <Link href="/events" className="mt-8 inline-block px-8 py-3 rounded-md font-semibold text-lg transition-opacity hover:opacity-90" style={{ backgroundColor: 'var(--brand-primary)', color: 'white' }}>
-            View Leagues
+            View Events
           </Link>
         </div>
       </section>
 
-      {leagues && leagues.length > 0 && (
-        <section className="max-w-5xl mx-auto px-6 py-16">
-          <h2 className="text-3xl font-bold mb-8 uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>Open for Registration</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {leagues.map((league) => (
-              <Link key={league.id} href={`/events/${league.slug}`} className="block bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between mb-3">
-                  <span className="text-xs font-medium uppercase tracking-wide px-2 py-1 rounded" style={{ backgroundColor: 'var(--brand-primary)', color: 'white' }}>{league.league_type}</span>
-                  {league.status === 'registration_open' && <span className="text-xs text-green-600 font-medium">Open</span>}
-                </div>
-                <h3 className="text-xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</h3>
-                {league.season_start_date && <p className="text-sm text-gray-500 mt-1">Starts {new Date(league.season_start_date).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}</p>}
-                <p className="mt-3 font-semibold" style={{ color: 'var(--brand-primary)' }}>
-                  {league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency.toUpperCase()}`}
+      {leagues && leagues.length > 0 && (() => {
+        const openEvents = leagues.filter((l) => l.status === 'registration_open')
+        const activeEvents = leagues.filter((l) => l.status === 'active')
+        const completedEvents = leagues.filter((l) => l.status === 'completed')
+
+        function EventCard({ league }: { league: typeof leagues[number] }) {
+          const et = (league as { event_type?: string | null }).event_type ?? 'league'
+          const etLabels: Record<string, string> = { league: 'League', tournament: 'Tournament', pickup: 'Pickup', drop_in: 'Drop-in' }
+          return (
+            <Link href={`/events/${league.slug}`} className="block bg-white rounded-lg shadow-sm border p-5 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-2">
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{etLabels[et] ?? et}</span>
+                {league.status === 'registration_open' && <span className="text-xs text-green-600 font-medium">Open</span>}
+                {league.status === 'active' && <span className="text-xs text-blue-600 font-medium">In Season</span>}
+              </div>
+              <h3 className="text-lg font-bold mt-2" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</h3>
+              {league.season_start_date && (
+                <p className="text-sm text-gray-500 mt-1">
+                  {new Date(league.season_start_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+              )}
+              <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>
+                {league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency.toUpperCase()}`}
+              </p>
+            </Link>
+          )
+        }
+
+        return (
+          <>
+            {openEvents.length > 0 && (
+              <section className="max-w-5xl mx-auto px-6 py-12">
+                <h2 className="text-2xl sm:text-3xl font-bold mb-6 uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>Open for Registration</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {openEvents.map((league) => <EventCard key={league.id} league={league} />)}
+                </div>
+              </section>
+            )}
+            {activeEvents.length > 0 && (
+              <section className="max-w-5xl mx-auto px-6 py-12 border-t">
+                <h2 className="text-2xl sm:text-3xl font-bold mb-2 uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>In Season</h2>
+                <p className="text-sm text-gray-500 mb-6">View schedules, scores, and standings.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {activeEvents.map((league) => (
+                    <div key={league.id} className="bg-white rounded-lg shadow-sm border p-5 hover:shadow-md transition-shadow">
+                      <EventCard league={league} />
+                      <div className="flex gap-2 mt-3 pt-3 border-t">
+                        <Link href={`/events/${league.slug}?tab=schedule`} className="flex-1 text-center text-xs font-medium py-1.5 rounded border hover:bg-gray-50 transition-colors text-gray-600">
+                          Schedule
+                        </Link>
+                        <Link href={`/events/${league.slug}?tab=standings`} className="flex-1 text-center text-xs font-medium py-1.5 rounded border hover:bg-gray-50 transition-colors text-gray-600">
+                          Standings
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+            {completedEvents.length > 0 && (
+              <section className="max-w-5xl mx-auto px-6 py-12 border-t">
+                <h2 className="text-2xl sm:text-3xl font-bold mb-6 uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>Past Events</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {completedEvents.map((league) => <EventCard key={league.id} league={league} />)}
+                </div>
+              </section>
+            )}
+          </>
+        )
+      })()}
 
       <Footer org={orgContext} />
     </div>

@@ -1,7 +1,6 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
-import { requireAuth } from '@/lib/auth'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import Link from 'next/link'
@@ -30,8 +29,6 @@ const statusLabel: Record<string, string> = {
 export default async function EventsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  await requireAuth()
-
   const supabase = await createServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: leagues } = await (supabase as any)

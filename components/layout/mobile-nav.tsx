@@ -12,8 +12,6 @@ interface Props {
 
 const links = [
   { label: 'Events', href: '/events' },
-  { label: 'Schedule', href: '/schedule' },
-  { label: 'Standings', href: '/standings' },
 ]
 
 export function MobileNav({ userName, isAdmin }: Props) {
