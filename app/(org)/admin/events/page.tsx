@@ -12,14 +12,29 @@ const statusColors: Record<string, string> = {
   archived: 'bg-gray-100 text-gray-400',
 }
 
-export default async function AdminLeaguesPage() {
+const eventTypeColors: Record<string, string> = {
+  league: 'bg-indigo-100 text-indigo-700',
+  tournament: 'bg-orange-100 text-orange-700',
+  pickup: 'bg-teal-100 text-teal-700',
+  drop_in: 'bg-pink-100 text-pink-700',
+}
+
+const eventTypeLabels: Record<string, string> = {
+  league: 'League',
+  tournament: 'Tournament',
+  pickup: 'Pickup',
+  drop_in: 'Drop-in',
+}
+
+export default async function AdminEventsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
-  const { data: leagues } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: leagues } = await (supabase as any)
     .from('leagues')
-    .select('id, name, slug, status, league_type, price_cents, currency, season_start_date, venue_name, created_at')
+    .select('id, name, slug, status, event_type, price_cents, currency, season_start_date, venue_name, created_at')
     .eq('organization_id', org.id)
     .order('created_at', { ascending: false })
 
@@ -51,17 +66,32 @@ export default async function AdminLeaguesPage() {
             </tr>
           </thead>
           <tbody>
-            {leagues?.map((league) => (
+            {leagues?.map((league: {
+              id: string
+              name: string
+              slug: string
+              status: string
+              event_type: string | null
+              price_cents: number
+              currency: string
+              season_start_date: string | null
+              venue_name: string | null
+              created_at: string
+            }) => (
               <tr key={league.id} className="border-b last:border-0 hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium">{league.name}</td>
-                <td className="px-4 py-3 text-gray-500 capitalize">{league.league_type}</td>
+                <td className="px-4 py-3">
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${eventTypeColors[league.event_type ?? 'league'] ?? 'bg-gray-100 text-gray-600'}`}>
+                    {eventTypeLabels[league.event_type ?? 'league'] ?? league.event_type}
+                  </span>
+                </td>
                 <td className="px-4 py-3">
                   <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[league.status] ?? 'bg-gray-100 text-gray-600'}`}>
                     {league.status.replace('_', ' ')}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-gray-500 text-sm">
-                  {(league as unknown as { venue_name?: string }).venue_name ?? '—'}
+                  {league.venue_name ?? '—'}
                 </td>
                 <td className="px-4 py-3">
                   {league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency.toUpperCase()}`}
@@ -81,7 +111,7 @@ export default async function AdminLeaguesPage() {
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
                   No events yet.{' '}
-                  <Link href="/admin/events/new" className="underline" style={{ color: 'var(--brand-primary)' }}>Create your first league</Link>
+                  <Link href="/admin/events/new" className="underline" style={{ color: 'var(--brand-primary)' }}>Create your first event</Link>
                 </td>
               </tr>
             )}

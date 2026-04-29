@@ -14,6 +14,7 @@ const createLeagueSchema = z.object({
   name: z.string().min(2),
   slug: z.string().min(2).regex(/^[a-z0-9-]+$/),
   description: z.string().optional(),
+  event_type: z.enum(['league', 'tournament', 'pickup', 'drop_in']).default('league'),
   league_type: z.enum(['team', 'individual', 'dropin', 'tournament']),
   sport: z.string().default('beach_volleyball'),
   price_cents: z.coerce.number().min(0).default(0),

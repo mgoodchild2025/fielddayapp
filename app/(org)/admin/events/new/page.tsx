@@ -2,9 +2,9 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { NewLeagueForm } from './new-event-form'
+import { NewEventForm } from './new-event-form'
 
-export default async function NewLeaguePage() {
+export default async function NewEventPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
@@ -24,5 +24,5 @@ export default async function NewLeaguePage() {
       .order('created_at', { ascending: false }),
   ])
 
-  return <NewLeagueForm waivers={waivers ?? []} ruleTemplates={ruleTemplates ?? []} />
+  return <NewEventForm waivers={waivers ?? []} ruleTemplates={ruleTemplates ?? []} />
 }

@@ -25,9 +25,10 @@ export default async function EventAdminLayout({
   const org = await getCurrentOrg(headersList)
   const supabase = createServiceRoleClient()
 
-  const { data: league } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: league } = await (supabase as any)
     .from('leagues')
-    .select('id, name, status')
+    .select('id, name, status, event_type')
     .eq('id', id)
     .eq('organization_id', org.id)
     .single()
@@ -38,7 +39,7 @@ export default async function EventAdminLayout({
     <div>
       <div className="mb-6">
         <Link href="/admin/events" className="text-sm text-gray-400 hover:text-gray-600">
-          ← Leagues
+          ← Events
         </Link>
         <div className="flex items-center gap-3 mt-1">
           <h1 className="text-xl sm:text-2xl font-bold">{league.name}</h1>
@@ -47,7 +48,7 @@ export default async function EventAdminLayout({
           </span>
         </div>
       </div>
-      <EventAdminTabs leagueId={id} />
+      <EventAdminTabs leagueId={id} eventType={league.event_type ?? 'league'} />
       {children}
     </div>
   )

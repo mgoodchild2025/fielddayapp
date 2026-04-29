@@ -3,19 +3,28 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-const tabs = (id: string) => [
-  { label: 'Overview', href: `/admin/events/${id}` },
-  { label: 'Registrations', href: `/admin/events/${id}/registrations` },
-  { label: 'Teams', href: `/admin/events/${id}/teams` },
-  { label: 'Schedule', href: `/admin/events/${id}/schedule` },
-]
+function tabs(id: string, eventType: string) {
+  const isSessionBased = eventType === 'pickup' || eventType === 'drop_in'
+  const base = [
+    { label: 'Overview', href: `/admin/events/${id}` },
+    { label: 'Registrations', href: `/admin/events/${id}/registrations` },
+  ]
+  if (isSessionBased) {
+    return [...base, { label: 'Sessions', href: `/admin/events/${id}/sessions` }]
+  }
+  return [
+    ...base,
+    { label: 'Teams', href: `/admin/events/${id}/teams` },
+    { label: 'Schedule', href: `/admin/events/${id}/schedule` },
+  ]
+}
 
-export function EventAdminTabs({ leagueId }: { leagueId: string }) {
+export function EventAdminTabs({ leagueId, eventType }: { leagueId: string; eventType: string }) {
   const pathname = usePathname()
 
   return (
     <div className="flex gap-0 border-b mb-6 overflow-x-auto scrollbar-none -mx-1 px-1">
-      {tabs(leagueId).map((tab) => {
+      {tabs(leagueId, eventType).map((tab) => {
         const isActive =
           tab.href === `/admin/events/${leagueId}`
             ? pathname === tab.href

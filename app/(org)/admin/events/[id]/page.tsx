@@ -17,7 +17,7 @@ const statusFlow: Record<string, { next: LeagueStatus; label: string }> = {
   completed: { next: 'archived', label: 'Archive League' },
 }
 
-export default async function LeagueOverviewPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EventOverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
