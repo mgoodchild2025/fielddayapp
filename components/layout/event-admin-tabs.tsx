@@ -19,6 +19,7 @@ function tabs(id: string, eventType: string) {
       { label: 'Divisions', href: `/admin/events/${id}/divisions` },
       { label: 'Teams', href: `/admin/events/${id}/teams` },
       { label: 'Schedule', href: `/admin/events/${id}/schedule` },
+      { label: 'Bracket', href: `/admin/events/${id}/bracket` },
     ]
   }
 
@@ -28,6 +29,7 @@ function tabs(id: string, eventType: string) {
       { label: 'Pools', href: `/admin/events/${id}/pools` },
       { label: 'Teams', href: `/admin/events/${id}/teams` },
       { label: 'Schedule', href: `/admin/events/${id}/schedule` },
+      { label: 'Bracket', href: `/admin/events/${id}/bracket` },
     ]
   }
 

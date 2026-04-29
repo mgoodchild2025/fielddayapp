@@ -5,6 +5,7 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentOrg } from '@/lib/tenant'
+import { advanceBracketFromScore } from '@/actions/brackets'
 
 const submitScoreSchema = z.object({
   gameId: z.string().uuid(),
@@ -142,6 +143,10 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
   if (leagueId) revalidatePath(`/admin/events/${leagueId}/schedule`)
   revalidatePath('/schedule')
   revalidatePath('/standings')
+
+  // Auto-advance bracket if this game is a bracket match
+  await advanceBracketFromScore(parsed.data.gameId, parsed.data.homeScore, parsed.data.awayScore, org.id)
+
   return { data: null, error: null }
 }
 
@@ -193,5 +198,17 @@ export async function confirmScore(gameId: string) {
   if (error) return { data: null, error: error.message }
 
   revalidatePath('/standings')
+
+  // Auto-advance bracket if this game is a bracket match
+  const { data: confirmedResult } = await supabase
+    .from('game_results')
+    .select('home_score, away_score')
+    .eq('game_id', gameId)
+    .eq('organization_id', org.id)
+    .single()
+  if (confirmedResult?.home_score !== null && confirmedResult?.away_score !== null) {
+    await advanceBracketFromScore(gameId, confirmedResult.home_score!, confirmedResult.away_score!, org.id)
+  }
+
   return { data: null, error: null }
 }

@@ -8,6 +8,8 @@ import { RequestJoinButton } from '@/components/teams/request-join-button'
 import { SessionJoinButton } from '@/components/sessions/session-join-button'
 import { CaptainScoreEntry } from '@/components/scores/captain-score-entry'
 import { EventRulesModal } from '@/components/events/event-rules-modal'
+import { BracketView } from '@/components/bracket/bracket-view'
+import type { BracketData, BracketMatchData } from '@/components/bracket/bracket-view'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { formatGameTime } from '@/lib/format-time'
@@ -243,12 +245,29 @@ export default async function EventDetailPage({
   const isSessionBased = league.event_type === 'pickup' || league.event_type === 'drop_in'
   const isTeamBased = !isSessionBased
 
+  // Check for published bracket (lightweight — just need to know if one exists)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: publishedBracketMeta } = isTeamBased
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any)
+        .from('brackets')
+        .select('id')
+        .eq('league_id', league.id)
+        .eq('organization_id', org.id)
+        .not('published_at', 'is', null)
+        .limit(1)
+        .single()
+    : { data: null }
+
+  const hasBracket = !!publishedBracketMeta
+
   // Tabs: session-based events only show Overview
   const tabs = isTeamBased
     ? [
         { id: 'overview', label: 'Overview' },
         { id: 'schedule', label: 'Schedule' },
         { id: 'standings', label: 'Standings' },
+        ...(hasBracket ? [{ id: 'bracket', label: 'Bracket' }] : []),
       ]
     : [{ id: 'overview', label: 'Overview' }]
 
@@ -385,6 +404,74 @@ export default async function EventDetailPage({
       division_id: t.division_id ?? null,
       ...(record[t.id] ?? { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 }),
     }))
+  }
+
+  // ── Bracket tab data ─────────────────────────────────────────────────────
+
+  let bracketData: BracketData | null = null
+
+  if (activeTab === 'bracket' && hasBracket) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rawBracket } = await (db as any)
+      .from('brackets')
+      .select(`
+        id, name, bracket_size, third_place_game, status, published_at,
+        bracket_matches(
+          id, round_number, match_number,
+          team1_id, team2_id, team1_seed, team2_seed,
+          is_bye, winner_team_id, score1, score2, status,
+          winner_to_match_id, scheduled_at, court, notes
+        )
+      `)
+      .eq('league_id', league.id)
+      .eq('organization_id', org.id)
+      .not('published_at', 'is', null)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single()
+
+    if (rawBracket) {
+      // Build team name map from teams already fetched (or fetch them)
+      const { data: bracketTeams } = await db
+        .from('teams')
+        .select('id, name')
+        .eq('league_id', league.id)
+        .eq('organization_id', org.id)
+      const teamNameMap = new Map((bracketTeams ?? []).map((t) => [t.id, t.name]))
+
+      bracketData = {
+        id: rawBracket.id,
+        name: rawBracket.name,
+        bracketSize: rawBracket.bracket_size,
+        thirdPlaceGame: rawBracket.third_place_game,
+        status: rawBracket.status,
+        matches: (rawBracket.bracket_matches ?? []).map((m: {
+          id: string; round_number: number; match_number: number;
+          team1_id: string|null; team2_id: string|null; team1_seed: number|null; team2_seed: number|null;
+          is_bye: boolean; winner_team_id: string|null; score1: number|null; score2: number|null;
+          status: string; winner_to_match_id: string|null; scheduled_at: string|null; court: string|null; notes: string|null;
+        }): BracketMatchData => ({
+          id: m.id,
+          roundNumber: m.round_number,
+          matchNumber: m.match_number,
+          team1Id: m.team1_id,
+          team2Id: m.team2_id,
+          team1Name: m.team1_id ? (teamNameMap.get(m.team1_id) ?? null) : null,
+          team2Name: m.team2_id ? (teamNameMap.get(m.team2_id) ?? null) : null,
+          team1Seed: m.team1_seed,
+          team2Seed: m.team2_seed,
+          isBye: m.is_bye,
+          winnerTeamId: m.winner_team_id,
+          score1: m.score1,
+          score2: m.score2,
+          status: m.status as BracketMatchData['status'],
+          scheduledAt: m.scheduled_at,
+          court: m.court,
+          notes: m.notes,
+          winnerToMatchId: m.winner_to_match_id,
+        })),
+      }
+    }
   }
 
   // ── Schedule grouping ─────────────────────────────────────────────────────
@@ -726,6 +813,17 @@ export default async function EventDetailPage({
               </div>
             ) : (
               <StandingsTable teams={standingsTeams} />
+            )}
+          </div>
+        )}
+
+        {/* ──────────────── BRACKET TAB ──────────────── */}
+        {activeTab === 'bracket' && (
+          <div>
+            {!bracketData ? (
+              <p className="text-gray-500 text-center py-16">Bracket not available yet.</p>
+            ) : (
+              <BracketView bracket={bracketData} leagueId={league.id} />
             )}
           </div>
         )}
