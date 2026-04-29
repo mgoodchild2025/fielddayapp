@@ -75,7 +75,7 @@ export default async function PlatformOrgDetailPage({
 
   const siteUrl = branding?.custom_domain
     ? `https://${branding.custom_domain}`
-    : `http://${org.slug}.localhost:3000`
+    : `https://${org.slug}.fielddayapp.ca`
 
   return (
     <div>
