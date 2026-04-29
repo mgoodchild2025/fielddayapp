@@ -22,14 +22,23 @@ interface Props {
   userId: string
   initialStep?: number
   initialRegistrationId?: string | null
+  hasOnlinePayments?: boolean
 }
 
-const STEPS = ['Player Details', 'Waiver', 'Payment', 'Confirmation']
+const ALL_STEPS = ['Player Details', 'Waiver', 'Payment', 'Confirmation']
 
-export function RegistrationFlow({ org, league, waiver, profile, playerDetails, userId, initialStep = 1, initialRegistrationId = null }: Props) {
+export function RegistrationFlow({ org, league, waiver, profile, playerDetails, userId, initialStep = 1, initialRegistrationId = null, hasOnlinePayments = false }: Props) {
   const [step, setStep] = useState(initialStep)
   const [registrationId, setRegistrationId] = useState<string | null>(initialRegistrationId)
-  const [waiverSignatureId, setWaiverSignatureId] = useState<string | null>(null)
+
+  const showPaymentStep = league.price_cents > 0 && hasOnlinePayments
+  const steps = showPaymentStep ? ALL_STEPS : ALL_STEPS.filter(s => s !== 'Payment')
+
+  // When no payment step, step 3 in the flow skips to confirmation (step 4 internally stays 4)
+  function afterWaiver() {
+    if (showPaymentStep) setStep(3)
+    else setStep(4)
+  }
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
@@ -40,15 +49,16 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
             Register — {league.name}
           </h1>
           <div className="flex items-center gap-1">
-            {STEPS.map((label, i) => {
-              const n = i + 1
-              const isActive = n === step
-              const isDone = n < step
+            {steps.map((label, i) => {
+              // Map display step index to internal step number
+              const internalStep = ALL_STEPS.indexOf(label) + 1
+              const isActive = internalStep === step
+              const isDone = internalStep < step
               return (
                 <div key={label} className="flex items-center gap-1 flex-1">
-                  <div className={`flex-1 h-1.5 rounded-full ${isDone ? '' : isActive ? '' : 'bg-gray-200'}`}
+                  <div className={`flex-1 h-1.5 rounded-full ${isDone || isActive ? '' : 'bg-gray-200'}`}
                     style={{ backgroundColor: isDone || isActive ? 'var(--brand-primary)' : undefined }} />
-                  {i < STEPS.length - 1 && (
+                  {i < steps.length - 1 && (
                     <div className={`h-1.5 w-6 rounded-full ${isDone ? '' : 'bg-gray-200'}`}
                       style={{ backgroundColor: isDone ? 'var(--brand-primary)' : undefined }} />
                   )}
@@ -57,11 +67,14 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
             })}
           </div>
           <div className="flex justify-between mt-2">
-            {STEPS.map((label, i) => (
-              <p key={label} className="text-xs text-gray-500" style={{ color: i + 1 <= step ? 'var(--brand-primary)' : undefined }}>
-                {label}
-              </p>
-            ))}
+            {steps.map((label) => {
+              const internalStep = ALL_STEPS.indexOf(label) + 1
+              return (
+                <p key={label} className="text-xs text-gray-500" style={{ color: internalStep <= step ? 'var(--brand-primary)' : undefined }}>
+                  {label}
+                </p>
+              )
+            })}
           </div>
         </div>
 
@@ -81,18 +94,15 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
             waiver={waiver}
             userId={userId}
             onComplete={async (sigId) => {
-              setWaiverSignatureId(sigId)
-              // Persist the signature ID on the registration row so the dashboard reflects it
               if (registrationId) {
                 await linkWaiverToRegistration(registrationId, sigId)
               }
-              if (league.price_cents === 0) setStep(4)
-              else setStep(3)
+              afterWaiver()
             }}
-            onSkip={() => { if (league.price_cents === 0) setStep(4); else setStep(3) }}
+            onSkip={afterWaiver}
           />
         )}
-        {step === 3 && (
+        {step === 3 && showPaymentStep && (
           <Step3Payment
             org={org}
             league={league}

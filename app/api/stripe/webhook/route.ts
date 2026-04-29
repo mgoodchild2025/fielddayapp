@@ -52,6 +52,18 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (event.type === 'account.updated') {
+    const account = event.data.object
+    await supabase
+      .from('stripe_connect_accounts')
+      .update({
+        charges_enabled: account.charges_enabled,
+        payouts_enabled: account.payouts_enabled,
+        status: account.charges_enabled ? 'active' : 'pending',
+      })
+      .eq('stripe_account_id', account.id)
+  }
+
   if (event.type === 'payment_intent.payment_failed') {
     const pi = event.data.object
     const registrationId = pi.metadata?.registrationId

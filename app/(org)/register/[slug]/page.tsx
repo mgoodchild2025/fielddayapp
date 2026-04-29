@@ -29,7 +29,7 @@ export default async function RegisterLeaguePage({
 
   if (!league) notFound()
 
-  const [{ data: playerDetails }, { data: existingReg }, { data: profile }] = await Promise.all([
+  const [{ data: playerDetails }, { data: existingReg }, { data: profile }, { data: connectAccount }] = await Promise.all([
     supabase.from('player_details').select('*').eq('organization_id', org.id).eq('user_id', user.id).single(),
     supabase.from('registrations')
       .select('id, status, waiver_signature_id')
@@ -38,7 +38,10 @@ export default async function RegisterLeaguePage({
       .eq('user_id', user.id)
       .maybeSingle(),
     supabase.from('profiles').select('*').eq('id', user.id).single(),
+    supabase.from('stripe_connect_accounts').select('charges_enabled').eq('organization_id', org.id).maybeSingle(),
   ])
+
+  const hasOnlinePayments = !!connectAccount?.charges_enabled
 
   // Use the league's specific waiver if set, otherwise fall back to the org-wide active waiver
   let waiver = null
@@ -67,17 +70,16 @@ export default async function RegisterLeaguePage({
       .maybeSingle()
 
     const paymentComplete = payment?.status === 'paid'
-    const needsPayment = league.price_cents > 0 && !paymentComplete
+    const needsPayment = league.price_cents > 0 && hasOnlinePayments && !paymentComplete
 
     if (existingReg.status === 'active' && !needsPayment) {
-      // Fully complete — redirect to success page
       redirect(`/register/${slug}/success`)
     } else if (needsPayment && (waiverSigned || !waiver)) {
       initialStep = 3 // jump to payment
     } else if (waiver && !waiverSigned) {
       initialStep = 2 // jump to waiver
     } else {
-      initialStep = league.price_cents > 0 ? 3 : 4
+      initialStep = needsPayment ? 3 : 4
     }
   }
 
@@ -91,6 +93,7 @@ export default async function RegisterLeaguePage({
       userId={user.id}
       initialStep={initialStep}
       initialRegistrationId={initialRegistrationId}
+      hasOnlinePayments={hasOnlinePayments}
     />
   )
 }
