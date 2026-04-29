@@ -101,6 +101,88 @@ export async function generateRoundRobinSchedule(input: {
   return { error: null, count: games.length }
 }
 
+const updateGameSchema = z.object({
+  gameId: z.string().uuid(),
+  leagueId: z.string().uuid(),
+  homeTeamId: z.string().uuid().optional().or(z.literal('')).transform(v => v || undefined),
+  awayTeamId: z.string().uuid().optional().or(z.literal('')).transform(v => v || undefined),
+  scheduledAt: z.string().min(1),
+  court: z.string().optional(),
+  weekNumber: z.coerce.number().optional(),
+})
+
+export async function updateGame(input: z.infer<typeof updateGameSchema>) {
+  const parsed = updateGameSchema.safeParse(input)
+  if (!parsed.success) return { error: 'Invalid input' }
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: adminMember } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+
+  if (!adminMember) return { error: 'Admin access required' }
+
+  const { error } = await supabase
+    .from('games')
+    .update({
+      home_team_id: parsed.data.homeTeamId ?? null,
+      away_team_id: parsed.data.awayTeamId ?? null,
+      scheduled_at: parsed.data.scheduledAt,
+      court: parsed.data.court ?? null,
+      week_number: parsed.data.weekNumber ?? null,
+    })
+    .eq('id', parsed.data.gameId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/leagues/${parsed.data.leagueId}/schedule`)
+  revalidatePath('/schedule')
+  return { error: null }
+}
+
+export async function deleteGame(gameId: string, leagueId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: adminMember } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+
+  if (!adminMember) return { error: 'Admin access required' }
+
+  const { error } = await supabase
+    .from('games')
+    .delete()
+    .eq('id', gameId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/leagues/${leagueId}/schedule`)
+  revalidatePath('/schedule')
+  revalidatePath('/standings')
+  return { error: null }
+}
+
 export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)

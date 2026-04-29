@@ -29,8 +29,8 @@ export default async function SchedulePage() {
       home_team_id, away_team_id,
       home_team:teams!games_home_team_id_fkey(id, name),
       away_team:teams!games_away_team_id_fkey(id, name),
-      league:leagues!games_league_id_fkey(id, name, slug),
-      game_results(home_score, away_score, status, submitted_by)
+      league:leagues!games_league_id_fkey(id, name, slug, sport),
+      game_results(home_score, away_score, status, submitted_by, sets)
     `)
     .eq('organization_id', org.id)
     .order('scheduled_at', { ascending: true })
@@ -114,6 +114,8 @@ export default async function SchedulePage() {
   )
 }
 
+type SetScore = { home: number; away: number }
+
 type AnyGame = {
   id: string
   scheduled_at: string
@@ -124,8 +126,8 @@ type AnyGame = {
   away_team_id: string | null
   home_team: { id: string; name: string } | { id: string; name: string }[] | null
   away_team: { id: string; name: string } | { id: string; name: string }[] | null
-  league: { name: string } | { name: string }[] | null
-  game_results: { home_score: number | null; away_score: number | null; status: string; submitted_by: string | null } | { home_score: number | null; away_score: number | null; status: string; submitted_by: string | null }[] | null
+  league: { name: string; sport?: string } | { name: string; sport?: string }[] | null
+  game_results: { home_score: number | null; away_score: number | null; status: string; submitted_by: string | null; sets?: SetScore[] | null } | { home_score: number | null; away_score: number | null; status: string; submitted_by: string | null; sets?: SetScore[] | null }[] | null
 }
 
 function DateGroup({ date, games, timezone, isPast, captainTeamIds, userId }: {
@@ -186,6 +188,11 @@ function DateGroup({ date, games, timezone, isPast, captainTeamIds, userId }: {
                       <p className="font-bold tabular-nums text-sm">
                         {result.home_score} – {result.away_score}
                       </p>
+                      {result.sets && result.sets.length > 0 && (
+                        <p className="text-[10px] text-gray-400 mt-0.5">
+                          {result.sets.map((s: SetScore) => `${s.home}–${s.away}`).join(', ')}
+                        </p>
+                      )}
                       {result.status === 'confirmed' ? (
                         <p className="text-[10px] text-green-600 mt-0.5">✓ confirmed</p>
                       ) : (
@@ -208,6 +215,7 @@ function DateGroup({ date, games, timezone, isPast, captainTeamIds, userId }: {
               {isPast && isCaptain && result?.status !== 'confirmed' && (
                 <CaptainScoreEntry
                   gameId={game.id}
+                  sport={(league as { sport?: string } | null)?.sport}
                   homeTeamName={homeTeam?.name ?? 'Home'}
                   awayTeamName={awayTeam?.name ?? 'Away'}
                   isCaptainOfHome={isCaptainOfHome}
@@ -217,6 +225,7 @@ function DateGroup({ date, games, timezone, isPast, captainTeamIds, userId }: {
                     awayScore: result.away_score,
                     status: result.status,
                     submittedByOpponent,
+                    sets: result.sets ?? null,
                   } : null}
                 />
               )}

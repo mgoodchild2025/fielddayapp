@@ -84,6 +84,7 @@ const adminSetScoreSchema = z.object({
   homeScore: z.coerce.number().min(0),
   awayScore: z.coerce.number().min(0),
   leagueId: z.string().uuid().optional(),
+  sets: z.array(z.object({ home: z.number().min(0), away: z.number().min(0) })).optional(),
 })
 
 export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) {
@@ -124,6 +125,7 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
         game_id: parsed.data.gameId,
         home_score: parsed.data.homeScore,
         away_score: parsed.data.awayScore,
+        sets: parsed.data.sets ? JSON.stringify(parsed.data.sets) : null,
         submitted_by: user.id,
         confirmed_by: user.id,
         confirmed_at: new Date().toISOString(),
