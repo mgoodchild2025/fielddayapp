@@ -26,7 +26,7 @@ const createLeagueSchema = z.object({
   season_end_date: z.string().optional(),
   registration_opens_at: z.string().optional(),
   registration_closes_at: z.string().optional(),
-  waiver_version_id: z.string().uuid().optional(),
+  waiver_version_id: z.string().uuid().optional().or(z.literal('')).transform(v => v || undefined),
   age_group: z.string().optional(),
   venue_name: z.string().optional(),
   venue_address: z.string().optional(),

@@ -58,7 +58,7 @@ const schema = z.object({
   organizer_name: z.string().optional(),
   organizer_email: z.string().optional(),
   organizer_phone: z.string().optional(),
-  waiver_version_id: z.string().uuid().optional(),
+  waiver_version_id: z.string().uuid().optional().or(z.literal('')),
 })
 
 type FormData = z.infer<typeof schema>
