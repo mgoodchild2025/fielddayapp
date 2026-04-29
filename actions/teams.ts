@@ -231,17 +231,43 @@ export async function removeTeamMember(memberId: string, leagueId: string) {
 export async function deleteTeam(teamId: string, leagueId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+
   const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
 
-  // Remove all members first (in case no cascade is set)
-  await supabase.from('team_members').delete().eq('team_id', teamId).eq('organization_id', org.id)
+  const { data: member } = await supabase.from('org_members').select('role')
+    .eq('organization_id', org.id).eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin']).single()
+  if (!member) return { error: 'Admin access required' }
 
-  const { error } = await supabase
-    .from('teams')
-    .delete()
-    .eq('id', teamId)
-    .eq('organization_id', org.id)
+  const db = createServiceRoleClient()
 
+  // Null out team references in bracket_matches (preserves bracket structure)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('bracket_matches')
+    .update({ team1_id: null, team1_seed: null })
+    .eq('team1_id', teamId).eq('organization_id', org.id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('bracket_matches')
+    .update({ team2_id: null, team2_seed: null })
+    .eq('team2_id', teamId).eq('organization_id', org.id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('bracket_matches')
+    .update({ winner_team_id: null })
+    .eq('winner_team_id', teamId).eq('organization_id', org.id)
+
+  // Null out team references in games
+  await db.from('games').update({ home_team_id: null } as never)
+    .eq('home_team_id', teamId).eq('organization_id', org.id)
+  await db.from('games').update({ away_team_id: null } as never)
+    .eq('away_team_id', teamId).eq('organization_id', org.id)
+
+  // Delete dependent rows
+  await db.from('team_members').delete().eq('team_id', teamId).eq('organization_id', org.id)
+  await db.from('team_join_requests').delete().eq('team_id', teamId).eq('organization_id', org.id)
+
+  const { error } = await db.from('teams').delete().eq('id', teamId).eq('organization_id', org.id)
   if (error) return { error: error.message }
 
   revalidatePath(`/admin/events/${leagueId}/teams`)
