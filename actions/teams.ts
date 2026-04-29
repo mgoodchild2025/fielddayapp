@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
+import { sendEmail, buildJoinRequestEmail, buildJoinApprovedEmail, buildJoinDeclinedEmail } from '@/lib/email'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -323,6 +324,7 @@ export async function requestToJoinTeam(teamId: string, message?: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
@@ -349,31 +351,75 @@ export async function requestToJoinTeam(teamId: string, message?: string) {
 
   if (error) return { error: error.message }
 
-  // Notify the team captain
-  const { data: captain } = await supabase
+  // Fetch team name + requester profile in parallel
+  const [{ data: team }, { data: requesterProfile }] = await Promise.all([
+    db.from('teams').select('name').eq('id', teamId).single(),
+    db.from('profiles').select('full_name, email').eq('id', user.id).single(),
+  ])
+
+  const teamName = team?.name ?? 'the team'
+  const playerName = requesterProfile?.full_name ?? 'A player'
+  const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+  const teamUrl = `https://${org.slug}.${platformDomain}/teams/${teamId}`
+
+  // Fetch all captains + coaches on this team
+  const { data: managers } = await db
     .from('team_members')
-    .select('user_id, profiles!team_members_user_id_fkey(full_name)')
+    .select('user_id, role, profiles!team_members_user_id_fkey(full_name, email)')
     .eq('team_id', teamId)
-    .eq('role', 'captain')
-    .single()
+    .in('role', ['captain', 'coach'])
+    .eq('status', 'active')
 
-  const requesterProfile = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .single()
+  // If no managers, fall back to org admins
+  let recipients: Array<{ userId: string; email: string }> = []
 
-  if (captain?.user_id) {
-    const requesterName = requesterProfile.data?.full_name ?? 'Someone'
-    await supabase.from('notifications').insert({
-      organization_id: org.id,
-      user_id: captain.user_id,
-      type: 'join_request',
-      title: `New join request`,
-      body: `${requesterName} wants to join your team.`,
-      data: { team_id: teamId, user_id: user.id },
-    })
+  if (managers && managers.length > 0) {
+    recipients = managers.map((m) => {
+      const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
+      return { userId: m.user_id, email: (profile as { email?: string } | null)?.email ?? '' }
+    }).filter((r) => r.email)
+  } else {
+    const { data: orgAdmins } = await db
+      .from('org_members')
+      .select('user_id, profiles!org_members_user_id_fkey(email)')
+      .eq('organization_id', org.id)
+      .in('role', ['org_admin', 'league_admin'])
+    recipients = (orgAdmins ?? []).map((a) => {
+      const profile = Array.isArray(a.profiles) ? a.profiles[0] : a.profiles
+      return { userId: a.user_id, email: (profile as { email?: string } | null)?.email ?? '' }
+    }).filter((r) => r.email)
   }
+
+  const emailHtml = buildJoinRequestEmail({
+    teamName,
+    orgName: org.name,
+    playerName,
+    playerEmail: requesterProfile?.email ?? '',
+    message: message ?? null,
+    teamUrl,
+  })
+
+  await Promise.all(
+    recipients.map(async (r) => {
+      // In-app notification
+      await db.from('notifications').insert({
+        organization_id: org.id,
+        user_id: r.userId,
+        type: 'join_request',
+        title: 'New join request',
+        body: `${playerName} wants to join ${teamName}.`,
+        data: { team_id: teamId, requester_id: user.id },
+      })
+      // Email
+      if (r.email) {
+        await sendEmail({
+          to: r.email,
+          subject: `${playerName} wants to join ${teamName}`,
+          html: emailHtml,
+        })
+      }
+    })
+  )
 
   revalidatePath('/dashboard')
   return { error: null }
@@ -451,14 +497,34 @@ export async function approveJoinRequest(requestId: string) {
     .update({ status: 'approved', reviewed_by: user.id, reviewed_at: new Date().toISOString() })
     .eq('id', requestId)
 
-  // Notify the requester
+  // Fetch team name + player email for notification
+  const [{ data: teamDetails }, { data: playerProfile }] = await Promise.all([
+    db.from('teams').select('name').eq('id', req.team_id).single(),
+    db.from('profiles').select('full_name, email').eq('id', req.user_id).single(),
+  ])
+
+  const teamName = teamDetails?.name ?? team?.league_id ? 'your team' : 'the team'
+  const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+  const teamUrl = `https://${org.slug}.${platformDomain}/teams/${req.team_id}`
+
+  // In-app notification
   await db.from('notifications').insert({
     organization_id: org.id,
     user_id: req.user_id,
     type: 'join_approved',
     title: 'Join request approved!',
-    body: 'Your request to join the team has been approved.',
+    body: `Your request to join ${teamName} has been approved. Welcome to the team!`,
+    data: { team_id: req.team_id },
   })
+
+  // Email
+  if (playerProfile?.email) {
+    await sendEmail({
+      to: playerProfile.email,
+      subject: `You've been approved to join ${teamName}`,
+      html: buildJoinApprovedEmail({ teamName, orgName: org.name, teamUrl }),
+    })
+  }
 
   if (team?.league_id) revalidatePath(`/admin/events/${team.league_id}/teams`)
   revalidatePath(`/teams/${req.team_id}`)
@@ -499,14 +565,32 @@ export async function rejectJoinRequest(requestId: string) {
     .update({ status: 'rejected', reviewed_by: user.id, reviewed_at: new Date().toISOString() })
     .eq('id', requestId)
 
-  // Notify the requester
+  // Fetch team name + player email for notification
+  const [{ data: teamDetails }, { data: playerProfile }] = await Promise.all([
+    db.from('teams').select('name').eq('id', req.team_id).single(),
+    db.from('profiles').select('full_name, email').eq('id', req.user_id).single(),
+  ])
+
+  const teamName = teamDetails?.name ?? 'the team'
+
+  // In-app notification
   await db.from('notifications').insert({
     organization_id: org.id,
     user_id: req.user_id,
     type: 'join_rejected',
-    title: 'Join request declined',
-    body: 'Your request to join the team was not approved. Contact the captain for more info.',
+    title: 'Join request not approved',
+    body: `Your request to join ${teamName} was not approved. Contact the captain for more info.`,
+    data: { team_id: req.team_id },
   })
+
+  // Email
+  if (playerProfile?.email) {
+    await sendEmail({
+      to: playerProfile.email,
+      subject: `Your request to join ${teamName}`,
+      html: buildJoinDeclinedEmail({ teamName, orgName: org.name }),
+    })
+  }
 
   if (team?.league_id) revalidatePath(`/admin/events/${team.league_id}/teams`)
   revalidatePath(`/teams/${req.team_id}`)

@@ -29,6 +29,111 @@ export async function sendEmail(opts: SendEmailOptions): Promise<void> {
   }
 }
 
+export function buildJoinRequestEmail({
+  teamName,
+  orgName,
+  playerName,
+  playerEmail,
+  message,
+  teamUrl,
+}: {
+  teamName: string
+  orgName: string
+  playerName: string
+  playerEmail: string
+  message: string | null
+  teamUrl: string
+}): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+    <div style="background:#1e3a5f;padding:24px 32px;">
+      <h1 style="color:#fff;margin:0;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">${orgName}</h1>
+    </div>
+    <div style="padding:32px;">
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">New Join Request</h2>
+      <p style="color:#6b7280;margin:0 0 8px;font-size:15px;line-height:1.6;">
+        <strong>${playerName}</strong> (${playerEmail}) has requested to join <strong>${teamName}</strong>.
+      </p>
+      ${message ? `<p style="color:#374151;background:#f9fafb;border-left:3px solid #d1d5db;padding:10px 14px;margin:16px 0;font-size:14px;font-style:italic;">&ldquo;${message}&rdquo;</p>` : ''}
+      <div style="text-align:center;margin:28px 0 20px;">
+        <a href="${teamUrl}"
+           style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:700;font-size:16px;">
+          Review Request →
+        </a>
+      </div>
+      <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">
+        Log in to approve or decline from the team page.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`
+}
+
+export function buildJoinApprovedEmail({
+  teamName,
+  orgName,
+  teamUrl,
+}: {
+  teamName: string
+  orgName: string
+  teamUrl: string
+}): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+    <div style="background:#1e3a5f;padding:24px 32px;">
+      <h1 style="color:#fff;margin:0;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">${orgName}</h1>
+    </div>
+    <div style="padding:32px;">
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">You&rsquo;re on the team! 🎉</h2>
+      <p style="color:#6b7280;margin:0 0 24px;font-size:15px;line-height:1.6;">
+        Your request to join <strong>${teamName}</strong> has been approved. Welcome to the team!
+      </p>
+      <div style="text-align:center;margin:28px 0 20px;">
+        <a href="${teamUrl}"
+           style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:700;font-size:16px;">
+          View Your Team →
+        </a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`
+}
+
+export function buildJoinDeclinedEmail({
+  teamName,
+  orgName,
+}: {
+  teamName: string
+  orgName: string
+}): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+    <div style="background:#1e3a5f;padding:24px 32px;">
+      <h1 style="color:#fff;margin:0;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">${orgName}</h1>
+    </div>
+    <div style="padding:32px;">
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Request Not Approved</h2>
+      <p style="color:#6b7280;margin:0 0 24px;font-size:15px;line-height:1.6;">
+        Your request to join <strong>${teamName}</strong> was not approved at this time.
+        Reach out to the team captain or organiser for more information.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`
+}
+
 export function buildTeamInviteEmail({
   teamName,
   orgName,
