@@ -32,12 +32,14 @@ interface Props {
   playerDetails: PlayerDetails | null
   league: League
   userId: string
+  positions?: string[]
   onComplete: (registrationId: string) => void
 }
 
-export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, onComplete }: Props) {
+export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, positions = [], onComplete }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedPosition, setSelectedPosition] = useState('')
   const [teamCode, setTeamCode] = useState('')
   const [teamCodeError, setTeamCodeError] = useState<string | null>(null)
   const [teamCodeValid, setTeamCodeValid] = useState<{ id: string; name: string } | null>(null)
@@ -84,7 +86,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
 
     await updateProfile({ ...data, orgId: org.id })
 
-    const result = await createRegistration({ leagueId: league.id })
+    const result = await createRegistration({ leagueId: league.id, position: selectedPosition || undefined })
     if (result.error) {
       setError(result.error)
       setLoading(false)
@@ -139,6 +141,20 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
             {errors.t_shirt_size && <p className="text-red-500 text-xs mt-1">{errors.t_shirt_size.message}</p>}
           </div>
         </div>
+
+        {positions.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Position</label>
+            <select
+              value={selectedPosition}
+              onChange={(e) => setSelectedPosition(e.target.value)}
+              className="w-full border rounded-md px-3 py-2 text-sm"
+            >
+              <option value="">No preference</option>
+              {positions.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-lg border p-5 space-y-3">

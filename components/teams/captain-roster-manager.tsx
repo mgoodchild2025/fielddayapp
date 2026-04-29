@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { captainSetMemberRole, captainRemoveTeamMember, captainAddPlayerByEmail } from '@/actions/teams'
+import { setTeamMemberPosition } from '@/actions/positions'
 
 type Role = 'captain' | 'coach' | 'player' | 'sub'
 
@@ -15,6 +16,7 @@ const ROLES: { value: Role; label: string }[] = [
 interface Member {
   id: string
   role: string
+  position: string | null
   userId: string | null
   isMe: boolean
   name: string
@@ -24,15 +26,23 @@ interface Member {
 interface Props {
   teamId: string
   initialMembers: Member[]
+  positions?: string[]
 }
 
-export function CaptainRosterManager({ teamId, initialMembers }: Props) {
+export function CaptainRosterManager({ teamId, initialMembers, positions = [] }: Props) {
   const [members, setMembers] = useState(initialMembers)
   const [addEmail, setAddEmail] = useState('')
   const [addRole, setAddRole] = useState<Role>('player')
   const [addPending, startAddTransition] = useTransition()
   const [addError, setAddError] = useState<string | null>(null)
   const [addSuccess, setAddSuccess] = useState<string | null>(null)
+
+  function handlePositionChange(memberId: string, position: string) {
+    setMembers((prev) => prev.map((m) => m.id === memberId ? { ...m, position: position || null } : m))
+    startAddTransition(async () => {
+      await setTeamMemberPosition({ memberId, teamId, position })
+    })
+  }
 
   function handleRoleChange(memberId: string, role: Role) {
     setMembers((prev) => prev.map((m) => m.id === memberId ? { ...m, role } : m))
@@ -93,6 +103,19 @@ export function CaptainRosterManager({ teamId, initialMembers }: Props) {
               </p>
               {m.email && <p className="text-xs text-gray-400 truncate">{m.email}</p>}
             </div>
+            {positions.length > 0 && (
+              <select
+                value={m.position ?? ''}
+                onChange={(e) => handlePositionChange(m.id, e.target.value)}
+                className="text-xs border rounded px-2 py-1 bg-white shrink-0"
+                title="Position"
+              >
+                <option value="">Position…</option>
+                {positions.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            )}
             <select
               value={m.role}
               onChange={(e) => handleRoleChange(m.id, e.target.value as Role)}

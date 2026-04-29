@@ -9,6 +9,7 @@ import { TeamMessageForm } from '@/components/teams/team-message-form'
 import { CaptainRosterManager } from '@/components/teams/captain-roster-manager'
 import { AdminEditTeamForm } from '@/components/teams/admin-edit-team-form'
 import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
+import { getPositionsForSport } from '@/actions/positions'
 import Link from 'next/link'
 
 export default async function TeamDetailPage({ params }: { params: Promise<{ teamId: string }> }) {
@@ -28,9 +29,9 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
       .from('teams')
       .select(`
         id, name, color, logo_url, team_code, league_id,
-        league:leagues!teams_league_id_fkey(id, name, slug),
+        league:leagues!teams_league_id_fkey(id, name, slug, sport),
         team_members(
-          id, role, status, user_id,
+          id, role, status, user_id, position,
           profile:profiles!team_members_user_id_fkey(full_name, email, phone)
         )
       `)
@@ -63,6 +64,12 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
 
   if (!team) notFound()
 
+  const leagueSport = (() => {
+    const l = Array.isArray(team.league) ? team.league[0] : team.league
+    return (l as { sport?: string } | null)?.sport ?? ''
+  })()
+  const positions = await getPositionsForSport(org.id, leagueSport)
+
   const isOrgAdmin = ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
   // Must be a team member OR an org admin
   if (!myMembership && !isOrgAdmin) notFound()
@@ -75,6 +82,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
     role: string
     status: string
     user_id: string | null
+    position: string | null
     profile: { full_name: string; email: string; phone: string | null } | { full_name: string; email: string; phone: string | null }[] | null
   }>
   const activeMembers = allMembers.filter((m) => m.status === 'active')
@@ -134,11 +142,13 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
         {isManager ? (
           <CaptainRosterManager
             teamId={team.id}
+            positions={positions}
             initialMembers={activeMembers.map((m) => {
               const profile = Array.isArray(m.profile) ? m.profile[0] : m.profile
               return {
                 id: m.id,
                 role: m.role,
+                position: m.position ?? null,
                 userId: m.user_id,
                 isMe: m.user_id === user.id,
                 name: profile?.full_name ?? '',

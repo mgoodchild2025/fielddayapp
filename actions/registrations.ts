@@ -11,6 +11,7 @@ const createRegistrationSchema = z.object({
   leagueId: z.string().uuid(),
   waiverSignatureId: z.string().uuid().optional(),
   formData: z.record(z.string(), z.unknown()).optional(),
+  position: z.string().optional(),
 })
 
 export async function createRegistration(input: z.infer<typeof createRegistrationSchema>) {
@@ -51,6 +52,7 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
       user_id: user.id,
       waiver_signature_id: parsed.data.waiverSignatureId ?? null,
       status: 'pending',
+      position: parsed.data.position ?? null,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       form_data: (parsed.data.formData ?? null) as any,
     })

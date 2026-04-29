@@ -5,6 +5,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { RegistrationFlow } from '@/components/registration/registration-flow'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { getPositionsForSport } from '@/actions/positions'
 
 export default async function RegisterLeaguePage({
   params,
@@ -43,6 +44,8 @@ export default async function RegisterLeaguePage({
   ])
 
   const hasOnlinePayments = !!connectAccount?.charges_enabled
+
+  const positions = await getPositionsForSport(org.id, league.sport ?? '')
 
   // Use the league's specific waiver if set, otherwise fall back to the org-wide active waiver
   let waiver = null
@@ -100,6 +103,7 @@ export default async function RegisterLeaguePage({
       initialStep={initialStep}
       initialRegistrationId={initialRegistrationId}
       hasOnlinePayments={hasOnlinePayments}
+      positions={positions}
     />
   )
 }

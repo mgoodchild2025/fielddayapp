@@ -23,11 +23,12 @@ interface Props {
   initialStep?: number
   initialRegistrationId?: string | null
   hasOnlinePayments?: boolean
+  positions?: string[]
 }
 
 const ALL_STEPS = ['Player Details', 'Waiver', 'Payment']
 
-export function RegistrationFlow({ org, league, waiver, profile, playerDetails, userId, initialStep = 1, initialRegistrationId = null, hasOnlinePayments = false }: Props) {
+export function RegistrationFlow({ org, league, waiver, profile, playerDetails, userId, initialStep = 1, initialRegistrationId = null, hasOnlinePayments = false, positions = [] }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(initialStep)
   const [registrationId, setRegistrationId] = useState<string | null>(initialRegistrationId)
@@ -98,6 +99,7 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
             playerDetails={playerDetails}
             league={league}
             userId={userId}
+            positions={positions}
             onComplete={(regId) => { setRegistrationId(regId); setStep(2) }}
           />
         )}
