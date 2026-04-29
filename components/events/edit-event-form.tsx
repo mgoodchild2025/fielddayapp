@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { updateLeague } from '@/actions/leagues'
+import { updateLeague } from '@/actions/events'
 
 interface League {
   id: string
@@ -67,7 +67,7 @@ function toDateTimeInput(iso: string | null) {
   return iso ? iso.slice(0, 16) : ''
 }
 
-export function EditLeagueForm({ league, waivers, ruleTemplates }: Props) {
+export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -152,7 +152,7 @@ export function EditLeagueForm({ league, waivers, ruleTemplates }: Props) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-semibold">Edit League Details</h2>
+        <h2 className="font-semibold">Edit Event Details</h2>
         <button onClick={() => setOpen(false)} className="text-sm text-gray-400 hover:text-gray-600">
           Cancel
         </button>
@@ -311,7 +311,7 @@ export function EditLeagueForm({ league, waivers, ruleTemplates }: Props) {
         </Field>
 
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">League Rules</label>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Event Rules</label>
           <select
             name="rule_template_id"
             defaultValue={league.rule_template_id ?? ''}
@@ -330,18 +330,18 @@ export function EditLeagueForm({ league, waivers, ruleTemplates }: Props) {
             value={rulesContent}
             onChange={(e) => setRulesContent(e.target.value)}
             rows={10}
-            placeholder="League rules shown to players during registration and on the league page…"
+            placeholder="Event rules shown to players during registration and on the event page…"
             className="input font-mono text-xs leading-relaxed resize-y"
           />
           {ruleTemplates.length === 0 && (
             <p className="text-xs text-amber-600 mt-1">
               No rule templates set up.{' '}
-              <a href="/admin/settings/league-rules" className="underline">Create one in Settings → League Rules</a>.
+              <a href="/admin/settings/event-rules" className="underline">Create one in Settings → Event Rules</a>.
             </p>
           )}
           {rulesContent && (
             <p className="text-xs text-gray-400 mt-1">
-              Editing the content here only affects this league — the template is not modified.
+              Editing the content here only affects this event — the template is not modified.
             </p>
           )}
         </div>

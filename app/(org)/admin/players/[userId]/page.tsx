@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { PlayerDetailsForm } from '@/components/players/player-details-form'
-import { AddToLeagueForm } from '@/components/players/add-to-league-form'
+import { AddToEventForm } from '@/components/players/add-to-event-form'
 import { AddToTeamForm } from '@/components/players/add-to-team-form'
 import { TeamRoleSelect } from '@/components/players/team-role-select'
 import { SendNotificationForm } from '@/components/players/send-notification-form'
@@ -277,7 +277,7 @@ export default async function PlayerManagementPage({
             )}
 
             {availableLeagues.length > 0 && (
-              <AddToLeagueForm userId={userId} leagues={availableLeagues} />
+              <AddToEventForm userId={userId} leagues={availableLeagues} />
             )}
           </div>
 

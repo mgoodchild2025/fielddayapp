@@ -51,13 +51,13 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
         .eq('status', 'pending')
         .in('team_id', leagueTeamIds)
         .order('created_at', { ascending: false }),
-      // All players registered for this league
+      // All players registered for this event
       db
         .from('registrations')
         .select('user_id, profiles!registrations_user_id_fkey(full_name, email)')
         .eq('league_id', id)
         .eq('organization_id', org.id),
-      // All user_ids currently assigned to any team in this league
+      // All user_ids currently assigned to any team in this event
       leagueTeamIds.length > 0
         ? db.from('team_members').select('user_id').in('team_id', leagueTeamIds)
         : Promise.resolve({ data: [] as { user_id: string | null }[], error: null }),

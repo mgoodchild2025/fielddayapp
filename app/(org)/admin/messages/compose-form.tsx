@@ -47,7 +47,7 @@ export function ComposeMessageForm({ leagues }: { leagues: League[] }) {
         </div>
         {audienceType === 'league' && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">League</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Event</label>
             <select name="league_id" required className="w-full border rounded-md px-3 py-2 text-sm">
               <option value="">Select league…</option>
               {leagues.map((l) => (

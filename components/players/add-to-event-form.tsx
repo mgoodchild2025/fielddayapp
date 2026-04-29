@@ -8,7 +8,7 @@ interface Props {
   leagues: { id: string; name: string; status: string }[]
 }
 
-export function AddToLeagueForm({ userId, leagues }: Props) {
+export function AddToEventForm({ userId, leagues }: Props) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 

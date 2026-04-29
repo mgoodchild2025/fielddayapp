@@ -68,7 +68,7 @@ export async function createTeam(input: z.infer<typeof createTeamSchema>) {
     .eq('user_id', user.id)
     .eq('role', 'player')
 
-  revalidatePath(`/admin/leagues/${parsed.data.leagueId}/teams`)
+  revalidatePath(`/admin/events/${parsed.data.leagueId}/teams`)
   return { data: team, error: null }
 }
 
@@ -102,7 +102,7 @@ export async function adminCreateTeam(input: z.infer<typeof adminCreateTeamSchem
 
   if (error) return { data: null, error: error.message }
 
-  revalidatePath(`/admin/leagues/${parsed.data.leagueId}/teams`)
+  revalidatePath(`/admin/events/${parsed.data.leagueId}/teams`)
   return { data: team, error: null }
 }
 
@@ -122,7 +122,7 @@ export async function regenerateTeamCode(teamId: string) {
     .single()
 
   if (error) return { data: null, error: error.message }
-  revalidatePath('/admin/leagues')
+  revalidatePath('/admin/events')
   return { data, error: null }
 }
 
@@ -221,7 +221,7 @@ export async function removeTeamMember(memberId: string, leagueId: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath(`/admin/leagues/${leagueId}/teams`)
+  revalidatePath(`/admin/events/${leagueId}/teams`)
   return { error: null }
 }
 
@@ -243,7 +243,7 @@ export async function deleteTeam(teamId: string, leagueId: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath(`/admin/leagues/${leagueId}/teams`)
+  revalidatePath(`/admin/events/${leagueId}/teams`)
   return { error: null }
 }
 
@@ -294,7 +294,7 @@ export async function adminAddTeamMember(input: z.infer<typeof adminAddMemberSch
 
     if (error) return { data: null, error: error.message, invited: false }
 
-    revalidatePath(`/admin/leagues/${parsed.data.leagueId}/teams`)
+    revalidatePath(`/admin/events/${parsed.data.leagueId}/teams`)
     return { data: null, error: null, invited: false }
   }
 
@@ -313,7 +313,7 @@ export async function adminAddTeamMember(input: z.infer<typeof adminAddMemberSch
     return { data: null, error: error.message, invited: false }
   }
 
-  revalidatePath(`/admin/leagues/${parsed.data.leagueId}/teams`)
+  revalidatePath(`/admin/events/${parsed.data.leagueId}/teams`)
   return { data: null, error: null, invited: true }
 }
 
@@ -460,7 +460,7 @@ export async function approveJoinRequest(requestId: string) {
     body: 'Your request to join the team has been approved.',
   })
 
-  if (team?.league_id) revalidatePath(`/admin/leagues/${team.league_id}/teams`)
+  if (team?.league_id) revalidatePath(`/admin/events/${team.league_id}/teams`)
   revalidatePath(`/teams/${req.team_id}`)
   revalidatePath('/dashboard')
   return { error: null }
@@ -508,7 +508,7 @@ export async function rejectJoinRequest(requestId: string) {
     body: 'Your request to join the team was not approved. Contact the captain for more info.',
   })
 
-  if (team?.league_id) revalidatePath(`/admin/leagues/${team.league_id}/teams`)
+  if (team?.league_id) revalidatePath(`/admin/events/${team.league_id}/teams`)
   revalidatePath(`/teams/${req.team_id}`)
   revalidatePath('/dashboard')
   return { error: null }
@@ -661,7 +661,7 @@ export async function updateTeam(
 
   if (error) return { error: error.message }
 
-  revalidatePath(`/admin/leagues/${leagueId}/teams`)
+  revalidatePath(`/admin/events/${leagueId}/teams`)
   revalidatePath(`/teams/${teamId}`)
   return { error: null }
 }

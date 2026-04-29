@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { createLeague } from '@/actions/leagues'
+import { createLeague } from '@/actions/events'
 import { useRouter } from 'next/navigation'
 
 // ── Field component defined outside so it never gets remounted on re-render ──
@@ -140,14 +140,14 @@ export function NewLeagueForm({ waivers, ruleTemplates }: Props) {
       )
       setLoading(false)
     } else {
-      router.push(`/admin/leagues/${result.data?.id}`)
+      router.push(`/admin/events/${result.data?.id}`)
     }
   }
 
   return (
     <div className="max-w-2xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Create League</h1>
+        <h1 className="text-2xl font-bold">Create Event</h1>
       </div>
 
       {error && (
@@ -345,9 +345,9 @@ export function NewLeagueForm({ waivers, ruleTemplates }: Props) {
           </Field>
         </div>
 
-        {/* ── League Rules ── */}
+        {/* ── Event Rules ── */}
         <div className="border-t pt-4">
-          <p className="text-sm font-semibold text-gray-700 mb-3">League Rules</p>
+          <p className="text-sm font-semibold text-gray-700 mb-3">Event Rules</p>
           <div className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Template</label>
@@ -368,8 +368,8 @@ export function NewLeagueForm({ waivers, ruleTemplates }: Props) {
               {ruleTemplates.length === 0 && (
                 <p className="text-xs text-amber-600 mt-1">
                   No rule templates set up yet.{' '}
-                  <a href="/admin/settings/league-rules" className="underline">
-                    Create one in Settings → League Rules
+                  <a href="/admin/settings/event-rules" className="underline">
+                    Create one in Settings → Event Rules
                   </a>.
                 </p>
               )}
@@ -380,12 +380,12 @@ export function NewLeagueForm({ waivers, ruleTemplates }: Props) {
                 value={rulesContent}
                 onChange={(e) => setRulesContent(e.target.value)}
                 rows={10}
-                placeholder="League rules shown to players on the league page…"
+                placeholder="Event rules shown to players on the event page…"
                 className={`${INPUT} font-mono text-xs leading-relaxed resize-y`}
               />
               {rulesContent && selectedTemplateId && (
                 <p className="text-xs text-gray-400 mt-1">
-                  Editing here only affects this league — the template is not modified.
+                  Editing here only affects this event — the template is not modified.
                 </p>
               )}
             </div>
@@ -399,7 +399,7 @@ export function NewLeagueForm({ waivers, ruleTemplates }: Props) {
             className="px-6 py-2.5 rounded-md font-semibold text-white disabled:opacity-60"
             style={{ backgroundColor: 'var(--brand-primary)' }}
           >
-            {loading ? 'Creating…' : 'Create League'}
+            {loading ? 'Creating…' : 'Create Event'}
           </button>
           <button
             type="button"

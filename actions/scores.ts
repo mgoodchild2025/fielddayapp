@@ -139,7 +139,7 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
   await supabase.from('games').update({ status: 'completed' }).eq('id', parsed.data.gameId)
 
   const leagueId = parsed.data.leagueId ?? game.league_id
-  if (leagueId) revalidatePath(`/admin/leagues/${leagueId}/schedule`)
+  if (leagueId) revalidatePath(`/admin/events/${leagueId}/schedule`)
   revalidatePath('/schedule')
   revalidatePath('/standings')
   return { data: null, error: null }

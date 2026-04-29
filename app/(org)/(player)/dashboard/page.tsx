@@ -112,7 +112,7 @@ export default async function PlayerDashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Registrations */}
           <div className="bg-white rounded-lg border p-5">
-            <h2 className="font-semibold mb-4">My Leagues</h2>
+            <h2 className="font-semibold mb-4">My Events</h2>
             <div className="space-y-3">
               {registrations?.map((reg) => {
                 const league = Array.isArray(reg.league) ? reg.league[0] : reg.league
@@ -128,7 +128,7 @@ export default async function PlayerDashboardPage() {
                   <div key={reg.id} className={`border rounded-md p-3 ${(needsWaiver || needsPayment) ? 'border-amber-200 bg-amber-50' : ''}`}>
                     <div className="flex items-start justify-between gap-2">
                       <Link
-                        href={`/leagues/${league?.slug ?? ''}`}
+                        href={`/events/${league?.slug ?? ''}`}
                         className="font-medium hover:underline"
                         style={{ color: 'var(--brand-primary)' }}
                       >
@@ -185,7 +185,7 @@ export default async function PlayerDashboardPage() {
                 <p className="text-sm text-gray-400 text-center py-4">You haven&apos;t registered for any leagues yet.</p>
               )}
             </div>
-            <Link href="/leagues" className="mt-4 inline-block text-sm font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
+            <Link href="/events" className="mt-4 inline-block text-sm font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
               Browse leagues →
             </Link>
           </div>

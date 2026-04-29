@@ -6,7 +6,7 @@ import { Footer } from '@/components/layout/footer'
 import { RequestJoinButton } from '@/components/teams/request-join-button'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { LeagueRulesModal } from '@/components/leagues/league-rules-modal'
+import { EventRulesModal } from '@/components/events/event-rules-modal'
 
 export default async function LeagueDetailPage({
   params,
@@ -63,7 +63,7 @@ export default async function LeagueDetailPage({
   const myTeamIds = new Set(myMemberships?.map((m) => m.team_id) ?? [])
   const myRequestTeamIds = new Set(myRequests?.map((r) => r.team_id) ?? [])
 
-  // Check if the current user is already registered for this league
+  // Check if the current user is already registered for this event
   const { data: myRegistration } = user
     ? await supabase
         .from('registrations')
@@ -84,7 +84,7 @@ export default async function LeagueDetailPage({
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
       <div className="max-w-3xl mx-auto px-6 py-12">
         <div className="mb-2">
-          <Link href="/leagues" className="text-sm text-gray-500 hover:underline">← All Leagues</Link>
+          <Link href="/events" className="text-sm text-gray-500 hover:underline">← All Events</Link>
         </div>
         <h1 className="text-4xl font-bold uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           {league.name}
@@ -187,14 +187,14 @@ export default async function LeagueDetailPage({
           </div>
         )}
 
-        {/* League Rules */}
+        {/* Event Rules */}
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         {(league as any).rules_content && (
           <div className="mt-6 bg-white rounded-lg border p-5">
-            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">League Rules</p>
-            <p className="text-sm text-gray-500">Rules and regulations for this league.</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Event Rules</p>
+            <p className="text-sm text-gray-500">Rules and regulations for this event.</p>
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <LeagueRulesModal content={(league as any).rules_content} />
+            <EventRulesModal content={(league as any).rules_content} />
           </div>
         )}
 

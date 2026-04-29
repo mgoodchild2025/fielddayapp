@@ -43,7 +43,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
             {org.name}
           </h1>
           {branding?.tagline && <p className="mt-4 text-xl md:text-2xl opacity-80">{branding.tagline}</p>}
-          <Link href="/leagues" className="mt-8 inline-block px-8 py-3 rounded-md font-semibold text-lg transition-opacity hover:opacity-90" style={{ backgroundColor: 'var(--brand-primary)', color: 'white' }}>
+          <Link href="/events" className="mt-8 inline-block px-8 py-3 rounded-md font-semibold text-lg transition-opacity hover:opacity-90" style={{ backgroundColor: 'var(--brand-primary)', color: 'white' }}>
             View Leagues
           </Link>
         </div>
@@ -54,7 +54,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           <h2 className="text-3xl font-bold mb-8 uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>Open for Registration</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {leagues.map((league) => (
-              <Link key={league.id} href={`/leagues/${league.slug}`} className="block bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
+              <Link key={league.id} href={`/events/${league.slug}`} className="block bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-3">
                   <span className="text-xs font-medium uppercase tracking-wide px-2 py-1 rounded" style={{ backgroundColor: 'var(--brand-primary)', color: 'white' }}>{league.league_type}</span>
                   {league.status === 'registration_open' && <span className="text-xs text-green-600 font-medium">Open</span>}

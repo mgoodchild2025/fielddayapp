@@ -4,20 +4,20 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const tabs = (id: string) => [
-  { label: 'Overview', href: `/admin/leagues/${id}` },
-  { label: 'Registrations', href: `/admin/leagues/${id}/registrations` },
-  { label: 'Teams', href: `/admin/leagues/${id}/teams` },
-  { label: 'Schedule', href: `/admin/leagues/${id}/schedule` },
+  { label: 'Overview', href: `/admin/events/${id}` },
+  { label: 'Registrations', href: `/admin/events/${id}/registrations` },
+  { label: 'Teams', href: `/admin/events/${id}/teams` },
+  { label: 'Schedule', href: `/admin/events/${id}/schedule` },
 ]
 
-export function LeagueAdminTabs({ leagueId }: { leagueId: string }) {
+export function EventAdminTabs({ leagueId }: { leagueId: string }) {
   const pathname = usePathname()
 
   return (
     <div className="flex gap-0 border-b mb-6 overflow-x-auto scrollbar-none -mx-1 px-1">
       {tabs(leagueId).map((tab) => {
         const isActive =
-          tab.href === `/admin/leagues/${leagueId}`
+          tab.href === `/admin/events/${leagueId}`
             ? pathname === tab.href
             : pathname.startsWith(tab.href)
         return (

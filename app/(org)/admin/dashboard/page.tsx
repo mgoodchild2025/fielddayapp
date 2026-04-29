@@ -23,7 +23,7 @@ export default async function AdminDashboardPage() {
   const totalRevenue = recentPayments?.filter((p) => p.status === 'paid').reduce((acc, p) => acc + p.amount_cents, 0) ?? 0
 
   const stats = [
-    { label: 'Active Leagues', value: leagueCount ?? 0, href: '/admin/leagues' },
+    { label: 'Active Events', value: leagueCount ?? 0, href: '/admin/events' },
     { label: 'Members', value: memberCount ?? 0, href: '/admin/users' },
     { label: 'Recent Revenue', value: `$${(totalRevenue / 100).toFixed(0)}`, href: '/admin/payments' },
   ]
@@ -44,12 +44,12 @@ export default async function AdminDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg border p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold">Active Leagues</h2>
-            <Link href="/admin/leagues" className="text-sm hover:underline" style={{ color: 'var(--brand-primary)' }}>View all</Link>
+            <h2 className="font-semibold">Active Events</h2>
+            <Link href="/admin/events" className="text-sm hover:underline" style={{ color: 'var(--brand-primary)' }}>View all</Link>
           </div>
           <div className="space-y-2">
             {activeLeagues?.map((l) => (
-              <Link key={l.id} href={`/admin/leagues/${l.id}`} className="flex items-center justify-between py-2 border-b last:border-0 hover:opacity-70">
+              <Link key={l.id} href={`/admin/events/${l.id}`} className="flex items-center justify-between py-2 border-b last:border-0 hover:opacity-70">
                 <span className="font-medium">{l.name}</span>
                 <span className={`text-xs px-2 py-1 rounded-full font-medium ${l.status === 'registration_open' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
                   {l.status === 'registration_open' ? 'Open' : 'In Season'}

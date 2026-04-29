@@ -6,7 +6,7 @@ interface Props {
   content: string
 }
 
-export function LeagueRulesModal({ content }: Props) {
+export function EventRulesModal({ content }: Props) {
   const [open, setOpen] = useState(false)
   const dialogRef = useRef<HTMLDialogElement>(null)
 
@@ -48,7 +48,7 @@ export function LeagueRulesModal({ content }: Props) {
         className="mt-4 text-sm font-medium hover:underline"
         style={{ color: 'var(--brand-primary)' }}
       >
-        View League Rules →
+        View Event Rules →
       </button>
 
       <dialog
@@ -59,7 +59,7 @@ export function LeagueRulesModal({ content }: Props) {
         <div className="flex flex-col h-full max-h-[85vh]">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
-            <h2 className="text-lg font-bold">League Rules</h2>
+            <h2 className="text-lg font-bold">Event Rules</h2>
             <button
               onClick={() => setOpen(false)}
               className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"

@@ -53,7 +53,21 @@
       "Bash(find . -type f -name \"*.sql\" -exec wc -l {} +)",
       "Bash(git fetch *)",
       "Bash(git merge *)",
-      "Bash(grep -E '\\\\.\\(ts|tsx\\)$')"
+      "Bash(grep -E '\\\\.\\(ts|tsx\\)$')",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(xargs sed *)",
+      "Bash(sed -i '' -e 's|@/actions/leagues|@/actions/events|g' -e 's|/admin/leagues|/admin/events|g' components/players/add-to-event-form.tsx)",
+      "Bash(sed -i '' -e 's|/admin/leagues|/admin/events|g' -e 's|LeagueAdminTabs|EventAdminTabs|g' components/layout/event-admin-tabs.tsx)",
+      "Bash(sed -i '' 's|/admin/settings/league-rules|/admin/settings/event-rules|g' \"actions/event-rules.ts\")",
+      "Bash(sed -i '' \"s|href: '/leagues'|href: '/events'|g\" \"components/layout/mobile-nav.tsx\")",
+      "Bash(sed -i '' 's|League Rules|Event Rules|g' \"app/\\(org\\)/admin/settings/page.tsx\")",
+      "Bash(sed -i '' -e 's|League rules shown to players on the league page|Event rules shown to players on the event page|g' 'app/\\(org\\)/admin/events/new/new-event-form.tsx')",
+      "Bash(sed -i '' -e 's|League rules shown to players during registration and on the league page|Event rules shown to players during registration and on the event page|g' components/events/edit-event-form.tsx)",
+      "Bash(sed -i '' 's|LeagueRulesPage|EventRulesPage|g' \"app/\\(org\\)/admin/settings/event-rules/page.tsx\")",
+      "Bash(sed -i '' 's|/admin/settings/league-rules|/admin/settings/event-rules|g' \"app/\\(org\\)/admin/events/new/new-event-form.tsx\")",
+      "Bash(sed -i '' 's|LeagueAdminLayout|EventAdminLayout|g' \"app/\\(org\\)/admin/events/[id]/layout.tsx\")",
+      "Bash(sed -i '' \"s|{ label: 'Leagues', value: leagues.length }|{ label: 'Events', value: leagues.length }|g\" \"app/\\(platform\\)/super/orgs/[id]/page.tsx\")"
     ]
   }
 }

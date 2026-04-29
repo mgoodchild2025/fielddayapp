@@ -119,7 +119,7 @@ export async function deleteWaiver(waiverId: string) {
 
   if (error) return { error: error.message }
   revalidatePath('/admin/settings/waivers')
-  revalidatePath('/admin/leagues')
+  revalidatePath('/admin/events')
   return { error: null }
 }
 

@@ -114,7 +114,7 @@ export default async function PlatformOrgDetailPage({
         {[
           { label: 'Members', value: members.length },
           { label: 'Admins', value: adminCount },
-          { label: 'Leagues', value: leagues.length },
+          { label: 'Events', value: leagues.length },
           { label: 'Revenue', value: `$${(totalRevenueCents / 100).toLocaleString('en-CA', { minimumFractionDigits: 2 })}` },
         ].map(s => (
           <div key={s.label} className="bg-gray-800 rounded-lg p-4">

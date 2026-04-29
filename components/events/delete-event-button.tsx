@@ -2,14 +2,14 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { deleteLeague } from '@/actions/leagues'
+import { deleteLeague } from '@/actions/events'
 
 interface Props {
   leagueId: string
-  leagueName: string
+  eventName: string
 }
 
-export function DeleteLeagueButton({ leagueId, leagueName }: Props) {
+export function DeleteEventButton({ leagueId, eventName }: Props) {
   const [confirming, setConfirming] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -24,7 +24,7 @@ export function DeleteLeagueButton({ leagueId, leagueName }: Props) {
       setLoading(false)
       setConfirming(false)
     } else {
-      router.push('/admin/leagues')
+      router.push('/admin/events')
     }
   }
 
@@ -34,7 +34,7 @@ export function DeleteLeagueButton({ leagueId, leagueName }: Props) {
         onClick={() => setConfirming(true)}
         className="w-full py-2 rounded-md text-sm font-semibold text-red-600 border border-red-200 hover:bg-red-50 transition-colors"
       >
-        Delete League
+        Delete Event
       </button>
     )
   }
@@ -42,7 +42,7 @@ export function DeleteLeagueButton({ leagueId, leagueName }: Props) {
   return (
     <div className="space-y-2">
       <p className="text-xs text-red-600 font-medium">
-        This will permanently delete &ldquo;{leagueName}&rdquo; including all teams, members, registrations, and games. This cannot be undone.
+        This will permanently delete &ldquo;{eventName}&rdquo; including all teams, members, registrations, and games. This cannot be undone.
       </p>
       {error && <p className="text-xs text-red-600">{error}</p>}
       <div className="flex gap-2">

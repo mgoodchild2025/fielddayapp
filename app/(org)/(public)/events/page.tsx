@@ -43,7 +43,7 @@ export default async function LeaguesPage() {
           {leagues?.map((league) => (
             <Link
               key={league.id}
-              href={`/leagues/${league.slug}`}
+              href={`/events/${league.slug}`}
               className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white rounded-lg shadow-sm border p-4 sm:p-6 hover:shadow-md transition-shadow gap-3"
             >
               <div>
@@ -69,7 +69,7 @@ export default async function LeaguesPage() {
             </Link>
           ))}
           {(!leagues || leagues.length === 0) && (
-            <p className="text-gray-500 text-center py-16">No leagues available yet.</p>
+            <p className="text-gray-500 text-center py-16">No events available yet.</p>
           )}
         </div>
       </div>

@@ -11,7 +11,7 @@ interface Props {
 }
 
 const links = [
-  { label: 'Leagues', href: '/leagues' },
+  { label: 'Events', href: '/events' },
   { label: 'Schedule', href: '/schedule' },
   { label: 'Standings', href: '/standings' },
 ]

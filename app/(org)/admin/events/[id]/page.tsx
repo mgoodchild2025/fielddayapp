@@ -2,10 +2,10 @@ import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
-import { updateLeagueStatus } from '@/actions/leagues'
-import { EditLeagueForm } from '@/components/leagues/edit-league-form'
-import { DeleteLeagueButton } from '@/components/leagues/delete-league-button'
-import { PaymentPlanConfig } from '@/components/leagues/payment-plan-config'
+import { updateLeagueStatus } from '@/actions/events'
+import { EditEventForm } from '@/components/events/edit-event-form'
+import { DeleteEventButton } from '@/components/events/delete-event-button'
+import { PaymentPlanConfig } from '@/components/events/payment-plan-config'
 import type { Database } from '@/types/database'
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
@@ -56,9 +56,9 @@ export default async function LeagueOverviewPage({ params }: { params: Promise<{
       {/* Stats row */}
       <div className="md:col-span-3 grid grid-cols-3 gap-4">
         {[
-          { label: 'Registrations', value: regCount ?? 0, href: `/admin/leagues/${id}/registrations` },
-          { label: 'Teams', value: teamCount ?? 0, href: `/admin/leagues/${id}/teams` },
-          { label: 'Games', value: gameCount ?? 0, href: `/admin/leagues/${id}/schedule` },
+          { label: 'Registrations', value: regCount ?? 0, href: `/admin/events/${id}/registrations` },
+          { label: 'Teams', value: teamCount ?? 0, href: `/admin/events/${id}/teams` },
+          { label: 'Games', value: gameCount ?? 0, href: `/admin/events/${id}/schedule` },
         ].map((stat) => (
           <a key={stat.label} href={stat.href} className="bg-white rounded-lg border p-4 hover:shadow-sm transition-shadow">
             <p className="text-sm text-gray-500">{stat.label}</p>
@@ -70,7 +70,7 @@ export default async function LeagueOverviewPage({ params }: { params: Promise<{
       {/* Details */}
       <div className="md:col-span-2 bg-white rounded-lg border p-5">
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <EditLeagueForm league={league as any} waivers={waivers ?? []} ruleTemplates={ruleTemplates ?? []} />
+        <EditEventForm league={league as any} waivers={waivers ?? []} ruleTemplates={ruleTemplates ?? []} />
         <dl className="space-y-3 text-sm mt-4">
           <Row label="Type" value={league.league_type} />
           <Row label="Sport" value={league.sport ?? '—'} />
@@ -153,7 +153,7 @@ export default async function LeagueOverviewPage({ params }: { params: Promise<{
 
         <div className="bg-white rounded-lg border p-5">
           <h2 className="font-semibold text-sm mb-3 text-red-600">Danger Zone</h2>
-          <DeleteLeagueButton leagueId={league.id} leagueName={league.name} />
+          <DeleteEventButton leagueId={league.id} leagueName={league.name} />
         </div>
       </div>
     </div>

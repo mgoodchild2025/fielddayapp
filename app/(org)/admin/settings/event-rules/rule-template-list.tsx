@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { upsertRuleTemplate, deleteRuleTemplate } from '@/actions/league-rules'
+import { upsertRuleTemplate, deleteRuleTemplate } from '@/actions/event-rules'
 
 interface Template {
   id: string

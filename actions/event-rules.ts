@@ -55,7 +55,7 @@ export async function upsertRuleTemplate(input: z.infer<typeof upsertSchema>) {
       .select('id')
       .single()
     if (e) return { data: null, error: e.message }
-    revalidatePath('/admin/settings/league-rules')
+    revalidatePath('/admin/settings/event-rules')
     return { data, error: null }
   }
 
@@ -65,7 +65,7 @@ export async function upsertRuleTemplate(input: z.infer<typeof upsertSchema>) {
     .select('id')
     .single()
   if (e) return { data: null, error: e.message }
-  revalidatePath('/admin/settings/league-rules')
+  revalidatePath('/admin/settings/event-rules')
   return { data, error: null }
 }
 
@@ -92,7 +92,7 @@ export async function deleteRuleTemplate(templateId: string) {
     .eq('organization_id', org.id)
   if (e) return { error: e.message }
 
-  revalidatePath('/admin/settings/league-rules')
-  revalidatePath('/admin/leagues')
+  revalidatePath('/admin/settings/event-rules')
+  revalidatePath('/admin/events')
   return { error: null }
 }

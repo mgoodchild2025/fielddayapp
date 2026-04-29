@@ -133,7 +133,7 @@ export default async function AdminPaymentsPage({
             <thead>
               <tr className="border-b bg-gray-50 text-left">
                 <th className="px-4 py-3 font-medium text-gray-500">Player</th>
-                <th className="px-4 py-3 font-medium text-gray-500">League</th>
+                <th className="px-4 py-3 font-medium text-gray-500">Event</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Amount</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Status</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Method</th>

@@ -124,8 +124,8 @@ export async function removeRegistration(registrationId: string, leagueId: strin
 
   if (error) return { error: error.message }
 
-  revalidatePath(`/admin/leagues/${leagueId}/registrations`)
-  revalidatePath(`/admin/leagues/${leagueId}/teams`)
+  revalidatePath(`/admin/events/${leagueId}/registrations`)
+  revalidatePath(`/admin/events/${leagueId}/teams`)
   return { error: null }
 }
 

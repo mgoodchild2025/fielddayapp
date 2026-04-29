@@ -56,7 +56,7 @@ export default async function AdminTeamsPage() {
                   <span className="text-xs text-gray-500 capitalize">{league.sport.replace('_', ' ')}</span>
                 )}
                 <Link
-                  href={`/admin/leagues/${league.slug ?? league.id}`}
+                  href={`/admin/events/${league.slug ?? league.id}`}
                   className="text-xs hover:underline ml-auto"
                   style={{ color: 'var(--brand-primary)' }}
                 >

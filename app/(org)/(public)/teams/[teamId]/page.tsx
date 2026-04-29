@@ -109,7 +109,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
             <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)' }}>{team.name}</h1>
             {league && (
               <Link
-                href={`/leagues/${(league as { slug?: string }).slug ?? ''}`}
+                href={`/events/${(league as { slug?: string }).slug ?? ''}`}
                 className="text-sm text-gray-500 hover:underline mt-0.5 block"
               >
                 {(league as { name?: string }).name}

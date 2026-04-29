@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { LeagueAdminTabs } from '@/components/layout/league-admin-tabs'
+import { EventAdminTabs } from '@/components/layout/event-admin-tabs'
 
 const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-600',
@@ -13,7 +13,7 @@ const statusColors: Record<string, string> = {
   archived: 'bg-gray-100 text-gray-400',
 }
 
-export default async function LeagueAdminLayout({
+export default async function EventAdminLayout({
   children,
   params,
 }: {
@@ -37,7 +37,7 @@ export default async function LeagueAdminLayout({
   return (
     <div>
       <div className="mb-6">
-        <Link href="/admin/leagues" className="text-sm text-gray-400 hover:text-gray-600">
+        <Link href="/admin/events" className="text-sm text-gray-400 hover:text-gray-600">
           ← Leagues
         </Link>
         <div className="flex items-center gap-3 mt-1">
@@ -47,7 +47,7 @@ export default async function LeagueAdminLayout({
           </span>
         </div>
       </div>
-      <LeagueAdminTabs leagueId={id} />
+      <EventAdminTabs leagueId={id} />
       {children}
     </div>
   )

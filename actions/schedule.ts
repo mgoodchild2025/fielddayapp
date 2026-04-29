@@ -42,7 +42,7 @@ export async function addGame(input: z.infer<typeof addGameSchema>) {
 
   if (error) return { data: null, error: error.message }
 
-  revalidatePath(`/admin/leagues/${parsed.data.leagueId}/schedule`)
+  revalidatePath(`/admin/events/${parsed.data.leagueId}/schedule`)
   return { data, error: null }
 }
 
@@ -97,7 +97,7 @@ export async function generateRoundRobinSchedule(input: {
   const { error } = await supabase.from('games').insert(games)
   if (error) return { error: error.message, count: 0 }
 
-  revalidatePath(`/admin/leagues/${input.leagueId}/schedule`)
+  revalidatePath(`/admin/events/${input.leagueId}/schedule`)
   return { error: null, count: games.length }
 }
 
@@ -146,7 +146,7 @@ export async function updateGame(input: z.infer<typeof updateGameSchema>) {
 
   if (error) return { error: error.message }
 
-  revalidatePath(`/admin/leagues/${parsed.data.leagueId}/schedule`)
+  revalidatePath(`/admin/events/${parsed.data.leagueId}/schedule`)
   revalidatePath('/schedule')
   return { error: null }
 }
@@ -177,7 +177,7 @@ export async function deleteGame(gameId: string, leagueId: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath(`/admin/leagues/${leagueId}/schedule`)
+  revalidatePath(`/admin/events/${leagueId}/schedule`)
   revalidatePath('/schedule')
   revalidatePath('/standings')
   return { error: null }
@@ -219,6 +219,6 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
   const { error } = await supabase.from('games').insert(games)
   if (error) return { data: null, error: error.message }
 
-  revalidatePath(`/admin/leagues/${leagueId}/schedule`)
+  revalidatePath(`/admin/events/${leagueId}/schedule`)
   return { data: { count: games.length }, error: null }
 }

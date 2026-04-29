@@ -2,7 +2,7 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { NewLeagueForm } from './new-league-form'
+import { NewLeagueForm } from './new-event-form'
 
 export default async function NewLeaguePage() {
   const headersList = await headers()

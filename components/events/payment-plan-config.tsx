@@ -48,7 +48,7 @@ export function PaymentPlanConfig({ leagueId, existing }: Props) {
   }
 
   function handleDelete() {
-    if (!confirm('Remove payment plan for this league?')) return
+    if (!confirm('Remove payment plan for this event?')) return
     start(async () => { await deletePaymentPlan(leagueId); router.refresh() })
   }
 

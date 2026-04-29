@@ -2,19 +2,19 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { deleteLeague } from '@/actions/leagues'
+import { deleteLeague } from '@/actions/events'
 
 interface Props {
   leagueId: string
-  leagueName: string
+  eventName: string
 }
 
-export function DeleteLeagueRowButton({ leagueId, leagueName }: Props) {
+export function DeleteEventRowButton({ leagueId, eventName }: Props) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
   async function handleDelete() {
-    if (!confirm(`Delete "${leagueName}"?\n\nThis will permanently remove all teams, registrations, and games. This cannot be undone.`)) return
+    if (!confirm(`Delete "${eventName}"?\n\nThis will permanently remove all teams, registrations, and games. This cannot be undone.`)) return
     setLoading(true)
     const result = await deleteLeague(leagueId)
     if (result.error) {

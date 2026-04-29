@@ -88,7 +88,7 @@ export async function createLeague(
 
   if (error) return { data: null, error: error.message }
 
-  revalidatePath('/admin/leagues')
+  revalidatePath('/admin/events')
   return { data, error: null }
 }
 
@@ -105,7 +105,7 @@ export async function updateLeagueStatus(leagueId: string, status: LeagueStatus)
 
   if (error) return { data: null, error: error.message }
 
-  revalidatePath(`/admin/leagues/${leagueId}`)
+  revalidatePath(`/admin/events/${leagueId}`)
   return { data: null, error: null }
 }
 
@@ -135,7 +135,7 @@ export async function deleteLeague(leagueId: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath('/admin/leagues')
+  revalidatePath('/admin/events')
   return { error: null }
 }
 
@@ -160,6 +160,6 @@ export async function updateLeague(
 
   if (error) return { data: null, error: error.message }
 
-  revalidatePath(`/admin/leagues/${leagueId}`)
+  revalidatePath(`/admin/events/${leagueId}`)
   return { data: null, error: null }
 }

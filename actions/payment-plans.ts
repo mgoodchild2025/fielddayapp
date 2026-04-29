@@ -31,7 +31,7 @@ export async function upsertPaymentPlan(input: z.infer<typeof planSchema>) {
     )
 
   if (error) return { error: error.message }
-  revalidatePath(`/admin/leagues/${parsed.data.league_id}`)
+  revalidatePath(`/admin/events/${parsed.data.league_id}`)
   return { error: null }
 }
 
@@ -54,7 +54,7 @@ export async function deletePaymentPlan(leagueId: string) {
     .eq('organization_id', org.id)
 
   if (error) return { error: error.message }
-  revalidatePath(`/admin/leagues/${leagueId}`)
+  revalidatePath(`/admin/events/${leagueId}`)
   return { error: null }
 }
 

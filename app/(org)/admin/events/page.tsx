@@ -2,7 +2,7 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { DeleteLeagueRowButton } from '@/components/leagues/delete-league-row-button'
+import { DeleteEventRowButton } from '@/components/events/delete-event-row-button'
 
 const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-600',
@@ -26,13 +26,13 @@ export default async function AdminLeaguesPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Leagues</h1>
+        <h1 className="text-2xl font-bold">Events</h1>
         <Link
-          href="/admin/leagues/new"
+          href="/admin/events/new"
           className="px-4 py-2 rounded-md text-sm font-semibold text-white"
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >
-          + New League
+          + New Event
         </Link>
       </div>
 
@@ -70,18 +70,18 @@ export default async function AdminLeaguesPage() {
                   {league.season_start_date ? new Date(league.season_start_date).toLocaleDateString() : '—'}
                 </td>
                 <td className="px-4 py-3 flex items-center">
-                  <Link href={`/admin/leagues/${league.id}`} className="text-xs font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
+                  <Link href={`/admin/events/${league.id}`} className="text-xs font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
                     Manage →
                   </Link>
-                  <DeleteLeagueRowButton leagueId={league.id} leagueName={league.name} />
+                  <DeleteEventRowButton leagueId={league.id} leagueName={league.name} />
                 </td>
               </tr>
             ))}
             {(!leagues || leagues.length === 0) && (
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
-                  No leagues yet.{' '}
-                  <Link href="/admin/leagues/new" className="underline" style={{ color: 'var(--brand-primary)' }}>Create your first league</Link>
+                  No events yet.{' '}
+                  <Link href="/admin/events/new" className="underline" style={{ color: 'var(--brand-primary)' }}>Create your first league</Link>
                 </td>
               </tr>
             )}
