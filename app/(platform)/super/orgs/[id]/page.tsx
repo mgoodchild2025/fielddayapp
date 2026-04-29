@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { EditOrgForm } from './edit-org-form'
 import { ImpersonateButton } from './impersonate-button'
+
+export const dynamic = 'force-dynamic'
 import { SetOrgAdminForm } from './set-org-admin-form'
 
 const STATUS_STYLES: Record<string, string> = {

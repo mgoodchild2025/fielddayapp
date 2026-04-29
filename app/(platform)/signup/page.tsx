@@ -1,6 +1,8 @@
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { SignupPage } from './signup-form'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata = {
   title: 'Start your free trial — Fieldday',
   description: 'Set up your sports league in minutes. Scheduling, registration, payments, and more.',

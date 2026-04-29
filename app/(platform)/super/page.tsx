@@ -2,6 +2,8 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import Link from 'next/link'
 import { CreateOrgButton } from './create-org-button'
 
+export const dynamic = 'force-dynamic'
+
 const STATUS_STYLES: Record<string, string> = {
   active: 'bg-green-100 text-green-800',
   trial: 'bg-yellow-100 text-yellow-800',

@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     if (teamIds.length === 0) continue
 
     const { data: members } = await supabase
-      .from('team_players')
+      .from('team_members')
       .select('profiles(email, full_name)')
       .in('team_id', teamIds)
     const profiles = (members ?? [])
@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
     if (teamIds.length === 0) continue
 
     const { data: members } = await supabase
-      .from('team_players')
+      .from('team_members')
       .select('profiles(phone, sms_opted_in, full_name)')
       .in('team_id', teamIds)
 
