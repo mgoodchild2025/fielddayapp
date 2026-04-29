@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import Stripe from 'stripe'
-import { stripe } from '@/lib/stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { getPlatformFeeBps } from '@/lib/features'
 
 const schema = z.object({
   leagueId: z.string().uuid(),
@@ -23,20 +21,29 @@ export async function POST(request: NextRequest) {
   const { leagueId, leagueSlug, userId, registrationId, orgId } = parsed.data
   const supabase = createServiceRoleClient()
 
-  const [{ data: league }, { data: connectAccount }, { data: profile }] = await Promise.all([
+  const [{ data: league }, { data: paymentSettings }, { data: profile }] = await Promise.all([
     supabase.from('leagues').select('name, price_cents, currency').eq('id', leagueId).single(),
-    supabase.from('stripe_connect_accounts').select('stripe_account_id').eq('organization_id', orgId).single(),
+    supabase.from('org_payment_settings').select('stripe_secret_key').eq('organization_id', orgId).single(),
     supabase.from('profiles').select('email').eq('id', userId).single(),
   ])
 
   if (!league) return NextResponse.json({ error: 'League not found' }, { status: 404 })
 
+  if (!paymentSettings?.stripe_secret_key) {
+    return NextResponse.json(
+      { error: 'This organization has not configured online payments. Please pay at registration or contact the organizer.' },
+      { status: 422 }
+    )
+  }
+
+  const orgStripe = new Stripe(paymentSettings.stripe_secret_key, {
+    apiVersion: '2026-03-25.dahlia' as const,
+    typescript: true,
+  })
+
   const origin = request.headers.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
-  const feeBps = await getPlatformFeeBps(orgId)
 
-  const hasConnectAccount = !!connectAccount?.stripe_account_id
-
-  const sessionParams: Stripe.Checkout.SessionCreateParams = {
+  const session = await orgStripe.checkout.sessions.create({
     payment_method_types: ['card'],
     mode: 'payment',
     currency: league.currency,
@@ -54,16 +61,7 @@ export async function POST(request: NextRequest) {
     metadata: { registrationId, leagueId, userId, orgId },
     success_url: `${origin}/register/${leagueSlug}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/register/${leagueSlug}`,
-    ...(hasConnectAccount && {
-      payment_intent_data: {
-        transfer_data: { destination: connectAccount!.stripe_account_id },
-        ...(feeBps > 0 && { application_fee_amount: Math.round(league.price_cents * feeBps / 10000) }),
-        metadata: { registrationId, leagueId, userId, orgId },
-      },
-    }),
-  }
-
-  const session = await stripe.checkout.sessions.create(sessionParams)
+  })
 
   await supabase.from('payments').insert({
     organization_id: orgId,
