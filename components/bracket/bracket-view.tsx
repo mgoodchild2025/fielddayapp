@@ -211,7 +211,8 @@ export function BracketView({ bracket, leagueId, isAdmin = false }: Props) {
   }
 
   // Total height = number of first-round matches × (match height + gap) - gap
-  const firstRound = allRoundNumbers[allRoundNumbers.length - 1]
+  // allRoundNumbers is sorted descending, so [0] is the highest round number (most matches = first round)
+  const firstRound = allRoundNumbers[0]
   const firstRoundMatchCount = matchesForRound(firstRound).length
   const totalHeight = firstRoundMatchCount * (MATCH_HEIGHT + MATCH_GAP) - MATCH_GAP
 
@@ -266,7 +267,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false }: Props) {
                             left: -8,
                             top: MATCH_HEIGHT / 2,
                             width: 8,
-                            height: slotHeight + MATCH_HEIGHT / 2,
+                            height: slotHeight,
                             borderLeft: '1px solid #d1d5db',
                             borderTop: '1px solid #d1d5db',
                           }} />
@@ -277,7 +278,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false }: Props) {
                             left: -8,
                             bottom: MATCH_HEIGHT / 2,
                             width: 8,
-                            height: slotHeight + MATCH_HEIGHT / 2,
+                            height: slotHeight,
                             borderLeft: '1px solid #d1d5db',
                             borderBottom: '1px solid #d1d5db',
                           }} />
