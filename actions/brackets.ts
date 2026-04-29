@@ -278,7 +278,7 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   await (db as any).from('brackets').update({ status: 'seeding' }).eq('id', bracketId)
 
   revalidatePath(`/admin/events/${leagueId}/bracket`)
-  revalidatePath(`/events`, 'layout')
+  revalidatePath('/events/[slug]', 'page')
   return { error: null }
 }
 
@@ -297,7 +297,7 @@ export async function publishBracket(bracketId: string, leagueId: string) {
   if (error) return { error: error.message }
 
   revalidatePath(`/admin/events/${leagueId}/bracket`)
-  revalidatePath(`/events`, 'layout')
+  revalidatePath('/events/[slug]', 'page')
   return { error: null }
 }
 
@@ -407,7 +407,7 @@ export async function recordBracketScore(input: z.infer<typeof bracketScoreSchem
   await advanceWinner(db, org.id, d.bracketId, d.matchId, winnerTeamId)
 
   revalidatePath(`/admin/events/${d.leagueId}/bracket`)
-  revalidatePath(`/events`, 'layout')
+  revalidatePath('/events/[slug]', 'page')
   return { error: null }
 }
 
@@ -478,6 +478,6 @@ export async function advanceBracketFromScore(
 
   if (leagueId) {
     revalidatePath(`/admin/events/${leagueId}/bracket`)
-    revalidatePath(`/events`, 'layout')
+    revalidatePath('/events/[slug]', 'page')
   }
 }

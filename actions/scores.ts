@@ -74,8 +74,7 @@ export async function submitScore(input: z.infer<typeof submitScoreSchema>) {
   // Update game status to completed
   await supabase.from('games').update({ status: 'completed' }).eq('id', parsed.data.gameId)
 
-  revalidatePath('/schedule')
-  revalidatePath('/standings')
+  revalidatePath('/events/[slug]', 'page')
   return { data, error: null }
 }
 
@@ -141,11 +140,14 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
 
   const leagueId = parsed.data.leagueId ?? game.league_id
   if (leagueId) revalidatePath(`/admin/events/${leagueId}/schedule`)
-  revalidatePath('/schedule')
-  revalidatePath('/standings')
+  revalidatePath('/events/[slug]', 'page')
 
-  // Auto-advance bracket if this game is a bracket match
-  await advanceBracketFromScore(parsed.data.gameId, parsed.data.homeScore, parsed.data.awayScore, org.id)
+  // Auto-advance bracket if this game is a bracket match — isolated so it never crashes score submission
+  try {
+    await advanceBracketFromScore(parsed.data.gameId, parsed.data.homeScore, parsed.data.awayScore, org.id)
+  } catch {
+    console.error('[adminSetScore] advanceBracketFromScore failed silently')
+  }
 
   return { data: null, error: null }
 }
@@ -197,17 +199,21 @@ export async function confirmScore(gameId: string) {
 
   if (error) return { data: null, error: error.message }
 
-  revalidatePath('/standings')
+  revalidatePath('/events/[slug]', 'page')
 
-  // Auto-advance bracket if this game is a bracket match
-  const { data: confirmedResult } = await supabase
-    .from('game_results')
-    .select('home_score, away_score')
-    .eq('game_id', gameId)
-    .eq('organization_id', org.id)
-    .single()
-  if (confirmedResult?.home_score !== null && confirmedResult?.away_score !== null) {
-    await advanceBracketFromScore(gameId, confirmedResult.home_score!, confirmedResult.away_score!, org.id)
+  // Auto-advance bracket if this game is a bracket match — isolated so it never crashes score confirmation
+  try {
+    const { data: confirmedResult } = await supabase
+      .from('game_results')
+      .select('home_score, away_score')
+      .eq('game_id', gameId)
+      .eq('organization_id', org.id)
+      .single()
+    if (confirmedResult?.home_score !== null && confirmedResult?.away_score !== null) {
+      await advanceBracketFromScore(gameId, confirmedResult.home_score!, confirmedResult.away_score!, org.id)
+    }
+  } catch {
+    console.error('[confirmScore] advanceBracketFromScore failed silently')
   }
 
   return { data: null, error: null }

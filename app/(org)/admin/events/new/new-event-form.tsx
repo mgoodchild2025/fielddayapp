@@ -336,7 +336,7 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
             <div className="grid grid-cols-3 gap-4">
               <Field label="Min Team Size" error={errors.min_team_size?.message}>
                 <input
-                  {...register('min_team_size', { valueAsNumber: true })}
+                  {...register('min_team_size', { setValueAs: (v) => (v === '' || v == null ? 4 : Number(v)) })}
                   type="number"
                   min={1}
                   className={INPUT}
@@ -344,7 +344,7 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
               </Field>
               <Field label="Max Team Size" error={errors.max_team_size?.message}>
                 <input
-                  {...register('max_team_size', { valueAsNumber: true })}
+                  {...register('max_team_size', { setValueAs: (v) => (v === '' || v == null ? 8 : Number(v)) })}
                   type="number"
                   min={1}
                   className={INPUT}
@@ -352,7 +352,7 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
               </Field>
               <Field label="Max Teams" error={errors.max_teams?.message}>
                 <input
-                  {...register('max_teams', { valueAsNumber: true })}
+                  {...register('max_teams', { setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)) })}
                   type="number"
                   min={1}
                   placeholder="Unlimited"
@@ -369,7 +369,7 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
             <p className="text-sm font-semibold text-gray-700">Capacity</p>
             <Field label="Max Participants" error={errors.max_participants?.message}>
               <input
-                {...register('max_participants', { valueAsNumber: true })}
+                {...register('max_participants', { setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)) })}
                 type="number"
                 min={1}
                 placeholder="Unlimited"
