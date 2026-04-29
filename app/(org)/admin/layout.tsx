@@ -19,21 +19,27 @@ export default async function AdminLayout({
 
   if (!user) redirect('/login')
 
-  const { data: member } = await supabase
-    .from('org_members')
-    .select('role')
-    .eq('organization_id', org.id)
-    .eq('user_id', user.id)
-    .single()
+  let memberRole: string = 'org_admin'
 
-  if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
-    redirect('/dashboard')
+  if (!isImpersonating) {
+    const { data: member } = await supabase
+      .from('org_members')
+      .select('role')
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
+      .single()
+
+    if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
+      redirect('/dashboard')
+    }
+
+    memberRole = member.role
   }
 
   return (
     <div className={`min-h-screen flex ${isImpersonating ? 'pt-10' : ''}`} style={{ backgroundColor: '#F8F8F8' }}>
       {isImpersonating && <ImpersonationBanner orgName={org.name} />}
-      <AdminSidebar org={org} role={member.role} />
+      <AdminSidebar org={org} role={memberRole} />
       <main className="flex-1 overflow-auto">
         {/* pt-14 on mobile accounts for the fixed top bar; removed on lg where sidebar is visible */}
         <div className="pt-14 lg:pt-0 p-4 lg:p-6 max-w-6xl mx-auto">{children}</div>
