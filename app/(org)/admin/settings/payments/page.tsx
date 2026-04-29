@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { StripeKeyForm } from '@/components/payments/stripe-key-form'
+import { StripeSetupGuide } from '@/components/payments/stripe-setup-guide'
 
 export default async function PaymentSettingsPage() {
   const headersList = await headers()
@@ -25,11 +26,18 @@ export default async function PaymentSettingsPage() {
     <div className="max-w-2xl">
       <div className="mb-6">
         <a href="/admin/settings" className="text-sm text-gray-500 hover:underline">← Settings</a>
-        <h1 className="text-2xl font-bold mt-2">Payments</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Connect your own Stripe account to accept online registration payments.
-          Without it, players can still register and you collect payment offline.
-        </p>
+        <div className="flex items-start justify-between gap-4 mt-2">
+          <div>
+            <h1 className="text-2xl font-bold">Payments</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Connect your own Stripe account to accept online registration payments.
+              Without it, players can still register and you collect payment offline.
+            </p>
+          </div>
+          <div className="shrink-0 mt-1">
+            <StripeSetupGuide orgSlug={org.slug} />
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg border p-6">
