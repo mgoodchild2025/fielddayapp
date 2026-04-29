@@ -147,7 +147,7 @@ export async function updateGame(input: z.infer<typeof updateGameSchema>) {
   if (error) return { error: error.message }
 
   revalidatePath(`/admin/events/${parsed.data.leagueId}/schedule`)
-  revalidatePath('/schedule')
+  revalidatePath('/events/[slug]', 'page')
   return { error: null }
 }
 
@@ -178,8 +178,7 @@ export async function deleteGame(gameId: string, leagueId: string) {
   if (error) return { error: error.message }
 
   revalidatePath(`/admin/events/${leagueId}/schedule`)
-  revalidatePath('/schedule')
-  revalidatePath('/standings')
+  revalidatePath('/events/[slug]', 'page')
   return { error: null }
 }
 

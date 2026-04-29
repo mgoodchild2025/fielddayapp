@@ -60,7 +60,7 @@ export async function cancelSession(sessionId: string, leagueId: string) {
   if (error) return { error: error.message }
 
   revalidatePath(`/admin/events/${leagueId}/sessions`)
-  revalidatePath(`/events`, 'layout')
+  revalidatePath('/events/[slug]', 'page')
   return { error: null }
 }
 
@@ -143,7 +143,7 @@ export async function joinSession(sessionId: string, leagueId: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath(`/events`, 'layout')
+  revalidatePath('/events/[slug]', 'page')
   return { error: null }
 }
 
@@ -165,6 +165,6 @@ export async function leaveSession(sessionId: string, leagueId: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath(`/events`)
+  revalidatePath('/events/[slug]', 'page')
   return { error: null }
 }
