@@ -230,27 +230,6 @@ export async function acceptTeamInvitation(token: string) {
     status: 'active',
   }, { onConflict: 'organization_id,user_id', ignoreDuplicates: true })
 
-  // Auto-register for the league if not already registered
-  const { data: team } = await db.from('teams').select('name, league_id').eq('id', invite.team_id).single()
-  if (team?.league_id) {
-    const { data: existingReg } = await db
-      .from('registrations')
-      .select('id')
-      .eq('organization_id', org.id)
-      .eq('league_id', team.league_id)
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (!existingReg) {
-      await db.from('registrations').insert({
-        organization_id: org.id,
-        league_id: team.league_id,
-        user_id: user.id,
-        status: 'active',
-      })
-    }
-  }
-
   // Mark invite accepted
   await anyDb.from('team_invitations').update({ status: 'accepted' }).eq('id', invite.id)
 
@@ -261,9 +240,17 @@ export async function acceptTeamInvitation(token: string) {
     .eq('user_id', user.id)
     .eq('type', 'team_invite')
 
+  // Fetch team + league info for registration check and notification
+  const { data: team } = await db
+    .from('teams')
+    .select('name, league_id, leagues!teams_league_id_fkey(slug, status)')
+    .eq('id', invite.team_id)
+    .single()
+
+  const teamName = team?.name ?? 'your team'
+
   // Notify the inviter
   const playerName = profile?.full_name ?? invite.invited_email
-  const teamName = team?.name ?? 'your team'
   await db.from('notifications').insert({
     organization_id: org.id,
     user_id: invite.invited_by,
@@ -274,6 +261,37 @@ export async function acceptTeamInvitation(token: string) {
 
   revalidatePath('/dashboard')
   revalidatePath(`/teams/${invite.team_id}`)
+
+  // Handle league registration
+  if (team?.league_id) {
+    const { data: existingReg } = await db
+      .from('registrations')
+      .select('id')
+      .eq('organization_id', org.id)
+      .eq('league_id', team.league_id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (!existingReg) {
+      const league = Array.isArray(team.leagues) ? team.leagues[0] : team.leagues
+      const leagueStatus = (league as { status?: string } | null)?.status
+      const leagueSlug = (league as { slug?: string } | null)?.slug
+
+      if (leagueStatus === 'registration_open' && leagueSlug) {
+        // League is still open — send player through the proper registration flow
+        redirect(`/register/${leagueSlug}`)
+      } else {
+        // League is active or closed — admin invited mid-season, auto-register silently
+        await db.from('registrations').insert({
+          organization_id: org.id,
+          league_id: team.league_id,
+          user_id: user.id,
+          status: 'active',
+        })
+      }
+    }
+  }
+
   redirect(`/teams/${invite.team_id}`)
 }
 
