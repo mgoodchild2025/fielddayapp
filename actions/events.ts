@@ -124,6 +124,21 @@ export async function deleteLeague(leagueId: string) {
         .data?.map((t) => t.id) ?? []
     )
 
+  // bracket_matches reference teams — must go before teams
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: brackets } = await (supabase as any).from('brackets').select('id').eq('league_id', leagueId).eq('organization_id', org.id)
+  if (brackets && brackets.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('bracket_matches').delete().in('bracket_id', brackets.map((b: { id: string }) => b.id))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('brackets').delete().eq('league_id', leagueId).eq('organization_id', org.id)
+  }
+
+  await supabase.from('game_results').delete().eq('organization_id', org.id)
+    .in('game_id',
+      (await supabase.from('games').select('id').eq('league_id', leagueId).eq('organization_id', org.id))
+        .data?.map((g) => g.id) ?? []
+    )
   await supabase.from('teams').delete().eq('league_id', leagueId).eq('organization_id', org.id)
   await supabase.from('registrations').delete().eq('league_id', leagueId).eq('organization_id', org.id)
   await supabase.from('games').delete().eq('league_id', leagueId).eq('organization_id', org.id)
