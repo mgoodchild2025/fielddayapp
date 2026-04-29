@@ -54,9 +54,18 @@ interface Props {
 }
 
 const SPORTS = [
-  'beach_volleyball', 'volleyball', 'basketball', 'soccer', 'softball',
-  'flag_football', 'kickball', 'dodgeball', 'ultimate_frisbee', 'tennis',
-  'pickleball', 'other',
+  { value: 'beach_volleyball', label: 'Beach Volleyball' },
+  { value: 'volleyball', label: 'Volleyball' },
+  { value: 'basketball', label: 'Basketball' },
+  { value: 'soccer', label: 'Soccer' },
+  { value: 'softball', label: 'Softball' },
+  { value: 'flag_football', label: 'Flag Football' },
+  { value: 'kickball', label: 'Kickball' },
+  { value: 'dodgeball', label: 'Dodgeball' },
+  { value: 'ultimate_frisbee', label: 'Ultimate Frisbee' },
+  { value: 'tennis', label: 'Tennis' },
+  { value: 'pickleball', label: 'Pickleball' },
+  { value: 'other', label: 'Other' },
 ]
 
 function toDateInput(iso: string | null) {
@@ -171,7 +180,7 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
           <Field label="Sport">
             <select name="sport" defaultValue={league.sport ?? 'beach_volleyball'} className="input">
               {SPORTS.map((s) => (
-                <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
           </Field>

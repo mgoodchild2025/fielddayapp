@@ -29,6 +29,21 @@ const INPUT =
   'w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary'
 const SELECT = 'w-full border rounded-md px-3 py-2 text-sm'
 
+const SPORTS = [
+  { value: 'beach_volleyball', label: 'Beach Volleyball' },
+  { value: 'volleyball', label: 'Volleyball' },
+  { value: 'basketball', label: 'Basketball' },
+  { value: 'soccer', label: 'Soccer' },
+  { value: 'softball', label: 'Softball' },
+  { value: 'flag_football', label: 'Flag Football' },
+  { value: 'kickball', label: 'Kickball' },
+  { value: 'dodgeball', label: 'Dodgeball' },
+  { value: 'ultimate_frisbee', label: 'Ultimate Frisbee' },
+  { value: 'tennis', label: 'Tennis' },
+  { value: 'pickleball', label: 'Pickleball' },
+  { value: 'other', label: 'Other' },
+]
+
 const EVENT_TYPES = [
   {
     value: 'league',
@@ -255,7 +270,11 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
 
           <div className="grid grid-cols-2 gap-4">
             <Field label="Sport" error={errors.sport?.message}>
-              <input {...register('sport')} type="text" className={INPUT} />
+              <select {...register('sport')} className={SELECT}>
+                {SPORTS.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
             </Field>
             <Field label="Age Group" error={errors.age_group?.message}>
               <select {...register('age_group')} className={SELECT}>
