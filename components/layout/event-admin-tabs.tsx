@@ -4,14 +4,34 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 function tabs(id: string, eventType: string) {
-  const isSessionBased = eventType === 'pickup' || eventType === 'drop_in'
   const base = [
     { label: 'Overview', href: `/admin/events/${id}` },
     { label: 'Registrations', href: `/admin/events/${id}/registrations` },
   ]
-  if (isSessionBased) {
+
+  if (eventType === 'pickup' || eventType === 'drop_in') {
     return [...base, { label: 'Sessions', href: `/admin/events/${id}/sessions` }]
   }
+
+  if (eventType === 'league') {
+    return [
+      ...base,
+      { label: 'Divisions', href: `/admin/events/${id}/divisions` },
+      { label: 'Teams', href: `/admin/events/${id}/teams` },
+      { label: 'Schedule', href: `/admin/events/${id}/schedule` },
+    ]
+  }
+
+  if (eventType === 'tournament') {
+    return [
+      ...base,
+      { label: 'Pools', href: `/admin/events/${id}/pools` },
+      { label: 'Teams', href: `/admin/events/${id}/teams` },
+      { label: 'Schedule', href: `/admin/events/${id}/schedule` },
+    ]
+  }
+
+  // fallback
   return [
     ...base,
     { label: 'Teams', href: `/admin/events/${id}/teams` },

@@ -143,7 +143,6 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
       team_join_policy: 'open',
       min_team_size: 4,
       max_team_size: 8,
-      price_cents: 0,
     },
   })
 
@@ -294,13 +293,21 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
         <div className="bg-white rounded-lg border p-5 space-y-4">
           <p className="text-sm font-semibold text-gray-700">Pricing</p>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Price (cents, 0 = free)" error={errors.price_cents?.message}>
-              <input
-                {...register('price_cents', { valueAsNumber: true })}
-                type="number"
-                min={0}
-                className={INPUT}
-              />
+            <Field label="Price (0 = free)" error={errors.price_cents?.message}>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                <input
+                  {...register('price_cents', {
+                    setValueAs: (v) => Math.round(Number(v || 0) * 100),
+                  })}
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="0.00"
+                  defaultValue={0}
+                  className={`${INPUT} pl-7`}
+                />
+              </div>
             </Field>
             <Field label="Payment Mode" error={errors.payment_mode?.message}>
               <select {...register('payment_mode')} className={SELECT}>
