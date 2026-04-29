@@ -2,10 +2,12 @@
 
 import { useState, useRef, useEffect, useTransition } from 'react'
 import Link from 'next/link'
-import { markAllNotificationsRead } from '@/actions/notifications'
+import { markAllNotificationsRead, markNotificationRead } from '@/actions/notifications'
+import { approveJoinRequest, rejectJoinRequest } from '@/actions/teams'
 
 interface Notification {
   id: string
+  type: string | null
   title: string
   body: string | null
   created_at: string
@@ -32,6 +34,7 @@ export function NotificationBell({ initialNotifications }: Props) {
   const [notifications, setNotifications] = useState(initialNotifications)
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [actioningId, setActioningId] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
   const count = notifications.length
@@ -95,22 +98,62 @@ export function NotificationBell({ initialNotifications }: Props) {
             <ul className="divide-y max-h-96 overflow-y-auto">
               {notifications.map((n) => {
                 const acceptUrl = n.data?.accept_url as string | undefined
+                const requestId = n.data?.request_id as string | undefined
+                const isJoinRequest = n.type === 'join_request' && requestId
+                const isActioning = actioningId === n.id
+
                 return (
                   <li key={n.id} className="px-4 py-3">
                     <p className="text-sm font-medium text-gray-900">{n.title}</p>
                     {n.body && <p className="text-xs text-gray-500 mt-0.5">{n.body}</p>}
-                    <div className="flex items-center justify-between mt-1.5">
-                      <p className="text-[10px] text-gray-400">{relativeTime(n.created_at)}</p>
-                      {acceptUrl && (
-                        <Link
-                          href={acceptUrl}
-                          onClick={() => setOpen(false)}
-                          className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+
+                    {isJoinRequest ? (
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          disabled={isActioning}
+                          onClick={() => {
+                            setActioningId(n.id)
+                            startTransition(async () => {
+                              await Promise.all([approveJoinRequest(requestId), markNotificationRead(n.id)])
+                              setNotifications((prev) => prev.filter((x) => x.id !== n.id))
+                              setActioningId(null)
+                            })
+                          }}
+                          className="flex-1 text-xs font-semibold py-1.5 rounded-md text-white disabled:opacity-50"
+                          style={{ backgroundColor: 'var(--brand-primary)' }}
                         >
-                          View Invite →
-                        </Link>
-                      )}
-                    </div>
+                          {isActioning ? '…' : 'Approve'}
+                        </button>
+                        <button
+                          disabled={isActioning}
+                          onClick={() => {
+                            setActioningId(n.id)
+                            startTransition(async () => {
+                              await Promise.all([rejectJoinRequest(requestId), markNotificationRead(n.id)])
+                              setNotifications((prev) => prev.filter((x) => x.id !== n.id))
+                              setActioningId(null)
+                            })
+                          }}
+                          className="flex-1 text-xs font-semibold py-1.5 rounded-md border text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Deny
+                        </button>
+                        <p className="text-[10px] text-gray-400 shrink-0">{relativeTime(n.created_at)}</p>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between mt-1.5">
+                        <p className="text-[10px] text-gray-400">{relativeTime(n.created_at)}</p>
+                        {acceptUrl && (
+                          <Link
+                            href={acceptUrl}
+                            onClick={() => setOpen(false)}
+                            className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+                          >
+                            View Invite →
+                          </Link>
+                        )}
+                      </div>
+                    )}
                   </li>
                 )
               })}

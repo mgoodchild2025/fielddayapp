@@ -339,7 +339,7 @@ export async function requestToJoinTeam(teamId: string, message?: string) {
 
   if (existing) return { error: 'You are already on this team' }
 
-  const { error } = await supabase
+  const { data: joinRequest, error } = await supabase
     .from('team_join_requests')
     .upsert({
       team_id: teamId,
@@ -348,16 +348,21 @@ export async function requestToJoinTeam(teamId: string, message?: string) {
       message: message ?? null,
       status: 'pending',
     }, { onConflict: 'team_id,user_id' })
+    .select('id')
+    .single()
 
   if (error) return { error: error.message }
 
-  // Fetch team name + requester profile in parallel
+  // Fetch team (with league name) + requester profile in parallel
   const [{ data: team }, { data: requesterProfile }] = await Promise.all([
-    db.from('teams').select('name').eq('id', teamId).single(),
+    db.from('teams').select('name, league:leagues!teams_league_id_fkey(name)').eq('id', teamId).single(),
     db.from('profiles').select('full_name, email').eq('id', user.id).single(),
   ])
 
   const teamName = team?.name ?? 'the team'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leagueRaw = (team as any)?.league
+  const leagueName: string | null = leagueRaw ? (Array.isArray(leagueRaw) ? leagueRaw[0]?.name : leagueRaw.name) ?? null : null
   const playerName = requesterProfile?.full_name ?? 'A player'
   const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
   const teamUrl = `https://${org.slug}.${platformDomain}/teams/${teamId}`
@@ -406,9 +411,9 @@ export async function requestToJoinTeam(teamId: string, message?: string) {
         organization_id: org.id,
         user_id: r.userId,
         type: 'join_request',
-        title: 'New join request',
-        body: `${playerName} wants to join ${teamName}.`,
-        data: { team_id: teamId, requester_id: user.id },
+        title: `${playerName} wants to join ${teamName}`,
+        body: leagueName ? `Event: ${leagueName}` : null,
+        data: { team_id: teamId, requester_id: user.id, request_id: joinRequest?.id },
       })
       // Email
       if (r.email) {
