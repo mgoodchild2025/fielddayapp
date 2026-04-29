@@ -1,6 +1,6 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { MarkPaidForm } from '@/components/payments/mark-paid-form'
 
 type PaymentRecord = {
@@ -38,7 +38,7 @@ export default async function AdminPaymentsPage({
   const { filter = 'all' } = await searchParams
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
+  const supabase = createServiceRoleClient()
 
   const { data: rows } = await supabase
     .from('registrations')
