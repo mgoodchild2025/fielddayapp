@@ -62,7 +62,7 @@ export async function submitScore(input: z.infer<typeof submitScoreSchema>) {
       game_id: parsed.data.gameId,
       home_score: parsed.data.homeScore,
       away_score: parsed.data.awayScore,
-      sets: parsed.data.sets ? JSON.stringify(parsed.data.sets) : null,
+      sets: parsed.data.sets ?? null,
       submitted_by: user.id,
       status: 'pending',
     }, { onConflict: 'game_id' })
@@ -125,7 +125,7 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
         game_id: parsed.data.gameId,
         home_score: parsed.data.homeScore,
         away_score: parsed.data.awayScore,
-        sets: parsed.data.sets ? JSON.stringify(parsed.data.sets) : null,
+        sets: parsed.data.sets ?? null,
         submitted_by: user.id,
         confirmed_by: user.id,
         confirmed_at: new Date().toISOString(),
