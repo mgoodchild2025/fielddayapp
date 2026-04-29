@@ -19,6 +19,9 @@ const roleColors: Record<OrgRole, string> = {
   player: 'bg-gray-100 text-gray-600',
 }
 
+// On the admins page, only these roles are assignable
+const adminRoles: OrgRole[] = ['org_admin', 'league_admin']
+
 export function ChangeMemberRoleForm({
   memberId,
   currentRole,
@@ -59,10 +62,9 @@ export function ChangeMemberRoleForm({
       onBlur={() => setEditing(false)}
       className="text-xs border rounded px-1 py-0.5 focus:outline-none focus:ring-1"
     >
-      <option value="player">Player</option>
-      <option value="captain">Captain</option>
-      <option value="league_admin">League Admin</option>
-      <option value="org_admin">Org Admin</option>
+      {adminRoles.map((r) => (
+        <option key={r} value={r}>{roleLabel[r]}</option>
+      ))}
     </select>
   )
 }

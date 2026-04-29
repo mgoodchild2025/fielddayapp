@@ -43,8 +43,6 @@ export function InviteMemberForm() {
           name="role"
           className="border rounded-md px-3 py-2 text-sm"
         >
-          <option value="player">Player</option>
-          <option value="captain">Captain</option>
           <option value="league_admin">League Admin</option>
           <option value="org_admin">Org Admin</option>
         </select>
@@ -55,7 +53,7 @@ export function InviteMemberForm() {
         className="px-4 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60"
         style={{ backgroundColor: 'var(--brand-primary)' }}
       >
-        {isPending ? 'Adding…' : 'Add Member'}
+        {isPending ? 'Adding…' : 'Add Admin'}
       </button>
 
       {result?.error && (

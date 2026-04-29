@@ -1,5 +1,4 @@
 import { headers } from 'next/headers'
-import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { ChangeMemberRoleForm } from './change-role-form'
@@ -29,20 +28,17 @@ export default async function AdminUsersPage() {
       profile:profiles!org_members_user_id_fkey(full_name, email, phone)
     `)
     .eq('organization_id', org.id)
+    .in('role', ['org_admin', 'league_admin'])
     .order('joined_at', { ascending: false })
 
   const roleColors: Record<string, string> = {
     org_admin: 'bg-purple-100 text-purple-700',
     league_admin: 'bg-blue-100 text-blue-700',
-    captain: 'bg-orange-100 text-orange-700',
-    player: 'bg-gray-100 text-gray-600',
   }
 
   const roleLabel: Record<string, string> = {
     org_admin: 'Org Admin',
     league_admin: 'League Admin',
-    captain: 'Captain',
-    player: 'Player',
   }
 
   const activeCount = members?.filter((m) => m.status === 'active').length ?? 0
@@ -52,9 +48,9 @@ export default async function AdminUsersPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Members</h1>
+          <h1 className="text-2xl font-bold">Admins</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {activeCount} active · {adminCount} admin{adminCount !== 1 ? 's' : ''}
+            {activeCount} active · {adminCount} org admin{adminCount !== 1 ? 's' : ''}
           </p>
         </div>
       </div>
@@ -62,7 +58,7 @@ export default async function AdminUsersPage() {
       {/* Invite panel — org_admin only */}
       {isOrgAdmin && (
         <div className="bg-white rounded-lg border p-4 mb-6">
-          <h2 className="text-sm font-semibold mb-3">Invite Member</h2>
+          <h2 className="text-sm font-semibold mb-3">Add Admin</h2>
           <InviteMemberForm />
         </div>
       )}
@@ -118,24 +114,13 @@ export default async function AdminUsersPage() {
                   </td>
                   {isOrgAdmin && (
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        {m.user_id && (
-                          <Link
-                            href={`/admin/players/${m.user_id}`}
-                            className="text-xs font-medium hover:underline"
-                            style={{ color: 'var(--brand-primary)' }}
-                          >
-                            Manage
-                          </Link>
-                        )}
-                        {!isSelf && (
-                          <MemberActions
-                            memberId={m.id}
-                            memberName={profile?.full_name ?? 'this member'}
-                            status={m.status}
-                          />
-                        )}
-                      </div>
+                      {!isSelf && (
+                        <MemberActions
+                          memberId={m.id}
+                          memberName={profile?.full_name ?? 'this member'}
+                          status={m.status}
+                        />
+                      )}
                     </td>
                   )}
                 </tr>
