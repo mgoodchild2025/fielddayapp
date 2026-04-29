@@ -11,9 +11,10 @@ interface Props {
   recommendation: BracketRecommendation
   seededTeams: TeamStanding[]    // pre-computed standings order
   existingBracket: BracketData | null
+  sport?: string
 }
 
-export function BracketSetupWizard({ leagueId, divisionId, recommendation, seededTeams, existingBracket }: Props) {
+export function BracketSetupWizard({ leagueId, divisionId, recommendation, seededTeams, existingBracket, sport }: Props) {
   const [step, setStep] = useState<'configure' | 'seed' | 'preview'>('configure')
   const [bracketId, setBracketId] = useState<string | null>(existingBracket?.id ?? null)
   const [bracket, setBracket] = useState<BracketData | null>(existingBracket)
@@ -137,7 +138,7 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
 
         {err && <p className="text-sm text-red-600">{err}</p>}
 
-        <BracketView bracket={bracket} leagueId={leagueId} isAdmin />
+        <BracketView bracket={bracket} leagueId={leagueId} isAdmin sport={sport} />
       </div>
     )
   }

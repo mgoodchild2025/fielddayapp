@@ -2,7 +2,8 @@
 
 import { getRoundName } from '@/lib/bracket'
 import { recordBracketScore } from '@/actions/brackets'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 
 export interface BracketMatchData {
   id: string
@@ -34,10 +35,207 @@ export interface BracketData {
   matches: BracketMatchData[]
 }
 
+const VOLLEYBALL_SPORTS = ['volleyball', 'beach_volleyball']
+
 interface Props {
   bracket: BracketData
   leagueId: string
   isAdmin?: boolean
+  sport?: string
+}
+
+// ── Score entry modal ─────────────────────────────────────────────────────────
+
+type SetScore = { s1: string; s2: string }
+
+function ScoreModal({
+  match,
+  bracketId,
+  leagueId,
+  sport,
+  onClose,
+}: {
+  match: BracketMatchData
+  bracketId: string
+  leagueId: string
+  sport?: string
+  onClose: () => void
+}) {
+  const isVolleyball = VOLLEYBALL_SPORTS.includes(sport ?? '')
+
+  // Simple (non-volleyball) state
+  const [s1, setS1] = useState('')
+  const [s2, setS2] = useState('')
+
+  // Volleyball set state — start with 2 sets, can add a 3rd
+  const [sets, setSets] = useState<SetScore[]>([{ s1: '', s2: '' }, { s1: '', s2: '' }])
+
+  const [err, setErr] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const firstInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { firstInputRef.current?.focus() }, [])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  function updateSet(idx: number, field: 's1' | 's2', val: string) {
+    setSets((prev) => prev.map((s, i) => i === idx ? { ...s, [field]: val } : s))
+  }
+
+  function submit() {
+    setErr(null)
+
+    if (isVolleyball) {
+      // Validate and parse set scores
+      const parsed = sets.map((s) => ({ s1: parseInt(s.s1), s2: parseInt(s.s2) }))
+      if (parsed.some((s) => isNaN(s.s1) || isNaN(s.s2))) {
+        setErr('Enter scores for all sets'); return
+      }
+      const wins1 = parsed.filter((s) => s.s1 > s.s2).length
+      const wins2 = parsed.filter((s) => s.s2 > s.s1).length
+      if (wins1 === wins2) { setErr('Match must have a winner — check set scores'); return }
+      if (wins1 < 2 && wins2 < 2) { setErr('Neither team has won enough sets'); return }
+      startTransition(async () => {
+        const res = await recordBracketScore({
+          matchId: match.id, bracketId, leagueId,
+          score1: wins1, score2: wins2,
+          sets: parsed,
+        })
+        if (res.error) { setErr(res.error) } else { onClose() }
+      })
+      return
+    }
+
+    const n1 = parseInt(s1)
+    const n2 = parseInt(s2)
+    if (isNaN(n1) || isNaN(n2)) { setErr('Enter both scores'); return }
+    if (n1 === n2) { setErr('No ties in playoffs'); return }
+    startTransition(async () => {
+      const res = await recordBracketScore({ matchId: match.id, bracketId, leagueId, score1: n1, score2: n2 })
+      if (res.error) { setErr(res.error) } else { onClose() }
+    })
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="bg-white rounded-xl shadow-xl w-96 p-5 space-y-4">
+        <h3 className="font-semibold text-base">Enter score</h3>
+
+        {isVolleyball ? (
+          <div className="space-y-3">
+            {/* Column headers */}
+            <div className="flex items-center gap-2">
+              <span className="flex-1 text-xs font-medium text-gray-500 uppercase tracking-wide">Team</span>
+              {sets.map((_, i) => (
+                <span key={i} className="w-14 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Set {i + 1}
+                </span>
+              ))}
+            </div>
+
+            {/* Team 1 row */}
+            <div className="flex items-center gap-2">
+              <span className="flex-1 text-sm font-medium truncate">{match.team1Name ?? 'TBD'}</span>
+              {sets.map((set, i) => (
+                <input
+                  key={i}
+                  ref={i === 0 ? firstInputRef : undefined}
+                  value={set.s1}
+                  onChange={(e) => updateSet(i, 's1', e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+                  type="number"
+                  min={0}
+                  className="w-14 border rounded-md px-2 py-1.5 text-sm text-center"
+                  placeholder="0"
+                />
+              ))}
+            </div>
+
+            {/* Team 2 row */}
+            <div className="flex items-center gap-2">
+              <span className="flex-1 text-sm font-medium truncate">{match.team2Name ?? 'TBD'}</span>
+              {sets.map((set, i) => (
+                <input
+                  key={i}
+                  value={set.s2}
+                  onChange={(e) => updateSet(i, 's2', e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+                  type="number"
+                  min={0}
+                  className="w-14 border rounded-md px-2 py-1.5 text-sm text-center"
+                  placeholder="0"
+                />
+              ))}
+            </div>
+
+            {sets.length < 3 && (
+              <button
+                type="button"
+                onClick={() => setSets((prev) => [...prev, { s1: '', s2: '' }])}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                + Add set 3
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium truncate flex-1">{match.team1Name ?? 'TBD'}</span>
+              <input
+                ref={firstInputRef}
+                value={s1}
+                onChange={(e) => setS1(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+                type="number"
+                min={0}
+                className="w-16 border rounded-md px-2 py-1.5 text-sm text-center"
+                placeholder="0"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium truncate flex-1">{match.team2Name ?? 'TBD'}</span>
+              <input
+                value={s2}
+                onChange={(e) => setS2(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+                type="number"
+                min={0}
+                className="w-16 border rounded-md px-2 py-1.5 text-sm text-center"
+                placeholder="0"
+              />
+            </div>
+          </div>
+        )}
+
+        {err && <p className="text-xs text-red-500">{err}</p>}
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={submit}
+            disabled={isPending}
+            className="flex-1 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-50"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
+          >
+            {isPending ? 'Saving…' : 'Save score'}
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 py-2 rounded-md text-sm border text-gray-600 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
 }
 
 // ── Match card ────────────────────────────────────────────────────────────────
@@ -47,143 +245,99 @@ function MatchCard({
   bracketId,
   leagueId,
   isAdmin,
+  sport,
 }: {
   match: BracketMatchData
   bracketId: string
   leagueId: string
   isAdmin: boolean
+  sport?: string
 }) {
-  const [editing, setEditing] = useState(false)
-  const [s1, setS1] = useState('')
-  const [s2, setS2] = useState('')
-  const [err, setErr] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const [modalOpen, setModalOpen] = useState(false)
 
   const isTbd = match.status === 'pending'
   const isCompleted = match.status === 'completed'
   const isBye = match.isBye
   const isReady = match.status === 'ready'
 
-  function submitScore() {
-    setErr(null)
-    const n1 = parseInt(s1)
-    const n2 = parseInt(s2)
-    if (isNaN(n1) || isNaN(n2)) { setErr('Enter both scores'); return }
-    if (n1 === n2) { setErr('No ties in playoffs'); return }
-    startTransition(async () => {
-      const res = await recordBracketScore({ matchId: match.id, bracketId, leagueId, score1: n1, score2: n2 })
-      if (res.error) { setErr(res.error) } else { setEditing(false) }
-    })
-  }
-
   return (
-    <div className={`w-52 rounded-lg border bg-white text-sm shadow-sm ${
-      isCompleted ? 'opacity-90' : isTbd ? 'opacity-50' : ''
-    }`}>
-      {/* Match header */}
-      {(match.court || match.scheduledAt) && (
-        <div className="px-3 pt-2 text-[10px] text-gray-400 flex items-center gap-1.5">
-          {match.court && <span>Court {match.court}</span>}
-          {match.court && match.scheduledAt && <span>·</span>}
-          {match.scheduledAt && (
-            <span>{new Date(match.scheduledAt).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
-          )}
-        </div>
+    <>
+      {modalOpen && (
+        <ScoreModal
+          match={match}
+          bracketId={bracketId}
+          leagueId={leagueId}
+          sport={sport}
+          onClose={() => setModalOpen(false)}
+        />
       )}
-
-      {/* Team 1 */}
-      <div className={`flex items-center justify-between px-3 py-2 border-b ${
-        isCompleted && match.winnerTeamId === match.team1Id ? 'bg-green-50' : ''
+      <div className={`w-52 rounded-lg border bg-white text-sm shadow-sm ${
+        isCompleted ? 'opacity-90' : isTbd ? 'opacity-50' : ''
       }`}>
-        <div className="flex items-center gap-1.5 min-w-0">
-          {match.team1Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team1Seed}</span>}
-          <span className={`truncate font-medium ${isCompleted && match.winnerTeamId === match.team1Id ? 'text-green-700' : isTbd ? 'text-gray-400' : ''}`}>
-            {match.team1Name ?? 'TBD'}
+        {/* Match header */}
+        {(match.court || match.scheduledAt) && (
+          <div className="px-3 pt-2 text-[10px] text-gray-400 flex items-center gap-1.5">
+            {match.court && <span>Court {match.court}</span>}
+            {match.court && match.scheduledAt && <span>·</span>}
+            {match.scheduledAt && (
+              <span>{new Date(match.scheduledAt).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+            )}
+          </div>
+        )}
+
+        {/* Team 1 */}
+        <div className={`flex items-center justify-between px-3 py-2 border-b ${
+          isCompleted && match.winnerTeamId === match.team1Id ? 'bg-green-50' : ''
+        }`}>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {match.team1Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team1Seed}</span>}
+            <span className={`truncate font-medium ${isCompleted && match.winnerTeamId === match.team1Id ? 'text-green-700' : isTbd ? 'text-gray-400' : ''}`}>
+              {match.team1Name ?? 'TBD'}
+            </span>
+          </div>
+          <span className="font-bold tabular-nums text-sm ml-2">
+            {isCompleted && match.score1 !== null ? match.score1 : ''}
           </span>
         </div>
-        <span className="font-bold tabular-nums text-sm ml-2">
-          {isCompleted && match.score1 !== null ? match.score1 : ''}
-        </span>
-      </div>
 
-      {/* Team 2 */}
-      <div className={`flex items-center justify-between px-3 py-2 ${
-        isCompleted && match.winnerTeamId === match.team2Id ? 'bg-green-50' : ''
-      }`}>
-        <div className="flex items-center gap-1.5 min-w-0">
-          {match.team2Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team2Seed}</span>}
-          <span className={`truncate font-medium ${
-            isBye ? 'text-gray-300 italic' :
-            isCompleted && match.winnerTeamId === match.team2Id ? 'text-green-700' :
-            isTbd ? 'text-gray-400' : ''
-          }`}>
-            {isBye ? 'Bye' : (match.team2Name ?? 'TBD')}
+        {/* Team 2 */}
+        <div className={`flex items-center justify-between px-3 py-2 ${
+          isCompleted && match.winnerTeamId === match.team2Id ? 'bg-green-50' : ''
+        }`}>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {match.team2Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team2Seed}</span>}
+            <span className={`truncate font-medium ${
+              isBye ? 'text-gray-300 italic' :
+              isCompleted && match.winnerTeamId === match.team2Id ? 'text-green-700' :
+              isTbd ? 'text-gray-400' : ''
+            }`}>
+              {isBye ? 'Bye' : (match.team2Name ?? 'TBD')}
+            </span>
+          </div>
+          <span className="font-bold tabular-nums text-sm ml-2">
+            {isCompleted && match.score2 !== null ? match.score2 : ''}
           </span>
         </div>
-        <span className="font-bold tabular-nums text-sm ml-2">
-          {isCompleted && match.score2 !== null ? match.score2 : ''}
-        </span>
+
+        {/* Admin score entry trigger */}
+        {isAdmin && isReady && !isCompleted && (
+          <div className="px-3 pb-2 pt-1 border-t">
+            <button
+              onClick={() => setModalOpen(true)}
+              className="text-xs font-medium text-blue-600 hover:underline"
+            >
+              Enter score
+            </button>
+          </div>
+        )}
       </div>
-
-      {/* Admin score entry */}
-      {isAdmin && isReady && !isCompleted && !editing && (
-        <div className="px-3 pb-2 pt-1">
-          <button
-            onClick={() => setEditing(true)}
-            className="text-xs font-medium text-blue-600 hover:underline"
-          >
-            Enter score
-          </button>
-        </div>
-      )}
-
-      {isAdmin && editing && (
-        <div className="px-3 pb-3 pt-2 space-y-1.5 border-t">
-          <div className="flex items-center gap-1.5">
-            <input
-              value={s1}
-              onChange={(e) => setS1(e.target.value)}
-              type="number"
-              min={0}
-              className="w-14 border rounded px-2 py-1 text-xs text-center"
-              placeholder="—"
-            />
-            <span className="text-gray-400 text-xs">vs</span>
-            <input
-              value={s2}
-              onChange={(e) => setS2(e.target.value)}
-              type="number"
-              min={0}
-              className="w-14 border rounded px-2 py-1 text-xs text-center"
-              placeholder="—"
-            />
-          </div>
-          {err && <p className="text-[10px] text-red-500">{err}</p>}
-          <div className="flex gap-1.5">
-            <button
-              onClick={submitScore}
-              disabled={isPending}
-              className="flex-1 text-xs py-1 rounded text-white font-medium disabled:opacity-50"
-              style={{ backgroundColor: 'var(--brand-primary)' }}
-            >
-              {isPending ? '…' : 'Save'}
-            </button>
-            <button
-              onClick={() => { setEditing(false); setErr(null) }}
-              className="flex-1 text-xs py-1 rounded border text-gray-600"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   )
 }
 
 // ── Bracket view ──────────────────────────────────────────────────────────────
 
-export function BracketView({ bracket, leagueId, isAdmin = false }: Props) {
+export function BracketView({ bracket, leagueId, isAdmin = false, sport }: Props) {
   const bracketSize = bracket.bracketSize
 
   // Collect rounds in display order (left = earliest, right = final)
@@ -282,6 +436,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false }: Props) {
                           bracketId={bracket.id}
                           leagueId={leagueId}
                           isAdmin={isAdmin}
+                          sport={sport}
                         />
                       </div>
                     )
@@ -316,6 +471,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false }: Props) {
             bracketId={bracket.id}
             leagueId={leagueId}
             isAdmin={isAdmin}
+            sport={sport}
           />
         </div>
       )}

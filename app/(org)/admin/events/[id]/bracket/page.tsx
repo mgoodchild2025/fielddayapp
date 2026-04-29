@@ -17,7 +17,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
   // Load league + context
   const [{ data: league }, { data: divisions }, { data: teams }, { data: results }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('id, name, event_type, status').eq('id', leagueId).eq('organization_id', org.id).single(),
+    (db as any).from('leagues').select('id, name, event_type, status, sport').eq('id', leagueId).eq('organization_id', org.id).single(),
     db.from('divisions').select('id, name').eq('league_id', leagueId).eq('organization_id', org.id),
     db.from('teams').select('id, name, division_id').eq('league_id', leagueId).eq('organization_id', org.id).eq('status', 'active'),
     db.from('game_results')
@@ -162,6 +162,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
         recommendation={recommendation}
         seededTeams={seededTeams}
         existingBracket={existingBracket}
+        sport={league?.sport ?? undefined}
       />
 
       {/* Multiple brackets for multi-division events */}
@@ -175,6 +176,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
                 recommendation={recommendation}
                 seededTeams={seededTeams}
                 existingBracket={buildBracketData(b)}
+                sport={league?.sport ?? undefined}
               />
             </div>
           ))}

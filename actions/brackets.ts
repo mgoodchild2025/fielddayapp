@@ -366,6 +366,7 @@ const bracketScoreSchema = z.object({
   leagueId: z.string().uuid(),
   score1: z.coerce.number().int().min(0),
   score2: z.coerce.number().int().min(0),
+  sets: z.array(z.object({ s1: z.number().int().min(0), s2: z.number().int().min(0) })).optional(),
 })
 
 export async function recordBracketScore(input: z.infer<typeof bracketScoreSchema>) {
@@ -399,6 +400,7 @@ export async function recordBracketScore(input: z.infer<typeof bracketScoreSchem
     .update({
       score1: d.score1,
       score2: d.score2,
+      sets: d.sets ?? null,
       winner_team_id: winnerTeamId,
       status: 'completed',
     })
