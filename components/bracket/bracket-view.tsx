@@ -260,26 +260,19 @@ export function BracketView({ bracket, leagueId, isAdmin = false }: Props) {
                             }} />
                           </>
                         )}
-                        {/* Vertical connector from previous round */}
-                        {colIdx > 0 && i % 2 === 0 && (
+                        {/* Vertical connector from previous round.
+                            Spans between the two prev-round match centers:
+                            top = card_top + (MATCH_HEIGHT/2 - slotHeight/4)
+                            height = slotHeight/2  */}
+                        {colIdx > 0 && (
                           <div style={{
                             position: 'absolute',
                             left: -8,
-                            top: MATCH_HEIGHT / 2,
+                            top: MATCH_HEIGHT / 2 - slotHeight / 4,
                             width: 8,
-                            height: slotHeight,
+                            height: slotHeight / 2,
                             borderLeft: '1px solid #d1d5db',
                             borderTop: '1px solid #d1d5db',
-                          }} />
-                        )}
-                        {colIdx > 0 && i % 2 === 1 && (
-                          <div style={{
-                            position: 'absolute',
-                            left: -8,
-                            bottom: MATCH_HEIGHT / 2,
-                            width: 8,
-                            height: slotHeight,
-                            borderLeft: '1px solid #d1d5db',
                             borderBottom: '1px solid #d1d5db',
                           }} />
                         )}
