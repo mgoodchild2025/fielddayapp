@@ -7,7 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { stripe } from '@/lib/stripe'
 import { getCurrentOrg } from '@/lib/tenant'
 
-const PLATFORM_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.fielddayapp.ca'
+const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
 async function requireOrgAdmin() {
   const headersList = await headers()
@@ -25,39 +25,46 @@ async function requireOrgAdmin() {
   return org
 }
 
-export async function startConnectOnboarding() {
-  const org = await requireOrgAdmin()
-  const supabase = createServiceRoleClient()
+// Returns the Stripe onboarding URL — client navigates there via window.location.href
+export async function getConnectOnboardingUrl(): Promise<{ url: string } | { error: string }> {
+  try {
+    const org = await requireOrgAdmin()
+    const supabase = createServiceRoleClient()
 
-  // Reuse existing account if already created
-  let { data: existing } = await supabase
-    .from('stripe_connect_accounts')
-    .select('stripe_account_id')
-    .eq('organization_id', org.id)
-    .single()
+    const { data: existing } = await supabase
+      .from('stripe_connect_accounts')
+      .select('stripe_account_id')
+      .eq('organization_id', org.id)
+      .single()
 
-  let stripeAccountId = existing?.stripe_account_id
+    let stripeAccountId = existing?.stripe_account_id
 
-  if (!stripeAccountId) {
-    const account = await stripe.accounts.create({ type: 'express', country: 'CA' })
-    stripeAccountId = account.id
-    await supabase.from('stripe_connect_accounts').insert({
-      organization_id: org.id,
-      stripe_account_id: stripeAccountId,
-      status: 'pending',
-      charges_enabled: false,
-      payouts_enabled: false,
+    if (!stripeAccountId) {
+      const account = await stripe.accounts.create({ type: 'express', country: 'CA' })
+      stripeAccountId = account.id
+      await supabase.from('stripe_connect_accounts').insert({
+        organization_id: org.id,
+        stripe_account_id: stripeAccountId,
+        status: 'pending',
+        charges_enabled: false,
+        payouts_enabled: false,
+      })
+    }
+
+    // Build URLs on the org's own subdomain so the return route redirects back correctly
+    const orgBase = `https://${org.slug}.${PLATFORM_DOMAIN}`
+    const accountLink = await stripe.accountLinks.create({
+      account: stripeAccountId,
+      refresh_url: `${orgBase}/api/stripe/connect/refresh?orgId=${org.id}`,
+      return_url: `${orgBase}/api/stripe/connect/return?orgId=${org.id}`,
+      type: 'account_onboarding',
     })
+
+    return { url: accountLink.url }
+  } catch (err) {
+    console.error('[stripe-connect] onboarding error:', err)
+    return { error: err instanceof Error ? err.message : 'Failed to start Stripe setup' }
   }
-
-  const accountLink = await stripe.accountLinks.create({
-    account: stripeAccountId,
-    refresh_url: `${PLATFORM_URL}/api/stripe/connect/refresh?orgId=${org.id}`,
-    return_url: `${PLATFORM_URL}/api/stripe/connect/return?orgId=${org.id}`,
-    type: 'account_onboarding',
-  })
-
-  redirect(accountLink.url)
 }
 
 export async function disconnectConnectAccount() {

@@ -1,7 +1,8 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { startConnectOnboarding, disconnectConnectAccount } from '@/actions/stripe-connect'
+import { disconnectConnectAccount } from '@/actions/stripe-connect'
+import { ConnectStripeButton } from '@/components/payments/connect-stripe-button'
 
 export default async function PaymentSettingsPage() {
   const headersList = await headers()
@@ -64,15 +65,7 @@ export default async function PaymentSettingsPage() {
 
         <div className="pt-2 flex gap-3">
           {!isActive && (
-            <form action={startConnectOnboarding}>
-              <button
-                type="submit"
-                className="px-4 py-2 rounded-md text-sm font-semibold text-white"
-                style={{ backgroundColor: 'var(--brand-primary)' }}
-              >
-                {!isConnected ? 'Connect Stripe Account' : 'Continue Setup'}
-              </button>
-            </form>
+            <ConnectStripeButton label={!isConnected ? 'Connect Stripe Account' : 'Continue Setup'} />
           )}
           {isConnected && (
             <form action={disconnectConnectAccount}>
