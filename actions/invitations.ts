@@ -193,7 +193,7 @@ export async function acceptTeamInvitation(token: string) {
   const anyDb = db as any
   const { data: invite } = await anyDb
     .from('team_invitations')
-    .select('id, team_id, invited_email, role, status, expires_at')
+    .select('id, team_id, invited_email, invited_by, role, status, expires_at')
     .eq('token', token)
     .eq('organization_id', org.id)
     .single()
@@ -204,7 +204,7 @@ export async function acceptTeamInvitation(token: string) {
   if (new Date(invite.expires_at) < new Date()) return { error: 'This invitation has expired', teamId: null }
 
   // Verify the logged-in user's email matches the invite
-  const { data: profile } = await db.from('profiles').select('email').eq('id', user.id).single()
+  const { data: profile } = await db.from('profiles').select('email, full_name').eq('id', user.id).single()
   if (profile?.email?.toLowerCase() !== invite.invited_email.toLowerCase()) {
     return { error: `This invite was sent to ${invite.invited_email} — please sign in with that account`, teamId: null }
   }
@@ -230,6 +230,27 @@ export async function acceptTeamInvitation(token: string) {
     status: 'active',
   }, { onConflict: 'organization_id,user_id', ignoreDuplicates: true })
 
+  // Auto-register for the league if not already registered
+  const { data: team } = await db.from('teams').select('name, league_id').eq('id', invite.team_id).single()
+  if (team?.league_id) {
+    const { data: existingReg } = await db
+      .from('registrations')
+      .select('id')
+      .eq('organization_id', org.id)
+      .eq('league_id', team.league_id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (!existingReg) {
+      await db.from('registrations').insert({
+        organization_id: org.id,
+        league_id: team.league_id,
+        user_id: user.id,
+        status: 'active',
+      })
+    }
+  }
+
   // Mark invite accepted
   await anyDb.from('team_invitations').update({ status: 'accepted' }).eq('id', invite.id)
 
@@ -239,6 +260,17 @@ export async function acceptTeamInvitation(token: string) {
     .eq('organization_id', org.id)
     .eq('user_id', user.id)
     .eq('type', 'team_invite')
+
+  // Notify the inviter
+  const playerName = profile?.full_name ?? invite.invited_email
+  const teamName = team?.name ?? 'your team'
+  await db.from('notifications').insert({
+    organization_id: org.id,
+    user_id: invite.invited_by,
+    type: 'invite_accepted',
+    title: `${playerName} accepted your invitation`,
+    body: `They've joined ${teamName}.`,
+  })
 
   revalidatePath('/dashboard')
   revalidatePath(`/teams/${invite.team_id}`)
@@ -260,7 +292,7 @@ export async function declineTeamInvitation(token: string) {
   const anyDb = db as any
   const { data: invite } = await anyDb
     .from('team_invitations')
-    .select('id, status')
+    .select('id, status, invited_by, team_id, invited_email')
     .eq('token', token)
     .eq('organization_id', org.id)
     .single()
@@ -276,6 +308,21 @@ export async function declineTeamInvitation(token: string) {
     .eq('organization_id', org.id)
     .eq('user_id', user.id)
     .eq('type', 'team_invite')
+
+  // Notify the inviter
+  const [{ data: profile }, { data: team }] = await Promise.all([
+    db.from('profiles').select('full_name').eq('id', user.id).single(),
+    db.from('teams').select('name').eq('id', invite.team_id).single(),
+  ])
+  const playerName = profile?.full_name ?? invite.invited_email
+  const teamName = team?.name ?? 'your team'
+  await db.from('notifications').insert({
+    organization_id: org.id,
+    user_id: invite.invited_by,
+    type: 'invite_declined',
+    title: `${playerName} declined your invitation`,
+    body: `They won't be joining ${teamName}.`,
+  })
 
   return { error: null }
 }
