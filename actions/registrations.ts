@@ -85,9 +85,34 @@ export async function removeRegistration(registrationId: string, leagueId: strin
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
-  // Use service role to bypass RLS — org scoping enforced via organization_id filter
   const { createServiceRoleClient } = await import('@/lib/supabase/service')
   const db = createServiceRoleClient()
+
+  // Fetch the registration to get the user_id before deleting
+  const { data: reg, error: fetchError } = await db
+    .from('registrations')
+    .select('user_id')
+    .eq('id', registrationId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (fetchError || !reg) return { error: 'Registration not found' }
+
+  // Remove from any team in this league
+  const { data: teams } = await db
+    .from('teams')
+    .select('id')
+    .eq('league_id', leagueId)
+    .eq('organization_id', org.id)
+
+  if (teams && teams.length > 0) {
+    const teamIds = teams.map(t => t.id)
+    await db
+      .from('team_members')
+      .delete()
+      .eq('user_id', reg.user_id)
+      .in('team_id', teamIds)
+  }
 
   const { error } = await db
     .from('registrations')
@@ -98,6 +123,7 @@ export async function removeRegistration(registrationId: string, leagueId: strin
   if (error) return { error: error.message }
 
   revalidatePath(`/admin/leagues/${leagueId}/registrations`)
+  revalidatePath(`/admin/leagues/${leagueId}/teams`)
   return { error: null }
 }
 

@@ -12,10 +12,9 @@ interface Props {
 export function RemoveRegistrationButton({ registrationId, leagueId, playerName }: Props) {
   const [pending, startTransition] = useTransition()
   const [done, setDone] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   if (done) return null
-
-  const [error, setError] = useState<string | null>(null)
 
   function handle() {
     if (!confirm(`Remove ${playerName} from the league?\n\nThis will delete their registration.`)) return
