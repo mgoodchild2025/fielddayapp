@@ -76,6 +76,7 @@ const schema = z.object({
   min_team_size: z.number().default(4),
   max_team_size: z.number().default(8),
   team_join_policy: z.enum(['open', 'captain_invite', 'admin_only']).default('open'),
+  pickup_join_policy: z.enum(['public', 'private']).default('public'),
   season_start_date: z.string().optional(),
   season_end_date: z.string().optional(),
   registration_opens_at: z.string().optional(),
@@ -141,6 +142,7 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
       sport: 'beach_volleyball',
       payment_mode: 'per_player',
       team_join_policy: 'open',
+      pickup_join_policy: 'public',
       min_team_size: 4,
       max_team_size: 8,
     },
@@ -286,6 +288,15 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
                 </select>
               </Field>
             </div>
+          )}
+
+          {!withTeams && (
+            <Field label="Session Access" error={errors.pickup_join_policy?.message}>
+              <select {...register('pickup_join_policy')} className={SELECT}>
+                <option value="public">Public — anyone can join sessions</option>
+                <option value="private">Private — admin invite only</option>
+              </select>
+            </Field>
           )}
         </div>
 

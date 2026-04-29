@@ -249,9 +249,16 @@ export default async function EventDetailPage({
         {/* ── Sessions (pickup / drop-in) ── */}
         {isSessionBased && (
           <div className="mt-8">
-            <h2 className="text-xl font-bold mb-4" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-              Upcoming Sessions
-            </h2>
+            <div className="flex items-center gap-3 mb-4">
+              <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+                Upcoming Sessions
+              </h2>
+              {league.pickup_join_policy === 'private' && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">
+                  Invite only
+                </span>
+              )}
+            </div>
             {(!sessions || sessions.length === 0) ? (
               <p className="text-gray-400 text-sm py-8 text-center bg-white border rounded-lg">
                 No sessions scheduled yet — check back soon.
@@ -295,14 +302,20 @@ export default async function EventDetailPage({
                         {s.notes && <p className="text-xs text-gray-400 mt-1">{s.notes}</p>}
                       </div>
                       <div className="shrink-0">
-                        <SessionJoinButton
-                          sessionId={s.id}
-                          leagueId={league.id}
-                          isJoined={isJoined}
-                          isFull={isFull}
-                          isCancelled={isCancelled}
-                          isLoggedIn={!!user}
-                        />
+                        {league.pickup_join_policy === 'private' ? (
+                          isJoined && !isCancelled ? (
+                            <span className="text-xs px-3 py-1.5 rounded-md bg-green-50 text-green-700 font-medium">Joined ✓</span>
+                          ) : null
+                        ) : (
+                          <SessionJoinButton
+                            sessionId={s.id}
+                            leagueId={league.id}
+                            isJoined={isJoined}
+                            isFull={isFull}
+                            isCancelled={isCancelled}
+                            isLoggedIn={!!user}
+                          />
+                        )}
                       </div>
                     </div>
                   )

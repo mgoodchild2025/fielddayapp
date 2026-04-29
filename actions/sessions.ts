@@ -91,7 +91,19 @@ export async function joinSession(sessionId: string, leagueId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  // Fetch session and current registration count atomically enough for our needs
+  // Check league join policy and fetch session together
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: league } = await (supabase as any)
+    .from('leagues')
+    .select('pickup_join_policy')
+    .eq('id', leagueId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (league?.pickup_join_policy === 'private') {
+    return { error: 'This event is invite only' }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: session } = await (supabase as any)
     .from('event_sessions')
