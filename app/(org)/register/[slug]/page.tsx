@@ -4,6 +4,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { RegistrationFlow } from '@/components/registration/registration-flow'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 
 export default async function RegisterLeaguePage({
   params,
@@ -78,8 +79,13 @@ export default async function RegisterLeaguePage({
       initialStep = 3 // jump to payment
     } else if (waiver && !waiverSigned) {
       initialStep = 2 // jump to waiver
+    } else if (!needsPayment) {
+      // Waiver signed (or not required), no payment needed — activate server-side and redirect
+      const service = createServiceRoleClient()
+      await service.from('registrations').update({ status: 'active' }).eq('id', existingReg.id)
+      redirect(`/register/${slug}/success`)
     } else {
-      initialStep = needsPayment ? 3 : 4
+      initialStep = 3
     }
   }
 

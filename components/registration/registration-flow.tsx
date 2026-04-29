@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Step1PlayerDetails } from './step1-player-details'
 import { Step2Waiver } from './step2-waiver'
 import { Step3Payment } from './step3-payment'
-import { Step4Confirmation } from './step4-confirmation'
-import { linkWaiverToRegistration } from '@/actions/registrations'
+import { linkWaiverToRegistration, activateRegistration } from '@/actions/registrations'
 import type { Database } from '@/types/database'
 
 type League = Database['public']['Tables']['leagues']['Row']
@@ -25,19 +25,32 @@ interface Props {
   hasOnlinePayments?: boolean
 }
 
-const ALL_STEPS = ['Player Details', 'Waiver', 'Payment', 'Confirmation']
+const ALL_STEPS = ['Player Details', 'Waiver', 'Payment']
 
 export function RegistrationFlow({ org, league, waiver, profile, playerDetails, userId, initialStep = 1, initialRegistrationId = null, hasOnlinePayments = false }: Props) {
+  const router = useRouter()
   const [step, setStep] = useState(initialStep)
   const [registrationId, setRegistrationId] = useState<string | null>(initialRegistrationId)
+  const [completing, setCompleting] = useState(false)
 
   const showPaymentStep = league.price_cents > 0 && hasOnlinePayments
   const steps = showPaymentStep ? ALL_STEPS : ALL_STEPS.filter(s => s !== 'Payment')
 
-  // When no payment step, step 3 in the flow skips to confirmation (step 4 internally stays 4)
-  function afterWaiver() {
-    if (showPaymentStep) setStep(3)
-    else setStep(4)
+  // Activate and navigate to the success page — never call a server action and then
+  // setStep(4), which would cause Next.js to re-render the parent server component
+  // and double-show the "You're Registered" screen.
+  async function completeRegistration(regId: string | null) {
+    setCompleting(true)
+    if (regId) await activateRegistration(regId)
+    router.push(`/register/${league.slug}/success`)
+  }
+
+  async function afterWaiver() {
+    if (showPaymentStep) {
+      setStep(3)
+    } else {
+      await completeRegistration(registrationId)
+    }
   }
 
   return (
@@ -102,18 +115,17 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
             onSkip={afterWaiver}
           />
         )}
-        {step === 3 && showPaymentStep && (
+        {completing && (
+          <div className="bg-white rounded-lg border p-8 text-center text-gray-500">
+            Completing registration…
+          </div>
+        )}
+        {step === 3 && showPaymentStep && !completing && (
           <Step3Payment
             org={org}
             league={league}
             userId={userId}
             registrationId={registrationId!}
-          />
-        )}
-        {step === 4 && (
-          <Step4Confirmation
-            league={league}
-            registrationId={registrationId}
           />
         )}
       </div>
