@@ -30,8 +30,25 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
 
   const { orgId, ...brandingData } = parsed.data
 
+  // Verify the caller is an admin of this org
   const supabase = await createServerClient()
-  const { error } = await supabase
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const { data: member } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', orgId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
+    return { data: null, error: 'Unauthorized' }
+  }
+
+  // Use service role to bypass RLS (membership already verified above)
+  const service = createServiceRoleClient()
+  const { error } = await service
     .from('org_branding')
     .upsert({
       organization_id: orgId,

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useTransition } from 'react'
 import Image from 'next/image'
-import { useForm } from 'react-hook-form'
+import { useForm, UseFormRegister, FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { updateBranding, uploadOrgLogo } from '@/actions/branding'
@@ -45,8 +45,33 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
+// ── Defined outside BrandingForm so React never remounts it on re-render ──────
+function ColorField({
+  label,
+  name,
+  register,
+  errors,
+}: {
+  label: string
+  name: keyof FormData
+  register: UseFormRegister<FormData>
+  errors: FieldErrors<FormData>
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <div className="flex items-center gap-2">
+        <input {...register(name)} type="color" className="h-9 w-12 rounded border cursor-pointer" />
+        <input {...register(name)} type="text" className="flex-1 border rounded-md px-3 py-2 text-sm font-mono" />
+      </div>
+      {errors[name] && <p className="text-red-500 text-xs mt-1">{errors[name]?.message as string}</p>}
+    </div>
+  )
+}
+
 export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null; orgId: string }) {
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [logoUrl, setLogoUrl] = useState<string | null>(branding?.logo_url ?? null)
   const [logoError, setLogoError] = useState<string | null>(null)
@@ -90,23 +115,16 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
 
   async function onSubmit(data: FormData) {
     setLoading(true)
-    await updateBranding({ ...data, orgId })
-    setSaved(true)
+    setSaved(false)
+    setSaveError(null)
+    const result = await updateBranding({ ...data, orgId })
     setLoading(false)
-    setTimeout(() => setSaved(false), 3000)
-  }
-
-  function ColorField({ label, name }: { label: string; name: keyof FormData }) {
-    return (
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-        <div className="flex items-center gap-2">
-          <input {...register(name)} type="color" className="h-9 w-12 rounded border cursor-pointer" />
-          <input {...register(name)} type="text" className="flex-1 border rounded-md px-3 py-2 text-sm font-mono" />
-        </div>
-        {errors[name] && <p className="text-red-500 text-xs mt-1">{errors[name]?.message as string}</p>}
-      </div>
-    )
+    if (result.error) {
+      setSaveError(result.error)
+    } else {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    }
   }
 
   return (
@@ -114,6 +132,11 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
       {saved && (
         <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded text-sm">
           Branding saved successfully.
+        </div>
+      )}
+      {saveError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+          {saveError}
         </div>
       )}
 
@@ -154,10 +177,10 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
       <div className="bg-white rounded-lg border p-5 space-y-4">
         <h2 className="font-semibold">Colours</h2>
         <div className="grid grid-cols-2 gap-4">
-          <ColorField label="Primary Color" name="primary_color" />
-          <ColorField label="Secondary Color" name="secondary_color" />
-          <ColorField label="Background Color" name="bg_color" />
-          <ColorField label="Text Color" name="text_color" />
+          <ColorField label="Primary Color" name="primary_color" register={register} errors={errors} />
+          <ColorField label="Secondary Color" name="secondary_color" register={register} errors={errors} />
+          <ColorField label="Background Color" name="bg_color" register={register} errors={errors} />
+          <ColorField label="Text Color" name="text_color" register={register} errors={errors} />
         </div>
       </div>
 
