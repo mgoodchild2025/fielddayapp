@@ -2,7 +2,7 @@
 
 import { useState, useRef, useTransition } from 'react'
 import Image from 'next/image'
-import { useForm, UseFormRegister, FieldErrors } from 'react-hook-form'
+import { useForm, useController, Control, FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { updateBranding, uploadOrgLogo } from '@/actions/branding'
@@ -49,20 +49,32 @@ type FormData = z.infer<typeof schema>
 function ColorField({
   label,
   name,
-  register,
+  control,
   errors,
 }: {
   label: string
   name: keyof FormData
-  register: UseFormRegister<FormData>
+  control: Control<FormData>
   errors: FieldErrors<FormData>
 }) {
+  const { field } = useController({ name, control })
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
       <div className="flex items-center gap-2">
-        <input {...register(name)} type="color" className="h-9 w-12 rounded border cursor-pointer" />
-        <input {...register(name)} type="text" className="flex-1 border rounded-md px-3 py-2 text-sm font-mono" />
+        <input
+          type="color"
+          value={field.value as string}
+          onChange={(e) => field.onChange(e.target.value)}
+          className="h-9 w-12 rounded border cursor-pointer"
+        />
+        <input
+          type="text"
+          value={field.value as string}
+          onChange={(e) => field.onChange(e.target.value)}
+          onBlur={field.onBlur}
+          className="flex-1 border rounded-md px-3 py-2 text-sm font-mono"
+        />
       </div>
       {errors[name] && <p className="text-red-500 text-xs mt-1">{errors[name]?.message as string}</p>}
     </div>
@@ -94,7 +106,7 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
     })
   }
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, control, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       primary_color: branding?.primary_color ?? '#FF5C00',
@@ -177,10 +189,10 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
       <div className="bg-white rounded-lg border p-5 space-y-4">
         <h2 className="font-semibold">Colours</h2>
         <div className="grid grid-cols-2 gap-4">
-          <ColorField label="Primary Color" name="primary_color" register={register} errors={errors} />
-          <ColorField label="Secondary Color" name="secondary_color" register={register} errors={errors} />
-          <ColorField label="Background Color" name="bg_color" register={register} errors={errors} />
-          <ColorField label="Text Color" name="text_color" register={register} errors={errors} />
+          <ColorField label="Primary Color" name="primary_color" control={control} errors={errors} />
+          <ColorField label="Secondary Color" name="secondary_color" control={control} errors={errors} />
+          <ColorField label="Background Color" name="bg_color" control={control} errors={errors} />
+          <ColorField label="Text Color" name="text_color" control={control} errors={errors} />
         </div>
       </div>
 
