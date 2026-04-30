@@ -129,18 +129,50 @@ export async function GET(req: NextRequest) {
     results.push(`payment reminder installment ${inst.id}`)
   }
 
-  // 4. SMS game reminders — send 3h before game to opted-in players
-  const in3h = new Date(now.getTime() + 3 * 60 * 60 * 1000)
-  const { data: smsGames } = await supabase
+  // 4. SMS game reminders — per-org timing (up to 24h window)
+  // Fetch all org notification settings so we can respect per-org config
+  const { data: allNotifSettings } = await supabase
+    .from('org_notification_settings')
+    .select('organization_id, sms_game_reminders_enabled, sms_reminder_hours_before')
+
+  const notifByOrg = new Map(
+    (allNotifSettings ?? []).map(s => [s.organization_id as string, s])
+  )
+
+  // Fetch all unreminded games in the next 24h (widest possible window)
+  const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: smsGames } = await (supabase as any)
     .from('games')
-    .select('id, scheduled_at, home_team_id, away_team_id, venue_name, leagues(name, organizations(name))')
+    .select('id, organization_id, scheduled_at, home_team_id, away_team_id, venue_name, leagues(name, organizations(name))')
     .gte('scheduled_at', now.toISOString())
-    .lte('scheduled_at', in3h.toISOString())
+    .lte('scheduled_at', in24h.toISOString())
     .is('sms_reminder_sent', null)
 
-  for (const game of smsGames ?? []) {
-    const league = Array.isArray(game.leagues) ? game.leagues[0] : game.leagues
-    const teamIds = [game.home_team_id, game.away_team_id].filter(Boolean)
+  for (const game of (smsGames ?? []) as {
+    id: string
+    organization_id: string
+    scheduled_at: string
+    home_team_id: string | null
+    away_team_id: string | null
+    venue_name: string | null
+    leagues: { name: string; organizations: { name: string } | { name: string }[] | null } | null
+  }[]) {
+    const orgId = game.organization_id
+
+    // Respect per-org settings (default: enabled, 3h)
+    const orgSettings = notifByOrg.get(orgId)
+    const remindersEnabled = orgSettings?.sms_game_reminders_enabled ?? true
+    const hoursBefore = orgSettings?.sms_reminder_hours_before ?? 3
+
+    if (!remindersEnabled) continue
+
+    // Only send if game is within this org's configured window
+    const msUntilGame = new Date(game.scheduled_at).getTime() - now.getTime()
+    const windowMs = hoursBefore * 60 * 60 * 1000
+    if (msUntilGame > windowMs) continue
+
+    const teamIds = [game.home_team_id, game.away_team_id].filter(Boolean) as string[]
     if (teamIds.length === 0) continue
 
     const { data: members } = await supabase
@@ -152,13 +184,20 @@ export async function GET(req: NextRequest) {
       .flatMap(m => (Array.isArray(m.profiles) ? m.profiles : [m.profiles]))
       .filter(p => p?.phone && p?.sms_opted_in)
 
-    const gameTime = new Date(game.scheduled_at).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
-    const leagueOrg = league ? (Array.isArray((league as { organizations?: unknown }).organizations) ? (league as { organizations: { name: string }[] }).organizations[0] : (league as { organizations?: { name: string } }).organizations) : null
+    const league = game.leagues
+    const leagueOrg = league
+      ? (Array.isArray((league as { organizations?: unknown }).organizations)
+          ? (league as { organizations: { name: string }[] }).organizations[0]
+          : (league as { organizations?: { name: string } }).organizations)
+      : null
     const orgName = leagueOrg?.name ?? 'Fieldday'
     const leagueName = league?.name ?? 'Game'
-    const header = `${orgName} – ${leagueName}`
+
+    const gameTime = new Date(game.scheduled_at).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
     const venue = game.venue_name ? ` at ${game.venue_name}` : ''
-    const smsBody = `${header}\n\nReminder: Your game is today at ${gameTime}${venue}.\n\nReply STOP to unsubscribe.`
+    const timeLabel = hoursBefore >= 24 ? 'tomorrow' : 'today'
+    const smsBody = `${orgName} – ${leagueName}\n\nReminder: Your game is ${timeLabel} at ${gameTime}${venue}.\n\nReply STOP to unsubscribe.`
+
     for (const player of players) {
       await sendSms(player!.phone!, smsBody).catch(() => {})
     }

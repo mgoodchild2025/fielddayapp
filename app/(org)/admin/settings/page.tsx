@@ -86,6 +86,18 @@ export default async function AdminSettingsPage() {
         <div className="bg-white rounded-lg border p-5">
           <div className="flex items-center justify-between">
             <div>
+              <h2 className="font-semibold">Notifications</h2>
+              <p className="text-sm text-gray-500">SMS game reminders and automated player messages.</p>
+            </div>
+            <Link href="/admin/settings/notifications" className="text-sm font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
+              Manage →
+            </Link>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg border p-5">
+          <div className="flex items-center justify-between">
+            <div>
               <h2 className="font-semibold">Payments</h2>
               <p className="text-sm text-gray-500">Connect your Stripe account to accept online payments.</p>
             </div>
