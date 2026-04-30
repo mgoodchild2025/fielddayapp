@@ -12,9 +12,10 @@ interface Props {
   seededTeams: TeamStanding[]    // pre-computed standings order
   existingBracket: BracketData | null
   sport?: string
+  isOrgAdmin?: boolean
 }
 
-export function BracketSetupWizard({ leagueId, divisionId, recommendation, seededTeams, existingBracket, sport }: Props) {
+export function BracketSetupWizard({ leagueId, divisionId, recommendation, seededTeams, existingBracket, sport, isOrgAdmin = true }: Props) {
   const [step, setStep] = useState<'configure' | 'seed' | 'preview'>('configure')
   const [bracketId, setBracketId] = useState<string | null>(existingBracket?.id ?? null)
   const [bracket, setBracket] = useState<BracketData | null>(existingBracket)
@@ -106,6 +107,15 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
 
   const teamById = new Map(seededTeams.map((t) => [t.teamId, t.teamName]))
 
+  // ── No bracket + non-org-admin: read-only placeholder ──────────────────────
+  if (!bracket && !isOrgAdmin) {
+    return (
+      <div className="bg-white rounded-lg border p-10 text-center text-gray-400">
+        <p className="text-sm">No bracket has been created yet.</p>
+      </div>
+    )
+  }
+
   // ── Preview (bracket exists) ────────────────────────────────────────────────
   if (bracket) {
     return (
@@ -118,25 +128,27 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
               {bracket.status === 'active' ? '✓ Published — visible to the public' : 'Draft — only visible to admins'}
             </p>
           </div>
-          <div className="flex gap-2">
-            {bracket.status !== 'active' && (
+          {isOrgAdmin && (
+            <div className="flex gap-2">
+              {bracket.status !== 'active' && (
+                <button
+                  onClick={handlePublish}
+                  disabled={isPending}
+                  className="px-4 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60"
+                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                >
+                  {isPending ? 'Publishing…' : 'Publish Bracket'}
+                </button>
+              )}
               <button
-                onClick={handlePublish}
+                onClick={handleDelete}
                 disabled={isPending}
-                className="px-4 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60"
-                style={{ backgroundColor: 'var(--brand-primary)' }}
+                className="px-4 py-2 rounded-md text-sm font-medium border text-red-600 hover:bg-red-50 disabled:opacity-60"
               >
-                {isPending ? 'Publishing…' : 'Publish Bracket'}
+                Delete
               </button>
-            )}
-            <button
-              onClick={handleDelete}
-              disabled={isPending}
-              className="px-4 py-2 rounded-md text-sm font-medium border text-red-600 hover:bg-red-50 disabled:opacity-60"
-            >
-              Delete
-            </button>
-          </div>
+            </div>
+          )}
         </div>
 
         {err && <p className="text-sm text-red-600">{err}</p>}

@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { getAdminScope } from '@/lib/admin-scope'
 import { BracketSetupWizard } from '@/components/bracket/bracket-setup-wizard'
 import { recommendBracket, seedFromStandings, seedFromDivisionStandings, type TeamStanding } from '@/lib/bracket'
 import type { BracketData, BracketMatchData } from '@/components/bracket/bracket-view'
@@ -13,6 +14,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
   const db = createServiceRoleClient()
+  const scope = await getAdminScope(org.id)
 
   // Load league + context
   const [{ data: league }, { data: divisions }, { data: teams }, { data: results }] = await Promise.all([
@@ -164,6 +166,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
         seededTeams={seededTeams}
         existingBracket={existingBracket}
         sport={league?.sport ?? undefined}
+        isOrgAdmin={scope.isOrgAdmin}
       />
 
       {/* Multiple brackets for multi-division events */}
@@ -178,6 +181,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
                 seededTeams={seededTeams}
                 existingBracket={buildBracketData(b)}
                 sport={league?.sport ?? undefined}
+                isOrgAdmin={scope.isOrgAdmin}
               />
             </div>
           ))}

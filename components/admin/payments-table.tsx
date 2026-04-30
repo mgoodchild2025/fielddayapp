@@ -55,7 +55,7 @@ function needsAction(r: Row) {
     && !!r.player && !!r.league
 }
 
-export function PaymentsTable({ rows, stats }: { rows: Row[]; stats: Stats }) {
+export function PaymentsTable({ rows, stats, isOrgAdmin = true }: { rows: Row[]; stats: Stats; isOrgAdmin?: boolean }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [eventFilter, setEventFilter] = useState('all')
@@ -194,7 +194,7 @@ export function PaymentsTable({ rows, stats }: { rows: Row[]; stats: Stats }) {
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{dateLabel(r)}</td>
                   <td className="px-4 py-3">
-                    {needsAction(r) && (
+                    {isOrgAdmin && needsAction(r) && (
                       <MarkPaidForm
                         registrationId={r.id}
                         userId={r.player!.id}
@@ -255,7 +255,7 @@ export function PaymentsTable({ rows, stats }: { rows: Row[]; stats: Stats }) {
               </div>
 
               {/* Action */}
-              {needsAction(r) && (
+              {isOrgAdmin && needsAction(r) && (
                 <div className="mt-3 pt-3 border-t">
                   <MarkPaidForm
                     registrationId={r.id}

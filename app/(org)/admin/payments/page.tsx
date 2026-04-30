@@ -78,7 +78,7 @@ export default async function AdminPaymentsPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Payments</h1>
-      <PaymentsTable rows={registrations} stats={stats} />
+      <PaymentsTable rows={registrations} stats={stats} isOrgAdmin={scope.isOrgAdmin} />
     </div>
   )
 }
