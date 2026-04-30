@@ -194,15 +194,15 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
           </div>
         ) : (
           filtered.map(league => (
-            <div key={league.id} className="bg-white rounded-lg border p-4">
+            <Link
+              key={league.id}
+              href={`/admin/events/${league.id}`}
+              className="block bg-white rounded-lg border p-4 hover:shadow-sm transition-shadow"
+            >
               {/* Name */}
-              <Link
-                href={`/admin/events/${league.id}`}
-                className="font-semibold hover:underline block mb-2"
-                style={{ color: 'var(--brand-primary)' }}
-              >
+              <p className="font-semibold mb-2" style={{ color: 'var(--brand-primary)' }}>
                 {league.name}
-              </Link>
+              </p>
 
               {/* Type + Status badges */}
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -215,7 +215,7 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
               </div>
 
               {/* Secondary details */}
-              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500 mb-3">
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500">
                 {league.venue_name && <span>{league.venue_name}</span>}
                 {league.season_start_date && (
                   <span>{new Date(league.season_start_date).toLocaleDateString()}</span>
@@ -224,19 +224,7 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
                   {league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency.toUpperCase()}`}
                 </span>
               </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-3 pt-3 border-t">
-                <Link
-                  href={`/admin/events/${league.id}`}
-                  className="text-sm font-medium hover:underline"
-                  style={{ color: 'var(--brand-primary)' }}
-                >
-                  Manage →
-                </Link>
-                <DeleteEventRowButton leagueId={league.id} eventName={league.name} />
-              </div>
-            </div>
+            </Link>
           ))
         )}
       </div>
