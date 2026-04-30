@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { ChangeMemberRoleForm } from './change-role-form'
 import { InviteMemberForm } from './invite-form'
 import { MemberActions } from './member-actions'
@@ -9,6 +10,7 @@ export default async function AdminUsersPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   // Determine current user's role
   const { data: { user } } = await supabase.auth.getUser()
@@ -21,7 +23,8 @@ export default async function AdminUsersPage() {
 
   const isOrgAdmin = currentMember?.role === 'org_admin'
 
-  const { data: members } = await supabase
+  // Use service role client so the profiles join isn't blocked by RLS
+  const { data: members } = await db
     .from('org_members')
     .select(`
       id, role, status, joined_at, user_id,
