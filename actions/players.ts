@@ -204,6 +204,7 @@ export async function removePlayerFromOrg(userId: string) {
 }
 
 export async function sendPlayerNotification(userId: string, title: string, body: string, sendSms = false) {
+  try {
   const { error, org, db } = await requireOrgAdmin()
   if (error) return { error, smsError: null }
 
@@ -237,4 +238,7 @@ export async function sendPlayerNotification(userId: string, title: string, body
   }
 
   return { error: null, smsError }
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'An unexpected error occurred', smsError: null }
+  }
 }
