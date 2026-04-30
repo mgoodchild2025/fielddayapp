@@ -6,6 +6,7 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { PendingPaymentButton } from '@/components/dashboard/pending-payment-button'
 import { TeamMessageForm } from '@/components/teams/team-message-form'
+import { QRCodeDisplay } from '@/components/checkin/qr-code-display'
 import { formatGameTime } from '@/lib/format-time'
 import Link from 'next/link'
 
@@ -24,10 +25,11 @@ export default async function PlayerDashboardPage() {
     { data: myTeams },
   ] = await Promise.all([
     supabase.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
-    supabase.from('registrations').select(`
-      id, status, created_at,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any).from('registrations').select(`
+      id, status, created_at, checkin_token,
       waiver_signature_id,
-      league:leagues!registrations_league_id_fkey(id, name, slug, status, price_cents, currency, waiver_version_id),
+      league:leagues!registrations_league_id_fkey(id, name, slug, status, price_cents, currency, waiver_version_id, event_type),
       payment:payments!payments_registration_id_fkey(id, status, amount_cents, currency)
     `).eq('organization_id', org.id).eq('user_id', user.id).order('created_at', { ascending: false }),
     supabase.from('games').select(`
@@ -64,7 +66,8 @@ export default async function PlayerDashboardPage() {
     .single()
 
   // Determine pending actions across all registrations
-  const pendingActions = (registrations ?? []).filter((reg) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pendingActions = (registrations ?? []).filter((reg: any) => {
     const payment = Array.isArray(reg.payment) ? reg.payment[0] : reg.payment
     const waiverSigned = !!reg.waiver_signature_id
     const league = Array.isArray(reg.league) ? reg.league[0] : reg.league
@@ -114,7 +117,8 @@ export default async function PlayerDashboardPage() {
           <div className="bg-white rounded-lg border p-5">
             <h2 className="font-semibold mb-4">My Events</h2>
             <div className="space-y-3">
-              {registrations?.map((reg) => {
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {registrations?.map((reg: any) => {
                 const league = Array.isArray(reg.league) ? reg.league[0] : reg.league
                 const payment = Array.isArray(reg.payment) ? reg.payment[0] : reg.payment
                 const waiverSigned = !!reg.waiver_signature_id
@@ -123,6 +127,15 @@ export default async function PlayerDashboardPage() {
                 const needsWaiver = leagueRequiresWaiver && !waiverSigned && reg.status !== 'active'
                 const needsPayment = payment && payment.status !== 'paid'
                 const isComplete = reg.status === 'active' && !needsPayment
+
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const checkinToken = (reg as any).checkin_token as string | null
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const eventType = (league as any)?.event_type as string | undefined
+                const showQR = isComplete && checkinToken && (eventType === 'tournament' || eventType === 'league')
+                const host = headersList.get('host') ?? ''
+                const protocol = host.startsWith('localhost') ? 'http' : 'https'
+                const checkinUrl = checkinToken ? `${protocol}://${host}/checkin/${checkinToken}` : null
 
                 return (
                   <div key={reg.id} className={`border rounded-md p-3 ${(needsWaiver || needsPayment) ? 'border-amber-200 bg-amber-50' : ''}`}>
@@ -157,6 +170,17 @@ export default async function PlayerDashboardPage() {
                         </span>
                       )}
                     </div>
+
+                    {showQR && checkinUrl && (
+                      <div className="mt-2">
+                        <QRCodeDisplay
+                          checkinUrl={checkinUrl}
+                          playerName=""
+                          eventName={league?.name ?? ''}
+                          size={140}
+                        />
+                      </div>
+                    )}
 
                     {needsWaiver && league?.slug && (
                       <Link

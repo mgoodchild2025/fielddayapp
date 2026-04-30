@@ -29,6 +29,7 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
       { label: 'Teams', href: `/admin/events/${id}/teams` },
       { label: 'Schedule', href: `/admin/events/${id}/schedule` },
       { label: 'Bracket', href: `/admin/events/${id}/bracket` },
+      { label: 'Check-in', href: `/admin/events/${id}/checkin` },
     ]
   }
 
@@ -39,6 +40,7 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
       { label: 'Teams', href: `/admin/events/${id}/teams` },
       { label: 'Schedule', href: `/admin/events/${id}/schedule` },
       { label: 'Bracket', href: `/admin/events/${id}/bracket` },
+      { label: 'Check-in', href: `/admin/events/${id}/checkin` },
     ]
   }
 

@@ -24,10 +24,11 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  const { data: registrations } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: registrations } = await (db as any)
     .from('registrations')
     .select(`
-      id, status, created_at, user_id, waiver_signature_id,
+      id, status, created_at, user_id, waiver_signature_id, checked_in_at,
       user_profile:profiles!registrations_user_id_fkey(full_name, email),
       payments(status, amount_cents, currency, payment_method)
     `)
@@ -54,6 +55,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
               <th className="px-4 py-3 font-medium text-gray-500">Status</th>
               <th className="px-4 py-3 font-medium text-gray-500">Payment</th>
               <th className="px-4 py-3 font-medium text-gray-500">Waiver</th>
+              <th className="px-4 py-3 font-medium text-gray-500">Check-in</th>
               <th className="px-4 py-3 font-medium text-gray-500">Registered</th>
               <th className="px-4 py-3"></th>
             </tr>
@@ -111,6 +113,19 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                       </span>
                     )}
                   </td>
+                  <td className="px-4 py-3">
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {(reg as any).checked_in_at ? (
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        ✓ {new Date((reg as any).checked_in_at).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })}
+                      </span>
+                    ) : (
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400">
+                        —
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-xs text-gray-400">
                     {new Date(reg.created_at).toLocaleDateString('en-CA', {
                       month: 'short',
@@ -143,7 +158,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+                <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
                   No registrations yet.
                 </td>
               </tr>
