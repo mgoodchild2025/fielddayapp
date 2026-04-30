@@ -307,18 +307,24 @@ export default async function EventDetailPage({
 
   const hasBracket = !!publishedBracketMeta
 
-  // Tabs: session-based events only show Overview
-  const tabs = isTeamBased
-    ? [
-        { id: 'overview', label: 'Overview' },
-        { id: 'schedule', label: 'Schedule' },
-        { id: 'standings', label: 'Standings' },
-        ...(hasBracket ? [{ id: 'bracket', label: 'Bracket' }] : []),
-      ]
-    : [{ id: 'overview', label: 'Overview' }]
+  // Tab visibility settings (default to 'public' if columns not yet in types)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scheduleVisibility: string = (league as any).schedule_visibility ?? 'public'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const standingsVisibility: string = (league as any).standings_visibility ?? 'public'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const bracketVisibility: string = (league as any).bracket_visibility ?? 'public'
 
-  const validTab = tabs.map((t) => t.id)
-  const activeTab = validTab.includes(rawTab ?? '') ? (rawTab ?? 'overview') : 'overview'
+  // All possible tabs (visibility filtering happens after participant status is known, below)
+  const allTeamTabs = [
+    { id: 'overview', label: 'Overview', visibility: 'public' as const },
+    { id: 'schedule', label: 'Schedule', visibility: scheduleVisibility },
+    { id: 'standings', label: 'Standings', visibility: standingsVisibility },
+    ...(hasBracket ? [{ id: 'bracket', label: 'Bracket', visibility: bracketVisibility }] : []),
+  ]
+
+  // Placeholder — refined after participant status is resolved below
+  const rawTabRequest = rawTab ?? 'overview'
 
   // ── Overview data ─────────────────────────────────────────────────────────
 
@@ -379,6 +385,23 @@ export default async function EventDetailPage({
   const { data: myRegistration } = (user && isTeamBased)
     ? await supabase.from('registrations').select('id, status').eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id).single()
     : { data: null }
+
+  // Also check org admin status for visibility bypass
+  const { data: orgMember } = user
+    ? await supabase.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single()
+    : { data: null }
+  const isOrgAdmin = ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
+
+  // A participant is anyone with a registration OR a team membership in this league
+  const isParticipant = isOrgAdmin || !!myRegistration || myTeamIds.size > 0
+
+  // Filter tabs by visibility — restricted tabs are hidden from non-participants
+  const tabs = isTeamBased
+    ? allTeamTabs.filter((t) => t.visibility === 'public' || isParticipant)
+    : [{ id: 'overview', label: 'Overview', visibility: 'public' as const }]
+
+  const validTabIds = tabs.map((t) => t.id)
+  const activeTab = validTabIds.includes(rawTabRequest) ? rawTabRequest : 'overview'
 
   const isOpen = league.status === 'registration_open' || league.status === 'active'
   const isRegOpen = league.status === 'registration_open'

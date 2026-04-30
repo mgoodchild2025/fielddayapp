@@ -105,6 +105,9 @@ const schema = z.object({
   organizer_email: z.string().optional(),
   organizer_phone: z.string().optional(),
   waiver_version_id: z.string().uuid().optional().or(z.literal('')),
+  schedule_visibility: z.enum(['public', 'participants']).default('public'),
+  standings_visibility: z.enum(['public', 'participants']).default('public'),
+  bracket_visibility: z.enum(['public', 'participants']).default('public'),
 })
 
 type FormData = z.infer<typeof schema>
@@ -161,6 +164,9 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
       registration_mode: 'season',
       min_team_size: 4,
       max_team_size: 8,
+      schedule_visibility: 'public',
+      standings_visibility: 'public',
+      bracket_visibility: 'public',
     },
   })
 
@@ -439,6 +445,29 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
                 className={INPUT}
               />
             </Field>
+          </div>
+        )}
+
+        {/* ── Tab visibility (team-based events only) ── */}
+        {withTeams && (
+          <div className="bg-white rounded-lg border p-5 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-gray-700">Tab Visibility</p>
+              <p className="text-xs text-gray-400 mt-0.5">Control who can see each tab on the public event page.</p>
+            </div>
+            {[
+              { field: 'schedule_visibility' as const, label: 'Schedule' },
+              { field: 'standings_visibility' as const, label: 'Standings' },
+              { field: 'bracket_visibility' as const, label: 'Bracket' },
+            ].map(({ field, label }) => (
+              <div key={field} className="flex items-center gap-4">
+                <span className="text-sm text-gray-700 w-20 shrink-0">{label}</span>
+                <select {...register(field)} className={`${SELECT} flex-1`}>
+                  <option value="public">Public</option>
+                  <option value="participants">Participants only</option>
+                </select>
+              </div>
+            ))}
           </div>
         )}
 

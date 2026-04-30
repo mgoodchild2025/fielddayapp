@@ -35,6 +35,9 @@ interface League {
   organizer_email: string | null
   organizer_phone: string | null
   team_join_policy: string
+  schedule_visibility: string
+  standings_visibility: string
+  bracket_visibility: string
 }
 
 interface Waiver {
@@ -126,6 +129,9 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
       team_join_policy: (fd.get('team_join_policy') as 'open' | 'captain_invite' | 'admin_only') || 'open',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       registration_mode: (fd.get('registration_mode') as string) || 'session',
+      schedule_visibility: (fd.get('schedule_visibility') as 'public' | 'participants') || 'public',
+      standings_visibility: (fd.get('standings_visibility') as 'public' | 'participants') || 'public',
+      bracket_visibility: (fd.get('bracket_visibility') as 'public' | 'participants') || 'public',
     } as any)
 
     setLoading(false)
@@ -348,6 +354,27 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
             </p>
           )}
         </Field>
+
+        {/* Tab visibility */}
+        <div className="border-t pt-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Tab Visibility</p>
+          <p className="text-xs text-gray-400 mb-3">Control who can see each tab on the public event page.</p>
+          <div className="space-y-2">
+            {[
+              { name: 'schedule_visibility', label: 'Schedule', default: league.schedule_visibility ?? 'public' },
+              { name: 'standings_visibility', label: 'Standings', default: league.standings_visibility ?? 'public' },
+              { name: 'bracket_visibility', label: 'Bracket', default: league.bracket_visibility ?? 'public' },
+            ].map((tab) => (
+              <div key={tab.name} className="flex items-center justify-between gap-4">
+                <label className="text-sm text-gray-700 w-20 shrink-0">{tab.label}</label>
+                <select name={tab.name} defaultValue={tab.default} className="input flex-1">
+                  <option value="public">Public</option>
+                  <option value="participants">Participants only</option>
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
 
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Event Rules</label>
