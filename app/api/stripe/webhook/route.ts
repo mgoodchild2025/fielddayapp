@@ -8,30 +8,27 @@ export async function POST(request: NextRequest) {
   const sig = request.headers.get('stripe-signature')
   if (!sig) return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
 
-  // Org is identified by the subdomain — the proxy injects x-org-id on every request
   const orgId = request.headers.get('x-org-id')
   if (!orgId) return NextResponse.json({ error: 'Unknown org' }, { status: 400 })
 
   const supabase = createServiceRoleClient()
 
-  const { data: paymentSettings } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: paymentSettings } = await (supabase as any)
     .from('org_payment_settings')
     .select('stripe_secret_key, stripe_webhook_secret')
     .eq('organization_id', orgId)
     .single()
 
   if (!paymentSettings?.stripe_webhook_secret) {
-    // No webhook secret configured — acknowledge receipt but skip processing
     console.warn(`[webhook] org ${orgId} has no webhook secret configured`)
     return NextResponse.json({ received: true })
   }
 
-  // Verify signature with the org's own webhook secret
   let event: Stripe.Event
   try {
-    // constructEvent doesn't make API calls, so any Stripe instance works for verification
     const stripe = new Stripe(paymentSettings.stripe_secret_key ?? 'sk_placeholder', {
-      apiVersion: '2026-03-25.dahlia' as const,
+      apiVersion: '2026-04-22.dahlia' as const,
     })
     event = stripe.webhooks.constructEvent(body, sig, paymentSettings.stripe_webhook_secret)
   } catch (err) {
@@ -41,13 +38,93 @@ export async function POST(request: NextRequest) {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
-    const { registrationId, userId, leagueId } = session.metadata ?? {}
+    const { registrationId, userId, leagueId, teamId, paymentType } = session.metadata ?? {}
 
+    // ── Team payment ──────────────────────────────────────────────────────
+    if (paymentType === 'team' && teamId && leagueId) {
+      // Mark payment paid
+      await supabase
+        .from('payments')
+        .update({
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+          stripe_payment_intent_id: session.payment_intent as string,
+        })
+        .eq('stripe_checkout_session_id', session.id)
+
+      // Activate all pending registrations for active team members in this league
+      const { data: members } = await supabase
+        .from('team_members')
+        .select('user_id')
+        .eq('team_id', teamId)
+        .eq('status', 'active')
+
+      const userIds = (members ?? []).map((m) => m.user_id).filter(Boolean) as string[]
+
+      if (userIds.length > 0) {
+        await supabase
+          .from('registrations')
+          .update({ status: 'active' })
+          .eq('league_id', leagueId)
+          .in('user_id', userIds)
+          .in('status', ['pending', 'waitlisted'])
+      }
+
+      // Send confirmation to each member
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const [{ data: league }, { data: org }] = await Promise.all([
+        (supabase as any).from('leagues').select('name, event_type').eq('id', leagueId).single(),
+        supabase.from('organizations').select('name').eq('id', orgId).single(),
+      ])
+
+      if (userIds.length > 0 && league?.name) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .in('id', userIds)
+
+        // Fetch check-in tokens for email QR codes
+        const { data: regs } = await supabase
+          .from('registrations')
+          .select('user_id, checkin_token' as never)
+          .eq('league_id', leagueId)
+          .in('user_id', userIds)
+
+        const tokenByUserId = new Map<string, string>()
+        for (const r of (regs ?? []) as unknown as Array<{ user_id: string; checkin_token: string }>) {
+          if (r.checkin_token) tokenByUserId.set(r.user_id, r.checkin_token)
+        }
+
+        const origin = process.env.NEXT_PUBLIC_APP_URL ?? ''
+        for (const profile of profiles ?? []) {
+          if (profile.email) {
+            const token = tokenByUserId.get((profile as unknown as { id?: string }).id ?? '')
+            const checkinUrl = token ? `${origin}/checkin/${token}` : null
+            await sendRegistrationConfirmation({
+              email: profile.email,
+              name: profile.full_name,
+              leagueName: league.name,
+              orgName: org?.name ?? '',
+              eventType: (league as { event_type?: string }).event_type ?? null,
+              checkinUrl,
+            })
+          }
+        }
+      }
+
+      return NextResponse.json({ received: true })
+    }
+
+    // ── Per-player payment (existing flow) ──────────────────────────────
     if (registrationId && userId) {
       await Promise.all([
         supabase
           .from('payments')
-          .update({ status: 'paid', paid_at: new Date().toISOString(), stripe_payment_intent_id: session.payment_intent as string })
+          .update({
+            status: 'paid',
+            paid_at: new Date().toISOString(),
+            stripe_payment_intent_id: session.payment_intent as string,
+          })
           .eq('stripe_checkout_session_id', session.id),
         supabase
           .from('registrations')
@@ -55,18 +132,25 @@ export async function POST(request: NextRequest) {
           .eq('id', registrationId),
       ])
 
-      const [{ data: profile }, { data: league }, { data: org }] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const [{ data: profile }, { data: league }, { data: org }, { data: reg }] = await Promise.all([
         supabase.from('profiles').select('full_name, email').eq('id', userId).single(),
-        supabase.from('leagues').select('name').eq('id', leagueId ?? '').single(),
+        (supabase as any).from('leagues').select('name, event_type').eq('id', leagueId ?? '').single(),
         supabase.from('organizations').select('name').eq('id', orgId).single(),
+        (supabase as any).from('registrations').select('user_id, checkin_token').eq('id', registrationId).single(),
       ])
 
       if (profile?.email && league?.name) {
+        const origin = process.env.NEXT_PUBLIC_APP_URL ?? ''
+        const token = (reg as unknown as { checkin_token?: string } | null)?.checkin_token
+        const checkinUrl = token ? `${origin}/checkin/${token}` : null
         await sendRegistrationConfirmation({
           email: profile.email,
           name: profile.full_name,
           leagueName: league.name,
           orgName: org?.name ?? '',
+          eventType: (league as { event_type?: string } | null)?.event_type ?? null,
+          checkinUrl,
         })
       }
     }

@@ -9,11 +9,19 @@ import { TeamMessageForm } from '@/components/teams/team-message-form'
 import { CaptainRosterManager } from '@/components/teams/captain-roster-manager'
 import { AdminEditTeamForm } from '@/components/teams/admin-edit-team-form'
 import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
+import { TeamPaymentPanel } from '@/components/teams/team-payment-panel'
 import { getPositionsForSport } from '@/actions/positions'
 import Link from 'next/link'
 
-export default async function TeamDetailPage({ params }: { params: Promise<{ teamId: string }> }) {
+export default async function TeamDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ teamId: string }>
+  searchParams: Promise<{ payment?: string }>
+}) {
   const { teamId } = await params
+  const { payment: paymentResult } = await searchParams
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
@@ -23,13 +31,13 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
 
   const db = createServiceRoleClient()
 
-  const [{ data: branding }, { data: team }, { data: myMembership }, { data: orgMember }, { data: joinRequests }] = await Promise.all([
+  const [{ data: branding }, { data: team }, { data: myMembership }, { data: orgMember }, { data: joinRequests }, { data: orgBranding }] = await Promise.all([
     supabase.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
     db
       .from('teams')
       .select(`
         id, name, color, logo_url, team_code, league_id,
-        league:leagues!teams_league_id_fkey(id, name, slug, sport),
+        league:leagues!teams_league_id_fkey(id, name, slug, sport, payment_mode, price_cents, currency),
         team_members(
           id, role, status, user_id, position,
           profile:profiles!team_members_user_id_fkey(full_name, email, phone)
@@ -60,24 +68,42 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
       .eq('team_id', teamId)
       .eq('organization_id', org.id)
       .eq('status', 'pending'),
+    db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
   ])
 
   if (!team) notFound()
 
-  const leagueSport = (() => {
-    const l = Array.isArray(team.league) ? team.league[0] : team.league
-    return (l as { sport?: string } | null)?.sport ?? ''
-  })()
+  const league = Array.isArray(team.league) ? team.league[0] : team.league
+  const leagueId = (league as { id?: string } | null)?.id ?? ''
+  const leagueSport = (league as { sport?: string } | null)?.sport ?? ''
+  const paymentMode = (league as { payment_mode?: string } | null)?.payment_mode ?? 'per_player'
+  const leaguePriceCents = (league as { price_cents?: number } | null)?.price_cents ?? 0
+  const leagueCurrency = (league as { currency?: string } | null)?.currency ?? 'cad'
+  const leagueSlug = (league as { slug?: string } | null)?.slug ?? ''
+  const timezone = orgBranding?.timezone ?? 'America/Toronto'
+
+  const isPerTeam = paymentMode === 'per_team' && leaguePriceCents > 0
+
+  // Fetch team payment status if this is a per-team league
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: teamPayment } = isPerTeam
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? await (db as any)
+        .from('payments')
+        .select('id, status, paid_at, amount_cents')
+        .eq('team_id', teamId)
+        .eq('league_id', leagueId)
+        .eq('payment_type', 'team')
+        .maybeSingle()
+    : { data: null }
+
   const positions = await getPositionsForSport(org.id, leagueSport)
 
   const isOrgAdmin = ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
   // Must be a team member OR an org admin
   if (!myMembership && !isOrgAdmin) notFound()
 
-  const league = Array.isArray(team.league) ? team.league[0] : team.league
-  const leagueId = (league as { id?: string } | null)?.id ?? ''
-
-  const allMembers = (team.team_members ?? []) as Array<{
+  const allMembers = (team.team_members ?? []) as unknown as Array<{
     id: string
     role: string
     status: string
@@ -96,6 +122,13 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
 
         <Link href="/dashboard" className="text-sm text-gray-500 hover:underline">← Dashboard</Link>
+
+        {/* Payment success banner */}
+        {paymentResult === 'success' && (
+          <div className="mt-4 bg-green-50 border border-green-200 rounded-lg px-5 py-4 text-sm text-green-800 font-medium">
+            🎉 Payment received! All team members&apos; registrations are now confirmed.
+          </div>
+        )}
 
         {/* Team header */}
         <div className="mt-4 flex items-center gap-4">
@@ -204,6 +237,22 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
           </div>
         )}
 
+        {/* Team payment — managers only, per-team leagues */}
+        {isManager && isPerTeam && (
+          <TeamPaymentPanel
+            teamId={teamId}
+            leagueId={leagueId}
+            leagueSlug={leagueSlug}
+            orgId={org.id}
+            priceCents={leaguePriceCents}
+            currency={leagueCurrency}
+            memberCount={activeMembers.length}
+            isPaid={teamPayment?.status === 'paid'}
+            paidAt={teamPayment?.paid_at ?? null}
+            timezone={timezone}
+          />
+        )}
+
         {/* Pending join requests — managers only */}
         {isManager && (
           <PendingJoinRequests
@@ -219,6 +268,15 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
               }
             })}
           />
+        )}
+
+        {/* Payment status notice for regular players on per-team leagues */}
+        {!isManager && isPerTeam && (
+          <div className={`mt-4 rounded-lg border p-4 text-sm ${teamPayment?.status === 'paid' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+            {teamPayment?.status === 'paid'
+              ? '✓ Your team payment has been completed. Your registration is confirmed.'
+              : '⚠ Team payment is pending. Your captain needs to complete payment to confirm your registration.'}
+          </div>
         )}
 
         {/* Captain contact — shown to regular players */}

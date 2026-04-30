@@ -37,7 +37,10 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
   const [completing, setCompleting] = useState(false)
 
   const effectivePriceCents = isDropIn ? (dropInPriceCents ?? 0) : league.price_cents
-  const showPaymentStep = effectivePriceCents > 0 && hasOnlinePayments
+  // Per-team leagues: captain pays on the team page — individuals skip payment
+  const isPerTeam = (league as unknown as { payment_mode?: string }).payment_mode === 'per_team'
+  const showPaymentStep = effectivePriceCents > 0 && hasOnlinePayments && !isPerTeam
+  const showTeamPaymentNotice = isPerTeam && effectivePriceCents > 0
   const steps = showPaymentStep ? ALL_STEPS : ALL_STEPS.filter(s => s !== 'Payment')
 
   // Activate and navigate to the success page — never call a server action and then
@@ -51,6 +54,9 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
 
   async function afterWaiver() {
     if (showPaymentStep) {
+      setStep(3)
+    } else if (showTeamPaymentNotice) {
+      // Per-team: activate immediately — captain pays separately on the team page
       setStep(3)
     } else {
       await completeRegistration(registrationId)
@@ -135,6 +141,29 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
             registrationId={registrationId!}
             priceCents={effectivePriceCents}
           />
+        )}
+        {step === 3 && showTeamPaymentNotice && !completing && (
+          <div className="bg-white rounded-lg border p-6 space-y-4 text-center">
+            <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mx-auto">
+              <svg className="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="font-semibold text-lg">You&apos;re on the list!</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Payment for this event is handled per team. Your team captain will complete the payment — your spot will be confirmed once the team pays.
+              </p>
+            </div>
+            <button
+              onClick={() => completeRegistration(registrationId)}
+              className="w-full py-3 rounded-md font-semibold text-white"
+              style={{ backgroundColor: 'var(--brand-primary)' }}
+            >
+              Got it →
+            </button>
+          </div>
         )}
       </div>
     </div>
