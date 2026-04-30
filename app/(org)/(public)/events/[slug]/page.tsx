@@ -243,10 +243,10 @@ export default async function EventDetailPage({
 
   const timezone = branding?.timezone ?? 'America/Toronto'
   const isPickupEvent = league.event_type === 'pickup'
-  const isSessionBased = league.event_type === 'pickup' || league.event_type === 'drop_in'
-  const isTeamBased = !isSessionBased
-  const isSeasonPickup = isSessionBased && league.registration_mode === 'season'
-  const isPrivatePickup = isSessionBased && league.pickup_join_policy === 'private'
+  const isSessionBased = league.event_type === 'drop_in'  // pickup is always season, not session-based
+  const isTeamBased = league.event_type === 'league' || league.event_type === 'tournament'
+  const isSeasonPickup = isPickupEvent || (league.event_type === 'drop_in' && league.registration_mode === 'season')
+  const isPrivatePickup = (isPickupEvent || isSessionBased) && league.pickup_join_policy === 'private'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dropInPriceCents: number | null = (league as any).drop_in_price_cents ?? null
   const hasDropIn = dropInPriceCents !== null
@@ -339,8 +339,10 @@ export default async function EventDetailPage({
     : { data: null }
   const mySessionIds = new Set((mySessionRegs ?? []).map((r: { session_id: string }) => r.session_id))
 
-  const { data: mySeasonRegistration } = (isSeasonPickup && user)
-    ? await supabase.from('registrations').select('id, status').eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id).single()
+  const { data: mySeasonRegistration } = ((isPickupEvent || isSeasonPickup) && user)
+    ? await supabase.from('registrations').select('id, status')
+        .eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id)
+        .eq('registration_type' as never, 'season').maybeSingle()
     : { data: null }
 
   // Teams list (for open-registration team events)
@@ -737,7 +739,7 @@ export default async function EventDetailPage({
               </div>
             )}
 
-            {/* Sessions (pickup/drop-in) */}
+            {/* Sessions (drop-in events only) */}
             {isSessionBased && (
               <div>
                 <div className="flex items-center gap-3 mb-3">

@@ -201,7 +201,7 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
           </Field>
         </div>
 
-        {(league.event_type === 'pickup' || league.event_type === 'drop_in') && (
+        {league.event_type === 'drop_in' && (
           <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 space-y-3">
             <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide">Registration Mode</p>
             <div className="grid grid-cols-2 gap-2">
@@ -217,6 +217,9 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
               ))}
             </div>
           </div>
+        )}
+        {league.event_type === 'pickup' && (
+          <input type="hidden" name="registration_mode" value="season" />
         )}
 
         {(league.event_type === 'pickup' || league.event_type === 'drop_in') ? (

@@ -206,7 +206,6 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
   const withTeams = showTeamConfig(eventType)
   const registrationMode = watch('registration_mode')
   const isPickup = eventType === 'pickup' || eventType === 'drop_in'
-  const isSeasonPickup = isPickup && registrationMode === 'season'
 
   return (
     <div className="max-w-2xl">
@@ -317,32 +316,38 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
 
           {!withTeams && (
             <>
-              <Field label="Session Access" error={errors.pickup_join_policy?.message}>
+              <Field label="Access" error={errors.pickup_join_policy?.message}>
                 <select {...register('pickup_join_policy')} className={SELECT}>
-                  <option value="public">Public — anyone can join sessions</option>
+                  <option value="public">Public — anyone can register</option>
                   <option value="private">Private — admin invite only</option>
                 </select>
               </Field>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Registration Mode</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { value: 'session', label: 'Per session', desc: 'Players join individual sessions' },
-                    { value: 'season', label: 'Season pass', desc: 'Register once, attend all sessions' },
-                  ].map((opt) => (
-                    <label
-                      key={opt.value}
-                      className={`flex flex-col gap-0.5 p-3 rounded-md border cursor-pointer transition-colors ${
-                        registrationMode === opt.value ? 'border-[var(--brand-primary)] bg-orange-50' : 'border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      <input type="radio" {...register('registration_mode')} value={opt.value} className="sr-only" />
-                      <span className="text-sm font-semibold">{opt.label}</span>
-                      <span className="text-xs text-gray-500">{opt.desc}</span>
-                    </label>
-                  ))}
+              {/* drop_in events keep per-session mode; pickup is always season */}
+              {eventType === 'drop_in' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Registration Mode</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: 'session', label: 'Per session', desc: 'Players join individual sessions' },
+                      { value: 'season', label: 'Season pass', desc: 'Register once, attend all sessions' },
+                    ].map((opt) => (
+                      <label
+                        key={opt.value}
+                        className={`flex flex-col gap-0.5 p-3 rounded-md border cursor-pointer transition-colors ${
+                          registrationMode === opt.value ? 'border-[var(--brand-primary)] bg-orange-50' : 'border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        <input type="radio" {...register('registration_mode')} value={opt.value} className="sr-only" />
+                        <span className="text-sm font-semibold">{opt.label}</span>
+                        <span className="text-xs text-gray-500">{opt.desc}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+              {eventType === 'pickup' && (
+                <input type="hidden" {...register('registration_mode')} value="season" />
+              )}
             </>
           )}
         </div>
@@ -396,21 +401,6 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
         </div>
         )}
 
-        {/* ── Season pickup capacity ── */}
-        {isSeasonPickup && (
-          <div className="bg-white rounded-lg border p-5 space-y-4">
-            <p className="text-sm font-semibold text-gray-700">Capacity</p>
-            <Field label="Max Participants (blank = unlimited)" error={errors.max_participants?.message}>
-              <input
-                {...register('max_participants', { setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)) })}
-                type="number"
-                min={1}
-                placeholder="Unlimited"
-                className={INPUT}
-              />
-            </Field>
-          </div>
-        )}
 
         {/* ── Team size & capacity (team-based events only) ── */}
         {withTeams && (
