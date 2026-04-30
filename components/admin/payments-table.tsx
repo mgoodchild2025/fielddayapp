@@ -38,6 +38,23 @@ const statusColors: Record<string, string> = {
   free: 'bg-gray-100 text-gray-400',
 }
 
+function amountLabel(r: Row) {
+  if (r.isFree) return 'Free'
+  const cents = r.payment?.amount_cents ?? r.league?.price_cents ?? 0
+  const currency = (r.payment?.currency ?? r.league?.currency ?? 'cad').toUpperCase()
+  return `$${(cents / 100).toFixed(2)} ${currency}`
+}
+
+function dateLabel(r: Row) {
+  const d = r.payment?.paid_at ?? r.created_at
+  return new Date(d).toLocaleDateString()
+}
+
+function needsAction(r: Row) {
+  return (r.paymentStatus === 'unpaid' || r.paymentStatus === 'pending' || r.paymentStatus === 'failed')
+    && !!r.player && !!r.league
+}
+
 export function PaymentsTable({ rows, stats }: { rows: Row[]; stats: Stats }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -74,20 +91,20 @@ export function PaymentsTable({ rows, stats }: { rows: Row[]; stats: Stats }) {
   return (
     <>
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="bg-white rounded-lg border p-4">
-          <p className="text-sm text-gray-500">Total Collected</p>
-          <p className="text-2xl font-bold mt-1" style={{ color: 'var(--brand-primary)' }}>
+          <p className="text-xs sm:text-sm text-gray-500">Total Collected</p>
+          <p className="text-xl sm:text-2xl font-bold mt-1" style={{ color: 'var(--brand-primary)' }}>
             ${(stats.totalPaidCents / 100).toFixed(2)}
           </p>
         </div>
         <div className="bg-white rounded-lg border p-4">
-          <p className="text-sm text-gray-500">Paid</p>
-          <p className="text-2xl font-bold mt-1">{stats.paidCount}</p>
+          <p className="text-xs sm:text-sm text-gray-500">Paid</p>
+          <p className="text-xl sm:text-2xl font-bold mt-1">{stats.paidCount}</p>
         </div>
         <div className="bg-white rounded-lg border p-4">
-          <p className="text-sm text-gray-500">Unpaid</p>
-          <p className="text-2xl font-bold mt-1 text-amber-600">{stats.unpaidCount}</p>
+          <p className="text-xs sm:text-sm text-gray-500">Unpaid</p>
+          <p className="text-xl sm:text-2xl font-bold mt-1 text-amber-600">{stats.unpaidCount}</p>
         </div>
       </div>
 
@@ -138,8 +155,8 @@ export function PaymentsTable({ rows, stats }: { rows: Row[]; stats: Stats }) {
         </p>
       )}
 
-      {/* Table */}
-      <div className="bg-white rounded-lg border overflow-hidden">
+      {/* ── Desktop table (md+) ── */}
+      <div className="hidden md:block bg-white rounded-lg border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[640px]">
             <thead>
@@ -164,7 +181,7 @@ export function PaymentsTable({ rows, stats }: { rows: Row[]; stats: Stats }) {
                   <td className="px-4 py-3 font-semibold">
                     {r.isFree
                       ? <span className="text-gray-400 font-normal">Free</span>
-                      : `$${((r.payment?.amount_cents ?? r.league?.price_cents ?? 0) / 100).toFixed(2)} ${(r.payment?.currency ?? r.league?.currency ?? 'cad').toUpperCase()}`
+                      : amountLabel(r)
                     }
                   </td>
                   <td className="px-4 py-3">
@@ -175,19 +192,15 @@ export function PaymentsTable({ rows, stats }: { rows: Row[]; stats: Stats }) {
                   <td className="px-4 py-3 text-gray-500 capitalize text-xs">
                     {r.payment?.payment_method ?? '—'}
                   </td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">
-                    {r.payment?.paid_at
-                      ? new Date(r.payment.paid_at).toLocaleDateString()
-                      : new Date(r.created_at).toLocaleDateString()}
-                  </td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">{dateLabel(r)}</td>
                   <td className="px-4 py-3">
-                    {(r.paymentStatus === 'unpaid' || r.paymentStatus === 'pending' || r.paymentStatus === 'failed') && r.player && r.league && (
+                    {needsAction(r) && (
                       <MarkPaidForm
                         registrationId={r.id}
-                        userId={r.player.id}
-                        leagueId={r.league.id}
-                        amountCents={r.league.price_cents}
-                        currency={r.league.currency}
+                        userId={r.player!.id}
+                        leagueId={r.league!.id}
+                        amountCents={r.league!.price_cents}
+                        currency={r.league!.currency}
                       />
                     )}
                   </td>
@@ -203,6 +216,59 @@ export function PaymentsTable({ rows, stats }: { rows: Row[]; stats: Stats }) {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* ── Mobile cards (below md) ── */}
+      <div className="md:hidden space-y-3">
+        {filtered.length === 0 ? (
+          <div className="bg-white rounded-lg border p-10 text-center text-gray-400 text-sm">
+            {hasFilters ? 'No registrations match your search.' : 'No registrations found.'}
+          </div>
+        ) : (
+          filtered.map(r => (
+            <div key={r.id} className="bg-white rounded-lg border p-4">
+              {/* Top row: name + status badge */}
+              <div className="flex items-start justify-between gap-3 mb-1">
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{r.player?.full_name ?? '—'}</p>
+                  <p className="text-xs text-gray-500 truncate">{r.player?.email ?? '—'}</p>
+                </div>
+                <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium capitalize ${statusColors[r.paymentStatus] ?? 'bg-gray-100 text-gray-600'}`}>
+                  {r.paymentStatus}
+                </span>
+              </div>
+
+              {/* Event + amount row */}
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-sm text-gray-600 truncate mr-3">{r.league?.name ?? '—'}</p>
+                <p className={`text-sm font-semibold shrink-0 ${r.isFree ? 'text-gray-400 font-normal' : ''}`}>
+                  {amountLabel(r)}
+                </p>
+              </div>
+
+              {/* Secondary details */}
+              <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
+                {r.payment?.payment_method && (
+                  <span className="capitalize">{r.payment.payment_method}</span>
+                )}
+                <span>{dateLabel(r)}</span>
+              </div>
+
+              {/* Action */}
+              {needsAction(r) && (
+                <div className="mt-3 pt-3 border-t">
+                  <MarkPaidForm
+                    registrationId={r.id}
+                    userId={r.player!.id}
+                    leagueId={r.league!.id}
+                    amountCents={r.league!.price_cents}
+                    currency={r.league!.currency}
+                  />
+                </div>
+              )}
+            </div>
+          ))
+        )}
       </div>
     </>
   )
