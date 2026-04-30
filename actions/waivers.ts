@@ -128,6 +128,7 @@ export async function deleteWaiver(waiverId: string) {
 const signWaiverSchema = z.object({
   waiverId: z.string().uuid(),
   signatureName: z.string().min(2),
+  leagueId: z.string().uuid().optional(),
 })
 
 export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
@@ -137,28 +138,37 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
+  // Capture the real client IP (works behind proxies / Vercel)
+  const ipAddress =
+    headersList.get('x-forwarded-for')?.split(',')[0].trim() ??
+    headersList.get('x-real-ip') ??
+    null
+
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
 
-  // Check for existing signature
+  // Check for existing signature for this waiver (re-use if already signed)
   const { data: existing } = await supabase
     .from('waiver_signatures')
     .select('id')
     .eq('organization_id', org.id)
     .eq('user_id', user.id)
     .eq('waiver_id', parsed.data.waiverId)
-    .single()
+    .maybeSingle()
 
   if (existing) return { data: { signatureId: existing.id }, error: null }
 
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from('waiver_signatures')
     .insert({
       organization_id: org.id,
       user_id: user.id,
       waiver_id: parsed.data.waiverId,
       signature_name: parsed.data.signatureName,
+      ip_address: ipAddress,
+      league_id: parsed.data.leagueId ?? null,
     })
     .select('id')
     .single()

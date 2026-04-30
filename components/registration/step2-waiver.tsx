@@ -10,11 +10,12 @@ interface Props {
   org: { id: string }
   waiver: Waiver | null
   userId: string
+  leagueId?: string
   onComplete: (signatureId: string) => void
   onSkip: () => void
 }
 
-export function Step2Waiver({ org, waiver, userId, onComplete, onSkip }: Props) {
+export function Step2Waiver({ org, waiver, userId, leagueId, onComplete, onSkip }: Props) {
   const [scrolledToBottom, setScrolledToBottom] = useState(false)
   const [signatureName, setSignatureName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -46,7 +47,7 @@ export function Step2Waiver({ org, waiver, userId, onComplete, onSkip }: Props) 
     if (!signatureName.trim()) { setError('Please type your full name to sign'); return }
     setLoading(true)
     setError(null)
-    const result = await signWaiver({ waiverId: waiver!.id, signatureName: signatureName.trim() })
+    const result = await signWaiver({ waiverId: waiver!.id, signatureName: signatureName.trim(), leagueId })
     if (result.error) { setError(result.error); setLoading(false); return }
     onComplete(result.data!.signatureId)
   }

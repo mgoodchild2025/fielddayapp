@@ -1,4 +1,5 @@
 import { headers } from 'next/headers'
+import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { activateRegistration } from '@/actions/registrations'
@@ -104,9 +105,12 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                   </td>
                   <td className="px-4 py-3">
                     {reg.waiver_signature_id ? (
-                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                        Signed
-                      </span>
+                      <Link
+                        href={`/admin/settings/waivers/signatures/${reg.waiver_signature_id}`}
+                        className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+                      >
+                        ✓ Signed
+                      </Link>
                     ) : (
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
                         —
