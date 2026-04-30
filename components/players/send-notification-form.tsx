@@ -37,9 +37,10 @@ export function SendNotificationForm({ userId, phone, smsOptedIn }: Props) {
         setError(res.error)
       } else {
         setSent(true)
+        if (res.smsError) setError(`Notification sent, but SMS failed: ${res.smsError}`)
         formRef.current?.reset()
         setViaSms(false)
-        setTimeout(() => setSent(false), 3000)
+        if (!res.smsError) setTimeout(() => setSent(false), 3000)
       }
     })
   }

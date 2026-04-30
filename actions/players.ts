@@ -205,7 +205,7 @@ export async function removePlayerFromOrg(userId: string) {
 
 export async function sendPlayerNotification(userId: string, title: string, body: string, sendSms = false) {
   const { error, org, db } = await requireOrgAdmin()
-  if (error) return { error }
+  if (error) return { error, smsError: null }
 
   const { error: e } = await db.from('notifications').insert({
     organization_id: org.id,
@@ -214,24 +214,27 @@ export async function sendPlayerNotification(userId: string, title: string, body
     title,
     body: body || null,
   })
-  if (e) return { error: e.message }
+  if (e) return { error: e.message, smsError: null }
+
+  let smsError: string | null = null
 
   if (sendSms) {
-    try {
-      const { data: profile } = await db
-        .from('profiles')
-        .select('phone, sms_opted_in')
-        .eq('id', userId)
-        .single()
+    const { data: profile } = await db
+      .from('profiles')
+      .select('phone, sms_opted_in')
+      .eq('id', userId)
+      .single()
 
-      if (profile?.phone && profile.sms_opted_in) {
-        const message = body ? `${title}: ${body}` : title
-        await twilioSendSms(profile.phone, message)
-      }
-    } catch {
-      // SMS failures are non-fatal — notification was already saved
+    if (!profile?.phone) {
+      smsError = 'No phone number on file'
+    } else if (!profile.sms_opted_in) {
+      smsError = 'Player has not opted in to SMS'
+    } else {
+      const message = body ? `${title}: ${body}` : title
+      const result = await twilioSendSms(profile.phone, message)
+      if (result.error) smsError = result.error
     }
   }
 
-  return { error: null }
+  return { error: null, smsError }
 }
