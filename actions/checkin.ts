@@ -24,15 +24,14 @@ export async function checkInByToken(
 
   const db = createServiceRoleClient()
 
+  // Fetch registration + player profile only — team is a separate query below
+  // (no direct FK from registrations to team_members, so joining here breaks PostgREST)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: reg } = await (db as any)
     .from('registrations')
     .select(`
-      id, league_id, checked_in_at, checked_in_by,
-      profile:profiles!registrations_user_id_fkey(full_name),
-      team:team_members!team_members_user_id_fkey(
-        team:teams!team_members_team_id_fkey(name, league_id)
-      )
+      id, league_id, user_id, checked_in_at, checked_in_by,
+      profile:profiles!registrations_user_id_fkey(full_name)
     `)
     .eq('checkin_token', token)
     .maybeSingle()
@@ -41,8 +40,9 @@ export async function checkInByToken(
 
   if (leagueId && reg.league_id !== leagueId) return { status: 'wrong_event' }
 
+  const profileData = Array.isArray(reg.profile) ? reg.profile[0] : reg.profile
+
   if (reg.checked_in_at) {
-    const profileData = Array.isArray(reg.profile) ? reg.profile[0] : reg.profile
     return {
       status: 'already_checked_in',
       playerName: profileData?.full_name ?? 'Unknown',
@@ -58,19 +58,25 @@ export async function checkInByToken(
 
   if (error) return { status: 'not_found' }
 
-  const profileData = Array.isArray(reg.profile) ? reg.profile[0] : reg.profile
-  const teamMembers = Array.isArray(reg.team) ? reg.team : (reg.team ? [reg.team] : [])
-  const teamEntry = teamMembers.find((tm: { team: { league_id: string; name: string } | null }) => {
-    const t = Array.isArray(tm.team) ? tm.team[0] : tm.team
-    return t?.league_id === reg.league_id
-  })
-  const teamData = teamEntry ? (Array.isArray(teamEntry.team) ? teamEntry.team[0] : teamEntry.team) : null
+  // Look up the player's team for this league separately
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: teamMember } = await (db as any)
+    .from('team_members')
+    .select('team:teams!team_members_team_id_fkey(name, league_id)')
+    .eq('user_id', reg.user_id)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  const teamData = teamMember
+    ? (Array.isArray(teamMember.team) ? teamMember.team[0] : teamMember.team)
+    : null
+  const teamName = teamData?.league_id === reg.league_id ? (teamData?.name ?? null) : null
 
   if (leagueId) revalidatePath(`/admin/events/${leagueId}/checkin`)
   return {
     status: 'success',
     playerName: profileData?.full_name ?? 'Unknown',
-    teamName: teamData?.name ?? null,
+    teamName,
   }
 }
 
