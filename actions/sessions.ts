@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 
@@ -167,7 +168,6 @@ export async function joinSession(sessionId: string, leagueId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  // Check league join policy and fetch session together
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: league } = await (supabase as any)
     .from('leagues')
@@ -177,7 +177,16 @@ export async function joinSession(sessionId: string, leagueId: string) {
     .single()
 
   if (league?.pickup_join_policy === 'private') {
-    return { error: 'This event is invite only' }
+    const db = createServiceRoleClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: invite } = await (db as any)
+      .from('pickup_invites')
+      .select('id')
+      .eq('league_id', leagueId)
+      .eq('email', user.email!.toLowerCase())
+      .in('status', ['pending', 'accepted'])
+      .maybeSingle()
+    if (!invite) return { error: 'This event is invite only' }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -218,6 +227,18 @@ export async function joinSession(sessionId: string, leagueId: string) {
     )
 
   if (error) return { error: error.message }
+
+  // Mark invite as accepted on first join
+  if (league?.pickup_join_policy === 'private') {
+    const db = createServiceRoleClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any)
+      .from('pickup_invites')
+      .update({ status: 'accepted' })
+      .eq('league_id', leagueId)
+      .eq('email', user.email!.toLowerCase())
+      .eq('status', 'pending')
+  }
 
   revalidatePath('/events/[slug]', 'page')
   return { error: null }
