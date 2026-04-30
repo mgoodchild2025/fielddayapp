@@ -120,6 +120,8 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
             waiver={waiver}
             userId={userId}
             leagueId={league.id}
+            playerName={profile?.full_name ?? ''}
+            playerDob={playerDetails?.date_of_birth ?? null}
             onComplete={async (sigId) => {
               if (registrationId) {
                 await linkWaiverToRegistration(registrationId, sigId)

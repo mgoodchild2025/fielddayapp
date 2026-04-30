@@ -14,7 +14,7 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
   const { data: sig } = await (db as any)
     .from('waiver_signatures')
     .select(`
-      id, signed_at, signature_name, ip_address,
+      id, signed_at, signature_name, ip_address, guardian_relationship,
       player:profiles!waiver_signatures_user_id_fkey(full_name, email, phone),
       waiver:waivers!waiver_signatures_waiver_id_fkey(id, title, version, content),
       league:leagues!waiver_signatures_league_id_fkey(id, name, slug)
@@ -35,6 +35,8 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
   const player = Array.isArray(sig.player) ? sig.player[0] : sig.player
   const waiver = Array.isArray(sig.waiver) ? sig.waiver[0] : sig.waiver
   const league = Array.isArray(sig.league) ? sig.league[0] : sig.league
+  const isGuardian = !!sig.guardian_relationship
+  const guardianLabel = sig.guardian_relationship === 'legal_guardian' ? 'Legal Guardian' : 'Parent'
 
   return (
     <div className="max-w-3xl">
@@ -44,6 +46,20 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
         </Link>
         <h1 className="text-2xl font-bold mt-1">{waiver?.title ?? 'Waiver'}</h1>
       </div>
+
+      {/* Guardian notice banner */}
+      {isGuardian && (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex gap-3">
+          <span className="text-amber-500 text-lg leading-none mt-0.5">⚠</span>
+          <div className="text-sm text-amber-800">
+            <p className="font-semibold">Guardian-signed waiver</p>
+            <p className="mt-0.5 text-amber-700">
+              {player?.full_name ?? 'This player'} was under 18 at the time of registration.
+              This waiver was signed by their {guardianLabel.toLowerCase()}.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Signature metadata */}
       <div className="bg-white rounded-lg border p-5 mb-6 space-y-3">
@@ -93,10 +109,15 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
             </dd>
           </div>
           <div>
-            <dt className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Signature</dt>
+            <dt className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">
+              {isGuardian ? 'Guardian Signature' : 'Signature'}
+            </dt>
             <dd className="font-medium italic text-lg" style={{ fontFamily: 'Georgia, serif' }}>
               {sig.signature_name}
             </dd>
+            {isGuardian && (
+              <dd className="text-xs text-amber-700 mt-0.5">{guardianLabel}</dd>
+            )}
           </div>
           {sig.ip_address && (
             <div>
@@ -121,10 +142,15 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
         </div>
         <div className="mt-4 pt-4 border-t flex items-center justify-between">
           <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Agreed & signed by</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">
+              {isGuardian ? `Agreed & signed by ${guardianLabel}` : 'Agreed & signed by'}
+            </p>
             <p className="font-semibold italic text-base mt-0.5" style={{ fontFamily: 'Georgia, serif' }}>
               {sig.signature_name}
             </p>
+            {isGuardian && player?.full_name && (
+              <p className="text-xs text-gray-500 mt-0.5">on behalf of {player.full_name}</p>
+            )}
           </div>
           <div className="text-right text-xs text-gray-400">
             <p>{new Date(sig.signed_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric', timeZone: timezone })}</p>

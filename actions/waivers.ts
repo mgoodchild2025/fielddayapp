@@ -129,6 +129,9 @@ const signWaiverSchema = z.object({
   waiverId: z.string().uuid(),
   signatureName: z.string().min(2),
   leagueId: z.string().uuid().optional(),
+  // Guardian fields — present only when the player is under 18.
+  // signatureName holds the guardian's legal name; guardianRelationship identifies them.
+  guardianRelationship: z.enum(['parent', 'legal_guardian']).optional(),
 })
 
 export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
@@ -169,6 +172,7 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
       signature_name: parsed.data.signatureName,
       ip_address: ipAddress,
       league_id: parsed.data.leagueId ?? null,
+      guardian_relationship: parsed.data.guardianRelationship ?? null,
     })
     .select('id')
     .single()
