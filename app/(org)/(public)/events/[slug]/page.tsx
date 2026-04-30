@@ -17,6 +17,7 @@ import { formatGameTime } from '@/lib/format-time'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { StickyRegisterBar } from '@/components/events/sticky-register-bar'
+import { EventTabSelect } from '@/components/events/event-tab-select'
 
 // ── Tab nav ───────────────────────────────────────────────────────────────────
 
@@ -367,6 +368,7 @@ export default async function EventDetailPage({
     : { data: null }
 
   const hasBracket = !!publishedBracketMeta
+  const isInSeasonOrCompleted = league.status === 'active' || league.status === 'completed'
 
   // Tab visibility settings (default to 'public' if columns not yet in types)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -384,8 +386,16 @@ export default async function EventDetailPage({
     ...(hasBracket ? [{ id: 'bracket', label: 'Bracket', visibility: bracketVisibility }] : []),
   ]
 
+  // Tabs for in-season/completed events: no overview, always-public, includes rules if available
+  const inSeasonTabs = [
+    { id: 'schedule', label: 'Schedule', visibility: 'public' as const },
+    { id: 'standings', label: 'Standings', visibility: 'public' as const },
+    ...(hasBracket ? [{ id: 'bracket', label: 'Bracket', visibility: 'public' as const }] : []),
+    ...(league.rules_content ? [{ id: 'rules', label: 'Rules', visibility: 'public' as const }] : []),
+  ]
+
   // Placeholder — refined after participant status is resolved below
-  const rawTabRequest = rawTab ?? 'overview'
+  const rawTabRequest = rawTab ?? (isInSeasonOrCompleted ? 'schedule' : 'overview')
 
   // ── Overview data ─────────────────────────────────────────────────────────
 
@@ -471,11 +481,14 @@ export default async function EventDetailPage({
 
   // Filter tabs by visibility — restricted tabs are hidden from non-participants
   const tabs = isTeamBased
-    ? allTeamTabs.filter((t) => t.visibility === 'public' || isParticipant)
+    ? (isInSeasonOrCompleted
+        ? inSeasonTabs
+        : allTeamTabs.filter((t) => t.visibility === 'public' || isParticipant))
     : [{ id: 'overview', label: 'Overview', visibility: 'public' as const }]
 
   const validTabIds = tabs.map((t) => t.id)
-  const activeTab = validTabIds.includes(rawTabRequest) ? rawTabRequest : 'overview'
+  const defaultTab = isInSeasonOrCompleted ? 'schedule' : 'overview'
+  const activeTab = validTabIds.includes(rawTabRequest) ? rawTabRequest : defaultTab
 
   const isOpen = league.status === 'registration_open' || league.status === 'active'
   const isRegOpen = league.status === 'registration_open'
@@ -672,16 +685,24 @@ export default async function EventDetailPage({
             {league.sport && (
               <span className="text-sm opacity-70 capitalize">{league.sport.replace(/_/g, ' ')}</span>
             )}
-            <span className="text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>{price}</span>
-            {dropInPriceLabel && (
-              <span className="text-sm text-white/60">{dropInPriceLabel}</span>
+            {!isInSeasonOrCompleted && (
+              <>
+                <span className="text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>{price}</span>
+                {dropInPriceLabel && (
+                  <span className="text-sm text-white/60">{dropInPriceLabel}</span>
+                )}
+              </>
             )}
           </div>
         </div>
       </div>
 
       {/* ── Tab bar ── */}
-      {tabs.length > 1 && <TabNav slug={slug} activeTab={activeTab} tabs={tabs} />}
+      {tabs.length > 1 && (
+        isInSeasonOrCompleted
+          ? <EventTabSelect slug={slug} activeTab={activeTab} tabs={tabs} />
+          : <TabNav slug={slug} activeTab={activeTab} tabs={tabs} />
+      )}
 
       {/* ── Tab content ── */}
       <div className={`max-w-3xl mx-auto px-4 sm:px-6 py-8 ${stickyBar ? 'pb-28 md:pb-8' : ''}`}>
@@ -777,7 +798,7 @@ export default async function EventDetailPage({
             )}
 
             {/* Organizer */}
-            {orgAdminProfile && (
+            {!isInSeasonOrCompleted && orgAdminProfile && (
               <div className="bg-white rounded-lg border p-5">
                 <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">Organizer</p>
                 <div className="flex items-center gap-3">
@@ -1112,6 +1133,19 @@ export default async function EventDetailPage({
               <p className="text-gray-500 text-center py-16">Bracket not available yet.</p>
             ) : (
               <BracketView bracket={bracketData} leagueId={league.id} />
+            )}
+          </div>
+        )}
+
+        {/* ──────────────── RULES TAB ──────────────── */}
+        {activeTab === 'rules' && (
+          <div>
+            {league.rules_content ? (
+              <div className="bg-white rounded-lg border p-5">
+                <p className="whitespace-pre-wrap text-gray-700 leading-relaxed text-sm">{league.rules_content}</p>
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-16">No rules posted yet.</p>
             )}
           </div>
         )}
