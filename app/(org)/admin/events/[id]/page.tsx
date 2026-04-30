@@ -5,7 +5,6 @@ import { createServerClient } from '@/lib/supabase/server'
 import { updateLeagueStatus } from '@/actions/events'
 import { EditEventForm } from '@/components/events/edit-event-form'
 import { DeleteEventButton } from '@/components/events/delete-event-button'
-import { PaymentPlanConfig } from '@/components/events/payment-plan-config'
 import type { Database } from '@/types/database'
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
@@ -30,7 +29,6 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     { count: gameCount },
     { data: waivers },
     { data: ruleTemplates },
-    { data: paymentPlan },
   ] = await Promise.all([
     supabase.from('leagues').select('*').eq('id', id).eq('organization_id', org.id).single(),
     supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
@@ -38,7 +36,6 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     supabase.from('games').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
     supabase.from('waivers').select('id, title, version').eq('organization_id', org.id).order('created_at', { ascending: false }),
     supabase.from('league_rule_templates').select('id, title, content').eq('organization_id', org.id).order('created_at', { ascending: false }),
-    supabase.from('payment_plans').select('*').eq('league_id', id).maybeSingle(),
   ])
 
   if (!league) notFound()
@@ -148,8 +145,6 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
           <h2 className="font-semibold text-sm mb-2">URL Slug</h2>
           <code className="text-xs bg-gray-50 border rounded px-2 py-1.5 block break-all">{league.slug}</code>
         </div>
-
-        <PaymentPlanConfig leagueId={league.id} existing={paymentPlan ?? null} />
 
         <div className="bg-white rounded-lg border p-5">
           <h2 className="font-semibold text-sm mb-3 text-red-600">Danger Zone</h2>
