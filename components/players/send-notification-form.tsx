@@ -5,16 +5,21 @@ import { sendPlayerNotification } from '@/actions/players'
 
 interface Props {
   userId: string
+  phone?: string | null
+  smsOptedIn?: boolean
 }
 
 const inputClass =
   'w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:border-transparent'
 
-export function SendNotificationForm({ userId }: Props) {
+export function SendNotificationForm({ userId, phone, smsOptedIn }: Props) {
   const [isPending, startTransition] = useTransition()
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [viaSms, setViaSms] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
+
+  const canSendSms = !!phone && !!smsOptedIn
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -27,12 +32,13 @@ export function SendNotificationForm({ userId }: Props) {
     setSent(false)
 
     startTransition(async () => {
-      const res = await sendPlayerNotification(userId, title, body)
+      const res = await sendPlayerNotification(userId, title, body, viaSms)
       if (res.error) {
         setError(res.error)
       } else {
         setSent(true)
         formRef.current?.reset()
+        setViaSms(false)
         setTimeout(() => setSent(false), 3000)
       }
     })
@@ -53,6 +59,29 @@ export function SendNotificationForm({ userId }: Props) {
           className={inputClass + ' resize-none'}
         />
       </div>
+
+      <div className="border-t pt-3">
+        {canSendSms ? (
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={viaSms}
+              onChange={(e) => setViaSms(e.target.checked)}
+              className="rounded"
+            />
+            <span className="text-xs text-gray-600">
+              Also send via SMS <span className="text-gray-400">({phone})</span>
+            </span>
+          </label>
+        ) : (
+          <p className="text-xs text-gray-400">
+            {!phone
+              ? 'No phone number on file — SMS unavailable.'
+              : 'Player has not opted in to SMS notifications.'}
+          </p>
+        )}
+      </div>
+
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex items-center gap-3">
         <button

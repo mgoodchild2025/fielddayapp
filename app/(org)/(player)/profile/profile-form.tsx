@@ -13,6 +13,7 @@ type PlayerDetails = Database['public']['Tables']['player_details']['Row']
 const schema = z.object({
   full_name: z.string().min(2),
   phone: z.string().optional(),
+  sms_opted_in: z.boolean().optional(),
   skill_level: z.enum(['beginner', 'intermediate', 'competitive']).optional(),
   t_shirt_size: z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']).optional(),
   emergency_contact_name: z.string().optional(),
@@ -39,6 +40,7 @@ export function ProfileForm({
     defaultValues: {
       full_name: profile?.full_name ?? '',
       phone: profile?.phone ?? '',
+      sms_opted_in: profile?.sms_opted_in ?? false,
       skill_level: (playerDetails?.skill_level as FormData['skill_level']) ?? undefined,
       t_shirt_size: (playerDetails?.t_shirt_size as FormData['t_shirt_size']) ?? undefined,
       emergency_contact_name: playerDetails?.emergency_contact_name ?? '',
@@ -79,6 +81,10 @@ export function ProfileForm({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
             <input {...register('phone')} type="tel" className="w-full border rounded-md px-3 py-2 text-sm" />
+            <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
+              <input {...register('sms_opted_in')} type="checkbox" className="rounded" />
+              <span className="text-xs text-gray-600">Receive SMS game reminders</span>
+            </label>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

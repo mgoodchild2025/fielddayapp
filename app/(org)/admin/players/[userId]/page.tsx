@@ -51,7 +51,7 @@ export default async function PlayerManagementPage({
     leaguesRes,
     teamsRes,
   ] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email, phone').eq('id', userId).single(),
+    supabase.from('profiles').select('id, full_name, email, phone, sms_opted_in').eq('id', userId).single(),
     supabase
       .from('org_members')
       .select('id, role, status, joined_at')
@@ -337,7 +337,11 @@ export default async function PlayerManagementPage({
         <div className="space-y-6">
           <div className="bg-white rounded-lg border p-6">
             <h2 className="text-base font-semibold mb-4">Send Notification</h2>
-            <SendNotificationForm userId={userId} />
+            <SendNotificationForm
+              userId={userId}
+              phone={profile.phone ?? null}
+              smsOptedIn={profile.sms_opted_in ?? false}
+            />
           </div>
         </div>
       </div>

@@ -202,7 +202,7 @@ export async function removePlayerFromOrg(userId: string) {
   return { error: null }
 }
 
-export async function sendPlayerNotification(userId: string, title: string, body: string) {
+export async function sendPlayerNotification(userId: string, title: string, body: string, sendSms = false) {
   const { error, org, db } = await requireOrgAdmin()
   if (error) return { error }
 
@@ -214,6 +214,20 @@ export async function sendPlayerNotification(userId: string, title: string, body
     body: body || null,
   })
   if (e) return { error: e.message }
+
+  if (sendSms) {
+    const { data: profile } = await db
+      .from('profiles')
+      .select('phone, sms_opted_in')
+      .eq('id', userId)
+      .single()
+
+    if (profile?.phone && profile.sms_opted_in) {
+      const { sendSms: sendSmsUtil } = await import('@/lib/twilio')
+      const message = body ? `${title}: ${body}` : title
+      await sendSmsUtil(profile.phone, message)
+    }
+  }
 
   return { error: null }
 }
