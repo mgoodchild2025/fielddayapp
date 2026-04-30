@@ -136,12 +136,96 @@ function showTeamConfig(eventType: EventTypeValue) {
   return eventType === 'league' || eventType === 'tournament'
 }
 
+// ── Accordion section ─────────────────────────────────────────────────────────
+// On mobile: collapses/expands with animation. On md+: always expanded, static header.
+
+function AccordionSection({
+  title,
+  summary,
+  isRequired,
+  hasErrors,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  title: string
+  summary: string
+  isRequired?: boolean
+  hasErrors?: boolean
+  isOpen: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      className={`bg-white rounded-lg border overflow-hidden transition-colors ${
+        hasErrors ? 'border-red-300' : 'border-gray-200'
+      }`}
+    >
+      {/* Mobile: tappable header */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="md:hidden w-full flex items-center gap-3 px-4 py-4 text-left active:bg-gray-50"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-gray-800">{title}</span>
+            {isRequired && (
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-rose-400">
+                required
+              </span>
+            )}
+            {hasErrors && (
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+            )}
+          </div>
+          {!isOpen && (
+            <p className="text-xs text-gray-400 mt-0.5 truncate">{summary}</p>
+          )}
+        </div>
+        <svg
+          className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+            isOpen ? 'rotate-180 text-gray-500' : 'text-gray-300'
+          }`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {/* Desktop: static title */}
+      <div className="hidden md:block px-5 pt-5 pb-2">
+        <p className="text-sm font-semibold text-gray-700">{title}</p>
+      </div>
+
+      {/* Body — animated collapse on mobile, always visible on desktop */}
+      <div
+        className={`grid transition-[grid-template-rows] duration-300 ease-in-out md:!grid-rows-[1fr] ${
+          isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="px-4 pb-5 pt-1 md:px-5 md:pb-5 md:pt-0 space-y-4 border-t border-gray-100 md:border-t-0">
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main form ─────────────────────────────────────────────────────────────────
+
 export function NewEventForm({ waivers, ruleTemplates }: Props) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [rulesContent, setRulesContent] = useState('')
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  const [openSection, setOpenSection] = useState<string | null>('basics')
   const slugEditedRef = useRef(false)
 
   const {
@@ -167,8 +251,24 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
     },
   })
 
+  // Watches
   const nameValue = watch('name')
   const eventType = watch('event_type')
+  const sport = watch('sport')
+  const ageGroup = watch('age_group')
+  const priceCents = watch('price_cents')
+  const paymentMode = watch('payment_mode')
+  const teamJoinPolicy = watch('team_join_policy')
+  const pickupJoinPolicy = watch('pickup_join_policy')
+  const registrationMode = watch('registration_mode')
+  const minTeamSize = watch('min_team_size')
+  const maxTeamSize = watch('max_team_size')
+  const maxTeams = watch('max_teams')
+  const maxParticipants = watch('max_participants')
+  const seasonStartDate = watch('season_start_date')
+  const seasonEndDate = watch('season_end_date')
+  const venueNameWatch = watch('venue_name')
+  const waiverVersionId = watch('waiver_version_id')
 
   useEffect(() => {
     if (!slugEditedRef.current && nameValue) {
@@ -205,8 +305,98 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
 
   const dates = dateLabels(eventType)
   const withTeams = showTeamConfig(eventType)
-  const registrationMode = watch('registration_mode')
   const isPickup = eventType === 'pickup' || eventType === 'drop_in'
+
+  // ── Section summaries ────────────────────────────────────────────────────────
+
+  const sportLabel = SPORTS.find((s) => s.value === sport)?.label ?? sport
+
+  const basicsSummary = [nameValue || null, sportLabel, ageGroup || null]
+    .filter(Boolean)
+    .join(' · ')
+
+  const pricingSummary = (() => {
+    const price = (priceCents ?? 0) > 0 ? `$${((priceCents ?? 0) / 100).toFixed(0)}` : 'Free'
+    const mode = withTeams ? (paymentMode === 'per_team' ? '/team' : '/player') : ''
+    const joinLabels: Record<string, string> = {
+      open: 'Open',
+      captain_invite: 'Captain invite',
+      admin_only: 'Admin managed',
+      public: 'Public',
+      private: 'Private',
+    }
+    const join = withTeams
+      ? joinLabels[teamJoinPolicy ?? 'open']
+      : joinLabels[pickupJoinPolicy ?? 'public']
+    return `${price}${mode} · ${join}`
+  })()
+
+  const capacitySummary = withTeams
+    ? `${minTeamSize ?? 4}–${maxTeamSize ?? 8} players · ${
+        maxTeams ? `${maxTeams} teams max` : 'Unlimited teams'
+      }`
+    : maxParticipants
+    ? `${maxParticipants} players max`
+    : 'Unlimited'
+
+  const datesSummary = (() => {
+    if (!seasonStartDate) return 'Not set'
+    const fmt = (d: string) =>
+      new Date(d + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
+    return fmt(seasonStartDate) + (seasonEndDate ? ` – ${fmt(seasonEndDate)}` : '')
+  })()
+
+  const venueSummary = venueNameWatch || 'Not set'
+
+  const waiverSummary = (() => {
+    const parts: string[] = []
+    if (waiverVersionId) {
+      const w = waivers.find((w) => w.id === waiverVersionId)
+      if (w) parts.push(`${w.title} v${w.version}`)
+    }
+    if (rulesContent) parts.push('Rules added')
+    return parts.length ? parts.join(' · ') : 'None'
+  })()
+
+  // ── Per-section error flags ───────────────────────────────────────────────────
+
+  const basicsHasErrors = !!(
+    errors.name ||
+    errors.slug ||
+    errors.sport ||
+    errors.description ||
+    errors.age_group
+  )
+  const pricingHasErrors = !!(
+    errors.price_cents ||
+    errors.payment_mode ||
+    errors.drop_in_price_cents
+  )
+  const capacityHasErrors = !!(
+    errors.min_team_size ||
+    errors.max_team_size ||
+    errors.max_teams ||
+    errors.max_participants
+  )
+  const datesHasErrors = !!(
+    errors.season_start_date ||
+    errors.season_end_date ||
+    errors.registration_opens_at ||
+    errors.registration_closes_at
+  )
+  const venueHasErrors = !!(
+    errors.venue_name ||
+    errors.venue_address ||
+    errors.venue_type ||
+    errors.venue_surface
+  )
+  const waiverHasErrors = !!errors.waiver_version_id
+
+  function toggle(id: string) {
+    setOpenSection((prev) => (prev === id ? null : id))
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <div className="max-w-2xl">
@@ -220,9 +410,9 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 md:space-y-5">
 
-        {/* ── Event type picker ── */}
+        {/* ── Event type picker — always visible ── */}
         <div className="bg-white rounded-lg border p-5">
           <p className="text-sm font-semibold text-gray-700 mb-3">Event Type</p>
           <div className="grid grid-cols-2 gap-3">
@@ -238,7 +428,14 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
                       ? 'border-brand-primary bg-blue-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
-                  style={active ? { borderColor: 'var(--brand-primary)', backgroundColor: 'color-mix(in srgb, var(--brand-primary) 8%, white)' } : {}}
+                  style={
+                    active
+                      ? {
+                          borderColor: 'var(--brand-primary)',
+                          backgroundColor: 'color-mix(in srgb, var(--brand-primary) 8%, white)',
+                        }
+                      : {}
+                  }
                 >
                   <span className="text-xl">{et.icon}</span>
                   <p className="font-semibold text-sm mt-1">{et.label}</p>
@@ -250,9 +447,15 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
           <input type="hidden" {...register('event_type')} />
         </div>
 
-        {/* ── Basic info ── */}
-        <div className="bg-white rounded-lg border p-5 space-y-4">
-          <p className="text-sm font-semibold text-gray-700">Details</p>
+        {/* ── 1. Basics ── */}
+        <AccordionSection
+          title="Basics"
+          summary={basicsSummary}
+          isRequired
+          hasErrors={basicsHasErrors}
+          isOpen={openSection === 'basics'}
+          onToggle={() => toggle('basics')}
+        >
           <div className="grid grid-cols-2 gap-4">
             <Field label="Event Name" error={errors.name?.message}>
               <input {...register('name')} type="text" className={INPUT} autoComplete="off" />
@@ -294,9 +497,18 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
               </select>
             </Field>
           </div>
+        </AccordionSection>
 
-          {withTeams && (
-            <div className="grid grid-cols-2 gap-4">
+        {/* ── 2. Registration & Pricing ── */}
+        {(withTeams || isPickup) && (
+          <AccordionSection
+            title="Registration & Pricing"
+            summary={pricingSummary}
+            hasErrors={pricingHasErrors}
+            isOpen={openSection === 'pricing'}
+            onToggle={() => toggle('pricing')}
+          >
+            {withTeams && (
               <Field label="Team Join Policy" error={errors.team_join_policy?.message}>
                 <select {...register('team_join_policy')} className={SELECT}>
                   <option value="open">Open (anyone can join)</option>
@@ -304,173 +516,199 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
                   <option value="admin_only">Admin managed</option>
                 </select>
               </Field>
-            </div>
-          )}
+            )}
 
-          {!withTeams && (
-            <>
-              <Field label="Access" error={errors.pickup_join_policy?.message}>
-                <select {...register('pickup_join_policy')} className={SELECT}>
-                  <option value="public">Public — anyone can register</option>
-                  <option value="private">Private — admin invite only</option>
-                </select>
-              </Field>
-              {/* drop_in events keep per-session mode; pickup is always season */}
-              {eventType === 'drop_in' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Registration Mode</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { value: 'session', label: 'Per session', desc: 'Players join individual sessions' },
-                      { value: 'season', label: 'Season pass', desc: 'Register once, attend all sessions' },
-                    ].map((opt) => (
-                      <label
-                        key={opt.value}
-                        className={`flex flex-col gap-0.5 p-3 rounded-md border cursor-pointer transition-colors ${
-                          registrationMode === opt.value ? 'border-[var(--brand-primary)] bg-orange-50' : 'border-gray-200 hover:bg-gray-50'
-                        }`}
-                      >
-                        <input type="radio" {...register('registration_mode')} value={opt.value} className="sr-only" />
-                        <span className="text-sm font-semibold">{opt.label}</span>
-                        <span className="text-xs text-gray-500">{opt.desc}</span>
-                      </label>
-                    ))}
+            {!withTeams && (
+              <>
+                <Field label="Access" error={errors.pickup_join_policy?.message}>
+                  <select {...register('pickup_join_policy')} className={SELECT}>
+                    <option value="public">Public — anyone can register</option>
+                    <option value="private">Private — admin invite only</option>
+                  </select>
+                </Field>
+                {eventType === 'drop_in' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Registration Mode
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { value: 'session', label: 'Per session', desc: 'Players join individual sessions' },
+                        { value: 'season', label: 'Season pass', desc: 'Register once, attend all sessions' },
+                      ].map((opt) => (
+                        <label
+                          key={opt.value}
+                          className={`flex flex-col gap-0.5 p-3 rounded-md border cursor-pointer transition-colors ${
+                            registrationMode === opt.value
+                              ? 'border-[var(--brand-primary)] bg-orange-50'
+                              : 'border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            {...register('registration_mode')}
+                            value={opt.value}
+                            className="sr-only"
+                          />
+                          <span className="text-sm font-semibold">{opt.label}</span>
+                          <span className="text-xs text-gray-500">{opt.desc}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-              {eventType === 'pickup' && (
-                <input type="hidden" {...register('registration_mode')} value="season" />
-              )}
-            </>
-          )}
-        </div>
+                )}
+                {eventType === 'pickup' && (
+                  <input type="hidden" {...register('registration_mode')} value="season" />
+                )}
+              </>
+            )}
 
-        {/* ── Pricing ── */}
-        {(withTeams || isPickup) && (
-        <div className="bg-white rounded-lg border p-5 space-y-4">
-          <p className="text-sm font-semibold text-gray-700">Pricing</p>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label={isPickup ? 'Season fee (0 = free)' : 'Price (0 = free)'} error={errors.price_cents?.message}>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                <input
-                  {...register('price_cents', {
-                    setValueAs: (v) => Math.round(Number(v || 0) * 100),
-                  })}
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  placeholder="0.00"
-                  defaultValue={0}
-                  className={`${INPUT} pl-7`}
-                />
-              </div>
-            </Field>
-            {isPickup ? (
-              <Field label="Drop-in fee (blank = no drop-ins)" error={errors.drop_in_price_cents?.message}>
+            <div className="grid grid-cols-2 gap-4">
+              <Field
+                label={isPickup ? 'Season fee (0 = free)' : 'Price (0 = free)'}
+                error={errors.price_cents?.message}
+              >
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                    $
+                  </span>
                   <input
-                    {...register('drop_in_price_cents', {
-                      setValueAs: (v) => v === '' || v == null ? undefined : Math.round(Number(v) * 100),
+                    {...register('price_cents', {
+                      setValueAs: (v) => Math.round(Number(v || 0) * 100),
                     })}
                     type="number"
                     min={0}
                     step="0.01"
-                    placeholder="Leave blank"
+                    placeholder="0.00"
+                    defaultValue={0}
                     className={`${INPUT} pl-7`}
                   />
                 </div>
               </Field>
-            ) : (
-              <Field label="Payment Mode" error={errors.payment_mode?.message}>
-                <select {...register('payment_mode')} className={SELECT}>
-                  <option value="per_player">Per Player</option>
-                  {withTeams && <option value="per_team">Per Team</option>}
-                </select>
-              </Field>
-            )}
-          </div>
-        </div>
-        )}
-
-
-        {/* ── Team size & capacity (team-based events only) ── */}
-        {withTeams && (
-          <div className="bg-white rounded-lg border p-5 space-y-4">
-            <p className="text-sm font-semibold text-gray-700">Teams &amp; Capacity</p>
-            <div className="grid grid-cols-3 gap-4">
-              <Field label="Min Team Size" error={errors.min_team_size?.message}>
-                <input
-                  {...register('min_team_size', { setValueAs: (v) => (v === '' || v == null ? 4 : Number(v)) })}
-                  type="number"
-                  min={1}
-                  className={INPUT}
-                />
-              </Field>
-              <Field label="Max Team Size" error={errors.max_team_size?.message}>
-                <input
-                  {...register('max_team_size', { setValueAs: (v) => (v === '' || v == null ? 8 : Number(v)) })}
-                  type="number"
-                  min={1}
-                  className={INPUT}
-                />
-              </Field>
-              <Field label="Max Teams" error={errors.max_teams?.message}>
-                <input
-                  {...register('max_teams', { setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)) })}
-                  type="number"
-                  min={1}
-                  placeholder="Unlimited"
-                  className={INPUT}
-                />
-              </Field>
+              {isPickup ? (
+                <Field
+                  label="Drop-in fee (blank = no drop-ins)"
+                  error={errors.drop_in_price_cents?.message}
+                >
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                      $
+                    </span>
+                    <input
+                      {...register('drop_in_price_cents', {
+                        setValueAs: (v) =>
+                          v === '' || v == null ? undefined : Math.round(Number(v) * 100),
+                      })}
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="Leave blank"
+                      className={`${INPUT} pl-7`}
+                    />
+                  </div>
+                </Field>
+              ) : (
+                <Field label="Payment Mode" error={errors.payment_mode?.message}>
+                  <select {...register('payment_mode')} className={SELECT}>
+                    <option value="per_player">Per Player</option>
+                    {withTeams && <option value="per_team">Per Team</option>}
+                  </select>
+                </Field>
+              )}
             </div>
-          </div>
+          </AccordionSection>
         )}
 
-        {/* ── Capacity (non-team events) ── */}
-        {!withTeams && (
-          <div className="bg-white rounded-lg border p-5 space-y-4">
-            <p className="text-sm font-semibold text-gray-700">Capacity</p>
+        {/* ── 3. Capacity ── */}
+        <AccordionSection
+          title="Capacity"
+          summary={capacitySummary}
+          hasErrors={capacityHasErrors}
+          isOpen={openSection === 'capacity'}
+          onToggle={() => toggle('capacity')}
+        >
+          {withTeams ? (
+            <>
+              <div className="grid grid-cols-3 gap-4">
+                <Field label="Min Team Size" error={errors.min_team_size?.message}>
+                  <input
+                    {...register('min_team_size', {
+                      setValueAs: (v) => (v === '' || v == null ? 4 : Number(v)),
+                    })}
+                    type="number"
+                    min={1}
+                    className={INPUT}
+                  />
+                </Field>
+                <Field label="Max Team Size" error={errors.max_team_size?.message}>
+                  <input
+                    {...register('max_team_size', {
+                      setValueAs: (v) => (v === '' || v == null ? 8 : Number(v)),
+                    })}
+                    type="number"
+                    min={1}
+                    className={INPUT}
+                  />
+                </Field>
+                <Field label="Max Teams" error={errors.max_teams?.message}>
+                  <input
+                    {...register('max_teams', {
+                      setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
+                    })}
+                    type="number"
+                    min={1}
+                    placeholder="Unlimited"
+                    className={INPUT}
+                  />
+                </Field>
+              </div>
+
+              {/* Tab visibility — tucked here since it's rarely changed */}
+              <div className="pt-1 border-t border-gray-100 space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Tab Visibility</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Who can see each tab on the public event page.
+                  </p>
+                </div>
+                {[
+                  { field: 'schedule_visibility' as const, label: 'Schedule' },
+                  { field: 'standings_visibility' as const, label: 'Standings' },
+                  { field: 'bracket_visibility' as const, label: 'Bracket' },
+                ].map(({ field, label }) => (
+                  <div key={field} className="flex items-center gap-4">
+                    <span className="text-sm text-gray-700 w-20 shrink-0">{label}</span>
+                    <select {...register(field)} className={`${SELECT} flex-1`}>
+                      <option value="public">Public</option>
+                      <option value="participants">Participants only</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
             <Field label="Max Participants" error={errors.max_participants?.message}>
               <input
-                {...register('max_participants', { setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)) })}
+                {...register('max_participants', {
+                  setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
+                })}
                 type="number"
                 min={1}
                 placeholder="Unlimited"
                 className={INPUT}
               />
             </Field>
-          </div>
-        )}
+          )}
+        </AccordionSection>
 
-        {/* ── Tab visibility (team-based events only) ── */}
-        {withTeams && (
-          <div className="bg-white rounded-lg border p-5 space-y-3">
-            <div>
-              <p className="text-sm font-semibold text-gray-700">Tab Visibility</p>
-              <p className="text-xs text-gray-400 mt-0.5">Control who can see each tab on the public event page.</p>
-            </div>
-            {[
-              { field: 'schedule_visibility' as const, label: 'Schedule' },
-              { field: 'standings_visibility' as const, label: 'Standings' },
-              { field: 'bracket_visibility' as const, label: 'Bracket' },
-            ].map(({ field, label }) => (
-              <div key={field} className="flex items-center gap-4">
-                <span className="text-sm text-gray-700 w-20 shrink-0">{label}</span>
-                <select {...register(field)} className={`${SELECT} flex-1`}>
-                  <option value="public">Public</option>
-                  <option value="participants">Participants only</option>
-                </select>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ── Dates ── */}
-        <div className="bg-white rounded-lg border p-5 space-y-4">
-          <p className="text-sm font-semibold text-gray-700">Dates</p>
+        {/* ── 4. Dates ── */}
+        <AccordionSection
+          title="Dates"
+          summary={datesSummary}
+          hasErrors={datesHasErrors}
+          isOpen={openSection === 'dates'}
+          onToggle={() => toggle('dates')}
+        >
           <div className="grid grid-cols-2 gap-4">
             <Field label={dates.start} error={errors.season_start_date?.message}>
               <input {...register('season_start_date')} type="date" className={INPUT} />
@@ -481,26 +719,54 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Registration Opens" error={errors.registration_opens_at?.message}>
-              <input {...register('registration_opens_at')} type="datetime-local" className={INPUT} />
+              <input
+                {...register('registration_opens_at')}
+                type="datetime-local"
+                className={INPUT}
+              />
             </Field>
             <Field label="Registration Closes" error={errors.registration_closes_at?.message}>
-              <input {...register('registration_closes_at')} type="datetime-local" className={INPUT} />
+              <input
+                {...register('registration_closes_at')}
+                type="datetime-local"
+                className={INPUT}
+              />
             </Field>
           </div>
-        </div>
+        </AccordionSection>
 
-        {/* ── Venue ── */}
-        <div className="bg-white rounded-lg border p-5 space-y-4">
-          <p className="text-sm font-semibold text-gray-700">Venue / Location</p>
+        {/* ── 5. Venue ── */}
+        <AccordionSection
+          title="Venue"
+          summary={venueSummary}
+          hasErrors={venueHasErrors}
+          isOpen={openSection === 'venue'}
+          onToggle={() => toggle('venue')}
+        >
           <Field label="Venue Name" error={errors.venue_name?.message}>
-            <input {...register('venue_name')} type="text" placeholder="e.g. Ashbridges Bay" className={INPUT} />
+            <input
+              {...register('venue_name')}
+              type="text"
+              placeholder="e.g. Ashbridges Bay"
+              className={INPUT}
+            />
           </Field>
           <Field label="Address" error={errors.venue_address?.message}>
-            <input {...register('venue_address')} type="text" placeholder="123 Main St, Toronto, ON" className={INPUT} />
+            <input
+              {...register('venue_address')}
+              type="text"
+              placeholder="123 Main St, Toronto, ON"
+              className={INPUT}
+            />
           </Field>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Surface" error={errors.venue_surface?.message}>
-              <input {...register('venue_surface')} type="text" placeholder="e.g. Sand, Hardwood, Grass" className={INPUT} />
+              <input
+                {...register('venue_surface')}
+                type="text"
+                placeholder="e.g. Sand, Hardwood, Grass"
+                className={INPUT}
+              />
             </Field>
             <Field label="Indoor / Outdoor" error={errors.venue_type?.message}>
               <select {...register('venue_type')} className={SELECT}>
@@ -511,10 +777,16 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
               </select>
             </Field>
           </div>
-        </div>
+        </AccordionSection>
 
-        {/* ── Waiver ── */}
-        <div className="bg-white rounded-lg border p-5">
+        {/* ── 6. Waiver & Rules ── */}
+        <AccordionSection
+          title="Waiver & Rules"
+          summary={waiverSummary}
+          hasErrors={waiverHasErrors}
+          isOpen={openSection === 'waiver'}
+          onToggle={() => toggle('waiver')}
+        >
           <Field label="Waiver" error={errors.waiver_version_id?.message}>
             <select {...register('waiver_version_id')} className={SELECT}>
               <option value="">No waiver required</option>
@@ -534,13 +806,11 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
               </p>
             )}
           </Field>
-        </div>
 
-        {/* ── Event Rules ── */}
-        <div className="bg-white rounded-lg border p-5 space-y-3">
-          <p className="text-sm font-semibold text-gray-700">Event Rules</p>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Template</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Rules Template
+            </label>
             <select
               value={selectedTemplateId}
               onChange={(e) => {
@@ -552,20 +822,26 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
             >
               <option value="">No template / custom</option>
               {ruleTemplates.map((t) => (
-                <option key={t.id} value={t.id}>{t.title}</option>
+                <option key={t.id} value={t.id}>
+                  {t.title}
+                </option>
               ))}
             </select>
             {ruleTemplates.length === 0 && (
               <p className="text-xs text-amber-600 mt-1">
-                No rule templates set up yet.{' '}
+                No rule templates yet.{' '}
                 <a href="/admin/settings/event-rules" className="underline">
                   Create one in Settings → Event Rules
-                </a>.
+                </a>
+                .
               </p>
             )}
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Rules Content</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Rules Content
+            </label>
             <textarea
               value={rulesContent}
               onChange={(e) => setRulesContent(e.target.value)}
@@ -579,9 +855,10 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
               </p>
             )}
           </div>
-        </div>
+        </AccordionSection>
 
-        <div className="flex gap-3 pt-2">
+        {/* ── Submit ── */}
+        <div className="flex gap-3 pt-2 pb-8 md:pb-2">
           <button
             type="submit"
             disabled={loading}
