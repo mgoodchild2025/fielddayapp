@@ -222,7 +222,7 @@ export default async function EventDetailPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ tab?: string }>
+  searchParams: Promise<{ tab?: string; invite?: string }>
 }) {
   const { slug } = await params
   const { tab: rawTab } = await searchParams
@@ -245,6 +245,22 @@ export default async function EventDetailPage({
   const isSessionBased = league.event_type === 'pickup' || league.event_type === 'drop_in'
   const isTeamBased = !isSessionBased
   const isSeasonPickup = isSessionBased && league.registration_mode === 'season'
+  const isPrivatePickup = isSessionBased && league.pickup_join_policy === 'private'
+
+  // Check if logged-in user has a valid invite for this private event
+  const hasInvite = (isPrivatePickup && user)
+    ? await (async () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data } = await (db as any)
+          .from('pickup_invites')
+          .select('id')
+          .eq('league_id', league.id)
+          .eq('email', user.email!.toLowerCase())
+          .in('status', ['pending', 'accepted'])
+          .maybeSingle()
+        return !!data
+      })()
+    : false
 
   // Check for published bracket (lightweight — just need to know if one exists)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -665,10 +681,16 @@ export default async function EventDetailPage({
                   {isSeasonPickup && (
                     <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Season pass</span>
                   )}
-                  {!isSeasonPickup && league.pickup_join_policy === 'private' && (
+                  {!isSeasonPickup && isPrivatePickup && (
                     <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">Invite only</span>
                   )}
                 </div>
+                {isPrivatePickup && !isSeasonPickup && user && !hasInvite && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800 mb-3">
+                    This is a private event. Contact the organiser to request an invitation.
+                  </div>
+                )}
+
                 {(!sessions || sessions.length === 0) ? (
                   <p className="text-gray-400 text-sm py-8 text-center bg-white border rounded-lg">No sessions scheduled yet — check back soon.</p>
                 ) : (
@@ -705,10 +727,25 @@ export default async function EventDetailPage({
                           </div>
                           {!isSeasonPickup && (
                             <div className="shrink-0">
-                              {league.pickup_join_policy === 'private' ? (
-                                isJoined && !isCancelled
-                                  ? <span className="text-xs px-3 py-1.5 rounded-md bg-green-50 text-green-700 font-medium">Joined ✓</span>
-                                  : null
+                              {isPrivatePickup ? (
+                                hasInvite ? (
+                                  <SessionJoinButton
+                                    sessionId={s.id}
+                                    leagueId={league.id}
+                                    isJoined={isJoined}
+                                    isFull={isFull}
+                                    isCancelled={isCancelled}
+                                    isLoggedIn={!!user}
+                                  />
+                                ) : !user ? (
+                                  <a
+                                    href={`/login`}
+                                    className="px-4 py-1.5 rounded-md text-sm font-semibold text-white"
+                                    style={{ backgroundColor: 'var(--brand-primary)' }}
+                                  >
+                                    Log in to join
+                                  </a>
+                                ) : null
                               ) : (
                                 <SessionJoinButton
                                   sessionId={s.id}

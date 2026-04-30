@@ -3,14 +3,18 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-function tabs(id: string, eventType: string) {
+function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
   const base = [
     { label: 'Overview', href: `/admin/events/${id}` },
     { label: 'Registrations', href: `/admin/events/${id}/registrations` },
   ]
 
   if (eventType === 'pickup' || eventType === 'drop_in') {
-    return [...base, { label: 'Sessions', href: `/admin/events/${id}/sessions` }]
+    const sessionTabs = [...base, { label: 'Sessions', href: `/admin/events/${id}/sessions` }]
+    if (pickupJoinPolicy === 'private') {
+      sessionTabs.push({ label: 'Invites', href: `/admin/events/${id}/invites` })
+    }
+    return sessionTabs
   }
 
   if (eventType === 'league') {
@@ -41,12 +45,12 @@ function tabs(id: string, eventType: string) {
   ]
 }
 
-export function EventAdminTabs({ leagueId, eventType }: { leagueId: string; eventType: string }) {
+export function EventAdminTabs({ leagueId, eventType, pickupJoinPolicy = 'public' }: { leagueId: string; eventType: string; pickupJoinPolicy?: string }) {
   const pathname = usePathname()
 
   return (
     <div className="flex gap-0 border-b mb-6 overflow-x-auto scrollbar-none -mx-1 px-1">
-      {tabs(leagueId, eventType).map((tab) => {
+      {tabs(leagueId, eventType, pickupJoinPolicy).map((tab) => {
         const isActive =
           tab.href === `/admin/events/${leagueId}`
             ? pathname === tab.href

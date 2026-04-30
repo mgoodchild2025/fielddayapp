@@ -28,7 +28,7 @@ export default async function EventAdminLayout({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: league } = await (supabase as any)
     .from('leagues')
-    .select('id, name, status, event_type')
+    .select('id, name, status, event_type, pickup_join_policy')
     .eq('id', id)
     .eq('organization_id', org.id)
     .single()
@@ -48,7 +48,7 @@ export default async function EventAdminLayout({
           </span>
         </div>
       </div>
-      <EventAdminTabs leagueId={id} eventType={league.event_type ?? 'league'} />
+      <EventAdminTabs leagueId={id} eventType={league.event_type ?? 'league'} pickupJoinPolicy={league.pickup_join_policy ?? 'public'} />
       {children}
     </div>
   )
