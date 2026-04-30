@@ -10,10 +10,6 @@ interface Props {
   isAdmin: boolean
 }
 
-const links = [
-  { label: 'Events', href: '/events' },
-]
-
 export function MobileNav({ userName, isAdmin }: Props) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
@@ -71,15 +67,14 @@ export function MobileNav({ userName, isAdmin }: Props) {
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1">
-          {links.map((l) => (
+          {userName && (
             <Link
-              key={l.href}
-              href={l.href}
+              href="/events"
               className="block px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors"
             >
-              {l.label}
+              Events
             </Link>
-          ))}
+          )}
 
           <div className="border-t border-white/10 my-4" />
 

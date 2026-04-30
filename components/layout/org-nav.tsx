@@ -53,9 +53,11 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
         </Link>
 
         <div className="flex items-center gap-2">
-          <div className="hidden md:flex items-center gap-6 text-sm font-medium">
-            <Link href="/events" className="opacity-80 hover:opacity-100 transition-opacity">Events</Link>
-          </div>
+          {user && (
+            <div className="hidden md:flex items-center gap-6 text-sm font-medium">
+              <Link href="/events" className="opacity-80 hover:opacity-100 transition-opacity">Events</Link>
+            </div>
+          )}
 
           {user ? (
             <>

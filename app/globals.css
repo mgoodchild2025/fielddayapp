@@ -4,6 +4,10 @@
   html, body {
     height: 100%;
   }
+  html {
+    /* Prevent iOS Safari from zooming out when any element bleeds past the viewport edge */
+    overflow-x: hidden;
+  }
 }
 
 @layer components {
