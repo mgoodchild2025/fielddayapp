@@ -187,8 +187,11 @@ function buildWelcomeEmail({
           Go to Dashboard →
         </a>
       </div>
-      <p style="color:#9ca3af;font-size:13px;text-align:center;margin:0;">
+      <p style="color:#9ca3af;font-size:13px;text-align:center;margin:0 0 16px;">
         You can sign in using your existing Fieldday password.
+      </p>
+      <p style="color:#111827;font-size:15px;font-weight:700;font-style:italic;text-align:center;margin:0;">
+        Have a field day! ⚡
       </p>
     </div>
   </div>
@@ -223,8 +226,11 @@ function buildVerificationEmail({
           Confirm Email →
         </a>
       </div>
-      <p style="color:#9ca3af;font-size:13px;text-align:center;margin:0;">
+      <p style="color:#9ca3af;font-size:13px;text-align:center;margin:0 0 16px;">
         This link expires in 24 hours. If you didn't sign up for Fieldday, you can safely ignore this email.
+      </p>
+      <p style="color:#111827;font-size:15px;font-weight:700;font-style:italic;text-align:center;margin:0;">
+        Have a field day! ⚡
       </p>
     </div>
   </div>
