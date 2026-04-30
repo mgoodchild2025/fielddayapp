@@ -139,8 +139,7 @@ export async function GET(req: NextRequest) {
     (allNotifSettings ?? []).map(s => [s.organization_id as string, s])
   )
 
-  // Fetch all unreminded games in the next 24h (widest possible window)
-  const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+  // Fetch all unreminded games in the next 24h (widest possible window, reuses in24h from above)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: smsGames } = await (supabase as any)
     .from('games')
