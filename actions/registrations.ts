@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentOrg } from '@/lib/tenant'
 import { sendRegistrationConfirmation } from './emails'
-import { acceptDropInInvite } from './invites'
+import { acceptDropInInvite, acceptPickupInvite } from './invites'
 
 const createRegistrationSchema = z.object({
   leagueId: z.string().uuid(),
@@ -73,9 +73,13 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
 
   if (error) return { data: null, error: error.message }
 
-  // Mark the drop-in invite as accepted so it can't be reused
-  if (isDropIn && user.email) {
-    await acceptDropInInvite(parsed.data.leagueId, user.email)
+  // Mark the invite as accepted
+  if (user.email) {
+    if (isDropIn) {
+      await acceptDropInInvite(parsed.data.leagueId, user.email)
+    } else {
+      await acceptPickupInvite(parsed.data.leagueId, user.email)
+    }
   }
 
   return { data: { registrationId: data.id }, error: null }
