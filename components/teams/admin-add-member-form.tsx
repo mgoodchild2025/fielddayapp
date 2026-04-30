@@ -15,15 +15,17 @@ interface Props {
   registeredPlayers?: RegisteredPlayer[]
 }
 
-export function AdminAddMemberForm({ teamId, leagueId, registeredPlayers }: Props) {
+type Mode = 'registered' | 'email'
+
+export function AdminAddMemberForm({ teamId, leagueId, registeredPlayers = [] }: Props) {
+  const hasRegistered = registeredPlayers.length > 0
+  const [mode, setMode] = useState<Mode>(hasRegistered ? 'registered' : 'email')
   const [selectedUserId, setSelectedUserId] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<'player' | 'captain'>('player')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
-
-  const hasRegisteredPlayers = registeredPlayers && registeredPlayers.length > 0
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -32,8 +34,8 @@ export function AdminAddMemberForm({ teamId, leagueId, registeredPlayers }: Prop
     setSuccessMsg(null)
 
     let submittedEmail = email
-    if (hasRegisteredPlayers && selectedUserId) {
-      const player = registeredPlayers!.find((p) => p.userId === selectedUserId)
+    if (mode === 'registered' && selectedUserId) {
+      const player = registeredPlayers.find((p) => p.userId === selectedUserId)
       submittedEmail = player?.email ?? ''
     }
 
@@ -42,12 +44,13 @@ export function AdminAddMemberForm({ teamId, leagueId, registeredPlayers }: Prop
     if (result.error) {
       setError(result.error)
     } else {
-      const displayName = hasRegisteredPlayers
-        ? registeredPlayers!.find((p) => p.userId === selectedUserId)?.name ?? submittedEmail
-        : submittedEmail
+      const displayName =
+        mode === 'registered'
+          ? (registeredPlayers.find((p) => p.userId === selectedUserId)?.name ?? submittedEmail)
+          : submittedEmail
       setSuccessMsg(
         result.invited
-          ? `Invite recorded for ${displayName}.`
+          ? `Invite sent to ${displayName}.`
           : `${displayName} added to the team.`
       )
       setSelectedUserId('')
@@ -58,12 +61,34 @@ export function AdminAddMemberForm({ teamId, leagueId, registeredPlayers }: Prop
     setLoading(false)
   }
 
+  const canSubmit = mode === 'registered' ? !!selectedUserId : !!email
+
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      {hasRegisteredPlayers ? (
+      {/* Mode toggle — only show when there are registered players */}
+      {hasRegistered && (
+        <div className="flex rounded-md border overflow-hidden text-xs font-medium">
+          <button
+            type="button"
+            onClick={() => { setMode('registered'); setError(null); setSuccessMsg(null) }}
+            className={`flex-1 py-1.5 transition-colors ${mode === 'registered' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+          >
+            Registered Player
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode('email'); setError(null); setSuccessMsg(null) }}
+            className={`flex-1 py-1.5 transition-colors ${mode === 'email' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+          >
+            Invite by Email
+          </button>
+        </div>
+      )}
+
+      {mode === 'registered' && hasRegistered ? (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Registered Player
+            Select Player
           </label>
           <select
             value={selectedUserId}
@@ -72,7 +97,7 @@ export function AdminAddMemberForm({ teamId, leagueId, registeredPlayers }: Prop
             className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Select a player…</option>
-            {registeredPlayers!.map((p) => (
+            {registeredPlayers.map((p) => (
               <option key={p.userId} value={p.userId}>
                 {p.name}{p.email ? ` (${p.email})` : ''}
               </option>
@@ -82,7 +107,7 @@ export function AdminAddMemberForm({ teamId, leagueId, registeredPlayers }: Prop
       ) : (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            {registeredPlayers?.length === 0 ? 'Email (all registered players are on a team)' : 'Email'}
+            Email Address
           </label>
           <input
             type="email"
@@ -92,6 +117,9 @@ export function AdminAddMemberForm({ teamId, leagueId, registeredPlayers }: Prop
             required
             className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <p className="text-xs text-gray-400 mt-1">
+            They&apos;ll receive an invite email with a link to join the team.
+          </p>
         </div>
       )}
 
@@ -112,10 +140,10 @@ export function AdminAddMemberForm({ teamId, leagueId, registeredPlayers }: Prop
 
       <button
         type="submit"
-        disabled={loading || (hasRegisteredPlayers ? !selectedUserId : !email)}
+        disabled={loading || !canSubmit}
         className="w-full py-2 px-4 rounded-md text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors"
       >
-        {loading ? 'Adding…' : 'Add Player'}
+        {loading ? 'Adding…' : mode === 'email' ? 'Send Invite' : 'Add Player'}
       </button>
     </form>
   )

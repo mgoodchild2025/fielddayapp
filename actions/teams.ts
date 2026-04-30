@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
-import { sendEmail, buildJoinRequestEmail, buildJoinApprovedEmail, buildJoinDeclinedEmail } from '@/lib/email'
+import { sendEmail, buildJoinRequestEmail, buildJoinApprovedEmail, buildJoinDeclinedEmail, buildCaptainAssignedEmail, buildTeamAddedEmail } from '@/lib/email'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -73,6 +73,61 @@ export async function createTeam(input: z.infer<typeof createTeamSchema>) {
   return { data: team, error: null }
 }
 
+// ─── Helper: notify a newly-assigned captain ─────────────────────────────────
+
+async function notifyCaptainAssigned({
+  db,
+  org,
+  captainUserId,
+  teamId,
+  teamName,
+  leagueId,
+  headersList,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any
+  org: { id: string; name: string }
+  captainUserId: string
+  teamId: string
+  teamName: string
+  leagueId: string
+  headersList: Awaited<ReturnType<typeof import('next/headers')['headers']>>
+}) {
+  const [{ data: captainProfile }, { data: leagueRow }] = await Promise.all([
+    db.from('profiles').select('email, full_name').eq('id', captainUserId).single(),
+    db.from('leagues').select('name').eq('id', leagueId).single(),
+  ])
+
+  if (!captainProfile?.email) return
+
+  const host = headersList.get('host') ?? ''
+  const proto = headersList.get('x-forwarded-proto') ?? 'http'
+  const teamUrl = `${proto}://${host}/teams/${teamId}`
+  const leagueName = leagueRow?.name ?? ''
+
+  // In-app notification
+  await db.from('notifications').insert({
+    organization_id: org.id,
+    user_id: captainUserId,
+    type: 'captain_assigned',
+    title: `You're the captain of ${teamName}`,
+    body: `You've been named captain of ${teamName} for ${leagueName}. Tap to manage your roster.`,
+    data: { team_url: teamUrl },
+  })
+
+  // Email
+  await sendEmail({
+    to: captainProfile.email,
+    subject: `You're the captain of ${teamName}`,
+    html: buildCaptainAssignedEmail({
+      teamName,
+      orgName: org.name,
+      leagueName,
+      teamUrl,
+    }),
+  })
+}
+
 // ─── Admin: create team ───────────────────────────────────────────────────────
 
 const adminCreateTeamSchema = z.object({
@@ -121,6 +176,17 @@ export async function adminCreateTeam(input: z.infer<typeof adminCreateTeamSchem
       .eq('organization_id', org.id)
       .eq('user_id', parsed.data.captainUserId)
       .eq('role', 'player')
+
+    // Notify the captain
+    await notifyCaptainAssigned({
+      db,
+      org,
+      captainUserId: parsed.data.captainUserId,
+      teamId: team.id,
+      teamName: parsed.data.name,
+      leagueId: parsed.data.leagueId,
+      headersList,
+    })
   }
 
   revalidatePath(`/admin/events/${parsed.data.leagueId}/teams`)
@@ -178,6 +244,20 @@ export async function adminSetCaptain(memberId: string, teamId: string, leagueId
       .eq('organization_id', org.id)
       .eq('user_id', promoted.user_id)
       .eq('role', 'player')
+
+    // Fetch team name for notification
+    const { data: teamRow } = await db.from('teams').select('name, league_id').eq('id', teamId).single()
+    if (teamRow) {
+      await notifyCaptainAssigned({
+        db,
+        org,
+        captainUserId: promoted.user_id,
+        teamId,
+        teamName: teamRow.name,
+        leagueId,
+        headersList,
+      })
+    }
   }
 
   revalidatePath(`/admin/events/${leagueId}/teams`)
@@ -376,11 +456,13 @@ export async function adminAddTeamMember(input: z.infer<typeof adminAddMemberSch
     .eq('email', parsed.data.email)
     .single()
 
+  const db = createServiceRoleClient()
+
   if (profile) {
     // User exists — add as active member
 
     // Ensure org membership
-    await supabase.from('org_members').upsert({
+    await db.from('org_members').upsert({
       organization_id: org.id,
       user_id: profile.id,
       role: parsed.data.role === 'captain' ? 'captain' : 'player',
@@ -388,7 +470,7 @@ export async function adminAddTeamMember(input: z.infer<typeof adminAddMemberSch
     }, { onConflict: 'organization_id,user_id', ignoreDuplicates: true })
 
     // Add to team (upsert in case they're already a member — updates role)
-    const { error } = await supabase.from('team_members').upsert({
+    const { error } = await db.from('team_members').upsert({
       organization_id: org.id,
       team_id: parsed.data.teamId,
       user_id: profile.id,
@@ -399,24 +481,53 @@ export async function adminAddTeamMember(input: z.infer<typeof adminAddMemberSch
 
     if (error) return { data: null, error: error.message, invited: false }
 
+    // Notify the player they've been added
+    const [{ data: teamRow }, { data: leagueRow }] = await Promise.all([
+      db.from('teams').select('name').eq('id', parsed.data.teamId).single(),
+      db.from('leagues').select('name').eq('id', parsed.data.leagueId).single(),
+    ])
+    if (teamRow && leagueRow) {
+      const host = headersList.get('host') ?? ''
+      const proto = headersList.get('x-forwarded-proto') ?? 'http'
+      const teamUrl = `${proto}://${host}/teams/${parsed.data.teamId}`
+
+      // In-app notification
+      await db.from('notifications').insert({
+        organization_id: org.id,
+        user_id: profile.id,
+        type: 'team_added',
+        title: `You've been added to ${teamRow.name}`,
+        body: `You've been added as ${parsed.data.role} for ${leagueRow.name}.`,
+        data: { team_url: teamUrl },
+      })
+
+      // Email
+      await sendEmail({
+        to: parsed.data.email,
+        subject: `You've been added to ${teamRow.name}`,
+        html: buildTeamAddedEmail({
+          teamName: teamRow.name,
+          orgName: org.name,
+          leagueName: leagueRow.name,
+          role: parsed.data.role,
+          teamUrl,
+        }),
+      })
+    }
+
     revalidatePath(`/admin/events/${parsed.data.leagueId}/teams`)
     return { data: null, error: null, invited: false }
   }
 
-  // No account yet — store as an invite; links automatically when they sign up
-  const { error } = await supabase.from('team_members').insert({
-    organization_id: org.id,
-    team_id: parsed.data.teamId,
-    user_id: null,
-    invited_email: parsed.data.email,
-    role: parsed.data.role,
-    status: 'invited',
+  // No account yet — send a proper invite via the invitations flow so they get an email with an accept link
+  const { sendTeamInvite } = await import('@/actions/invitations')
+  const inviteResult = await sendTeamInvite({
+    teamId: parsed.data.teamId,
+    email: parsed.data.email,
+    role: parsed.data.role as 'captain' | 'player',
   })
 
-  if (error) {
-    if (error.code === '23505') return { data: null, error: `${parsed.data.email} has already been invited to this team`, invited: false }
-    return { data: null, error: error.message, invited: false }
-  }
+  if (inviteResult.error) return { data: null, error: inviteResult.error, invited: false }
 
   revalidatePath(`/admin/events/${parsed.data.leagueId}/teams`)
   return { data: null, error: null, invited: true }
