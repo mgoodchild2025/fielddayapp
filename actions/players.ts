@@ -182,6 +182,26 @@ export async function setTeamMemberRole(
   return { error: null }
 }
 
+export async function removePlayerFromOrg(userId: string) {
+  const { error, org, db } = await requireOrgAdmin()
+  if (error) return { error }
+
+  // Remove team memberships within this org
+  await db.from('team_members').delete().eq('user_id', userId).eq('organization_id', org.id)
+  // Remove registrations within this org
+  await db.from('registrations').delete().eq('user_id', userId).eq('organization_id', org.id)
+  // Remove the org membership itself
+  const { error: e } = await db
+    .from('org_members')
+    .delete()
+    .eq('user_id', userId)
+    .eq('organization_id', org.id)
+  if (e) return { error: e.message }
+
+  revalidatePath('/admin/players')
+  return { error: null }
+}
+
 export async function sendPlayerNotification(userId: string, title: string, body: string) {
   const { error, org, db } = await requireOrgAdmin()
   if (error) return { error }

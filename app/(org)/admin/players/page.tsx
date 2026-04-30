@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { DeletePlayerButton } from '@/components/players/delete-player-button'
 
 const roleColors: Record<string, string> = {
   org_admin: 'bg-purple-100 text-purple-700',
@@ -146,13 +147,19 @@ export default async function PlayersPage({
                     </td>
                     <td className="px-4 py-3">
                       {m.user_id && (
-                        <Link
-                          href={`/admin/players/${m.user_id}`}
-                          className="text-xs font-medium hover:underline"
-                          style={{ color: 'var(--brand-primary)' }}
-                        >
-                          Manage →
-                        </Link>
+                        <span className="flex items-center gap-1">
+                          <Link
+                            href={`/admin/players/${m.user_id}`}
+                            className="text-xs font-medium hover:underline"
+                            style={{ color: 'var(--brand-primary)' }}
+                          >
+                            Manage →
+                          </Link>
+                          <DeletePlayerButton
+                            userId={m.user_id}
+                            name={(() => { const p = Array.isArray(m.profile) ? m.profile[0] : m.profile; return p?.full_name ?? p?.email ?? 'this player' })()}
+                          />
+                        </span>
                       )}
                     </td>
                   </tr>
