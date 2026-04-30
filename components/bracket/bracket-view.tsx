@@ -4,6 +4,7 @@ import { getRoundName } from '@/lib/bracket'
 import { recordBracketScore } from '@/actions/brackets'
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useRouter } from 'next/navigation'
 
 export interface BracketMatchData {
   id: string
@@ -73,6 +74,7 @@ function ScoreModal({
   const [err, setErr] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const firstInputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
 
   useEffect(() => { firstInputRef.current?.focus() }, [])
 
@@ -105,7 +107,7 @@ function ScoreModal({
           score1: wins1, score2: wins2,
           sets: parsed,
         })
-        if (res.error) { setErr(res.error) } else { onClose() }
+        if (res.error) { setErr(res.error) } else { router.refresh(); onClose() }
       })
       return
     }
@@ -116,7 +118,7 @@ function ScoreModal({
     if (n1 === n2) { setErr('No ties in playoffs'); return }
     startTransition(async () => {
       const res = await recordBracketScore({ matchId: match.id, bracketId, leagueId, score1: n1, score2: n2 })
-      if (res.error) { setErr(res.error) } else { onClose() }
+      if (res.error) { setErr(res.error) } else { router.refresh(); onClose() }
     })
   }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { createBracket, seedBracket, publishBracket, deleteBracket } from '@/actions/brackets'
 import type { BracketRecommendation, TeamStanding } from '@/lib/bracket'
 import { BracketView, type BracketData } from './bracket-view'
@@ -19,6 +19,9 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
   const [bracketId, setBracketId] = useState<string | null>(existingBracket?.id ?? null)
   const [bracket, setBracket] = useState<BracketData | null>(existingBracket)
   const [err, setErr] = useState<string | null>(null)
+
+  // Sync bracket state when the server re-renders with updated match data (e.g. after score entry)
+  useEffect(() => { setBracket(existingBracket) }, [existingBracket])
   const [isPending, startTransition] = useTransition()
 
   // Step 1 state
