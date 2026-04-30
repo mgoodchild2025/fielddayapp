@@ -131,7 +131,13 @@ export default async function PlayersPage({
                 const profile = Array.isArray(m.profile) ? m.profile[0] : m.profile
                 return (
                   <tr key={m.id} className="border-b last:border-0 hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">{profile?.full_name ?? '—'}</td>
+                    <td className="px-4 py-3 font-medium">
+                      {m.user_id ? (
+                        <Link href={`/admin/players/${m.user_id}`} className="hover:underline" style={{ color: 'var(--brand-primary)' }}>
+                          {profile?.full_name ?? '—'}
+                        </Link>
+                      ) : (profile?.full_name ?? '—')}
+                    </td>
                     <td className="px-4 py-3 text-gray-500">{profile?.email ?? '—'}</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${roleColors[m.role] ?? 'bg-gray-100 text-gray-600'}`}>

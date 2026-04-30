@@ -79,7 +79,11 @@ export default async function AdminEventsPage() {
               created_at: string
             }) => (
               <tr key={league.id} className="border-b last:border-0 hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium">{league.name}</td>
+                <td className="px-4 py-3 font-medium">
+                  <Link href={`/admin/events/${league.id}`} className="hover:underline" style={{ color: 'var(--brand-primary)' }}>
+                    {league.name}
+                  </Link>
+                </td>
                 <td className="px-4 py-3">
                   <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${eventTypeColors[league.event_type ?? 'league'] ?? 'bg-gray-100 text-gray-600'}`}>
                     {eventTypeLabels[league.event_type ?? 'league'] ?? league.event_type}

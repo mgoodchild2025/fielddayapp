@@ -86,7 +86,7 @@ export default async function AdminTeamsPage() {
                               {team.color && (
                                 <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
                               )}
-                              <span className="font-medium">{team.name}</span>
+                              <Link href={`/teams/${team.id}`} className="font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>{team.name}</Link>
                             </div>
                           </td>
                           <td className="px-4 py-3 text-gray-600">{activeCount}</td>
