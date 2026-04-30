@@ -20,22 +20,32 @@ export function SettingsNav() {
   const current = CATEGORIES.find(c => pathname.startsWith(c.href)) ?? null
 
   return (
-    <div className="relative mb-6">
-      <select
-        value={current?.href ?? ''}
-        onChange={e => { if (e.target.value) router.push(e.target.value) }}
-        className="w-full appearance-none bg-white border rounded-lg px-3 py-2.5 pr-8 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-0"
-      >
-        <option value="" disabled>Select a category…</option>
-        {CATEGORIES.map(c => (
-          <option key={c.href} value={c.href}>{c.label}</option>
-        ))}
-      </select>
-      <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-        <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
+    <div className="mb-8">
+      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Settings</p>
+
+      <div className="relative">
+        <select
+          value={current?.href ?? ''}
+          onChange={e => { if (e.target.value) router.push(e.target.value) }}
+          className="w-full appearance-none bg-white border border-gray-300 rounded-lg px-4 py-3 pr-10 text-sm font-medium text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-0 cursor-pointer"
+        >
+          <option value="" disabled>Select a category…</option>
+          {CATEGORIES.map(c => (
+            <option key={c.href} value={c.href}>{c.label}</option>
+          ))}
+        </select>
+        <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+          <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
       </div>
+
+      {current?.description && (
+        <p className="mt-2 text-xs text-gray-400">{current.description}</p>
+      )}
+
+      <hr className="mt-6 border-gray-100" />
     </div>
   )
 }

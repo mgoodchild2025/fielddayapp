@@ -52,7 +52,7 @@ export default async function AdminSettingsPage() {
       </div>
 
       <p className="text-sm text-gray-400 text-center">
-        Select a category above to manage your settings.
+        Select a category from the dropdown to manage your settings.
       </p>
     </div>
   )
