@@ -244,6 +244,7 @@ export default async function EventDetailPage({
   const timezone = branding?.timezone ?? 'America/Toronto'
   const isSessionBased = league.event_type === 'pickup' || league.event_type === 'drop_in'
   const isTeamBased = !isSessionBased
+  const isSeasonPickup = isSessionBased && league.registration_mode === 'season'
 
   // Check for published bracket (lightweight — just need to know if one exists)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -290,7 +291,7 @@ export default async function EventDetailPage({
     : { data: null }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: mySessionRegs } = (isSessionBased && user)
+  const { data: mySessionRegs } = (isSessionBased && !isSeasonPickup && user)
     ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (db as any)
         .from('session_registrations')
@@ -300,6 +301,10 @@ export default async function EventDetailPage({
         .eq('status', 'registered')
     : { data: null }
   const mySessionIds = new Set((mySessionRegs ?? []).map((r: { session_id: string }) => r.session_id))
+
+  const { data: mySeasonRegistration } = (isSeasonPickup && user)
+    ? await supabase.from('registrations').select('id, status').eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id).single()
+    : { data: null }
 
   // Teams list (for open-registration team events)
   const canJoinTeam = isTeamBased && league.team_join_policy !== 'admin_only' && league.league_type === 'team'
@@ -632,12 +637,35 @@ export default async function EventDetailPage({
               </div>
             )}
 
+            {/* Season pickup CTA */}
+            {isSeasonPickup && (
+              mySeasonRegistration ? (
+                <div className="w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide bg-green-50 border border-green-200 text-green-700" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+                  ✓ You&apos;re enrolled for the season
+                  {mySeasonRegistration.status === 'pending' && (
+                    <span className="block text-sm font-normal normal-case text-green-600 mt-1">Your registration is pending approval</span>
+                  )}
+                </div>
+              ) : isOpen ? (
+                <Link
+                  href={`/register/${league.slug}`}
+                  className="inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: 'var(--brand-primary)', fontFamily: 'var(--brand-heading-font)' }}
+                >
+                  Register for the Season
+                </Link>
+              ) : null
+            )}
+
             {/* Sessions (pickup/drop-in) */}
             {isSessionBased && (
               <div>
                 <div className="flex items-center gap-3 mb-3">
                   <h2 className="font-bold text-lg" style={{ fontFamily: 'var(--brand-heading-font)' }}>Upcoming Sessions</h2>
-                  {league.pickup_join_policy === 'private' && (
+                  {isSeasonPickup && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Season pass</span>
+                  )}
+                  {!isSeasonPickup && league.pickup_join_policy === 'private' && (
                     <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">Invite only</span>
                   )}
                 </div>
@@ -660,7 +688,8 @@ export default async function EventDetailPage({
                                 {new Date(s.scheduled_at).toLocaleString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                               </p>
                               {isCancelled && <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
-                              {isJoined && !isCancelled && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Joined ✓</span>}
+                              {!isSeasonPickup && isJoined && !isCancelled && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Joined ✓</span>}
+                              {isSeasonPickup && mySeasonRegistration && !isCancelled && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Enrolled ✓</span>}
                             </div>
                             <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
                               <span>{s.duration_minutes} min</span>
@@ -668,28 +697,30 @@ export default async function EventDetailPage({
                               {!isCancelled && (remaining === null
                                 ? <span>{registeredCount} registered</span>
                                 : isFull
-                                  ? <span className="text-red-600 font-medium">Full ({s.capacity} spots)</span>
+                                  ? <span className={`font-medium ${isSeasonPickup ? 'text-amber-600' : 'text-red-600'}`}>Full ({s.capacity} spots)</span>
                                   : <span className="text-green-700 font-medium">{remaining} of {s.capacity} spots left</span>
                               )}
                             </div>
                             {s.notes && <p className="text-xs text-gray-400 mt-1">{s.notes}</p>}
                           </div>
-                          <div className="shrink-0">
-                            {league.pickup_join_policy === 'private' ? (
-                              isJoined && !isCancelled
-                                ? <span className="text-xs px-3 py-1.5 rounded-md bg-green-50 text-green-700 font-medium">Joined ✓</span>
-                                : null
-                            ) : (
-                              <SessionJoinButton
-                                sessionId={s.id}
-                                leagueId={league.id}
-                                isJoined={isJoined}
-                                isFull={isFull}
-                                isCancelled={isCancelled}
-                                isLoggedIn={!!user}
-                              />
-                            )}
-                          </div>
+                          {!isSeasonPickup && (
+                            <div className="shrink-0">
+                              {league.pickup_join_policy === 'private' ? (
+                                isJoined && !isCancelled
+                                  ? <span className="text-xs px-3 py-1.5 rounded-md bg-green-50 text-green-700 font-medium">Joined ✓</span>
+                                  : null
+                              ) : (
+                                <SessionJoinButton
+                                  sessionId={s.id}
+                                  leagueId={league.id}
+                                  isJoined={isJoined}
+                                  isFull={isFull}
+                                  isCancelled={isCancelled}
+                                  isLoggedIn={!!user}
+                                />
+                              )}
+                            </div>
+                          )}
                         </div>
                       )
                     })}

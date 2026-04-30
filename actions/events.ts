@@ -38,6 +38,7 @@ const createLeagueSchema = z.object({
   organizer_phone: z.string().optional(),
   team_join_policy: z.enum(['open', 'captain_invite', 'admin_only']).default('open'),
   pickup_join_policy: z.enum(['public', 'private']).default('public'),
+  registration_mode: z.enum(['session', 'season']).default('session'),
 })
 
 export async function createLeague(

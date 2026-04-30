@@ -9,7 +9,9 @@ interface League {
   slug: string
   description: string | null
   sport: string | null
+  event_type: string
   league_type: string
+  registration_mode: string
   price_cents: number
   currency: string
   payment_mode: string
@@ -120,7 +122,9 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
       organizer_email: (fd.get('organizer_email') as string) || undefined,
       organizer_phone: (fd.get('organizer_phone') as string) || undefined,
       team_join_policy: (fd.get('team_join_policy') as 'open' | 'captain_invite' | 'admin_only') || 'open',
-    })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      registration_mode: (fd.get('registration_mode') as string) || 'session',
+    } as any)
 
     setLoading(false)
 
@@ -193,6 +197,24 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
             </select>
           </Field>
         </div>
+
+        {(league.event_type === 'pickup' || league.event_type === 'drop_in') && (
+          <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 space-y-3">
+            <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide">Registration Mode</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: 'session', label: 'Per session', desc: 'Players join individual sessions' },
+                { value: 'season', label: 'Season pass', desc: 'Register once, attend all sessions' },
+              ].map((opt) => (
+                <label key={opt.value} className={`flex flex-col gap-0.5 p-3 rounded-md border cursor-pointer transition-colors ${league.registration_mode === opt.value ? 'border-blue-500 bg-white' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                  <input type="radio" name="registration_mode" value={opt.value} defaultChecked={league.registration_mode === opt.value} className="sr-only" />
+                  <span className="text-sm font-semibold">{opt.label}</span>
+                  <span className="text-xs text-gray-500">{opt.desc}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Price (cents)">
