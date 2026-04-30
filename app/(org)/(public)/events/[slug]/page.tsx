@@ -222,10 +222,10 @@ export default async function EventDetailPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ tab?: string; invite?: string }>
+  searchParams: Promise<{ tab?: string; invite?: string; mode?: string }>
 }) {
   const { slug } = await params
-  const { tab: rawTab } = await searchParams
+  const { tab: rawTab, invite: inviteToken, mode: urlMode } = await searchParams
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
@@ -267,21 +267,28 @@ export default async function EventDetailPage({
       })()
     : false
 
-  // Check if logged-in user has a pending drop-in invite
+  // Check if logged-in user has a pending drop-in invite (by email or by the token in the URL)
   const hasDropInInvite = (hasDropIn && user)
     ? await (async () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data } = await (db as any)
+        const query = (db as any)
           .from('pickup_invites')
           .select('id')
           .eq('league_id', league.id)
-          .eq('email', user.email!.toLowerCase())
           .eq('invite_type', 'drop_in')
           .eq('status', 'pending')
-          .maybeSingle()
+        // Match by token (from email link) OR by the logged-in user's email
+        const { data } = inviteToken
+          ? await query.eq('token', inviteToken).maybeSingle()
+          : await query.eq('email', user.email!.toLowerCase()).maybeSingle()
         return !!data
       })()
     : false
+
+  // A drop-in invite is present in the URL (may be for an unauthenticated visitor)
+  const dropInInviteInUrl = urlMode === 'drop_in' && !!inviteToken
+  // The return-to URL to use in login redirects from this page
+  const returnPath = `/events/${slug}${inviteToken ? `?invite=${inviteToken}${urlMode ? `&mode=${urlMode}` : ''}` : ''}`
 
   // Check for published bracket (lightweight — just need to know if one exists)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -705,7 +712,7 @@ export default async function EventDetailPage({
                   )}
                   {isPrivatePickup && !hasSeasonInvite && !user && (
                     <Link
-                      href="/login"
+                      href={`/login?redirect=${encodeURIComponent(returnPath)}`}
                       className="inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90"
                       style={{ backgroundColor: 'var(--brand-primary)', fontFamily: 'var(--brand-heading-font)' }}
                     >
@@ -722,20 +729,30 @@ export default async function EventDetailPage({
             )}
 
             {/* Drop-in CTA */}
-            {isPickupEvent && hasDropIn && !mySeasonRegistration && hasDropInInvite && (
+            {isPickupEvent && hasDropIn && !mySeasonRegistration && (hasDropInInvite || dropInInviteInUrl) && (
               <div className="bg-white border rounded-lg p-5">
                 <p className="text-sm font-semibold mb-1">Drop-in Available</p>
                 <p className="text-sm text-gray-600 mb-3">
                   You&apos;ve been invited to join as a drop-in.
                   {dropInPriceCents ? ` Fee: $${(dropInPriceCents / 100).toFixed(0)}` : ' Free'}
                 </p>
-                <Link
-                  href={`/register/${league.slug}?mode=drop_in`}
-                  className="inline-block px-6 py-2.5 rounded-md font-semibold text-white transition-opacity hover:opacity-90"
-                  style={{ backgroundColor: 'var(--brand-primary)' }}
-                >
-                  Register as Drop-in
-                </Link>
+                {user ? (
+                  <Link
+                    href={`/register/${league.slug}?mode=drop_in${inviteToken ? `&invite=${inviteToken}` : ''}`}
+                    className="inline-block px-6 py-2.5 rounded-md font-semibold text-white transition-opacity hover:opacity-90"
+                    style={{ backgroundColor: 'var(--brand-primary)' }}
+                  >
+                    Register as Drop-in
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/login?redirect=${encodeURIComponent(returnPath)}`}
+                    className="inline-block px-6 py-2.5 rounded-md font-semibold text-white transition-opacity hover:opacity-90"
+                    style={{ backgroundColor: 'var(--brand-primary)' }}
+                  >
+                    Log in to Register as Drop-in
+                  </Link>
+                )}
               </div>
             )}
 
@@ -805,7 +822,7 @@ export default async function EventDetailPage({
                                   />
                                 ) : !user ? (
                                   <a
-                                    href={`/login`}
+                                    href={`/login?redirect=${encodeURIComponent(returnPath)}`}
                                     className="px-4 py-1.5 rounded-md text-sm font-semibold text-white"
                                     style={{ backgroundColor: 'var(--brand-primary)' }}
                                   >

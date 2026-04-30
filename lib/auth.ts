@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import type { OrgContext } from '@/lib/tenant'
 
@@ -44,7 +45,12 @@ export async function requireAuth() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) {
+    const headersList = await headers()
+    const pathname = headersList.get('x-pathname') ?? ''
+    const returnTo = pathname && pathname !== '/login' ? `?redirect=${encodeURIComponent(pathname)}` : ''
+    redirect(`/login${returnTo}`)
+  }
   return user
 }
 

@@ -81,6 +81,8 @@ export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers)
   if (orgId) requestHeaders.set('x-org-id', orgId)
   if (isImpersonating) requestHeaders.set('x-impersonating', '1')
+  // Expose the full pathname+search so server components can build return-to URLs
+  requestHeaders.set('x-pathname', request.nextUrl.pathname + request.nextUrl.search)
 
   // ── Step 3: create the final response, then refresh the Supabase session ──
   // We do this in one pass so session-refresh cookies land on the correct
