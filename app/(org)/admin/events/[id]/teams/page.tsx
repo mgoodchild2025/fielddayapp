@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { getAdminScope } from '@/lib/admin-scope'
 import { AdminCreateTeamForm } from '@/components/teams/admin-create-team-form'
 import { AdminAddMemberForm } from '@/components/teams/admin-add-member-form'
 import { TeamCodeBadge } from '@/components/teams/team-code-badge'
@@ -17,6 +18,8 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
+  const scope = await getAdminScope(org.id)
+  const isOrgAdmin = scope.isOrgAdmin
 
   // Fetch team ids first so we can filter join requests and team members
   const { data: teamIds } = await db
@@ -81,8 +84,8 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {/* Pending join requests banner */}
-      {pendingRequests.length > 0 && (
+      {/* Pending join requests banner — org admins only */}
+      {isOrgAdmin && pendingRequests.length > 0 && (
         <div className="md:col-span-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
           <p className="text-sm font-semibold text-amber-800 mb-3">
             {pendingRequests.length} pending join request{pendingRequests.length !== 1 ? 's' : ''}
@@ -133,11 +136,15 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
                   <span className="text-xs text-gray-400 ml-auto">
                     {activePlayers.length} player{activePlayers.length !== 1 ? 's' : ''}
                   </span>
-                  <AdminEditTeamForm
-                    team={{ id: team.id, name: team.name, color: team.color, logo_url: team.logo_url ?? null }}
-                    leagueId={id}
-                  />
-                  <DeleteTeamButton teamId={team.id} teamName={team.name} leagueId={id} />
+                  {isOrgAdmin && (
+                    <>
+                      <AdminEditTeamForm
+                        team={{ id: team.id, name: team.name, color: team.color, logo_url: team.logo_url ?? null }}
+                        leagueId={id}
+                      />
+                      <DeleteTeamButton teamId={team.id} teamName={team.name} leagueId={id} />
+                    </>
+                  )}
                 </div>
 
                 {captainProfile?.full_name && (
@@ -164,7 +171,7 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
                       >
                         {displayName}
                         {m.status === 'invited' && ' (invited)'}
-                        {m.role !== 'captain' && m.status === 'active' && m.user_id && (
+                        {isOrgAdmin && m.role !== 'captain' && m.status === 'active' && m.user_id && (
                           <MakeCaptainButton
                             memberId={m.id}
                             teamId={team.id}
@@ -172,31 +179,35 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
                             playerName={displayName}
                           />
                         )}
-                        <RemovePlayerButton
-                          memberId={m.id}
-                          leagueId={id}
-                          playerName={displayName}
-                        />
+                        {isOrgAdmin && (
+                          <RemovePlayerButton
+                            memberId={m.id}
+                            leagueId={id}
+                            playerName={displayName}
+                          />
+                        )}
                       </span>
                     )
                   })}
                 </div>
 
-                <details className="mt-4">
-                  <summary className="text-sm font-medium text-blue-600 cursor-pointer hover:text-blue-700 list-none flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Player
-                  </summary>
-                  <div className="mt-3 pt-3 border-t">
-                    <AdminAddMemberForm
-                      teamId={team.id}
-                      leagueId={id}
-                      registeredPlayers={unassignedPlayers}
-                    />
-                  </div>
-                </details>
+                {isOrgAdmin && (
+                  <details className="mt-4">
+                    <summary className="text-sm font-medium text-blue-600 cursor-pointer hover:text-blue-700 list-none flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Player
+                    </summary>
+                    <div className="mt-3 pt-3 border-t">
+                      <AdminAddMemberForm
+                        teamId={team.id}
+                        leagueId={id}
+                        registeredPlayers={unassignedPlayers}
+                      />
+                    </div>
+                  </details>
+                )}
               </div>
             )
           })
@@ -207,9 +218,11 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
         )}
       </div>
 
-      <div>
-        <AdminCreateTeamForm leagueId={id} registeredPlayers={unassignedPlayers} />
-      </div>
+      {isOrgAdmin && (
+        <div>
+          <AdminCreateTeamForm leagueId={id} registeredPlayers={unassignedPlayers} />
+        </div>
+      )}
     </div>
   )
 }

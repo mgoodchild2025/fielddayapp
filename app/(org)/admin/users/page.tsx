@@ -1,4 +1,5 @@
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
@@ -20,6 +21,9 @@ export default async function AdminUsersPage() {
     .eq('organization_id', org.id)
     .eq('user_id', user?.id ?? '')
     .single()
+
+  // League admins have no access to the Admins page
+  if (currentMember?.role === 'league_admin') redirect('/admin/events')
 
   const isOrgAdmin = currentMember?.role === 'org_admin'
 

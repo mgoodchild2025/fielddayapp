@@ -1,4 +1,5 @@
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
@@ -7,6 +8,13 @@ export default async function AdminDashboardPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+
+  // League admins don't have access to the dashboard — send them to events
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    const { data: m } = await supabase.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single()
+    if (m?.role === 'league_admin') redirect('/admin/events')
+  }
 
   const [
     { count: leagueCount },

@@ -78,7 +78,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
       {/* Details */}
       <div className="md:col-span-2 bg-white rounded-lg border p-5">
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <EditEventForm league={league as any} waivers={waivers ?? []} ruleTemplates={ruleTemplates ?? []} />
+        {isOrgAdmin && <EditEventForm league={league as any} waivers={waivers ?? []} ruleTemplates={ruleTemplates ?? []} />}
         <dl className="space-y-3 text-sm mt-4">
           <Row label="Sport" value={league.sport ?? '—'} />
           {league.age_group && <Row label="Age Group" value={league.age_group} />}
@@ -145,7 +145,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
           isOrgAdmin={isOrgAdmin}
         />
 
-        {transition && (
+        {isOrgAdmin && transition && (
           <div className="bg-white rounded-lg border p-5">
             <h2 className="font-semibold text-sm mb-3">Advance Status</h2>
             <form action={changeStatus}>
@@ -164,10 +164,12 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
           <code className="text-xs bg-gray-50 border rounded px-2 py-1.5 block break-all">{league.slug}</code>
         </div>
 
-        <div className="bg-white rounded-lg border p-5">
-          <h2 className="font-semibold text-sm mb-3 text-red-600">Danger Zone</h2>
-          <DeleteEventButton leagueId={league.id} eventName={league.name} />
-        </div>
+        {isOrgAdmin && (
+          <div className="bg-white rounded-lg border p-5">
+            <h2 className="font-semibold text-sm mb-3 text-red-600">Danger Zone</h2>
+            <DeleteEventButton leagueId={league.id} eventName={league.name} />
+          </div>
+        )}
       </div>
     </div>
   )

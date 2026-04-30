@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { getAdminScope } from '@/lib/admin-scope'
 import { PlayerDetailsForm } from '@/components/players/player-details-form'
 import { AddToEventForm } from '@/components/players/add-to-event-form'
 import { AddToTeamForm } from '@/components/players/add-to-team-form'
@@ -42,6 +43,8 @@ export default async function PlayerManagementPage({
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = createServiceRoleClient()
+  const scope = await getAdminScope(org.id)
+  const isOrgAdmin = scope.isOrgAdmin
 
   const [
     profileRes,
@@ -191,12 +194,31 @@ export default async function PlayerManagementPage({
           {/* Player Details */}
           <div className="bg-white rounded-lg border p-6">
             <h2 className="text-base font-semibold mb-4">Player Details</h2>
-            <PlayerDetailsForm
-              userId={userId}
-              profile={profile}
-              playerDetails={playerDetails}
-              orgRole={orgMember.role as 'org_admin' | 'league_admin' | 'captain' | 'player'}
-            />
+            {isOrgAdmin ? (
+              <PlayerDetailsForm
+                userId={userId}
+                profile={profile}
+                playerDetails={playerDetails}
+                orgRole={orgMember.role as 'org_admin' | 'league_admin' | 'captain' | 'player'}
+              />
+            ) : (
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                {[
+                  ['Name', profile.full_name],
+                  ['Email', profile.email],
+                  ['Phone', profile.phone ?? '—'],
+                  ['Skill Level', playerDetails?.skill_level ?? '—'],
+                  ['T-Shirt Size', playerDetails?.t_shirt_size ?? '—'],
+                  ['Emergency Contact', playerDetails?.emergency_contact_name ?? '—'],
+                  ['Emergency Phone', playerDetails?.emergency_contact_phone ?? '—'],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">{label}</dt>
+                    <dd className="font-medium">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
           </div>
 
           {/* Leagues */}
@@ -254,21 +276,25 @@ export default async function PlayerManagementPage({
                             </span>
                           </div>
 
+                          {isOrgAdmin && (
                           <AddToTeamForm
                             userId={userId}
                             leagueId={reg.league_id ?? ''}
                             teams={availableTeams}
                           />
+                        )}
                         </div>
 
-                        <form action={removeLeague}>
-                          <button
-                            type="submit"
-                            className="text-xs text-red-500 hover:text-red-700 shrink-0"
-                          >
-                            Remove
-                          </button>
-                        </form>
+                        {isOrgAdmin && (
+                          <form action={removeLeague}>
+                            <button
+                              type="submit"
+                              className="text-xs text-red-500 hover:text-red-700 shrink-0"
+                            >
+                              Remove
+                            </button>
+                          </form>
+                        )}
                       </div>
                     </div>
                   )
@@ -280,7 +306,7 @@ export default async function PlayerManagementPage({
               <p className="text-sm text-gray-400 mb-4">Not registered in any leagues.</p>
             )}
 
-            {availableLeagues.length > 0 && (
+            {isOrgAdmin && availableLeagues.length > 0 && (
               <AddToEventForm userId={userId} leagues={availableLeagues} />
             )}
           </div>
@@ -312,21 +338,23 @@ export default async function PlayerManagementPage({
                           <p className="text-xs text-gray-400 mt-0.5">{leagueData.name}</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <TeamRoleSelect
-                          teamMemberId={tm.id}
-                          currentRole={tm.role}
-                          userId={userId}
-                        />
-                        <form action={removeTeam}>
-                          <button
-                            type="submit"
-                            className="text-xs text-red-500 hover:text-red-700"
-                          >
-                            Remove
-                          </button>
-                        </form>
-                      </div>
+                      {isOrgAdmin && (
+                        <div className="flex items-center gap-3 shrink-0">
+                          <TeamRoleSelect
+                            teamMemberId={tm.id}
+                            currentRole={tm.role}
+                            userId={userId}
+                          />
+                          <form action={removeTeam}>
+                            <button
+                              type="submit"
+                              className="text-xs text-red-500 hover:text-red-700"
+                            >
+                              Remove
+                            </button>
+                          </form>
+                        </div>
+                      )}
                     </div>
                   )
                 })}

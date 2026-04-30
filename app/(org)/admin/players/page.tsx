@@ -184,12 +184,14 @@ export default async function PlayersPage({
                             className="text-xs font-medium hover:underline"
                             style={{ color: 'var(--brand-primary)' }}
                           >
-                            Manage →
+                            View →
                           </Link>
-                          <DeletePlayerButton
-                            userId={m.user_id}
-                            name={(() => { const p = Array.isArray(m.profile) ? m.profile[0] : m.profile; return p?.full_name ?? p?.email ?? 'this player' })()}
-                          />
+                          {scope.isOrgAdmin && (
+                            <DeletePlayerButton
+                              userId={m.user_id}
+                              name={(() => { const p = Array.isArray(m.profile) ? m.profile[0] : m.profile; return p?.full_name ?? p?.email ?? 'this player' })()}
+                            />
+                          )}
                         </span>
                       )}
                     </td>

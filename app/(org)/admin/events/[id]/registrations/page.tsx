@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { getAdminScope } from '@/lib/admin-scope'
 import { activateRegistration } from '@/actions/registrations'
 import { RemoveRegistrationButton } from '@/components/registrations/remove-registration-button'
 
@@ -24,6 +25,8 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
+  const scope = await getAdminScope(org.id)
+  const isOrgAdmin = scope.isOrgAdmin
 
   const { data: branding } = await db
     .from('org_branding')
@@ -65,7 +68,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
               <th className="px-4 py-3 font-medium text-gray-500">Waiver</th>
               <th className="px-4 py-3 font-medium text-gray-500">Check-in</th>
               <th className="px-4 py-3 font-medium text-gray-500">Registered</th>
-              <th className="px-4 py-3"></th>
+              {isOrgAdmin && <th className="px-4 py-3"></th>}
             </tr>
           </thead>
           <tbody>
@@ -145,32 +148,34 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                       timeZone: timezone,
                     })}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      {reg.status === 'pending' && (
-                        <form action={approveAction}>
-                          <button
-                            type="submit"
-                            className="text-xs font-medium hover:underline"
-                            style={{ color: 'var(--brand-primary)' }}
-                          >
-                            Approve
-                          </button>
-                        </form>
-                      )}
-                      <RemoveRegistrationButton
-                        registrationId={reg.id}
-                        leagueId={id}
-                        playerName={profile?.full_name ?? 'this player'}
-                      />
-                    </div>
-                  </td>
+                  {isOrgAdmin && (
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        {reg.status === 'pending' && (
+                          <form action={approveAction}>
+                            <button
+                              type="submit"
+                              className="text-xs font-medium hover:underline"
+                              style={{ color: 'var(--brand-primary)' }}
+                            >
+                              Approve
+                            </button>
+                          </form>
+                        )}
+                        <RemoveRegistrationButton
+                          registrationId={reg.id}
+                          leagueId={id}
+                          playerName={profile?.full_name ?? 'this player'}
+                        />
+                      </div>
+                    </td>
+                  )}
                 </tr>
               )
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
+                <td colSpan={isOrgAdmin ? 7 : 6} className="px-4 py-12 text-center text-gray-400">
                   No registrations yet.
                 </td>
               </tr>

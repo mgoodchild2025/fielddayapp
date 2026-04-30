@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
+import { getAdminScope } from '@/lib/admin-scope'
 import { AddGameForm } from '@/components/schedule/add-game-form'
 import { ScheduleImport } from '@/components/schedule/schedule-import'
 import { RoundRobinGenerator } from '@/components/schedule/round-robin-generator'
@@ -12,6 +13,8 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const scope = await getAdminScope(org.id)
+  const isOrgAdmin = scope.isOrgAdmin
 
   const { data: branding } = await supabase
     .from('org_branding')
@@ -90,12 +93,14 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
         />
       </div>
 
-      {/* Sidebar tools */}
-      <div className="space-y-4">
-        <RoundRobinGenerator leagueId={id} teamCount={(teams ?? []).length} />
-        <AddGameForm leagueId={id} teams={teams ?? []} />
-        <ScheduleImport leagueId={id} />
-      </div>
+      {/* Sidebar tools — org admins only */}
+      {isOrgAdmin && (
+        <div className="space-y-4">
+          <RoundRobinGenerator leagueId={id} teamCount={(teams ?? []).length} />
+          <AddGameForm leagueId={id} teams={teams ?? []} />
+          <ScheduleImport leagueId={id} />
+        </div>
+      )}
     </div>
   )
 }

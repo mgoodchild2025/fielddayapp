@@ -35,13 +35,15 @@ export default async function AdminEventsPage() {
           <h1 className="text-2xl font-bold">Events</h1>
           <p className="text-sm text-gray-500 mt-1">{leagues?.length ?? 0} event{leagues?.length !== 1 ? 's' : ''}</p>
         </div>
-        <Link
-          href="/admin/events/new"
-          className="px-4 py-2 rounded-md text-sm font-semibold text-white"
-          style={{ backgroundColor: 'var(--brand-primary)' }}
-        >
-          + New Event
-        </Link>
+        {scope.isOrgAdmin && (
+          <Link
+            href="/admin/events/new"
+            className="px-4 py-2 rounded-md text-sm font-semibold text-white"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
+          >
+            + New Event
+          </Link>
+        )}
       </div>
 
       <EventsTable leagues={leagues ?? []} />

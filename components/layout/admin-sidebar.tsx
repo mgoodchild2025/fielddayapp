@@ -11,24 +11,36 @@ interface AdminSidebarProps {
   role: string
 }
 
-const navItems = [
+const orgAdminNav = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: '▣' },
   { label: 'Events', href: '/admin/events', icon: '🏆' },
   { label: 'Payments', href: '/admin/payments', icon: '💳' },
   { label: 'Teams', href: '/admin/teams', icon: '👥' },
   { label: 'Players', href: '/admin/players', icon: '🏃' },
   { label: 'Messages', href: '/admin/messages', icon: '✉️' },
+  { label: 'Admins', href: '/admin/users', icon: '🔑' },
   { label: 'Settings', href: '/admin/settings', icon: '⚙️' },
 ]
 
-function SidebarContent({ org, onClose }: { org: OrgContext; onClose?: () => void }) {
+const leagueAdminNav = [
+  { label: 'Events', href: '/admin/events', icon: '🏆' },
+  { label: 'Teams', href: '/admin/teams', icon: '👥' },
+  { label: 'Players', href: '/admin/players', icon: '🏃' },
+  { label: 'Payments', href: '/admin/payments', icon: '💳' },
+  { label: 'Messages', href: '/admin/messages', icon: '✉️' },
+]
+
+function SidebarContent({ org, role, onClose }: { org: OrgContext; role: string; onClose?: () => void }) {
   const pathname = usePathname()
+  const navItems = role === 'league_admin' ? leagueAdminNav : orgAdminNav
 
   return (
     <div className="flex flex-col h-full">
       <div className="p-5 border-b border-white/10 flex items-center justify-between">
         <div>
-          <p className="text-xs uppercase tracking-widest opacity-50 mb-1">Admin</p>
+          <p className="text-xs uppercase tracking-widest opacity-50 mb-1">
+            {role === 'league_admin' ? 'League Admin' : 'Admin'}
+          </p>
           <p className="font-bold text-sm leading-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>{org.name}</p>
         </div>
         {onClose && (
@@ -89,7 +101,7 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
         className="hidden lg:flex w-56 shrink-0 flex-col min-h-screen"
         style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
       >
-        <SidebarContent org={org} />
+        <SidebarContent org={org} role={role} />
       </aside>
 
       {/* Mobile top bar */}
@@ -127,7 +139,7 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
         )}
         style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
       >
-        <SidebarContent org={org} onClose={() => setMobileOpen(false)} />
+        <SidebarContent org={org} role={role} onClose={() => setMobileOpen(false)} />
       </aside>
     </>
   )
