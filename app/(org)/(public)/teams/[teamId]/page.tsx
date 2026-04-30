@@ -84,18 +84,26 @@ export default async function TeamDetailPage({
 
   const isPerTeam = paymentMode === 'per_team' && leaguePriceCents > 0
 
-  // Fetch team payment status if this is a per-team league
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: teamPayment } = isPerTeam
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ? await (db as any)
-        .from('payments')
-        .select('id, status, paid_at, amount_cents')
-        .eq('team_id', teamId)
-        .eq('league_id', leagueId)
-        .eq('payment_type', 'team')
-        .maybeSingle()
-    : { data: null }
+  // Fetch team payment status + captain's own registration in parallel (per-team only)
+  const [{ data: teamPayment }, { data: myLeagueRegistration }] = isPerTeam
+    ? await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any)
+          .from('payments')
+          .select('id, status, paid_at, amount_cents')
+          .eq('team_id', teamId)
+          .eq('league_id', leagueId)
+          .eq('payment_type', 'team')
+          .maybeSingle(),
+        db
+          .from('registrations')
+          .select('id, status')
+          .eq('league_id', leagueId)
+          .eq('user_id', user.id)
+          .eq('organization_id', org.id)
+          .maybeSingle(),
+      ])
+    : [{ data: null }, { data: null }]
 
   const positions = await getPositionsForSport(org.id, leagueSport)
 
@@ -250,6 +258,11 @@ export default async function TeamDetailPage({
             isPaid={teamPayment?.status === 'paid'}
             paidAt={teamPayment?.paid_at ?? null}
             timezone={timezone}
+            captainRegistrationStatus={
+              myLeagueRegistration
+                ? (myLeagueRegistration.status as string)
+                : 'none'
+            }
           />
         )}
 

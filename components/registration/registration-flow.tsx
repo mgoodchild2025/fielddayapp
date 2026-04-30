@@ -26,11 +26,12 @@ interface Props {
   positions?: string[]
   isDropIn?: boolean
   dropInPriceCents?: number | null
+  captainTeamId?: string | null
 }
 
 const ALL_STEPS = ['Player Details', 'Waiver', 'Payment']
 
-export function RegistrationFlow({ org, league, waiver, profile, playerDetails, userId, initialStep = 1, initialRegistrationId = null, hasOnlinePayments = false, positions = [], isDropIn = false, dropInPriceCents = null }: Props) {
+export function RegistrationFlow({ org, league, waiver, profile, playerDetails, userId, initialStep = 1, initialRegistrationId = null, hasOnlinePayments = false, positions = [], isDropIn = false, dropInPriceCents = null, captainTeamId = null }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(initialStep)
   const [registrationId, setRegistrationId] = useState<string | null>(initialRegistrationId)
@@ -150,19 +151,40 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
                   d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </div>
-            <div>
-              <h2 className="font-semibold text-lg">You&apos;re on the list!</h2>
-              <p className="text-sm text-gray-500 mt-1">
-                Payment for this event is handled per team. Your team captain will complete the payment — your spot will be confirmed once the team pays.
-              </p>
-            </div>
-            <button
-              onClick={() => completeRegistration(registrationId)}
-              className="w-full py-3 rounded-md font-semibold text-white"
-              style={{ backgroundColor: 'var(--brand-primary)' }}
-            >
-              Got it →
-            </button>
+            {captainTeamId ? (
+              // Captain registering — send them straight to pay for their team
+              <div>
+                <h2 className="font-semibold text-lg">Registration saved!</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  As team captain, you&apos;re responsible for completing the team payment. Head to your team page to pay and confirm your whole roster.
+                </p>
+              </div>
+            ) : (
+              // Regular player
+              <div>
+                <h2 className="font-semibold text-lg">You&apos;re on the list!</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Payment for this event is handled per team. Your team captain will complete the payment — your spot will be confirmed once the team pays.
+                </p>
+              </div>
+            )}
+            {captainTeamId ? (
+              <a
+                href={`/teams/${captainTeamId}`}
+                className="block w-full py-3 rounded-md font-semibold text-white text-center"
+                style={{ backgroundColor: 'var(--brand-primary)' }}
+              >
+                Go to my team &amp; pay →
+              </a>
+            ) : (
+              <button
+                onClick={() => completeRegistration(registrationId)}
+                className="w-full py-3 rounded-md font-semibold text-white"
+                style={{ backgroundColor: 'var(--brand-primary)' }}
+              >
+                Got it →
+              </button>
+            )}
           </div>
         )}
       </div>

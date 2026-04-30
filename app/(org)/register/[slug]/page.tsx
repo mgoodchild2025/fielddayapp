@@ -53,7 +53,7 @@ export default async function RegisterLeaguePage({
     if (!invite) notFound()
   }
 
-  const [{ data: playerDetails }, { data: existingReg }, { data: profile }, { data: connectAccount }] = await Promise.all([
+  const [{ data: playerDetails }, { data: existingReg }, { data: profile }, { data: connectAccount }, { data: captainTeam }] = await Promise.all([
     supabase.from('player_details').select('*').eq('organization_id', org.id).eq('user_id', user.id).single(),
     // For drop-ins, don't resume an existing reg (each invite = fresh registration)
     isDropIn
@@ -67,6 +67,14 @@ export default async function RegisterLeaguePage({
           .maybeSingle(),
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase.from('stripe_connect_accounts').select('charges_enabled').eq('organization_id', org.id).maybeSingle(),
+    // Check if the user is already a captain for a team in this league
+    supabase
+      .from('team_members')
+      .select('team_id, teams!team_members_team_id_fkey(id, name)')
+      .eq('user_id', user.id)
+      .eq('role', 'captain')
+      .eq('status', 'active')
+      .maybeSingle(),
   ])
 
   const hasOnlinePayments = !!connectAccount?.charges_enabled
@@ -121,6 +129,12 @@ export default async function RegisterLeaguePage({
     }
   }
 
+  const captainTeamRow = captainTeam
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? (() => { const t = (captainTeam as any).teams; return Array.isArray(t) ? t[0] : t })()
+    : null
+  const captainTeamId = captainTeamRow?.id ?? null
+
   return (
     <RegistrationFlow
       org={org}
@@ -135,6 +149,7 @@ export default async function RegisterLeaguePage({
       positions={positions}
       isDropIn={isDropIn}
       dropInPriceCents={dropInPriceCents}
+      captainTeamId={captainTeamId}
     />
   )
 }

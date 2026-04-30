@@ -13,6 +13,7 @@ interface Props {
   isPaid: boolean
   paidAt?: string | null
   timezone?: string
+  captainRegistrationStatus?: string // 'none' | 'pending' | 'active' | ...
 }
 
 export function TeamPaymentPanel({
@@ -26,6 +27,7 @@ export function TeamPaymentPanel({
   isPaid,
   paidAt,
   timezone = 'UTC',
+  captainRegistrationStatus = 'none',
 }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -80,6 +82,8 @@ export function TeamPaymentPanel({
     )
   }
 
+  const needsToRegister = captainRegistrationStatus === 'none'
+
   return (
     <div className="mt-6 bg-white rounded-lg border overflow-hidden">
       <div className="px-5 py-4 border-b flex items-center justify-between">
@@ -89,32 +93,59 @@ export function TeamPaymentPanel({
         </span>
       </div>
       <div className="px-5 py-4 space-y-4">
-        <div className="flex items-center justify-between py-3 border rounded-md px-4">
-          <div>
-            <p className="font-medium text-sm">Team registration fee</p>
-            <p className="text-xs text-gray-400 mt-0.5">{memberCount} player{memberCount !== 1 ? 's' : ''} currently on the roster</p>
+
+        {/* Gate: captain must register before paying */}
+        {needsToRegister ? (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Register yourself first</p>
+                <p className="text-xs text-blue-700 mt-0.5">
+                  As captain, you need to complete your own registration before paying for the team. Your registration is how we confirm your spot on the roster.
+                </p>
+              </div>
+            </div>
+            <a
+              href={`/register/${leagueSlug}`}
+              className="block w-full text-center py-2.5 rounded-md text-sm font-semibold text-white"
+              style={{ backgroundColor: 'var(--brand-primary)' }}
+            >
+              Register for this event →
+            </a>
           </div>
-          <p className="font-bold text-lg" style={{ color: 'var(--brand-primary)' }}>
-            ${price.toFixed(0)} {curr}
-          </p>
-        </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between py-3 border rounded-md px-4">
+              <div>
+                <p className="font-medium text-sm">Team registration fee</p>
+                <p className="text-xs text-gray-400 mt-0.5">{memberCount} player{memberCount !== 1 ? 's' : ''} currently on the roster</p>
+              </div>
+              <p className="font-bold text-lg" style={{ color: 'var(--brand-primary)' }}>
+                ${price.toFixed(0)} {curr}
+              </p>
+            </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">{error}</div>
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">{error}</div>
+            )}
+
+            <button
+              onClick={handleCheckout}
+              disabled={loading}
+              className="w-full py-3 rounded-md font-semibold text-white disabled:opacity-60 transition-opacity"
+              style={{ backgroundColor: 'var(--brand-primary)' }}
+            >
+              {loading ? 'Redirecting to checkout…' : `Pay $${price.toFixed(0)} ${curr} for Team →`}
+            </button>
+
+            <p className="text-xs text-center text-gray-400">
+              Secure checkout via Stripe. Once payment is complete, all team members&apos; registrations will be activated automatically.
+            </p>
+          </>
         )}
-
-        <button
-          onClick={handleCheckout}
-          disabled={loading}
-          className="w-full py-3 rounded-md font-semibold text-white disabled:opacity-60 transition-opacity"
-          style={{ backgroundColor: 'var(--brand-primary)' }}
-        >
-          {loading ? 'Redirecting to checkout…' : `Pay $${price.toFixed(0)} ${curr} for Team →`}
-        </button>
-
-        <p className="text-xs text-center text-gray-400">
-          Secure checkout via Stripe. Once payment is complete, all team members&apos; registrations will be activated automatically.
-        </p>
       </div>
     </div>
   )
