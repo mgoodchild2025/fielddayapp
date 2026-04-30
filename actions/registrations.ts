@@ -158,9 +158,10 @@ export async function activateRegistration(registrationId: string) {
 
   const supabase = await createServerClient()
 
-  const { data: reg, error: fetchError } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: reg, error: fetchError } = await (supabase as any)
     .from('registrations')
-    .select('*, profiles!registrations_user_id_fkey(full_name, email), leagues!registrations_league_id_fkey(name)')
+    .select('*, checkin_token, profiles!registrations_user_id_fkey(full_name, email), leagues!registrations_league_id_fkey(name, event_type)')
     .eq('id', registrationId)
     .eq('organization_id', org.id)
     .single()
@@ -178,11 +179,15 @@ export async function activateRegistration(registrationId: string) {
   const league = Array.isArray(reg.leagues) ? reg.leagues[0] : reg.leagues
 
   if (profile?.email && league?.name) {
+    const origin = headersList.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
+    const checkinUrl = reg.checkin_token ? `${origin}/checkin/${reg.checkin_token}` : null
     await sendRegistrationConfirmation({
       email: profile.email,
       name: profile.full_name,
       leagueName: league.name,
       orgName: org.name,
+      eventType: league.event_type ?? null,
+      checkinUrl,
     })
   }
 

@@ -7,12 +7,31 @@ export async function sendRegistrationConfirmation({
   name,
   leagueName,
   orgName,
+  eventType,
+  checkinUrl,
 }: {
   email: string
   name: string
   leagueName: string
   orgName: string
+  eventType?: string | null
+  checkinUrl?: string | null
 }) {
+  const showCheckin = !!checkinUrl && (eventType === 'tournament' || eventType === 'league')
+  const qrImageUrl = checkinUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(checkinUrl)}`
+    : null
+
+  const checkinBlock = showCheckin ? `
+    <div style="margin-top: 32px; padding: 24px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; text-align: center;">
+      <p style="font-size: 16px; font-weight: 600; color: #15803d; margin: 0 0 4px;">Your Check-in QR Code</p>
+      <p style="font-size: 13px; color: #166534; margin: 0 0 16px;">Show this at the event to check in quickly</p>
+      <img src="${qrImageUrl}" width="180" height="180" alt="Check-in QR Code"
+        style="display: block; margin: 0 auto 16px; border-radius: 8px; border: 4px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.12);" />
+      <a href="${checkinUrl}" style="font-size: 12px; color: #15803d; word-break: break-all;">${checkinUrl}</a>
+    </div>
+  ` : ''
+
   await getResend().emails.send({
     from: FROM_EMAIL,
     to: email,
@@ -27,6 +46,7 @@ export async function sendRegistrationConfirmation({
         <p style="color: #444; font-size: 16px;">
           Log in to your dashboard to check your schedule, team info, and more.
         </p>
+        ${checkinBlock}
         <div style="margin-top: 32px; padding: 16px; background: #f9f9f9; border-radius: 8px; font-size: 14px; color: #666;">
           Questions? Reply to this email and we'll get back to you.
         </div>
