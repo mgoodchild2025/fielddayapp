@@ -487,7 +487,8 @@ export default async function EventDetailPage({
     : [{ id: 'overview', label: 'Overview', visibility: 'public' as const }]
 
   const validTabIds = tabs.map((t) => t.id)
-  const defaultTab = isInSeasonOrCompleted ? 'schedule' : 'overview'
+  // Only use 'schedule' as the default if it's actually a valid tab (not the case for pickup/drop-in)
+  const defaultTab = (isInSeasonOrCompleted && validTabIds.includes('schedule')) ? 'schedule' : 'overview'
   const activeTab = validTabIds.includes(rawTabRequest) ? rawTabRequest : defaultTab
 
   const isOpen = league.status === 'registration_open' || league.status === 'active'
@@ -696,6 +697,34 @@ export default async function EventDetailPage({
           </div>
         </div>
       </div>
+
+      {/* ── Event info strip (in-season / completed only) ── */}
+      {isInSeasonOrCompleted && (
+        <div className="bg-white border-b">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 space-y-2">
+            {league.description && (
+              <p className="text-sm text-gray-600 leading-relaxed">{league.description}</p>
+            )}
+            {(league.season_start_date || league.age_group || league.venue_name) && (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                {league.season_start_date && (
+                  <span>
+                    {new Date(league.season_start_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {league.season_end_date && ` – ${new Date(league.season_end_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                  </span>
+                )}
+                {league.age_group && <span>{league.age_group}</span>}
+                {league.venue_name && (
+                  <span>
+                    {league.venue_name}
+                    {league.venue_address ? ` · ${league.venue_address}` : ''}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Tab bar ── */}
       {tabs.length > 1 && (
