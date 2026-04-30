@@ -9,12 +9,17 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
     { label: 'Registrations', href: `/admin/events/${id}/registrations` },
   ]
 
-  if (eventType === 'pickup' || eventType === 'drop_in') {
-    const sessionTabs = [...base, { label: 'Sessions', href: `/admin/events/${id}/sessions` }]
+  if (eventType === 'pickup') {
+    const t = [...base, { label: 'Invites', href: `/admin/events/${id}/invites` }]
+    return t
+  }
+
+  if (eventType === 'drop_in') {
+    const t = [...base, { label: 'Sessions', href: `/admin/events/${id}/sessions` }]
     if (pickupJoinPolicy === 'private') {
-      sessionTabs.push({ label: 'Invites', href: `/admin/events/${id}/invites` })
+      t.push({ label: 'Invites', href: `/admin/events/${id}/invites` })
     }
-    return sessionTabs
+    return t
   }
 
   if (eventType === 'league') {

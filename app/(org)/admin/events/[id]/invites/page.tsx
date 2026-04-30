@@ -14,14 +14,14 @@ export default async function AdminInvitesPage({ params }: { params: Promise<{ i
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)
       .from('leagues')
-      .select('id, name, event_type, pickup_join_policy')
+      .select('id, name, event_type, pickup_join_policy, drop_in_price_cents')
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)
       .from('pickup_invites')
-      .select('id, email, status, invited_at')
+      .select('id, email, status, invite_type, invited_at')
       .eq('league_id', id)
       .eq('organization_id', org.id)
       .order('invited_at', { ascending: false }),
@@ -31,10 +31,10 @@ export default async function AdminInvitesPage({ params }: { params: Promise<{ i
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const l = league as any
-  if ((l.event_type !== 'pickup' && l.event_type !== 'drop_in') || l.pickup_join_policy !== 'private') {
+  if (l.event_type !== 'pickup' && l.event_type !== 'drop_in') {
     return (
       <div className="bg-white border rounded-lg p-8 text-center text-gray-500 text-sm">
-        Invites are only available for private pickup and drop-in events.
+        Invites are only available for pickup and drop-in events.
       </div>
     )
   }
@@ -42,7 +42,9 @@ export default async function AdminInvitesPage({ params }: { params: Promise<{ i
   return (
     <PickupInvitesManager
       leagueId={id}
-      initialInvites={(invites ?? []) as { id: string; email: string; status: string; invited_at: string }[]}
+      isPrivate={l.pickup_join_policy === 'private'}
+      hasDropIn={l.drop_in_price_cents != null}
+      initialInvites={(invites ?? []) as { id: string; email: string; status: string; invite_type: string; invited_at: string }[]}
     />
   )
 }

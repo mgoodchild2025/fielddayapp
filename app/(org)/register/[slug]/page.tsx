@@ -9,41 +9,69 @@ import { getPositionsForSport } from '@/actions/positions'
 
 export default async function RegisterLeaguePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>
+  searchParams: Promise<{ mode?: string }>
 }) {
   const { slug } = await params
+  const { mode } = await searchParams
+  const isDropIn = mode === 'drop_in'
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect(`/login?redirect=/register/${slug}`)
+  if (!user) redirect(`/login?redirect=/register/${slug}${isDropIn ? '?mode=drop_in' : ''}`)
 
-  // Fetch league first so we have its id for downstream queries
-  const { data: league } = await supabase
+  // Drop-ins can register for active events; season players need registration_open
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: league } = await (supabase as any)
     .from('leagues')
     .select('*')
     .eq('organization_id', org.id)
     .eq('slug', slug)
-    .eq('status', 'registration_open')
+    .in('status', isDropIn ? ['registration_open', 'active'] : ['registration_open'])
     .single()
 
   if (!league) notFound()
 
+  // Verify drop-in invite
+  if (isDropIn) {
+    if (!user.email) notFound()
+    const { createServiceRoleClient } = await import('@/lib/supabase/service')
+    const db = createServiceRoleClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: invite } = await (db as any)
+      .from('pickup_invites')
+      .select('id')
+      .eq('league_id', league.id)
+      .eq('email', user.email.toLowerCase())
+      .eq('invite_type', 'drop_in')
+      .eq('status', 'pending')
+      .maybeSingle()
+    if (!invite) notFound()
+  }
+
   const [{ data: playerDetails }, { data: existingReg }, { data: profile }, { data: connectAccount }] = await Promise.all([
     supabase.from('player_details').select('*').eq('organization_id', org.id).eq('user_id', user.id).single(),
-    supabase.from('registrations')
-      .select('id, status, waiver_signature_id')
-      .eq('organization_id', org.id)
-      .eq('league_id', league.id)
-      .eq('user_id', user.id)
-      .maybeSingle(),
+    // For drop-ins, don't resume an existing reg (each invite = fresh registration)
+    isDropIn
+      ? Promise.resolve({ data: null })
+      : supabase.from('registrations')
+          .select('id, status, waiver_signature_id')
+          .eq('organization_id', org.id)
+          .eq('league_id', league.id)
+          .eq('user_id', user.id)
+          .eq('registration_type' as never, 'season')
+          .maybeSingle(),
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase.from('stripe_connect_accounts').select('charges_enabled').eq('organization_id', org.id).maybeSingle(),
   ])
 
   const hasOnlinePayments = !!connectAccount?.charges_enabled
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dropInPriceCents: number | null = (league as any).drop_in_price_cents ?? null
 
   const positions = await getPositionsForSport(org.id, league.sport ?? '')
 
@@ -74,7 +102,8 @@ export default async function RegisterLeaguePage({
       .maybeSingle()
 
     const paymentComplete = payment?.status === 'paid'
-    const needsPayment = league.price_cents > 0 && hasOnlinePayments && !paymentComplete
+    const effectivePrice = isDropIn ? (dropInPriceCents ?? 0) : league.price_cents
+    const needsPayment = effectivePrice > 0 && hasOnlinePayments && !paymentComplete
 
     if (existingReg.status === 'active' && !needsPayment) {
       redirect(`/register/${slug}/success`)
@@ -95,7 +124,7 @@ export default async function RegisterLeaguePage({
   return (
     <RegistrationFlow
       org={org}
-      league={league}
+      league={league as never}
       waiver={waiver}
       profile={profile}
       playerDetails={playerDetails}
@@ -104,6 +133,8 @@ export default async function RegisterLeaguePage({
       initialRegistrationId={initialRegistrationId}
       hasOnlinePayments={hasOnlinePayments}
       positions={positions}
+      isDropIn={isDropIn}
+      dropInPriceCents={dropInPriceCents}
     />
   )
 }

@@ -13,6 +13,7 @@ interface League {
   league_type: string
   registration_mode: string
   price_cents: number
+  drop_in_price_cents: number | null
   currency: string
   payment_mode: string
   min_team_size: number | null
@@ -101,7 +102,9 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
       sport: fd.get('sport') as string,
       league_type: fd.get('league_type') as 'team' | 'individual' | 'dropin' | 'tournament',
       price_cents: Number(fd.get('price_cents')),
-      payment_mode: fd.get('payment_mode') as 'per_player' | 'per_team',
+      payment_mode: (fd.get('payment_mode') as 'per_player' | 'per_team') || 'per_player',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      drop_in_price_cents: fd.get('drop_in_price_cents') ? Number(fd.get('drop_in_price_cents')) : null as any,
       min_team_size: Number(fd.get('min_team_size')),
       max_team_size: Number(fd.get('max_team_size')),
       max_teams: fd.get('max_teams') ? Number(fd.get('max_teams')) : undefined,
@@ -216,17 +219,28 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Price (cents)">
-            <input name="price_cents" type="number" min="0" defaultValue={league.price_cents} className="input" />
-          </Field>
-          <Field label="Payment Mode">
-            <select name="payment_mode" defaultValue={league.payment_mode} className="input">
-              <option value="per_player">Per Player</option>
-              <option value="per_team">Per Team</option>
-            </select>
-          </Field>
-        </div>
+        {(league.event_type === 'pickup' || league.event_type === 'drop_in') ? (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Season fee (cents)">
+              <input name="price_cents" type="number" min="0" defaultValue={league.price_cents} className="input" />
+            </Field>
+            <Field label="Drop-in fee (cents, blank = no drop-ins)">
+              <input name="drop_in_price_cents" type="number" min="0" defaultValue={league.drop_in_price_cents ?? ''} placeholder="Leave blank" className="input" />
+            </Field>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Price (cents)">
+              <input name="price_cents" type="number" min="0" defaultValue={league.price_cents} className="input" />
+            </Field>
+            <Field label="Payment Mode">
+              <select name="payment_mode" defaultValue={league.payment_mode} className="input">
+                <option value="per_player">Per Player</option>
+                <option value="per_team">Per Team</option>
+              </select>
+            </Field>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Age Group">

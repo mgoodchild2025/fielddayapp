@@ -138,11 +138,19 @@ export function buildPickupInviteEmail({
   orgName,
   leagueName,
   inviteUrl,
+  isDropIn = false,
 }: {
   orgName: string
   leagueName: string
   inviteUrl: string
+  isDropIn?: boolean
 }): string {
+  const heading = isDropIn ? 'You&rsquo;re invited as a drop-in!' : 'You&rsquo;re invited!'
+  const body = isDropIn
+    ? `A spot has opened up in <strong>${leagueName}</strong> and you&rsquo;ve been invited to join as a drop-in player. Click below to register for this session.`
+    : `You&rsquo;ve been invited to join <strong>${leagueName}</strong>. Click below to view the event and register.`
+  const cta = isDropIn ? 'Register as Drop-in →' : 'View Event &amp; Register →'
+
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -152,15 +160,12 @@ export function buildPickupInviteEmail({
       <h1 style="color:#fff;margin:0;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">${orgName}</h1>
     </div>
     <div style="padding:32px;">
-      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">You&rsquo;re invited!</h2>
-      <p style="color:#6b7280;margin:0 0 24px;font-size:15px;line-height:1.6;">
-        You&rsquo;ve been invited to join <strong>${leagueName}</strong>.
-        Click below to view the event and register.
-      </p>
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">${heading}</h2>
+      <p style="color:#6b7280;margin:0 0 24px;font-size:15px;line-height:1.6;">${body}</p>
       <div style="text-align:center;margin:28px 0 20px;">
         <a href="${inviteUrl}"
            style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:700;font-size:16px;">
-          View Event &amp; Register →
+          ${cta}
         </a>
       </div>
       <p style="color:#9ca3af;font-size:12px;text-align:center;margin:16px 0 0;">

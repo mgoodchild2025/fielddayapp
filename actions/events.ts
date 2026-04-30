@@ -39,6 +39,7 @@ const createLeagueSchema = z.object({
   team_join_policy: z.enum(['open', 'captain_invite', 'admin_only']).default('open'),
   pickup_join_policy: z.enum(['public', 'private']).default('public'),
   registration_mode: z.enum(['session', 'season']).default('session'),
+  drop_in_price_cents: z.coerce.number().min(0).optional(),
 })
 
 export async function createLeague(
@@ -83,6 +84,7 @@ export async function createLeague(
       organizer_email: parsed.data.organizer_email || null,
       organizer_phone: parsed.data.organizer_phone || null,
       team_join_policy: parsed.data.team_join_policy,
+      drop_in_price_cents: parsed.data.drop_in_price_cents ?? null,
       rule_template_id: rule_template_id || null,
       rules_content: rules_content || null,
     })

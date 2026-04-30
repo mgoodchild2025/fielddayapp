@@ -92,7 +92,8 @@ const schema = z.object({
   max_team_size: z.number().default(8),
   team_join_policy: z.enum(['open', 'captain_invite', 'admin_only']).default('open'),
   pickup_join_policy: z.enum(['public', 'private']).default('public'),
-  registration_mode: z.enum(['session', 'season']).default('session'),
+  registration_mode: z.enum(['session', 'season']).default('season'),
+  drop_in_price_cents: z.number().min(0).optional(),
   season_start_date: z.string().optional(),
   season_end_date: z.string().optional(),
   registration_opens_at: z.string().optional(),
@@ -159,7 +160,7 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
       payment_mode: 'per_player',
       team_join_policy: 'open',
       pickup_join_policy: 'public',
-      registration_mode: 'session',
+      registration_mode: 'season',
       min_team_size: 4,
       max_team_size: 8,
     },
@@ -347,11 +348,11 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
         </div>
 
         {/* ── Pricing ── */}
-        {(withTeams || isSeasonPickup) && (
+        {(withTeams || isPickup) && (
         <div className="bg-white rounded-lg border p-5 space-y-4">
           <p className="text-sm font-semibold text-gray-700">Pricing</p>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Price (0 = free)" error={errors.price_cents?.message}>
+            <Field label={isPickup ? 'Season fee (0 = free)' : 'Price (0 = free)'} error={errors.price_cents?.message}>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
                 <input
@@ -367,12 +368,30 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
                 />
               </div>
             </Field>
-            <Field label="Payment Mode" error={errors.payment_mode?.message}>
-              <select {...register('payment_mode')} className={SELECT}>
-                <option value="per_player">Per Player</option>
-                {withTeams && <option value="per_team">Per Team</option>}
-              </select>
-            </Field>
+            {isPickup ? (
+              <Field label="Drop-in fee (blank = no drop-ins)" error={errors.drop_in_price_cents?.message}>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input
+                    {...register('drop_in_price_cents', {
+                      setValueAs: (v) => v === '' || v == null ? undefined : Math.round(Number(v) * 100),
+                    })}
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="Leave blank"
+                    className={`${INPUT} pl-7`}
+                  />
+                </div>
+              </Field>
+            ) : (
+              <Field label="Payment Mode" error={errors.payment_mode?.message}>
+                <select {...register('payment_mode')} className={SELECT}>
+                  <option value="per_player">Per Player</option>
+                  {withTeams && <option value="per_team">Per Team</option>}
+                </select>
+              </Field>
+            )}
           </div>
         </div>
         )}

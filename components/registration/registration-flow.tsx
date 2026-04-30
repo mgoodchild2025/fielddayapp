@@ -24,17 +24,20 @@ interface Props {
   initialRegistrationId?: string | null
   hasOnlinePayments?: boolean
   positions?: string[]
+  isDropIn?: boolean
+  dropInPriceCents?: number | null
 }
 
 const ALL_STEPS = ['Player Details', 'Waiver', 'Payment']
 
-export function RegistrationFlow({ org, league, waiver, profile, playerDetails, userId, initialStep = 1, initialRegistrationId = null, hasOnlinePayments = false, positions = [] }: Props) {
+export function RegistrationFlow({ org, league, waiver, profile, playerDetails, userId, initialStep = 1, initialRegistrationId = null, hasOnlinePayments = false, positions = [], isDropIn = false, dropInPriceCents = null }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(initialStep)
   const [registrationId, setRegistrationId] = useState<string | null>(initialRegistrationId)
   const [completing, setCompleting] = useState(false)
 
-  const showPaymentStep = league.price_cents > 0 && hasOnlinePayments
+  const effectivePriceCents = isDropIn ? (dropInPriceCents ?? 0) : league.price_cents
+  const showPaymentStep = effectivePriceCents > 0 && hasOnlinePayments
   const steps = showPaymentStep ? ALL_STEPS : ALL_STEPS.filter(s => s !== 'Payment')
 
   // Activate and navigate to the success page — never call a server action and then
@@ -60,7 +63,7 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
         {/* Progress indicator */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold uppercase mb-4" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-            Register — {league.name}
+            {isDropIn ? 'Drop-in — ' : 'Register — '}{league.name}
           </h1>
           <div className="flex items-center gap-1">
             {steps.map((label, i) => {
@@ -100,6 +103,7 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
             league={league}
             userId={userId}
             positions={positions}
+            registrationType={isDropIn ? 'drop_in' : 'season'}
             onComplete={(regId) => { setRegistrationId(regId); setStep(2) }}
           />
         )}
@@ -128,6 +132,7 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
             league={league}
             userId={userId}
             registrationId={registrationId!}
+            priceCents={effectivePriceCents}
           />
         )}
       </div>

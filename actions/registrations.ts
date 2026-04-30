@@ -6,12 +6,14 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentOrg } from '@/lib/tenant'
 import { sendRegistrationConfirmation } from './emails'
+import { acceptDropInInvite } from './invites'
 
 const createRegistrationSchema = z.object({
   leagueId: z.string().uuid(),
   waiverSignatureId: z.string().uuid().optional(),
   formData: z.record(z.string(), z.unknown()).optional(),
   position: z.string().optional(),
+  registration_type: z.enum(['season', 'drop_in']).default('season'),
 })
 
 export async function createRegistration(input: z.infer<typeof createRegistrationSchema>) {
@@ -25,16 +27,19 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
 
-  // Check for existing registration
-  const { data: existing } = await supabase
-    .from('registrations')
-    .select('id, status')
-    .eq('organization_id', org.id)
-    .eq('league_id', parsed.data.leagueId)
-    .eq('user_id', user.id)
-    .single()
+  // Check for existing registration (skip dedup for drop-in — each invite creates a fresh reg)
+  if (parsed.data.registration_type === 'season') {
+    const { data: existing } = await supabase
+      .from('registrations')
+      .select('id, status')
+      .eq('organization_id', org.id)
+      .eq('league_id', parsed.data.leagueId)
+      .eq('user_id', user.id)
+      .eq('registration_type' as never, 'season')
+      .single()
 
-  if (existing) return { data: { registrationId: existing.id }, error: null }
+    if (existing) return { data: { registrationId: existing.id }, error: null }
+  }
 
   // Ensure org membership
   await supabase.from('org_members').upsert({
@@ -43,6 +48,11 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
     role: 'player',
     status: 'active',
   }, { onConflict: 'organization_id,user_id', ignoreDuplicates: true })
+
+  const isDropIn = parsed.data.registration_type === 'drop_in'
+  const expiresAt = isDropIn
+    ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    : null
 
   const { data, error } = await supabase
     .from('registrations')
@@ -55,11 +65,18 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
       position: parsed.data.position ?? null,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       form_data: (parsed.data.formData ?? null) as any,
-    })
+      registration_type: parsed.data.registration_type,
+      expires_at: expiresAt,
+    } as never)
     .select('id')
     .single()
 
   if (error) return { data: null, error: error.message }
+
+  // Mark the drop-in invite as accepted so it can't be reused
+  if (isDropIn && user.email) {
+    await acceptDropInInvite(parsed.data.leagueId, user.email)
+  }
 
   return { data: { registrationId: data.id }, error: null }
 }

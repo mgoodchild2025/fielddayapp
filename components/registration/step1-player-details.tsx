@@ -33,10 +33,11 @@ interface Props {
   league: League
   userId: string
   positions?: string[]
+  registrationType?: 'season' | 'drop_in'
   onComplete: (registrationId: string) => void
 }
 
-export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, positions = [], onComplete }: Props) {
+export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, positions = [], registrationType = 'season', onComplete }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedPosition, setSelectedPosition] = useState('')
@@ -86,7 +87,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
 
     await updateProfile({ ...data, orgId: org.id })
 
-    const result = await createRegistration({ leagueId: league.id, position: selectedPosition || undefined })
+    const result = await createRegistration({ leagueId: league.id, position: selectedPosition || undefined, registration_type: registrationType })
     if (result.error) {
       setError(result.error)
       setLoading(false)

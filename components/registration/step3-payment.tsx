@@ -10,9 +10,10 @@ interface Props {
   league: League
   userId: string
   registrationId: string
+  priceCents?: number
 }
 
-export function Step3Payment({ org, league, userId, registrationId }: Props) {
+export function Step3Payment({ org, league, userId, registrationId, priceCents }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -44,7 +45,7 @@ export function Step3Payment({ org, league, userId, registrationId }: Props) {
     }
   }
 
-  const price = league.price_cents / 100
+  const price = (priceCents ?? league.price_cents) / 100
   const currency = league.currency.toUpperCase()
 
   return (

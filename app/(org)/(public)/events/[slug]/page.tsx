@@ -242,13 +242,17 @@ export default async function EventDetailPage({
   if (!league) notFound()
 
   const timezone = branding?.timezone ?? 'America/Toronto'
+  const isPickupEvent = league.event_type === 'pickup'
   const isSessionBased = league.event_type === 'pickup' || league.event_type === 'drop_in'
   const isTeamBased = !isSessionBased
   const isSeasonPickup = isSessionBased && league.registration_mode === 'season'
   const isPrivatePickup = isSessionBased && league.pickup_join_policy === 'private'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dropInPriceCents: number | null = (league as any).drop_in_price_cents ?? null
+  const hasDropIn = dropInPriceCents !== null
 
-  // Check if logged-in user has a valid invite for this private event
-  const hasInvite = (isPrivatePickup && user)
+  // Check if logged-in user has a valid season invite for this private event
+  const hasSeasonInvite = (isPrivatePickup && user)
     ? await (async () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data } = await (db as any)
@@ -256,7 +260,24 @@ export default async function EventDetailPage({
           .select('id')
           .eq('league_id', league.id)
           .eq('email', user.email!.toLowerCase())
+          .eq('invite_type', 'season')
           .in('status', ['pending', 'accepted'])
+          .maybeSingle()
+        return !!data
+      })()
+    : false
+
+  // Check if logged-in user has a pending drop-in invite
+  const hasDropInInvite = (hasDropIn && user)
+    ? await (async () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data } = await (db as any)
+          .from('pickup_invites')
+          .select('id')
+          .eq('league_id', league.id)
+          .eq('email', user.email!.toLowerCase())
+          .eq('invite_type', 'drop_in')
+          .eq('status', 'pending')
           .maybeSingle()
         return !!data
       })()
@@ -307,7 +328,7 @@ export default async function EventDetailPage({
     : { data: null }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: mySessionRegs } = (isSessionBased && !isSeasonPickup && user)
+  const { data: mySessionRegs } = (isSessionBased && !isSeasonPickup && !isPickupEvent && user)
     ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (db as any)
         .from('session_registrations')
@@ -349,8 +370,12 @@ export default async function EventDetailPage({
     ? await supabase.from('registrations').select('id, status').eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id).single()
     : { data: null }
 
-  const isOpen = league.status === 'registration_open'
+  const isOpen = league.status === 'registration_open' || league.status === 'active'
+  const isRegOpen = league.status === 'registration_open'
   const price = league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency?.toUpperCase()}`
+  const dropInPriceLabel = dropInPriceCents !== null
+    ? (dropInPriceCents === 0 ? 'Free drop-in' : `$${(dropInPriceCents / 100).toFixed(0)} drop-in`)
+    : null
 
   // ── Schedule tab data ─────────────────────────────────────────────────────
 
@@ -523,14 +548,17 @@ export default async function EventDetailPage({
           </h1>
           <div className="flex flex-wrap items-center gap-3 mt-3">
             <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-              isOpen ? 'bg-green-400/20 text-green-200' : 'bg-white/10 text-white/70'
+              isRegOpen ? 'bg-green-400/20 text-green-200' : 'bg-white/10 text-white/70'
             }`}>
-              {isOpen ? 'Open for Registration' : league.status === 'active' ? 'In Season' : league.status === 'completed' ? 'Completed' : league.status}
+              {isRegOpen ? 'Open for Registration' : league.status === 'active' ? 'In Season' : league.status === 'completed' ? 'Completed' : league.status}
             </span>
             {league.sport && (
               <span className="text-sm opacity-70 capitalize">{league.sport.replace(/_/g, ' ')}</span>
             )}
             <span className="text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>{price}</span>
+            {dropInPriceLabel && (
+              <span className="text-sm text-white/60">{dropInPriceLabel}</span>
+            )}
           </div>
         </div>
       </div>
@@ -574,7 +602,7 @@ export default async function EventDetailPage({
                   </p>
                 </div>
               )}
-              {league.registration_closes_at && isOpen && (
+              {league.registration_closes_at && isRegOpen && (
                 <div className="bg-white rounded-lg border p-4">
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Reg. Closes</p>
                   <p className="font-semibold mt-1">
@@ -662,15 +690,51 @@ export default async function EventDetailPage({
                     <span className="block text-sm font-normal normal-case text-green-600 mt-1">Your registration is pending approval</span>
                   )}
                 </div>
-              ) : isOpen ? (
-                <Link
-                  href={`/register/${league.slug}`}
-                  className="inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90"
-                  style={{ backgroundColor: 'var(--brand-primary)', fontFamily: 'var(--brand-heading-font)' }}
-                >
-                  Register for the Season
-                </Link>
+              ) : isRegOpen ? (
+                <>
+                  {(!isPrivatePickup || hasSeasonInvite) && (
+                    <Link
+                      href={`/register/${league.slug}`}
+                      className="inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90"
+                      style={{ backgroundColor: 'var(--brand-primary)', fontFamily: 'var(--brand-heading-font)' }}
+                    >
+                      Register for the Season
+                    </Link>
+                  )}
+                  {isPrivatePickup && !hasSeasonInvite && !user && (
+                    <Link
+                      href="/login"
+                      className="inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90"
+                      style={{ backgroundColor: 'var(--brand-primary)', fontFamily: 'var(--brand-heading-font)' }}
+                    >
+                      Log in to register
+                    </Link>
+                  )}
+                  {isPrivatePickup && !hasSeasonInvite && user && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+                      This is a private event. Contact the organiser to request an invitation.
+                    </div>
+                  )}
+                </>
               ) : null
+            )}
+
+            {/* Drop-in CTA */}
+            {isPickupEvent && hasDropIn && !mySeasonRegistration && hasDropInInvite && (
+              <div className="bg-white border rounded-lg p-5">
+                <p className="text-sm font-semibold mb-1">Drop-in Available</p>
+                <p className="text-sm text-gray-600 mb-3">
+                  You&apos;ve been invited to join as a drop-in.
+                  {dropInPriceCents ? ` Fee: $${(dropInPriceCents / 100).toFixed(0)}` : ' Free'}
+                </p>
+                <Link
+                  href={`/register/${league.slug}?mode=drop_in`}
+                  className="inline-block px-6 py-2.5 rounded-md font-semibold text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                >
+                  Register as Drop-in
+                </Link>
+              </div>
             )}
 
             {/* Sessions (pickup/drop-in) */}
@@ -685,7 +749,7 @@ export default async function EventDetailPage({
                     <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">Invite only</span>
                   )}
                 </div>
-                {isPrivatePickup && !isSeasonPickup && user && !hasInvite && (
+                {isPrivatePickup && !isSeasonPickup && user && !hasSeasonInvite && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800 mb-3">
                     This is a private event. Contact the organiser to request an invitation.
                   </div>
@@ -728,7 +792,7 @@ export default async function EventDetailPage({
                           {!isSeasonPickup && (
                             <div className="shrink-0">
                               {isPrivatePickup ? (
-                                hasInvite ? (
+                                hasSeasonInvite ? (
                                   <SessionJoinButton
                                     sessionId={s.id}
                                     leagueId={league.id}

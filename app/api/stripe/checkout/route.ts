@@ -21,13 +21,20 @@ export async function POST(request: NextRequest) {
   const { leagueId, leagueSlug, userId, registrationId, orgId } = parsed.data
   const supabase = createServiceRoleClient()
 
-  const [{ data: league }, { data: paymentSettings }, { data: profile }] = await Promise.all([
-    supabase.from('leagues').select('name, price_cents, currency').eq('id', leagueId).single(),
-    supabase.from('org_payment_settings').select('stripe_secret_key').eq('organization_id', orgId).single(),
-    supabase.from('profiles').select('email').eq('id', userId).single(),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any
+
+  const [{ data: league }, { data: paymentSettings }, { data: profile }, { data: registration }] = await Promise.all([
+    db.from('leagues').select('name, price_cents, currency, drop_in_price_cents').eq('id', leagueId).single(),
+    db.from('org_payment_settings').select('stripe_secret_key').eq('organization_id', orgId).single(),
+    db.from('profiles').select('email').eq('id', userId).single(),
+    db.from('registrations').select('registration_type').eq('id', registrationId).single(),
   ])
 
   if (!league) return NextResponse.json({ error: 'League not found' }, { status: 404 })
+
+  const isDropIn = registration?.registration_type === 'drop_in'
+  const priceCents = isDropIn ? (league.drop_in_price_cents ?? league.price_cents) : league.price_cents
 
   if (!paymentSettings?.stripe_secret_key) {
     return NextResponse.json(
@@ -51,8 +58,10 @@ export async function POST(request: NextRequest) {
       {
         price_data: {
           currency: league.currency,
-          unit_amount: league.price_cents,
-          product_data: { name: league.name },
+          unit_amount: priceCents,
+          product_data: {
+            name: isDropIn ? `${league.name} — Drop-in` : league.name,
+          },
         },
         quantity: 1,
       },
@@ -69,7 +78,7 @@ export async function POST(request: NextRequest) {
     user_id: userId,
     league_id: leagueId,
     stripe_checkout_session_id: session.id,
-    amount_cents: league.price_cents,
+    amount_cents: priceCents,
     currency: league.currency,
     status: 'pending',
   })
