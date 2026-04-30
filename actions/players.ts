@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentOrg } from '@/lib/tenant'
+import { sendSms as twilioSendSms } from '@/lib/twilio'
 
 async function requireOrgAdmin() {
   const headersList = await headers()
@@ -216,16 +217,19 @@ export async function sendPlayerNotification(userId: string, title: string, body
   if (e) return { error: e.message }
 
   if (sendSms) {
-    const { data: profile } = await db
-      .from('profiles')
-      .select('phone, sms_opted_in')
-      .eq('id', userId)
-      .single()
+    try {
+      const { data: profile } = await db
+        .from('profiles')
+        .select('phone, sms_opted_in')
+        .eq('id', userId)
+        .single()
 
-    if (profile?.phone && profile.sms_opted_in) {
-      const { sendSms: sendSmsUtil } = await import('@/lib/twilio')
-      const message = body ? `${title}: ${body}` : title
-      await sendSmsUtil(profile.phone, message)
+      if (profile?.phone && profile.sms_opted_in) {
+        const message = body ? `${title}: ${body}` : title
+        await twilioSendSms(profile.phone, message)
+      }
+    } catch {
+      // SMS failures are non-fatal — notification was already saved
     }
   }
 
