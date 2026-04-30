@@ -101,9 +101,6 @@ const schema = z.object({
   venue_address: z.string().optional(),
   venue_type: z.enum(['indoor', 'outdoor', 'both']).optional(),
   venue_surface: z.string().optional(),
-  organizer_name: z.string().optional(),
-  organizer_email: z.string().optional(),
-  organizer_phone: z.string().optional(),
   waiver_version_id: z.string().uuid().optional().or(z.literal('')),
   schedule_visibility: z.enum(['public', 'participants']).default('public'),
   standings_visibility: z.enum(['public', 'participants']).default('public'),
@@ -512,22 +509,6 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
                 <option value="indoor">Indoor</option>
                 <option value="both">Both</option>
               </select>
-            </Field>
-          </div>
-        </div>
-
-        {/* ── Organizer contact ── */}
-        <div className="bg-white rounded-lg border p-5 space-y-4">
-          <p className="text-sm font-semibold text-gray-700">Organizer Contact</p>
-          <div className="grid grid-cols-3 gap-4">
-            <Field label="Name" error={errors.organizer_name?.message}>
-              <input {...register('organizer_name')} type="text" className={INPUT} />
-            </Field>
-            <Field label="Email" error={errors.organizer_email?.message}>
-              <input {...register('organizer_email')} type="email" className={INPUT} />
-            </Field>
-            <Field label="Phone" error={errors.organizer_phone?.message}>
-              <input {...register('organizer_phone')} type="tel" className={INPUT} />
             </Field>
           </div>
         </div>

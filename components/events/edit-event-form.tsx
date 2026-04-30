@@ -304,22 +304,6 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
           </div>
         </div>
 
-        {/* Organizer */}
-        <div className="border-t pt-3">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Organizer</p>
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Name">
-              <input name="organizer_name" type="text" defaultValue={league.organizer_name ?? ''} className="input" />
-            </Field>
-            <Field label="Email">
-              <input name="organizer_email" type="email" defaultValue={league.organizer_email ?? ''} className="input" />
-            </Field>
-            <Field label="Phone">
-              <input name="organizer_phone" type="tel" defaultValue={league.organizer_phone ?? ''} className="input" />
-            </Field>
-          </div>
-        </div>
-
         <div className="grid grid-cols-2 gap-3">
           <Field label="Season Start">
             <input name="season_start_date" type="date" defaultValue={toDateInput(league.season_start_date)} className="input" />

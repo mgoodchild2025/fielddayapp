@@ -15,6 +15,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { formatGameTime } from '@/lib/format-time'
 import { TeamAvatar } from '@/components/ui/team-avatar'
+import { PlayerAvatar } from '@/components/ui/player-avatar'
 
 // ── Tab nav ───────────────────────────────────────────────────────────────────
 
@@ -394,7 +395,20 @@ export default async function EventDetailPage({
   const isOrgAdmin = ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
 
   // A participant is anyone with a registration OR a team membership in this league
-  const isParticipant = isOrgAdmin || !!myRegistration || myTeamIds.size > 0
+  const isParticipant = isOrgAdmin || !!myRegistration || myTeamIds.size > 0 || !!mySeasonRegistration || mySessionIds.size > 0
+
+  // Fetch the org admin's profile to display as event organizer
+  const { data: orgAdminRow } = await db
+    .from('org_members')
+    .select('profiles!org_members_user_id_fkey(full_name, avatar_url, email, phone)')
+    .eq('organization_id', org.id)
+    .eq('role', 'org_admin')
+    .eq('status', 'active')
+    .limit(1)
+    .single()
+  const orgAdminProfile = orgAdminRow
+    ? (Array.isArray(orgAdminRow.profiles) ? orgAdminRow.profiles[0] : orgAdminRow.profiles)
+    : null
 
   // Filter tabs by visibility — restricted tabs are hidden from non-participants
   const tabs = isTeamBased
@@ -694,16 +708,35 @@ export default async function EventDetailPage({
             )}
 
             {/* Organizer */}
-            {(league.organizer_name || league.organizer_email || league.organizer_phone) && (
+            {orgAdminProfile && (
               <div className="bg-white rounded-lg border p-5">
-                <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Organizer</p>
-                {league.organizer_name && <p className="font-semibold">{league.organizer_name}</p>}
-                {league.organizer_email && (
-                  <a href={`mailto:${league.organizer_email}`} className="text-sm text-blue-600 hover:underline mt-1 block">
-                    {league.organizer_email}
-                  </a>
-                )}
-                {league.organizer_phone && <p className="text-sm text-gray-600 mt-1">{league.organizer_phone}</p>}
+                <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">Organizer</p>
+                <div className="flex items-center gap-3">
+                  <PlayerAvatar
+                    avatarUrl={orgAdminProfile.avatar_url ?? null}
+                    name={orgAdminProfile.full_name ?? ''}
+                    size="md"
+                  />
+                  <div>
+                    <p className="font-semibold text-sm">{orgAdminProfile.full_name}</p>
+                    {isParticipant && orgAdminProfile.email && (
+                      <a
+                        href={`mailto:${orgAdminProfile.email}`}
+                        className="text-sm text-blue-600 hover:underline block mt-0.5"
+                      >
+                        {orgAdminProfile.email}
+                      </a>
+                    )}
+                    {isParticipant && orgAdminProfile.phone && (
+                      <a
+                        href={`tel:${orgAdminProfile.phone}`}
+                        className="text-sm text-gray-600 hover:underline block mt-0.5"
+                      >
+                        {orgAdminProfile.phone}
+                      </a>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
