@@ -1,14 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import {
-  saveNotificationSettings,
-  type NotificationSettings,
-  type SmsReminder,
-  TIMING_OPTIONS,
-  DEFAULT_MESSAGES,
-  MAX_MESSAGE_CHARS,
-} from '@/actions/notification-settings'
+import { saveNotificationSettings, type NotificationSettings, type SmsReminder } from '@/actions/notification-settings'
+import { TIMING_OPTIONS, DEFAULT_MESSAGES, MAX_MESSAGE_CHARS } from '@/lib/notification-settings-constants'
 
 type ReminderDraft = Omit<SmsReminder, 'id'> & { key: number }
 
