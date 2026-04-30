@@ -69,7 +69,6 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         <EditEventForm league={league as any} waivers={waivers ?? []} ruleTemplates={ruleTemplates ?? []} />
         <dl className="space-y-3 text-sm mt-4">
-          <Row label="Type" value={league.league_type} />
           <Row label="Sport" value={league.sport ?? '—'} />
           {league.age_group && <Row label="Age Group" value={league.age_group} />}
           <Row

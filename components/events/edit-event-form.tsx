@@ -10,7 +10,6 @@ interface League {
   description: string | null
   sport: string | null
   event_type: string
-  league_type: string
   registration_mode: string
   price_cents: number
   drop_in_price_cents: number | null
@@ -100,7 +99,7 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
       name: fd.get('name') as string,
       description: (fd.get('description') as string) || undefined,
       sport: fd.get('sport') as string,
-      league_type: fd.get('league_type') as 'team' | 'individual' | 'dropin' | 'tournament',
+
       price_cents: Number(fd.get('price_cents')),
       payment_mode: (fd.get('payment_mode') as 'per_player' | 'per_team') || 'per_player',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -189,14 +188,6 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
               {SPORTS.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
-            </select>
-          </Field>
-          <Field label="Type">
-            <select name="league_type" defaultValue={league.league_type} className="input">
-              <option value="team">Team</option>
-              <option value="individual">Individual</option>
-              <option value="dropin">Drop-in</option>
-              <option value="tournament">Tournament</option>
             </select>
           </Field>
         </div>

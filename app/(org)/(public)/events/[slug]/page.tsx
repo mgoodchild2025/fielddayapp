@@ -353,7 +353,7 @@ export default async function EventDetailPage({
     : { data: null }
 
   // Teams list (for open-registration team events)
-  const canJoinTeam = isTeamBased && league.team_join_policy !== 'admin_only' && league.league_type === 'team'
+  const canJoinTeam = isTeamBased && league.team_join_policy !== 'admin_only'
   const { data: teams } = isTeamBased
     ? await supabase
         .from('teams')

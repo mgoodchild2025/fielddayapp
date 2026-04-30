@@ -81,7 +81,6 @@ const schema = z.object({
     .min(2, 'Slug required')
     .regex(/^[a-z0-9-]+$/, 'Lowercase letters, numbers and hyphens only'),
   description: z.string().optional(),
-  league_type: z.enum(['team', 'individual', 'dropin', 'tournament']),
   sport: z.string().default('beach_volleyball'),
   age_group: z.string().optional(),
   price_cents: z.number().min(0).default(0),
@@ -155,7 +154,6 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
     resolver: zodResolver(schema) as never,
     defaultValues: {
       event_type: 'league',
-      league_type: 'team',
       sport: 'beach_volleyball',
       payment_mode: 'per_player',
       team_join_policy: 'open',
@@ -296,14 +294,6 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
 
           {withTeams && (
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Registration Format" error={errors.league_type?.message}>
-                <select {...register('league_type')} className={SELECT}>
-                  <option value="team">Team</option>
-                  <option value="individual">Individual</option>
-                  <option value="dropin">Drop-in</option>
-                  <option value="tournament">Tournament</option>
-                </select>
-              </Field>
               <Field label="Team Join Policy" error={errors.team_join_policy?.message}>
                 <select {...register('team_join_policy')} className={SELECT}>
                   <option value="open">Open (anyone can join)</option>

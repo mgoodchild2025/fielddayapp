@@ -122,7 +122,6 @@ By signing below, I acknowledge that I have read and understood this waiver, and
       name: 'Summer 2025 — Monday 4s',
       slug: 'summer-2025-monday-4s',
       description: 'Monday night 4-person beach volleyball league at Woodbine Beach. All levels welcome — competitive division available.',
-      league_type: 'team',
       sport: 'beach_volleyball',
       status: 'draft',
       payment_mode: 'per_player',

@@ -33,7 +33,7 @@ export default async function EventsPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: leagues } = await (supabase as any)
     .from('leagues')
-    .select('id, name, slug, status, event_type, league_type, sport, price_cents, currency')
+    .select('id, name, slug, status, event_type, sport, price_cents, currency')
     .eq('organization_id', org.id)
     .neq('status', 'draft')
     .order('created_at', { ascending: false })
@@ -58,7 +58,6 @@ export default async function EventsPage() {
             slug: string
             status: string
             event_type: string | null
-            league_type: string
             sport: string | null
             price_cents: number
             currency: string

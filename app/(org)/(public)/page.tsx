@@ -23,7 +23,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
   const [{ data: org }, { data: branding }, { data: leagues }] = await Promise.all([
     supabase.from('organizations').select('id, slug, name').eq('id', orgId).single(),
     supabase.from('org_branding').select('tagline, hero_image_url, logo_url').eq('organization_id', orgId).single(),
-    supabase.from('leagues').select('id, name, slug, league_type, event_type, status, season_start_date, price_cents, currency').eq('organization_id', orgId).neq('status', 'draft').neq('status', 'archived').order('season_start_date', { ascending: true }).limit(12),
+    supabase.from('leagues').select('id, name, slug, event_type, status, season_start_date, price_cents, currency').eq('organization_id', orgId).neq('status', 'draft').neq('status', 'archived').order('season_start_date', { ascending: true }).limit(12),
   ])
 
   if (!org) return <MarketingPage />
