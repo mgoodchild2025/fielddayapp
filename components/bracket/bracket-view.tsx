@@ -20,6 +20,7 @@ export interface BracketMatchData {
   winnerTeamId: string | null
   score1: number | null
   score2: number | null
+  sets: { s1: number; s2: number }[] | null
   status: 'pending' | 'ready' | 'completed' | 'bye'
   scheduledAt: string | null
   court: string | null
@@ -64,12 +65,17 @@ function ScoreModal({
 }) {
   const isVolleyball = VOLLEYBALL_SPORTS.includes(sport ?? '')
 
-  // Simple (non-volleyball) state
-  const [s1, setS1] = useState('')
-  const [s2, setS2] = useState('')
+  // Simple (non-volleyball) state — pre-fill if editing
+  const [s1, setS1] = useState(match.score1 !== null && !isVolleyball ? String(match.score1) : '')
+  const [s2, setS2] = useState(match.score2 !== null && !isVolleyball ? String(match.score2) : '')
 
-  // Volleyball set state — start with 2 sets, can add a 3rd
-  const [sets, setSets] = useState<SetScore[]>([{ s1: '', s2: '' }, { s1: '', s2: '' }])
+  // Volleyball set state — pre-fill from existing sets, or start with 2 blank sets
+  const [sets, setSets] = useState<SetScore[]>(() => {
+    if (isVolleyball && match.sets && match.sets.length > 0) {
+      return match.sets.map((s) => ({ s1: String(s.s1), s2: String(s.s2) }))
+    }
+    return [{ s1: '', s2: '' }, { s1: '', s2: '' }]
+  })
 
   const [err, setErr] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -321,14 +327,25 @@ function MatchCard({
           </span>
         </div>
 
-        {/* Admin score entry trigger */}
-        {isAdmin && isReady && !isCompleted && (
+        {/* Set scores */}
+        {isCompleted && match.sets && match.sets.length > 0 && (
+          <div className="px-3 py-1.5 border-t bg-gray-50 flex gap-2 flex-wrap">
+            {match.sets.map((s, i) => (
+              <span key={i} className="text-[11px] text-gray-500">
+                <span className="font-medium text-gray-700">{s.s1}–{s.s2}</span>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Admin score entry / edit trigger */}
+        {isAdmin && (isReady || isCompleted) && (
           <div className="px-3 pb-2 pt-1 border-t">
             <button
               onClick={() => setModalOpen(true)}
               className="text-xs font-medium text-blue-600 hover:underline"
             >
-              Enter score
+              {isCompleted ? 'Edit score' : 'Enter score'}
             </button>
           </div>
         )}
@@ -356,7 +373,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport }: Props
   const displayRounds = [...prevRounds].reverse()
   displayRounds.push(finalRound)
 
-  const MATCH_HEIGHT = 90 // px per match card
+  const MATCH_HEIGHT = 116 // px per match card (accounts for set scores row + admin button)
   const MATCH_GAP = 16   // px between match cards in a column
   const ROUND_WIDTH = 224 // px per round column (w-52 = 208 + 16 padding)
 

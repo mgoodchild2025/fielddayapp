@@ -82,7 +82,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
       bracket_matches(
         id, round_number, match_number,
         team1_id, team2_id, team1_seed, team2_seed,
-        is_bye, winner_team_id, score1, score2, status,
+        is_bye, winner_team_id, score1, score2, sets, status,
         winner_to_match_id, scheduled_at, court, notes
       )
     `)
@@ -98,7 +98,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
     bracket_matches: {
       id: string; round_number: number; match_number: number;
       team1_id: string|null; team2_id: string|null; team1_seed: number|null; team2_seed: number|null;
-      is_bye: boolean; winner_team_id: string|null; score1: number|null; score2: number|null;
+      is_bye: boolean; winner_team_id: string|null; score1: number|null; score2: number|null; sets: {s1:number;s2:number}[]|null;
       status: string; winner_to_match_id: string|null; scheduled_at: string|null; court: string|null; notes: string|null;
     }[]
   }): BracketData {
@@ -122,6 +122,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
         winnerTeamId: m.winner_team_id,
         score1: m.score1,
         score2: m.score2,
+        sets: m.sets ?? null,
         status: m.status as BracketMatchData['status'],
         scheduledAt: m.scheduled_at,
         court: m.court,
