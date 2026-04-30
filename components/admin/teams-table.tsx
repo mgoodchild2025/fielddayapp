@@ -2,11 +2,13 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import { TeamAvatar } from '@/components/ui/team-avatar'
 
 type Team = {
   id: string
   name: string
   color: string | null
+  logo_url: string | null
   status: string | null
   league: { id: string; name: string; slug: string; sport: string | null } | null
   memberCount: number
@@ -134,9 +136,7 @@ export function TeamsTable({ teams, totalCount }: { teams: Team[]; totalCount: n
                       <tr key={team.id} className="border-b last:border-0 hover:bg-gray-50">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            {team.color && (
-                              <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
-                            )}
+                            <TeamAvatar logoUrl={team.logo_url} color={team.color} name={team.name} size="sm" />
                             <Link href={`/teams/${team.id}`} className="font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
                               {team.name}
                             </Link>
@@ -166,11 +166,9 @@ export function TeamsTable({ teams, totalCount }: { teams: Team[]; totalCount: n
                 {leagueTeams.map(team => (
                   <div key={team.id} className="bg-white rounded-lg border p-4">
                     <div className="flex items-center justify-between gap-3">
-                      {/* Color dot + name */}
+                      {/* Avatar + name */}
                       <div className="flex items-center gap-2 min-w-0">
-                        {team.color && (
-                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
-                        )}
+                        <TeamAvatar logoUrl={team.logo_url} color={team.color} name={team.name} size="sm" />
                         <Link
                           href={`/teams/${team.id}`}
                           className="font-medium hover:underline truncate"

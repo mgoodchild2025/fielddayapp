@@ -11,6 +11,7 @@ import { DeleteTeamButton } from '@/components/teams/delete-team-button'
 import { JoinRequestButtons } from '@/components/teams/join-request-buttons'
 import { AdminEditTeamForm } from '@/components/teams/admin-edit-team-form'
 import { MakeCaptainButton } from '@/components/teams/make-captain-button'
+import { TeamAvatar } from '@/components/ui/team-avatar'
 
 export default async function TeamsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -125,13 +126,7 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
             return (
               <div key={team.id} className="bg-white rounded-lg border p-4">
                 <div className="flex items-center gap-3 mb-2">
-                  {/* Logo or colour dot */}
-                  {team.logo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={team.logo_url} alt="" className="w-7 h-7 rounded object-contain flex-shrink-0 bg-gray-50 border" />
-                  ) : team.color ? (
-                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: team.color }} />
-                  ) : null}
+                  <TeamAvatar logoUrl={team.logo_url ?? null} color={team.color} name={team.name} size="sm" />
                   <h3 className="font-semibold">{team.name}</h3>
                   <span className="text-xs text-gray-400 ml-auto">
                     {activePlayers.length} player{activePlayers.length !== 1 ? 's' : ''}

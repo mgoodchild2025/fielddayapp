@@ -14,6 +14,7 @@ import type { BracketData, BracketMatchData } from '@/components/bracket/bracket
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { formatGameTime } from '@/lib/format-time'
+import { TeamAvatar } from '@/components/ui/team-avatar'
 
 // ── Tab nav ───────────────────────────────────────────────────────────────────
 
@@ -364,7 +365,7 @@ export default async function EventDetailPage({
   const { data: teams } = isTeamBased
     ? await supabase
         .from('teams')
-        .select('id, name, color, team_members(id, status)')
+        .select('id, name, color, logo_url, team_members(id, status)')
         .eq('league_id', league.id)
         .eq('organization_id', org.id)
         .eq('status', 'active')
@@ -885,7 +886,12 @@ export default async function EventDetailPage({
                     return (
                       <div key={team.id} className="bg-white rounded-lg border p-4 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          {team.color && <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />}
+                          <TeamAvatar
+                            logoUrl={(team as { logo_url?: string | null }).logo_url ?? null}
+                            color={team.color}
+                            name={team.name}
+                            size="sm"
+                          />
                           <div>
                             <p className="font-semibold">{team.name}</p>
                             <p className="text-xs text-gray-500">{memberCount} player{memberCount !== 1 ? 's' : ''}</p>

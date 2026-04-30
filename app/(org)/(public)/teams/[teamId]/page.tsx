@@ -12,6 +12,7 @@ import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
 import { TeamPaymentPanel } from '@/components/teams/team-payment-panel'
 import { getPositionsForSport } from '@/actions/positions'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
+import { TeamAvatar } from '@/components/ui/team-avatar'
 import Link from 'next/link'
 
 export default async function TeamDetailPage({
@@ -141,12 +142,7 @@ export default async function TeamDetailPage({
 
         {/* Team header */}
         <div className="mt-4 flex items-center gap-4">
-          {team.logo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={team.logo_url} alt={team.name} className="w-16 h-16 rounded-xl object-contain bg-white border shadow-sm" />
-          ) : team.color ? (
-            <div className="w-16 h-16 rounded-xl shrink-0 shadow-sm" style={{ backgroundColor: team.color }} />
-          ) : null}
+          <TeamAvatar logoUrl={team.logo_url ?? null} color={team.color} name={team.name} size="lg" />
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)' }}>{team.name}</h1>
             {league && (

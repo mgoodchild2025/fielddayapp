@@ -13,7 +13,7 @@ export default async function AdminTeamsPage() {
   let query = supabase
     .from('teams')
     .select(`
-      id, name, color, status,
+      id, name, color, logo_url, status,
       league:leagues!teams_league_id_fkey(id, name, slug, sport),
       team_members(id, status)
     `)
@@ -40,6 +40,7 @@ export default async function AdminTeamsPage() {
       id: team.id,
       name: team.name,
       color: team.color,
+      logo_url: (team as { logo_url?: string | null }).logo_url ?? null,
       status: team.status,
       league: league ?? null,
       memberCount,

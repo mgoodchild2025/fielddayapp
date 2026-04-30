@@ -8,6 +8,7 @@ import { PendingPaymentButton } from '@/components/dashboard/pending-payment-but
 import { TeamMessageForm } from '@/components/teams/team-message-form'
 import { QRCodeDisplay } from '@/components/checkin/qr-code-display'
 import { formatGameTime } from '@/lib/format-time'
+import { TeamAvatar } from '@/components/ui/team-avatar'
 import Link from 'next/link'
 
 export default async function PlayerDashboardPage() {
@@ -45,7 +46,7 @@ export default async function PlayerDashboardPage() {
     supabase.from('team_members').select(`
       id, role,
       team:teams!team_members_team_id_fkey(
-        id, name, color, league_id,
+        id, name, color, logo_url, league_id,
         league:leagues!teams_league_id_fkey(id, name, slug),
         team_members(
           id, role, status,
@@ -267,9 +268,12 @@ export default async function PlayerDashboardPage() {
                 return (
                   <div key={mt.id} className="bg-white rounded-lg border p-5">
                     <div className="flex items-center gap-2 mb-2">
-                      {team.color && (
-                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
-                      )}
+                      <TeamAvatar
+                        logoUrl={(team as { logo_url?: string | null }).logo_url ?? null}
+                        color={team.color}
+                        name={team.name}
+                        size="sm"
+                      />
                       <Link
                         href={`/teams/${team.id}`}
                         className="font-semibold hover:underline"
