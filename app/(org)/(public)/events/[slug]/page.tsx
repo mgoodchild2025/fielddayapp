@@ -16,19 +16,22 @@ import Link from 'next/link'
 import { formatGameTime } from '@/lib/format-time'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
+import { StickyRegisterBar } from '@/components/events/sticky-register-bar'
 
 // ── Tab nav ───────────────────────────────────────────────────────────────────
 
 function TabNav({ slug, activeTab, tabs }: { slug: string; activeTab: string; tabs: { id: string; label: string }[] }) {
   return (
     <div className="border-b sticky top-16 z-30 bg-white">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6">
-        <nav className="flex gap-0 -mb-px overflow-x-auto">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 relative">
+        {/* Right-edge fade — visible on mobile only, hints that tabs are scrollable */}
+        <div className="pointer-events-none absolute right-4 sm:right-6 inset-y-0 w-10 bg-gradient-to-l from-white to-transparent z-10 sm:hidden" />
+        <nav className="flex gap-0 -mb-px overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
           {tabs.map((tab) => (
             <Link
               key={tab.id}
               href={`/events/${slug}?tab=${tab.id}`}
-              className={`shrink-0 px-5 py-3.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              className={`shrink-0 px-3.5 sm:px-5 py-3.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'border-current text-current'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -74,8 +77,8 @@ function StandingsTable({ teams }: { teams: TeamStat[] }) {
               <th className="px-4 py-3 font-medium text-gray-500">Team</th>
               <th className="px-3 py-3 font-medium text-gray-500 text-center">W</th>
               <th className="px-3 py-3 font-medium text-gray-500 text-center">L</th>
-              <th className="px-3 py-3 font-medium text-gray-500 text-center">PF</th>
-              <th className="px-3 py-3 font-medium text-gray-500 text-center">PA</th>
+              <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">PF</th>
+              <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">PA</th>
               <th className="px-3 py-3 font-medium text-gray-500 text-center">Diff</th>
             </tr>
           </thead>
@@ -86,8 +89,8 @@ function StandingsTable({ teams }: { teams: TeamStat[] }) {
                 <td className="px-4 py-3 font-medium">{team.name}</td>
                 <td className="px-3 py-3 text-center font-semibold" style={{ color: 'var(--brand-primary)' }}>{team.wins}</td>
                 <td className="px-3 py-3 text-center text-gray-500">{team.losses}</td>
-                <td className="px-3 py-3 text-center text-gray-500">{team.pointsFor}</td>
-                <td className="px-3 py-3 text-center text-gray-500">{team.pointsAgainst}</td>
+                <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.pointsFor}</td>
+                <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.pointsAgainst}</td>
                 <td className="px-3 py-3 text-center text-gray-500">
                   {team.pointsFor - team.pointsAgainst > 0 ? '+' : ''}{team.pointsFor - team.pointsAgainst}
                 </td>
@@ -156,9 +159,64 @@ function DateGroup({
           const isCaptain = isCaptainOfHome || isCaptainOfAway
           const submittedByOpponent = result?.submitted_by != null && result.submitted_by !== userId
 
+          const hasScore = result && result.home_score !== null && result.away_score !== null
+          const homeWon = hasScore && result!.home_score! > result!.away_score!
+          const awayWon = hasScore && result!.away_score! > result!.home_score!
+
           return (
             <div key={game.id} className={`bg-white rounded-lg border p-4 ${isPast ? 'opacity-80' : ''}`}>
-              <div className="flex items-center gap-3">
+
+              {/* ── Mobile layout: stacked teams ── */}
+              <div className="md:hidden">
+                {/* Meta row: time · court · week */}
+                <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-2.5 tabular-nums">
+                  <span className="font-medium text-gray-500">{gameTime}</span>
+                  {game.court && <><span>·</span><span>Court {game.court}</span></>}
+                  {game.week_number && <><span>·</span><span>Wk {game.week_number}</span></>}
+                </div>
+                {/* Teams + scores */}
+                <div className="space-y-1">
+                  {([
+                    { name: homeTeam?.name ?? 'TBD', score: result?.home_score ?? null, won: homeWon },
+                    { name: awayTeam?.name ?? 'TBD', score: result?.away_score ?? null, won: awayWon },
+                  ] as const).map((team, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-2">
+                      <span className={`text-sm font-semibold truncate ${!team.won && hasScore ? 'text-gray-400 font-normal' : ''}`}>
+                        {team.name}
+                      </span>
+                      {hasScore && (
+                        <span className={`text-sm tabular-nums shrink-0 ${team.won ? 'font-bold' : 'text-gray-400'}`}>
+                          {team.score}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {/* Result footer */}
+                {hasScore ? (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className={`text-[10px] font-medium ${result!.status === 'confirmed' ? 'text-green-600' : 'text-amber-600'}`}>
+                      {result!.status === 'confirmed' ? '✓ confirmed' : 'pending confirmation'}
+                    </span>
+                    {result?.sets && result.sets.length > 0 && (
+                      <span className="text-[10px] text-gray-400">
+                        ({result.sets.map((s: SetScore) => `${s.home}–${s.away}`).join(', ')})
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-2">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
+                    }`}>
+                      {game.status === 'completed' ? 'Final' : game.status}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Desktop layout: single row ── */}
+              <div className="hidden md:flex items-center gap-3">
                 <div className="w-14 shrink-0 text-xs text-gray-400 tabular-nums">{gameTime}</div>
                 <div className="flex-1 min-w-0">
                   <p className={`font-semibold text-sm ${isPast ? 'text-gray-500' : ''}`}>
@@ -172,16 +230,16 @@ function DateGroup({
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
-                  {result && result.home_score !== null && result.away_score !== null ? (
+                  {hasScore ? (
                     <div>
-                      <p className="font-bold tabular-nums text-sm">{result.home_score} – {result.away_score}</p>
-                      {result.sets && result.sets.length > 0 && (
+                      <p className="font-bold tabular-nums text-sm">{result!.home_score} – {result!.away_score}</p>
+                      {result?.sets && result.sets.length > 0 && (
                         <p className="text-[10px] text-gray-400 mt-0.5">
                           {result.sets.map((s: SetScore) => `${s.home}–${s.away}`).join(', ')}
                         </p>
                       )}
-                      <p className={`text-[10px] mt-0.5 ${result.status === 'confirmed' ? 'text-green-600' : 'text-amber-600'}`}>
-                        {result.status === 'confirmed' ? '✓ confirmed' : 'pending'}
+                      <p className={`text-[10px] mt-0.5 ${result!.status === 'confirmed' ? 'text-green-600' : 'text-amber-600'}`}>
+                        {result!.status === 'confirmed' ? '✓ confirmed' : 'pending'}
                       </p>
                     </div>
                   ) : (
@@ -193,6 +251,7 @@ function DateGroup({
                   )}
                 </div>
               </div>
+
               {isPast && isCaptain && result?.status !== 'confirmed' && (
                 <CaptainScoreEntry
                   gameId={game.id}
@@ -425,6 +484,16 @@ export default async function EventDetailPage({
     ? (dropInPriceCents === 0 ? 'Free drop-in' : `$${(dropInPriceCents / 100).toFixed(0)} drop-in`)
     : null
 
+  // Sticky register bar — shown on mobile overview tab when registration is open and user isn't registered
+  const stickyBar: { href: string; label: string } | null =
+    activeTab === 'overview'
+      ? isTeamBased && !myRegistration && isOpen
+        ? { href: `/register/${league.slug}`, label: 'Register Now' }
+        : isSeasonPickup && !mySeasonRegistration && isRegOpen && (!isPrivatePickup || hasSeasonInvite)
+        ? { href: `/register/${league.slug}`, label: 'Register for the Season' }
+        : null
+      : null
+
   // ── Schedule tab data ─────────────────────────────────────────────────────
 
   let games: GameRow[] = []
@@ -615,7 +684,7 @@ export default async function EventDetailPage({
       {tabs.length > 1 && <TabNav slug={slug} activeTab={activeTab} tabs={tabs} />}
 
       {/* ── Tab content ── */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+      <div className={`max-w-3xl mx-auto px-4 sm:px-6 py-8 ${stickyBar ? 'pb-28 md:pb-8' : ''}`}>
 
         {/* ──────────────── OVERVIEW TAB ──────────────── */}
         {activeTab === 'overview' && (
@@ -1048,6 +1117,12 @@ export default async function EventDetailPage({
         )}
 
       </div>
+
+      {/* ── Sticky register bar (mobile only, overview tab, unregistered) ── */}
+      {stickyBar && (
+        <StickyRegisterBar href={stickyBar.href} label={stickyBar.label} price={price} />
+      )}
+
       <Footer org={org} />
     </div>
   )
