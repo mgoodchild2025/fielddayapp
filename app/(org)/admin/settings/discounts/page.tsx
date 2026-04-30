@@ -1,7 +1,6 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import Link from 'next/link'
 import { DiscountForm } from './discount-form'
 import { DiscountRow } from './discount-row'
 
@@ -18,12 +17,7 @@ export default async function AdminDiscountsPage() {
 
   return (
     <div className="max-w-3xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <Link href="/admin/settings" className="text-sm text-gray-400 hover:text-gray-600 mb-1 inline-block">← Settings</Link>
-          <h1 className="text-2xl font-bold">Discount Codes</h1>
-        </div>
-      </div>
+      <h1 className="text-2xl font-bold mb-6">Discount Codes</h1>
 
       <div className="bg-white rounded-lg border p-5 mb-6">
         <h2 className="font-semibold mb-4">Create New Code</h2>

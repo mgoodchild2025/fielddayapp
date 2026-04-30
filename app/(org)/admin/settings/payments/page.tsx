@@ -25,8 +25,7 @@ export default async function PaymentSettingsPage() {
   return (
     <div className="max-w-2xl">
       <div className="mb-6">
-        <a href="/admin/settings" className="text-sm text-gray-500 hover:underline">← Settings</a>
-        <div className="flex items-start justify-between gap-4 mt-2">
+        <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">Payments</h1>
             <p className="text-sm text-gray-500 mt-1">

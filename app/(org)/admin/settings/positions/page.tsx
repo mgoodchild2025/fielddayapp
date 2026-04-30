@@ -3,7 +3,6 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { PositionsEditor } from '@/components/positions/positions-editor'
 import type { SportPosition } from '@/actions/positions'
-import Link from 'next/link'
 
 const SPORT_LABELS: Record<string, string> = {
   beach_volleyball: 'Beach Volleyball',
@@ -87,9 +86,6 @@ export default async function AdminPositionsPage() {
 
   return (
     <div className="max-w-2xl">
-      <div className="flex items-center gap-3 mb-6">
-        <Link href="/admin/settings" className="text-sm text-gray-500 hover:underline">← Settings</Link>
-      </div>
       <h1 className="text-2xl font-bold mb-2">Positions</h1>
       <p className="text-sm text-gray-500 mb-6">
         Customise available positions per sport. Platform defaults are used unless you override them.
