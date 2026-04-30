@@ -25,36 +25,40 @@ export default async function AdminCheckInPage({ params }: { params: Promise<{ i
   const { data: registrations } = await (db as any)
     .from('registrations')
     .select(`
-      id, checked_in_at, checkin_token,
-      user_profile:profiles!registrations_user_id_fkey(full_name),
-      team:team_members!team_members_user_id_fkey(
-        team:teams!team_members_team_id_fkey(name, league_id)
-      )
+      id, checked_in_at, checkin_token, user_id,
+      user_profile:profiles!registrations_user_id_fkey(full_name)
     `)
     .eq('league_id', id)
     .eq('organization_id', org.id)
     .eq('status', 'active')
     .order('checked_in_at', { ascending: false, nullsFirst: false })
 
+  // Fetch team names separately — no direct FK from registrations to team_members
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: teamMembers } = await (db as any)
+    .from('team_members')
+    .select('user_id, team:teams!team_members_team_id_fkey(name, league_id)')
+    .eq('status', 'active')
+    .in('user_id', (registrations ?? []).map((r: { user_id: string }) => r.user_id))
+
+  const teamByUserId = new Map<string, string>()
+  for (const tm of (teamMembers ?? [])) {
+    const team = Array.isArray(tm.team) ? tm.team[0] : tm.team
+    if (team?.league_id === id) teamByUserId.set(tm.user_id, team.name)
+  }
+
   const rows = (registrations ?? []).map((reg: {
     id: string
     checked_in_at: string | null
     checkin_token: string
+    user_id: string
     user_profile: { full_name: string } | { full_name: string }[] | null
-    team: Array<{ team: { name: string; league_id: string } | null }> | null
   }) => {
     const profile = Array.isArray(reg.user_profile) ? reg.user_profile[0] : reg.user_profile
-    const teamMembers = Array.isArray(reg.team) ? reg.team : (reg.team ? [reg.team] : [])
-    const teamEntry = teamMembers.find((tm: { team: { league_id: string; name: string } | null }) => {
-      const t = Array.isArray(tm.team) ? tm.team[0] : tm.team
-      return t?.league_id === id
-    })
-    const teamData = teamEntry ? (Array.isArray(teamEntry.team) ? teamEntry.team[0] : teamEntry.team) : null
-
     return {
       id: reg.id,
       playerName: profile?.full_name ?? 'Unknown',
-      teamName: teamData?.name ?? null,
+      teamName: teamByUserId.get(reg.user_id) ?? null,
       checkinToken: reg.checkin_token,
       checkedInAt: reg.checked_in_at,
     }
