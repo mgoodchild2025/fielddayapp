@@ -15,11 +15,23 @@ type FormData = z.infer<typeof schema>
 
 const PRESET_COLORS = ['#EF4444', '#F97316', '#EAB308', '#22C55E', '#3B82F6', '#8B5CF6', '#EC4899', '#6B7280']
 
-export function AdminCreateTeamForm({ leagueId }: { leagueId: string }) {
+interface RegisteredPlayer {
+  userId: string
+  name: string
+  email: string
+}
+
+interface Props {
+  leagueId: string
+  registeredPlayers?: RegisteredPlayer[]
+}
+
+export function AdminCreateTeamForm({ leagueId, registeredPlayers = [] }: Props) {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedColor, setSelectedColor] = useState<string>('')
+  const [captainUserId, setCaptainUserId] = useState<string>('')
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -29,13 +41,19 @@ export function AdminCreateTeamForm({ leagueId }: { leagueId: string }) {
     setLoading(true)
     setError(null)
     setSuccess(false)
-    const result = await adminCreateTeam({ leagueId, ...data, color: selectedColor || undefined })
+    const result = await adminCreateTeam({
+      leagueId,
+      ...data,
+      color: selectedColor || undefined,
+      captainUserId: captainUserId || undefined,
+    })
     if (result.error) {
       setError(result.error)
     } else {
       setSuccess(true)
       reset()
       setSelectedColor('')
+      setCaptainUserId('')
     }
     setLoading(false)
   }
@@ -73,6 +91,26 @@ export function AdminCreateTeamForm({ leagueId }: { leagueId: string }) {
             ))}
           </div>
         </div>
+
+        {registeredPlayers.length > 0 && (
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Captain <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <select
+              value={captainUserId}
+              onChange={(e) => setCaptainUserId(e.target.value)}
+              className="w-full border rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0"
+            >
+              <option value="">Assign later</option>
+              {registeredPlayers.map((p) => (
+                <option key={p.userId} value={p.userId}>
+                  {p.name}{p.email ? ` · ${p.email}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <button
           type="submit"

@@ -9,6 +9,7 @@ import { RemovePlayerButton } from '@/components/teams/remove-player-button'
 import { DeleteTeamButton } from '@/components/teams/delete-team-button'
 import { JoinRequestButtons } from '@/components/teams/join-request-buttons'
 import { AdminEditTeamForm } from '@/components/teams/admin-edit-team-form'
+import { MakeCaptainButton } from '@/components/teams/make-captain-button'
 
 export default async function TeamsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -163,6 +164,14 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
                       >
                         {displayName}
                         {m.status === 'invited' && ' (invited)'}
+                        {m.role !== 'captain' && m.status === 'active' && m.user_id && (
+                          <MakeCaptainButton
+                            memberId={m.id}
+                            teamId={team.id}
+                            leagueId={id}
+                            playerName={displayName}
+                          />
+                        )}
                         <RemovePlayerButton
                           memberId={m.id}
                           leagueId={id}
@@ -199,7 +208,7 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
       </div>
 
       <div>
-        <AdminCreateTeamForm leagueId={id} />
+        <AdminCreateTeamForm leagueId={id} registeredPlayers={unassignedPlayers} />
       </div>
     </div>
   )

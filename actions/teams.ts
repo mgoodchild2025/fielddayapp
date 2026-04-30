@@ -79,6 +79,7 @@ const adminCreateTeamSchema = z.object({
   leagueId: z.string().uuid(),
   name: z.string().min(2),
   color: z.string().optional(),
+  captainUserId: z.string().uuid().optional(),
 })
 
 export async function adminCreateTeam(input: z.infer<typeof adminCreateTeamSchema>) {
@@ -103,8 +104,85 @@ export async function adminCreateTeam(input: z.infer<typeof adminCreateTeamSchem
 
   if (error) return { data: null, error: error.message }
 
+  // Assign captain immediately if provided
+  if (parsed.data.captainUserId) {
+    const db = createServiceRoleClient()
+    await db.from('team_members').insert({
+      organization_id: org.id,
+      team_id: team.id,
+      user_id: parsed.data.captainUserId,
+      role: 'captain',
+      status: 'active',
+    })
+    // Upgrade org membership role to captain
+    await db
+      .from('org_members')
+      .update({ role: 'captain' })
+      .eq('organization_id', org.id)
+      .eq('user_id', parsed.data.captainUserId)
+      .eq('role', 'player')
+  }
+
   revalidatePath(`/admin/events/${parsed.data.leagueId}/teams`)
   return { data: team, error: null }
+}
+
+// ─── Admin: assign a new captain to an existing team ─────────────────────────
+
+export async function adminSetCaptain(memberId: string, teamId: string, leagueId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+
+  // Verify caller is org/league admin
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const db = createServiceRoleClient()
+  const { data: orgMember } = await db
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!orgMember || !['org_admin', 'league_admin'].includes(orgMember.role)) {
+    return { error: 'Forbidden' }
+  }
+
+  // Demote any existing captains on this team to player
+  await db
+    .from('team_members')
+    .update({ role: 'player' })
+    .eq('team_id', teamId)
+    .eq('organization_id', org.id)
+    .eq('role', 'captain')
+
+  // Promote the target member
+  const { data: promoted, error: promoteError } = await db
+    .from('team_members')
+    .update({ role: 'captain' })
+    .eq('id', memberId)
+    .eq('team_id', teamId)
+    .eq('organization_id', org.id)
+    .select('user_id')
+    .single()
+
+  if (promoteError) return { error: promoteError.message }
+
+  // Upgrade org membership role
+  if (promoted?.user_id) {
+    await db
+      .from('org_members')
+      .update({ role: 'captain' })
+      .eq('organization_id', org.id)
+      .eq('user_id', promoted.user_id)
+      .eq('role', 'player')
+  }
+
+  revalidatePath(`/admin/events/${leagueId}/teams`)
+  revalidatePath(`/teams/${teamId}`)
+  return { error: null }
 }
 
 // ─── Regenerate team code ─────────────────────────────────────────────────────
