@@ -31,20 +31,25 @@ export default async function AdminDashboardPage() {
   const totalRevenue = recentPayments?.filter((p) => p.status === 'paid').reduce((acc, p) => acc + p.amount_cents, 0) ?? 0
 
   const stats = [
-    { label: 'Active Events', value: leagueCount ?? 0, href: '/admin/events' },
-    { label: 'Members', value: memberCount ?? 0, href: '/admin/users' },
-    { label: 'Recent Revenue', value: `$${(totalRevenue / 100).toFixed(0)}`, href: '/admin/payments' },
+    { label: 'Active Events', shortLabel: 'Events', value: leagueCount ?? 0, href: '/admin/events' },
+    { label: 'Members', shortLabel: 'Members', value: memberCount ?? 0, href: '/admin/users' },
+    { label: 'Recent Revenue', shortLabel: 'Revenue', value: `$${(totalRevenue / 100).toFixed(0)}`, href: '/admin/payments' },
   ]
 
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">{org.name} — Dashboard</h1>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
         {stats.map((s) => (
-          <Link key={s.label} href={s.href} className="bg-white rounded-lg border p-5 hover:shadow-sm transition-shadow">
-            <p className="text-sm text-gray-500">{s.label}</p>
-            <p className="text-3xl font-bold mt-1" style={{ fontFamily: 'var(--brand-heading-font)' }}>{s.value}</p>
+          <Link key={s.label} href={s.href} className="bg-white rounded-lg border p-3 sm:p-5 hover:shadow-sm transition-shadow">
+            <p className="text-[10px] sm:text-sm text-gray-500 leading-tight">
+              <span className="sm:hidden">{s.shortLabel}</span>
+              <span className="hidden sm:inline">{s.label}</span>
+            </p>
+            <p className="text-xl sm:text-3xl font-bold mt-0.5 sm:mt-1 tabular-nums" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+              {s.value}
+            </p>
           </Link>
         ))}
       </div>
