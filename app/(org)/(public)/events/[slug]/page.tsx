@@ -386,13 +386,19 @@ export default async function EventDetailPage({
     ...(hasBracket ? [{ id: 'bracket', label: 'Bracket', visibility: bracketVisibility }] : []),
   ]
 
-  // Tabs for in-season/completed events: no overview, always-public, includes rules if available
-  const inSeasonTabs = [
-    { id: 'schedule', label: 'Schedule', visibility: 'public' as const },
-    { id: 'standings', label: 'Standings', visibility: 'public' as const },
-    ...(hasBracket ? [{ id: 'bracket', label: 'Bracket', visibility: 'public' as const }] : []),
-    ...(league.rules_content ? [{ id: 'rules', label: 'Rules', visibility: 'public' as const }] : []),
-  ]
+  // Tabs for in-season/completed events — team-based gets Schedule+Standings+Bracket+Rules,
+  // non-team-based (pickup/drop-in) gets Overview + Rules if available
+  const inSeasonTabs = isTeamBased
+    ? [
+        { id: 'schedule',  label: 'Schedule',  visibility: 'public' as const },
+        { id: 'standings', label: 'Standings', visibility: 'public' as const },
+        ...(hasBracket          ? [{ id: 'bracket', label: 'Bracket', visibility: 'public' as const }] : []),
+        ...(league.rules_content ? [{ id: 'rules',   label: 'Rules',   visibility: 'public' as const }] : []),
+      ]
+    : [
+        { id: 'overview', label: 'Info',  visibility: 'public' as const },
+        ...(league.rules_content ? [{ id: 'rules', label: 'Rules', visibility: 'public' as const }] : []),
+      ]
 
   // Placeholder — refined after participant status is resolved below
   const rawTabRequest = rawTab ?? (isInSeasonOrCompleted ? 'schedule' : 'overview')
@@ -480,11 +486,11 @@ export default async function EventDetailPage({
     : null
 
   // Filter tabs by visibility — restricted tabs are hidden from non-participants
-  const tabs = isTeamBased
-    ? (isInSeasonOrCompleted
-        ? inSeasonTabs
-        : allTeamTabs.filter((t) => t.visibility === 'public' || isParticipant))
-    : [{ id: 'overview', label: 'Overview', visibility: 'public' as const }]
+  const tabs = isInSeasonOrCompleted
+    ? inSeasonTabs
+    : isTeamBased
+      ? allTeamTabs.filter((t) => t.visibility === 'public' || isParticipant)
+      : [{ id: 'overview', label: 'Overview', visibility: 'public' as const }]
 
   const validTabIds = tabs.map((t) => t.id)
   // Only use 'schedule' as the default if it's actually a valid tab (not the case for pickup/drop-in)
