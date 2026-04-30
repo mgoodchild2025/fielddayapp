@@ -25,6 +25,13 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
+  const { data: branding } = await db
+    .from('org_branding')
+    .select('timezone')
+    .eq('organization_id', org.id)
+    .single()
+  const timezone = branding?.timezone ?? 'America/Toronto'
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: registrations } = await (db as any)
     .from('registrations')
@@ -122,7 +129,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                     {(reg as any).checked_in_at ? (
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        ✓ {new Date((reg as any).checked_in_at).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })}
+                        ✓ {new Date((reg as any).checked_in_at).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone: timezone })}
                       </span>
                     ) : (
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400">
@@ -135,6 +142,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                       month: 'short',
                       day: 'numeric',
                       year: 'numeric',
+                      timeZone: timezone,
                     })}
                   </td>
                   <td className="px-4 py-3">

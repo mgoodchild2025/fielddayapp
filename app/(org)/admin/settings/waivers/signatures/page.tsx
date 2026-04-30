@@ -8,6 +8,13 @@ export default async function WaiverSignaturesPage() {
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
+  const { data: branding } = await db
+    .from('org_branding')
+    .select('timezone')
+    .eq('organization_id', org.id)
+    .single()
+  const timezone = branding?.timezone ?? 'America/Toronto'
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: signatures } = await (db as any)
     .from('waiver_signatures')
@@ -79,11 +86,13 @@ export default async function WaiverSignaturesPage() {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
+                        timeZone: timezone,
                       })}
                       <br />
                       {new Date(sig.signed_at).toLocaleTimeString('en-CA', {
                         hour: 'numeric',
                         minute: '2-digit',
+                        timeZone: timezone,
                       })}
                     </td>
                     <td className="px-4 py-3 text-right">

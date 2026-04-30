@@ -11,13 +11,14 @@ export default async function AdminCheckInPage({ params }: { params: Promise<{ i
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
-    .from('leagues')
-    .select('id, name, event_type')
-    .eq('id', id)
-    .eq('organization_id', org.id)
-    .single()
+  const [leagueRes, brandingRes] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('leagues').select('id, name, event_type').eq('id', id).eq('organization_id', org.id).single(),
+    db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
+  ])
+
+  const league = leagueRes.data
+  const timezone = brandingRes.data?.timezone ?? 'America/Toronto'
 
   if (!league) notFound()
 
@@ -77,14 +78,14 @@ export default async function AdminCheckInPage({ params }: { params: Promise<{ i
       <div>
         <h2 className="text-base font-semibold mb-4">Scan Player QR Code</h2>
         <div className="max-w-sm">
-          <QRScanner leagueId={id} />
+          <QRScanner leagueId={id} timezone={timezone} />
         </div>
       </div>
 
       {/* Roster list */}
       <div>
         <h2 className="text-base font-semibold mb-4">Player Roster</h2>
-        <CheckInList registrations={rows} leagueId={id} />
+        <CheckInList registrations={rows} leagueId={id} timezone={timezone} />
       </div>
     </div>
   )

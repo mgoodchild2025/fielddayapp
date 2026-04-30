@@ -14,9 +14,10 @@ interface Registration {
 interface Props {
   registrations: Registration[]
   leagueId: string
+  timezone: string
 }
 
-function CheckInRow({ reg, leagueId }: { reg: Registration; leagueId: string }) {
+function CheckInRow({ reg, leagueId, timezone }: { reg: Registration; leagueId: string; timezone: string }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -56,7 +57,7 @@ function CheckInRow({ reg, leagueId }: { reg: Registration; leagueId: string }) 
       </td>
       <td className="px-4 py-3 text-xs text-gray-400">
         {reg.checkedInAt
-          ? new Date(reg.checkedInAt).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })
+          ? new Date(reg.checkedInAt).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone: timezone })
           : '—'}
       </td>
       <td className="px-4 py-3 text-right">
@@ -83,7 +84,7 @@ function CheckInRow({ reg, leagueId }: { reg: Registration; leagueId: string }) 
   )
 }
 
-export function CheckInList({ registrations, leagueId }: Props) {
+export function CheckInList({ registrations, leagueId, timezone }: Props) {
   const checkedInCount = registrations.filter((r) => r.checkedInAt).length
 
   return (
@@ -104,7 +105,7 @@ export function CheckInList({ registrations, leagueId }: Props) {
             </thead>
             <tbody>
               {registrations.map((reg) => (
-                <CheckInRow key={reg.id} reg={reg} leagueId={leagueId} />
+                <CheckInRow key={reg.id} reg={reg} leagueId={leagueId} timezone={timezone} />
               ))}
               {registrations.length === 0 && (
                 <tr>

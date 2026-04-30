@@ -6,6 +6,7 @@ import type { CheckInResult } from '@/actions/checkin'
 
 interface Props {
   leagueId: string
+  timezone: string
 }
 
 type ScanState =
@@ -30,7 +31,7 @@ function extractToken(raw: string): string | null {
   return match ? match[0] : null
 }
 
-export function QRScanner({ leagueId }: Props) {
+export function QRScanner({ leagueId, timezone }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const scannerRef = useRef<unknown>(null)
   const lastTokenRef = useRef<string | null>(null)
@@ -147,7 +148,7 @@ export function QRScanner({ leagueId }: Props) {
             <p className="text-2xl mb-1">⚠</p>
             <p className="font-semibold text-amber-800">{scanState.playerName}</p>
             <p className="text-xs text-amber-600 mt-1">
-              Already checked in at {new Date(scanState.checkedInAt).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })}
+              Already checked in at {new Date(scanState.checkedInAt).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone: timezone })}
             </p>
           </div>
         )}

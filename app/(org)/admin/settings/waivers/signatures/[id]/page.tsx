@@ -25,6 +25,13 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
 
   if (!sig) notFound()
 
+  const { data: branding } = await db
+    .from('org_branding')
+    .select('timezone')
+    .eq('organization_id', org.id)
+    .single()
+  const timezone = branding?.timezone ?? 'America/Toronto'
+
   const player = Array.isArray(sig.player) ? sig.player[0] : sig.player
   const waiver = Array.isArray(sig.waiver) ? sig.waiver[0] : sig.waiver
   const league = Array.isArray(sig.league) ? sig.league[0] : sig.league
@@ -72,6 +79,7 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric',
+                timeZone: timezone,
               })}
             </dd>
             <dd className="text-gray-500 text-xs">
@@ -79,6 +87,7 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
                 hour: 'numeric',
                 minute: '2-digit',
                 second: '2-digit',
+                timeZone: timezone,
                 timeZoneName: 'short',
               })}
             </dd>
@@ -118,8 +127,8 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
             </p>
           </div>
           <div className="text-right text-xs text-gray-400">
-            <p>{new Date(sig.signed_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-            <p>{new Date(sig.signed_at).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })}</p>
+            <p>{new Date(sig.signed_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric', timeZone: timezone })}</p>
+            <p>{new Date(sig.signed_at).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone: timezone })}</p>
           </div>
         </div>
       </div>
