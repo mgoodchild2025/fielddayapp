@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
   const in3h = new Date(now.getTime() + 3 * 60 * 60 * 1000)
   const { data: smsGames } = await supabase
     .from('games')
-    .select('id, scheduled_at, home_team_id, away_team_id, venue_name, leagues(name)')
+    .select('id, scheduled_at, home_team_id, away_team_id, venue_name, leagues(name, organizations(name))')
     .gte('scheduled_at', now.toISOString())
     .lte('scheduled_at', in3h.toISOString())
     .is('sms_reminder_sent', null)
@@ -153,11 +153,14 @@ export async function GET(req: NextRequest) {
       .filter(p => p?.phone && p?.sms_opted_in)
 
     const gameTime = new Date(game.scheduled_at).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
+    const leagueOrg = league ? (Array.isArray((league as { organizations?: unknown }).organizations) ? (league as { organizations: { name: string }[] }).organizations[0] : (league as { organizations?: { name: string } }).organizations) : null
+    const orgName = leagueOrg?.name ?? 'Fieldday'
+    const leagueName = league?.name ?? 'Game'
+    const header = `${orgName} – ${leagueName}`
+    const venue = game.venue_name ? ` at ${game.venue_name}` : ''
+    const smsBody = `${header}\n\nReminder: Your game is today at ${gameTime}${venue}.\n\nReply STOP to unsubscribe.`
     for (const player of players) {
-      await sendSms(
-        player!.phone!,
-        `Fieldday reminder: ${league?.name ?? 'Game'} today at ${gameTime}${game.venue_name ? ` · ${game.venue_name}` : ''}. Reply STOP to unsubscribe.`
-      ).catch(() => {})
+      await sendSms(player!.phone!, smsBody).catch(() => {})
     }
 
     await supabase.from('games').update({ sms_reminder_sent: now.toISOString() }).eq('id', game.id)

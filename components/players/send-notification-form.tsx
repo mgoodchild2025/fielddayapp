@@ -7,12 +7,13 @@ interface Props {
   userId: string
   phone?: string | null
   smsOptedIn?: boolean
+  leagueName?: string
 }
 
 const inputClass =
   'w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:border-transparent'
 
-export function SendNotificationForm({ userId, phone, smsOptedIn }: Props) {
+export function SendNotificationForm({ userId, phone, smsOptedIn, leagueName }: Props) {
   const [isPending, startTransition] = useTransition()
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -32,7 +33,7 @@ export function SendNotificationForm({ userId, phone, smsOptedIn }: Props) {
     setSent(false)
 
     startTransition(async () => {
-      const res = await sendPlayerNotification(userId, title, body, viaSms)
+      const res = await sendPlayerNotification(userId, title, body, viaSms, leagueName)
       if (res.error) {
         setError(res.error)
       } else {

@@ -203,7 +203,7 @@ export async function removePlayerFromOrg(userId: string) {
   return { error: null }
 }
 
-export async function sendPlayerNotification(userId: string, title: string, body: string, sendSms = false) {
+export async function sendPlayerNotification(userId: string, title: string, body: string, sendSms = false, leagueName?: string) {
   try {
   const { error, org, db } = await requireOrgAdmin()
   if (error) return { error, smsError: null }
@@ -231,7 +231,9 @@ export async function sendPlayerNotification(userId: string, title: string, body
     } else if (!profile.sms_opted_in) {
       smsError = 'Player has not opted in to SMS'
     } else {
-      const message = body ? `${title}: ${body}` : title
+      const header = leagueName ? `${org.name} – ${leagueName}` : org.name
+      const content = body.trim() ? `${title}\n${body.trim()}` : title
+      const message = `${header}\n\n${content}\n\nReply STOP to unsubscribe.`
       const result = await twilioSendSms(profile.phone, message)
       if (result.error) smsError = result.error
     }
