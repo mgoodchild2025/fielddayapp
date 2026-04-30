@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { sendRegistrationConfirmation } from './emails'
 import { acceptDropInInvite, acceptPickupInvite } from './invites'
@@ -41,8 +42,9 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
     if (existing) return { data: { registrationId: existing.id }, error: null }
   }
 
-  // Ensure org membership
-  await supabase.from('org_members').upsert({
+  // Ensure org membership — must use service role since players have no write RLS on org_members
+  const db = createServiceRoleClient()
+  await db.from('org_members').upsert({
     organization_id: org.id,
     user_id: user.id,
     role: 'player',
