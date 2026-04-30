@@ -396,7 +396,7 @@ export async function recordBracketScore(input: z.infer<typeof bracketScoreSchem
   if (!winnerTeamId) return { error: 'Teams not yet determined for this match' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('bracket_matches')
+  const { error: updateError } = await (db as any).from('bracket_matches')
     .update({
       score1: d.score1,
       score2: d.score2,
@@ -405,6 +405,8 @@ export async function recordBracketScore(input: z.infer<typeof bracketScoreSchem
       status: 'completed',
     })
     .eq('id', d.matchId)
+
+  if (updateError) return { error: updateError.message }
 
   await advanceWinner(db, org.id, d.bracketId, d.matchId, winnerTeamId)
 
