@@ -129,80 +129,121 @@ export async function GET(req: NextRequest) {
     results.push(`payment reminder installment ${inst.id}`)
   }
 
-  // 4. SMS game reminders — per-org timing (up to 24h window)
-  // Fetch all org notification settings so we can respect per-org config
-  const { data: allNotifSettings } = await supabase
-    .from('org_notification_settings')
-    .select('organization_id, sms_game_reminders_enabled, sms_reminder_hours_before')
+  // 4. SMS game reminders — multi-reminder system using org_sms_reminders + game_sms_reminder_logs
 
-  const notifByOrg = new Map(
-    (allNotifSettings ?? []).map(s => [s.organization_id as string, s])
+  type ReminderConfig = { organization_id: string; minutes_before: number; message_template: string }
+  type NotifSetting = { organization_id: string; sms_game_reminders_enabled: boolean }
+  type GameRow = {
+    id: string; organization_id: string; scheduled_at: string
+    home_team_id: string | null; away_team_id: string | null; venue_name: string | null
+    leagues: { name: string; organizations: { name: string } | { name: string }[] | null } | null
+  }
+  type LogRow = { game_id: string; minutes_before: number }
+
+  // Fetch all enabled reminder configs and master toggles
+  const [{ data: reminderConfigs }, { data: notifSettings }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('org_sms_reminders')
+      .select('organization_id, minutes_before, message_template')
+      .eq('enabled', true) as Promise<{ data: ReminderConfig[] | null }>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('org_notification_settings')
+      .select('organization_id, sms_game_reminders_enabled') as Promise<{ data: NotifSetting[] | null }>,
+  ])
+
+  // Orgs that have SMS reminders disabled
+  const disabledOrgs = new Set(
+    (notifSettings ?? []).filter(s => !s.sms_game_reminders_enabled).map(s => s.organization_id)
   )
 
-  // Fetch all unreminded games in the next 24h (widest possible window, reuses in24h from above)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: smsGames } = await (supabase as any)
-    .from('games')
-    .select('id, organization_id, scheduled_at, home_team_id, away_team_id, venue_name, leagues(name, organizations(name))')
-    .gte('scheduled_at', now.toISOString())
-    .lte('scheduled_at', in24h.toISOString())
-    .is('sms_reminder_sent', null)
+  // Group reminder configs by org
+  const remindersByOrg = new Map<string, ReminderConfig[]>()
+  for (const r of reminderConfigs ?? []) {
+    if (!remindersByOrg.has(r.organization_id)) remindersByOrg.set(r.organization_id, [])
+    remindersByOrg.get(r.organization_id)!.push(r)
+  }
 
-  for (const game of (smsGames ?? []) as {
-    id: string
-    organization_id: string
-    scheduled_at: string
-    home_team_id: string | null
-    away_team_id: string | null
-    venue_name: string | null
-    leagues: { name: string; organizations: { name: string } | { name: string }[] | null } | null
-  }[]) {
-    const orgId = game.organization_id
+  // No reminders configured anywhere — skip all the game queries
+  if (remindersByOrg.size > 0) {
+    // Fetch all upcoming games in the next 24h (widest possible reminder window)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: smsGames } = await (supabase as any)
+      .from('games')
+      .select('id, organization_id, scheduled_at, home_team_id, away_team_id, venue_name, leagues(name, organizations(name))')
+      .gte('scheduled_at', now.toISOString())
+      .lte('scheduled_at', in24h.toISOString()) as { data: GameRow[] | null }
 
-    // Respect per-org settings (default: enabled, 3h)
-    const orgSettings = notifByOrg.get(orgId)
-    const remindersEnabled = orgSettings?.sms_game_reminders_enabled ?? true
-    const hoursBefore = orgSettings?.sms_reminder_hours_before ?? 3
+    const gameIds = (smsGames ?? []).map(g => g.id)
 
-    if (!remindersEnabled) continue
+    // Fetch already-sent logs for these games
+    const { data: sentLogs } = gameIds.length > 0
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? await (supabase as any)
+          .from('game_sms_reminder_logs')
+          .select('game_id, minutes_before')
+          .in('game_id', gameIds) as { data: LogRow[] | null }
+      : { data: [] as LogRow[] }
 
-    // Only send if game is within this org's configured window
-    const msUntilGame = new Date(game.scheduled_at).getTime() - now.getTime()
-    const windowMs = hoursBefore * 60 * 60 * 1000
-    if (msUntilGame > windowMs) continue
+    const sentSet = new Set((sentLogs ?? []).map(l => `${l.game_id}:${l.minutes_before}`))
 
-    const teamIds = [game.home_team_id, game.away_team_id].filter(Boolean) as string[]
-    if (teamIds.length === 0) continue
+    for (const game of smsGames ?? []) {
+      const orgId = game.organization_id
+      if (disabledOrgs.has(orgId)) continue
 
-    const { data: members } = await supabase
-      .from('team_members')
-      .select('profiles(phone, sms_opted_in, full_name)')
-      .in('team_id', teamIds)
+      const orgReminders = remindersByOrg.get(orgId)
+      if (!orgReminders || orgReminders.length === 0) continue
 
-    const players = (members ?? [])
-      .flatMap(m => (Array.isArray(m.profiles) ? m.profiles : [m.profiles]))
-      .filter(p => p?.phone && p?.sms_opted_in)
+      const msUntilGame = new Date(game.scheduled_at).getTime() - now.getTime()
 
-    const league = game.leagues
-    const leagueOrg = league
-      ? (Array.isArray((league as { organizations?: unknown }).organizations)
-          ? (league as { organizations: { name: string }[] }).organizations[0]
-          : (league as { organizations?: { name: string } }).organizations)
-      : null
-    const orgName = leagueOrg?.name ?? 'Fieldday'
-    const leagueName = league?.name ?? 'Game'
+      // Resolve org/league names once per game
+      const league = game.leagues
+      const leagueOrg = league
+        ? (Array.isArray((league as { organizations?: unknown }).organizations)
+            ? (league as { organizations: { name: string }[] }).organizations[0]
+            : (league as { organizations?: { name: string } }).organizations)
+        : null
+      const orgName = leagueOrg?.name ?? 'Fieldday'
+      const leagueName = league?.name ?? 'Game'
+      const gameTime = new Date(game.scheduled_at).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
+      const venue = game.venue_name ? ` · ${game.venue_name}` : ''
 
-    const gameTime = new Date(game.scheduled_at).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
-    const venue = game.venue_name ? ` at ${game.venue_name}` : ''
-    const timeLabel = hoursBefore >= 24 ? 'tomorrow' : 'today'
-    const smsBody = `${orgName} – ${leagueName}\n\nReminder: Your game is ${timeLabel} at ${gameTime}${venue}.\n\nReply STOP to unsubscribe.`
+      for (const reminder of orgReminders) {
+        const logKey = `${game.id}:${reminder.minutes_before}`
+        if (sentSet.has(logKey)) continue  // already sent this reminder for this game
 
-    for (const player of players) {
-      await sendSms(player!.phone!, smsBody).catch(() => {})
+        // Not yet within the reminder window
+        if (msUntilGame > reminder.minutes_before * 60 * 1000) continue
+
+        const teamIds = [game.home_team_id, game.away_team_id].filter(Boolean) as string[]
+        if (teamIds.length > 0) {
+          const { data: members } = await supabase
+            .from('team_members')
+            .select('profiles(phone, sms_opted_in)')
+            .in('team_id', teamIds)
+
+          const players = (members ?? [])
+            .flatMap(m => (Array.isArray(m.profiles) ? m.profiles : [m.profiles]))
+            .filter(p => p?.phone && p?.sms_opted_in)
+
+          const smsBody = `${orgName} – ${leagueName}\n\n${reminder.message_template}${venue ? `\n${venue}` : ''} · ${gameTime}\n\nReply STOP to unsubscribe.`
+
+          for (const player of players) {
+            await sendSms(player!.phone!, smsBody).catch(() => {})
+          }
+        }
+
+        // Log as sent (even if no players, so we don't retry)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+          .from('game_sms_reminder_logs')
+          .insert({ game_id: game.id, minutes_before: reminder.minutes_before })
+          .catch(() => {})
+        sentSet.add(logKey)
+        results.push(`sms reminder game ${game.id} (${reminder.minutes_before}min)`)
+      }
     }
-
-    await supabase.from('games').update({ sms_reminder_sent: now.toISOString() }).eq('id', game.id)
-    results.push(`sms reminder game ${game.id}`)
   }
 
   return NextResponse.json({ ok: true, processed: results })
