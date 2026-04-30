@@ -9,6 +9,7 @@ import { AddToTeamForm } from '@/components/players/add-to-team-form'
 import { TeamRoleSelect } from '@/components/players/team-role-select'
 import { SendNotificationForm } from '@/components/players/send-notification-form'
 import { removePlayerFromLeague, removePlayerFromTeam } from '@/actions/players'
+import { PlayerAvatar } from '@/components/ui/player-avatar'
 
 const orgRoleColors: Record<string, string> = {
   org_admin: 'bg-purple-100 text-purple-700',
@@ -51,7 +52,7 @@ export default async function PlayerManagementPage({
     leaguesRes,
     teamsRes,
   ] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email, phone, sms_opted_in').eq('id', userId).single(),
+    supabase.from('profiles').select('id, full_name, email, phone, sms_opted_in, avatar_url').eq('id', userId).single(),
     supabase
       .from('org_members')
       .select('id, role, status, joined_at')
@@ -134,12 +135,15 @@ export default async function PlayerManagementPage({
           ← Players
         </Link>
         <div className="flex items-start justify-between mt-2 gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">{profile.full_name}</h1>
-            <p className="text-sm text-gray-500 mt-0.5">
-              {profile.email}
-              {profile.phone ? ` · ${profile.phone}` : ''}
-            </p>
+          <div className="flex items-center gap-4">
+            <PlayerAvatar avatarUrl={profile.avatar_url ?? null} name={profile.full_name} size="lg" />
+            <div>
+              <h1 className="text-2xl font-bold">{profile.full_name}</h1>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {profile.email}
+                {profile.phone ? ` · ${profile.phone}` : ''}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span

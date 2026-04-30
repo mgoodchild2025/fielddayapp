@@ -1,0 +1,49 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
+
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const MAX_SIZE = 5 * 1024 * 1024 // 5 MB
+
+export async function uploadPlayerAvatar(
+  formData: FormData,
+): Promise<{ url: string | null; error: string | null }> {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { url: null, error: 'Not authenticated' }
+
+  const file = formData.get('avatar') as File | null
+  if (!file || file.size === 0) return { url: null, error: 'No file provided' }
+  if (file.size > MAX_SIZE) return { url: null, error: 'File must be under 5 MB' }
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return { url: null, error: 'Unsupported file type. Use JPEG, PNG, WebP, or GIF.' }
+  }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const path = `${user.id}/avatar.${ext}`
+  const bytes = await file.arrayBuffer()
+
+  const service = createServiceRoleClient()
+
+  const { error: uploadError } = await service.storage
+    .from('player-avatars')
+    .upload(path, bytes, { contentType: file.type, upsert: true })
+
+  if (uploadError) return { url: null, error: uploadError.message }
+
+  const {
+    data: { publicUrl },
+  } = service.storage.from('player-avatars').getPublicUrl(path)
+
+  const url = `${publicUrl}?t=${Date.now()}`
+
+  // Persist to profiles table
+  await service.from('profiles').update({ avatar_url: url }).eq('id', user.id)
+
+  revalidatePath('/profile')
+  return { url, error: null }
+}

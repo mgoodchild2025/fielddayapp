@@ -4,6 +4,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { DeletePlayerButton } from '@/components/players/delete-player-button'
+import { PlayerAvatar } from '@/components/ui/player-avatar'
 
 const roleColors: Record<string, string> = {
   org_admin: 'bg-purple-100 text-purple-700',
@@ -33,7 +34,7 @@ export default async function PlayersPage({
       .from('org_members')
       .select(`
         id, role, status, joined_at, user_id,
-        profile:profiles!org_members_user_id_fkey(full_name, email, phone)
+        profile:profiles!org_members_user_id_fkey(full_name, email, phone, avatar_url)
       `)
       .eq('organization_id', org.id)
       .neq('status', 'invited')
@@ -149,11 +150,18 @@ export default async function PlayersPage({
                 return (
                   <tr key={m.id} className="border-b last:border-0 hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium">
-                      {m.user_id ? (
-                        <Link href={`/admin/players/${m.user_id}`} className="hover:underline" style={{ color: 'var(--brand-primary)' }}>
-                          {profile?.full_name ?? '—'}
-                        </Link>
-                      ) : (profile?.full_name ?? '—')}
+                      <div className="flex items-center gap-2">
+                        <PlayerAvatar
+                          avatarUrl={(profile as { avatar_url?: string | null } | null)?.avatar_url ?? null}
+                          name={profile?.full_name ?? '?'}
+                          size="sm"
+                        />
+                        {m.user_id ? (
+                          <Link href={`/admin/players/${m.user_id}`} className="hover:underline" style={{ color: 'var(--brand-primary)' }}>
+                            {profile?.full_name ?? '—'}
+                          </Link>
+                        ) : (profile?.full_name ?? '—')}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-gray-500">{profile?.email ?? '—'}</td>
                     <td className="px-4 py-3">

@@ -11,6 +11,7 @@ import { AdminEditTeamForm } from '@/components/teams/admin-edit-team-form'
 import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
 import { TeamPaymentPanel } from '@/components/teams/team-payment-panel'
 import { getPositionsForSport } from '@/actions/positions'
+import { PlayerAvatar } from '@/components/ui/player-avatar'
 import Link from 'next/link'
 
 export default async function TeamDetailPage({
@@ -40,7 +41,7 @@ export default async function TeamDetailPage({
         league:leagues!teams_league_id_fkey(id, name, slug, sport, payment_mode, price_cents, currency),
         team_members(
           id, role, status, user_id, position,
-          profile:profiles!team_members_user_id_fkey(full_name, email, phone)
+          profile:profiles!team_members_user_id_fkey(full_name, email, phone, avatar_url)
         )
       `)
       .eq('id', teamId)
@@ -117,7 +118,7 @@ export default async function TeamDetailPage({
     status: string
     user_id: string | null
     position: string | null
-    profile: { full_name: string; email: string; phone: string | null } | { full_name: string; email: string; phone: string | null }[] | null
+    profile: { full_name: string; email: string; phone: string | null; avatar_url: string | null } | { full_name: string; email: string; phone: string | null; avatar_url: string | null }[] | null
   }>
   const activeMembers = allMembers.filter((m) => m.status === 'active')
   const isManager = isOrgAdmin || ['captain', 'coach'].includes(myMembership?.role ?? '')
@@ -194,6 +195,7 @@ export default async function TeamDetailPage({
                 isMe: m.user_id === user.id,
                 name: profile?.full_name ?? '',
                 email: profile?.email ?? '',
+                avatarUrl: profile?.avatar_url ?? null,
               }
             })}
           />
@@ -211,9 +213,7 @@ export default async function TeamDetailPage({
                 return (
                   <li key={m.id} className="px-5 py-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0 text-sm font-semibold text-gray-500">
-                        {(profile?.full_name ?? '?')[0].toUpperCase()}
-                      </div>
+                      <PlayerAvatar avatarUrl={profile?.avatar_url ?? null} name={profile?.full_name ?? '?'} size="sm" />
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">
                           {profile?.full_name ?? '—'}

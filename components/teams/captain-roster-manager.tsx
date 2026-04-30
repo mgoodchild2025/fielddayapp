@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { captainSetMemberRole, captainRemoveTeamMember, captainAddPlayerByEmail } from '@/actions/teams'
 import { setTeamMemberPosition } from '@/actions/positions'
+import { PlayerAvatar } from '@/components/ui/player-avatar'
 
 type Role = 'captain' | 'coach' | 'player' | 'sub'
 
@@ -21,6 +22,7 @@ interface Member {
   isMe: boolean
   name: string
   email: string
+  avatarUrl?: string | null
 }
 
 interface Props {
@@ -93,9 +95,7 @@ export function CaptainRosterManager({ teamId, initialMembers, positions = [] }:
       <ul className="divide-y">
         {members.map((m) => (
           <li key={m.id} className="px-5 py-3 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0 text-sm font-semibold text-gray-500">
-              {(m.name || '?')[0].toUpperCase()}
-            </div>
+            <PlayerAvatar avatarUrl={m.avatarUrl} name={m.name || m.email} size="sm" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">
                 {m.name || m.email}
