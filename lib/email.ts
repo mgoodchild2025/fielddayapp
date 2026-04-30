@@ -252,6 +252,54 @@ export function buildTeamAddedEmail({
 </html>`
 }
 
+export function buildOrganizerInviteEmail({
+  orgName,
+  leagueName,
+  inviterName,
+  acceptUrl,
+  declineUrl,
+}: {
+  orgName: string
+  leagueName: string
+  inviterName: string
+  acceptUrl: string
+  declineUrl: string
+}): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+    <div style="background:#1e3a5f;padding:24px 32px;">
+      <h1 style="color:#fff;margin:0;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">${orgName}</h1>
+    </div>
+    <div style="padding:32px;">
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Co-Organizer Invitation</h2>
+      <p style="color:#6b7280;margin:0 0 24px;font-size:15px;line-height:1.6;">
+        <strong>${inviterName}</strong> has invited you to help organize <strong>${leagueName}</strong>.
+        As a co-organizer, you'll be able to view rosters, manage teams, and send notifications to players.
+      </p>
+      <div style="text-align:center;margin:32px 0 24px;">
+        <a href="${acceptUrl}"
+           style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:700;font-size:16px;">
+          Accept Invitation
+        </a>
+      </div>
+      <p style="color:#9ca3af;font-size:13px;text-align:center;margin:0 0 8px;">
+        Not interested? <a href="${declineUrl}" style="color:#6b7280;">Decline this invitation</a>
+      </p>
+      <p style="color:#d1d5db;font-size:12px;text-align:center;margin:16px 0 0;">
+        This invitation expires in 7 days.
+      </p>
+      <p style="color:#111827;font-size:15px;font-weight:700;font-style:italic;text-align:center;margin:24px 0 0;">
+        Have a field day! ⚡
+      </p>
+    </div>
+  </div>
+</body>
+</html>`
+}
+
 export function buildTeamInviteEmail({
   teamName,
   orgName,

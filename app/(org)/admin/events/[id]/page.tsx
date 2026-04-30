@@ -3,8 +3,10 @@ import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { updateLeagueStatus } from '@/actions/events'
+import { getLeagueOrganizers } from '@/actions/organizers'
 import { EditEventForm } from '@/components/events/edit-event-form'
 import { DeleteEventButton } from '@/components/events/delete-event-button'
+import { OrganizersPanel } from '@/components/events/organizers-panel'
 import type { Database } from '@/types/database'
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
@@ -29,6 +31,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     { count: gameCount },
     { data: waivers },
     { data: ruleTemplates },
+    organizersData,
   ] = await Promise.all([
     supabase.from('leagues').select('*').eq('id', id).eq('organization_id', org.id).single(),
     supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
@@ -36,9 +39,17 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     supabase.from('games').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
     supabase.from('waivers').select('id, title, version').eq('organization_id', org.id).order('created_at', { ascending: false }),
     supabase.from('league_rule_templates').select('id, title, content').eq('organization_id', org.id).order('created_at', { ascending: false }),
+    getLeagueOrganizers(id),
   ])
 
   if (!league) notFound()
+
+  // Determine if current user is an org_admin (controls edit access on organizers panel)
+  const { data: { user: currentUser } } = await supabase.auth.getUser()
+  const { data: currentMember } = currentUser
+    ? await supabase.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', currentUser.id).single()
+    : { data: null }
+  const isOrgAdmin = currentMember?.role === 'org_admin'
 
   const transition = statusFlow[league.status]
 
@@ -126,6 +137,14 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
 
       {/* Sidebar */}
       <div className="space-y-4">
+        {/* Organizers */}
+        <OrganizersPanel
+          leagueId={id}
+          orgAdmins={organizersData.orgAdmins}
+          coOrganizers={organizersData.coOrganizers}
+          isOrgAdmin={isOrgAdmin}
+        />
+
         {transition && (
           <div className="bg-white rounded-lg border p-5">
             <h2 className="font-semibold text-sm mb-3">Advance Status</h2>
@@ -147,7 +166,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
 
         <div className="bg-white rounded-lg border p-5">
           <h2 className="font-semibold text-sm mb-3 text-red-600">Danger Zone</h2>
-          <DeleteEventButton leagueId={league.id} leagueName={league.name} />
+          <DeleteEventButton leagueId={league.id} eventName={league.name} />
         </div>
       </div>
     </div>

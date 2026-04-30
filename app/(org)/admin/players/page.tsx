@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { getAdminScope } from '@/lib/admin-scope'
 import { DeletePlayerButton } from '@/components/players/delete-player-button'
 
 const roleColors: Record<string, string> = {
@@ -20,6 +21,12 @@ export default async function PlayersPage({
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = createServiceRoleClient()
+  const scope = await getAdminScope(org.id)
+
+  // For scoped league_admin users: determine which leagues to expose
+  const effectiveLeagueIds: string[] | null = !scope.isOrgAdmin && scope.assignedLeagueIds !== null
+    ? scope.assignedLeagueIds
+    : null // null = all leagues
 
   const [membersRes, leaguesRes] = await Promise.all([
     supabase
@@ -31,16 +38,26 @@ export default async function PlayersPage({
       .eq('organization_id', org.id)
       .neq('status', 'invited')
       .order('joined_at', { ascending: false }),
-    supabase
-      .from('leagues')
-      .select('id, name')
-      .eq('organization_id', org.id)
-      .not('status', 'eq', 'archived')
-      .order('created_at', { ascending: false }),
+    // Leagues dropdown: scoped for co-organizers
+    effectiveLeagueIds !== null
+      ? supabase.from('leagues').select('id, name').eq('organization_id', org.id).in('id', effectiveLeagueIds.length > 0 ? effectiveLeagueIds : ['00000000-0000-0000-0000-000000000000']).order('created_at', { ascending: false })
+      : supabase.from('leagues').select('id, name').eq('organization_id', org.id).not('status', 'eq', 'archived').order('created_at', { ascending: false }),
   ])
 
   let members = membersRes.data ?? []
   const leagues = leaguesRes.data ?? []
+
+  // For scoped co-organizers: restrict to players in their assigned leagues
+  if (effectiveLeagueIds !== null) {
+    const leagueIds = effectiveLeagueIds.length > 0 ? effectiveLeagueIds : ['00000000-0000-0000-0000-000000000000']
+    const { data: regs } = await supabase
+      .from('registrations')
+      .select('user_id')
+      .eq('organization_id', org.id)
+      .in('league_id', leagueIds)
+    const allowedIds = new Set((regs ?? []).map((r) => r.user_id))
+    members = members.filter((m) => m.user_id && allowedIds.has(m.user_id))
+  }
 
   // Filter by league membership if requested
   let leaguePlayerIds: Set<string> | null = null

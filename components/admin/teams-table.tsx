@@ -102,6 +102,7 @@ export function TeamsTable({ teams, totalCount }: { teams: Team[]; totalCount: n
         <div className="space-y-8">
           {grouped.map(({ league, teams: leagueTeams }) => (
             <div key={league!.id}>
+              {/* League header — shared by both layouts */}
               <div className="flex items-center gap-3 mb-3">
                 <h2 className="font-semibold text-gray-800">{league!.name}</h2>
                 {league!.sport && (
@@ -117,7 +118,8 @@ export function TeamsTable({ teams, totalCount }: { teams: Team[]; totalCount: n
                 </Link>
               </div>
 
-              <div className="bg-white rounded-lg border overflow-hidden">
+              {/* ── Desktop table (md+) ── */}
+              <div className="hidden md:block bg-white rounded-lg border overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-gray-50 text-left">
@@ -157,6 +159,48 @@ export function TeamsTable({ teams, totalCount }: { teams: Team[]; totalCount: n
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              {/* ── Mobile cards (below md) ── */}
+              <div className="md:hidden space-y-2">
+                {leagueTeams.map(team => (
+                  <div key={team.id} className="bg-white rounded-lg border p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      {/* Color dot + name */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        {team.color && (
+                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
+                        )}
+                        <Link
+                          href={`/teams/${team.id}`}
+                          className="font-medium hover:underline truncate"
+                          style={{ color: 'var(--brand-primary)' }}
+                        >
+                          {team.name}
+                        </Link>
+                      </div>
+                      {/* Status badge */}
+                      <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
+                        team.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {team.status ?? 'active'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t">
+                      <span className="text-xs text-gray-500">
+                        {team.memberCount} player{team.memberCount !== 1 ? 's' : ''}
+                      </span>
+                      <Link
+                        href={`/teams/${team.id}`}
+                        className="text-xs font-medium hover:underline"
+                        style={{ color: 'var(--brand-primary)' }}
+                      >
+                        Manage →
+                      </Link>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}

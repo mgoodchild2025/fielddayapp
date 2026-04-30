@@ -122,7 +122,8 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
         </p>
       )}
 
-      <div className="bg-white rounded-lg border overflow-hidden">
+      {/* ── Desktop table (md+) ── */}
+      <div className="hidden md:block bg-white rounded-lg border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[640px]">
             <thead>
@@ -181,6 +182,63 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* ── Mobile cards (below md) ── */}
+      <div className="md:hidden space-y-3">
+        {filtered.length === 0 ? (
+          <div className="bg-white rounded-lg border p-10 text-center text-gray-400 text-sm">
+            {hasFilters ? 'No events match your search.' : (
+              <>No events yet. <Link href="/admin/events/new" className="underline" style={{ color: 'var(--brand-primary)' }}>Create your first event</Link></>
+            )}
+          </div>
+        ) : (
+          filtered.map(league => (
+            <div key={league.id} className="bg-white rounded-lg border p-4">
+              {/* Name */}
+              <Link
+                href={`/admin/events/${league.id}`}
+                className="font-semibold hover:underline block mb-2"
+                style={{ color: 'var(--brand-primary)' }}
+              >
+                {league.name}
+              </Link>
+
+              {/* Type + Status badges */}
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${eventTypeColors[league.event_type ?? 'league'] ?? 'bg-gray-100 text-gray-600'}`}>
+                  {eventTypeLabels[league.event_type ?? 'league'] ?? league.event_type}
+                </span>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[league.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                  {statusLabels[league.status] ?? league.status}
+                </span>
+              </div>
+
+              {/* Secondary details */}
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500 mb-3">
+                {league.venue_name && <span>{league.venue_name}</span>}
+                {league.season_start_date && (
+                  <span>{new Date(league.season_start_date).toLocaleDateString()}</span>
+                )}
+                <span>
+                  {league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency.toUpperCase()}`}
+                </span>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-3 pt-3 border-t">
+                <Link
+                  href={`/admin/events/${league.id}`}
+                  className="text-sm font-medium hover:underline"
+                  style={{ color: 'var(--brand-primary)' }}
+                >
+                  Manage →
+                </Link>
+                <DeleteEventRowButton leagueId={league.id} eventName={league.name} />
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </>
   )

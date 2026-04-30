@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { getAdminScope } from '@/lib/admin-scope'
 import { PaymentsTable } from '@/components/admin/payments-table'
 
 type PaymentRecord = {
@@ -25,8 +26,9 @@ export default async function AdminPaymentsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = createServiceRoleClient()
+  const scope = await getAdminScope(org.id)
 
-  const { data: rows } = await supabase
+  let query = supabase
     .from('registrations')
     .select(`
       id, created_at,
@@ -36,7 +38,17 @@ export default async function AdminPaymentsPage() {
     `)
     .eq('organization_id', org.id)
     .order('created_at', { ascending: false })
-    .limit(500) as { data: RegistrationRow[] | null }
+    .limit(500)
+
+  if (!scope.isOrgAdmin && scope.assignedLeagueIds !== null) {
+    if (scope.assignedLeagueIds.length === 0) {
+      query = query.in('league_id', ['00000000-0000-0000-0000-000000000000'])
+    } else {
+      query = query.in('league_id', scope.assignedLeagueIds)
+    }
+  }
+
+  const { data: rows } = await query as { data: RegistrationRow[] | null }
 
   const registrations = (rows ?? []).map(r => {
     const player = Array.isArray(r.player) ? r.player[0] : r.player

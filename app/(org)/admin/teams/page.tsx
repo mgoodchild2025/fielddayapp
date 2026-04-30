@@ -1,14 +1,16 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
+import { getAdminScope } from '@/lib/admin-scope'
 import { TeamsTable } from '@/components/admin/teams-table'
 
 export default async function AdminTeamsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const scope = await getAdminScope(org.id)
 
-  const { data: rawTeams } = await supabase
+  let query = supabase
     .from('teams')
     .select(`
       id, name, color, status,
@@ -17,6 +19,17 @@ export default async function AdminTeamsPage() {
     `)
     .eq('organization_id', org.id)
     .order('name')
+
+  if (!scope.isOrgAdmin && scope.assignedLeagueIds !== null) {
+    if (scope.assignedLeagueIds.length === 0) {
+      // No assigned leagues — return empty
+      query = query.in('league_id', ['00000000-0000-0000-0000-000000000000'])
+    } else {
+      query = query.in('league_id', scope.assignedLeagueIds)
+    }
+  }
+
+  const { data: rawTeams } = await query
 
   const teams = (rawTeams ?? []).map(team => {
     const league = Array.isArray(team.league) ? team.league[0] : team.league
