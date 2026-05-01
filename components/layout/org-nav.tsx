@@ -42,16 +42,21 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
       style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-3 min-w-0 shrink">
-          {logoUrl ? (
-            <Image src={logoUrl} alt={org.name} width={120} height={40} className="object-contain h-9 w-auto max-w-[160px]" />
-          ) : (
-            <span className="text-xl font-bold uppercase tracking-wide truncate" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-              {org.name}
-            </span>
-          )}
-        </Link>
+        {/* Left side: hamburger (mobile) + logo */}
+        <div className="flex items-center gap-2 min-w-0">
+          <MobileNav userName={userName} isAdmin={isAdmin} />
+          <Link href="/" className="flex items-center gap-3 min-w-0 shrink">
+            {logoUrl ? (
+              <Image src={logoUrl} alt={org.name} width={120} height={40} className="object-contain h-9 w-auto max-w-[160px]" />
+            ) : (
+              <span className="text-xl font-bold uppercase tracking-wide truncate" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+                {org.name}
+              </span>
+            )}
+          </Link>
+        </div>
 
+        {/* Right side: desktop nav + notifications + user menu */}
         <div className="flex items-center gap-2 shrink-0">
           {user && (
             <div className="hidden md:flex items-center gap-6 text-sm font-medium">
@@ -77,8 +82,6 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
               </Link>
             </div>
           )}
-
-          <MobileNav userName={userName} isAdmin={isAdmin} />
         </div>
       </div>
     </nav>
