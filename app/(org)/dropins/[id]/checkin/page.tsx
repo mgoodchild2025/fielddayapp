@@ -14,12 +14,23 @@ export default async function DropInCheckInPage({
   const org = await getCurrentOrg(headersList)
   const supabase = createServiceRoleClient()
 
-  const { data: session } = await supabase
-    .from('drop_in_sessions')
-    .select('id, name, scheduled_at')
-    .eq('id', id)
-    .eq('organization_id', org.id)
-    .single()
+  const [sessionRes, brandingRes] = await Promise.all([
+    supabase
+      .from('drop_in_sessions')
+      .select('id, name, scheduled_at')
+      .eq('id', id)
+      .eq('organization_id', org.id)
+      .single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('org_branding')
+      .select('checkin_sound')
+      .eq('organization_id', org.id)
+      .single(),
+  ])
+
+  const session = sessionRes.data
+  const checkinSound = brandingRes.data?.checkin_sound ?? null
 
   if (!session) notFound()
 
@@ -30,7 +41,7 @@ export default async function DropInCheckInPage({
         <p className="text-center text-sm text-gray-500 mb-8">
           {new Date(session.scheduled_at).toLocaleString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </p>
-        <CheckInScanner sessionId={id} />
+        <CheckInScanner sessionId={id} checkinSound={checkinSound} />
       </div>
     </div>
   )

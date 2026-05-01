@@ -2,8 +2,14 @@
 
 import { useState } from 'react'
 import { checkInByToken } from '@/actions/dropins'
+import { unlockAudio, playCheckinSound } from '@/lib/audio'
 
-export function CheckInScanner({ sessionId }: { sessionId: string }) {
+interface Props {
+  sessionId: string
+  checkinSound?: string | null
+}
+
+export function CheckInScanner({ sessionId, checkinSound }: Props) {
   const [token, setToken] = useState('')
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [loading, setLoading] = useState(false)
@@ -12,7 +18,9 @@ export function CheckInScanner({ sessionId }: { sessionId: string }) {
     if (!t.trim()) return
     setLoading(true)
     const res = await checkInByToken(t.trim())
-    setResult({ ok: !res.error, message: res.error ?? 'Checked in successfully!' })
+    const ok = !res.error
+    setResult({ ok, message: res.error ?? 'Checked in successfully!' })
+    if (ok) playCheckinSound(checkinSound)
     setToken('')
     setLoading(false)
     setTimeout(() => setResult(null), 4000)
@@ -27,7 +35,7 @@ export function CheckInScanner({ sessionId }: { sessionId: string }) {
           value={token}
           autoFocus
           onChange={e => setToken(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleCheck(token)}
+          onKeyDown={e => { if (e.key === 'Enter') { unlockAudio(); handleCheck(token) } }}
           placeholder="Paste QR token or scan…"
           className="w-full border border-gray-200 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 font-mono"
         />
@@ -35,7 +43,7 @@ export function CheckInScanner({ sessionId }: { sessionId: string }) {
       </div>
 
       <button
-        onClick={() => handleCheck(token)}
+        onClick={() => { unlockAudio(); handleCheck(token) }}
         disabled={loading || !token.trim()}
         className="w-full py-3 rounded-md text-white font-semibold disabled:opacity-50"
         style={{ backgroundColor: 'var(--brand-primary)' }}

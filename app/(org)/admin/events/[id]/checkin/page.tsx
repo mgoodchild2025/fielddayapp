@@ -14,11 +14,13 @@ export default async function AdminCheckInPage({ params }: { params: Promise<{ i
   const [leagueRes, brandingRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues').select('id, name, event_type').eq('id', id).eq('organization_id', org.id).single(),
-    db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_branding').select('timezone, checkin_sound').eq('organization_id', org.id).single(),
   ])
 
   const league = leagueRes.data
   const timezone = brandingRes.data?.timezone ?? 'America/Toronto'
+  const checkinSound = brandingRes.data?.checkin_sound ?? null
 
   if (!league) notFound()
 
@@ -78,7 +80,7 @@ export default async function AdminCheckInPage({ params }: { params: Promise<{ i
       <div>
         <h2 className="text-base font-semibold mb-4">Scan Player QR Code</h2>
         <div className="max-w-sm">
-          <QRScanner leagueId={id} timezone={timezone} />
+          <QRScanner leagueId={id} timezone={timezone} checkinSound={checkinSound} />
         </div>
       </div>
 

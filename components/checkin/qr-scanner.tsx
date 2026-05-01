@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { checkInByToken } from '@/actions/checkin'
 import type { CheckInResult } from '@/actions/checkin'
+import { unlockAudio, playCheckinSound } from '@/lib/audio'
 
 interface Props {
   leagueId: string
   timezone: string
+  checkinSound?: string | null
 }
 
 type ScanState =
@@ -30,7 +32,7 @@ function extractToken(raw: string): string | null {
   return match ? match[0] : null
 }
 
-export function QRScanner({ leagueId, timezone }: Props) {
+export function QRScanner({ leagueId, timezone, checkinSound }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const lastTokenRef = useRef<string | null>(null)
   const cooldownRef = useRef(false)
@@ -64,7 +66,9 @@ export function QRScanner({ leagueId, timezone }: Props) {
 
             startTransition(async () => {
               const result = await checkInByToken(token, leagueId)
-              setScanState(resultFromAction(result))
+              const nextState = resultFromAction(result)
+              setScanState(nextState)
+              if (nextState.type === 'success') playCheckinSound(checkinSound)
               setTimeout(() => {
                 lastTokenRef.current = null
                 cooldownRef.current = false
@@ -108,7 +112,7 @@ export function QRScanner({ leagueId, timezone }: Props) {
       {/* Toggle button */}
       {!isActive ? (
         <button
-          onClick={() => { setCameraError(null); setIsActive(true) }}
+          onClick={() => { unlockAudio(); setCameraError(null); setIsActive(true) }}
           className="flex items-center gap-2 px-5 py-3 rounded-lg font-semibold text-white transition-opacity hover:opacity-90"
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >

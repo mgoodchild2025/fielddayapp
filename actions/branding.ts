@@ -69,6 +69,43 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
   return { data: null, error: null }
 }
 
+const VALID_SOUNDS = new Set(['ding', 'chime', 'beep', 'success', 'airhorn'])
+
+export async function updateCheckinSound(
+  orgId: string,
+  sound: string | null,
+): Promise<{ error: string | null }> {
+  if (sound !== null && !VALID_SOUNDS.has(sound)) {
+    return { error: 'Invalid sound selection' }
+  }
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: member } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', orgId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
+    return { error: 'Unauthorized' }
+  }
+
+  const service = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (service as any)
+    .from('org_branding')
+    .upsert({ organization_id: orgId, checkin_sound: sound }, { onConflict: 'organization_id' })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin/settings/branding')
+  return { error: null }
+}
+
 export async function uploadOrgLogo(formData: FormData): Promise<{ url: string | null; error: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
