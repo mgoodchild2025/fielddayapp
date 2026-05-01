@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition, useEffect, useRef } from 'react'
 import { createBracket, seedBracket, publishBracket, deleteBracket } from '@/actions/brackets'
 import type { BracketRecommendation, TeamStanding } from '@/lib/bracket'
 import { BracketView, type BracketData } from './bracket-view'
@@ -21,8 +21,17 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
   const [bracket, setBracket] = useState<BracketData | null>(existingBracket)
   const [err, setErr] = useState<string | null>(null)
 
-  // Sync bracket state when the server re-renders with updated match data (e.g. after score entry)
-  useEffect(() => { setBracket(existingBracket) }, [existingBracket])
+  // Guards against the server re-render that fires after createBracket() syncing
+  // existingBracket into local state while the user is still on the seed step.
+  const wizardInProgressRef = useRef(false)
+
+  // Sync bracket state when the server re-renders with updated match data (e.g. after score entry).
+  // Skipped while the creation wizard is in progress to avoid jumping past the seed step.
+  useEffect(() => {
+    if (!wizardInProgressRef.current) {
+      setBracket(existingBracket)
+    }
+  }, [existingBracket])
   const [isPending, startTransition] = useTransition()
 
   // Step 1 state
@@ -53,6 +62,7 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
 
   function handleCreate() {
     setErr(null)
+    wizardInProgressRef.current = true  // block server re-renders from skipping the seed step
     startTransition(async () => {
       const res = await createBracket({
         leagueId,
@@ -64,7 +74,7 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
         teamsAdvancing,
         thirdPlaceGame: thirdPlace,
       })
-      if (res.error) { setErr(res.error); return }
+      if (res.error) { wizardInProgressRef.current = false; setErr(res.error); return }
       setBracketId(res.bracketId)
       setStep('seed')
     })
@@ -78,7 +88,7 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
     startTransition(async () => {
       const res = await seedBracket(bracketId, leagueId, overrides)
       if (res.error) { setErr(res.error); return }
-      // Reload page to get fresh bracket data
+      wizardInProgressRef.current = false  // allow normal sync after reload
       window.location.reload()
     })
   }
