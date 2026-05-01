@@ -59,13 +59,13 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           {/* Large logo above org name — hero acts as the brand bar on the home page */}
           {branding?.logo_url && (
             <div className="mb-6 flex justify-center">
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white/10 ring-4 ring-white/20 overflow-hidden flex items-center justify-center">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full ring-4 ring-white/20 overflow-hidden">
                 <Image
                   src={branding.logo_url}
                   alt={org.name}
-                  width={96}
-                  height={96}
-                  className="w-20 h-20 sm:w-24 sm:h-24 object-contain"
+                  width={112}
+                  height={112}
+                  className="w-full h-full object-contain"
                   unoptimized
                 />
               </div>

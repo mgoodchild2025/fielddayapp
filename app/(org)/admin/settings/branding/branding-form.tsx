@@ -154,21 +154,40 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
 
       <div className="bg-white rounded-lg border p-5 space-y-4">
         <h2 className="font-semibold">Logo</h2>
-        <div className="flex items-center gap-5">
-          <div className="h-20 w-40 rounded-lg border bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
-            {logoUploading ? (
-              <span className="text-xs text-gray-400">Uploading…</span>
-            ) : logoUrl ? (
-              <Image src={logoUrl} alt="Org logo" width={160} height={80} className="object-contain h-full w-full p-2" unoptimized />
-            ) : (
-              <span className="text-xs text-gray-400">No logo</span>
-            )}
+
+        {/* Requirements callout */}
+        <div className="bg-amber-50 border border-amber-200 rounded-md px-4 py-3 text-sm text-amber-800 space-y-1">
+          <p className="font-semibold">Logo requirements for best results</p>
+          <ul className="list-disc list-inside space-y-0.5 text-amber-700">
+            <li><strong>Format:</strong> PNG with a transparent background</li>
+            <li><strong>Shape:</strong> Square (1:1 ratio) — e.g. 512 × 512 px</li>
+            <li><strong>Size:</strong> At least 200 × 200 px, max 2 MB</li>
+          </ul>
+          <p className="text-amber-600 text-xs mt-1">
+            The logo is displayed inside a circle on your public site. A transparent-background square PNG will fill the circle cleanly without any visible edges or white borders.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-6">
+          {/* Circle preview — matches how it renders in the nav brand bar */}
+          <div className="shrink-0 flex flex-col items-center gap-1.5">
+            <div className="w-16 h-16 rounded-full bg-gray-800 ring-2 ring-gray-300 overflow-hidden flex items-center justify-center">
+              {logoUploading ? (
+                <span className="text-xs text-gray-400">…</span>
+              ) : logoUrl ? (
+                <Image src={logoUrl} alt="Org logo" width={64} height={64} className="w-full h-full object-contain" unoptimized />
+              ) : (
+                <span className="text-xs text-gray-500">No logo</span>
+              )}
+            </div>
+            <span className="text-xs text-gray-400">Preview</span>
           </div>
+
           <div className="space-y-2">
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+              accept="image/png,image/svg+xml,image/webp"
               className="hidden"
               onChange={handleLogoChange}
             />
@@ -178,9 +197,9 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
               disabled={logoUploading}
               className="px-4 py-2 text-sm font-medium border rounded-md hover:bg-gray-50 disabled:opacity-60"
             >
-              {logoUrl ? 'Replace logo' : 'Upload logo'}
+              {logoUploading ? 'Uploading…' : logoUrl ? 'Replace logo' : 'Upload logo'}
             </button>
-            <p className="text-xs text-gray-400">PNG, JPG, SVG or WebP · max 2 MB</p>
+            <p className="text-xs text-gray-400">PNG or SVG recommended · max 2 MB</p>
             {logoError && <p className="text-xs text-red-500">{logoError}</p>}
           </div>
         </div>

@@ -47,14 +47,14 @@ export async function OrgNav({ org, logoUrl, brandBar = true }: OrgNavProps) {
             <Link href="/" className="flex items-center gap-3 min-w-0">
               {logoUrl ? (
                 <>
-                  {/* Badge: circular white-ring container works for any logo shape */}
-                  <div className="w-14 h-14 rounded-full ring-2 ring-white/30 bg-white/10 overflow-hidden flex items-center justify-center shrink-0">
+                  {/* Badge: circular container — logo fills it edge-to-edge via w-full h-full */}
+                  <div className="w-14 h-14 rounded-full ring-2 ring-white/30 overflow-hidden shrink-0">
                     <Image
                       src={logoUrl}
                       alt={org.name}
-                      width={48}
-                      height={48}
-                      className="w-12 h-12 object-contain"
+                      width={56}
+                      height={56}
+                      className="w-full h-full object-contain"
                       unoptimized
                     />
                   </div>
