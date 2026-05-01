@@ -111,6 +111,11 @@ export function ScheduleTable({ games, teams, leagueId, sport }: Props) {
                       <span className="font-bold tabular-nums text-sm">
                         {game.result.homeScore} – {game.result.awayScore}
                       </span>
+                      {game.result.sets && game.result.sets.length > 0 && (
+                        <span className="block text-[10px] text-gray-400 tabular-nums">
+                          {game.result.sets.map((s) => `${s.home}–${s.away}`).join(', ')}
+                        </span>
+                      )}
                       {game.result.status === 'confirmed' ? (
                         <span className="block text-[10px] font-medium text-green-600">✓ confirmed</span>
                       ) : (
