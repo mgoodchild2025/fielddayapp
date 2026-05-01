@@ -9,8 +9,11 @@ import { AddToEventForm } from '@/components/players/add-to-event-form'
 import { AddToTeamForm } from '@/components/players/add-to-team-form'
 import { TeamRoleSelect } from '@/components/players/team-role-select'
 import { SendNotificationForm } from '@/components/players/send-notification-form'
+import { CollapsiblePast } from '@/components/players/collapsible-past'
 import { removePlayerFromLeague, removePlayerFromTeam } from '@/actions/players'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
+
+const PAST_STATUSES = new Set(['completed', 'archived'])
 
 const orgRoleColors: Record<string, string> = {
   org_admin: 'bg-purple-100 text-purple-700',
@@ -100,7 +103,7 @@ export default async function PlayerManagementPage({
         id, role,
         team:teams!team_members_team_id_fkey(
           id, name,
-          league:leagues!teams_league_id_fkey(id, name)
+          league:leagues!teams_league_id_fkey(id, name, status)
         )
       `)
       .eq('organization_id', org.id)
@@ -131,6 +134,24 @@ export default async function PlayerManagementPage({
 
   const registeredLeagueIds = new Set(registrations.map((r) => r.league_id).filter(Boolean))
   const availableLeagues = allLeagues.filter((l) => !registeredLeagueIds.has(l.id))
+
+  // Split registrations into active and past by league status
+  function regLeagueStatus(reg: (typeof registrations)[number]) {
+    const league = Array.isArray(reg.league) ? reg.league[0] : reg.league
+    return (league as { status?: string } | null)?.status ?? ''
+  }
+  const activeRegistrations = registrations.filter((r) => !PAST_STATUSES.has(regLeagueStatus(r)))
+  const pastRegistrations = registrations.filter((r) => PAST_STATUSES.has(regLeagueStatus(r)))
+
+  // Split team memberships into active and past by league status
+  function teamLeagueStatus(tm: (typeof teamMemberships)[number]) {
+    const team = Array.isArray(tm.team) ? tm.team[0] : tm.team
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const league = team ? (Array.isArray((team as any).league) ? (team as any).league[0] : (team as any).league) : null
+    return (league as { status?: string } | null)?.status ?? ''
+  }
+  const activeTeams = teamMemberships.filter((tm) => !PAST_STATUSES.has(teamLeagueStatus(tm)))
+  const pastTeams = teamMemberships.filter((tm) => PAST_STATUSES.has(teamLeagueStatus(tm)))
 
   const inTeamIds = new Set(
     teamMemberships
@@ -241,12 +262,12 @@ export default async function PlayerManagementPage({
           <div className="bg-white rounded-lg border p-6">
             <h2 className="text-base font-semibold mb-4">
               Leagues
-              <span className="ml-2 text-sm font-normal text-gray-400">{registrations.length}</span>
+              <span className="ml-2 text-sm font-normal text-gray-400">{activeRegistrations.length}</span>
             </h2>
 
-            {registrations.length > 0 && (
+            {activeRegistrations.length > 0 && (
               <div className="divide-y mb-4">
-                {registrations.map((reg) => {
+                {activeRegistrations.map((reg) => {
                   const league = Array.isArray(reg.league) ? reg.league[0] : reg.league
                   const payment = Array.isArray(reg.payments) ? reg.payments[0] : reg.payments
                   const availableTeams = teamsForLeague(reg.league_id ?? '')
@@ -325,9 +346,67 @@ export default async function PlayerManagementPage({
               </div>
             )}
 
-            {registrations.length === 0 && (
+            {activeRegistrations.length === 0 && pastRegistrations.length === 0 && (
               <p className="text-sm text-gray-400 mb-4">Not registered in any leagues.</p>
             )}
+
+            {/* Past (completed/archived) leagues — hidden until expanded */}
+            <CollapsiblePast count={pastRegistrations.length} noun="league">
+              <div className="divide-y">
+                {pastRegistrations.map((reg) => {
+                  const league = Array.isArray(reg.league) ? reg.league[0] : reg.league
+                  const payment = Array.isArray(reg.payments) ? reg.payments[0] : reg.payments
+
+                  async function removePastLeague() {
+                    'use server'
+                    await removePlayerFromLeague(reg.id, userId)
+                  }
+
+                  return (
+                    <div key={reg.id} className="py-3 first:pt-0 last:pb-0">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium">{league?.name ?? '—'}</span>
+                            {(league as { status?: string } | null)?.status && (
+                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${leagueStatusColors[(league as { status?: string }).status!] ?? 'bg-gray-100 text-gray-500'}`}>
+                                {leagueStatusLabels[(league as { status?: string }).status!] ?? (league as { status?: string }).status}
+                              </span>
+                            )}
+                            {reg.status !== 'active' && (
+                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${regStatusColors[reg.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                                {reg.status}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                            {payment ? (
+                              <span className={`inline-flex items-center text-xs px-1.5 py-0.5 rounded font-medium ${paymentStatusColors[payment.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                                {payment.status === 'paid' || payment.status === 'manual'
+                                  ? `$${(payment.amount_cents / 100).toFixed(0)} ${payment.currency.toUpperCase()} · ${payment.payment_method}`
+                                  : payment.status}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">No payment</span>
+                            )}
+                            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${reg.waiver_signature_id ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                              {reg.waiver_signature_id ? 'Waiver signed' : 'No waiver'}
+                            </span>
+                          </div>
+                        </div>
+                        {isOrgAdmin && (
+                          <form action={removePastLeague}>
+                            <button type="submit" className="text-xs text-red-500 hover:text-red-700 shrink-0">
+                              Remove
+                            </button>
+                          </form>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </CollapsiblePast>
 
             {isOrgAdmin && availableLeagues.length > 0 && (
               <AddToEventForm userId={userId} leagues={availableLeagues} />
@@ -338,12 +417,16 @@ export default async function PlayerManagementPage({
           <div className="bg-white rounded-lg border p-6">
             <h2 className="text-base font-semibold mb-4">
               Teams
-              <span className="ml-2 text-sm font-normal text-gray-400">{teamMemberships.length}</span>
+              <span className="ml-2 text-sm font-normal text-gray-400">{activeTeams.length}</span>
             </h2>
 
-            {teamMemberships.length > 0 ? (
+            {activeTeams.length === 0 && pastTeams.length === 0 && (
+              <p className="text-sm text-gray-400">Not on any teams.</p>
+            )}
+
+            {activeTeams.length > 0 && (
               <div className="divide-y">
-                {teamMemberships.map((tm) => {
+                {activeTeams.map((tm) => {
                   const team = Array.isArray(tm.team) ? tm.team[0] : tm.team
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   const leagueData = team ? (Array.isArray((team as any).league) ? (team as any).league[0] : (team as any).league) : null
@@ -363,18 +446,9 @@ export default async function PlayerManagementPage({
                       </div>
                       {isOrgAdmin && (
                         <div className="flex items-center gap-3 shrink-0">
-                          <TeamRoleSelect
-                            teamMemberId={tm.id}
-                            currentRole={tm.role}
-                            userId={userId}
-                          />
+                          <TeamRoleSelect teamMemberId={tm.id} currentRole={tm.role} userId={userId} />
                           <form action={removeTeam}>
-                            <button
-                              type="submit"
-                              className="text-xs text-red-500 hover:text-red-700"
-                            >
-                              Remove
-                            </button>
+                            <button type="submit" className="text-xs text-red-500 hover:text-red-700">Remove</button>
                           </form>
                         </div>
                       )}
@@ -382,9 +456,42 @@ export default async function PlayerManagementPage({
                   )
                 })}
               </div>
-            ) : (
-              <p className="text-sm text-gray-400">Not on any teams.</p>
             )}
+
+            {/* Past teams — hidden until expanded */}
+            <CollapsiblePast count={pastTeams.length} noun="team">
+              <div className="divide-y">
+                {pastTeams.map((tm) => {
+                  const team = Array.isArray(tm.team) ? tm.team[0] : tm.team
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const leagueData = team ? (Array.isArray((team as any).league) ? (team as any).league[0] : (team as any).league) : null
+
+                  async function removePastTeam() {
+                    'use server'
+                    await removePlayerFromTeam(tm.id, userId)
+                  }
+
+                  return (
+                    <div key={tm.id} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium">{team?.name ?? '—'}</p>
+                        {leagueData && (
+                          <p className="text-xs text-gray-400 mt-0.5">{leagueData.name}</p>
+                        )}
+                      </div>
+                      {isOrgAdmin && (
+                        <div className="flex items-center gap-3 shrink-0">
+                          <TeamRoleSelect teamMemberId={tm.id} currentRole={tm.role} userId={userId} />
+                          <form action={removePastTeam}>
+                            <button type="submit" className="text-xs text-red-500 hover:text-red-700">Remove</button>
+                          </form>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </CollapsiblePast>
           </div>
         </div>
 
