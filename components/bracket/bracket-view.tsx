@@ -130,115 +130,146 @@ function ScoreModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-white rounded-xl shadow-xl w-96 p-5 space-y-4">
-        <h3 className="font-semibold text-base">Enter score</h3>
+      <div className="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden">
+        {/* Drag handle — mobile only */}
+        <div className="pt-3 pb-1 flex justify-center sm:hidden">
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
 
-        {isVolleyball ? (
-          <div className="space-y-3">
-            {/* Column headers */}
-            <div className="flex items-center gap-2">
-              <span className="flex-1 text-xs font-medium text-gray-500 uppercase tracking-wide">Team</span>
-              {sets.map((_, i) => (
-                <span key={i} className="w-14 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Set {i + 1}
-                </span>
-              ))}
-            </div>
-
-            {/* Team 1 row */}
-            <div className="flex items-center gap-2">
-              <span className="flex-1 text-sm font-medium truncate">{match.team1Name ?? 'TBD'}</span>
-              {sets.map((set, i) => (
-                <input
-                  key={i}
-                  ref={i === 0 ? firstInputRef : undefined}
-                  value={set.s1}
-                  onChange={(e) => updateSet(i, 's1', e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-                  type="number"
-                  min={0}
-                  className="w-14 border rounded-md px-2 py-1.5 text-sm text-center"
-                  placeholder="0"
-                />
-              ))}
-            </div>
-
-            {/* Team 2 row */}
-            <div className="flex items-center gap-2">
-              <span className="flex-1 text-sm font-medium truncate">{match.team2Name ?? 'TBD'}</span>
-              {sets.map((set, i) => (
-                <input
-                  key={i}
-                  value={set.s2}
-                  onChange={(e) => updateSet(i, 's2', e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-                  type="number"
-                  min={0}
-                  className="w-14 border rounded-md px-2 py-1.5 text-sm text-center"
-                  placeholder="0"
-                />
-              ))}
-            </div>
-
-            {sets.length < 3 && (
-              <button
-                type="button"
-                onClick={() => setSets((prev) => [...prev, { s1: '', s2: '' }])}
-                className="text-xs text-blue-600 hover:underline"
-              >
-                + Add set 3
-              </button>
-            )}
+        <div className="px-5 pt-3 pb-6 space-y-5">
+          <div>
+            <h3 className="font-semibold text-base text-gray-900">Enter score</h3>
+            <p className="text-sm text-gray-500 mt-0.5 truncate">{match.team1Name ?? 'TBD'} vs {match.team2Name ?? 'TBD'}</p>
           </div>
-        ) : (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium truncate flex-1">{match.team1Name ?? 'TBD'}</span>
-              <input
-                ref={firstInputRef}
-                value={s1}
-                onChange={(e) => setS1(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-                type="number"
-                min={0}
-                className="w-16 border rounded-md px-2 py-1.5 text-sm text-center"
-                placeholder="0"
-              />
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium truncate flex-1">{match.team2Name ?? 'TBD'}</span>
-              <input
-                value={s2}
-                onChange={(e) => setS2(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-                type="number"
-                min={0}
-                className="w-16 border rounded-md px-2 py-1.5 text-sm text-center"
-                placeholder="0"
-              />
-            </div>
-          </div>
-        )}
 
-        {err && <p className="text-xs text-red-500">{err}</p>}
-        <div className="flex gap-2 pt-1">
-          <button
-            onClick={submit}
-            disabled={isPending}
-            className="flex-1 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-50"
-            style={{ backgroundColor: 'var(--brand-primary)' }}
-          >
-            {isPending ? 'Saving…' : 'Save score'}
-          </button>
-          <button
-            onClick={onClose}
-            className="flex-1 py-2 rounded-md text-sm border text-gray-600 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
+          {isVolleyball ? (
+            <div className="space-y-3">
+              {/* Column headers */}
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-400 uppercase tracking-wide">
+                <span className="w-10 text-center">Set</span>
+                <span className="flex-1 text-center truncate">{match.team1Name ?? 'TBD'}</span>
+                <span className="w-4" />
+                <span className="flex-1 text-center truncate">{match.team2Name ?? 'TBD'}</span>
+              </div>
+              {sets.map((set, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 w-10 text-center font-semibold">{i + 1}</span>
+                  <div className="flex-1 flex justify-center">
+                    <input
+                      ref={i === 0 ? firstInputRef : undefined}
+                      value={set.s1}
+                      onChange={(e) => updateSet(i, 's1', e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+                      type="number"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      min={0}
+                      className="w-16 h-12 border-2 rounded-xl text-2xl font-bold tabular-nums text-center focus:outline-none focus:border-blue-400"
+                      placeholder="0"
+                    />
+                  </div>
+                  <span className="text-gray-300 font-bold text-lg w-4 text-center">–</span>
+                  <div className="flex-1 flex justify-center">
+                    <input
+                      value={set.s2}
+                      onChange={(e) => updateSet(i, 's2', e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+                      type="number"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      min={0}
+                      className="w-16 h-12 border-2 rounded-xl text-2xl font-bold tabular-nums text-center focus:outline-none focus:border-blue-400"
+                      placeholder="0"
+                    />
+                  </div>
+                  {sets.length > 1 && (
+                    <button type="button" onClick={() => setSets((p) => p.filter((_, j) => j !== i))}
+                      className="w-6 text-gray-300 hover:text-red-400 text-xl text-center">×</button>
+                  )}
+                </div>
+              ))}
+              {sets.length < 3 && (
+                <button type="button"
+                  onClick={() => setSets((prev) => [...prev, { s1: '', s2: '' }])}
+                  className="text-sm text-blue-600 hover:underline pl-10">
+                  + Add set 3
+                </button>
+              )}
+            </div>
+          ) : (
+            /* Non-volleyball: large stepper inputs */
+            <div className="flex items-start justify-around gap-2 py-1">
+              <div className="flex flex-col items-center gap-2 min-w-0">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide truncate max-w-[100px] text-center">{match.team1Name ?? 'TBD'}</span>
+                <div className="flex items-center gap-2">
+                  <button type="button"
+                    onClick={() => setS1((v) => String(Math.max(0, parseInt(v || '0') - 1)))}
+                    className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-transform flex items-center justify-center select-none">−</button>
+                  <input
+                    ref={firstInputRef}
+                    value={s1}
+                    onChange={(e) => setS1(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+                    type="number"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    min={0}
+                    className="w-14 text-4xl font-bold tabular-nums text-center border-0 outline-none bg-transparent"
+                    placeholder="0"
+                  />
+                  <button type="button"
+                    onClick={() => setS1((v) => String(parseInt(v || '0') + 1))}
+                    className="w-10 h-10 rounded-full text-white text-xl font-bold active:scale-95 transition-transform flex items-center justify-center select-none"
+                    style={{ backgroundColor: 'var(--brand-primary)' }}>+</button>
+                </div>
+              </div>
+              <div className="text-3xl font-bold text-gray-200 mt-8 shrink-0">–</div>
+              <div className="flex flex-col items-center gap-2 min-w-0">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide truncate max-w-[100px] text-center">{match.team2Name ?? 'TBD'}</span>
+                <div className="flex items-center gap-2">
+                  <button type="button"
+                    onClick={() => setS2((v) => String(Math.max(0, parseInt(v || '0') - 1)))}
+                    className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-transform flex items-center justify-center select-none">−</button>
+                  <input
+                    value={s2}
+                    onChange={(e) => setS2(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+                    type="number"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    min={0}
+                    className="w-14 text-4xl font-bold tabular-nums text-center border-0 outline-none bg-transparent"
+                    placeholder="0"
+                  />
+                  <button type="button"
+                    onClick={() => setS2((v) => String(parseInt(v || '0') + 1))}
+                    className="w-10 h-10 rounded-full text-white text-xl font-bold active:scale-95 transition-transform flex items-center justify-center select-none"
+                    style={{ backgroundColor: 'var(--brand-primary)' }}>+</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {err && <p className="text-sm text-red-500">{err}</p>}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={submit}
+              disabled={isPending}
+              className="flex-1 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+              style={{ backgroundColor: 'var(--brand-primary)' }}
+            >
+              {isPending ? 'Saving…' : 'Save score'}
+            </button>
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 rounded-xl text-sm border text-gray-600 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
     </div>,
@@ -340,12 +371,13 @@ function MatchCard({
 
         {/* Admin score entry / edit trigger */}
         {isAdmin && (isReady || isCompleted) && (
-          <div className="px-3 pb-2 pt-1 border-t">
+          <div className="border-t">
             <button
               onClick={() => setModalOpen(true)}
-              className="text-xs font-medium text-blue-600 hover:underline"
+              className="w-full px-3 py-2 text-xs font-semibold text-center hover:bg-gray-50 active:bg-gray-100 transition-colors"
+              style={{ color: 'var(--brand-primary)' }}
             >
-              {isCompleted ? 'Edit score' : 'Enter score'}
+              {isCompleted ? 'Edit score' : 'Enter score →'}
             </button>
           </div>
         )}
@@ -354,9 +386,128 @@ function MatchCard({
   )
 }
 
+// ── Score list view (mobile-friendly alternative to the bracket diagram) ──────
+
+function BracketScoreList({
+  bracket,
+  leagueId,
+  sport,
+}: {
+  bracket: BracketData
+  leagueId: string
+  sport?: string
+}) {
+  const [activeMatch, setActiveMatch] = useState<BracketMatchData | null>(null)
+  const bracketSize = bracket.bracketSize
+
+  // Group matches by round, sorted earliest-first (highest roundNumber first in display)
+  const roundNumbers = Array.from(new Set(bracket.matches.map((m) => m.roundNumber)))
+    .sort((a, b) => b - a) // earliest round = highest number
+
+  return (
+    <div className="space-y-6">
+      {activeMatch && (
+        <ScoreModal
+          match={activeMatch}
+          bracketId={bracket.id}
+          leagueId={leagueId}
+          sport={sport}
+          onClose={() => setActiveMatch(null)}
+        />
+      )}
+
+      {roundNumbers.map((rn) => {
+        const matches = bracket.matches
+          .filter((m) => m.roundNumber === rn)
+          .sort((a, b) => a.matchNumber - b.matchNumber)
+
+        return (
+          <div key={rn}>
+            <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">
+              {getRoundName(rn, bracketSize)}
+            </h3>
+            <div className="space-y-2">
+              {matches.map((match) => {
+                const isPending = match.status === 'pending'
+                const isReady = match.status === 'ready'
+                const isCompleted = match.status === 'completed'
+                const isBye = match.isBye
+
+                return (
+                  <div
+                    key={match.id}
+                    className={`bg-white rounded-lg border overflow-hidden ${
+                      isReady ? 'border-orange-200' : ''
+                    } ${isPending ? 'opacity-50' : ''}`}
+                  >
+                    {/* Match info */}
+                    <div className="px-4 py-3">
+                      {(match.court || match.scheduledAt) && (
+                        <p className="text-[11px] text-gray-400 mb-1">
+                          {match.court && `Court ${match.court}`}
+                          {match.court && match.scheduledAt && ' · '}
+                          {match.scheduledAt && new Date(match.scheduledAt).toLocaleString('en-CA', {
+                            month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+                          })}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="space-y-1.5 min-w-0 flex-1">
+                          {/* Team 1 */}
+                          <div className={`flex items-center gap-1.5 ${isCompleted && match.winnerTeamId === match.team1Id ? 'text-green-700 font-semibold' : ''}`}>
+                            {match.team1Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team1Seed}</span>}
+                            <span className="text-sm truncate">{match.team1Name ?? 'TBD'}</span>
+                          </div>
+                          {/* Team 2 */}
+                          <div className={`flex items-center gap-1.5 ${isCompleted && match.winnerTeamId === match.team2Id ? 'text-green-700 font-semibold' : isBye ? 'text-gray-300 italic' : ''}`}>
+                            {match.team2Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team2Seed}</span>}
+                            <span className="text-sm truncate">{isBye ? 'Bye' : (match.team2Name ?? 'TBD')}</span>
+                          </div>
+                        </div>
+                        {/* Score */}
+                        {isCompleted && (
+                          <div className="shrink-0 text-right">
+                            <div className={`text-sm font-bold tabular-nums ${match.winnerTeamId === match.team1Id ? 'text-green-700' : 'text-gray-700'}`}>
+                              {match.score1 ?? '–'}
+                            </div>
+                            <div className={`text-sm font-bold tabular-nums ${match.winnerTeamId === match.team2Id ? 'text-green-700' : 'text-gray-700'}`}>
+                              {match.score2 ?? '–'}
+                            </div>
+                          </div>
+                        )}
+                        {isReady && (
+                          <span className="shrink-0 text-[11px] font-medium text-orange-500">No score</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Enter / edit score button */}
+                    {(isReady || isCompleted) && !isBye && (
+                      <div className="border-t">
+                        <button
+                          onClick={() => setActiveMatch(match)}
+                          className="w-full py-2.5 text-xs font-semibold text-center hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                          style={{ color: 'var(--brand-primary)' }}
+                        >
+                          {isCompleted ? 'Edit score' : 'Enter score →'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Bracket view ──────────────────────────────────────────────────────────────
 
 export function BracketView({ bracket, leagueId, isAdmin = false, sport }: Props) {
+  const [view, setView] = useState<'bracket' | 'list'>('bracket')
   const bracketSize = bracket.bracketSize
 
   // Collect rounds in display order (left = earliest, right = final)
@@ -389,8 +540,50 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport }: Props
   const firstRoundMatchCount = matchesForRound(firstRound).length
   const totalHeight = firstRoundMatchCount * (MATCH_HEIGHT + MATCH_GAP) - MATCH_GAP
 
+  // Count matches needing scores (ready but no score yet)
+  const pendingScoreCount = bracket.matches.filter((m) => m.status === 'ready').length
+
   return (
     <div>
+      {/* View toggle — only show when admin so non-admins just see the bracket */}
+      {isAdmin && (
+        <div className="flex items-center gap-2 mb-4">
+          <button
+            onClick={() => setView('bracket')}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              view === 'bracket' ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+            style={view === 'bracket' ? { backgroundColor: 'var(--brand-secondary)' } : {}}
+          >
+            Bracket
+          </button>
+          <button
+            onClick={() => setView('list')}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5 ${
+              view === 'list' ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+            style={view === 'list' ? { backgroundColor: 'var(--brand-primary)' } : {}}
+          >
+            Score list
+            {pendingScoreCount > 0 && (
+              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                view === 'list' ? 'bg-white/30' : 'bg-orange-100 text-orange-700'
+              }`}>
+                {pendingScoreCount}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Score list view */}
+      {view === 'list' && isAdmin && (
+        <BracketScoreList bracket={bracket} leagueId={leagueId} sport={sport} />
+      )}
+
+      {/* Bracket diagram view */}
+      {view === 'bracket' && (
+      <>
       <div className="overflow-x-auto pb-4 -mx-4 px-4">
         <div style={{ minWidth: displayRounds.length * ROUND_WIDTH + 32 }}>
           {/* Round labels */}
@@ -494,6 +687,8 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport }: Props
           />
         </div>
       )}
+      </> /* end fragment */
+      )} {/* end view === 'bracket' */}
     </div>
   )
 }

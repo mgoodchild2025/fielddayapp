@@ -37,15 +37,122 @@ interface Props {
   sport: string
 }
 
+function needsScore(game: Game) {
+  return !game.result || game.result.homeScore === null
+}
+
 export function ScheduleTable({ games, teams, leagueId, sport }: Props) {
   const [editingGame, setEditingGame] = useState<Game | null>(null)
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
+  const [filter, setFilter] = useState<'all' | 'needs'>('all')
 
-  const visible = games.filter(g => !deletedIds.has(g.id))
+  const visible = games
+    .filter((g) => !deletedIds.has(g.id))
+    .filter((g) => filter === 'needs' ? needsScore(g) : true)
+
+  const needsCount = games.filter((g) => !deletedIds.has(g.id) && needsScore(g)).length
 
   return (
     <>
-      <div className="bg-white rounded-lg border overflow-hidden">
+      {/* Filter pills */}
+      <div className="flex items-center gap-2 mb-3">
+        <button
+          onClick={() => setFilter('all')}
+          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+            filter === 'all'
+              ? 'text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+          style={filter === 'all' ? { backgroundColor: 'var(--brand-secondary)' } : {}}
+        >
+          All games
+        </button>
+        <button
+          onClick={() => setFilter('needs')}
+          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5 ${
+            filter === 'needs'
+              ? 'text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+          style={filter === 'needs' ? { backgroundColor: 'var(--brand-primary)' } : {}}
+        >
+          Needs scores
+          {needsCount > 0 && (
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+              filter === 'needs' ? 'bg-white/30' : 'bg-orange-100 text-orange-700'
+            }`}>
+              {needsCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ── Mobile: card list ── */}
+      <div className="md:hidden space-y-2">
+        {visible.length > 0 ? visible.map((game) => (
+          <div key={game.id} className={`bg-white rounded-lg border overflow-hidden ${needsScore(game) ? 'border-orange-200' : ''}`}>
+            {/* Tap zone opens score entry */}
+            <div className="px-4 py-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-400 mb-1">
+                    {game.dateLabel} · {game.timeLabel}
+                    {game.court ? ` · Court ${game.court}` : ''}
+                    {game.weekNumber ? ` · Wk ${game.weekNumber}` : ''}
+                  </p>
+                  <p className="font-semibold text-sm">
+                    {game.homeTeamName} <span className="text-gray-400 font-normal">vs</span> {game.awayTeamName}
+                  </p>
+                </div>
+                {/* Score / status */}
+                <div className="shrink-0 text-right">
+                  {game.result?.homeScore !== null && game.result?.homeScore !== undefined ? (
+                    <div>
+                      <span className="font-bold tabular-nums text-sm">
+                        {game.result.homeScore} – {game.result.awayScore}
+                      </span>
+                      {game.result.status === 'confirmed' ? (
+                        <span className="block text-[10px] font-medium text-green-600">✓ confirmed</span>
+                      ) : (
+                        <span className="block text-[10px] font-medium text-amber-600">pending</span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-[11px] font-medium text-orange-500">No score</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            {/* Action row */}
+            <div className="border-t flex">
+              <div className="flex-1 border-r">
+                <AdminScoreEntry
+                  gameId={game.id}
+                  leagueId={leagueId}
+                  sport={sport}
+                  homeTeamName={game.homeTeamName}
+                  awayTeamName={game.awayTeamName}
+                  existingResult={game.result}
+                  compact
+                />
+              </div>
+              <button
+                onClick={() => setEditingGame(game)}
+                className="px-4 py-2.5 text-xs text-gray-500 hover:bg-gray-50 active:bg-gray-100"
+              >
+                Edit
+              </button>
+            </div>
+          </div>
+        )) : (
+          <div className="bg-white rounded-lg border px-4 py-12 text-center text-gray-400 text-sm">
+            {filter === 'needs' ? 'All games have scores — nice work! 🎉' : 'No games scheduled yet.'}
+          </div>
+        )}
+      </div>
+
+      {/* ── Desktop: table ── */}
+      <div className="hidden md:block bg-white rounded-lg border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[560px]">
             <thead>
@@ -96,7 +203,7 @@ export function ScheduleTable({ games, teams, leagueId, sport }: Props) {
               ) : (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
-                    No games scheduled yet. Add a game or import from CSV.
+                    {filter === 'needs' ? 'All games have scores — nice work! 🎉' : 'No games scheduled yet. Add a game or import from CSV.'}
                   </td>
                 </tr>
               )}
@@ -119,7 +226,7 @@ export function ScheduleTable({ games, teams, leagueId, sport }: Props) {
           teams={teams}
           onClose={() => setEditingGame(null)}
           onDeleted={() => {
-            setDeletedIds(prev => new Set([...prev, editingGame.id]))
+            setDeletedIds((prev) => new Set([...prev, editingGame.id]))
             setEditingGame(null)
           }}
         />
