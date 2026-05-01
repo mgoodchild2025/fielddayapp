@@ -50,10 +50,10 @@ export function MobileNav({ userName, isAdmin }: Props) {
         />
       )}
 
-      {/* Drawer */}
+      {/* Drawer — slides from left so it doesn't extend past the right viewport edge (fixes iOS zoom-out) */}
       <div
-        className={`fixed top-0 right-0 h-full w-72 z-50 flex flex-col md:hidden transition-transform duration-200 ${
-          open ? 'translate-x-0' : 'translate-x-full'
+        className={`fixed top-0 left-0 h-full w-72 z-50 flex flex-col md:hidden transition-transform duration-200 ${
+          open ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
       >
