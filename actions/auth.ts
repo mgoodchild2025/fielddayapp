@@ -104,7 +104,7 @@ export async function signUp(input: { email: string; password: string; fullName:
 export async function logout() {
   const supabase = await createServerClient()
   await supabase.auth.signOut()
-  redirect('/login')
+  redirect('/')
 }
 
 export async function resetPassword(email: string) {
