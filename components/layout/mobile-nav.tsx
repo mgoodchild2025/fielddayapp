@@ -17,10 +17,14 @@ export function MobileNav({ userName, isAdmin }: Props) {
   // Close on route change
   useEffect(() => { setOpen(false) }, [pathname])
 
-  // Prevent body scroll when open
+  // Prevent body scroll + iOS right-edge viewport expansion when open
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
+    document.documentElement.style.overflowX = open ? 'hidden' : ''
+    return () => {
+      document.body.style.overflow = ''
+      document.documentElement.style.overflowX = ''
+    }
   }, [open])
 
   return (
@@ -50,20 +54,20 @@ export function MobileNav({ userName, isAdmin }: Props) {
         />
       )}
 
-      {/* Drawer — slides from left so it doesn't extend past the right viewport edge (fixes iOS zoom-out) */}
+      {/* Drawer — slides from right. overflowX:hidden on <html> prevents iOS Safari viewport expansion. */}
       <div
-        className={`fixed top-0 left-0 h-full w-72 z-50 flex flex-col md:hidden transition-transform duration-200 ${
-          open ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed top-0 right-0 h-full w-72 z-50 flex flex-col md:hidden transition-transform duration-200 ${
+          open ? 'translate-x-0' : 'translate-x-full'
         }`}
         style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
       >
         <div className="h-16 flex items-center justify-between px-5 border-b border-white/10">
-          <span className="font-semibold text-sm">Menu</span>
           <button onClick={() => setOpen(false)} className="p-1 opacity-70 hover:opacity-100">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
+          <span className="font-semibold text-sm">Menu</span>
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1">

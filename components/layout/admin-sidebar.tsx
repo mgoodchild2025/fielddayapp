@@ -88,10 +88,14 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
   // Close mobile sidebar on route change
   useEffect(() => { setMobileOpen(false) }, [pathname])
 
-  // Prevent body scroll when mobile sidebar is open
+  // Prevent body scroll + iOS right-edge viewport expansion when open
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
+    document.documentElement.style.overflowX = mobileOpen ? 'hidden' : ''
+    return () => {
+      document.body.style.overflow = ''
+      document.documentElement.style.overflowX = ''
+    }
   }, [mobileOpen])
 
   return (
@@ -106,9 +110,12 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
 
       {/* Mobile top bar */}
       <div
-        className="lg:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center px-4 gap-3 border-b border-white/10"
+        className="lg:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center justify-between px-4 border-b border-white/10"
         style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
       >
+        <span className="font-bold text-sm" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+          {org.name} — Admin
+        </span>
         <button
           onClick={() => setMobileOpen(true)}
           className="p-2 rounded opacity-80 hover:opacity-100 transition-opacity"
@@ -118,9 +125,6 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <span className="font-bold text-sm" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-          {org.name} — Admin
-        </span>
       </div>
 
       {/* Mobile backdrop */}
@@ -131,11 +135,11 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
         />
       )}
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer — slides from right */}
       <aside
         className={cn(
-          'fixed top-0 left-0 h-full w-64 z-50 lg:hidden transition-transform duration-200',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          'fixed top-0 right-0 h-full w-64 z-50 lg:hidden transition-transform duration-200',
+          mobileOpen ? 'translate-x-0' : 'translate-x-full'
         )}
         style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
       >
