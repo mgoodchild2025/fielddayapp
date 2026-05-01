@@ -44,6 +44,25 @@ function formatPrice(cents: number, currency: string) {
   return cents === 0 ? 'Free' : `$${(cents / 100).toFixed(0)} ${currency.toUpperCase()}`
 }
 
+// Single-line horizontally scrollable pill row.
+// -mx-4 / px-4 lets it bleed to the viewport edge on mobile so the fade
+// aligns flush with the screen, while sm:mx-0 / sm:px-0 restores normal
+// alignment on wider screens where wrapping is fine.
+function ScrollRow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative -mx-4 sm:mx-0">
+      <div className="flex gap-2 overflow-x-auto px-4 sm:px-0 pb-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        {children}
+      </div>
+      {/* Right-edge fade hints that more pills are off-screen */}
+      <div
+        className="pointer-events-none absolute right-0 top-0 bottom-0.5 w-10 sm:hidden"
+        style={{ background: 'linear-gradient(to left, var(--brand-bg, #fff), transparent)' }}
+      />
+    </div>
+  )
+}
+
 interface FilterPillProps {
   label: string
   active: boolean
@@ -164,14 +183,13 @@ export function EventsFilter({ events }: { events: EventItem[] }) {
         />
       </div>
 
-      {/* Filter rows */}
+      {/* Filter rows — horizontally scrollable on mobile */}
       <div className="space-y-2">
         {/* Status */}
         {statuses.length > 1 && (
-          <div className="flex flex-wrap gap-2">
+          <ScrollRow>
             <FilterPill
               label="All" active={statusFilter === null}
-              count={statusFilter === null ? undefined : undefined}
               onClick={() => setStatusFilter(null)}
               activeStyle={{ backgroundColor: 'var(--brand-secondary)' }}
             />
@@ -184,12 +202,12 @@ export function EventsFilter({ events }: { events: EventItem[] }) {
                 onClick={() => setStatusFilter(statusFilter === s ? null : s)}
               />
             ))}
-          </div>
+          </ScrollRow>
         )}
 
         {/* Type — only show if more than one type exists */}
         {types.length > 1 && (
-          <div className="flex flex-wrap gap-2">
+          <ScrollRow>
             {types.map((t) => (
               <FilterPill
                 key={t}
@@ -200,12 +218,12 @@ export function EventsFilter({ events }: { events: EventItem[] }) {
                 activeStyle={{ backgroundColor: 'var(--brand-primary)' }}
               />
             ))}
-          </div>
+          </ScrollRow>
         )}
 
         {/* Sport — only show if more than one sport exists */}
         {sports.length > 1 && (
-          <div className="flex flex-wrap gap-2">
+          <ScrollRow>
             {sports.map((sp) => (
               <FilterPill
                 key={sp}
@@ -216,7 +234,7 @@ export function EventsFilter({ events }: { events: EventItem[] }) {
                 activeStyle={{ backgroundColor: 'var(--brand-primary)' }}
               />
             ))}
-          </div>
+          </ScrollRow>
         )}
       </div>
 
