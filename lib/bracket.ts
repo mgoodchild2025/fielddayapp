@@ -106,13 +106,23 @@ export function generateSingleEliminationSpec(
     const nextMatchNum = Math.ceil(matchNum / 2)
     const nextSlot: 1 | 2 = matchNum % 2 === 1 ? 1 : 2
 
-    const isBye = byeSeeds.has(s2) // team2 is a virtual bye seed
+    // A bye occurs when either seed slot is virtual (> teamsAdvancing).
+    // The real team may be in either slot depending on the pairing.
+    const isBye = byeSeeds.has(s1) || byeSeeds.has(s2)
+    const realSeed1 = s1 <= teamsAdvancing ? s1 : null
+    const realSeed2 = s2 <= teamsAdvancing ? s2 : null
+
+    // For auto-advance: the advancing team is whichever slot has a real seed.
+    // Normalise so team1Seed always holds the real team in a bye match,
+    // making the advanceWinner loop simpler.
+    const team1Seed = isBye ? (realSeed1 ?? realSeed2) : realSeed1
+    const team2Seed = isBye ? null : realSeed2
 
     matches.push({
       roundNumber: firstRound,
       matchNumber: matchNum,
-      team1Seed: s1 <= teamsAdvancing ? s1 : null,
-      team2Seed: isBye ? null : (s2 <= teamsAdvancing ? s2 : null),
+      team1Seed,
+      team2Seed,
       isBye,
       winnerToMatchNumber: nextRound >= 1 ? nextMatchNum : null,
       winnerToSlot: nextRound >= 1 ? nextSlot : null,
@@ -144,17 +154,22 @@ export function generateSingleEliminationSpec(
   }
 
   // ── Final ─────────────────────────────────────────────────────────────────
-  matches.push({
-    roundNumber: 1,
-    matchNumber: 1,
-    team1Seed: null,
-    team2Seed: null,
-    isBye: false,
-    winnerToMatchNumber: null,
-    winnerToSlot: null,
-    loserToMatchNumber: thirdPlaceGame ? 2 : null,
-    loserToSlot: thirdPlaceGame ? null : null,
-  })
+  // For a 2-team bracket firstRound === 1, so the first-round match IS the
+  // final and was already pushed above — adding it again causes a duplicate
+  // key violation on (bracket_id, round_number, match_number).
+  if (firstRound > 1) {
+    matches.push({
+      roundNumber: 1,
+      matchNumber: 1,
+      team1Seed: null,
+      team2Seed: null,
+      isBye: false,
+      winnerToMatchNumber: null,
+      winnerToSlot: null,
+      loserToMatchNumber: thirdPlaceGame ? 2 : null,
+      loserToSlot: thirdPlaceGame ? null : null,
+    })
+  }
 
   // ── Third place ───────────────────────────────────────────────────────────
   let thirdPlaceMatch: BracketMatchSpec | null = null
