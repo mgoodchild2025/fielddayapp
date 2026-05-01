@@ -6,6 +6,7 @@ import { useForm, useController, Control, FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { updateBranding, uploadOrgLogo } from '@/actions/branding'
+import { FontPicker, HEADING_FONTS, BODY_FONTS } from '@/components/branding/font-picker'
 import type { Database } from '@/types/database'
 
 type OrgBranding = Database['public']['Tables']['org_branding']['Row']
@@ -106,7 +107,7 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
     })
   }
 
-  const { register, control, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       primary_color: branding?.primary_color ?? '#FF5C00',
@@ -124,6 +125,11 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
       timezone: branding?.timezone ?? 'America/Toronto',
     },
   })
+
+  const headingFont = watch('heading_font')
+  const bodyFont = watch('body_font')
+  const primaryColor = watch('primary_color')
+  const secondaryColor = watch('secondary_color')
 
   async function onSubmit(data: FormData) {
     setLoading(true)
@@ -215,18 +221,64 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border p-5 space-y-4">
+      <div className="bg-white rounded-lg border p-5 space-y-6">
         <h2 className="font-semibold">Typography</h2>
-        <div className="grid grid-cols-2 gap-4">
-          {[
-            { label: 'Heading Font (Google Fonts name)', name: 'heading_font' as keyof FormData },
-            { label: 'Body Font (Google Fonts name)', name: 'body_font' as keyof FormData },
-          ].map(({ label, name }) => (
-            <div key={name}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-              <input {...register(name)} type="text" className="w-full border rounded-md px-3 py-2 text-sm" />
+
+        <FontPicker
+          label="Heading Font"
+          value={headingFont}
+          onChange={(f) => setValue('heading_font', f, { shouldDirty: true })}
+          fonts={HEADING_FONTS}
+          linkId="gf-heading"
+        />
+
+        <FontPicker
+          label="Body Font"
+          value={bodyFont}
+          onChange={(f) => setValue('body_font', f, { shouldDirty: true })}
+          fonts={BODY_FONTS}
+          linkId="gf-body"
+        />
+
+        {/* Live preview — shows both fonts together with current brand colours */}
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-gray-700">Preview</p>
+          <div className="rounded-xl overflow-hidden border shadow-sm">
+            {/* Hero strip */}
+            <div
+              className="px-5 py-4"
+              style={{ backgroundColor: secondaryColor, color: '#fff' }}
+            >
+              <p
+                className="text-xs uppercase tracking-widest opacity-60 mb-1"
+                style={{ fontFamily: `'${bodyFont}', sans-serif` }}
+              >
+                Spring Season 2025
+              </p>
+              <h3
+                className="text-3xl font-bold leading-tight"
+                style={{ fontFamily: `'${headingFont}', sans-serif` }}
+              >
+                Championship League
+              </h3>
             </div>
-          ))}
+            {/* Body strip */}
+            <div className="px-5 py-4 bg-white">
+              <h4
+                className="text-base font-semibold mb-1"
+                style={{ fontFamily: `'${headingFont}', sans-serif`, color: primaryColor }}
+              >
+                About This League
+              </h4>
+              <p
+                className="text-sm text-gray-600 leading-relaxed"
+                style={{ fontFamily: `'${bodyFont}', sans-serif` }}
+              >
+                Register your team and compete in the best recreational sports league in the city.
+                Games run weekly with playoff brackets at the end of the season.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
