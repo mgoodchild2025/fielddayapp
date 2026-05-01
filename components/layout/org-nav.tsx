@@ -37,52 +37,84 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
   }
 
   return (
-    <nav
-      className="sticky top-0 z-40 border-b"
-      style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
-    >
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        {/* Left side: logo */}
-        <Link href="/" className="flex items-center gap-3 min-w-0 shrink">
-          {logoUrl ? (
-            <Image src={logoUrl} alt={org.name} width={120} height={40} className="object-contain h-9 w-auto max-w-[160px]" />
-          ) : (
-            <span className="text-xl font-bold uppercase tracking-wide truncate" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-              {org.name}
-            </span>
-          )}
-        </Link>
-
-        {/* Right side: desktop nav + notifications + user menu + hamburger (mobile) */}
-        <div className="flex items-center gap-2 shrink-0">
-          {user && (
-            <div className="hidden md:flex items-center gap-6 text-sm font-medium">
-              <Link href="/events" className="opacity-80 hover:opacity-100 transition-opacity">Events</Link>
-            </div>
-          )}
-
-          {user ? (
-            <>
-              <NotificationBell initialNotifications={unreadNotifications} />
-              <div className="hidden md:block">
-                <NavUserMenu userName={userName} isAdmin={isAdmin} />
-              </div>
-            </>
-          ) : (
-            <div className="hidden md:block">
-              <Link
-                href="/login"
-                className="px-4 py-1.5 rounded-md font-semibold transition-opacity hover:opacity-90"
-                style={{ backgroundColor: 'var(--brand-primary)' }}
+    <>
+      {/* ── Brand bar — scrolls with the page ──────────────────────────────── */}
+      {/* Gives the logo generous space on first load; disappears as user scrolls */}
+      <div style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}>
+        <div className="max-w-6xl mx-auto px-6 py-4 sm:py-5 flex items-center justify-center sm:justify-start">
+          <Link href="/" className="flex items-center gap-3 min-w-0">
+            {logoUrl ? (
+              <Image
+                src={logoUrl}
+                alt={org.name}
+                width={240}
+                height={80}
+                className="h-16 sm:h-12 w-auto object-contain"
+                style={{ maxWidth: '220px' }}
+                unoptimized
+              />
+            ) : (
+              <span
+                className="text-3xl sm:text-2xl font-bold uppercase tracking-wide"
+                style={{ fontFamily: 'var(--brand-heading-font)' }}
               >
-                Sign In
-              </Link>
-            </div>
-          )}
-
-          <MobileNav userName={userName} isAdmin={isAdmin} />
+                {org.name}
+              </span>
+            )}
+          </Link>
         </div>
       </div>
-    </nav>
+
+      {/* ── Sticky nav bar — stays on screen while scrolling ───────────────── */}
+      {/* Slim h-14 bar; org name as text gives context once brand bar scrolls away */}
+      <nav
+        className="sticky top-0 z-40 border-b border-white/10"
+        style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
+      >
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
+
+          {/* Left: org name text — context anchor when brand bar is out of view */}
+          <Link
+            href="/"
+            className="text-sm font-bold uppercase tracking-wide opacity-80 hover:opacity-100 transition-opacity truncate min-w-0 shrink"
+            style={{ fontFamily: 'var(--brand-heading-font)' }}
+          >
+            {org.name}
+          </Link>
+
+          {/* Right: desktop nav + notifications + user menu + hamburger */}
+          <div className="flex items-center gap-2 shrink-0">
+            {user && (
+              <div className="hidden md:flex items-center gap-6 text-sm font-medium">
+                <Link href="/events" className="opacity-80 hover:opacity-100 transition-opacity">
+                  Events
+                </Link>
+              </div>
+            )}
+
+            {user ? (
+              <>
+                <NotificationBell initialNotifications={unreadNotifications} />
+                <div className="hidden md:block">
+                  <NavUserMenu userName={userName} isAdmin={isAdmin} />
+                </div>
+              </>
+            ) : (
+              <div className="hidden md:block">
+                <Link
+                  href="/login"
+                  className="px-4 py-1.5 rounded-md font-semibold transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                >
+                  Sign In
+                </Link>
+              </div>
+            )}
+
+            <MobileNav userName={userName} isAdmin={isAdmin} />
+          </div>
+        </div>
+      </nav>
+    </>
   )
 }

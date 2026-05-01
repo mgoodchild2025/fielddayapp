@@ -10,7 +10,7 @@ export function EventTabSelect({
   activeTab: string
 }) {
   return (
-    <div className="border-b sticky top-16 z-30 bg-white shadow-sm">
+    <div className="border-b sticky top-14 z-30 bg-white shadow-sm">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3">
         <div className="flex gap-2 flex-wrap">
           {tabs.map((tab) => {

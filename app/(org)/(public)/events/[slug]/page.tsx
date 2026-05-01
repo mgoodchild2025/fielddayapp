@@ -23,7 +23,7 @@ import { EventTabSelect } from '@/components/events/event-tab-select'
 
 function TabNav({ slug, activeTab, tabs }: { slug: string; activeTab: string; tabs: { id: string; label: string }[] }) {
   return (
-    <div className="border-b sticky top-16 z-30 bg-white">
+    <div className="border-b sticky top-14 z-30 bg-white">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 relative">
         {/* Right-edge fade — visible on mobile only, hints that tabs are scrollable */}
         <div className="pointer-events-none absolute right-4 sm:right-6 inset-y-0 w-10 bg-gradient-to-l from-white to-transparent z-10 sm:hidden" />
