@@ -26,6 +26,22 @@ const regStatusColors: Record<string, string> = {
   waitlisted: 'bg-orange-100 text-orange-700',
 }
 
+const leagueStatusColors: Record<string, string> = {
+  registration_open: 'bg-green-100 text-green-700',
+  active: 'bg-blue-100 text-blue-700',
+  completed: 'bg-gray-100 text-gray-500',
+  archived: 'bg-gray-100 text-gray-400',
+  draft: 'bg-gray-100 text-gray-400',
+}
+
+const leagueStatusLabels: Record<string, string> = {
+  registration_open: 'Open',
+  active: 'In Season',
+  completed: 'Completed',
+  archived: 'Archived',
+  draft: 'Draft',
+}
+
 const paymentStatusColors: Record<string, string> = {
   paid: 'bg-green-100 text-green-700',
   pending: 'bg-yellow-100 text-yellow-700',
@@ -72,7 +88,7 @@ export default async function PlayerManagementPage({
       .from('registrations')
       .select(`
         id, status, created_at, waiver_signature_id, league_id,
-        league:leagues!registrations_league_id_fkey(id, name),
+        league:leagues!registrations_league_id_fkey(id, name, status),
         payments(id, status, amount_cents, currency, payment_method)
       `)
       .eq('organization_id', org.id)
@@ -134,7 +150,7 @@ export default async function PlayerManagementPage({
     <div>
       {/* Header */}
       <div className="mb-6">
-        <Link href="/admin/users" className="text-sm text-gray-400 hover:text-gray-600">
+        <Link href="/admin/players" className="text-sm text-gray-400 hover:text-gray-600">
           ← Players
         </Link>
         <div className="flex items-start justify-between mt-2 gap-4">
@@ -246,11 +262,18 @@ export default async function PlayerManagementPage({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-medium">{league?.name ?? '—'}</span>
-                            <span
-                              className={`px-1.5 py-0.5 rounded text-xs font-medium ${regStatusColors[reg.status] ?? 'bg-gray-100 text-gray-500'}`}
-                            >
-                              {reg.status}
-                            </span>
+                            {/* League lifecycle status */}
+                            {league?.status && (
+                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${leagueStatusColors[league.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                                {leagueStatusLabels[league.status] ?? league.status}
+                              </span>
+                            )}
+                            {/* Player's registration status — only show if not the default "active" to avoid confusion */}
+                            {reg.status !== 'active' && (
+                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${regStatusColors[reg.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                                {reg.status}
+                              </span>
+                            )}
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2 mt-1.5">
