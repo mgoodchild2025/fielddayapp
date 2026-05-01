@@ -42,17 +42,17 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
       style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3 min-w-0 shrink">
           {logoUrl ? (
-            <Image src={logoUrl} alt={org.name} width={120} height={40} className="object-contain h-9 w-auto" />
+            <Image src={logoUrl} alt={org.name} width={120} height={40} className="object-contain h-9 w-auto max-w-[160px]" />
           ) : (
-            <span className="text-xl font-bold uppercase tracking-wide" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+            <span className="text-xl font-bold uppercase tracking-wide truncate" style={{ fontFamily: 'var(--brand-heading-font)' }}>
               {org.name}
             </span>
           )}
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {user && (
             <div className="hidden md:flex items-center gap-6 text-sm font-medium">
               <Link href="/events" className="opacity-80 hover:opacity-100 transition-opacity">Events</Link>

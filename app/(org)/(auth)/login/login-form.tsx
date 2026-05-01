@@ -46,7 +46,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
           id="email"
           type="email"
           autoComplete="email"
-          className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-1"
+          className="w-full border rounded-md px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-offset-1"
           style={{ '--tw-ring-color': 'var(--brand-primary)' } as React.CSSProperties}
         />
         {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
@@ -58,7 +58,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
           id="password"
           type="password"
           autoComplete="current-password"
-          className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2"
+          className="w-full border rounded-md px-3 py-2 text-base focus:outline-none focus:ring-2"
         />
         {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
       </div>
