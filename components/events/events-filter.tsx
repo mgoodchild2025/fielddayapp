@@ -44,64 +44,51 @@ function formatPrice(cents: number, currency: string) {
   return cents === 0 ? 'Free' : `$${(cents / 100).toFixed(0)} ${currency.toUpperCase()}`
 }
 
-// Single-line horizontally scrollable pill row.
-// -mx-4 / px-4 lets it bleed to the viewport edge on mobile so the fade
-// aligns flush with the screen, while sm:mx-0 / sm:px-0 restores normal
-// alignment on wider screens where wrapping is fine.
+// ── Pill (secondary filters) ─────────────────────────────────────────────────
+
+function Pill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+        active ? 'text-white' : 'bg-white/70 text-gray-600 hover:bg-white border border-gray-200'
+      }`}
+      style={active ? { backgroundColor: 'var(--brand-primary)' } : {}}
+    >
+      {label}
+    </button>
+  )
+}
+
+// Horizontal scroll row that bleeds to viewport edge on mobile
 function ScrollRow({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative -mx-4 sm:mx-0">
       <div className="flex gap-2 overflow-x-auto px-4 sm:px-0 pb-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {children}
       </div>
-      {/* Right-edge fade hints that more pills are off-screen */}
       <div
-        className="pointer-events-none absolute right-0 top-0 bottom-0.5 w-10 sm:hidden"
-        style={{ background: 'linear-gradient(to left, var(--brand-bg, #fff), transparent)' }}
+        className="pointer-events-none absolute right-0 top-0 bottom-0.5 w-8 sm:hidden"
+        style={{ background: `linear-gradient(to left, var(--brand-bg, #f8f8f8), transparent)` }}
       />
     </div>
   )
 }
 
-interface FilterPillProps {
-  label: string
-  active: boolean
-  count?: number
-  onClick: () => void
-  activeStyle?: React.CSSProperties
-  activeClass?: string
-}
-
-function FilterPill({ label, active, count, onClick, activeStyle, activeClass }: FilterPillProps) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-        active
-          ? `text-white ${activeClass ?? ''}`
-          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-      }`}
-      style={active ? (activeStyle ?? { backgroundColor: 'var(--brand-primary)' }) : {}}
-    >
-      {label}
-      {count !== undefined && count > 0 && (
-        <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
-          active ? 'bg-white/25' : 'bg-gray-200 text-gray-500'
-        }`}>
-          {count}
-        </span>
-      )}
-    </button>
-  )
-}
+// ── Main component ────────────────────────────────────────────────────────────
 
 export function EventsFilter({ events }: { events: EventItem[] }) {
   const [query, setQuery] = useState('')
-  const [typeFilter, setTypeFilter] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
+  const [typeFilter, setTypeFilter] = useState<string | null>(null)
   const [sportFilter, setSportFilter] = useState<string | null>(null)
 
-  // Derive unique types, statuses, sports present in the data
+  const statuses = useMemo(() => {
+    const order = ['registration_open', 'active', 'completed', 'archived']
+    const present = new Set(events.map((e) => e.status))
+    return order.filter((s) => present.has(s))
+  }, [events])
+
   const types = useMemo(() => {
     const s = new Set(events.map((e) => e.event_type ?? 'league'))
     return [...s].sort()
@@ -112,59 +99,42 @@ export function EventsFilter({ events }: { events: EventItem[] }) {
     return [...s].sort()
   }, [events])
 
-  const statuses = useMemo(() => {
-    const order = ['registration_open', 'active', 'completed', 'archived']
-    const s = new Set(events.map((e) => e.status))
-    return order.filter((st) => s.has(st))
-  }, [events])
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return events.filter((e) => {
       if (q && !e.name.toLowerCase().includes(q) && !(e.sport ?? '').toLowerCase().includes(q)) return false
-      if (typeFilter && (e.event_type ?? 'league') !== typeFilter) return false
       if (statusFilter && e.status !== statusFilter) return false
+      if (typeFilter && (e.event_type ?? 'league') !== typeFilter) return false
       if (sportFilter && e.sport !== sportFilter) return false
       return true
     })
-  }, [events, query, typeFilter, statusFilter, sportFilter])
+  }, [events, query, statusFilter, typeFilter, sportFilter])
 
-  // Count badges per filter (counting against everything except that dimension)
-  function typeCount(t: string) {
+  // Count of events that would match if you picked a given status tab
+  function countForStatus(s: string | null) {
+    const q = query.trim().toLowerCase()
     return events.filter((e) => {
-      const q = query.trim().toLowerCase()
-      if (q && !e.name.toLowerCase().includes(q)) return false
-      if (statusFilter && e.status !== statusFilter) return false
-      if (sportFilter && e.sport !== sportFilter) return false
-      return (e.event_type ?? 'league') === t
-    }).length
-  }
-
-  function statusCount(s: string) {
-    return events.filter((e) => {
-      const q = query.trim().toLowerCase()
       if (q && !e.name.toLowerCase().includes(q)) return false
       if (typeFilter && (e.event_type ?? 'league') !== typeFilter) return false
       if (sportFilter && e.sport !== sportFilter) return false
-      return e.status === s
+      return s === null || e.status === s
     }).length
   }
 
-  function sportCount(sp: string) {
-    return events.filter((e) => {
-      const q = query.trim().toLowerCase()
-      if (q && !e.name.toLowerCase().includes(q)) return false
-      if (typeFilter && (e.event_type ?? 'league') !== typeFilter) return false
-      if (statusFilter && e.status !== statusFilter) return false
-      return e.sport === sp
-    }).length
-  }
+  const hasSecondaryFilters = types.length > 1 || sports.length > 1
+  const hasActiveFilters = !!query || statusFilter !== null || typeFilter !== null || sportFilter !== null
 
-  const hasActiveFilters = !!query || typeFilter !== null || statusFilter !== null || sportFilter !== null
+  function clearAll() {
+    setQuery('')
+    setStatusFilter(null)
+    setTypeFilter(null)
+    setSportFilter(null)
+  }
 
   return (
-    <div className="space-y-5">
-      {/* Search */}
+    <div className="space-y-4">
+
+      {/* ── Search ─────────────────────────────────────────────────────────── */}
       <div className="relative">
         <svg
           className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
@@ -178,83 +148,95 @@ export function EventsFilter({ events }: { events: EventItem[] }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search events…"
-          className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white text-base focus:outline-none focus:ring-2 focus:border-transparent"
+          className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-base focus:outline-none focus:ring-2 focus:border-transparent"
           style={{ '--tw-ring-color': 'var(--brand-primary)' } as React.CSSProperties}
         />
       </div>
 
-      {/* Filter rows — horizontally scrollable on mobile */}
-      <div className="space-y-2">
-        {/* Status */}
-        {statuses.length > 1 && (
-          <ScrollRow>
-            <FilterPill
-              label="All" active={statusFilter === null}
-              onClick={() => setStatusFilter(null)}
-              activeStyle={{ backgroundColor: 'var(--brand-secondary)' }}
-            />
-            {statuses.map((s) => (
-              <FilterPill
-                key={s}
-                label={STATUS_LABELS[s] ?? s}
-                active={statusFilter === s}
-                count={statusFilter !== s ? statusCount(s) : undefined}
-                onClick={() => setStatusFilter(statusFilter === s ? null : s)}
-              />
-            ))}
-          </ScrollRow>
-        )}
-
-        {/* Type — only show if more than one type exists */}
-        {types.length > 1 && (
-          <ScrollRow>
-            {types.map((t) => (
-              <FilterPill
-                key={t}
-                label={EVENT_TYPE_LABELS[t] ?? t}
-                active={typeFilter === t}
-                count={typeFilter !== t ? typeCount(t) : undefined}
-                onClick={() => setTypeFilter(typeFilter === t ? null : t)}
-                activeStyle={{ backgroundColor: 'var(--brand-primary)' }}
-              />
-            ))}
-          </ScrollRow>
-        )}
-
-        {/* Sport — only show if more than one sport exists */}
-        {sports.length > 1 && (
-          <ScrollRow>
-            {sports.map((sp) => (
-              <FilterPill
-                key={sp}
-                label={formatSport(sp)}
-                active={sportFilter === sp}
-                count={sportFilter !== sp ? sportCount(sp) : undefined}
-                onClick={() => setSportFilter(sportFilter === sp ? null : sp)}
-                activeStyle={{ backgroundColor: 'var(--brand-primary)' }}
-              />
-            ))}
-          </ScrollRow>
-        )}
-      </div>
-
-      {/* Results summary + clear */}
-      {hasActiveFilters && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500">
-            {filtered.length} {filtered.length === 1 ? 'event' : 'events'} found
-          </p>
+      {/* ── Status tabs ────────────────────────────────────────────────────── */}
+      {statuses.length > 1 && (
+        <div className="bg-gray-100 rounded-xl p-1 flex">
+          {/* "All" tab */}
           <button
-            onClick={() => { setQuery(''); setTypeFilter(null); setStatusFilter(null); setSportFilter(null) }}
+            onClick={() => setStatusFilter(null)}
+            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
+              statusFilter === null
+                ? 'bg-white shadow-sm text-gray-900'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            All
+            {statusFilter !== null && (
+              <span className="ml-1 text-xs text-gray-400">
+                {countForStatus(null)}
+              </span>
+            )}
+          </button>
+
+          {statuses.map((s) => {
+            const active = statusFilter === s
+            const count = countForStatus(s)
+            return (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(active ? null : s)}
+                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all leading-tight px-1 ${
+                  active
+                    ? 'bg-white shadow-sm text-gray-900'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {STATUS_LABELS[s] ?? s}
+                {!active && count > 0 && (
+                  <span className="ml-1 text-xs text-gray-400">{count}</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ── Secondary filters (type + sport) ───────────────────────────────── */}
+      {hasSecondaryFilters && (
+        <ScrollRow>
+          {types.length > 1 && types.map((t) => (
+            <Pill
+              key={t}
+              label={EVENT_TYPE_LABELS[t] ?? t}
+              active={typeFilter === t}
+              onClick={() => setTypeFilter(typeFilter === t ? null : t)}
+            />
+          ))}
+          {sports.length > 1 && sports.map((sp) => (
+            <Pill
+              key={sp}
+              label={formatSport(sp)}
+              active={sportFilter === sp}
+              onClick={() => setSportFilter(sportFilter === sp ? null : sp)}
+            />
+          ))}
+        </ScrollRow>
+      )}
+
+      {/* ── Result count + clear ────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between min-h-[20px]">
+        <p className="text-sm text-gray-400">
+          {hasActiveFilters
+            ? `${filtered.length} of ${events.length} events`
+            : `${events.length} event${events.length !== 1 ? 's' : ''}`}
+        </p>
+        {hasActiveFilters && (
+          <button
+            onClick={clearAll}
             className="text-sm font-medium hover:underline"
             style={{ color: 'var(--brand-primary)' }}
           >
             Clear filters
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Event cards */}
+      {/* ── Event cards ─────────────────────────────────────────────────────── */}
       <div className="space-y-3">
         {filtered.map((league) => {
           const et = league.event_type ?? 'league'
@@ -262,7 +244,7 @@ export function EventsFilter({ events }: { events: EventItem[] }) {
             <Link
               key={league.id}
               href={`/events/${league.slug}`}
-              className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white rounded-lg shadow-sm border p-4 sm:p-5 hover:shadow-md transition-shadow gap-3"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white rounded-xl shadow-sm border p-4 sm:p-5 hover:shadow-md transition-shadow gap-3"
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-1.5">
@@ -288,8 +270,8 @@ export function EventsFilter({ events }: { events: EventItem[] }) {
               <div className="sm:text-right flex sm:flex-col items-center sm:items-end gap-2 shrink-0">
                 <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${
                   league.status === 'registration_open' ? 'bg-green-100 text-green-800' :
-                  league.status === 'active' ? 'bg-blue-100 text-blue-800' :
-                  'bg-gray-100 text-gray-600'
+                  league.status === 'active'            ? 'bg-blue-100 text-blue-800' :
+                                                          'bg-gray-100 text-gray-600'
                 }`}>
                   {STATUS_LABELS[league.status] ?? league.status}
                 </span>
@@ -303,9 +285,7 @@ export function EventsFilter({ events }: { events: EventItem[] }) {
 
         {filtered.length === 0 && (
           <div className="text-center py-16 text-gray-400">
-            {hasActiveFilters
-              ? 'No events match your filters.'
-              : 'No events available yet.'}
+            {hasActiveFilters ? 'No events match your filters.' : 'No events available yet.'}
           </div>
         )}
       </div>
