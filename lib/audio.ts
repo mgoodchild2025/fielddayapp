@@ -9,15 +9,26 @@
  * even when triggered programmatically (e.g. on a successful QR scan).
  */
 
-export type CheckinSound = 'ding' | 'chime' | 'beep' | 'success' | 'airhorn'
+export type CheckinSound =
+  | 'two-tone'
+  | 'fanfare'
+  | 'chime'
+  | 'beep'
+  | 'success'
+  | 'scanner'
+  | 'jackpot'
+  | 'tada'
 
 export const CHECKIN_SOUNDS: { id: CheckinSound | null; label: string; description: string }[] = [
-  { id: null,       label: 'Off',      description: 'No sound' },
-  { id: 'ding',     label: 'Ding',     description: 'Soft bell — gentle single note' },
-  { id: 'chime',    label: 'Chime',    description: 'Two-note ascending chime' },
-  { id: 'beep',     label: 'Beep',     description: 'Clean electronic beep' },
-  { id: 'success',  label: 'Success',  description: 'Three-note upbeat tone' },
-  { id: 'airhorn',  label: 'Air Horn', description: 'Party airhorn blast' },
+  { id: null,       label: 'Off',         description: 'No sound' },
+  { id: 'two-tone', label: 'Two-Tone',    description: 'Two ascending notes — quick and cheerful' },
+  { id: 'fanfare',  label: 'Fanfare',     description: 'Mini three-note fanfare' },
+  { id: 'chime',    label: 'Chime',       description: 'Two-note ascending chime' },
+  { id: 'beep',     label: 'Beep',        description: 'Clean electronic beep' },
+  { id: 'success',  label: 'Success',     description: 'Three-note upbeat tone' },
+  { id: 'scanner',  label: 'Scanner',     description: 'Grocery store scanner beep' },
+  { id: 'jackpot',  label: 'Jackpot',     description: 'Lottery-style ascending win jingle' },
+  { id: 'tada',     label: 'Ta-Da!',      description: 'Uplifting brass-style fanfare' },
 ]
 
 // ── Singleton AudioContext ────────────────────────────────────────────────────
@@ -78,56 +89,67 @@ export function playCheckinSound(sound: string | null | undefined): void {
 function _play(ctx: AudioContext, sound: string): void {
   try {
     switch (sound) {
-      case 'ding':    _ding(ctx);    break
-      case 'chime':   _chime(ctx);   break
-      case 'beep':    _beep(ctx);    break
-      case 'success': _success(ctx); break
-      case 'airhorn': _airhorn(ctx); break
+      case 'two-tone': _twoTone(ctx); break
+      case 'fanfare':  _fanfare(ctx); break
+      case 'chime':    _chime(ctx);   break
+      case 'beep':     _beep(ctx);    break
+      case 'success':  _success(ctx); break
+      case 'scanner':  _scanner(ctx); break
+      case 'jackpot':  _jackpot(ctx); break
+      case 'tada':     _tada(ctx);    break
     }
   } catch {
     // swallow — audio errors are non-fatal
   }
 }
 
-/** Soft single bell — 880 Hz sine with slow exponential decay */
-function _ding(ctx: AudioContext): void {
-  const t = ctx.currentTime
+// ── Helper ────────────────────────────────────────────────────────────────────
+
+function _note(
+  ctx: AudioContext,
+  type: OscillatorType,
+  freq: number,
+  startOffset: number,
+  duration: number,
+  peakGain: number,
+  attackTime = 0.02,
+): void {
+  const t = ctx.currentTime + startOffset
   const osc = ctx.createOscillator()
   const gain = ctx.createGain()
   osc.connect(gain)
   gain.connect(ctx.destination)
-  osc.type = 'sine'
-  osc.frequency.setValueAtTime(880, t)
-  osc.frequency.exponentialRampToValueAtTime(440, t + 0.6)
-  gain.gain.setValueAtTime(0.5, t)
-  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6)
+  osc.type = type
+  osc.frequency.setValueAtTime(freq, t)
+  gain.gain.setValueAtTime(0, t)
+  gain.gain.linearRampToValueAtTime(peakGain, t + attackTime)
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration)
   osc.start(t)
-  osc.stop(t + 0.6)
+  osc.stop(t + duration)
 }
 
-/** Two-note ascending chime: C5 (523 Hz) → E5 (659 Hz) */
+// ── Sound implementations ─────────────────────────────────────────────────────
+
+/** Two ascending sine tones — C5 then G5, cheerful and quick */
+function _twoTone(ctx: AudioContext): void {
+  _note(ctx, 'sine', 523, 0,    0.32, 0.45)
+  _note(ctx, 'sine', 784, 0.14, 0.32, 0.45)
+}
+
+/** Three-note mini fanfare — C5 → G5 → C6, quick staccato */
+function _fanfare(ctx: AudioContext): void {
+  _note(ctx, 'sine', 523,  0,    0.25, 0.35)
+  _note(ctx, 'sine', 784,  0.12, 0.25, 0.35)
+  _note(ctx, 'sine', 1046, 0.22, 0.35, 0.35)
+}
+
+/** Two-note ascending chime: C5 → E5 */
 function _chime(ctx: AudioContext): void {
-  const t = ctx.currentTime
-  const notes = [
-    { freq: 523, start: 0,    end: 0.35 },
-    { freq: 659, start: 0.18, end: 0.55 },
-  ]
-  for (const n of notes) {
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(n.freq, t + n.start)
-    gain.gain.setValueAtTime(0, t + n.start)
-    gain.gain.linearRampToValueAtTime(0.4, t + n.start + 0.02)
-    gain.gain.exponentialRampToValueAtTime(0.001, t + n.end)
-    osc.start(t + n.start)
-    osc.stop(t + n.end)
-  }
+  _note(ctx, 'sine', 523, 0,    0.35, 0.4)
+  _note(ctx, 'sine', 659, 0.18, 0.55, 0.4)
 }
 
-/** Short electronic beep — 1 kHz square wave */
+/** Short clean electronic beep — square wave at 960 Hz */
 function _beep(ctx: AudioContext): void {
   const t = ctx.currentTime
   const osc = ctx.createOscillator()
@@ -135,56 +157,67 @@ function _beep(ctx: AudioContext): void {
   osc.connect(gain)
   gain.connect(ctx.destination)
   osc.type = 'square'
-  osc.frequency.setValueAtTime(1000, t)
-  gain.gain.setValueAtTime(0.25, t)
-  gain.gain.setValueAtTime(0.25, t + 0.14)
-  gain.gain.linearRampToValueAtTime(0, t + 0.17)
+  osc.frequency.setValueAtTime(960, t)
+  gain.gain.setValueAtTime(0.2, t)
+  gain.gain.setValueAtTime(0.2, t + 0.12)
+  gain.gain.linearRampToValueAtTime(0, t + 0.15)
   osc.start(t)
-  osc.stop(t + 0.17)
+  osc.stop(t + 0.15)
 }
 
-/** Three-note success fanfare — C5 → E5 → G5 */
+/** Three-note upbeat fanfare — C5 → E5 → G5 */
 function _success(ctx: AudioContext): void {
-  const t = ctx.currentTime
-  const notes = [
-    { freq: 523, start: 0,    end: 0.15 },
-    { freq: 659, start: 0.12, end: 0.27 },
-    { freq: 784, start: 0.24, end: 0.5  },
-  ]
-  for (const n of notes) {
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(n.freq, t + n.start)
-    gain.gain.setValueAtTime(0, t + n.start)
-    gain.gain.linearRampToValueAtTime(0.4, t + n.start + 0.015)
-    gain.gain.exponentialRampToValueAtTime(0.001, t + n.end)
-    osc.start(t + n.start)
-    osc.stop(t + n.end)
-  }
+  _note(ctx, 'sine', 523, 0,    0.15, 0.4)
+  _note(ctx, 'sine', 659, 0.12, 0.15, 0.4)
+  _note(ctx, 'sine', 784, 0.24, 0.5,  0.4)
 }
 
-/** Air horn — sawtooth with pitch-drop and amplitude wobble */
-function _airhorn(ctx: AudioContext): void {
+/**
+ * Grocery store scanner — single flat square-wave beep, very short.
+ * The supermarket "boop": 1 kHz, ~110 ms, hard edges.
+ */
+function _scanner(ctx: AudioContext): void {
   const t = ctx.currentTime
-  const dur = 0.5
-
   const osc = ctx.createOscillator()
   const gain = ctx.createGain()
   osc.connect(gain)
   gain.connect(ctx.destination)
-
-  osc.type = 'sawtooth'
-  osc.frequency.setValueAtTime(320, t)
-  osc.frequency.exponentialRampToValueAtTime(180, t + dur)
-
-  gain.gain.setValueAtTime(0, t)
-  gain.gain.linearRampToValueAtTime(0.55, t + 0.02)
-  gain.gain.setValueAtTime(0.55, t + dur - 0.05)
-  gain.gain.linearRampToValueAtTime(0, t + dur)
-
+  osc.type = 'square'
+  osc.frequency.setValueAtTime(1050, t)
+  gain.gain.setValueAtTime(0.18, t)
+  gain.gain.setValueAtTime(0.18, t + 0.10)
+  gain.gain.linearRampToValueAtTime(0, t + 0.115)
   osc.start(t)
-  osc.stop(t + dur)
+  osc.stop(t + 0.115)
+}
+
+/**
+ * Lottery jackpot — rapid ascending arpeggio (C5→E5→G5→C6→E6) then
+ * a sustained top note with a light shimmer, like a slot machine win.
+ */
+function _jackpot(ctx: AudioContext): void {
+  const arpNotes = [523, 659, 784, 1046, 1318]
+  arpNotes.forEach((freq, i) => {
+    _note(ctx, 'sine', freq, i * 0.07, 0.14, 0.35)
+  })
+  // Sustained shimmer on the top note with two harmonics
+  const hold = arpNotes.length * 0.07
+  ;[[1318, 0.3], [2637, 0.08], [3955, 0.04]].forEach(([freq, amp]) => {
+    _note(ctx, 'sine', freq, hold, 0.55, amp, 0.04)
+  })
+}
+
+/**
+ * Ta-Da! — classic two-part brass fanfare.
+ * "Ta" = short sawtooth chord stab; "Da" = longer sustained chord that swells.
+ */
+function _tada(ctx: AudioContext): void {
+  // "Ta" — short punchy stab on G4 major (G4, B4, D5)
+  ;[392, 494, 587].forEach(freq => {
+    _note(ctx, 'sawtooth', freq, 0, 0.18, 0.15, 0.01)
+  })
+  // Gap then "Da" — full swell on C5 major (C5, E5, G5, C6)
+  ;[523, 659, 784, 1046].forEach(freq => {
+    _note(ctx, 'sawtooth', freq, 0.22, 0.75, 0.12, 0.06)
+  })
 }

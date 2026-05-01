@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check-in Sound Preview</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; padding: 32px 16px; }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; color: #111; }
+    p.sub { font-size: 14px; color: #666; margin-bottom: 28px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; max-width: 900px; }
+    .card {
+      background: white; border-radius: 12px; border: 2px solid #e5e5e5;
+      padding: 18px 20px; display: flex; align-items: center; gap: 14px;
+      cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s;
+      user-select: none;
+    }
+    .card:hover { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+    .card.playing { border-color: #6366f1; background: #f5f3ff; }
+    .num {
+      width: 36px; height: 36px; border-radius: 50%; background: #6366f1;
+      color: white; font-weight: 700; font-size: 15px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .card.playing .num { background: #4f46e5; }
+    .info { flex: 1; min-width: 0; }
+    .name { font-weight: 600; font-size: 15px; color: #111; }
+    .desc { font-size: 12px color: #888; margin-top: 2px; }
+    .badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 999px; margin-top: 4px; }
+    .badge.new { background: #dcfce7; color: #15803d; }
+    .play-btn {
+      width: 38px; height: 38px; border-radius: 50%; border: none;
+      background: #6366f1; color: white; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s; font-size: 16px;
+    }
+    .play-btn:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+  <h1>Check-in Sound Preview</h1>
+  <p class="sub">Click any card to audition. All sounds are now live in the app's settings.</p>
+  <div class="grid" id="grid"></div>
+
+  <script>
+    let ctx = null;
+    function getCtx() {
+      if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    }
+
+    function note(ctx, type, freq, startOffset, duration, peakGain, attackTime = 0.02) {
+      const t = ctx.currentTime + startOffset;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(peakGain, t + attackTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      osc.start(t); osc.stop(t + duration);
+    }
+
+    const sounds = [
+      {
+        name: 'Two-Tone', badge: '',
+        desc: 'Two ascending notes — C5 then G5, cheerful and quick',
+        play(ctx) {
+          note(ctx, 'sine', 523, 0,    0.32, 0.45);
+          note(ctx, 'sine', 784, 0.14, 0.32, 0.45);
+        }
+      },
+      {
+        name: 'Fanfare', badge: '',
+        desc: 'Mini three-note fanfare — C5 → G5 → C6',
+        play(ctx) {
+          note(ctx, 'sine', 523,  0,    0.25, 0.35);
+          note(ctx, 'sine', 784,  0.12, 0.25, 0.35);
+          note(ctx, 'sine', 1046, 0.22, 0.35, 0.35);
+        }
+      },
+      {
+        name: 'Chime', badge: '',
+        desc: 'Two-note ascending chime — C5 → E5',
+        play(ctx) {
+          note(ctx, 'sine', 523, 0,    0.35, 0.4);
+          note(ctx, 'sine', 659, 0.18, 0.55, 0.4);
+        }
+      },
+      {
+        name: 'Beep', badge: '',
+        desc: 'Clean electronic beep — square wave at 960 Hz',
+        play(ctx) {
+          const t = ctx.currentTime;
+          const osc = ctx.createOscillator(); const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'square'; osc.frequency.setValueAtTime(960, t);
+          gain.gain.setValueAtTime(0.2, t);
+          gain.gain.setValueAtTime(0.2, t + 0.12);
+          gain.gain.linearRampToValueAtTime(0, t + 0.15);
+          osc.start(t); osc.stop(t + 0.15);
+        }
+      },
+      {
+        name: 'Success', badge: '',
+        desc: 'Three-note upbeat tone — C5 → E5 → G5',
+        play(ctx) {
+          note(ctx, 'sine', 523, 0,    0.15, 0.4);
+          note(ctx, 'sine', 659, 0.12, 0.15, 0.4);
+          note(ctx, 'sine', 784, 0.24, 0.5,  0.4);
+        }
+      },
+      {
+        name: 'Scanner', badge: 'NEW',
+        desc: 'Grocery store scanner — single flat square-wave boop',
+        play(ctx) {
+          const t = ctx.currentTime;
+          const osc = ctx.createOscillator(); const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'square'; osc.frequency.setValueAtTime(1050, t);
+          gain.gain.setValueAtTime(0.18, t);
+          gain.gain.setValueAtTime(0.18, t + 0.10);
+          gain.gain.linearRampToValueAtTime(0, t + 0.115);
+          osc.start(t); osc.stop(t + 0.115);
+        }
+      },
+      {
+        name: 'Jackpot', badge: 'NEW',
+        desc: 'Lottery win — rapid ascending arpeggio with shimmer',
+        play(ctx) {
+          const arp = [523, 659, 784, 1046, 1318];
+          arp.forEach((f, i) => note(ctx, 'sine', f, i * 0.07, 0.14, 0.35));
+          const hold = arp.length * 0.07;
+          [[1318, 0.3], [2637, 0.08], [3955, 0.04]].forEach(([f, amp]) => {
+            note(ctx, 'sine', f, hold, 0.55, amp, 0.04);
+          });
+        }
+      },
+      {
+        name: 'Ta-Da!', badge: 'NEW',
+        desc: 'Uplifting brass fanfare — "Ta" stab then big swelling "Da"',
+        play(ctx) {
+          [392, 494, 587].forEach(f => note(ctx, 'sawtooth', f, 0,    0.18, 0.15, 0.01));
+          [523, 659, 784, 1046].forEach(f => note(ctx, 'sawtooth', f, 0.22, 0.75, 0.12, 0.06));
+        }
+      },
+    ];
+
+    const grid = document.getElementById('grid');
+    sounds.forEach((sound, i) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="num">${i + 1}</div>
+        <div class="info">
+          <div class="name">${sound.name}${sound.badge ? ` <span class="badge new">${sound.badge}</span>` : ''}</div>
+          <div class="desc" style="color:#888;margin-top:2px;font-size:12px">${sound.desc}</div>
+        </div>
+        <button class="play-btn" title="Play">▶</button>
+      `;
+      card.addEventListener('click', () => {
+        const ctx = getCtx();
+        sound.play(ctx);
+        card.classList.add('playing');
+        setTimeout(() => card.classList.remove('playing'), 1400);
+      });
+      grid.appendChild(card);
+    });
+  </script>
+</body>
+</html>
