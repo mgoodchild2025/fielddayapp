@@ -692,7 +692,7 @@ export default async function EventDetailPage({
             {league.sport && (
               <span className="text-sm opacity-70 capitalize">{league.sport.replace(/_/g, ' ')}</span>
             )}
-            {!isInSeasonOrCompleted && (
+            {(league.status === 'registration_open' || isOrgAdmin) && (
               <>
                 <span className="text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>{price}</span>
                 {dropInPriceLabel && (
@@ -1189,7 +1189,11 @@ export default async function EventDetailPage({
 
       {/* ── Sticky register bar (mobile only, overview tab, unregistered) ── */}
       {stickyBar && (
-        <StickyRegisterBar href={stickyBar.href} label={stickyBar.label} price={price} />
+        <StickyRegisterBar
+          href={stickyBar.href}
+          label={stickyBar.label}
+          price={league.status === 'registration_open' || isOrgAdmin ? price : null}
+        />
       )}
 
       <Footer org={org} />

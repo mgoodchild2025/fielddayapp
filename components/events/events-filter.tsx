@@ -77,7 +77,7 @@ function ScrollRow({ children }: { children: React.ReactNode }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function EventsFilter({ events }: { events: EventItem[] }) {
+export function EventsFilter({ events, isOrgAdmin = false }: { events: EventItem[]; isOrgAdmin?: boolean }) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [typeFilter, setTypeFilter] = useState<string | null>(null)
@@ -275,9 +275,11 @@ export function EventsFilter({ events }: { events: EventItem[] }) {
                 }`}>
                   {STATUS_LABELS[league.status] ?? league.status}
                 </span>
-                <p className="text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>
-                  {formatPrice(league.price_cents, league.currency)}
-                </p>
+                {(league.status === 'registration_open' || isOrgAdmin) && (
+                  <p className="text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>
+                    {formatPrice(league.price_cents, league.currency)}
+                  </p>
+                )}
               </div>
             </Link>
           )

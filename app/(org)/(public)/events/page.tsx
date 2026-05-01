@@ -11,19 +11,23 @@ export default async function EventsPage() {
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: leagues } = await (supabase as any)
-    .from('leagues')
-    .select('id, name, slug, status, event_type, sport, price_cents, currency, season_start_date')
-    .eq('organization_id', org.id)
-    .neq('status', 'draft')
-    .order('created_at', { ascending: false })
+  const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: branding } = await supabase
-    .from('org_branding')
-    .select('logo_url')
-    .eq('organization_id', org.id)
-    .single()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [{ data: leagues }, { data: branding }, { data: orgMember }] = await Promise.all([
+    (supabase as any)
+      .from('leagues')
+      .select('id, name, slug, status, event_type, sport, price_cents, currency, season_start_date')
+      .eq('organization_id', org.id)
+      .neq('status', 'draft')
+      .order('created_at', { ascending: false }),
+    supabase.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
+    user
+      ? supabase.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single()
+      : Promise.resolve({ data: null }),
+  ])
+
+  const isOrgAdmin = ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
 
   const events: EventItem[] = (leagues ?? []).map((l: EventItem) => ({
     id: l.id,
@@ -47,7 +51,7 @@ export default async function EventsPage() {
         >
           Events
         </h1>
-        <EventsFilter events={events} />
+        <EventsFilter events={events} isOrgAdmin={isOrgAdmin} />
       </div>
       <Footer org={org} />
     </div>
