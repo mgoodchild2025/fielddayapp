@@ -7,7 +7,10 @@ import { adminSetScore } from '@/actions/scores'
 const SET_SPORTS = new Set(['volleyball', 'beach_volleyball'])
 const MAX_SETS = 3
 
+// SetScore — numeric, used in Props (data from DB)
 interface SetScore { home: number; away: number }
+// EditSet — string, used in local editing state (allows empty field while typing)
+type EditSet = { home: string; away: string }
 
 interface Props {
   gameId: string
@@ -25,15 +28,22 @@ interface Props {
   compact?: boolean
 }
 
-function emptySets(n: number): SetScore[] {
-  return Array.from({ length: n }, () => ({ home: 0, away: 0 }))
+function emptySets(n: number): EditSet[] {
+  return Array.from({ length: n }, () => ({ home: '', away: '' }))
 }
 
-function setsWon(sets: SetScore[]): [number, number] {
+function parseScore(v: string): number {
+  const n = parseInt(v || '0')
+  return isNaN(n) ? 0 : Math.max(0, n)
+}
+
+function setsWon(sets: EditSet[]): [number, number] {
   let h = 0, a = 0
   for (const s of sets) {
-    if (s.home > s.away) h++
-    else if (s.away > s.home) a++
+    const sh = parseScore(s.home)
+    const sa = parseScore(s.away)
+    if (sh > sa) h++
+    else if (sa > sh) a++
   }
   return [h, a]
 }
@@ -45,13 +55,19 @@ function ScoreEntrySheet({
 }: Props & { onClose: () => void }) {
   const isSetBased = SET_SPORTS.has(sport ?? '')
 
-  const [homeScore, setHomeScore] = useState(existingResult?.homeScore ?? 0)
-  const [awayScore, setAwayScore] = useState(existingResult?.awayScore ?? 0)
-  const [sets, setSets] = useState<SetScore[]>(() =>
-    isSetBased
-      ? (existingResult?.sets?.length ? existingResult.sets : emptySets(2))
-      : []
+  const [homeScore, setHomeScore] = useState<string>(
+    existingResult?.homeScore != null ? String(existingResult.homeScore) : ''
   )
+  const [awayScore, setAwayScore] = useState<string>(
+    existingResult?.awayScore != null ? String(existingResult.awayScore) : ''
+  )
+  const [sets, setSets] = useState<EditSet[]>(() => {
+    if (!isSetBased) return []
+    if (existingResult?.sets?.length) {
+      return existingResult.sets.map((s) => ({ home: String(s.home), away: String(s.away) }))
+    }
+    return emptySets(2)
+  })
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -68,24 +84,29 @@ function ScoreEntrySheet({
     return () => document.removeEventListener('keydown', fn)
   }, [onClose])
 
-  function updateSet(i: number, side: 'home' | 'away', val: number) {
-    setSets((prev) => prev.map((s, idx) => idx === i ? { ...s, [side]: Math.max(0, val) } : s))
+  function updateSet(i: number, side: 'home' | 'away', val: string) {
+    setSets((prev) => prev.map((s, idx) => idx === i ? { ...s, [side]: val } : s))
+  }
+
+  // Adds an empty set to the list (called from the "+ Add set" button)
+  function addSet() {
+    setSets((p) => [...p, { home: '', away: '' }])
   }
 
   function submit() {
     setError(null)
     let finalHome: number
     let finalAway: number
-    let finalSets: SetScore[] | undefined
+    let finalSets: { home: number; away: number }[] | undefined
 
     if (isSetBased) {
       const [h, a] = setsWon(sets)
       finalHome = h
       finalAway = a
-      finalSets = sets
+      finalSets = sets.map((s) => ({ home: parseScore(s.home), away: parseScore(s.away) }))
     } else {
-      finalHome = homeScore
-      finalAway = awayScore
+      finalHome = parseScore(homeScore)
+      finalAway = parseScore(awayScore)
       finalSets = undefined
     }
 
@@ -133,7 +154,9 @@ function ScoreEntrySheet({
                     <input
                       type="number" inputMode="numeric" pattern="[0-9]*" min={0}
                       value={s.home}
-                      onChange={(e) => updateSet(i, 'home', parseInt(e.target.value) || 0)}
+                      placeholder="0"
+                      onChange={(e) => updateSet(i, 'home', e.target.value)}
+                      onFocus={(e) => e.target.select()}
                       onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
                       className="w-16 h-12 border-2 rounded-xl text-2xl font-bold tabular-nums text-center focus:outline-none focus:border-blue-400"
                     />
@@ -143,7 +166,9 @@ function ScoreEntrySheet({
                     <input
                       type="number" inputMode="numeric" pattern="[0-9]*" min={0}
                       value={s.away}
-                      onChange={(e) => updateSet(i, 'away', parseInt(e.target.value) || 0)}
+                      placeholder="0"
+                      onChange={(e) => updateSet(i, 'away', e.target.value)}
+                      onFocus={(e) => e.target.select()}
                       onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
                       className="w-16 h-12 border-2 rounded-xl text-2xl font-bold tabular-nums text-center focus:outline-none focus:border-blue-400"
                     />
@@ -155,7 +180,7 @@ function ScoreEntrySheet({
                 </div>
               ))}
               {sets.length < MAX_SETS && (
-                <button type="button" onClick={() => setSets((p) => [...p, { home: 0, away: 0 }])}
+                <button type="button" onClick={addSet}
                   className="text-sm text-blue-600 hover:underline pl-10">
                   + Add set {sets.length + 1}
                 </button>
@@ -177,17 +202,19 @@ function ScoreEntrySheet({
                 <span className="text-xs font-medium text-gray-500 uppercase tracking-wide truncate max-w-[100px] text-center">{homeTeamName}</span>
                 <div className="flex items-center gap-2">
                   <button type="button"
-                    onClick={() => setHomeScore((v) => Math.max(0, v - 1))}
+                    onClick={() => setHomeScore((v) => String(Math.max(0, parseInt(v || '0') - 1)))}
                     className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-transform flex items-center justify-center select-none">−</button>
                   <input
                     type="number" inputMode="numeric" pattern="[0-9]*" min={0}
                     value={homeScore}
-                    onChange={(e) => setHomeScore(Math.max(0, parseInt(e.target.value) || 0))}
+                    placeholder="0"
+                    onChange={(e) => setHomeScore(e.target.value)}
+                    onFocus={(e) => e.target.select()}
                     onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
                     className="w-14 text-4xl font-bold tabular-nums text-center border-0 outline-none bg-transparent"
                   />
                   <button type="button"
-                    onClick={() => setHomeScore((v) => v + 1)}
+                    onClick={() => setHomeScore((v) => String(parseInt(v || '0') + 1))}
                     className="w-10 h-10 rounded-full text-white text-xl font-bold active:scale-95 transition-transform flex items-center justify-center select-none"
                     style={{ backgroundColor: 'var(--brand-primary)' }}>+</button>
                 </div>
@@ -200,17 +227,19 @@ function ScoreEntrySheet({
                 <span className="text-xs font-medium text-gray-500 uppercase tracking-wide truncate max-w-[100px] text-center">{awayTeamName}</span>
                 <div className="flex items-center gap-2">
                   <button type="button"
-                    onClick={() => setAwayScore((v) => Math.max(0, v - 1))}
+                    onClick={() => setAwayScore((v) => String(Math.max(0, parseInt(v || '0') - 1)))}
                     className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-transform flex items-center justify-center select-none">−</button>
                   <input
                     type="number" inputMode="numeric" pattern="[0-9]*" min={0}
                     value={awayScore}
-                    onChange={(e) => setAwayScore(Math.max(0, parseInt(e.target.value) || 0))}
+                    placeholder="0"
+                    onChange={(e) => setAwayScore(e.target.value)}
+                    onFocus={(e) => e.target.select()}
                     onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
                     className="w-14 text-4xl font-bold tabular-nums text-center border-0 outline-none bg-transparent"
                   />
                   <button type="button"
-                    onClick={() => setAwayScore((v) => v + 1)}
+                    onClick={() => setAwayScore((v) => String(parseInt(v || '0') + 1))}
                     className="w-10 h-10 rounded-full text-white text-xl font-bold active:scale-95 transition-transform flex items-center justify-center select-none"
                     style={{ backgroundColor: 'var(--brand-primary)' }}>+</button>
                 </div>
