@@ -111,9 +111,18 @@ export async function resetPassword(email: string) {
   const supabase = await createServerClient()
   const origin = (await headers()).get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
   await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${origin}/reset-password/confirm`,
+    // Route through the existing PKCE callback handler, then land on the confirm page
+    redirectTo: `${origin}/auth/callback?next=/reset-password/confirm`,
   })
   return { data: null, error: null }
+}
+
+export async function updatePassword(newPassword: string): Promise<{ error: string | null }> {
+  const supabase = await createServerClient()
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) return { error: error.message }
+  revalidatePath('/', 'layout')
+  redirect('/dashboard')
 }
 
 const updateProfileSchema = z.object({
