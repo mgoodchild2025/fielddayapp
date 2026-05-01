@@ -284,15 +284,15 @@ export default async function PlayerDashboardPage() {
                 {activeMembers.map((m) => {
                   const profile = Array.isArray(m.profile) ? m.profile[0] : m.profile
                   return (
-                    <div key={m.id} className="flex items-center justify-between gap-2">
-                      <div>
+                    <div key={m.id} className="flex items-center justify-between gap-2 min-w-0">
+                      <div className="min-w-0">
                         <span className="text-sm font-medium">{profile?.full_name ?? '—'}</span>
                         {m.role === 'captain' && (
                           <span className="ml-1.5 text-xs text-blue-600">Captain</span>
                         )}
                       </div>
                       {isCaptain && profile?.email && (
-                        <a href={`mailto:${profile.email}`} className="text-xs text-gray-400 hover:text-blue-600 transition-colors">
+                        <a href={`mailto:${profile.email}`} className="text-xs text-gray-400 hover:text-blue-600 transition-colors truncate min-w-0 max-w-[55%]">
                           {profile.email}
                         </a>
                       )}
@@ -304,10 +304,10 @@ export default async function PlayerDashboardPage() {
               {/* Captain contact (for non-captains) */}
               {!isCaptain && captainProfile && (
                 <div className="mt-3 pt-3 border-t">
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 break-all">
                     Captain: <span className="font-medium text-gray-700">{captainProfile.full_name}</span>
                     {captainProfile.email && (
-                      <a href={`mailto:${captainProfile.email}`} className="ml-2 text-blue-600 hover:underline">
+                      <a href={`mailto:${captainProfile.email}`} className="ml-2 text-blue-600 hover:underline break-all">
                         {captainProfile.email}
                       </a>
                     )}
