@@ -9,9 +9,10 @@ import type { OrgContext } from '@/lib/tenant'
 interface OrgNavProps {
   org: OrgContext
   logoUrl: string | null
+  brandBar?: boolean
 }
 
-export async function OrgNav({ org, logoUrl }: OrgNavProps) {
+export async function OrgNav({ org, logoUrl, brandBar = true }: OrgNavProps) {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -39,31 +40,43 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
   return (
     <>
       {/* ── Brand bar — scrolls with the page ──────────────────────────────── */}
-      {/* Gives the logo generous space on first load; disappears as user scrolls */}
-      <div style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}>
-        <div className="max-w-6xl mx-auto px-6 py-4 sm:py-5 flex items-center justify-center sm:justify-start">
-          <Link href="/" className="flex items-center gap-3 min-w-0">
-            {logoUrl ? (
-              <Image
-                src={logoUrl}
-                alt={org.name}
-                width={240}
-                height={80}
-                className="h-16 sm:h-12 w-auto object-contain"
-                style={{ maxWidth: '220px' }}
-                unoptimized
-              />
-            ) : (
-              <span
-                className="text-3xl sm:text-2xl font-bold uppercase tracking-wide"
-                style={{ fontFamily: 'var(--brand-heading-font)' }}
-              >
-                {org.name}
-              </span>
-            )}
-          </Link>
+      {/* Suppressed on the home page (brandBar=false) — hero handles branding there */}
+      {brandBar && (
+        <div style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}>
+          <div className="max-w-6xl mx-auto px-6 py-4 sm:py-5 flex items-center justify-center sm:justify-start">
+            <Link href="/" className="flex items-center gap-3 min-w-0">
+              {logoUrl ? (
+                <>
+                  {/* Badge: circular white-ring container works for any logo shape */}
+                  <div className="w-14 h-14 rounded-full ring-2 ring-white/30 bg-white/10 overflow-hidden flex items-center justify-center shrink-0">
+                    <Image
+                      src={logoUrl}
+                      alt={org.name}
+                      width={48}
+                      height={48}
+                      className="w-12 h-12 object-contain"
+                      unoptimized
+                    />
+                  </div>
+                  <span
+                    className="text-xl font-bold uppercase tracking-wide truncate"
+                    style={{ fontFamily: 'var(--brand-heading-font)' }}
+                  >
+                    {org.name}
+                  </span>
+                </>
+              ) : (
+                <span
+                  className="text-3xl sm:text-2xl font-bold uppercase tracking-wide"
+                  style={{ fontFamily: 'var(--brand-heading-font)' }}
+                >
+                  {org.name}
+                </span>
+              )}
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Sticky nav bar — stays on screen while scrolling ───────────────── */}
       {/* Slim h-14 bar; org name as text gives context once brand bar scrolls away */}

@@ -4,6 +4,7 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { ViewEventsDropdown } from '@/components/events/view-events-dropdown'
 import Link from 'next/link'
+import Image from 'next/image'
 
 // Marketing homepage — shown when no org context (fielddayapp.ca)
 function MarketingPage() {
@@ -47,7 +48,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
-      <OrgNav org={orgContext} logoUrl={branding?.logo_url ?? null} />
+      <OrgNav org={orgContext} logoUrl={branding?.logo_url ?? null} brandBar={false} />
 
       {/* Hero */}
       <section className="relative py-24 px-6 text-white" style={{ backgroundColor: 'var(--brand-secondary)' }}>
@@ -55,6 +56,21 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url(${branding.hero_image_url})` }} />
         )}
         <div className="relative max-w-4xl mx-auto text-center">
+          {/* Large logo above org name — hero acts as the brand bar on the home page */}
+          {branding?.logo_url && (
+            <div className="mb-6 flex justify-center">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white/10 ring-4 ring-white/20 overflow-hidden flex items-center justify-center">
+                <Image
+                  src={branding.logo_url}
+                  alt={org.name}
+                  width={96}
+                  height={96}
+                  className="w-20 h-20 sm:w-24 sm:h-24 object-contain"
+                  unoptimized
+                />
+              </div>
+            </div>
+          )}
           <h1 className="text-5xl md:text-7xl font-bold uppercase tracking-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>
             {org.name}
           </h1>
