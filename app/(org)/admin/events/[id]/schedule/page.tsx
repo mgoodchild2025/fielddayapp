@@ -46,15 +46,18 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
       .eq('league_id', id)
       .eq('organization_id', org.id)
       .order('name'),
-    supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
       .from('leagues')
-      .select('sport')
+      .select('sport, max_participants')
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
   ])
 
   const sport = league?.sport ?? ''
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const maxParticipants: number | null = (league as any)?.max_participants ?? null
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mappedGames = (games ?? []).map((game: any) => {
@@ -103,7 +106,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
       {/* Sidebar tools — org admins only */}
       {isOrgAdmin && (
         <div className="space-y-4">
-          <RoundRobinGenerator leagueId={id} teamCount={(teams ?? []).length} />
+          <RoundRobinGenerator leagueId={id} teamCount={(teams ?? []).length} maxTeams={maxParticipants} />
           <AddGameForm leagueId={id} sport={sport} teams={teams ?? []} />
           <ScheduleImport leagueId={id} />
         </div>

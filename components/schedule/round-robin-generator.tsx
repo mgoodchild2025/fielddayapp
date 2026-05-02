@@ -69,7 +69,17 @@ let breakCounter = 1
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function RoundRobinGenerator({ leagueId, teamCount }: { leagueId: string; teamCount: number }) {
+type TeamCountSource = 'existing' | 'custom'
+
+export function RoundRobinGenerator({
+  leagueId,
+  teamCount,
+  maxTeams = null,
+}: {
+  leagueId: string
+  teamCount: number
+  maxTeams?: number | null
+}) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [pending, start] = useTransition()
@@ -90,11 +100,20 @@ export function RoundRobinGenerator({ leagueId, teamCount }: { leagueId: string;
   const [dsCourts, setDsCourts] = useState('2')
   const [specialBreaks, setSpecialBreaks] = useState<SpecialBreak[]>([])
 
-  // ── Template mode ──────────────────────────────────────────────────────────
-  const [expectedTeamCount, setExpectedTeamCount] = useState('8')
+  // ── Team count source ──────────────────────────────────────────────────────
+  const hasExistingTeams = teamCount >= 2
+  const [teamCountSource, setTeamCountSource] = useState<TeamCountSource>(
+    hasExistingTeams ? 'existing' : 'custom'
+  )
+  // Pre-fill custom count with maxTeams if set, else existing count, else 8
+  const [customCount, setCustomCount] = useState(
+    String(maxTeams ?? (hasExistingTeams ? teamCount : 8))
+  )
 
-  const noTeams = teamCount < 2
-  const activeCount = noTeams ? parseInt(expectedTeamCount) || 8 : teamCount
+  const useCustomCount = teamCountSource === 'custom'
+  const noTeams = !hasExistingTeams  // kept for template-mode notices
+  const activeCount = useCustomCount ? (parseInt(customCount) || 8) : teamCount
+  const useSlotMode = useCustomCount || noTeams
   const expectedRounds = activeCount % 2 === 0 ? activeCount - 1 : activeCount
   const gamesPerRound = Math.floor(activeCount / 2)
 
@@ -137,7 +156,7 @@ export function RoundRobinGenerator({ leagueId, teamCount }: { leagueId: string;
     start(async () => {
       const base = {
         leagueId,
-        ...(noTeams ? { expectedTeamCount: parseInt(expectedTeamCount) } : {}),
+        ...(useSlotMode ? { expectedTeamCount: activeCount } : {}),
       }
 
       let res
@@ -191,28 +210,71 @@ export function RoundRobinGenerator({ leagueId, teamCount }: { leagueId: string;
       {open && (
         <form onSubmit={handleSubmit} className="mt-4 space-y-3">
 
-          {/* ── Template mode notice ── */}
-          {noTeams && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-800">
-              <p className="font-medium mb-0.5">Template mode — no teams yet</p>
-              <p>Games will use &ldquo;Team 1&rdquo;, &ldquo;Team 2&rdquo;, etc. as placeholders. Assign real teams later from the schedule.</p>
-            </div>
-          )}
-
-          {noTeams && (
+          {/* ── Team count source ── */}
+          {hasExistingTeams ? (
             <div>
-              <label className="block text-xs text-gray-500 mb-0.5">Expected Team Count *</label>
+              <label className="block text-xs text-gray-500 mb-1">Teams</label>
+              <div className="flex rounded-md border border-gray-200 overflow-hidden text-sm">
+                <button
+                  type="button"
+                  onClick={() => setTeamCountSource('existing')}
+                  className={`flex-1 py-1.5 font-medium transition-colors ${
+                    teamCountSource === 'existing'
+                      ? 'bg-gray-800 text-white'
+                      : 'bg-white text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  Existing ({teamCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTeamCountSource('custom')}
+                  className={`flex-1 py-1.5 font-medium transition-colors ${
+                    teamCountSource === 'custom'
+                      ? 'bg-gray-800 text-white'
+                      : 'bg-white text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  Custom{maxTeams ? ` (max ${maxTeams})` : ''}
+                </button>
+              </div>
+
+              {teamCountSource === 'custom' && (
+                <div className="mt-2 space-y-1.5">
+                  <input
+                    type="number" min={2} max={64}
+                    value={customCount}
+                    onChange={e => setCustomCount(e.target.value)}
+                    required
+                    placeholder="Number of teams"
+                    className={inputCls}
+                  />
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                    Placeholder labels (Team 1, Team 2…) will be used. Assign real teams from the schedule later.
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            // No teams yet — always custom
+            <div>
+              <label className="block text-xs text-gray-500 mb-0.5">
+                Team count{maxTeams ? ` (max ${maxTeams})` : ''} *
+              </label>
               <input
-                type="number" min={2} max={32}
-                value={expectedTeamCount}
-                onChange={e => setExpectedTeamCount(e.target.value)}
+                type="number" min={2} max={64}
+                value={customCount}
+                onChange={e => setCustomCount(e.target.value)}
                 required
                 className={inputCls}
               />
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1.5">
+                No teams registered yet. Games will use Team 1, Team 2… as placeholders.
+              </p>
             </div>
           )}
 
-          {/* ── Mode toggle ── */}
+          {/* ── Schedule mode toggle ── */}
           <div className="flex rounded-md border border-gray-200 overflow-hidden text-sm">
             {(['weekly', 'day_schedule'] as const).map(m => (
               <button
@@ -385,7 +447,7 @@ export function RoundRobinGenerator({ leagueId, teamCount }: { leagueId: string;
             className="w-full py-2 rounded-md text-white text-sm font-semibold disabled:opacity-50"
             style={{ backgroundColor: 'var(--brand-primary)' }}
           >
-            {pending ? 'Generating…' : noTeams ? 'Generate Template Schedule' : 'Generate Schedule'}
+            {pending ? 'Generating…' : useSlotMode ? 'Generate Template Schedule' : 'Generate Schedule'}
           </button>
         </form>
       )}
