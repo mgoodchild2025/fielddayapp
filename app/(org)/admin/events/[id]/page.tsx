@@ -7,6 +7,7 @@ import { getLeagueOrganizers } from '@/actions/organizers'
 import { EditEventForm } from '@/components/events/edit-event-form'
 import { DeleteEventButton } from '@/components/events/delete-event-button'
 import { OrganizersPanel } from '@/components/events/organizers-panel'
+import { StatsVisibilityToggle } from '@/components/stats/stats-visibility-toggle'
 import type { Database } from '@/types/database'
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
@@ -159,6 +160,15 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
             </form>
           </div>
         )}
+        {/* Stats visibility — only for team-based events that have stat support */}
+        {(league.event_type === 'league' || league.event_type === 'tournament') && isOrgAdmin && (
+          <StatsVisibilityToggle
+            leagueId={id}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            initialValue={(league as any).stats_public ?? false}
+          />
+        )}
+
         <div className="bg-white rounded-lg border p-5">
           <h2 className="font-semibold text-sm mb-2">URL Slug</h2>
           <code className="text-xs bg-gray-50 border rounded px-2 py-1.5 block break-all">{league.slug}</code>

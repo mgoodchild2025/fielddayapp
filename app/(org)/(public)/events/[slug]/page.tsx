@@ -18,6 +18,11 @@ import { TeamAvatar } from '@/components/ui/team-avatar'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { StickyRegisterBar } from '@/components/events/sticky-register-bar'
 import { EventTabSelect } from '@/components/events/event-tab-select'
+import { CaptainStatsEntry } from '@/components/stats/captain-stats-entry'
+import { StatsLeaderboard } from '@/components/stats/stats-leaderboard'
+import type { LeaderboardPlayer } from '@/components/stats/stats-leaderboard'
+import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
+import type { StatDef } from '@/actions/stats'
 
 // ── Tab nav ───────────────────────────────────────────────────────────────────
 
@@ -270,6 +275,13 @@ function DateGroup({
                   } : null}
                 />
               )}
+              {/* Stats entry — available once score is confirmed */}
+              {isPast && isCaptain && result?.status === 'confirmed' && (
+                <CaptainStatsEntry
+                  gameId={game.id}
+                  captainTeamId={isCaptainOfHome ? (homeTeam?.id ?? game.home_team_id ?? '') : (awayTeam?.id ?? game.away_team_id ?? '')}
+                />
+              )}
             </div>
           )
         })}
@@ -388,11 +400,17 @@ export default async function EventDetailPage({
 
   // Tabs for in-season/completed events — team-based gets Schedule+Standings+Bracket+Rules,
   // non-team-based (pickup/drop-in) gets Overview + Rules if available
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const statsPublic: boolean = (league as any).stats_public ?? false
+  // Stats tab visibility mirrors the stats_public flag — public if enabled, else members-only
+  const statsVisibility = statsPublic ? 'public' as const : 'members' as const
+
   const inSeasonTabs = isTeamBased
     ? [
         { id: 'schedule',  label: 'Schedule',  visibility: 'public' as const },
         { id: 'standings', label: 'Standings', visibility: 'public' as const },
         ...(hasBracket          ? [{ id: 'bracket', label: 'Bracket', visibility: 'public' as const }] : []),
+        { id: 'stats', label: 'Stats', visibility: statsVisibility },
         ...(league.rules_content ? [{ id: 'rules',   label: 'Rules',   visibility: 'public' as const }] : []),
       ]
     : [
@@ -590,6 +608,53 @@ export default async function EventDetailPage({
   }
 
   // ── Bracket tab data ─────────────────────────────────────────────────────
+
+  // ── Stats tab data ────────────────────────────────────────────────────────
+  let statDefs: StatDef[] = []
+  let leaderboardPlayers: LeaderboardPlayer[] = []
+
+  if (activeTab === 'stats' && isTeamBased) {
+    const sport: string = (league as any).sport ?? '' // eslint-disable-line @typescript-eslint/no-explicit-any
+    const [defs, totals] = await Promise.all([
+      getStatDefinitions(org.id, sport),
+      getLeagueStatTotals(league.id, org.id),
+    ])
+    statDefs = defs
+
+    if (Object.keys(totals).length > 0) {
+      // Fetch profiles + team names for players that have stats
+      const userIds = Object.keys(totals)
+      const { data: profiles } = await db
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', userIds)
+
+      const { data: teamMembersForStats } = await db
+        .from('team_members')
+        .select('user_id, team_id, teams!team_members_team_id_fkey(name)')
+        .eq('organization_id', org.id)
+        .in('user_id', userIds)
+        .in('team_id', (teams ?? []).map((t: { id: string }) => t.id))
+
+      const profileMap = new Map(
+        (profiles ?? []).map(p => [p.id, { name: p.full_name ?? 'Unknown', avatarUrl: p.avatar_url ?? null }])
+      )
+      const teamNameMap = new Map(
+        (teamMembersForStats ?? []).map(tm => {
+          const t = Array.isArray(tm.teams) ? tm.teams[0] : tm.teams
+          return [tm.user_id, t?.name ?? '']
+        })
+      )
+
+      leaderboardPlayers = userIds.map(userId => ({
+        userId,
+        name: profileMap.get(userId)?.name ?? 'Unknown',
+        avatarUrl: profileMap.get(userId)?.avatarUrl ?? null,
+        teamName: teamNameMap.get(userId) ?? '',
+        totals: totals[userId] ?? {},
+      }))
+    }
+  }
 
   let bracketData: BracketData | null = null
 
@@ -1170,6 +1235,11 @@ export default async function EventDetailPage({
               <BracketView bracket={bracketData} leagueId={league.id} />
             )}
           </div>
+        )}
+
+        {/* ──────────────── STATS TAB ──────────────── */}
+        {activeTab === 'stats' && (
+          <StatsLeaderboard statDefs={statDefs} players={leaderboardPlayers} />
         )}
 
         {/* ──────────────── RULES TAB ──────────────── */}

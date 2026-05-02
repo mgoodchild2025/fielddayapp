@@ -28,6 +28,7 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
       { label: 'Divisions', href: `/admin/events/${id}/divisions` },
       { label: 'Teams', href: `/admin/events/${id}/teams` },
       { label: 'Schedule', href: `/admin/events/${id}/schedule` },
+      { label: 'Stats', href: `/admin/events/${id}/stats` },
       { label: 'Bracket', href: `/admin/events/${id}/bracket` },
       { label: 'Check-in', href: `/admin/events/${id}/checkin` },
     ]
@@ -39,6 +40,7 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
       { label: 'Pools', href: `/admin/events/${id}/pools` },
       { label: 'Teams', href: `/admin/events/${id}/teams` },
       { label: 'Schedule', href: `/admin/events/${id}/schedule` },
+      { label: 'Stats', href: `/admin/events/${id}/stats` },
       { label: 'Bracket', href: `/admin/events/${id}/bracket` },
       { label: 'Check-in', href: `/admin/events/${id}/checkin` },
     ]

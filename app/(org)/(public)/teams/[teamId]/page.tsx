@@ -11,6 +11,7 @@ import { AdminEditTeamForm } from '@/components/teams/admin-edit-team-form'
 import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
 import { TeamPaymentPanel } from '@/components/teams/team-payment-panel'
 import { getPositionsForSport } from '@/actions/positions'
+import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import Link from 'next/link'
@@ -107,7 +108,14 @@ export default async function TeamDetailPage({
       ])
     : [{ data: null }, { data: null }]
 
-  const positions = await getPositionsForSport(org.id, leagueSport)
+  const [positions, statDefs, seasonTotals] = await Promise.all([
+    getPositionsForSport(org.id, leagueSport),
+    leagueId ? getStatDefinitions(org.id, leagueSport) : Promise.resolve([]),
+    leagueId ? getLeagueStatTotals(leagueId, org.id) : Promise.resolve({}),
+  ])
+
+  // Top-2 stat keys to show as badges (by display_order)
+  const badgeStats = statDefs.slice(0, 2)
 
   const isOrgAdmin = ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
   // Must be a team member OR an org admin
@@ -222,15 +230,35 @@ export default async function TeamDetailPage({
                         )}
                       </div>
                     </div>
-                    {m.role !== 'player' && (
-                      <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
-                        m.role === 'captain' ? 'bg-blue-100 text-blue-700' :
-                        m.role === 'coach' ? 'bg-purple-100 text-purple-700' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>
-                        {m.role}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Season stat badges — show top-2 stats if any recorded */}
+                      {badgeStats.length > 0 && m.user_id && (
+                        <div className="flex items-center gap-1">
+                          {badgeStats.map(def => {
+                            const val = seasonTotals[m.user_id!]?.[def.key] ?? 0
+                            if (val === 0) return null
+                            return (
+                              <span
+                                key={def.key}
+                                className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 tabular-nums"
+                                title={def.label}
+                              >
+                                {Number.isInteger(val) ? val : val.toFixed(1)} {def.label.slice(0, 3)}
+                              </span>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {m.role !== 'player' && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          m.role === 'captain' ? 'bg-blue-100 text-blue-700' :
+                          m.role === 'coach' ? 'bg-purple-100 text-purple-700' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {m.role}
+                        </span>
+                      )}
+                    </div>
                   </li>
                 )
               })}
