@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       // Send confirmation to each member
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [{ data: league }, { data: org }] = await Promise.all([
-        (supabase as any).from('leagues').select('name, event_type').eq('id', leagueId).single(),
+        (supabase as any).from('leagues').select('name, sport, event_type').eq('id', leagueId).single(),
         supabase.from('organizations').select('name').eq('id', orgId).single(),
       ])
 
@@ -105,6 +105,7 @@ export async function POST(request: NextRequest) {
               name: profile.full_name,
               leagueName: league.name,
               orgName: org?.name ?? '',
+              sport: (league as { sport?: string }).sport ?? null,
               eventType: (league as { event_type?: string }).event_type ?? null,
               checkinUrl,
             })
@@ -135,7 +136,7 @@ export async function POST(request: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [{ data: profile }, { data: league }, { data: org }, { data: reg }] = await Promise.all([
         supabase.from('profiles').select('full_name, email').eq('id', userId).single(),
-        (supabase as any).from('leagues').select('name, event_type').eq('id', leagueId ?? '').single(),
+        (supabase as any).from('leagues').select('name, sport, event_type').eq('id', leagueId ?? '').single(),
         supabase.from('organizations').select('name').eq('id', orgId).single(),
         (supabase as any).from('registrations').select('user_id, checkin_token').eq('id', registrationId).single(),
       ])
@@ -149,6 +150,7 @@ export async function POST(request: NextRequest) {
           name: profile.full_name,
           leagueName: league.name,
           orgName: org?.name ?? '',
+          sport: (league as { sport?: string } | null)?.sport ?? null,
           eventType: (league as { event_type?: string } | null)?.event_type ?? null,
           checkinUrl,
         })

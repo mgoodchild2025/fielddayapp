@@ -2,11 +2,28 @@
 
 import { getResend, FROM_EMAIL } from '@/lib/resend'
 
+const SPORT_EMOJI: Record<string, string> = {
+  volleyball:      '🏐',
+  beach_volleyball:'🏐',
+  basketball:      '🏀',
+  soccer:          '⚽',
+  hockey:          '🏒',
+  baseball:        '⚾',
+  softball:        '🥎',
+  flag_football:   '🏈',
+  ultimate_frisbee:'🥏',
+  tennis:          '🎾',
+  pickleball:      '🏓',
+  kickball:        '🔴',
+  dodgeball:       '🔴',
+}
+
 export async function sendRegistrationConfirmation({
   email,
   name,
   leagueName,
   orgName,
+  sport,
   eventType,
   checkinUrl,
 }: {
@@ -14,9 +31,11 @@ export async function sendRegistrationConfirmation({
   name: string
   leagueName: string
   orgName: string
+  sport?: string | null
   eventType?: string | null
   checkinUrl?: string | null
 }) {
+  const sportEmoji = (sport && SPORT_EMOJI[sport]) ?? '🎉'
   const showCheckin = !!checkinUrl && (eventType === 'tournament' || eventType === 'league')
   const qrImageUrl = checkinUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(checkinUrl)}`
@@ -38,7 +57,7 @@ export async function sendRegistrationConfirmation({
     subject: `You're registered for ${leagueName}!`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-        <h1 style="font-size: 28px; font-weight: bold; margin-bottom: 8px;">You're in! 🏐</h1>
+        <h1 style="font-size: 28px; font-weight: bold; margin-bottom: 8px;">You're in! ${sportEmoji}</h1>
         <p style="color: #444; font-size: 16px;">Hi ${name},</p>
         <p style="color: #444; font-size: 16px;">
           You're officially registered for <strong>${leagueName}</strong> with ${orgName}.

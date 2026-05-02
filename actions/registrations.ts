@@ -161,7 +161,7 @@ export async function activateRegistration(registrationId: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: reg, error: fetchError } = await (supabase as any)
     .from('registrations')
-    .select('*, checkin_token, profiles!registrations_user_id_fkey(full_name, email), leagues!registrations_league_id_fkey(name, event_type)')
+    .select('*, checkin_token, profiles!registrations_user_id_fkey(full_name, email), leagues!registrations_league_id_fkey(name, sport, event_type)')
     .eq('id', registrationId)
     .eq('organization_id', org.id)
     .single()
@@ -186,6 +186,7 @@ export async function activateRegistration(registrationId: string) {
       name: profile.full_name,
       leagueName: league.name,
       orgName: org.name,
+      sport: league.sport ?? null,
       eventType: league.event_type ?? null,
       checkinUrl,
     })
