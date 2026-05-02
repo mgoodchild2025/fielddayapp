@@ -36,14 +36,16 @@ function Hero() {
   return (
     <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white px-6 py-24 sm:py-32 text-center">
       <div className="max-w-3xl mx-auto">
-        <Image
-          src="/Fieldday-og.png"
-          alt="Fieldday"
-          width={1200}
-          height={800}
-          className="w-64 sm:w-80 h-auto rounded-xl mx-auto mb-10"
-          priority
-        />
+        <div className="inline-block bg-white rounded-2xl px-8 py-5 mb-10 shadow-lg">
+          <Image
+            src="/Fieldday-og.png"
+            alt="Fieldday"
+            width={1200}
+            height={800}
+            className="w-52 sm:w-64 h-auto"
+            priority
+          />
+        </div>
         <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight leading-tight mb-6">
           Run your league,<br className="hidden sm:block" />
           <span className="text-emerald-400"> not the paperwork.</span>
