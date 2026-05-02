@@ -40,13 +40,11 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     description,
 
-    // Favicon — browser tab + bookmarks + home-screen icon
-    ...(logoUrl && {
-      icons: {
-        icon: logoUrl,
-        apple: logoUrl,   // iOS "Add to Home Screen"
-      },
-    }),
+    // Favicon — org logo if uploaded, otherwise Fieldday platform icon
+    icons: {
+      icon: logoUrl ?? '/Fieldday-Icon.png',
+      apple: logoUrl ?? '/Fieldday-Icon.png',
+    },
 
     // Open Graph — Facebook, iMessage, Slack, Discord, etc.
     ...(ogImage && {
