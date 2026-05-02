@@ -36,7 +36,7 @@ function Hero() {
   return (
     <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white px-6 py-24 sm:py-32 text-center">
       <div className="max-w-3xl mx-auto">
-        <div className="inline-block bg-white rounded-2xl px-10 py-6 mb-10 shadow-lg">
+        <div className="inline-block bg-white rounded-xl px-6 py-3 mb-10 shadow-lg">
           <Image
             src="/Fieldday-og.png"
             alt="Fieldday"
