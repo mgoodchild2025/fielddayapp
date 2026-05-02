@@ -15,14 +15,31 @@ interface Props {
   leagueName: string
   orgName: string
   timezone: string
+  sport?: string
 }
 
-export function DailyScheduleSheet({ games, date, leagueName, orgName, timezone }: Props) {
+/** Compact home–away score box pair for one set/period */
+function ScoreBox() {
+  return (
+    <div className="flex items-center justify-center gap-1">
+      <span className="inline-block w-8 h-7 border-2 border-black rounded" />
+      <span className="font-bold text-xs">–</span>
+      <span className="inline-block w-8 h-7 border-2 border-black rounded" />
+    </div>
+  )
+}
+
+export function DailyScheduleSheet({ games, date, leagueName, orgName, timezone, sport }: Props) {
+  const isVolleyball = sport === 'volleyball' || sport === 'beach_volleyball'
+
   // Format the date as a long readable string for the header
   const dateDisplay = new Intl.DateTimeFormat('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     timeZone: timezone,
   }).format(new Date(`${date}T12:00:00`))  // noon to avoid DST edge
+
+  // Total column count: Time, Court, Home, [score cols], Away
+  const totalCols = isVolleyball ? 7 : 5
 
   return (
     <div className="font-sans text-black">
@@ -47,7 +64,15 @@ export function DailyScheduleSheet({ games, date, leagueName, orgName, timezone 
             <th className="text-left py-1.5 pr-4 font-semibold w-16">Time</th>
             <th className="text-left py-1.5 pr-4 font-semibold w-12">Court</th>
             <th className="text-left py-1.5 pr-4 font-semibold">Home Team</th>
-            <th className="text-center py-1.5 px-4 font-semibold w-36">Score</th>
+            {isVolleyball ? (
+              <>
+                <th className="text-center py-1.5 px-2 font-semibold w-24">Set 1</th>
+                <th className="text-center py-1.5 px-2 font-semibold w-24">Set 2</th>
+                <th className="text-center py-1.5 px-2 font-semibold w-24">Set 3</th>
+              </>
+            ) : (
+              <th className="text-center py-1.5 px-4 font-semibold w-36">Score</th>
+            )}
             <th className="text-right py-1.5 pl-4 font-semibold">Away Team</th>
           </tr>
         </thead>
@@ -59,20 +84,28 @@ export function DailyScheduleSheet({ games, date, leagueName, orgName, timezone 
                 <td className="py-2.5 pr-4 font-medium tabular-nums">{time}</td>
                 <td className="py-2.5 pr-4 text-gray-600">{game.court ?? '—'}</td>
                 <td className="py-2.5 pr-4 font-medium">{game.homeTeamName}</td>
-                <td className="py-2.5 px-4">
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="inline-block w-10 h-8 border-2 border-black rounded" />
-                    <span className="font-bold text-base">—</span>
-                    <span className="inline-block w-10 h-8 border-2 border-black rounded" />
-                  </div>
-                </td>
+                {isVolleyball ? (
+                  <>
+                    <td className="py-2.5 px-2"><ScoreBox /></td>
+                    <td className="py-2.5 px-2"><ScoreBox /></td>
+                    <td className="py-2.5 px-2"><ScoreBox /></td>
+                  </>
+                ) : (
+                  <td className="py-2.5 px-4">
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="inline-block w-10 h-8 border-2 border-black rounded" />
+                      <span className="font-bold text-base">—</span>
+                      <span className="inline-block w-10 h-8 border-2 border-black rounded" />
+                    </div>
+                  </td>
+                )}
                 <td className="py-2.5 pl-4 text-right font-medium">{game.awayTeamName}</td>
               </tr>
             )
           })}
           {games.length === 0 && (
             <tr>
-              <td colSpan={5} className="py-8 text-center text-gray-400 italic">No games scheduled for this day.</td>
+              <td colSpan={totalCols} className="py-8 text-center text-gray-400 italic">No games scheduled for this day.</td>
             </tr>
           )}
         </tbody>

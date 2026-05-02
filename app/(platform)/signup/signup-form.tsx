@@ -450,17 +450,15 @@ function SignupsDisabledScreen() {
 
 // ─── Full page ────────────────────────────────────────────────────────────────
 
-export function SignupPage({ signupsEnabled }: { signupsEnabled: boolean }) {
-  const [selectedPlan, setSelectedPlan] = useState<PlanId>('pro')
+export function SignupPage({
+  signupsEnabled,
+  defaultPlan = 'pro',
+}: {
+  signupsEnabled: boolean
+  defaultPlan?: PlanId
+}) {
+  const [selectedPlan, setSelectedPlan] = useState<PlanId>(defaultPlan)
   const [successData, setSuccessData] = useState<{ email: string; slug: string } | null>(null)
-  const formRef = useRef<HTMLDivElement>(null)
-
-  function selectPlan(planId: PlanId) {
-    setSelectedPlan(planId)
-    setTimeout(() => {
-      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 50)
-  }
 
   if (successData) {
     return <SuccessScreen email={successData.email} slug={successData.slug} />
@@ -471,7 +469,7 @@ export function SignupPage({ signupsEnabled }: { signupsEnabled: boolean }) {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white flex flex-col">
       {/* Nav */}
       <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-100 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -485,62 +483,23 @@ export function SignupPage({ signupsEnabled }: { signupsEnabled: boolean }) {
         </Link>
       </header>
 
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white px-6 py-20 text-center">
-        <div className="max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-2 bg-emerald-500/20 border border-emerald-500/30 rounded-full px-4 py-1.5 text-emerald-400 text-sm font-medium mb-8">
-            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-            15-day free trial — no credit card required
+      {/* Centered form */}
+      <main className="flex-1 flex items-center justify-center px-4 py-12 sm:py-20">
+        <div className="w-full max-w-lg">
+          {/* Heading */}
+          <div className="text-center mb-8">
+            <Image
+              src="/Fieldday-Icon.png"
+              alt="Fieldday"
+              width={40}
+              height={40}
+              className="rounded-xl mx-auto mb-4"
+            />
+            <h1 className="text-2xl font-bold text-gray-900 mb-1.5">Create your organization</h1>
+            <p className="text-sm text-gray-500">15-day free trial · No credit card required</p>
           </div>
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight mb-5">
-            Run your league,<br className="hidden sm:block" />
-            <span className="text-emerald-400"> not the paperwork.</span>
-          </h1>
-          <p className="text-lg text-slate-300 max-w-xl mx-auto mb-10 leading-relaxed">
-            Fieldday handles scheduling, standings, registrations, payments, and communications — so you can focus on the game.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-slate-400">
-            {['Schedule management', 'Online registration', 'Score tracking', 'Team communications', 'Payment processing'].map((f) => (
-              <span key={f} className="flex items-center gap-1.5">
-                <svg className="w-3.5 h-3.5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                {f}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* Pricing */}
-      <section className="px-6 py-20 bg-gray-50">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">Simple, transparent pricing</h2>
-            <p className="text-gray-500">Start your 15-day free trial on any plan. Cancel anytime.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {PLANS.map((plan) => (
-              <PricingCard
-                key={plan.id}
-                plan={plan}
-                selected={selectedPlan === plan.id}
-                onSelect={selectPlan}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Signup form */}
-      <section ref={formRef} className="px-6 py-20 bg-white scroll-mt-16">
-        <div className="max-w-lg mx-auto">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Create your organization</h2>
-            <p className="text-gray-500 text-sm">
-              Get set up in under 2 minutes. Your 15-day trial starts immediately.
-            </p>
-          </div>
+          {/* Form card */}
           <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8">
             <SignupForm
               selectedPlan={selectedPlan}
@@ -548,6 +507,7 @@ export function SignupPage({ signupsEnabled }: { signupsEnabled: boolean }) {
               onSuccess={(email, slug) => setSuccessData({ email, slug })}
             />
           </div>
+
           <p className="text-center text-sm text-gray-500 mt-6">
             Already have an account?{' '}
             <Link href="/login" className="text-emerald-600 hover:underline font-medium">
@@ -555,7 +515,7 @@ export function SignupPage({ signupsEnabled }: { signupsEnabled: boolean }) {
             </Link>
           </p>
         </div>
-      </section>
+      </main>
 
       {/* Footer */}
       <footer className="border-t border-gray-100 px-6 py-8 text-center text-sm text-gray-400">

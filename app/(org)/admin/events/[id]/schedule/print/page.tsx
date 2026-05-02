@@ -92,6 +92,7 @@ export default async function SchedulePrintPage({
           leagueName={leagueName}
           orgName={orgName}
           timezone={timezone}
+          sport={sport}
         />
       </PrintPage>
     )

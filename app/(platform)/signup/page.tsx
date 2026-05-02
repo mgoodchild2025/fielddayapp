@@ -8,7 +8,15 @@ export const metadata = {
   description: 'Set up your sports league in minutes. Scheduling, registration, payments, and more.',
 }
 
-export default async function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ plan?: string }>
+}) {
+  const { plan } = await searchParams
+  const validPlans = ['starter', 'pro', 'club']
+  const defaultPlan = (validPlans.includes(plan ?? '') ? plan : 'pro') as 'starter' | 'pro' | 'club'
+
   const service = createServiceRoleClient()
   const { data: setting } = await service
     .from('platform_settings')
@@ -18,5 +26,5 @@ export default async function Page() {
 
   const signupsEnabled = setting?.value !== 'false'
 
-  return <SignupPage signupsEnabled={signupsEnabled} />
+  return <SignupPage signupsEnabled={signupsEnabled} defaultPlan={defaultPlan} />
 }
