@@ -59,38 +59,42 @@ export default async function PlayerDashboardPage() {
 
   const timezone = branding?.timezone ?? 'America/Toronto'
 
-  // ── Pickup / drop-in sessions ─────────────────────────────────────────────
-  // Find active season registrations for pickup/drop_in leagues
-  const pickupLeagueIds = (registrations ?? [])
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .filter((reg: any) => {
-      const league = Array.isArray(reg.league) ? reg.league[0] : reg.league
-      const eventType = league?.event_type as string | undefined
-      return reg.status === 'active' && (eventType === 'pickup' || eventType === 'drop_in')
-    })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((reg: any) => {
-      const league = Array.isArray(reg.league) ? reg.league[0] : reg.league
-      return league?.id as string | undefined
-    })
-    .filter(Boolean) as string[]
-
+  // ── Session registrations (pickup / drop-in) ─────────────────────────────
+  // Fetch only the sessions this user has actually joined, not all open sessions.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let pickupSessions: any[] = []
-  if (pickupLeagueIds.length > 0) {
-    const { data: sessions } = await supabase
-      .from('event_sessions')
-      .select(`
+  const { data: mySessionRegs } = await (supabase as any)
+    .from('session_registrations')
+    .select(`
+      id, session_id, status,
+      session:event_sessions!session_registrations_session_id_fkey(
         id, scheduled_at, duration_minutes, location_override,
         league:leagues!event_sessions_league_id_fkey(id, name, slug)
-      `)
-      .in('league_id', pickupLeagueIds)
-      .eq('organization_id', org.id)
-      .eq('status', 'open')
-      .gte('scheduled_at', new Date().toISOString())
-      .order('scheduled_at', { ascending: true })
-      .limit(10)
-    pickupSessions = sessions ?? []
+      )
+    `)
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .eq('status', 'registered')
+
+  const nowIso = new Date().toISOString()
+
+  // Upcoming sessions the player is registered for, sorted ascending
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pickupSessions: any[] = (mySessionRegs ?? [])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((sr: any) => Array.isArray(sr.session) ? sr.session[0] : sr.session)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((s: any) => s && s.scheduled_at >= nowIso)
+    .sort((a: { scheduled_at: string }, b: { scheduled_at: string }) =>
+      a.scheduled_at.localeCompare(b.scheduled_at))
+
+  // Index: leagueId → upcoming registered sessions (for event card display)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sessionsByLeagueId = new Map<string, any[]>()
+  for (const s of pickupSessions) {
+    const league = Array.isArray(s.league) ? s.league[0] : s.league
+    if (!league?.id) continue
+    if (!sessionsByLeagueId.has(league.id)) sessionsByLeagueId.set(league.id, [])
+    sessionsByLeagueId.get(league.id)!.push(s)
   }
 
   // Fetch the org-wide active waiver id once (used as fallback when league has no specific waiver)
@@ -203,6 +207,33 @@ export default async function PlayerDashboardPage() {
                 )}
               </div>
 
+              {/* Session list for drop-in / pickup events */}
+              {(eventType === 'drop_in' || eventType === 'pickup') && (() => {
+                const leagueSessions = sessionsByLeagueId.get(league?.id) ?? []
+                if (leagueSessions.length === 0) {
+                  return (
+                    <p className="relative z-10 text-xs text-gray-400 mt-2">No upcoming sessions — browse sessions to join one.</p>
+                  )
+                }
+                const shown = leagueSessions.slice(0, 3)
+                const overflow = leagueSessions.length - shown.length
+                return (
+                  <div className="relative z-10 mt-2 space-y-0.5">
+                    {shown.map((s: { id: string; scheduled_at: string; location_override: string | null }) => {
+                      const { date: sd, time: st } = formatGameTime(s.scheduled_at, timezone)
+                      return (
+                        <p key={s.id} className="text-xs text-gray-600">
+                          📅 {sd} · {st}{s.location_override ? ` · ${s.location_override}` : ''}
+                        </p>
+                      )
+                    })}
+                    {overflow > 0 && (
+                      <p className="text-xs text-gray-400">+{overflow} more session{overflow !== 1 ? 's' : ''}</p>
+                    )}
+                  </div>
+                )
+              })()}
+
               {showQR && checkinUrl && (
                 <div className="relative z-10 mt-2">
                   <QRCodeDisplay
@@ -256,7 +287,7 @@ export default async function PlayerDashboardPage() {
   const gamesSection = (
     <div className="bg-white rounded-lg border p-5">
       <h2 className="font-semibold mb-4">
-        {myTeamIds.size > 0 || pickupLeagueIds.length > 0 ? 'My Upcoming Games' : 'Upcoming Games'}
+        {myTeamIds.size > 0 || pickupSessions.length > 0 ? 'My Upcoming Games' : 'Upcoming Games'}
       </h2>
       <div className="space-y-3">
         {allScheduleItems.map((item) => {
