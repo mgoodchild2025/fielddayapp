@@ -235,6 +235,65 @@ export async function deleteGame(gameId: string, leagueId: string) {
   return { error: null }
 }
 
+export async function insertBreak(input: {
+  leagueId: string
+  /** UTC ISO string — games with scheduled_at >= this value get shifted forward */
+  breakAt: string
+  durationMinutes: number
+}) {
+  if (!input.leagueId || !input.breakAt || input.durationMinutes <= 0) {
+    return { error: 'Invalid input', count: 0 }
+  }
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated', count: 0 }
+
+  const { data: adminMember } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+  if (!adminMember) return { error: 'Admin access required', count: 0 }
+
+  // Fetch all games at-or-after the break point
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: gamesAfter, error: fetchError } = await (supabase as any)
+    .from('games')
+    .select('id, scheduled_at')
+    .eq('league_id', input.leagueId)
+    .eq('organization_id', org.id)
+    .gte('scheduled_at', input.breakAt)
+    .order('scheduled_at', { ascending: true })
+
+  if (fetchError) return { error: fetchError.message, count: 0 }
+  if (!gamesAfter || gamesAfter.length === 0) return { error: null, count: 0 }
+
+  // Shift each game forward by durationMinutes
+  const shiftMs = input.durationMinutes * 60 * 1000
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updates = (gamesAfter as any[]).map((g: any) =>
+    (supabase as any)
+      .from('games')
+      .update({ scheduled_at: new Date(new Date(g.scheduled_at).getTime() + shiftMs).toISOString() })
+      .eq('id', g.id)
+      .eq('organization_id', org.id)
+  )
+
+  const results = await Promise.all(updates)
+  const firstError = results.find(r => r.error)
+  if (firstError?.error) return { error: firstError.error.message, count: 0 }
+
+  revalidatePath(`/admin/events/${input.leagueId}/schedule`)
+  revalidatePath('/events/[slug]', 'page')
+  return { error: null, count: gamesAfter.length }
+}
+
 export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)

@@ -3,6 +3,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { getAdminScope } from '@/lib/admin-scope'
 import { AddGameForm } from '@/components/schedule/add-game-form'
+import { InsertBreakForm } from '@/components/schedule/insert-break-form'
 import { ScheduleImport } from '@/components/schedule/schedule-import'
 import { RoundRobinGenerator } from '@/components/schedule/round-robin-generator'
 import { ScheduleTable } from '@/components/schedule/schedule-table'
@@ -79,6 +80,10 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
       awayTeamName: away?.name ?? game.away_team_label ?? 'TBD',
       dateLabel,
       timeLabel,
+      // YYYY-MM-DD in org timezone — used for "Print Day" URL param
+      dateKey: game.scheduled_at
+        ? new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(game.scheduled_at))
+        : '',
       result: result
         ? {
             homeScore: result.home_score,
@@ -100,6 +105,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
           teams={teams ?? []}
           leagueId={id}
           sport={sport}
+          timezone={timezone}
         />
       </div>
 
@@ -108,6 +114,8 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
         <div className="space-y-4">
           <RoundRobinGenerator leagueId={id} teamCount={(teams ?? []).length} maxTeams={maxParticipants} />
           <AddGameForm leagueId={id} sport={sport} teams={teams ?? []} />
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          <InsertBreakForm leagueId={id} gameTimes={(mappedGames as any[]).map((g: any) => g.scheduledAt as string).filter(Boolean)} />
           <ScheduleImport leagueId={id} />
         </div>
       )}

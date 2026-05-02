@@ -7,13 +7,19 @@ import { z } from 'zod'
 import { addGame } from '@/actions/schedule'
 
 const schema = z.object({
-  homeTeamId: z.string().uuid().optional(),
-  awayTeamId: z.string().uuid().optional(),
+  homeTeamId: z.string().optional(),
+  awayTeamId: z.string().optional(),
+  homeTeamLabel: z.string().optional(),
+  awayTeamLabel: z.string().optional(),
   scheduledAt: z.string().min(1, 'Date and time required'),
   court: z.string().optional(),
   weekNumber: z.number().optional(),
 }).refine(
-  (d) => !d.homeTeamId || !d.awayTeamId || d.homeTeamId !== d.awayTeamId,
+  (d) => {
+    const hId = d.homeTeamId || ''
+    const aId = d.awayTeamId || ''
+    return !hId || !aId || hId !== aId
+  },
   { message: 'Home and away teams must be different', path: ['awayTeamId'] }
 )
 
@@ -36,9 +42,14 @@ export function AddGameForm({ leagueId, sport, teams }: Props) {
   const [success, setSuccess] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
+
+  const homeTeamId = watch('homeTeamId')
+  const awayTeamId = watch('awayTeamId')
+  const homeTbd = !homeTeamId
+  const awayTbd = !awayTeamId
 
   async function onSubmit(data: FormData) {
     setLoading(true)
@@ -48,7 +59,16 @@ export function AddGameForm({ leagueId, sport, teams }: Props) {
     const scheduledAtUtc = data.scheduledAt
       ? new Date(data.scheduledAt).toISOString()
       : data.scheduledAt
-    const result = await addGame({ leagueId, ...data, scheduledAt: scheduledAtUtc })
+    const result = await addGame({
+      leagueId,
+      homeTeamId: data.homeTeamId || undefined,
+      awayTeamId: data.awayTeamId || undefined,
+      homeTeamLabel: homeTbd ? (data.homeTeamLabel || undefined) : undefined,
+      awayTeamLabel: awayTbd ? (data.awayTeamLabel || undefined) : undefined,
+      scheduledAt: scheduledAtUtc,
+      court: data.court,
+      weekNumber: data.weekNumber,
+    })
     if (result.error) {
       setServerError(result.error)
     } else {
@@ -92,6 +112,14 @@ export function AddGameForm({ leagueId, sport, teams }: Props) {
             <option value="">TBD</option>
             {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
+          {homeTbd && (
+            <input
+              {...register('homeTeamLabel')}
+              type="text"
+              placeholder="Label (e.g. Pool A Winner)"
+              className="w-full border rounded px-2 py-1.5 text-sm mt-1 text-gray-500"
+            />
+          )}
         </div>
 
         <div>
@@ -100,6 +128,14 @@ export function AddGameForm({ leagueId, sport, teams }: Props) {
             <option value="">TBD</option>
             {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
+          {awayTbd && (
+            <input
+              {...register('awayTeamLabel')}
+              type="text"
+              placeholder="Label (e.g. Pool B Winner)"
+              className="w-full border rounded px-2 py-1.5 text-sm mt-1 text-gray-500"
+            />
+          )}
           {errors.awayTeamId && (
             <p className="text-red-500 text-xs mt-0.5">{errors.awayTeamId.message}</p>
           )}
