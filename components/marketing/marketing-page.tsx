@@ -42,7 +42,7 @@ function Hero() {
             alt="Fieldday"
             width={1200}
             height={800}
-            className="w-72 sm:w-125 h-auto"
+            className="w-72 sm:w-155 h-auto"
             priority
           />
         </div>
