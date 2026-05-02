@@ -9,6 +9,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import {
   generateSingleEliminationSpec,
+  generateDoubleEliminationSpec,
   seedFromStandings,
   seedFromDivisionStandings,
   seedFromPoolStandings,
@@ -102,6 +103,9 @@ export async function createBracket(input: z.infer<typeof createBracketSchema>) 
 
   if (existing) return { error: 'A bracket already exists for this scope. Delete it first.', bracketId: null }
 
+  // Double elimination doesn't need a third-place game — the LB Final loser is naturally 3rd
+  const thirdPlaceGame = d.bracketType === 'double_elimination' ? false : d.thirdPlaceGame
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: bracket, error } = await (db as any).from('brackets').insert({
     organization_id: org.id,
@@ -112,7 +116,7 @@ export async function createBracket(input: z.infer<typeof createBracketSchema>) 
     seeding_method: d.seedingMethod,
     bracket_size: d.bracketSize,
     teams_advancing: d.teamsAdvancing,
-    third_place_game: d.thirdPlaceGame,
+    third_place_game: thirdPlaceGame,
     status: 'setup',
   }).select('id').single()
 
@@ -152,7 +156,10 @@ export async function scaffoldBracket(bracketId: string, leagueId: string) {
     scheduleMap.set(`${m.round_number}:${m.match_number}`, { scheduled_at: m.scheduled_at, court: m.court, notes: m.notes })
   }
 
-  const spec = generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
+  const spec = bracket.bracket_type === 'double_elimination'
+    ? generateDoubleEliminationSpec(bracket.teams_advancing)
+    : generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
+
   const allMatchSpecs = [
     ...spec.matches,
     ...(spec.thirdPlaceMatch ? [spec.thirdPlaceMatch] : []),
@@ -191,31 +198,13 @@ export async function scaffoldBracket(bracketId: string, leagueId: string) {
 
   if (insertError) return { error: insertError.message }
 
-  // Build lookup and wire up winner_to_match_id references
+  // Build lookup: (roundNumber, matchNumber) → id
   const matchIdLookup = new Map<string, string>()
   for (const m of (insertedMatches ?? [])) {
     matchIdLookup.set(`${m.round_number}:${m.match_number}`, m.id)
   }
 
-  const updates = allMatchSpecs
-    .filter((m: BracketMatchSpec) => m.winnerToMatchNumber !== null)
-    .map((m: BracketMatchSpec) => {
-      const nextRound = m.roundNumber / 2
-      const toId = matchIdLookup.get(`${nextRound}:${m.winnerToMatchNumber}`)
-      if (!toId) return null
-      const thisId = matchIdLookup.get(`${m.roundNumber}:${m.matchNumber}`)
-      if (!thisId) return null
-      return { id: thisId, winner_to_match_id: toId, winner_to_slot: m.winnerToSlot }
-    })
-    .filter(Boolean)
-
-  for (const upd of updates) {
-    if (!upd) continue
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('bracket_matches')
-      .update({ winner_to_match_id: upd.winner_to_match_id, winner_to_slot: upd.winner_to_slot })
-      .eq('id', upd.id)
-  }
+  await wireMatchReferences(db, allMatchSpecs, matchIdLookup)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (db as any).from('brackets').update({ status: 'scaffold' }).eq('id', bracketId)
@@ -250,11 +239,9 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
     const standings = await computeStandings(db, leagueId, org.id)
 
     if (bracket.division_id) {
-      // Single-division bracket: only teams in that division
       const divTeams = standings.filter((t) => t.divisionId === bracket.division_id)
       seededTeams = seedFromStandings(divTeams, bracket.teams_advancing)
     } else {
-      // Check if the league has divisions
       const { data: divisions } = await db.from('divisions').select('id, name').eq('league_id', leagueId).eq('organization_id', org.id)
 
       if (divisions && divisions.length > 0) {
@@ -265,7 +252,6 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
         }))
         seededTeams = seedFromDivisionStandings(divisionStandings, bracket.teams_advancing)
       } else {
-        // No divisions — plain standings
         seededTeams = seedFromStandings(standings, bracket.teams_advancing)
       }
     }
@@ -283,10 +269,9 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
     }
   }
 
-  // Apply seed overrides (admin manually adjusted order)
+  // Apply seed overrides
   if (seedOverrides && Object.keys(seedOverrides).length > 0) {
     const overrideMap = new Map(Object.entries(seedOverrides).map(([seed, teamId]) => [Number(seed), teamId]))
-    // Re-order seededTeams by override where specified
     const finalSeeds: (TeamStanding | undefined)[] = new Array(seededTeams.length)
     const usedIds = new Set<string>()
     for (const [seed, teamId] of overrideMap) {
@@ -308,10 +293,13 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   }
 
   // Generate the bracket structure
-  const spec = generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
+  const spec = bracket.bracket_type === 'double_elimination'
+    ? generateDoubleEliminationSpec(bracket.teams_advancing)
+    : generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
+
   const seedMap = new Map(seededTeams.map((t) => [t.seed!, t.teamId]))
 
-  // Preserve any schedule dates the admin set on scaffold matches
+  // Preserve any schedule dates from scaffold matches
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: existingMatches } = await (db as any)
     .from('bracket_matches')
@@ -326,8 +314,6 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (db as any).from('bracket_matches').delete().eq('bracket_id', bracketId)
 
-  // Insert all matches — we need IDs before we can wire up winner_to_match_id,
-  // so insert first without references, then update references.
   const allMatchSpecs = [
     ...spec.matches,
     ...(spec.thirdPlaceMatch ? [spec.thirdPlaceMatch] : []),
@@ -338,6 +324,8 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
     .from('bracket_matches')
     .insert(allMatchSpecs.map((m: BracketMatchSpec) => {
       const prev = scheduleMap.get(`${m.roundNumber}:${m.matchNumber}`)
+      // Only WB R1 matches get seeded teams; all other matches start empty
+      const isWbFirstRound = m.team1Seed !== null || m.team2Seed !== null
       return {
         organization_id: org.id,
         bracket_id: bracketId,
@@ -350,8 +338,7 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
         team1_seed: m.team1Seed,
         team2_seed: m.isBye ? null : m.team2Seed,
         is_bye: m.isBye,
-        status: m.isBye ? 'bye' : (m.team1Seed && (m.team2Seed || m.isBye) ? 'ready' : 'pending'),
-        // Preserve schedule dates from scaffold
+        status: m.isBye ? 'bye' : (isWbFirstRound && m.team1Seed && (m.team2Seed || m.isBye) ? 'ready' : 'pending'),
         scheduled_at: prev?.scheduled_at ?? null,
         court: prev?.court ?? null,
         notes: prev?.notes ?? null,
@@ -361,32 +348,13 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
 
   if (insertError) return { error: insertError.message }
 
-  // Build a lookup: (roundNumber, matchNumber) → id
+  // Build lookup
   const matchIdLookup = new Map<string, string>()
   for (const m of (insertedMatches ?? [])) {
     matchIdLookup.set(`${m.round_number}:${m.match_number}`, m.id)
   }
 
-  // Wire up winner_to_match_id references
-  const updates = allMatchSpecs
-    .filter((m: BracketMatchSpec) => m.winnerToMatchNumber !== null)
-    .map((m: BracketMatchSpec) => {
-      const nextRound = m.roundNumber / 2
-      const toId = matchIdLookup.get(`${nextRound}:${m.winnerToMatchNumber}`)
-      if (!toId) return null
-      const thisId = matchIdLookup.get(`${m.roundNumber}:${m.matchNumber}`)
-      if (!thisId) return null
-      return { id: thisId, winner_to_match_id: toId, winner_to_slot: m.winnerToSlot }
-    })
-    .filter(Boolean)
-
-  for (const upd of updates) {
-    if (!upd) continue
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('bracket_matches')
-      .update({ winner_to_match_id: upd.winner_to_match_id, winner_to_slot: upd.winner_to_slot })
-      .eq('id', upd.id)
-  }
+  await wireMatchReferences(db, allMatchSpecs, matchIdLookup)
 
   // Auto-advance byes
   for (const m of allMatchSpecs.filter((m: BracketMatchSpec) => m.isBye)) {
@@ -403,6 +371,53 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   revalidatePath(`/admin/events/${leagueId}/bracket`)
   revalidatePath('/events/[slug]', 'page')
   return { error: null }
+}
+
+// ── wireMatchReferences (shared by scaffold + seed) ───────────────────────────
+// Sets winner_to_match_id and loser_to_match_id on all matches after insertion.
+
+async function wireMatchReferences(
+  db: ReturnType<typeof createServiceRoleClient>,
+  allMatchSpecs: BracketMatchSpec[],
+  matchIdLookup: Map<string, string>
+) {
+  // Winner references
+  const winnerUpdates = allMatchSpecs
+    .filter((m) => m.winnerToRoundNumber !== null && m.winnerToMatchNumber !== null)
+    .map((m) => {
+      const toId = matchIdLookup.get(`${m.winnerToRoundNumber}:${m.winnerToMatchNumber}`)
+      const thisId = matchIdLookup.get(`${m.roundNumber}:${m.matchNumber}`)
+      if (!toId || !thisId) return null
+      return { id: thisId, winner_to_match_id: toId, winner_to_slot: m.winnerToSlot }
+    })
+    .filter(Boolean)
+
+  for (const upd of winnerUpdates) {
+    if (!upd) continue
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any).from('bracket_matches')
+      .update({ winner_to_match_id: upd.winner_to_match_id, winner_to_slot: upd.winner_to_slot })
+      .eq('id', upd.id)
+  }
+
+  // Loser references (double elimination)
+  const loserUpdates = allMatchSpecs
+    .filter((m) => m.loserToRoundNumber !== null && m.loserToMatchNumber !== null)
+    .map((m) => {
+      const toId = matchIdLookup.get(`${m.loserToRoundNumber}:${m.loserToMatchNumber}`)
+      const thisId = matchIdLookup.get(`${m.roundNumber}:${m.matchNumber}`)
+      if (!toId || !thisId) return null
+      return { id: thisId, loser_to_match_id: toId, loser_to_slot: m.loserToSlot }
+    })
+    .filter(Boolean)
+
+  for (const upd of loserUpdates) {
+    if (!upd) continue
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any).from('bracket_matches')
+      .update({ loser_to_match_id: upd.loser_to_match_id, loser_to_slot: upd.loser_to_slot })
+      .eq('id', upd.id)
+  }
 }
 
 // ── publishBracket ────────────────────────────────────────────────────────────
@@ -439,7 +454,7 @@ export async function deleteBracket(bracketId: string, leagueId: string) {
   return { error: null }
 }
 
-// ── advanceWinner (internal helper + exported for scores hook) ────────────────
+// ── advanceWinner (internal + exported for scores hook) ───────────────────────
 
 export async function advanceWinner(
   db: ReturnType<typeof createServiceRoleClient>,
@@ -480,6 +495,47 @@ export async function advanceWinner(
     .eq('id', match.winner_to_match_id)
 }
 
+// ── advanceLoser (double elimination — routes loser to LB) ────────────────────
+
+async function advanceLoser(
+  db: ReturnType<typeof createServiceRoleClient>,
+  orgId: string,
+  bracketId: string,
+  matchId: string,
+  loserTeamId: string
+) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: match } = await (db as any)
+    .from('bracket_matches')
+    .select('loser_to_match_id, loser_to_slot')
+    .eq('id', matchId)
+    .single()
+
+  if (!match?.loser_to_match_id) return // single elim or no routing defined
+
+  const updateField = match.loser_to_slot === 1 ? 'team1_id' : 'team2_id'
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: nextMatch } = await (db as any)
+    .from('bracket_matches')
+    .select('id, team1_id, team2_id')
+    .eq('id', match.loser_to_match_id)
+    .single()
+
+  if (!nextMatch) return
+
+  const otherTeamField = match.loser_to_slot === 1 ? 'team2_id' : 'team1_id'
+  const bothFilled = nextMatch[otherTeamField] !== null
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('bracket_matches')
+    .update({
+      [updateField]: loserTeamId,
+      status: bothFilled ? 'ready' : 'pending',
+    })
+    .eq('id', match.loser_to_match_id)
+}
+
 // ── recordBracketScore ────────────────────────────────────────────────────────
 // Called directly from admin score entry for bracket matches.
 
@@ -516,6 +572,7 @@ export async function recordBracketScore(input: z.infer<typeof bracketScoreSchem
   if (!match) return { error: 'Match not found' }
 
   const winnerTeamId = winnerSlot === 1 ? match.team1_id : match.team2_id
+  const loserTeamId = winnerSlot === 1 ? match.team2_id : match.team1_id
   if (!winnerTeamId) return { error: 'Teams not yet determined for this match' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -532,6 +589,9 @@ export async function recordBracketScore(input: z.infer<typeof bracketScoreSchem
   if (updateError) return { error: updateError.message }
 
   await advanceWinner(db, org.id, d.bracketId, d.matchId, winnerTeamId)
+  if (loserTeamId) {
+    await advanceLoser(db, org.id, d.bracketId, d.matchId, loserTeamId)
+  }
 
   revalidatePath(`/admin/events/${d.leagueId}/bracket`)
   revalidatePath('/events/[slug]', 'page')
@@ -586,6 +646,7 @@ export async function advanceBracketFromScore(
   if (homeScore === awayScore) return // ties not allowed in playoffs
 
   const winnerTeamId = homeScore > awayScore ? match.team1_id : match.team2_id
+  const loserTeamId = homeScore > awayScore ? match.team2_id : match.team1_id
   if (!winnerTeamId) return
 
   const league = Array.isArray(match.brackets) ? match.brackets[0] : match.brackets
@@ -602,6 +663,9 @@ export async function advanceBracketFromScore(
     .eq('id', match.id)
 
   await advanceWinner(db, orgId, match.bracket_id, match.id, winnerTeamId)
+  if (loserTeamId) {
+    await advanceLoser(db, orgId, match.bracket_id, match.id, loserTeamId)
+  }
 
   if (leagueId) {
     revalidatePath(`/admin/events/${leagueId}/bracket`)

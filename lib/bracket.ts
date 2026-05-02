@@ -6,6 +6,18 @@
 export type BracketType = 'single_elimination' | 'double_elimination'
 export type SeedingMethod = 'standings' | 'pool_results' | 'manual'
 
+/** LB round numbers start at 100 (avoids collisions with WB round numbers ≤ bracketSize/2 ≤ 8 for 16-team) */
+export const LB_ROUND_BASE = 100
+/** Grand Final round number */
+export const GF_ROUND = 200
+
+/** Infer which bracket side a match belongs to from its round_number */
+export function getBracketSide(roundNumber: number): 'winners' | 'losers' | 'grand_final' {
+  if (roundNumber >= GF_ROUND) return 'grand_final'
+  if (roundNumber >= LB_ROUND_BASE) return 'losers'
+  return 'winners'
+}
+
 export interface TeamStanding {
   teamId: string
   teamName: string
@@ -20,20 +32,22 @@ export interface TeamStanding {
 }
 
 export interface BracketMatchSpec {
-  roundNumber: number  // descending power-of-2: 4=quarters, 2=semis, 1=final
+  roundNumber: number  // descending power-of-2: 4=quarters, 2=semis, 1=final. LB: 100+. GF: 200.
   matchNumber: number  // 1-indexed within round
   team1Seed: number | null
   team2Seed: number | null
   isBye: boolean
-  winnerToMatchNumber: number | null  // match_number in the next round
+  winnerToRoundNumber: number | null   // explicit target round (replaces the old roundNumber/2 assumption)
+  winnerToMatchNumber: number | null   // match_number in the target round
   winnerToSlot: 1 | 2 | null
-  loserToMatchNumber: number | null   // for double elimination
+  loserToRoundNumber: number | null    // for double elimination: LB round loser drops into
+  loserToMatchNumber: number | null
   loserToSlot: 1 | 2 | null
 }
 
 export interface BracketSpec {
   bracketSize: number
-  rounds: number[]           // e.g. [4, 2, 1] for 8-team
+  rounds: number[]           // e.g. [4, 2, 1] for 8-team (WB rounds only)
   matches: BracketMatchSpec[]
   thirdPlaceMatch: BracketMatchSpec | null
 }
@@ -46,6 +60,18 @@ export function nextPowerOf2(n: number): number {
 }
 
 export function getRoundName(roundNumber: number, bracketSize: number): string {
+  // Grand Final
+  if (roundNumber >= GF_ROUND) return 'Grand Final'
+  // Losers bracket
+  if (roundNumber >= LB_ROUND_BASE) {
+    const lbIndex = roundNumber - LB_ROUND_BASE + 1 // 1-based
+    const n = Math.log2(bracketSize)
+    const totalLbRounds = 2 * (n - 1)
+    if (lbIndex === totalLbRounds) return 'LB Final'
+    if (lbIndex === totalLbRounds - 1) return 'LB Semi-Finals'
+    return `LB Round ${lbIndex}`
+  }
+  // Winners bracket (standard)
   if (roundNumber === 1) return 'Final'
   if (roundNumber === 2) return 'Semi-Finals'
   if (roundNumber === 4) return 'Quarter-Finals'
@@ -87,13 +113,9 @@ export function generateSingleEliminationSpec(
   const matches: BracketMatchSpec[] = []
 
   // ── Round 1 (first round of play) ────────────────────────────────────────
-  // roundNumber = bracketSize/2 for the first playable round
-  // (for 8-team: roundNumber=4; for 4-team: roundNumber=2)
   const firstRound = bracketSize / 2
   const pairings = generateFirstRoundPairings(bracketSize)
 
-  // Determine which seed numbers are byes (highest seeds get byes)
-  // Seeds > teamsAdvancing are "virtual" — paired with real teams who get byes
   const byeSeeds = new Set<number>()
   for (let i = teamsAdvancing + 1; i <= bracketSize; i++) byeSeeds.add(i)
 
@@ -101,20 +123,13 @@ export function generateSingleEliminationSpec(
     const [s1, s2] = pairings[i]
     const matchNum = i + 1
 
-    // Next round: pairs of consecutive matches feed the same semi match
     const nextRound = firstRound / 2
     const nextMatchNum = Math.ceil(matchNum / 2)
     const nextSlot: 1 | 2 = matchNum % 2 === 1 ? 1 : 2
 
-    // A bye occurs when either seed slot is virtual (> teamsAdvancing).
-    // The real team may be in either slot depending on the pairing.
     const isBye = byeSeeds.has(s1) || byeSeeds.has(s2)
     const realSeed1 = s1 <= teamsAdvancing ? s1 : null
     const realSeed2 = s2 <= teamsAdvancing ? s2 : null
-
-    // For auto-advance: the advancing team is whichever slot has a real seed.
-    // Normalise so team1Seed always holds the real team in a bye match,
-    // making the advanceWinner loop simpler.
     const team1Seed = isBye ? (realSeed1 ?? realSeed2) : realSeed1
     const team2Seed = isBye ? null : realSeed2
 
@@ -124,9 +139,11 @@ export function generateSingleEliminationSpec(
       team1Seed,
       team2Seed,
       isBye,
+      winnerToRoundNumber: nextRound >= 1 ? nextRound : null,
       winnerToMatchNumber: nextRound >= 1 ? nextMatchNum : null,
       winnerToSlot: nextRound >= 1 ? nextSlot : null,
       loserToMatchNumber: null,
+      loserToRoundNumber: null,
       loserToSlot: null,
     })
   }
@@ -145,8 +162,10 @@ export function generateSingleEliminationSpec(
         team1Seed: null,
         team2Seed: null,
         isBye: false,
+        winnerToRoundNumber: nextRound >= 1 ? nextRound : null,
         winnerToMatchNumber: nextRound >= 1 ? nextMatchNum : null,
         winnerToSlot: nextRound >= 1 ? nextSlot : null,
+        loserToRoundNumber: thirdPlaceGame && round === 2 ? 1 : null,
         loserToMatchNumber: thirdPlaceGame && round === 2 ? 2 : null,
         loserToSlot: thirdPlaceGame && round === 2 ? (m === 1 ? 1 : 2) : null,
       })
@@ -154,9 +173,6 @@ export function generateSingleEliminationSpec(
   }
 
   // ── Final ─────────────────────────────────────────────────────────────────
-  // For a 2-team bracket firstRound === 1, so the first-round match IS the
-  // final and was already pushed above — adding it again causes a duplicate
-  // key violation on (bracket_id, round_number, match_number).
   if (firstRound > 1) {
     matches.push({
       roundNumber: 1,
@@ -164,8 +180,10 @@ export function generateSingleEliminationSpec(
       team1Seed: null,
       team2Seed: null,
       isBye: false,
+      winnerToRoundNumber: null,
       winnerToMatchNumber: null,
       winnerToSlot: null,
+      loserToRoundNumber: thirdPlaceGame ? 1 : null,
       loserToMatchNumber: thirdPlaceGame ? 2 : null,
       loserToSlot: thirdPlaceGame ? null : null,
     })
@@ -180,14 +198,227 @@ export function generateSingleEliminationSpec(
       team1Seed: null,
       team2Seed: null,
       isBye: false,
+      winnerToRoundNumber: null,
       winnerToMatchNumber: null,
       winnerToSlot: null,
+      loserToRoundNumber: null,
       loserToMatchNumber: null,
       loserToSlot: null,
     }
   }
 
   return { bracketSize, rounds, matches, thirdPlaceMatch }
+}
+
+// ── Double elimination generator ──────────────────────────────────────────────
+//
+// Round numbering:
+//   Winners bracket:   same as single elim (powers of 2, e.g. 4,2,1 for 8-team)
+//   Losers bracket:    LB_ROUND_BASE(100), 101, 102, …  (sequential)
+//   Grand Final:       GF_ROUND (200)
+//
+// LB structure for bracketSize = 2^n:
+//   LBR1 (offset 0):        WBR1 losers pair off → bracketSize/4 matches
+//   For k = 1..n-1:
+//     feed-in (offset 2k-1): WBRk+1 losers enter against LB survivors
+//     pure LB (offset 2k):   LB survivors vs each other  (skipped for k=n-1)
+//
+// Total LB rounds = 2*(n-1), Grand Final is 1 additional match.
+
+export function generateDoubleEliminationSpec(teamsAdvancing: number): BracketSpec {
+  const bracketSize = nextPowerOf2(teamsAdvancing)
+
+  // Fall back to single elim for 2-team brackets (DE doesn't make sense)
+  if (bracketSize < 4) return generateSingleEliminationSpec(teamsAdvancing, false)
+
+  const n = Math.log2(bracketSize) // number of WB rounds
+
+  const byeSeeds = new Set<number>()
+  for (let i = teamsAdvancing + 1; i <= bracketSize; i++) byeSeeds.add(i)
+
+  // WB round numbers in play order: [bracketSize/2, bracketSize/4, …, 2, 1]
+  const wbRoundsOrdered: number[] = []
+  for (let r = bracketSize / 2; r >= 1; r = Math.floor(r / 2)) wbRoundsOrdered.push(r)
+  // wbRoundsOrdered[0] = first WB round (most matches), wbRoundsOrdered[n-1] = 1 (WB Final)
+
+  const allMatches: BracketMatchSpec[] = []
+
+  // ── Winners bracket ────────────────────────────────────────────────────────
+  const pairings = generateFirstRoundPairings(bracketSize)
+  const firstWbRound = wbRoundsOrdered[0] // = bracketSize/2
+
+  // WBR1 (first played round)
+  for (let i = 0; i < pairings.length; i++) {
+    const [s1, s2] = pairings[i]
+    const matchNum = i + 1
+
+    const isBye = byeSeeds.has(s1) || byeSeeds.has(s2)
+    const realSeed1 = s1 <= teamsAdvancing ? s1 : null
+    const realSeed2 = s2 <= teamsAdvancing ? s2 : null
+    const team1Seed = isBye ? (realSeed1 ?? realSeed2) : realSeed1
+    const team2Seed = isBye ? null : realSeed2
+
+    const nextWbRound = firstWbRound / 2
+    const winnerToMatchNum = Math.ceil(matchNum / 2)
+    const winnerToSlot: 1 | 2 = matchNum % 2 === 1 ? 1 : 2
+
+    // Loser goes to LBR1: WBR1 matches pair off (M1+M2 → LBR1/M1, M3+M4 → LBR1/M2, …)
+    const lbMatchNum = Math.ceil(matchNum / 2)
+    const lbSlot: 1 | 2 = matchNum % 2 === 1 ? 1 : 2
+
+    allMatches.push({
+      roundNumber: firstWbRound,
+      matchNumber: matchNum,
+      team1Seed,
+      team2Seed,
+      isBye,
+      winnerToRoundNumber: nextWbRound,
+      winnerToMatchNumber: winnerToMatchNum,
+      winnerToSlot,
+      loserToRoundNumber: isBye ? null : LB_ROUND_BASE,
+      loserToMatchNumber: isBye ? null : lbMatchNum,
+      loserToSlot: isBye ? null : lbSlot,
+    })
+  }
+
+  // WB middle rounds (between first round and WB Final)
+  for (let wbRoundIdx = 1; wbRoundIdx < n - 1; wbRoundIdx++) {
+    const wbRound = wbRoundsOrdered[wbRoundIdx]
+    const matchesInRound = wbRound // Round r always has r matches in the WB
+    const nextWbRound = wbRound / 2
+    // Feed-in LB round for this WB round's losers: LB offset = 2*wbRoundIdx - 1
+    const lbFeedInRound = LB_ROUND_BASE + 2 * wbRoundIdx - 1
+
+    for (let m = 1; m <= matchesInRound; m++) {
+      const winnerToMatchNum = Math.ceil(m / 2)
+      const winnerToSlot: 1 | 2 = m % 2 === 1 ? 1 : 2
+
+      allMatches.push({
+        roundNumber: wbRound,
+        matchNumber: m,
+        team1Seed: null,
+        team2Seed: null,
+        isBye: false,
+        winnerToRoundNumber: nextWbRound,
+        winnerToMatchNumber: winnerToMatchNum,
+        winnerToSlot,
+        loserToRoundNumber: lbFeedInRound,
+        loserToMatchNumber: m, // same match number; loser is always slot 2 in feed-in rounds
+        loserToSlot: 2,
+      })
+    }
+  }
+
+  // WB Final (round 1) — winner goes to GF slot 1, loser goes to LB Final slot 2
+  const lbFinalRound = LB_ROUND_BASE + 2 * (n - 1) - 1
+  allMatches.push({
+    roundNumber: 1,
+    matchNumber: 1,
+    team1Seed: null,
+    team2Seed: null,
+    isBye: false,
+    winnerToRoundNumber: GF_ROUND,
+    winnerToMatchNumber: 1,
+    winnerToSlot: 1,
+    loserToRoundNumber: lbFinalRound,
+    loserToMatchNumber: 1,
+    loserToSlot: 2,
+  })
+
+  // ── Losers bracket ────────────────────────────────────────────────────────
+  // LBR1 (offset 0): pairs WBR1 losers; bracketSize/4 matches
+  const lbR1Count = bracketSize / 4
+
+  for (let m = 1; m <= lbR1Count; m++) {
+    allMatches.push({
+      roundNumber: LB_ROUND_BASE,
+      matchNumber: m,
+      team1Seed: null,
+      team2Seed: null,
+      isBye: false,
+      winnerToRoundNumber: LB_ROUND_BASE + 1, // → first feed-in round
+      winnerToMatchNumber: m, // same match number in LBR2; LBR1 winners fill slot 1
+      winnerToSlot: 1,
+      loserToRoundNumber: null,
+      loserToMatchNumber: null,
+      loserToSlot: null,
+    })
+  }
+
+  // Remaining LB rounds: alternating feed-in and pure-LB rounds
+  for (let k = 1; k <= n - 1; k++) {
+    const feedInOffset = 2 * k - 1
+    const feedInRound = LB_ROUND_BASE + feedInOffset
+    const isLbFinal = feedInOffset === 2 * (n - 1) - 1 // Last LB feed-in = LB Final
+
+    // Feed-in round: WBR(k+1) losers enter. Match count = wbRoundsOrdered[k] matches.
+    const feedInMatchCount = wbRoundsOrdered[k]
+
+    for (let m = 1; m <= feedInMatchCount; m++) {
+      // Winner goes to: LB Final → GF slot 2; otherwise next pure-LB round
+      const nextRound = isLbFinal ? GF_ROUND : LB_ROUND_BASE + feedInOffset + 1
+      const nextMatchNum = isLbFinal ? 1 : Math.ceil(m / 2)
+      const nextSlot: 1 | 2 = isLbFinal ? 2 : (m % 2 === 1 ? 1 : 2)
+
+      allMatches.push({
+        roundNumber: feedInRound,
+        matchNumber: m,
+        team1Seed: null,
+        team2Seed: null,
+        isBye: false,
+        winnerToRoundNumber: nextRound,
+        winnerToMatchNumber: nextMatchNum,
+        winnerToSlot: nextSlot,
+        loserToRoundNumber: null,
+        loserToMatchNumber: null,
+        loserToSlot: null,
+      })
+    }
+
+    if (!isLbFinal) {
+      // Pure LB elimination round: feed-in winners play each other
+      const pureOffset = feedInOffset + 1
+      const pureRound = LB_ROUND_BASE + pureOffset
+      const pureMatchCount = feedInMatchCount / 2
+      const nextFeedInRound = LB_ROUND_BASE + pureOffset + 1
+
+      for (let m = 1; m <= pureMatchCount; m++) {
+        allMatches.push({
+          roundNumber: pureRound,
+          matchNumber: m,
+          team1Seed: null,
+          team2Seed: null,
+          isBye: false,
+          winnerToRoundNumber: nextFeedInRound, // → next feed-in, same match, slot 1
+          winnerToMatchNumber: m,
+          winnerToSlot: 1,
+          loserToRoundNumber: null,
+          loserToMatchNumber: null,
+          loserToSlot: null,
+        })
+      }
+    }
+  }
+
+  // Grand Final
+  allMatches.push({
+    roundNumber: GF_ROUND,
+    matchNumber: 1,
+    team1Seed: null,
+    team2Seed: null,
+    isBye: false,
+    winnerToRoundNumber: null,
+    winnerToMatchNumber: null,
+    winnerToSlot: null,
+    loserToRoundNumber: null,
+    loserToMatchNumber: null,
+    loserToSlot: null,
+  })
+
+  const rounds: number[] = []
+  for (let r = bracketSize / 2; r >= 1; r = Math.floor(r / 2)) rounds.push(r)
+
+  return { bracketSize, rounds, matches: allMatches, thirdPlaceMatch: null }
 }
 
 // ── Seeding from standings ────────────────────────────────────────────────────

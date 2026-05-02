@@ -80,7 +80,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
   const { data: brackets } = await (db as any)
     .from('brackets')
     .select(`
-      id, name, bracket_size, third_place_game, status, published_at,
+      id, name, bracket_size, bracket_type, third_place_game, status, published_at,
       bracket_matches(
         id, round_number, match_number,
         team1_id, team2_id, team1_label, team2_label,
@@ -97,7 +97,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
   const teamNameMap = new Map((teams ?? []).map((t) => [t.id, t.name]))
 
   function buildBracketData(raw: {
-    id: string; name: string; bracket_size: number; third_place_game: boolean; status: string;
+    id: string; name: string; bracket_size: number; bracket_type?: string; third_place_game: boolean; status: string;
     bracket_matches: {
       id: string; round_number: number; match_number: number;
       team1_id: string|null; team2_id: string|null;
@@ -111,6 +111,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
       id: raw.id,
       name: raw.name,
       bracketSize: raw.bracket_size,
+      bracketType: (raw.bracket_type === 'double_elimination' ? 'double_elimination' : 'single_elimination') as 'single_elimination' | 'double_elimination',
       thirdPlaceGame: raw.third_place_game,
       status: raw.status,
       matches: (raw.bracket_matches ?? []).map((m): BracketMatchData => ({

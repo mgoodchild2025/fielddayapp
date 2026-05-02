@@ -38,6 +38,7 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
   const [bracketSize, setBracketSize] = useState(recommendation.bracketSize)
   const [teamsAdvancing, setTeamsAdvancing] = useState(recommendation.teamsAdvancing)
   const [thirdPlace, setThirdPlace] = useState(false)
+  const [bracketType, setBracketType] = useState<'single_elimination' | 'double_elimination'>('single_elimination')
   const [name, setName] = useState(divisionId ? 'Division Playoffs' : 'Playoffs')
 
   // Step 2 state — seed order (index = seed-1, value = teamId)
@@ -68,11 +69,11 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
         leagueId,
         divisionId,
         name,
-        bracketType: 'single_elimination',
+        bracketType,
         seedingMethod: 'standings',
         bracketSize,
         teamsAdvancing,
-        thirdPlaceGame: thirdPlace,
+        thirdPlaceGame: bracketType === 'double_elimination' ? false : thirdPlace,
       })
       if (res.error) { wizardInProgressRef.current = false; setErr(res.error); return }
       setBracketId(res.bracketId)
@@ -87,11 +88,11 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
         leagueId,
         divisionId,
         name,
-        bracketType: 'single_elimination',
+        bracketType,
         seedingMethod: 'standings',
         bracketSize,
         teamsAdvancing,
-        thirdPlaceGame: thirdPlace,
+        thirdPlaceGame: bracketType === 'double_elimination' ? false : thirdPlace,
       })
       if (res.error) { setErr(res.error); return }
       const scaffoldRes = await scaffoldBracket(res.bracketId!, leagueId)
@@ -253,6 +254,36 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Format</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setBracketType('single_elimination')}
+                className={`px-3 py-2.5 rounded-lg border text-sm font-medium text-left transition-colors ${
+                  bracketType === 'single_elimination'
+                    ? 'border-blue-500 bg-blue-50 text-blue-800'
+                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <p className="font-semibold">Single Elimination</p>
+                <p className="text-xs text-gray-500 mt-0.5 font-normal">One loss = eliminated</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setBracketType('double_elimination')}
+                className={`px-3 py-2.5 rounded-lg border text-sm font-medium text-left transition-colors ${
+                  bracketType === 'double_elimination'
+                    ? 'border-amber-500 bg-amber-50 text-amber-800'
+                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <p className="font-semibold">Double Elimination</p>
+                <p className="text-xs text-gray-500 mt-0.5 font-normal">Two losses to be out</p>
+              </button>
+            </div>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Teams Advancing to Playoffs</label>
             <select
               value={teamsAdvancing}
@@ -275,15 +306,22 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
             )}
           </div>
 
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={thirdPlace}
-              onChange={(e) => setThirdPlace(e.target.checked)}
-              className="rounded"
-            />
-            <span className="text-sm">Include third place game</span>
-          </label>
+          {bracketType === 'single_elimination' && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={thirdPlace}
+                onChange={(e) => setThirdPlace(e.target.checked)}
+                className="rounded"
+              />
+              <span className="text-sm">Include third place game</span>
+            </label>
+          )}
+          {bracketType === 'double_elimination' && (
+            <p className="text-xs text-gray-400">
+              Double elimination uses a Winners Bracket + Losers Bracket. Teams must lose twice to be eliminated. The LB champion meets the WB champion in the Grand Final.
+            </p>
+          )}
         </div>
 
         {err && <p className="text-sm text-red-600">{err}</p>}

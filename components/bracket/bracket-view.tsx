@@ -1,6 +1,6 @@
 'use client'
 
-import { getRoundName } from '@/lib/bracket'
+import { getRoundName, LB_ROUND_BASE, GF_ROUND } from '@/lib/bracket'
 import { recordBracketScore } from '@/actions/brackets'
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
@@ -36,6 +36,7 @@ export interface BracketData {
   id: string
   name: string
   bracketSize: number
+  bracketType: 'single_elimination' | 'double_elimination'
   thirdPlaceGame: boolean
   status: string
   matches: BracketMatchData[]
@@ -69,11 +70,9 @@ function ScoreModal({
 }) {
   const isVolleyball = VOLLEYBALL_SPORTS.includes(sport ?? '')
 
-  // Simple (non-volleyball) state — pre-fill if editing
   const [s1, setS1] = useState(match.score1 !== null && !isVolleyball ? String(match.score1) : '')
   const [s2, setS2] = useState(match.score2 !== null && !isVolleyball ? String(match.score2) : '')
 
-  // Volleyball set state — pre-fill from existing sets, or start with 2 blank sets
   const [sets, setSets] = useState<SetScore[]>(() => {
     if (isVolleyball && match.sets && match.sets.length > 0) {
       return match.sets.map((s) => ({ s1: String(s.s1), s2: String(s.s2) }))
@@ -102,7 +101,6 @@ function ScoreModal({
     setErr(null)
 
     if (isVolleyball) {
-      // Validate and parse set scores
       const parsed = sets.map((s) => ({ s1: parseInt(s.s1), s2: parseInt(s.s2) }))
       if (parsed.some((s) => isNaN(s.s1) || isNaN(s.s2))) {
         setErr('Enter scores for all sets'); return
@@ -138,7 +136,6 @@ function ScoreModal({
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden">
-        {/* Drag handle — mobile only */}
         <div className="pt-3 pb-1 flex justify-center sm:hidden">
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
         </div>
@@ -151,7 +148,6 @@ function ScoreModal({
 
           {isVolleyball ? (
             <div className="space-y-3">
-              {/* Column headers */}
               <div className="flex items-center gap-2 text-xs font-medium text-gray-400 uppercase tracking-wide">
                 <span className="w-10 text-center">Set</span>
                 <span className="flex-1 text-center truncate">{match.team1Name ?? match.team1Label ?? 'TBD'}</span>
@@ -167,10 +163,7 @@ function ScoreModal({
                       value={set.s1}
                       onChange={(e) => updateSet(i, 's1', e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-                      type="number"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      min={0}
+                      type="number" inputMode="numeric" pattern="[0-9]*" min={0}
                       className="w-16 h-12 border-2 rounded-xl text-2xl font-bold tabular-nums text-center focus:outline-none focus:border-blue-400"
                       placeholder="0"
                     />
@@ -181,10 +174,7 @@ function ScoreModal({
                       value={set.s2}
                       onChange={(e) => updateSet(i, 's2', e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-                      type="number"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      min={0}
+                      type="number" inputMode="numeric" pattern="[0-9]*" min={0}
                       className="w-16 h-12 border-2 rounded-xl text-2xl font-bold tabular-nums text-center focus:outline-none focus:border-blue-400"
                       placeholder="0"
                     />
@@ -204,7 +194,6 @@ function ScoreModal({
               )}
             </div>
           ) : (
-            /* Non-volleyball: large stepper inputs */
             <div className="flex items-start justify-around gap-2 py-1">
               <div className="flex flex-col items-center gap-2 min-w-0">
                 <span className="text-xs font-medium text-gray-500 uppercase tracking-wide truncate max-w-[100px] text-center">{match.team1Name ?? match.team1Label ?? 'TBD'}</span>
@@ -214,13 +203,9 @@ function ScoreModal({
                     className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-transform flex items-center justify-center select-none">−</button>
                   <input
                     ref={firstInputRef}
-                    value={s1}
-                    onChange={(e) => setS1(e.target.value)}
+                    value={s1} onChange={(e) => setS1(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-                    type="number"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    min={0}
+                    type="number" inputMode="numeric" pattern="[0-9]*" min={0}
                     className="w-14 text-4xl font-bold tabular-nums text-center border-0 outline-none bg-transparent"
                     placeholder="0"
                   />
@@ -238,13 +223,9 @@ function ScoreModal({
                     onClick={() => setS2((v) => String(Math.max(0, parseInt(v || '0') - 1)))}
                     className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-transform flex items-center justify-center select-none">−</button>
                   <input
-                    value={s2}
-                    onChange={(e) => setS2(e.target.value)}
+                    value={s2} onChange={(e) => setS2(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-                    type="number"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    min={0}
+                    type="number" inputMode="numeric" pattern="[0-9]*" min={0}
                     className="w-14 text-4xl font-bold tabular-nums text-center border-0 outline-none bg-transparent"
                     placeholder="0"
                   />
@@ -260,17 +241,13 @@ function ScoreModal({
           {err && <p className="text-sm text-red-500">{err}</p>}
           <div className="flex gap-2 pt-1">
             <button
-              onClick={submit}
-              disabled={isPending}
+              onClick={submit} disabled={isPending}
               className="flex-1 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
               style={{ backgroundColor: 'var(--brand-primary)' }}
             >
               {isPending ? 'Saving…' : 'Save score'}
             </button>
-            <button
-              onClick={onClose}
-              className="flex-1 py-3 rounded-xl text-sm border text-gray-600 hover:bg-gray-50"
-            >
+            <button onClick={onClose} className="flex-1 py-3 rounded-xl text-sm border text-gray-600 hover:bg-gray-50">
               Cancel
             </button>
           </div>
@@ -307,17 +284,13 @@ function MatchCard({
     <>
       {modalOpen && (
         <ScoreModal
-          match={match}
-          bracketId={bracketId}
-          leagueId={leagueId}
-          sport={sport}
+          match={match} bracketId={bracketId} leagueId={leagueId} sport={sport}
           onClose={() => setModalOpen(false)}
         />
       )}
       <div className={`w-52 rounded-lg border bg-white text-sm shadow-sm ${
         isCompleted ? 'opacity-90' : isTbd ? 'opacity-50' : ''
       }`}>
-        {/* Match header */}
         {(match.court || match.scheduledAt) && (
           <div className="px-3 pt-2 text-[10px] text-gray-400 flex items-center gap-1.5">
             {match.court && <span>Court {match.court}</span>}
@@ -328,7 +301,6 @@ function MatchCard({
           </div>
         )}
 
-        {/* Team 1 */}
         <div className={`flex items-center justify-between px-3 py-2 border-b ${
           isCompleted && match.winnerTeamId === match.team1Id ? 'bg-green-50' : ''
         }`}>
@@ -343,7 +315,6 @@ function MatchCard({
           </span>
         </div>
 
-        {/* Team 2 */}
         <div className={`flex items-center justify-between px-3 py-2 ${
           isCompleted && match.winnerTeamId === match.team2Id ? 'bg-green-50' : ''
         }`}>
@@ -362,7 +333,6 @@ function MatchCard({
           </span>
         </div>
 
-        {/* Set scores */}
         {isCompleted && match.sets && match.sets.length > 0 && (
           <div className="px-3 py-1.5 border-t bg-gray-50 flex gap-2 flex-wrap">
             {match.sets.map((s, i) => (
@@ -373,7 +343,6 @@ function MatchCard({
           </div>
         )}
 
-        {/* Admin score entry / edit trigger */}
         {isAdmin && (isReady || isCompleted) && (
           <div className="border-t">
             <button
@@ -390,7 +359,107 @@ function MatchCard({
   )
 }
 
-// ── Score list view (mobile-friendly alternative to the bracket diagram) ──────
+// ── Bracket diagram (reusable for both WB and LB sections) ───────────────────
+
+const MATCH_HEIGHT = 116
+const MATCH_GAP = 16
+const ROUND_WIDTH = 224
+
+function BracketDiagram({
+  matches,
+  bracketId,
+  leagueId,
+  isAdmin,
+  sport,
+  bracketSize,
+  firstRoundMatchCount,
+  roundSortAscending = false,
+}: {
+  matches: BracketMatchData[]
+  bracketId: string
+  leagueId: string
+  isAdmin: boolean
+  sport?: string
+  bracketSize: number
+  firstRoundMatchCount: number
+  /** LB rounds use ascending order (LBR1 left → LBR4 right); WB uses descending */
+  roundSortAscending?: boolean
+}) {
+  const roundNumbers = Array.from(new Set(matches.map((m) => m.roundNumber)))
+    .sort((a, b) => roundSortAscending ? a - b : b - a)
+
+  const totalHeight = firstRoundMatchCount * (MATCH_HEIGHT + MATCH_GAP) - MATCH_GAP
+
+  function matchesForRound(rn: number) {
+    return matches
+      .filter((m) => m.roundNumber === rn)
+      .sort((a, b) => a.matchNumber - b.matchNumber)
+  }
+
+  return (
+    <div className="overflow-x-auto pb-4 -mx-4 px-4">
+      <div style={{ minWidth: roundNumbers.length * ROUND_WIDTH + 32 }}>
+        {/* Round labels */}
+        <div className="flex mb-3">
+          {roundNumbers.map((rn) => (
+            <div key={rn} style={{ width: ROUND_WIDTH, flexShrink: 0 }}>
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 px-2">
+                {getRoundName(rn, bracketSize)}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Match columns */}
+        <div className="flex items-start" style={{ height: totalHeight, gap: 0 }}>
+          {roundNumbers.map((rn, colIdx) => {
+            const roundMatches = matchesForRound(rn)
+            const matchesInRound = roundMatches.length
+            const slotHeight = totalHeight / matchesInRound
+
+            return (
+              <div key={rn} style={{ width: ROUND_WIDTH, flexShrink: 0, position: 'relative', height: totalHeight }}>
+                {roundMatches.map((match, i) => {
+                  const top = i * slotHeight + (slotHeight - MATCH_HEIGHT) / 2
+                  const isLastCol = colIdx === roundNumbers.length - 1
+
+                  return (
+                    <div key={match.id} style={{ position: 'absolute', top, left: 8, right: 8 }}>
+                      {/* Right horizontal connector */}
+                      {!isLastCol && (
+                        <div style={{
+                          position: 'absolute', right: -8, top: MATCH_HEIGHT / 2,
+                          width: 8, height: 1, backgroundColor: '#d1d5db',
+                        }} />
+                      )}
+                      {/* Left vertical connector */}
+                      {colIdx > 0 && (
+                        <div style={{
+                          position: 'absolute', left: -8,
+                          top: MATCH_HEIGHT / 2 - slotHeight / 4,
+                          width: 8, height: slotHeight / 2,
+                          borderLeft: '1px solid #d1d5db',
+                          borderTop: '1px solid #d1d5db',
+                          borderBottom: '1px solid #d1d5db',
+                        }} />
+                      )}
+                      <MatchCard
+                        match={match} bracketId={bracketId} leagueId={leagueId}
+                        isAdmin={isAdmin} sport={sport}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Score list view ───────────────────────────────────────────────────────────
 
 function BracketScoreList({
   bracket,
@@ -404,18 +473,23 @@ function BracketScoreList({
   const [activeMatch, setActiveMatch] = useState<BracketMatchData | null>(null)
   const bracketSize = bracket.bracketSize
 
-  // Group matches by round, sorted earliest-first (highest roundNumber first in display)
+  const isDE = bracket.bracketType === 'double_elimination'
   const roundNumbers = Array.from(new Set(bracket.matches.map((m) => m.roundNumber)))
-    .sort((a, b) => b - a) // earliest round = highest number
+    .sort((a, b) => {
+      if (!isDE) return b - a // SE: descending (QF=4 first, Final=1 last)
+      // DE: WB rounds first in play order, then LB rounds ascending, then GF
+      const sideA = a < LB_ROUND_BASE ? 0 : a < GF_ROUND ? 1 : 2
+      const sideB = b < LB_ROUND_BASE ? 0 : b < GF_ROUND ? 1 : 2
+      if (sideA !== sideB) return sideA - sideB
+      if (sideA === 0) return b - a // WB: descending
+      return a - b // LB and GF: ascending
+    })
 
   return (
     <div className="space-y-6">
       {activeMatch && (
         <ScoreModal
-          match={activeMatch}
-          bracketId={bracket.id}
-          leagueId={leagueId}
-          sport={sport}
+          match={activeMatch} bracketId={bracket.id} leagueId={leagueId} sport={sport}
           onClose={() => setActiveMatch(null)}
         />
       )}
@@ -444,7 +518,6 @@ function BracketScoreList({
                       isReady ? 'border-orange-200' : ''
                     } ${isPending ? 'opacity-50' : ''}`}
                   >
-                    {/* Match info */}
                     <div className="px-4 py-3">
                       {(match.court || match.scheduledAt) && (
                         <p className="text-[11px] text-gray-400 mb-1">
@@ -457,18 +530,15 @@ function BracketScoreList({
                       )}
                       <div className="flex items-center justify-between gap-3">
                         <div className="space-y-1.5 min-w-0 flex-1">
-                          {/* Team 1 */}
                           <div className={`flex items-center gap-1.5 ${isCompleted && match.winnerTeamId === match.team1Id ? 'text-green-700 font-semibold' : ''}`}>
                             {match.team1Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team1Seed}</span>}
                             <span className="text-sm truncate">{match.team1Name ?? match.team1Label ?? 'TBD'}</span>
                           </div>
-                          {/* Team 2 */}
                           <div className={`flex items-center gap-1.5 ${isCompleted && match.winnerTeamId === match.team2Id ? 'text-green-700 font-semibold' : isBye ? 'text-gray-300 italic' : ''}`}>
                             {match.team2Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team2Seed}</span>}
                             <span className="text-sm truncate">{isBye ? 'Bye' : (match.team2Name ?? match.team2Label ?? 'TBD')}</span>
                           </div>
                         </div>
-                        {/* Score */}
                         {isCompleted && (
                           <div className="shrink-0 text-right">
                             <div className={`text-sm font-bold tabular-nums ${match.winnerTeamId === match.team1Id ? 'text-green-700' : 'text-gray-700'}`}>
@@ -485,7 +555,6 @@ function BracketScoreList({
                       </div>
                     </div>
 
-                    {/* Enter / edit score button */}
                     {(isReady || isCompleted) && !isBye && (
                       <div className="border-t">
                         <button
@@ -508,48 +577,57 @@ function BracketScoreList({
   )
 }
 
-// ── Bracket view ──────────────────────────────────────────────────────────────
+// ── Main BracketView ──────────────────────────────────────────────────────────
 
 export function BracketView({ bracket, leagueId, isAdmin = false, sport }: Props) {
   const [view, setView] = useState<'bracket' | 'list'>('bracket')
   const bracketSize = bracket.bracketSize
+  const isDE = bracket.bracketType === 'double_elimination'
 
-  // Collect rounds in display order (left = earliest, right = final)
-  const allRoundNumbers = Array.from(new Set(bracket.matches.map((m) => m.roundNumber)))
-    .sort((a, b) => b - a) // descending: quarters → semis → final
-  const [finalRound, ...prevRounds] = [...allRoundNumbers].reverse() // ascending for display
+  const pendingScoreCount = bracket.matches.filter((m) => m.status === 'ready').length
 
-  // Separate 3rd place match
-  const thirdPlaceMatch = bracket.thirdPlaceGame
+  // Split matches for DE
+  const wbMatches = bracket.matches.filter((m) => m.roundNumber < LB_ROUND_BASE)
+  const lbMatches = bracket.matches.filter((m) => m.roundNumber >= LB_ROUND_BASE && m.roundNumber < GF_ROUND)
+  const gfMatch = bracket.matches.find((m) => m.roundNumber >= GF_ROUND)
+
+  // For SE: separate 3rd place match
+  const thirdPlaceMatch = !isDE && bracket.thirdPlaceGame
     ? bracket.matches.find((m) => m.roundNumber === 1 && m.matchNumber === 2)
     : null
 
-  // Build round columns (exclude 3rd place from main flow)
-  const displayRounds = [...prevRounds].reverse()
-  displayRounds.push(finalRound)
+  const seMatches = !isDE ? bracket.matches.filter((m) => !(thirdPlaceMatch && m.id === thirdPlaceMatch.id)) : []
 
-  const MATCH_HEIGHT = 116 // px per match card (accounts for set scores row + admin button)
-  const MATCH_GAP = 16   // px between match cards in a column
-  const ROUND_WIDTH = 224 // px per round column (w-52 = 208 + 16 padding)
+  // First-round match counts for diagram height
+  const seFirstRoundCount = (() => {
+    const rounds = Array.from(new Set(seMatches.map((m) => m.roundNumber))).sort((a, b) => b - a)
+    return rounds.length > 0 ? seMatches.filter((m) => m.roundNumber === rounds[0]).length : 1
+  })()
 
-  function matchesForRound(rn: number) {
-    return bracket.matches
-      .filter((m) => m.roundNumber === rn && !(thirdPlaceMatch && m.id === thirdPlaceMatch.id))
-      .sort((a, b) => a.matchNumber - b.matchNumber)
-  }
+  const wbFirstRoundCount = (() => {
+    const rounds = Array.from(new Set(wbMatches.map((m) => m.roundNumber))).sort((a, b) => b - a)
+    return rounds.length > 0 ? wbMatches.filter((m) => m.roundNumber === rounds[0]).length : 1
+  })()
 
-  // Total height = number of first-round matches × (match height + gap) - gap
-  // allRoundNumbers is sorted descending, so [0] is the highest round number (most matches = first round)
-  const firstRound = allRoundNumbers[0]
-  const firstRoundMatchCount = matchesForRound(firstRound).length
-  const totalHeight = firstRoundMatchCount * (MATCH_HEIGHT + MATCH_GAP) - MATCH_GAP
+  const lbFirstRoundCount = (() => {
+    const rounds = Array.from(new Set(lbMatches.map((m) => m.roundNumber))).sort((a, b) => a - b)
+    return rounds.length > 0 ? lbMatches.filter((m) => m.roundNumber === rounds[0]).length : 1
+  })()
 
-  // Count matches needing scores (ready but no score yet)
-  const pendingScoreCount = bracket.matches.filter((m) => m.status === 'ready').length
+  // Champion callout: different for SE vs DE
+  const champion = (() => {
+    if (isDE) {
+      if (!gfMatch?.winnerTeamId) return null
+      return gfMatch.winnerTeamId === gfMatch.team1Id ? gfMatch.team1Name : gfMatch.team2Name
+    }
+    const final = bracket.matches.find((m) => m.roundNumber === 1 && m.matchNumber === 1)
+    if (!final?.winnerTeamId) return null
+    return final.winnerTeamId === final.team1Id ? final.team1Name : final.team2Name
+  })()
 
   return (
     <div>
-      {/* View toggle — only show when admin so non-admins just see the bracket */}
+      {/* View toggle */}
       {isAdmin && (
         <div className="flex items-center gap-2 mb-4">
           <button
@@ -580,119 +658,110 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport }: Props
         </div>
       )}
 
-      {/* Score list view */}
+      {/* Score list */}
       {view === 'list' && isAdmin && (
         <BracketScoreList bracket={bracket} leagueId={leagueId} sport={sport} />
       )}
 
-      {/* Bracket diagram view */}
+      {/* Bracket diagram */}
       {view === 'bracket' && (
-      <>
-      <div className="overflow-x-auto pb-4 -mx-4 px-4">
-        <div style={{ minWidth: displayRounds.length * ROUND_WIDTH + 32 }}>
-          {/* Round labels */}
-          <div className="flex mb-3" style={{ gap: 0 }}>
-            {displayRounds.map((rn) => (
-              <div key={rn} style={{ width: ROUND_WIDTH, flexShrink: 0 }}>
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 px-2">
-                  {getRoundName(rn, bracketSize)}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          {/* Match columns */}
-          <div className="flex items-start" style={{ height: totalHeight, gap: 0 }}>
-            {displayRounds.map((rn, colIdx) => {
-              const roundMatches = matchesForRound(rn)
-              const matchesInRound = roundMatches.length
-              const slotHeight = totalHeight / matchesInRound
-
-              return (
-                <div key={rn} style={{ width: ROUND_WIDTH, flexShrink: 0, position: 'relative', height: totalHeight }}>
-                  {roundMatches.map((match, i) => {
-                    const top = i * slotHeight + (slotHeight - MATCH_HEIGHT) / 2
-                    const isLastCol = colIdx === displayRounds.length - 1
-
-                    return (
-                      <div key={match.id} style={{ position: 'absolute', top, left: 8, right: 8 }}>
-                        {/* Connector lines */}
-                        {!isLastCol && (
-                          <>
-                            {/* Right horizontal line out */}
-                            <div style={{
-                              position: 'absolute',
-                              right: -8,
-                              top: MATCH_HEIGHT / 2,
-                              width: 8,
-                              height: 1,
-                              backgroundColor: '#d1d5db',
-                            }} />
-                          </>
-                        )}
-                        {/* Vertical connector from previous round.
-                            Spans between the two prev-round match centers:
-                            top = card_top + (MATCH_HEIGHT/2 - slotHeight/4)
-                            height = slotHeight/2  */}
-                        {colIdx > 0 && (
-                          <div style={{
-                            position: 'absolute',
-                            left: -8,
-                            top: MATCH_HEIGHT / 2 - slotHeight / 4,
-                            width: 8,
-                            height: slotHeight / 2,
-                            borderLeft: '1px solid #d1d5db',
-                            borderTop: '1px solid #d1d5db',
-                            borderBottom: '1px solid #d1d5db',
-                          }} />
-                        )}
-
-                        <MatchCard
-                          match={match}
-                          bracketId={bracket.id}
-                          leagueId={leagueId}
-                          isAdmin={isAdmin}
-                          sport={sport}
-                        />
-                      </div>
-                    )
-                  })}
+        <>
+          {isDE ? (
+            /* ── Double elimination layout ─────────────────────────────── */
+            <div className="space-y-8">
+              {/* Winners Bracket */}
+              {wbMatches.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-3">
+                    Winners Bracket
+                  </p>
+                  <BracketDiagram
+                    matches={wbMatches}
+                    bracketId={bracket.id}
+                    leagueId={leagueId}
+                    isAdmin={isAdmin}
+                    sport={sport}
+                    bracketSize={bracketSize}
+                    firstRoundMatchCount={wbFirstRoundCount}
+                  />
                 </div>
-              )
-            })}
-          </div>
+              )}
+
+              {/* Losers Bracket */}
+              {lbMatches.length > 0 && (
+                <div className="pt-2 border-t">
+                  <p className="text-xs font-bold uppercase tracking-widest text-amber-600 mb-3 mt-4">
+                    Losers Bracket
+                  </p>
+                  <BracketDiagram
+                    matches={lbMatches}
+                    bracketId={bracket.id}
+                    leagueId={leagueId}
+                    isAdmin={isAdmin}
+                    sport={sport}
+                    bracketSize={bracketSize}
+                    firstRoundMatchCount={lbFirstRoundCount}
+                    roundSortAscending
+                  />
+                </div>
+              )}
+
+              {/* Grand Final */}
+              {gfMatch && (
+                <div className="pt-2 border-t">
+                  <p className="text-xs font-bold uppercase tracking-widest text-purple-600 mb-3 mt-4">
+                    Grand Final
+                  </p>
+                  <MatchCard
+                    match={gfMatch}
+                    bracketId={bracket.id}
+                    leagueId={leagueId}
+                    isAdmin={isAdmin}
+                    sport={sport}
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            /* ── Single elimination layout ─────────────────────────────── */
+            <>
+              <BracketDiagram
+                matches={seMatches}
+                bracketId={bracket.id}
+                leagueId={leagueId}
+                isAdmin={isAdmin}
+                sport={sport}
+                bracketSize={bracketSize}
+                firstRoundMatchCount={seFirstRoundCount}
+              />
+
+              {/* 3rd place match */}
+              {thirdPlaceMatch && (
+                <div className="mt-8 pt-6 border-t">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">Third Place</p>
+                  <MatchCard
+                    match={thirdPlaceMatch}
+                    bracketId={bracket.id}
+                    leagueId={leagueId}
+                    isAdmin={isAdmin}
+                    sport={sport}
+                  />
+                </div>
+              )}
+            </>
+          )}
 
           {/* Champion callout */}
-          {bracket.matches.find((m) => m.roundNumber === 1 && m.matchNumber === 1 && m.winnerTeamId) && (() => {
-            const final = bracket.matches.find((m) => m.roundNumber === 1 && m.matchNumber === 1)!
-            const champName = final.winnerTeamId === final.team1Id ? final.team1Name : final.team2Name
-            return (
-              <div className="mt-6 text-center">
-                <p className="text-xs uppercase tracking-widest text-gray-400 mb-1">Champion</p>
-                <p className="text-2xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-primary)' }}>
-                  🏆 {champName}
-                </p>
-              </div>
-            )
-          })()}
-        </div>
-      </div>
-
-      {/* 3rd place match */}
-      {thirdPlaceMatch && (
-        <div className="mt-8 pt-6 border-t">
-          <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">Third Place</p>
-          <MatchCard
-            match={thirdPlaceMatch}
-            bracketId={bracket.id}
-            leagueId={leagueId}
-            isAdmin={isAdmin}
-            sport={sport}
-          />
-        </div>
+          {champion && (
+            <div className="mt-6 text-center">
+              <p className="text-xs uppercase tracking-widest text-gray-400 mb-1">Champion</p>
+              <p className="text-2xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-primary)' }}>
+                🏆 {champion}
+              </p>
+            </div>
+          )}
+        </>
       )}
-      </> /* end fragment */
-      )} {/* end view === 'bracket' */}
     </div>
   )
 }

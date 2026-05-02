@@ -708,7 +708,7 @@ export default async function EventDetailPage({
     const { data: rawBracket } = await (db as any)
       .from('brackets')
       .select(`
-        id, name, bracket_size, third_place_game, status, published_at,
+        id, name, bracket_size, bracket_type, third_place_game, status, published_at,
         bracket_matches(
           id, round_number, match_number,
           team1_id, team2_id, team1_label, team2_label,
@@ -737,6 +737,7 @@ export default async function EventDetailPage({
         id: rawBracket.id,
         name: rawBracket.name,
         bracketSize: rawBracket.bracket_size,
+        bracketType: (rawBracket.bracket_type === 'double_elimination' ? 'double_elimination' : 'single_elimination') as 'single_elimination' | 'double_elimination',
         thirdPlaceGame: rawBracket.third_place_game,
         status: rawBracket.status,
         matches: (rawBracket.bracket_matches ?? []).map((m: {
