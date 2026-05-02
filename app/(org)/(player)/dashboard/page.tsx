@@ -59,6 +59,40 @@ export default async function PlayerDashboardPage() {
 
   const timezone = branding?.timezone ?? 'America/Toronto'
 
+  // ── Pickup / drop-in sessions ─────────────────────────────────────────────
+  // Find active season registrations for pickup/drop_in leagues
+  const pickupLeagueIds = (registrations ?? [])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((reg: any) => {
+      const league = Array.isArray(reg.league) ? reg.league[0] : reg.league
+      const eventType = league?.event_type as string | undefined
+      return reg.status === 'active' && (eventType === 'pickup' || eventType === 'drop_in')
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((reg: any) => {
+      const league = Array.isArray(reg.league) ? reg.league[0] : reg.league
+      return league?.id as string | undefined
+    })
+    .filter(Boolean) as string[]
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let pickupSessions: any[] = []
+  if (pickupLeagueIds.length > 0) {
+    const { data: sessions } = await supabase
+      .from('event_sessions')
+      .select(`
+        id, scheduled_at, duration_minutes, location_override,
+        league:leagues!event_sessions_league_id_fkey(id, name, slug)
+      `)
+      .in('league_id', pickupLeagueIds)
+      .eq('organization_id', org.id)
+      .eq('status', 'open')
+      .gte('scheduled_at', new Date().toISOString())
+      .order('scheduled_at', { ascending: true })
+      .limit(10)
+    pickupSessions = sessions ?? []
+  }
+
   // Fetch the org-wide active waiver id once (used as fallback when league has no specific waiver)
   const { data: orgActiveWaiver } = await supabase
     .from('waivers')
@@ -94,7 +128,19 @@ export default async function PlayerDashboardPage() {
   })
 
   // Use all upcoming games if no team membership
-  const gamesToShow = myTeamIds.size > 0 ? myGames : (upcomingGames ?? []).slice(0, 3)
+  const teamGamesToShow = myTeamIds.size > 0 ? myGames : (upcomingGames ?? []).slice(0, 3)
+
+  // Merge team games + pickup sessions, sorted by scheduled_at, cap at 8
+  type GameItem = { _type: 'game'; scheduled_at: string; data: typeof teamGamesToShow[number] }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  type SessionItem = { _type: 'session'; scheduled_at: string; data: any }
+  type ScheduleItem = GameItem | SessionItem
+
+  const allScheduleItems: ScheduleItem[] = [
+    ...teamGamesToShow.map((g) => ({ _type: 'game' as const, scheduled_at: g.scheduled_at, data: g })),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...pickupSessions.map((s: any) => ({ _type: 'session' as const, scheduled_at: s.scheduled_at, data: s })),
+  ].sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at)).slice(0, 8)
 
   // ── Section JSX (passed as props to DashboardSections) ─────────────────────
 
@@ -205,36 +251,64 @@ export default async function PlayerDashboardPage() {
     </div>
   )
 
+  const hasGamesOrSessions = allScheduleItems.length > 0
+
   const gamesSection = (
     <div className="bg-white rounded-lg border p-5">
       <h2 className="font-semibold mb-4">
-        {myTeamIds.size > 0 ? 'My Upcoming Games' : 'Upcoming Games'}
+        {myTeamIds.size > 0 || pickupLeagueIds.length > 0 ? 'My Upcoming Games' : 'Upcoming Games'}
       </h2>
       <div className="space-y-3">
-        {gamesToShow.map((g) => {
-          const homeTeam = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
-          const awayTeam = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
-          const league = Array.isArray(g.league) ? g.league[0] : g.league
-          const { date: gameDate, time: gameTime } = formatGameTime(g.scheduled_at, timezone)
-          return (
-            <div key={g.id} className="relative border rounded-md p-3 transition-shadow hover:shadow-md">
-              {(league as { slug?: string } | null)?.slug && (
-                <Link
-                  href={`/events/${(league as { slug?: string }).slug}`}
-                  className="absolute inset-0 rounded-md"
-                  aria-label={`View ${(league as { name?: string }).name ?? 'event'}`}
-                />
-              )}
-              <p className="text-sm text-gray-500">
-                {gameDate} · {gameTime}
-                {g.court ? ` · Court ${g.court}` : ''}
-              </p>
-              <p className="font-medium mt-0.5">{homeTeam?.name ?? 'TBD'} vs {awayTeam?.name ?? 'TBD'}</p>
-              <p className="text-xs text-gray-400">{(league as { name?: string } | null)?.name}</p>
-            </div>
-          )
+        {allScheduleItems.map((item) => {
+          if (item._type === 'game') {
+            const g = item.data
+            const homeTeam = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
+            const awayTeam = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
+            const league = Array.isArray(g.league) ? g.league[0] : g.league
+            const { date: gameDate, time: gameTime } = formatGameTime(g.scheduled_at, timezone)
+            return (
+              <div key={`game-${g.id}`} className="relative border rounded-md p-3 transition-shadow hover:shadow-md">
+                {(league as { slug?: string } | null)?.slug && (
+                  <Link
+                    href={`/events/${(league as { slug?: string }).slug}`}
+                    className="absolute inset-0 rounded-md"
+                    aria-label={`View ${(league as { name?: string }).name ?? 'event'}`}
+                  />
+                )}
+                <p className="text-sm text-gray-500">
+                  {gameDate} · {gameTime}
+                  {g.court ? ` · Court ${g.court}` : ''}
+                </p>
+                <p className="font-medium mt-0.5">{homeTeam?.name ?? 'TBD'} vs {awayTeam?.name ?? 'TBD'}</p>
+                <p className="text-xs text-gray-400">{(league as { name?: string } | null)?.name}</p>
+              </div>
+            )
+          } else {
+            // Pickup session
+            const s = item.data
+            const league = Array.isArray(s.league) ? s.league[0] : s.league
+            const { date: sessionDate, time: sessionTime } = formatGameTime(s.scheduled_at, timezone)
+            const location = s.location_override as string | null
+            return (
+              <div key={`session-${s.id}`} className="relative border rounded-md p-3 transition-shadow hover:shadow-md">
+                {(league as { slug?: string } | null)?.slug && (
+                  <Link
+                    href={`/events/${(league as { slug?: string }).slug}`}
+                    className="absolute inset-0 rounded-md"
+                    aria-label={`View ${(league as { name?: string }).name ?? 'event'}`}
+                  />
+                )}
+                <p className="text-sm text-gray-500">
+                  {sessionDate} · {sessionTime}
+                  {location ? ` · ${location}` : ''}
+                </p>
+                <p className="font-medium mt-0.5">Pickup Session</p>
+                <p className="text-xs text-gray-400">{(league as { name?: string } | null)?.name}</p>
+              </div>
+            )
+          }
         })}
-        {gamesToShow.length === 0 && (
+        {!hasGamesOrSessions && (
           <p className="text-sm text-gray-400 text-center py-4">No upcoming games.</p>
         )}
       </div>
