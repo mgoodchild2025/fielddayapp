@@ -62,5 +62,14 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
     registered_count: s.registered?.[0]?.count ?? 0,
   }))
 
-  return <AdminSessionsManager leagueId={id} initialSessions={mapped} />
+  return (
+    <div className="space-y-4">
+      <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-blue-800">
+        <strong>Pickup sessions</strong> are individual play times for this event — no teams needed.
+        Players registered for this event will see upcoming sessions in their dashboard.
+        Use <strong>Repeat weekly</strong> when adding a session to bulk-create the full schedule at once.
+      </div>
+      <AdminSessionsManager leagueId={id} initialSessions={mapped} />
+    </div>
+  )
 }

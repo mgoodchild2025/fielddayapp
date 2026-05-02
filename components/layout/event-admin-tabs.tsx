@@ -10,7 +10,10 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
   ]
 
   if (eventType === 'pickup') {
-    const t = [...base, { label: 'Invites', href: `/admin/events/${id}/invites` }]
+    const t = [...base, { label: 'Sessions', href: `/admin/events/${id}/sessions` }]
+    if (pickupJoinPolicy === 'private') {
+      t.push({ label: 'Invites', href: `/admin/events/${id}/invites` })
+    }
     return t
   }
 

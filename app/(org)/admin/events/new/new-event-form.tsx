@@ -301,7 +301,10 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
       )
       setLoading(false)
     } else {
-      router.push(`/admin/events/${result.data?.id}`)
+      const id = result.data?.id
+      // For pickup / drop-in, go straight to Sessions so admin can schedule right away
+      const isPickupType = data.event_type === 'pickup' || data.event_type === 'drop_in'
+      router.push(isPickupType ? `/admin/events/${id}/sessions` : `/admin/events/${id}`)
     }
   }
 
