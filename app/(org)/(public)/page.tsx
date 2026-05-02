@@ -1,10 +1,11 @@
 import { headers } from 'next/headers'
+import Image from 'next/image'
+import Link from 'next/link'
 import { createServerClient } from '@/lib/supabase/server'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { ViewEventsDropdown } from '@/components/events/view-events-dropdown'
 import { MarketingPage } from '@/components/marketing/marketing-page'
-import Link from 'next/link'
 
 // Org homepage — shown when org context is present
 async function OrgHomePage({ orgId }: { orgId: string }) {
