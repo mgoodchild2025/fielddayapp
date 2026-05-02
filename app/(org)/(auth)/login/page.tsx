@@ -62,12 +62,13 @@ export default async function LoginPage({
                 {orgName}
               </h1>
             ) : (
-              <h1
-                className="text-3xl font-bold uppercase mb-2"
-                style={{ fontFamily: 'var(--brand-heading-font)' }}
-              >
-                Sign In
-              </h1>
+              <Image
+                src="/Fieldday-Icon.png"
+                alt="Fieldday"
+                width={64}
+                height={64}
+                className="mx-auto mb-2 rounded-xl"
+              />
             )}
           </Link>
           {tagline && (
