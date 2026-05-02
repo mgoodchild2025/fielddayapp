@@ -19,13 +19,22 @@ export default async function RegistrationSuccessPage({
   const supabase = await createServerClient()
 
   const { data: branding } = await supabase.from('org_branding').select('logo_url').eq('organization_id', org.id).single()
-  const { data: league } = await supabase.from('leagues').select('name, season_start_date').eq('organization_id', org.id).eq('slug', slug).single()
+  const { data: league } = await supabase.from('leagues').select('name, sport, season_start_date').eq('organization_id', org.id).eq('slug', slug).single()
+
+  const SPORT_EMOJI: Record<string, string> = {
+    volleyball: '🏐', beach_volleyball: '🏐', soccer: '⚽', basketball: '🏀',
+    hockey: '🏒', baseball: '⚾', softball: '🥎', tennis: '🎾',
+    pickleball: '🏓', badminton: '🏸', football: '🏈', flag_football: '🏈',
+    ultimate_frisbee: '🥏', dodgeball: '🔴', kickball: '⚽', lacrosse: '🥍',
+    rugby: '🏉', swimming: '🏊', golf: '⛳',
+  }
+  const sportEmoji = (league?.sport && SPORT_EMOJI[league.sport]) ?? '🎉'
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
       <div className="max-w-lg mx-auto px-6 py-16 text-center">
-        <div className="text-6xl mb-4">🏐</div>
+        <div className="text-6xl mb-4">{sportEmoji}</div>
         <h1 className="text-3xl font-bold uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           You&apos;re Registered!
         </h1>
