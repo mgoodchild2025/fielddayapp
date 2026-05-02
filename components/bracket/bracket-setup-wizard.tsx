@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useEffect, useRef } from 'react'
-import { createBracket, seedBracket, publishBracket, deleteBracket } from '@/actions/brackets'
+import { createBracket, seedBracket, scaffoldBracket, publishBracket, deleteBracket } from '@/actions/brackets'
 import type { BracketRecommendation, TeamStanding } from '@/lib/bracket'
 import { BracketView, type BracketData } from './bracket-view'
 
@@ -80,6 +80,39 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
     })
   }
 
+  function handleScaffold() {
+    setErr(null)
+    startTransition(async () => {
+      const res = await createBracket({
+        leagueId,
+        divisionId,
+        name,
+        bracketType: 'single_elimination',
+        seedingMethod: 'standings',
+        bracketSize,
+        teamsAdvancing,
+        thirdPlaceGame: thirdPlace,
+      })
+      if (res.error) { setErr(res.error); return }
+      const scaffoldRes = await scaffoldBracket(res.bracketId!, leagueId)
+      if (scaffoldRes.error) { setErr(scaffoldRes.error); return }
+      window.location.reload()
+    })
+  }
+
+  function handleSeedExisting() {
+    if (!bracketId) return
+    setErr(null)
+    // Re-seed an existing scaffold with real team data
+    const overrides: Record<number, string> = {}
+    seededTeams.slice(0, teamsAdvancing).forEach((t, i) => { overrides[i + 1] = t.teamId })
+    startTransition(async () => {
+      const res = await seedBracket(bracketId, leagueId, overrides)
+      if (res.error) { setErr(res.error); return }
+      window.location.reload()
+    })
+  }
+
   function handleSeed() {
     if (!bracketId) return
     setErr(null)
@@ -128,26 +161,47 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
 
   // ── Preview (bracket exists) ────────────────────────────────────────────────
   if (bracket) {
+    const isScaffold = bracket.status === 'scaffold'
+    const canSeedNow = isScaffold && seededTeams.length >= 2
+
     return (
       <div className="space-y-6">
+        {/* Scaffold notice */}
+        {isScaffold && (
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900">
+            <p className="font-semibold mb-1">📋 Template bracket — teams not yet assigned</p>
+            <p>Match slots show placeholder seeds. Once teams are registered you can seed the bracket with real team data.</p>
+          </div>
+        )}
+
         {/* Status bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 bg-white rounded-lg border p-4">
           <div>
             <p className="font-semibold">{bracket.name}</p>
             <p className="text-xs text-gray-500 mt-0.5">
-              {bracket.status === 'active' ? '✓ Published — visible to the public' : 'Draft — only visible to admins'}
+              {bracket.status === 'active' ? '✓ Published — visible to the public' : isScaffold ? 'Template — dates can be set now' : 'Draft — only visible to admins'}
             </p>
           </div>
           {isOrgAdmin && (
-            <div className="flex gap-2">
-              {bracket.status !== 'active' && (
+            <div className="flex gap-2 flex-wrap">
+              {canSeedNow && (
+                <button
+                  onClick={handleSeedExisting}
+                  disabled={isPending}
+                  className="px-4 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60"
+                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                >
+                  {isPending ? 'Seeding…' : `Seed with ${seededTeams.length} Teams →`}
+                </button>
+              )}
+              {!isScaffold && (
                 <button
                   onClick={handlePublish}
                   disabled={isPending}
                   className="px-4 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60"
                   style={{ backgroundColor: 'var(--brand-primary)' }}
                 >
-                  {isPending ? 'Publishing…' : 'Publish Bracket'}
+                  {isPending ? 'Publishing…' : bracket.status === 'active' ? 'Republish' : 'Publish Bracket'}
                 </button>
               )}
               <button
@@ -170,12 +224,23 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
 
   // ── Step 1: Configure ────────────────────────────────────────────────────────
   if (currentStep === 'configure') {
+    const noTeams = seededTeams.length < 2
+    // When no teams exist, allow picking any standard bracket size
+    const scaffoldSizes = [2, 4, 6, 8, 12, 16]
+
     return (
       <div className="space-y-6 max-w-xl">
-        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800">
-          <p className="font-semibold mb-1">Recommended</p>
-          <p>{recommendation.reason}</p>
-        </div>
+        {noTeams ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-900">
+            <p className="font-semibold mb-1">No teams registered yet</p>
+            <p>You can scaffold the bracket now — match slots will show &ldquo;Seed 1&rdquo;, &ldquo;Seed 2&rdquo;, etc. Set court assignments and dates right away. Once teams register you can seed with real team data.</p>
+          </div>
+        ) : (
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800">
+            <p className="font-semibold mb-1">Recommended</p>
+            <p>{recommendation.reason}</p>
+          </div>
+        )}
 
         <div className="bg-white rounded-lg border p-5 space-y-4">
           <div>
@@ -199,7 +264,7 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
               }}
               className="w-full border rounded-md px-3 py-2 text-sm"
             >
-              {[2, 4, 6, 8, 12, 16].filter((n) => n <= seededTeams.length).map((n) => (
+              {(noTeams ? scaffoldSizes : [2, 4, 6, 8, 12, 16].filter((n) => n <= seededTeams.length)).map((n) => (
                 <option key={n} value={n}>{n} teams{n % (Math.pow(2, Math.ceil(Math.log2(n)))) !== 0 ? ` (${Math.pow(2, Math.ceil(Math.log2(n))) - n} bye${Math.pow(2, Math.ceil(Math.log2(n))) - n > 1 ? 's' : ''})` : ''}</option>
               ))}
             </select>
@@ -223,14 +288,25 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
 
         {err && <p className="text-sm text-red-600">{err}</p>}
 
-        <button
-          onClick={handleCreate}
-          disabled={isPending || !name.trim()}
-          className="px-6 py-2.5 rounded-md font-semibold text-white disabled:opacity-60"
-          style={{ backgroundColor: 'var(--brand-primary)' }}
-        >
-          {isPending ? 'Creating…' : 'Continue to Seedings →'}
-        </button>
+        {noTeams ? (
+          <button
+            onClick={handleScaffold}
+            disabled={isPending || !name.trim()}
+            className="px-6 py-2.5 rounded-md font-semibold text-white disabled:opacity-60"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
+          >
+            {isPending ? 'Creating…' : 'Scaffold Bracket (placeholder seeds) →'}
+          </button>
+        ) : (
+          <button
+            onClick={handleCreate}
+            disabled={isPending || !name.trim()}
+            className="px-6 py-2.5 rounded-md font-semibold text-white disabled:opacity-60"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
+          >
+            {isPending ? 'Creating…' : 'Continue to Seedings →'}
+          </button>
+        )}
       </div>
     )
   }

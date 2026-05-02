@@ -11,6 +11,8 @@ const addGameSchema = z.object({
   leagueId: z.string().uuid(),
   homeTeamId: z.string().uuid().optional(),
   awayTeamId: z.string().uuid().optional(),
+  homeTeamLabel: z.string().optional(),
+  awayTeamLabel: z.string().optional(),
   scheduledAt: z.string(),
   court: z.string().optional(),
   weekNumber: z.coerce.number().optional(),
@@ -25,13 +27,16 @@ export async function addGame(input: z.infer<typeof addGameSchema>) {
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from('games')
     .insert({
       organization_id: org.id,
       league_id: parsed.data.leagueId,
       home_team_id: parsed.data.homeTeamId ?? null,
       away_team_id: parsed.data.awayTeamId ?? null,
+      home_team_label: parsed.data.homeTeamLabel ?? null,
+      away_team_label: parsed.data.awayTeamLabel ?? null,
       scheduled_at: parsed.data.scheduledAt,
       court: parsed.data.court ?? null,
       week_number: parsed.data.weekNumber ?? null,
@@ -61,27 +66,39 @@ export async function generateRoundRobinSchedule(input: {
   gameTime: string
   daysBetweenRounds: number
   courts: number
+  /** Template mode: generate placeholder slots when no teams are registered yet */
+  expectedTeamCount?: number
 }) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
-  const { data: teams } = await supabase
+  const { data: realTeams } = await supabase
     .from('teams')
     .select('id, name')
     .eq('league_id', input.leagueId)
     .eq('organization_id', org.id)
     .eq('status', 'active')
 
-  if (!teams || teams.length < 2) return { error: 'Need at least 2 active teams to generate a schedule', count: 0 }
-
   const { generateRoundRobin, assignDates } = await import('@/lib/scheduler')
+
+  // Template mode: no real teams — generate positional placeholder slots
+  const useSlotMode = (!realTeams || realTeams.length < 2) && !!(input.expectedTeamCount && input.expectedTeamCount >= 2)
+  if (!useSlotMode && (!realTeams || realTeams.length < 2)) {
+    return { error: 'Need at least 2 active teams, or enter an expected team count to generate a template.', count: 0 }
+  }
+
+  const teams = useSlotMode
+    ? Array.from({ length: input.expectedTeamCount! }, (_, i) => ({ id: `slot_${i + 1}`, name: `Team ${i + 1}` }))
+    : realTeams!
+
   const fixtures = generateRoundRobin(teams)
   const scheduled = assignDates(fixtures, {
     startDate: input.startDate,
     gameTime: input.gameTime,
     daysBetweenRounds: input.daysBetweenRounds,
     courts: input.courts,
+    slotMode: useSlotMode,
   })
 
   const games = scheduled.map(g => ({
@@ -89,16 +106,19 @@ export async function generateRoundRobinSchedule(input: {
     league_id: input.leagueId,
     home_team_id: g.homeTeamId,
     away_team_id: g.awayTeamId,
+    home_team_label: g.homeTeamLabel ?? null,
+    away_team_label: g.awayTeamLabel ?? null,
     scheduled_at: g.scheduledAt,
     week_number: g.weekNumber,
     court: g.court,
   }))
 
-  const { error } = await supabase.from('games').insert(games)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).from('games').insert(games)
   if (error) return { error: error.message, count: 0 }
 
   revalidatePath(`/admin/events/${input.leagueId}/schedule`)
-  return { error: null, count: games.length }
+  return { error: null, count: games.length, isTemplate: useSlotMode }
 }
 
 const updateGameSchema = z.object({
@@ -106,6 +126,8 @@ const updateGameSchema = z.object({
   leagueId: z.string().uuid(),
   homeTeamId: z.string().uuid().optional().or(z.literal('')).transform(v => v || undefined),
   awayTeamId: z.string().uuid().optional().or(z.literal('')).transform(v => v || undefined),
+  homeTeamLabel: z.string().optional(),
+  awayTeamLabel: z.string().optional(),
   scheduledAt: z.string().min(1),
   court: z.string().optional(),
   weekNumber: z.coerce.number().optional(),
@@ -132,11 +154,18 @@ export async function updateGame(input: z.infer<typeof updateGameSchema>) {
 
   if (!adminMember) return { error: 'Admin access required' }
 
-  const { error } = await supabase
+  // When assigning a real team, clear the label for that slot
+  const homeLabel = parsed.data.homeTeamId ? null : (parsed.data.homeTeamLabel ?? null)
+  const awayLabel = parsed.data.awayTeamId ? null : (parsed.data.awayTeamLabel ?? null)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
     .from('games')
     .update({
       home_team_id: parsed.data.homeTeamId ?? null,
       away_team_id: parsed.data.awayTeamId ?? null,
+      home_team_label: homeLabel,
+      away_team_label: awayLabel,
       scheduled_at: parsed.data.scheduledAt,
       court: parsed.data.court ?? null,
       week_number: parsed.data.weekNumber ?? null,

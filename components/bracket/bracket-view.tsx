@@ -14,6 +14,10 @@ export interface BracketMatchData {
   team2Id: string | null
   team1Name: string | null
   team2Name: string | null
+  /** Displayed when team1Id is null (scaffold / not yet seeded) */
+  team1Label: string | null
+  /** Displayed when team2Id is null (scaffold / not yet seeded) */
+  team2Label: string | null
   team1Seed: number | null
   team2Seed: number | null
   isBye: boolean
@@ -142,7 +146,7 @@ function ScoreModal({
         <div className="px-5 pt-3 pb-6 space-y-5">
           <div>
             <h3 className="font-semibold text-base text-gray-900">Enter score</h3>
-            <p className="text-sm text-gray-500 mt-0.5 truncate">{match.team1Name ?? 'TBD'} vs {match.team2Name ?? 'TBD'}</p>
+            <p className="text-sm text-gray-500 mt-0.5 truncate">{match.team1Name ?? match.team1Label ?? 'TBD'} vs {match.team2Name ?? match.team2Label ?? 'TBD'}</p>
           </div>
 
           {isVolleyball ? (
@@ -150,9 +154,9 @@ function ScoreModal({
               {/* Column headers */}
               <div className="flex items-center gap-2 text-xs font-medium text-gray-400 uppercase tracking-wide">
                 <span className="w-10 text-center">Set</span>
-                <span className="flex-1 text-center truncate">{match.team1Name ?? 'TBD'}</span>
+                <span className="flex-1 text-center truncate">{match.team1Name ?? match.team1Label ?? 'TBD'}</span>
                 <span className="w-4" />
-                <span className="flex-1 text-center truncate">{match.team2Name ?? 'TBD'}</span>
+                <span className="flex-1 text-center truncate">{match.team2Name ?? match.team2Label ?? 'TBD'}</span>
               </div>
               {sets.map((set, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -203,7 +207,7 @@ function ScoreModal({
             /* Non-volleyball: large stepper inputs */
             <div className="flex items-start justify-around gap-2 py-1">
               <div className="flex flex-col items-center gap-2 min-w-0">
-                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide truncate max-w-[100px] text-center">{match.team1Name ?? 'TBD'}</span>
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide truncate max-w-[100px] text-center">{match.team1Name ?? match.team1Label ?? 'TBD'}</span>
                 <div className="flex items-center gap-2">
                   <button type="button"
                     onClick={() => setS1((v) => String(Math.max(0, parseInt(v || '0') - 1)))}
@@ -228,7 +232,7 @@ function ScoreModal({
               </div>
               <div className="text-3xl font-bold text-gray-200 mt-8 shrink-0">–</div>
               <div className="flex flex-col items-center gap-2 min-w-0">
-                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide truncate max-w-[100px] text-center">{match.team2Name ?? 'TBD'}</span>
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide truncate max-w-[100px] text-center">{match.team2Name ?? match.team2Label ?? 'TBD'}</span>
                 <div className="flex items-center gap-2">
                   <button type="button"
                     onClick={() => setS2((v) => String(Math.max(0, parseInt(v || '0') - 1)))}
@@ -331,7 +335,7 @@ function MatchCard({
           <div className="flex items-center gap-1.5 min-w-0">
             {match.team1Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team1Seed}</span>}
             <span className={`truncate font-medium ${isCompleted && match.winnerTeamId === match.team1Id ? 'text-green-700' : isTbd ? 'text-gray-400' : ''}`}>
-              {match.team1Name ?? 'TBD'}
+              {match.team1Name ?? match.team1Label ?? 'TBD'}
             </span>
           </div>
           <span className="font-bold tabular-nums text-sm ml-2">
@@ -350,7 +354,7 @@ function MatchCard({
               isCompleted && match.winnerTeamId === match.team2Id ? 'text-green-700' :
               isTbd ? 'text-gray-400' : ''
             }`}>
-              {isBye ? 'Bye' : (match.team2Name ?? 'TBD')}
+              {isBye ? 'Bye' : (match.team2Name ?? match.team2Label ?? 'TBD')}
             </span>
           </div>
           <span className="font-bold tabular-nums text-sm ml-2">
@@ -456,12 +460,12 @@ function BracketScoreList({
                           {/* Team 1 */}
                           <div className={`flex items-center gap-1.5 ${isCompleted && match.winnerTeamId === match.team1Id ? 'text-green-700 font-semibold' : ''}`}>
                             {match.team1Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team1Seed}</span>}
-                            <span className="text-sm truncate">{match.team1Name ?? 'TBD'}</span>
+                            <span className="text-sm truncate">{match.team1Name ?? match.team1Label ?? 'TBD'}</span>
                           </div>
                           {/* Team 2 */}
                           <div className={`flex items-center gap-1.5 ${isCompleted && match.winnerTeamId === match.team2Id ? 'text-green-700 font-semibold' : isBye ? 'text-gray-300 italic' : ''}`}>
                             {match.team2Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team2Seed}</span>}
-                            <span className="text-sm truncate">{isBye ? 'Bye' : (match.team2Name ?? 'TBD')}</span>
+                            <span className="text-sm truncate">{isBye ? 'Bye' : (match.team2Name ?? match.team2Label ?? 'TBD')}</span>
                           </div>
                         </div>
                         {/* Score */}

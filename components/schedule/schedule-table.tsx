@@ -13,6 +13,10 @@ interface Game {
   weekNumber: number | null
   homeTeamId: string | null
   awayTeamId: string | null
+  /** Placeholder label shown when homeTeamId is null (template/pre-scheduled) */
+  homeTeamLabel: string | null
+  /** Placeholder label shown when awayTeamId is null (template/pre-scheduled) */
+  awayTeamLabel: string | null
   homeTeamName: string
   awayTeamName: string
   dateLabel: string
@@ -224,6 +228,8 @@ export function ScheduleTable({ games, teams, leagueId, sport }: Props) {
             leagueId,
             homeTeamId: editingGame.homeTeamId,
             awayTeamId: editingGame.awayTeamId,
+            homeTeamLabel: editingGame.homeTeamLabel,
+            awayTeamLabel: editingGame.awayTeamLabel,
             scheduledAt: editingGame.scheduledAt,
             court: editingGame.court,
             weekNumber: editingGame.weekNumber,

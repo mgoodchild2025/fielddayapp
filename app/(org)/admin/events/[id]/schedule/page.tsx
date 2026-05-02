@@ -23,12 +23,16 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
     .single()
   const timezone = branding?.timezone ?? 'America/Toronto'
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: games }, { data: teams }, { data: league }] = await Promise.all([
-    supabase
+    // Cast to any — Supabase types may not yet reflect home_team_label/away_team_label columns
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
       .from('games')
       .select(`
         id, scheduled_at, court, week_number, status,
         home_team_id, away_team_id,
+        home_team_label, away_team_label,
         home_team:teams!games_home_team_id_fkey(name),
         away_team:teams!games_away_team_id_fkey(name),
         game_results(home_score, away_score, status, sets)
@@ -52,7 +56,8 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
 
   const sport = league?.sport ?? ''
 
-  const mappedGames = (games ?? []).map((game) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mappedGames = (games ?? []).map((game: any) => {
     const home = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team
     const away = Array.isArray(game.away_team) ? game.away_team[0] : game.away_team
     const result = Array.isArray(game.game_results) ? game.game_results[0] : game.game_results
@@ -65,8 +70,10 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
       weekNumber: game.week_number,
       homeTeamId: game.home_team_id,
       awayTeamId: game.away_team_id,
-      homeTeamName: home?.name ?? 'TBD',
-      awayTeamName: away?.name ?? 'TBD',
+      homeTeamLabel: game.home_team_label ?? null,
+      awayTeamLabel: game.away_team_label ?? null,
+      homeTeamName: home?.name ?? game.home_team_label ?? 'TBD',
+      awayTeamName: away?.name ?? game.away_team_label ?? 'TBD',
       dateLabel,
       timeLabel,
       result: result

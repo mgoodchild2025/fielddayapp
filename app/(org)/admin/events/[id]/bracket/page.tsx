@@ -83,7 +83,8 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
       id, name, bracket_size, third_place_game, status, published_at,
       bracket_matches(
         id, round_number, match_number,
-        team1_id, team2_id, team1_seed, team2_seed,
+        team1_id, team2_id, team1_label, team2_label,
+        team1_seed, team2_seed,
         is_bye, winner_team_id, score1, score2, sets, status,
         winner_to_match_id, scheduled_at, court, notes
       )
@@ -99,7 +100,9 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
     id: string; name: string; bracket_size: number; third_place_game: boolean; status: string;
     bracket_matches: {
       id: string; round_number: number; match_number: number;
-      team1_id: string|null; team2_id: string|null; team1_seed: number|null; team2_seed: number|null;
+      team1_id: string|null; team2_id: string|null;
+      team1_label: string|null; team2_label: string|null;
+      team1_seed: number|null; team2_seed: number|null;
       is_bye: boolean; winner_team_id: string|null; score1: number|null; score2: number|null; sets: {s1:number;s2:number}[]|null;
       status: string; winner_to_match_id: string|null; scheduled_at: string|null; court: string|null; notes: string|null;
     }[]
@@ -118,6 +121,8 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
         team2Id: m.team2_id,
         team1Name: m.team1_id ? (teamNameMap.get(m.team1_id) ?? null) : null,
         team2Name: m.team2_id ? (teamNameMap.get(m.team2_id) ?? null) : null,
+        team1Label: m.team1_label,
+        team2Label: m.team2_label,
         team1Seed: m.team1_seed,
         team2Seed: m.team2_seed,
         isBye: m.is_bye,

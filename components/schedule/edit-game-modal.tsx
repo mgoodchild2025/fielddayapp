@@ -14,6 +14,8 @@ interface Props {
     leagueId: string
     homeTeamId: string | null
     awayTeamId: string | null
+    homeTeamLabel: string | null
+    awayTeamLabel: string | null
     scheduledAt: string
     court: string | null
     weekNumber: number | null
@@ -33,6 +35,8 @@ function toLocalDatetimeValue(utcIso: string): string {
 export function EditGameModal({ game, teams, onClose, onDeleted }: Props) {
   const [homeTeamId, setHomeTeamId] = useState(game.homeTeamId ?? '')
   const [awayTeamId, setAwayTeamId] = useState(game.awayTeamId ?? '')
+  const [homeTeamLabel, setHomeTeamLabel] = useState(game.homeTeamLabel ?? '')
+  const [awayTeamLabel, setAwayTeamLabel] = useState(game.awayTeamLabel ?? '')
   const [scheduledAt, setScheduledAt] = useState(toLocalDatetimeValue(game.scheduledAt))
   const [court, setCourt] = useState(game.court ?? '')
   const [weekNumber, setWeekNumber] = useState(game.weekNumber?.toString() ?? '')
@@ -49,6 +53,8 @@ export function EditGameModal({ game, teams, onClose, onDeleted }: Props) {
         leagueId: game.leagueId,
         homeTeamId: homeTeamId || undefined,
         awayTeamId: awayTeamId || undefined,
+        homeTeamLabel: homeTeamLabel || undefined,
+        awayTeamLabel: awayTeamLabel || undefined,
         scheduledAt: new Date(scheduledAt).toISOString(),
         court: court || undefined,
         weekNumber: weekNumber ? Number(weekNumber) : undefined,
@@ -96,24 +102,42 @@ export function EditGameModal({ game, teams, onClose, onDeleted }: Props) {
             <label className="block text-xs font-medium text-gray-600 mb-1">Home Team</label>
             <select
               value={homeTeamId}
-              onChange={(e) => setHomeTeamId(e.target.value)}
+              onChange={(e) => { setHomeTeamId(e.target.value); if (e.target.value) setHomeTeamLabel('') }}
               className="w-full border rounded px-2 py-1.5 text-sm"
             >
-              <option value="">TBD</option>
+              <option value="">— unassigned —</option>
               {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
+            {!homeTeamId && (
+              <input
+                type="text"
+                value={homeTeamLabel}
+                onChange={(e) => setHomeTeamLabel(e.target.value)}
+                placeholder="Label (e.g. Team 1)"
+                className="mt-1 w-full border rounded px-2 py-1.5 text-sm text-gray-600"
+              />
+            )}
           </div>
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Away Team</label>
             <select
               value={awayTeamId}
-              onChange={(e) => setAwayTeamId(e.target.value)}
+              onChange={(e) => { setAwayTeamId(e.target.value); if (e.target.value) setAwayTeamLabel('') }}
               className="w-full border rounded px-2 py-1.5 text-sm"
             >
-              <option value="">TBD</option>
+              <option value="">— unassigned —</option>
               {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
+            {!awayTeamId && (
+              <input
+                type="text"
+                value={awayTeamLabel}
+                onChange={(e) => setAwayTeamLabel(e.target.value)}
+                placeholder="Label (e.g. Team 2)"
+                className="mt-1 w-full border rounded px-2 py-1.5 text-sm text-gray-600"
+              />
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2">

@@ -36,8 +36,11 @@ export default async function RegisterLeaguePage({
 
   if (!league) notFound()
 
-  // Verify drop-in invite
-  if (isDropIn) {
+  // Verify drop-in invite — only required for non-dropin event types that use
+  // the pickup_invites system. For dropin-type leagues, registration is open.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isOpenDropIn = (league as any).league_type === 'dropin' || (league as any).event_type === 'drop_in'
+  if (isDropIn && !isOpenDropIn) {
     if (!user.email) notFound()
     const { createServiceRoleClient } = await import('@/lib/supabase/service')
     const db = createServiceRoleClient()
@@ -55,8 +58,9 @@ export default async function RegisterLeaguePage({
 
   const [{ data: playerDetails }, { data: existingReg }, { data: profile }, { data: connectAccount }, { data: captainTeam }, { data: rawTeams }] = await Promise.all([
     supabase.from('player_details').select('*').eq('organization_id', org.id).eq('user_id', user.id).single(),
-    // For drop-ins, don't resume an existing reg (each invite = fresh registration)
-    isDropIn
+    // For invite-based drop-ins, don't resume (each invite = fresh registration).
+    // For open dropin-type events, resume existing registration like a normal event.
+    isDropIn && !isOpenDropIn
       ? Promise.resolve({ data: null })
       : supabase.from('registrations')
           .select('id, status, waiver_signature_id')

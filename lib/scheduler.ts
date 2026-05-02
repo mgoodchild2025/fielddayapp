@@ -67,11 +67,21 @@ export interface ScheduleOptions {
   venue?: string
   /** Number of courts/fields; games per round are spread across courts */
   courts?: number
+  /**
+   * When true, team IDs beginning with "slot_" are treated as positional
+   * placeholders — homeTeamId/awayTeamId are set to null and labels are
+   * populated instead (e.g. "Team 1", "Team 2").
+   */
+  slotMode?: boolean
 }
 
 export interface ScheduledGame {
-  homeTeamId: string
-  awayTeamId: string
+  homeTeamId: string | null
+  awayTeamId: string | null
+  /** Populated in slotMode when homeTeamId is null */
+  homeTeamLabel: string | null
+  /** Populated in slotMode when awayTeamId is null */
+  awayTeamLabel: string | null
   scheduledAt: string
   weekNumber: number
   court: string | null
@@ -100,9 +110,18 @@ export function assignDates(fixtures: Fixture[], opts: ScheduleOptions): Schedul
 
     roundFixtures.forEach((f, i) => {
       const court = courts > 1 ? `Court ${(i % courts) + 1}` : null
+      const isSlot = opts.slotMode
+      const rawHome = f.homeTeamId ?? ''
+      const rawAway = f.awayTeamId ?? ''
+      const homeIsSlot = isSlot && rawHome.startsWith('slot_')
+      const awayIsSlot = isSlot && rawAway.startsWith('slot_')
+      // Derive label from slot id: "slot_3" → "Team 3"
+      const slotLabel = (id: string) => `Team ${id.replace('slot_', '')}`
       games.push({
-        homeTeamId: f.homeTeamId!,
-        awayTeamId: f.awayTeamId!,
+        homeTeamId: homeIsSlot ? null : (rawHome || null),
+        awayTeamId: awayIsSlot ? null : (rawAway || null),
+        homeTeamLabel: homeIsSlot ? slotLabel(rawHome) : null,
+        awayTeamLabel: awayIsSlot ? slotLabel(rawAway) : null,
         scheduledAt: roundDate.toISOString(),
         weekNumber: round,
         court,

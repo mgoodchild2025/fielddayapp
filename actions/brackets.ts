@@ -122,9 +122,112 @@ export async function createBracket(input: z.infer<typeof createBracketSchema>) 
   return { error: null, bracketId: bracket.id as string }
 }
 
+// ── scaffoldBracket ───────────────────────────────────────────────────────────
+// Creates placeholder bracket_matches (null team IDs + seed labels) so admins
+// can assign dates before any teams have registered.
+// Safe to call multiple times — deletes and rebuilds the match rows each time.
+
+export async function scaffoldBracket(bracketId: string, leagueId: string) {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: bracket } = await (db as any)
+    .from('brackets')
+    .select('*')
+    .eq('id', bracketId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (!bracket) return { error: 'Bracket not found' }
+
+  // Preserve any schedule dates the admin may have already set
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing } = await (db as any)
+    .from('bracket_matches')
+    .select('round_number, match_number, scheduled_at, court, notes')
+    .eq('bracket_id', bracketId)
+  const scheduleMap = new Map<string, { scheduled_at: string | null; court: string | null; notes: string | null }>()
+  for (const m of existing ?? []) {
+    scheduleMap.set(`${m.round_number}:${m.match_number}`, { scheduled_at: m.scheduled_at, court: m.court, notes: m.notes })
+  }
+
+  const spec = generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
+  const allMatchSpecs = [
+    ...spec.matches,
+    ...(spec.thirdPlaceMatch ? [spec.thirdPlaceMatch] : []),
+  ]
+
+  // Delete existing matches
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('bracket_matches').delete().eq('bracket_id', bracketId)
+
+  // Insert placeholder matches with seed labels
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: insertedMatches, error: insertError } = await (db as any)
+    .from('bracket_matches')
+    .insert(allMatchSpecs.map((m: BracketMatchSpec) => {
+      const prev = scheduleMap.get(`${m.roundNumber}:${m.matchNumber}`)
+      return {
+        organization_id: org.id,
+        bracket_id: bracketId,
+        round_number: m.roundNumber,
+        match_number: m.matchNumber,
+        team1_id: null,
+        team2_id: null,
+        team1_label: m.team1Seed ? `Seed ${m.team1Seed}` : null,
+        team2_label: m.isBye ? 'Bye' : (m.team2Seed ? `Seed ${m.team2Seed}` : null),
+        team1_seed: m.team1Seed,
+        team2_seed: m.isBye ? null : m.team2Seed,
+        is_bye: m.isBye,
+        status: 'pending',
+        // Restore schedule data if previously set
+        scheduled_at: prev?.scheduled_at ?? null,
+        court: prev?.court ?? null,
+        notes: prev?.notes ?? null,
+      }
+    }))
+    .select('id, round_number, match_number')
+
+  if (insertError) return { error: insertError.message }
+
+  // Build lookup and wire up winner_to_match_id references
+  const matchIdLookup = new Map<string, string>()
+  for (const m of (insertedMatches ?? [])) {
+    matchIdLookup.set(`${m.round_number}:${m.match_number}`, m.id)
+  }
+
+  const updates = allMatchSpecs
+    .filter((m: BracketMatchSpec) => m.winnerToMatchNumber !== null)
+    .map((m: BracketMatchSpec) => {
+      const nextRound = m.roundNumber / 2
+      const toId = matchIdLookup.get(`${nextRound}:${m.winnerToMatchNumber}`)
+      if (!toId) return null
+      const thisId = matchIdLookup.get(`${m.roundNumber}:${m.matchNumber}`)
+      if (!thisId) return null
+      return { id: thisId, winner_to_match_id: toId, winner_to_slot: m.winnerToSlot }
+    })
+    .filter(Boolean)
+
+  for (const upd of updates) {
+    if (!upd) continue
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any).from('bracket_matches')
+      .update({ winner_to_match_id: upd.winner_to_match_id, winner_to_slot: upd.winner_to_slot })
+      .eq('id', upd.id)
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('brackets').update({ status: 'scaffold' }).eq('id', bracketId)
+
+  revalidatePath(`/admin/events/${leagueId}/bracket`)
+  return { error: null, matchCount: allMatchSpecs.length }
+}
+
 // ── seedBracket ───────────────────────────────────────────────────────────────
 // Generates all bracket_matches from current standings and stores them.
 // Idempotent: deletes existing matches first.
+// Preserves any scheduled_at / court / notes set on scaffold matches.
 
 export async function seedBracket(bracketId: string, leagueId: string, seedOverrides?: Record<number, string>) {
   const org = await getOrgAndRequireAdmin()
@@ -208,6 +311,17 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   const spec = generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
   const seedMap = new Map(seededTeams.map((t) => [t.seed!, t.teamId]))
 
+  // Preserve any schedule dates the admin set on scaffold matches
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existingMatches } = await (db as any)
+    .from('bracket_matches')
+    .select('round_number, match_number, scheduled_at, court, notes')
+    .eq('bracket_id', bracketId)
+  const scheduleMap = new Map<string, { scheduled_at: string | null; court: string | null; notes: string | null }>()
+  for (const m of existingMatches ?? []) {
+    scheduleMap.set(`${m.round_number}:${m.match_number}`, { scheduled_at: m.scheduled_at, court: m.court, notes: m.notes })
+  }
+
   // Delete existing matches
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (db as any).from('bracket_matches').delete().eq('bracket_id', bracketId)
@@ -222,18 +336,27 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: insertedMatches, error: insertError } = await (db as any)
     .from('bracket_matches')
-    .insert(allMatchSpecs.map((m: BracketMatchSpec) => ({
-      organization_id: org.id,
-      bracket_id: bracketId,
-      round_number: m.roundNumber,
-      match_number: m.matchNumber,
-      team1_id: m.team1Seed ? (seedMap.get(m.team1Seed) ?? null) : null,
-      team2_id: m.isBye ? null : (m.team2Seed ? (seedMap.get(m.team2Seed) ?? null) : null),
-      team1_seed: m.team1Seed,
-      team2_seed: m.isBye ? null : m.team2Seed,
-      is_bye: m.isBye,
-      status: m.isBye ? 'bye' : (m.team1Seed && (m.team2Seed || m.isBye) ? 'ready' : 'pending'),
-    })))
+    .insert(allMatchSpecs.map((m: BracketMatchSpec) => {
+      const prev = scheduleMap.get(`${m.roundNumber}:${m.matchNumber}`)
+      return {
+        organization_id: org.id,
+        bracket_id: bracketId,
+        round_number: m.roundNumber,
+        match_number: m.matchNumber,
+        team1_id: m.team1Seed ? (seedMap.get(m.team1Seed) ?? null) : null,
+        team2_id: m.isBye ? null : (m.team2Seed ? (seedMap.get(m.team2Seed) ?? null) : null),
+        team1_label: null,
+        team2_label: null,
+        team1_seed: m.team1Seed,
+        team2_seed: m.isBye ? null : m.team2Seed,
+        is_bye: m.isBye,
+        status: m.isBye ? 'bye' : (m.team1Seed && (m.team2Seed || m.isBye) ? 'ready' : 'pending'),
+        // Preserve schedule dates from scaffold
+        scheduled_at: prev?.scheduled_at ?? null,
+        court: prev?.court ?? null,
+        notes: prev?.notes ?? null,
+      }
+    }))
     .select('id, round_number, match_number')
 
   if (insertError) return { error: insertError.message }

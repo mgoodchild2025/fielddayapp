@@ -122,6 +122,8 @@ type GameRow = {
   week_number: number | null
   home_team_id: string | null
   away_team_id: string | null
+  home_team_label: string | null
+  away_team_label: string | null
   home_team: { id: string; name: string } | { id: string; name: string }[] | null
   away_team: { id: string; name: string } | { id: string; name: string }[] | null
   game_results: {
@@ -184,8 +186,8 @@ function DateGroup({
                 {/* Teams + scores */}
                 <div className="space-y-1">
                   {([
-                    { name: homeTeam?.name ?? 'TBD', score: result?.home_score ?? null, won: homeWon },
-                    { name: awayTeam?.name ?? 'TBD', score: result?.away_score ?? null, won: awayWon },
+                    { name: homeTeam?.name ?? game.home_team_label ?? 'TBD', score: result?.home_score ?? null, won: homeWon },
+                    { name: awayTeam?.name ?? game.away_team_label ?? 'TBD', score: result?.away_score ?? null, won: awayWon },
                   ] as const).map((team, idx) => (
                     <div key={idx} className="flex items-center justify-between gap-2">
                       <span className={`text-sm font-semibold truncate ${!team.won && hasScore ? 'text-gray-400 font-normal' : ''}`}>
@@ -227,9 +229,9 @@ function DateGroup({
                 <div className="w-14 shrink-0 text-xs text-gray-400 tabular-nums">{gameTime}</div>
                 <div className="flex-1 min-w-0">
                   <p className={`font-semibold text-sm ${isPast ? 'text-gray-500' : ''}`}>
-                    {homeTeam?.name ?? 'TBD'}
+                    {homeTeam?.name ?? game.home_team_label ?? 'TBD'}
                     <span className="mx-2 font-normal text-gray-400">vs</span>
-                    {awayTeam?.name ?? 'TBD'}
+                    {awayTeam?.name ?? game.away_team_label ?? 'TBD'}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
                     {game.court && <span>Court {game.court}</span>}
@@ -262,9 +264,9 @@ function DateGroup({
               {isPast && isCaptain && result?.status !== 'confirmed' && (
                 <CaptainScoreEntry
                   gameId={game.id}
-                  sport={sport}
-                  homeTeamName={homeTeam?.name ?? 'Home'}
-                  awayTeamName={awayTeam?.name ?? 'Away'}
+                  sport={sport ?? undefined}
+                  homeTeamName={homeTeam?.name ?? game.home_team_label ?? 'Home'}
+                  awayTeamName={awayTeam?.name ?? game.away_team_label ?? 'Away'}
                   isCaptainOfHome={isCaptainOfHome}
                   isCaptainOfAway={isCaptainOfAway}
                   existingResult={result ? {
@@ -585,6 +587,7 @@ export default async function EventDetailPage({
       .select(`
         id, scheduled_at, court, status, week_number,
         home_team_id, away_team_id,
+        home_team_label, away_team_label,
         home_team:teams!games_home_team_id_fkey(id, name),
         away_team:teams!games_away_team_id_fkey(id, name),
         game_results(home_score, away_score, status, submitted_by, sets)
@@ -593,7 +596,7 @@ export default async function EventDetailPage({
       .eq('league_id', league.id)
       .order('scheduled_at', { ascending: true })
 
-    games = (gamesData ?? []) as GameRow[]
+    games = (gamesData ?? []) as unknown as GameRow[]
 
     if (user) {
       const { data: captainships } = await supabase
@@ -708,8 +711,9 @@ export default async function EventDetailPage({
         id, name, bracket_size, third_place_game, status, published_at,
         bracket_matches(
           id, round_number, match_number,
-          team1_id, team2_id, team1_seed, team2_seed,
-          is_bye, winner_team_id, score1, score2, status,
+          team1_id, team2_id, team1_label, team2_label,
+          team1_seed, team2_seed,
+          is_bye, winner_team_id, score1, score2, sets, status,
           winner_to_match_id, scheduled_at, court, notes
         )
       `)
@@ -737,8 +741,11 @@ export default async function EventDetailPage({
         status: rawBracket.status,
         matches: (rawBracket.bracket_matches ?? []).map((m: {
           id: string; round_number: number; match_number: number;
-          team1_id: string|null; team2_id: string|null; team1_seed: number|null; team2_seed: number|null;
+          team1_id: string|null; team2_id: string|null;
+          team1_label: string|null; team2_label: string|null;
+          team1_seed: number|null; team2_seed: number|null;
           is_bye: boolean; winner_team_id: string|null; score1: number|null; score2: number|null;
+          sets?: {s1:number;s2:number}[]|null;
           status: string; winner_to_match_id: string|null; scheduled_at: string|null; court: string|null; notes: string|null;
         }): BracketMatchData => ({
           id: m.id,
@@ -748,12 +755,15 @@ export default async function EventDetailPage({
           team2Id: m.team2_id,
           team1Name: m.team1_id ? (teamNameMap.get(m.team1_id) ?? null) : null,
           team2Name: m.team2_id ? (teamNameMap.get(m.team2_id) ?? null) : null,
+          team1Label: m.team1_label ?? null,
+          team2Label: m.team2_label ?? null,
           team1Seed: m.team1_seed,
           team2Seed: m.team2_seed,
           isBye: m.is_bye,
           winnerTeamId: m.winner_team_id,
           score1: m.score1,
           score2: m.score2,
+          sets: m.sets ?? null,
           status: m.status as BracketMatchData['status'],
           scheduledAt: m.scheduled_at,
           court: m.court,
