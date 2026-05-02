@@ -28,6 +28,27 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
 
+  // ── Capacity check (per-player events only) ──────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: leagueCap } = await (supabase as any)
+    .from('leagues')
+    .select('payment_mode, max_participants')
+    .eq('id', parsed.data.leagueId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (leagueCap?.payment_mode !== 'per_team' && leagueCap?.max_participants) {
+    const { count } = await supabase
+      .from('registrations')
+      .select('*', { count: 'exact', head: true })
+      .eq('league_id', parsed.data.leagueId)
+      .eq('organization_id', org.id)
+      .in('status', ['pending', 'active'])
+    if ((count ?? 0) >= leagueCap.max_participants) {
+      return { data: null, error: 'EVENT_FULL' }
+    }
+  }
+
   // Check for existing registration (skip dedup for drop-in — each invite creates a fresh reg)
   if (parsed.data.registration_type === 'season') {
     const { data: existing } = await supabase

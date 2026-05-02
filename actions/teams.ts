@@ -38,6 +38,26 @@ export async function createTeam(input: z.infer<typeof createTeamSchema>) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
 
+  // ── Capacity check (per-team payment events) ──────────────────────────────
+  const { data: leagueCap } = await supabase
+    .from('leagues')
+    .select('payment_mode, max_teams')
+    .eq('id', parsed.data.leagueId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (leagueCap?.payment_mode === 'per_team' && leagueCap.max_teams) {
+    const { count } = await supabase
+      .from('teams')
+      .select('*', { count: 'exact', head: true })
+      .eq('league_id', parsed.data.leagueId)
+      .eq('organization_id', org.id)
+      .eq('status', 'active')
+    if ((count ?? 0) >= leagueCap.max_teams) {
+      return { data: null, error: 'EVENT_FULL' }
+    }
+  }
+
   const { data: team, error } = await supabase
     .from('teams')
     .insert({
@@ -308,6 +328,24 @@ export async function joinTeamByCode(teamCode: string) {
     .single()
 
   if (!team) return { data: null, error: 'Team code not found. Check the code and try again.' }
+
+  // ── Team size capacity check ──────────────────────────────────────────────
+  const { data: leagueForSize } = await supabase
+    .from('leagues')
+    .select('max_team_size')
+    .eq('id', team.league_id)
+    .single()
+
+  if (leagueForSize?.max_team_size) {
+    const { count: memberCount } = await supabase
+      .from('team_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('team_id', team.id)
+      .eq('status', 'active')
+    if ((memberCount ?? 0) >= leagueForSize.max_team_size) {
+      return { data: null, error: `This team is full (max ${leagueForSize.max_team_size} players).` }
+    }
+  }
 
   // Ensure org membership
   await supabase.from('org_members').upsert({

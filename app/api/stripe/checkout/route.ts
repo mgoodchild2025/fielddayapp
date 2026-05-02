@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     const { leagueId, leagueSlug, teamId, orgId } = teamParsed.data
 
     const [{ data: league }, { data: team }, { data: paymentSettings }] = await Promise.all([
-      db.from('leagues').select('name, price_cents, currency').eq('id', leagueId).single(),
+      db.from('leagues').select('name, price_cents, currency, max_teams').eq('id', leagueId).single(),
       db.from('teams').select('name').eq('id', teamId).single(),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any).from('org_payment_settings').select('stripe_secret_key').eq('organization_id', orgId).single(),
@@ -41,6 +41,21 @@ export async function POST(request: NextRequest) {
         { error: 'This organization has not configured online payments. Please contact the organizer.' },
         { status: 422 }
       )
+    }
+
+    // ── Capacity guard: prevent payment if event is now full ─────────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const maxTeams = (league as any).max_teams as number | null
+    if (maxTeams) {
+      const { count: teamCount } = await db
+        .from('teams')
+        .select('*', { count: 'exact', head: true })
+        .eq('league_id', leagueId)
+        .eq('organization_id', orgId)
+        .eq('status', 'active')
+      if ((teamCount ?? 0) > maxTeams) {
+        return NextResponse.json({ error: 'This event is full — no more team spots available.' }, { status: 409 })
+      }
     }
 
     // Prevent duplicate payment
@@ -124,13 +139,26 @@ export async function POST(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db2 = db as any
   const [{ data: league }, { data: paymentSettings }, { data: profile }, { data: registration }] = await Promise.all([
-    db2.from('leagues').select('name, price_cents, currency, drop_in_price_cents').eq('id', leagueId).single(),
+    db2.from('leagues').select('name, price_cents, currency, drop_in_price_cents, max_participants, payment_mode').eq('id', leagueId).single(),
     db2.from('org_payment_settings').select('stripe_secret_key').eq('organization_id', orgId).single(),
     db2.from('profiles').select('email').eq('id', userId).single(),
     db2.from('registrations').select('registration_type').eq('id', registrationId).single(),
   ])
 
   if (!league) return NextResponse.json({ error: 'League not found' }, { status: 404 })
+
+  // ── Capacity guard: per-player events ────────────────────────────────────
+  if (league.payment_mode !== 'per_team' && league.max_participants) {
+    const { count: regCount } = await db
+      .from('registrations')
+      .select('*', { count: 'exact', head: true })
+      .eq('league_id', leagueId)
+      .eq('organization_id', orgId)
+      .in('status', ['pending', 'active'])
+    if ((regCount ?? 0) > league.max_participants) {
+      return NextResponse.json({ error: 'This event is full — no more spots available.' }, { status: 409 })
+    }
+  }
 
   const isDropIn = registration?.registration_type === 'drop_in'
   const priceCents = isDropIn ? (league.drop_in_price_cents ?? league.price_cents) : league.price_cents

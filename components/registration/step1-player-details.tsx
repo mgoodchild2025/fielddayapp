@@ -89,7 +89,9 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
 
     const result = await createRegistration({ leagueId: league.id, position: selectedPosition || undefined, registration_type: registrationType })
     if (result.error) {
-      setError(result.error)
+      setError(result.error === 'EVENT_FULL'
+        ? 'Sorry, this event is full — no more spots are available.'
+        : result.error)
       setLoading(false)
       return
     }

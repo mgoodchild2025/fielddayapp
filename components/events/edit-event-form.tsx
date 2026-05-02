@@ -278,19 +278,26 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
           </Field>
         </div>
 
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <Field label="Min Team Size">
             <input name="min_team_size" type="number" min="1" defaultValue={league.min_team_size ?? 1} className="input" />
           </Field>
           <Field label="Max Team Size">
             <input name="max_team_size" type="number" min="1" defaultValue={league.max_team_size ?? 8} className="input" />
           </Field>
-          <Field label="Max Teams">
-            <input name="max_teams" type="number" min="1" defaultValue={league.max_teams ?? ''} placeholder="Unlimited" className="input" />
-          </Field>
-          <Field label="Max Participants">
-            <input name="max_participants" type="number" min="1" defaultValue={league.max_participants ?? ''} placeholder="Unlimited" className="input" />
-          </Field>
+          {league.payment_mode === 'per_team' ? (
+            <Field label="Max Teams">
+              <input name="max_teams" type="number" min="1" defaultValue={league.max_teams ?? ''} placeholder="Unlimited" className="input" />
+            </Field>
+          ) : (
+            <Field label="Max Players">
+              <input name="max_participants" type="number" min="1" defaultValue={league.max_participants ?? ''} placeholder="Unlimited" className="input" />
+            </Field>
+          )}
+          {/* Keep the hidden field for the mode that isn't shown so the submit handler always has both values */}
+          {league.payment_mode === 'per_team'
+            ? <input type="hidden" name="max_participants" value={league.max_participants ?? ''} />
+            : <input type="hidden" name="max_teams" value={league.max_teams ?? ''} />}
         </div>
 
         {/* Venue */}

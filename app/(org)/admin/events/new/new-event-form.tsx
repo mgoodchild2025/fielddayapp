@@ -337,9 +337,11 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
   })()
 
   const capacitySummary = withTeams
-    ? `${minTeamSize ?? 4}–${maxTeamSize ?? 8} players · ${
-        maxTeams ? `${maxTeams} teams max` : 'Unlimited teams'
-      }`
+    ? (() => {
+        const sizes = `${minTeamSize ?? 4}–${maxTeamSize ?? 8} players`
+        if (paymentMode === 'per_team') return `${sizes} · ${maxTeams ? `${maxTeams} teams max` : 'Unlimited teams'}`
+        return `${sizes} · ${maxParticipants ? `${maxParticipants} players max` : 'Unlimited players'}`
+      })()
     : maxParticipants
     ? `${maxParticipants} players max`
     : 'Unlimited'
@@ -657,17 +659,31 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
                     className={INPUT}
                   />
                 </Field>
-                <Field label="Max Teams" error={errors.max_teams?.message}>
-                  <input
-                    {...register('max_teams', {
-                      setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
-                    })}
-                    type="number"
-                    min={1}
-                    placeholder="Unlimited"
-                    className={INPUT}
-                  />
-                </Field>
+                {paymentMode === 'per_team' ? (
+                  <Field label="Max Teams" error={errors.max_teams?.message}>
+                    <input
+                      {...register('max_teams', {
+                        setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
+                      })}
+                      type="number"
+                      min={1}
+                      placeholder="Unlimited"
+                      className={INPUT}
+                    />
+                  </Field>
+                ) : (
+                  <Field label="Max Players" error={errors.max_participants?.message}>
+                    <input
+                      {...register('max_participants', {
+                        setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
+                      })}
+                      type="number"
+                      min={1}
+                      placeholder="Unlimited"
+                      className={INPUT}
+                    />
+                  </Field>
+                )}
               </div>
 
               {/* Tab visibility — tucked here since it's rarely changed */}

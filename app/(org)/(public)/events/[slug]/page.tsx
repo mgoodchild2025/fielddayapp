@@ -455,6 +455,28 @@ export default async function EventDetailPage({
         .eq('registration_type' as never, 'season').maybeSingle()
     : { data: null }
 
+  // ── Live capacity counts ──────────────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const paymentMode: string = (league as any).payment_mode ?? 'per_player'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const maxTeams: number | null = (league as any).max_teams ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const maxParticipants: number | null = (league as any).max_participants ?? null
+
+  const { count: registeredTeamCount } = (isTeamBased && paymentMode === 'per_team')
+    ? await db.from('teams').select('*', { count: 'exact', head: true })
+        .eq('league_id', league.id).eq('organization_id', org.id).eq('status', 'active')
+    : { count: null }
+
+  const { count: registeredPlayerCount } = (paymentMode !== 'per_team' && (maxParticipants !== null || isTeamBased))
+    ? await db.from('registrations').select('*', { count: 'exact', head: true })
+        .eq('league_id', league.id).eq('organization_id', org.id).in('status', ['pending', 'active'])
+    : { count: null }
+
+  const isFull =
+    (paymentMode === 'per_team' && maxTeams !== null && (registeredTeamCount ?? 0) >= maxTeams) ||
+    (paymentMode !== 'per_team' && maxParticipants !== null && (registeredPlayerCount ?? 0) >= maxParticipants)
+
   // Teams list (for open-registration team events)
   const canJoinTeam = isTeamBased && league.team_join_policy !== 'admin_only'
   const { data: teams } = isTeamBased
@@ -525,7 +547,7 @@ export default async function EventDetailPage({
 
   // Sticky register bar — shown on mobile overview tab when registration is open and user isn't registered
   const stickyBar: { href: string; label: string } | null =
-    activeTab === 'overview'
+    activeTab === 'overview' && !isFull
       ? isTeamBased && !myRegistration && isOpen
         ? { href: `/register/${league.slug}`, label: 'Register Now' }
         : isSeasonPickup && !mySeasonRegistration && isRegOpen && (!isPrivatePickup || hasSeasonInvite)
@@ -849,10 +871,32 @@ export default async function EventDetailPage({
                   </p>
                 </div>
               )}
-              {isTeamBased && league.max_teams && (
-                <div className="bg-white rounded-lg border p-4">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Max Teams</p>
-                  <p className="font-semibold mt-1">{league.max_teams}</p>
+              {/* Live capacity card — per-team */}
+              {isTeamBased && paymentMode === 'per_team' && maxTeams !== null && (
+                <div className={`rounded-lg border p-4 ${isFull ? 'bg-red-50 border-red-200' : 'bg-white'}`}>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Teams</p>
+                  {isFull ? (
+                    <p className="font-semibold mt-1 text-red-600">🔒 Event Full</p>
+                  ) : (
+                    <>
+                      <p className="font-semibold mt-1">{registeredTeamCount ?? 0} / {maxTeams}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{maxTeams - (registeredTeamCount ?? 0)} spots left</p>
+                    </>
+                  )}
+                </div>
+              )}
+              {/* Live capacity card — per-player */}
+              {paymentMode !== 'per_team' && maxParticipants !== null && (
+                <div className={`rounded-lg border p-4 ${isFull ? 'bg-red-50 border-red-200' : 'bg-white'}`}>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Players</p>
+                  {isFull ? (
+                    <p className="font-semibold mt-1 text-red-600">🔒 Event Full</p>
+                  ) : (
+                    <>
+                      <p className="font-semibold mt-1">{registeredPlayerCount ?? 0} / {maxParticipants}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{maxParticipants - (registeredPlayerCount ?? 0)} spots left</p>
+                    </>
+                  )}
                 </div>
               )}
               {isTeamBased && league.min_team_size && league.max_team_size && (
@@ -947,6 +991,10 @@ export default async function EventDetailPage({
                   {mySeasonRegistration.status === 'pending' && (
                     <span className="block text-sm font-normal normal-case text-green-600 mt-1">Your registration is pending approval</span>
                   )}
+                </div>
+              ) : isFull ? (
+                <div className="w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide bg-red-50 border border-red-200 text-red-700" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+                  🔒 Event Full
                 </div>
               ) : isRegOpen ? (
                 <>
@@ -1152,6 +1200,10 @@ export default async function EventDetailPage({
                   {myRegistration.status === 'pending' && (
                     <span className="block text-sm font-normal normal-case text-green-600 mt-1">Your registration is pending approval</span>
                   )}
+                </div>
+              ) : isFull ? (
+                <div className="w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide bg-red-50 border border-red-200 text-red-700" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+                  🔒 Event Full
                 </div>
               ) : isOpen ? (
                 <Link
