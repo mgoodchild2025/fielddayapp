@@ -19,6 +19,12 @@ interface Props {
   leagueId: string
   initialSessions: Session[]
   timezone: string
+  /** 'season' = all registrants attend every session; 'session' = per-session sign-up */
+  registrationMode?: string
+  /** Count of active season registrations — used as registered count for season-pass events */
+  seasonRegistrantCount?: number
+  /** League-level max_participants — used as capacity fallback when session has no capacity set */
+  eventCapacity?: number | null
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -286,7 +292,7 @@ function EditForm({ session, leagueId, timezone, onDone }: { session: Session; l
 
 // ── Main manager ──────────────────────────────────────────────────────────────
 
-export function AdminSessionsManager({ leagueId, initialSessions, timezone }: Props) {
+export function AdminSessionsManager({ leagueId, initialSessions, timezone, registrationMode, seasonRegistrantCount = 0, eventCapacity = null }: Props) {
   const router = useRouter()
   const [showCreate, setShowCreate] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -346,7 +352,10 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone }: Pr
                     <p className="text-xs text-gray-400">{s.duration_minutes} min</p>
                   </div>
 
-                  <SpotsLabel count={s.registered_count} capacity={s.capacity} />
+                  <SpotsLabel
+                    count={registrationMode === 'season' ? seasonRegistrantCount : s.registered_count}
+                    capacity={s.capacity ?? (registrationMode === 'season' ? eventCapacity : null)}
+                  />
 
                   {s.location_override && (
                     <span className="text-xs text-gray-500">{s.location_override}</span>

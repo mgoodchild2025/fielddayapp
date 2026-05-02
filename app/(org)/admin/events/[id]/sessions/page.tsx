@@ -13,7 +13,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   const [{ data: league }, { data: sessions }, { data: branding }] = await Promise.all([
     db
       .from('leagues')
-      .select('id, name, event_type')
+      .select('id, name, event_type, registration_mode, max_participants')
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
@@ -32,6 +32,24 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   ])
 
   const timezone = branding?.timezone ?? 'America/Toronto'
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leagueAny = league as any
+  const registrationMode: string = leagueAny?.registration_mode ?? 'season'
+  const eventCapacity: number | null = leagueAny?.max_participants ?? null
+
+  // For season-pass events, all sessions are attended by every registered player.
+  // Show the event-level active registration count rather than per-session sign-ups.
+  let seasonRegistrantCount = 0
+  if (registrationMode === 'season') {
+    const { count } = await db
+      .from('registrations')
+      .select('*', { count: 'exact', head: true })
+      .eq('league_id', id)
+      .eq('organization_id', org.id)
+      .eq('status', 'active')
+    seasonRegistrantCount = count ?? 0
+  }
 
   if (!league) notFound()
 
@@ -72,7 +90,14 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
         Players registered for this event will see upcoming sessions in their dashboard.
         Use <strong>Repeat weekly</strong> when adding a session to bulk-create the full schedule at once.
       </div>
-      <AdminSessionsManager leagueId={id} initialSessions={mapped} timezone={timezone} />
+      <AdminSessionsManager
+        leagueId={id}
+        initialSessions={mapped}
+        timezone={timezone}
+        registrationMode={registrationMode}
+        seasonRegistrantCount={seasonRegistrantCount}
+        eventCapacity={eventCapacity}
+      />
     </div>
   )
 }
