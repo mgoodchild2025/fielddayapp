@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { updateLeague } from '@/actions/events'
+import { RichTextEditor } from '@/components/ui/rich-text-editor'
 
 interface League {
   id: string
@@ -398,12 +399,12 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
               <option key={t.id} value={t.id}>{t.title}</option>
             ))}
           </select>
-          <textarea
-            value={rulesContent}
-            onChange={(e) => setRulesContent(e.target.value)}
-            rows={10}
-            placeholder="Event rules shown to players during registration and on the event page…"
-            className="input font-mono text-xs leading-relaxed resize-y"
+          {/* Hidden input keeps rulesContent in FormData without relying on the editor */}
+          <input type="hidden" name="rules_content" value={rulesContent} />
+          <RichTextEditor
+            content={rulesContent}
+            onChange={setRulesContent}
+            minHeight="200px"
           />
           {ruleTemplates.length === 0 && (
             <p className="text-xs text-amber-600 mt-1">

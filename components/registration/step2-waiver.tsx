@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { signWaiver } from '@/actions/waivers'
 import type { Database } from '@/types/database'
+import { RichTextContent } from '@/components/ui/rich-text-content'
 
 type Waiver = Database['public']['Tables']['waivers']['Row']
 type GuardianRelationship = 'parent' | 'legal_guardian'
@@ -235,8 +236,8 @@ export function Step2Waiver({ org, waiver, userId, leagueId, playerName, playerD
       <div className="bg-white rounded-lg border p-5">
         <h2 className="font-semibold mb-1">{waiver.title}</h2>
         <p className="text-xs text-gray-400 mb-3">Scroll to the bottom to sign</p>
-        <div className="h-72 overflow-y-auto border rounded-md p-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-          {waiver.content}
+        <div className="h-72 overflow-y-auto border rounded-md p-4 text-gray-700">
+          <RichTextContent content={waiver.content} />
           <div ref={sentinelRef} className="h-1" />
         </div>
       </div>

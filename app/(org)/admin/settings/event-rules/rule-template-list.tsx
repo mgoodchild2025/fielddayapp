@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { upsertRuleTemplate, deleteRuleTemplate } from '@/actions/event-rules'
+import { RichTextEditor } from '@/components/ui/rich-text-editor'
 
 interface Template {
   id: string
@@ -137,13 +138,10 @@ function TemplateForm({
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Rules Content</label>
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          rows={16}
-          required
-          placeholder="1. All players must check in 15 minutes before game time.&#10;2. …"
-          className="input font-mono text-xs leading-relaxed resize-y"
+        <RichTextEditor
+          content={content}
+          onChange={setContent}
+          minHeight="300px"
         />
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}

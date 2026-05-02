@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { RichTextContent } from '@/components/ui/rich-text-content'
 
 interface Props {
   content: string
@@ -59,7 +60,7 @@ export function EventRulesModal({ content }: Props) {
 
             {/* Scrollable body */}
             <div className="overflow-y-auto px-6 py-5 flex-1">
-              <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-7">{content}</pre>
+              <RichTextContent content={content} className="text-gray-700" />
             </div>
 
             {/* Footer */}

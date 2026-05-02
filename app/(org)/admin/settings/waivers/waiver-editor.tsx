@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { upsertWaiver } from '@/actions/waivers'
+import { RichTextEditor } from '@/components/ui/rich-text-editor'
 
 interface Waiver {
   id: string
@@ -80,16 +81,13 @@ export function WaiverEditor({ existing }: Props) {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Waiver Text</label>
-          <p className="text-xs text-gray-400 mb-1">
+          <p className="text-xs text-gray-400 mb-2">
             Players will see this in a scrollable box and must reach the bottom before signing.
           </p>
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={18}
-            required
-            placeholder="By signing this waiver, I acknowledge that..."
-            className="input font-mono text-xs leading-relaxed resize-y"
+          <RichTextEditor
+            content={content}
+            onChange={setContent}
+            minHeight="360px"
           />
         </div>
 
