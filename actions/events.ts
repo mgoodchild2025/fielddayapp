@@ -63,12 +63,22 @@ export async function createLeague(
     if (count >= 1) return { data: null, error: 'UPGRADE_REQUIRED' }
   }
 
+  // Map event_type → league_type (legacy DB column)
+  const leagueTypeMap: Record<string, string> = {
+    league:     'team',
+    tournament: 'tournament',
+    pickup:     'individual',
+    drop_in:    'dropin',
+  }
+  const league_type = leagueTypeMap[parsed.data.event_type] ?? 'team'
+
   const supabase = await createServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from('leagues')
     .insert({
       organization_id: org.id,
+      league_type,
       ...parsed.data,
       season_start_date: parsed.data.season_start_date || null,
       season_end_date: parsed.data.season_end_date || null,
