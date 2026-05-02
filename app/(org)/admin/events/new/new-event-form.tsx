@@ -574,7 +574,7 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
                 error={errors.price_cents?.message}
               >
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">
                     $
                   </span>
                   <input
@@ -586,7 +586,8 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
                     step="0.01"
                     placeholder="0.00"
                     defaultValue={0}
-                    className={`${INPUT} pl-7`}
+                    className={INPUT}
+                    style={{ paddingLeft: '1.75rem' }}
                   />
                 </div>
               </Field>
@@ -608,7 +609,8 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
                       min={0}
                       step="0.01"
                       placeholder="Leave blank"
-                      className={`${INPUT} pl-7`}
+                      className={INPUT}
+                      style={{ paddingLeft: '1.75rem' }}
                     />
                   </div>
                 </Field>
