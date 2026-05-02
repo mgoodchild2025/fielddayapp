@@ -53,7 +53,7 @@ export default async function RegisterLeaguePage({
     if (!invite) notFound()
   }
 
-  const [{ data: playerDetails }, { data: existingReg }, { data: profile }, { data: connectAccount }, { data: captainTeam }] = await Promise.all([
+  const [{ data: playerDetails }, { data: existingReg }, { data: profile }, { data: connectAccount }, { data: captainTeam }, { data: rawTeams }] = await Promise.all([
     supabase.from('player_details').select('*').eq('organization_id', org.id).eq('user_id', user.id).single(),
     // For drop-ins, don't resume an existing reg (each invite = fresh registration)
     isDropIn
@@ -75,6 +75,17 @@ export default async function RegisterLeaguePage({
       .eq('role', 'captain')
       .eq('status', 'active')
       .maybeSingle(),
+    // Fetch teams for per-team events (player browse/join step)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (league as any).payment_mode === 'per_team'
+      ? supabase
+          .from('teams')
+          .select('id, name, max_team_size, team_members!team_members_team_id_fkey(id)')
+          .eq('league_id', league.id)
+          .eq('organization_id', org.id)
+          .eq('status', 'active')
+          .order('name')
+      : Promise.resolve({ data: [] }),
   ])
 
   const hasOnlinePayments = !!connectAccount?.charges_enabled
@@ -139,6 +150,15 @@ export default async function RegisterLeaguePage({
     ? (() => { const t = (captainTeam as any).teams; return Array.isArray(t) ? t[0] : t })()
     : null
   const captainTeamId = captainTeamRow?.id ?? null
+  const captainTeamName = captainTeamRow?.name ?? null
+
+  // Shape teams for the player browse/join step
+  const leagueTeams = (rawTeams ?? []).map((t: any) => ({
+    id: t.id,
+    name: t.name,
+    memberCount: Array.isArray(t.team_members) ? t.team_members.length : 0,
+    maxSize: t.max_team_size ?? null,
+  }))
 
   return (
     <RegistrationFlow
@@ -155,6 +175,8 @@ export default async function RegisterLeaguePage({
       isDropIn={isDropIn}
       dropInPriceCents={dropInPriceCents}
       captainTeamId={captainTeamId}
+      captainTeamName={captainTeamName}
+      leagueTeams={leagueTeams}
     />
   )
 }

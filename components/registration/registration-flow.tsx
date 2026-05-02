@@ -2,9 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Step0RoleSelect } from './step0-role-select'
 import { Step1PlayerDetails } from './step1-player-details'
 import { Step2Waiver } from './step2-waiver'
 import { Step3Payment } from './step3-payment'
+import { StepCaptainTeam } from './step-captain-team'
+import { StepTeamJoin } from './step-team-join'
+import type { TeamOption } from './step-team-join'
 import { linkWaiverToRegistration, activateRegistration } from '@/actions/registrations'
 import type { Database } from '@/types/database'
 
@@ -27,26 +31,65 @@ interface Props {
   isDropIn?: boolean
   dropInPriceCents?: number | null
   captainTeamId?: string | null
+  captainTeamName?: string | null
+  leagueTeams?: TeamOption[]
 }
 
-const ALL_STEPS = ['Player Details', 'Waiver', 'Payment']
+// Steps used in the progress bar (step 0 = role select, shown separately; never in bar)
+const PLAYER_STEPS = ['Player Details', 'Waiver', 'Join a Team']
+const CAPTAIN_STEPS = ['Player Details', 'Waiver', 'Create Team']
+const PAYMENT_STEPS = ['Player Details', 'Waiver', 'Payment']
 
-export function RegistrationFlow({ org, league, waiver, profile, playerDetails, userId, initialStep = 1, initialRegistrationId = null, hasOnlinePayments = false, positions = [], isDropIn = false, dropInPriceCents = null, captainTeamId = null }: Props) {
+export function RegistrationFlow({
+  org,
+  league,
+  waiver,
+  profile,
+  playerDetails,
+  userId,
+  initialStep = 1,
+  initialRegistrationId = null,
+  hasOnlinePayments = false,
+  positions = [],
+  isDropIn = false,
+  dropInPriceCents = null,
+  captainTeamId = null,
+  captainTeamName = null,
+  leagueTeams = [],
+}: Props) {
   const router = useRouter()
+
+  const effectivePriceCents = isDropIn ? (dropInPriceCents ?? 0) : league.price_cents
+  const isPerTeam = (league as unknown as { payment_mode?: string }).payment_mode === 'per_team'
+  const showPaymentStep = effectivePriceCents > 0 && hasOnlinePayments && !isPerTeam
+
+  // For per-team events, we show a role-select screen before step 1.
+  // If resuming (initialStep > 1), we can infer role: captainTeamId => captain, else player.
+  const inferredRole: 'captain' | 'player' | null = isPerTeam && initialStep > 1
+    ? (captainTeamId ? 'captain' : 'player')
+    : null
+
+  const [role, setRole] = useState<'captain' | 'player' | null>(inferredRole)
+  const [showRoleSelect, setShowRoleSelect] = useState(isPerTeam && initialStep === 1)
   const [step, setStep] = useState(initialStep)
   const [registrationId, setRegistrationId] = useState<string | null>(initialRegistrationId)
   const [completing, setCompleting] = useState(false)
+  // Track the captain's newly-created team so we can redirect after waiver
+  const [newCaptainTeamId, setNewCaptainTeamId] = useState<string | null>(captainTeamId)
+  const [newCaptainTeamName, setNewCaptainTeamName] = useState<string | null>(captainTeamName)
 
-  const effectivePriceCents = isDropIn ? (dropInPriceCents ?? 0) : league.price_cents
-  // Per-team leagues: captain pays on the team page — individuals skip payment
-  const isPerTeam = (league as unknown as { payment_mode?: string }).payment_mode === 'per_team'
-  const showPaymentStep = effectivePriceCents > 0 && hasOnlinePayments && !isPerTeam
-  const showTeamPaymentNotice = isPerTeam && effectivePriceCents > 0
-  const steps = showPaymentStep ? ALL_STEPS : ALL_STEPS.filter(s => s !== 'Payment')
+  const isCaptain = role === 'captain'
+  const isPlayer = role === 'player'
 
-  // Activate and navigate to the success page — never call a server action and then
-  // setStep(4), which would cause Next.js to re-render the parent server component
-  // and double-show the "You're Registered" screen.
+  // Choose the right step labels for the progress bar
+  const steps = showPaymentStep
+    ? PAYMENT_STEPS
+    : isPerTeam && isCaptain
+      ? CAPTAIN_STEPS
+      : isPerTeam && isPlayer
+        ? PLAYER_STEPS
+        : PAYMENT_STEPS.filter((s) => s !== 'Payment')
+
   async function completeRegistration(regId: string | null) {
     setCompleting(true)
     if (regId) await activateRegistration(regId)
@@ -56,12 +99,34 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
   async function afterWaiver() {
     if (showPaymentStep) {
       setStep(3)
-    } else if (showTeamPaymentNotice) {
-      // Per-team: activate immediately — captain pays separately on the team page
+    } else if (isPerTeam) {
+      // Both captain and player paths go to step 3 — just different UI
+      await activateRegistration(registrationId!)
       setStep(3)
     } else {
       await completeRegistration(registrationId)
     }
+  }
+
+  // ── Role select screen (step 0 for per-team events) ───────────────────────
+  if (showRoleSelect) {
+    return (
+      <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+        <div className="max-w-xl mx-auto px-4 py-8">
+          <h1 className="text-2xl font-bold uppercase mb-6" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+            Register — {league.name}
+          </h1>
+          <Step0RoleSelect
+            leagueName={league.name}
+            priceCents={effectivePriceCents}
+            onSelect={(r) => {
+              setRole(r)
+              setShowRoleSelect(false)
+            }}
+          />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -69,32 +134,59 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
       <div className="max-w-xl mx-auto px-4 py-8">
         {/* Progress indicator */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold uppercase mb-4" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-            {isDropIn ? 'Drop-in — ' : 'Register — '}{league.name}
-          </h1>
+          <div className="flex items-center gap-2 mb-4">
+            {isPerTeam && (
+              <button
+                type="button"
+                onClick={() => { setShowRoleSelect(true); setStep(1) }}
+                className="text-xs text-gray-400 hover:text-gray-600"
+                style={{ lineHeight: 1 }}
+              >
+                ←
+              </button>
+            )}
+            <h1 className="text-2xl font-bold uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+              {isDropIn ? 'Drop-in — ' : 'Register — '}{league.name}
+            </h1>
+          </div>
+          {/* Role badge */}
+          {isPerTeam && role && (
+            <div className="mb-3">
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
+                {isCaptain ? '🏆 Registering as captain' : '🙋 Registering as player'}
+              </span>
+            </div>
+          )}
           <div className="flex items-center gap-1">
             {steps.map((label, i) => {
-              // Map display step index to internal step number
-              const internalStep = ALL_STEPS.indexOf(label) + 1
+              const internalStep = i + 1
               const isActive = internalStep === step
               const isDone = internalStep < step
               return (
                 <div key={label} className="flex items-center gap-1 flex-1">
-                  <div className={`flex-1 h-1.5 rounded-full ${isDone || isActive ? '' : 'bg-gray-200'}`}
-                    style={{ backgroundColor: isDone || isActive ? 'var(--brand-primary)' : undefined }} />
+                  <div
+                    className={`flex-1 h-1.5 rounded-full ${isDone || isActive ? '' : 'bg-gray-200'}`}
+                    style={{ backgroundColor: isDone || isActive ? 'var(--brand-primary)' : undefined }}
+                  />
                   {i < steps.length - 1 && (
-                    <div className={`h-1.5 w-6 rounded-full ${isDone ? '' : 'bg-gray-200'}`}
-                      style={{ backgroundColor: isDone ? 'var(--brand-primary)' : undefined }} />
+                    <div
+                      className={`h-1.5 w-6 rounded-full ${isDone ? '' : 'bg-gray-200'}`}
+                      style={{ backgroundColor: isDone ? 'var(--brand-primary)' : undefined }}
+                    />
                   )}
                 </div>
               )
             })}
           </div>
           <div className="flex justify-between mt-2">
-            {steps.map((label) => {
-              const internalStep = ALL_STEPS.indexOf(label) + 1
+            {steps.map((label, i) => {
+              const internalStep = i + 1
               return (
-                <p key={label} className="text-xs text-gray-500" style={{ color: internalStep <= step ? 'var(--brand-primary)' : undefined }}>
+                <p
+                  key={label}
+                  className="text-xs text-gray-500"
+                  style={{ color: internalStep <= step ? 'var(--brand-primary)' : undefined }}
+                >
                   {label}
                 </p>
               )
@@ -102,6 +194,7 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
           </div>
         </div>
 
+        {/* Step 1 — Player details */}
         {step === 1 && (
           <Step1PlayerDetails
             org={org}
@@ -111,9 +204,12 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
             userId={userId}
             positions={positions}
             registrationType={isDropIn ? 'drop_in' : 'season'}
+            showTeamCode={!isPerTeam}
             onComplete={(regId) => { setRegistrationId(regId); setStep(2) }}
           />
         )}
+
+        {/* Step 2 — Waiver */}
         {step === 2 && (
           <Step2Waiver
             org={org}
@@ -132,11 +228,14 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
             onBack={() => setStep(1)}
           />
         )}
+
         {completing && (
           <div className="bg-white rounded-lg border p-8 text-center text-gray-500">
             Completing registration…
           </div>
         )}
+
+        {/* Step 3 — Per-player payment */}
         {step === 3 && showPaymentStep && !completing && (
           <Step3Payment
             org={org}
@@ -147,49 +246,24 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
             onBack={() => setStep(waiver ? 2 : 1)}
           />
         )}
-        {step === 3 && showTeamPaymentNotice && !completing && (
-          <div className="bg-white rounded-lg border p-6 space-y-4 text-center">
-            <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mx-auto">
-              <svg className="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            {captainTeamId ? (
-              // Captain registering — send them straight to pay for their team
-              <div>
-                <h2 className="font-semibold text-lg">Registration saved!</h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  As team captain, you&apos;re responsible for completing the team payment. Head to your team page to pay and confirm your whole roster.
-                </p>
-              </div>
-            ) : (
-              // Regular player
-              <div>
-                <h2 className="font-semibold text-lg">You&apos;re on the list!</h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  Payment for this event is handled per team. Your team captain will complete the payment — your spot will be confirmed once the team pays.
-                </p>
-              </div>
-            )}
-            {captainTeamId ? (
-              <a
-                href={`/teams/${captainTeamId}`}
-                className="block w-full py-3 rounded-md font-semibold text-white text-center"
-                style={{ backgroundColor: 'var(--brand-primary)' }}
-              >
-                Go to my team &amp; pay →
-              </a>
-            ) : (
-              <button
-                onClick={() => completeRegistration(registrationId)}
-                className="w-full py-3 rounded-md font-semibold text-white"
-                style={{ backgroundColor: 'var(--brand-primary)' }}
-              >
-                Got it →
-              </button>
-            )}
-          </div>
+
+        {/* Step 3 — Captain: create/name team */}
+        {step === 3 && isPerTeam && isCaptain && !completing && (
+          <StepCaptainTeam
+            leagueId={league.id}
+            captainTeamId={newCaptainTeamId}
+            captainTeamName={newCaptainTeamName}
+            onBack={() => setStep(2)}
+          />
+        )}
+
+        {/* Step 3 — Player: team code or browse */}
+        {step === 3 && isPerTeam && isPlayer && !completing && (
+          <StepTeamJoin
+            teams={leagueTeams}
+            onComplete={() => router.push(`/register/${league.slug}/success`)}
+            onBack={() => setStep(2)}
+          />
         )}
       </div>
     </div>

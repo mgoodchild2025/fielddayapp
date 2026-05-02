@@ -34,10 +34,12 @@ interface Props {
   userId: string
   positions?: string[]
   registrationType?: 'season' | 'drop_in'
+  /** Show the team-code field (hidden for per-team events where joining happens in a dedicated step) */
+  showTeamCode?: boolean
   onComplete: (registrationId: string) => void
 }
 
-export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, positions = [], registrationType = 'season', onComplete }: Props) {
+export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, positions = [], registrationType = 'season', showTeamCode = true, onComplete }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedPosition, setSelectedPosition] = useState('')
@@ -180,32 +182,34 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border p-5 space-y-2">
-        <h2 className="font-semibold">Have a Team Code? <span className="text-gray-400 font-normal text-sm">(optional)</span></h2>
-        <p className="text-xs text-gray-500">If your captain gave you a 6-character code, enter it here to join your team automatically.</p>
-        <div className="flex gap-2 items-start">
-          <div className="flex-1">
-            <input
-              type="text"
-              value={teamCode}
-              onChange={(e) => {
-                setTeamCode(e.target.value.toUpperCase())
-                setTeamCodeValid(null)
-                setTeamCodeError(null)
-              }}
-              onBlur={handleTeamCodeBlur}
-              placeholder="e.g. AB3X7K"
-              maxLength={6}
-              className="w-full border rounded-md px-3 py-2 text-sm font-mono tracking-widest uppercase"
-            />
-            {teamCodeError && <p className="text-red-500 text-xs mt-1">{teamCodeError}</p>}
-            {teamCodeValid && (
-              <p className="text-green-600 text-xs mt-1">✓ Joining <strong>{teamCodeValid.name}</strong></p>
-            )}
+      {showTeamCode && (
+        <div className="bg-white rounded-lg border p-5 space-y-2">
+          <h2 className="font-semibold">Have a Team Code? <span className="text-gray-400 font-normal text-sm">(optional)</span></h2>
+          <p className="text-xs text-gray-500">If your captain gave you a 6-character code, enter it here to join your team automatically.</p>
+          <div className="flex gap-2 items-start">
+            <div className="flex-1">
+              <input
+                type="text"
+                value={teamCode}
+                onChange={(e) => {
+                  setTeamCode(e.target.value.toUpperCase())
+                  setTeamCodeValid(null)
+                  setTeamCodeError(null)
+                }}
+                onBlur={handleTeamCodeBlur}
+                placeholder="e.g. AB3X7K"
+                maxLength={6}
+                className="w-full border rounded-md px-3 py-2 text-sm font-mono tracking-widest uppercase"
+              />
+              {teamCodeError && <p className="text-red-500 text-xs mt-1">{teamCodeError}</p>}
+              {teamCodeValid && (
+                <p className="text-green-600 text-xs mt-1">✓ Joining <strong>{teamCodeValid.name}</strong></p>
+              )}
+            </div>
+            {validating && <span className="text-xs text-gray-400 mt-2.5">Checking…</span>}
           </div>
-          {validating && <span className="text-xs text-gray-400 mt-2.5">Checking…</span>}
         </div>
-      </div>
+      )}
 
       <div className="bg-white rounded-lg border p-5">
         <h2 className="font-semibold mb-3">Notifications</h2>
