@@ -19,12 +19,19 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
+function venueLabel(sport?: string): string {
+  if (sport === 'hockey') return 'Rink'
+  if (['baseball', 'softball', 'soccer', 'flag_football', 'ultimate_frisbee'].includes(sport ?? '')) return 'Field'
+  return 'Court'
+}
+
 interface Props {
   leagueId: string
+  sport?: string
   teams: { id: string; name: string }[]
 }
 
-export function AddGameForm({ leagueId, teams }: Props) {
+export function AddGameForm({ leagueId, sport, teams }: Props) {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -100,7 +107,7 @@ export function AddGameForm({ leagueId, teams }: Props) {
 
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Court</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">{venueLabel(sport)}</label>
             <input
               {...register('court')}
               type="text"

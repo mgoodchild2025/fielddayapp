@@ -4,8 +4,52 @@ import { useState, useTransition, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { adminSetScore } from '@/actions/scores'
 
-const SET_SPORTS = new Set(['volleyball', 'beach_volleyball'])
-const MAX_SETS = 3
+const SET_SPORTS    = new Set(['volleyball', 'beach_volleyball'])
+const PERIOD_SPORTS = new Set(['hockey'])
+const INNING_SPORTS = new Set(['baseball', 'softball'])
+
+type ScoringMode = 'sets' | 'periods' | 'innings' | 'simple'
+
+function getScoringMode(sport?: string): ScoringMode {
+  if (SET_SPORTS.has(sport ?? ''))    return 'sets'
+  if (PERIOD_SPORTS.has(sport ?? '')) return 'periods'
+  if (INNING_SPORTS.has(sport ?? '')) return 'innings'
+  return 'simple'
+}
+
+function segmentLabel(mode: ScoringMode, i: number): string {
+  if (mode === 'periods') {
+    if (i < 3) return `P${i + 1}`
+    if (i === 3) return 'OT'
+    return `${i - 2}OT`
+  }
+  return String(i + 1)
+}
+
+function segmentName(mode: ScoringMode): string {
+  if (mode === 'periods') return 'Period'
+  if (mode === 'innings') return 'Inning'
+  return 'Set'
+}
+
+function canAddMore(mode: ScoringMode, count: number): boolean {
+  if (mode === 'sets')    return count < 3
+  if (mode === 'periods') return count < 5   // P1–P3 + OT + 2OT
+  if (mode === 'innings') return count < 20  // extra innings
+  return false
+}
+
+function addButtonLabel(mode: ScoringMode, count: number): string {
+  if (mode === 'sets')    return `+ Add set ${count + 1}`
+  if (mode === 'periods') return count === 3 ? '+ Add overtime' : `+ Add ${count - 2}OT`
+  return `+ Add extra inning ${count + 1}`
+}
+
+function scoreSummaryLabel(mode: ScoringMode): string {
+  if (mode === 'periods') return 'Goals'
+  if (mode === 'innings') return 'Runs'
+  return 'Sets won'
+}
 
 // SetScore — numeric, used in Props (data from DB)
 interface SetScore { home: number; away: number }
@@ -28,7 +72,8 @@ interface Props {
   compact?: boolean
 }
 
-function emptySets(n: number): EditSet[] {
+function defaultSegments(mode: ScoringMode): EditSet[] {
+  const n = mode === 'innings' ? 9 : mode === 'periods' ? 3 : 2
   return Array.from({ length: n }, () => ({ home: '', away: '' }))
 }
 
@@ -53,7 +98,8 @@ function setsWon(sets: EditSet[]): [number, number] {
 function ScoreEntrySheet({
   gameId, leagueId, sport, homeTeamName, awayTeamName, existingResult, onClose,
 }: Props & { onClose: () => void }) {
-  const isSetBased = SET_SPORTS.has(sport ?? '')
+  const scoringMode = getScoringMode(sport)
+  const isSegmented = scoringMode !== 'simple'
 
   const [homeScore, setHomeScore] = useState<string>(
     existingResult?.homeScore != null ? String(existingResult.homeScore) : ''
@@ -62,11 +108,11 @@ function ScoreEntrySheet({
     existingResult?.awayScore != null ? String(existingResult.awayScore) : ''
   )
   const [sets, setSets] = useState<EditSet[]>(() => {
-    if (!isSetBased) return []
+    if (!isSegmented) return []
     if (existingResult?.sets?.length) {
       return existingResult.sets.map((s) => ({ home: String(s.home), away: String(s.away) }))
     }
-    return emptySets(2)
+    return defaultSegments(scoringMode)
   })
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -99,11 +145,18 @@ function ScoreEntrySheet({
     let finalAway: number
     let finalSets: { home: number; away: number }[] | undefined
 
-    if (isSetBased) {
-      const [h, a] = setsWon(sets)
-      finalHome = h
-      finalAway = a
-      finalSets = sets.map((s) => ({ home: parseScore(s.home), away: parseScore(s.away) }))
+    if (isSegmented) {
+      const numericSegs = sets.map((s) => ({ home: parseScore(s.home), away: parseScore(s.away) }))
+      if (scoringMode === 'sets') {
+        const [h, a] = setsWon(sets)
+        finalHome = h
+        finalAway = a
+      } else {
+        // periods & innings: final score = sum of all segments
+        finalHome = numericSegs.reduce((sum, s) => sum + s.home, 0)
+        finalAway = numericSegs.reduce((sum, s) => sum + s.away, 0)
+      }
+      finalSets = numericSegs
     } else {
       finalHome = parseScore(homeScore)
       finalAway = parseScore(awayScore)
@@ -138,18 +191,20 @@ function ScoreEntrySheet({
             <p className="text-sm text-gray-500 mt-0.5 truncate">{homeTeamName} vs {awayTeamName}</p>
           </div>
 
-          {isSetBased ? (
-            /* Volleyball: set-by-set inputs */
+          {isSegmented ? (
+            /* Volleyball sets / Hockey periods / Baseball innings */
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-xs font-medium text-gray-400 uppercase tracking-wide">
-                <span className="w-10 text-center">Set</span>
+                <span className="w-10 text-center">{segmentName(scoringMode)}</span>
                 <span className="flex-1 text-center truncate">{homeTeamName}</span>
                 <span className="w-4" />
                 <span className="flex-1 text-center truncate">{awayTeamName}</span>
               </div>
               {sets.map((s, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400 w-10 text-center font-semibold">{i + 1}</span>
+                  <span className="text-xs text-gray-400 w-10 text-center font-semibold">
+                    {segmentLabel(scoringMode, i)}
+                  </span>
                   <div className="flex-1 flex justify-center">
                     <input
                       type="number" inputMode="numeric" pattern="[0-9]*" min={0}
@@ -173,23 +228,26 @@ function ScoreEntrySheet({
                       className="w-16 h-12 border-2 rounded-xl text-2xl font-bold tabular-nums text-center focus:outline-none focus:border-blue-400"
                     />
                   </div>
-                  {sets.length > 1 && (
+                  {sets.length > 1 && scoringMode !== 'innings' && (
                     <button type="button" onClick={() => setSets((p) => p.filter((_, j) => j !== i))}
                       className="w-6 text-gray-300 hover:text-red-400 text-xl text-center">×</button>
                   )}
                 </div>
               ))}
-              {sets.length < MAX_SETS && (
+              {canAddMore(scoringMode, sets.length) && (
                 <button type="button" onClick={addSet}
                   className="text-sm text-blue-600 hover:underline pl-10">
-                  + Add set {sets.length + 1}
+                  {addButtonLabel(scoringMode, sets.length)}
                 </button>
               )}
               {(() => {
-                const [h, a] = setsWon(sets)
+                const numericSegs = sets.map(s => ({ home: parseScore(s.home), away: parseScore(s.away) }))
+                const [h, a] = scoringMode === 'sets'
+                  ? setsWon(sets)
+                  : [numericSegs.reduce((sum, s) => sum + s.home, 0), numericSegs.reduce((sum, s) => sum + s.away, 0)]
                 return (
                   <p className="text-sm text-gray-500 pl-10">
-                    Sets won: <span className="font-semibold tabular-nums">{h} – {a}</span>
+                    {scoreSummaryLabel(scoringMode)}: <span className="font-semibold tabular-nums">{h} – {a}</span>
                   </p>
                 )
               })()}

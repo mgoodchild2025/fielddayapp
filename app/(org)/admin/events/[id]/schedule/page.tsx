@@ -97,7 +97,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
       {isOrgAdmin && (
         <div className="space-y-4">
           <RoundRobinGenerator leagueId={id} teamCount={(teams ?? []).length} />
-          <AddGameForm leagueId={id} teams={teams ?? []} />
+          <AddGameForm leagueId={id} sport={sport} teams={teams ?? []} />
           <ScheduleImport leagueId={id} />
         </div>
       )}

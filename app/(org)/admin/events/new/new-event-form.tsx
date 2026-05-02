@@ -30,17 +30,19 @@ const INPUT =
 const SELECT = 'w-full border rounded-md px-3 py-2 text-sm'
 
 const SPORTS = [
+  { value: 'baseball', label: 'Baseball' },
   { value: 'beach_volleyball', label: 'Beach Volleyball' },
-  { value: 'volleyball', label: 'Volleyball' },
   { value: 'basketball', label: 'Basketball' },
+  { value: 'dodgeball', label: 'Dodgeball' },
+  { value: 'flag_football', label: 'Flag Football' },
+  { value: 'hockey', label: 'Hockey' },
+  { value: 'kickball', label: 'Kickball' },
+  { value: 'pickleball', label: 'Pickleball' },
   { value: 'soccer', label: 'Soccer' },
   { value: 'softball', label: 'Softball' },
-  { value: 'flag_football', label: 'Flag Football' },
-  { value: 'kickball', label: 'Kickball' },
-  { value: 'dodgeball', label: 'Dodgeball' },
-  { value: 'ultimate_frisbee', label: 'Ultimate Frisbee' },
   { value: 'tennis', label: 'Tennis' },
-  { value: 'pickleball', label: 'Pickleball' },
+  { value: 'ultimate_frisbee', label: 'Ultimate Frisbee' },
+  { value: 'volleyball', label: 'Volleyball' },
   { value: 'other', label: 'Other' },
 ]
 
