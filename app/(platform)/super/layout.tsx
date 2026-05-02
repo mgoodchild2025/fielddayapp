@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createServerClient } from '@/lib/supabase/server'
 
 export default async function PlatformAdminLayout({
@@ -24,7 +25,7 @@ export default async function PlatformAdminLayout({
     <div className="min-h-screen bg-gray-950">
       <nav className="bg-gray-900 border-b border-gray-800 text-white px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <span className="text-lg font-bold tracking-tight">⚡ Fieldday</span>
+          <Image src="/Fieldday-Icon.png" alt="Fieldday" width={28} height={28} className="rounded" />
           <span className="text-xs text-gray-400 uppercase tracking-widest font-medium">Platform Admin</span>
           <Link href="/super" className="text-sm text-gray-400 hover:text-white transition-colors">Organizations</Link>
           <Link href="/super/settings" className="text-sm text-gray-400 hover:text-white transition-colors">Settings</Link>

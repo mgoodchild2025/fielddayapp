@@ -13,9 +13,9 @@ function MarketingPage() {
       <Image
         src="/Fieldday-og.png"
         alt="Fieldday"
-        width={400}
-        height={160}
-        className="w-64 sm:w-80 h-auto"
+        width={1200}
+        height={800}
+        className="w-72 sm:w-96 h-auto rounded-xl"
         priority
       />
       <p className="mt-6 text-xl text-gray-600">Sports league management, built for your community.</p>
