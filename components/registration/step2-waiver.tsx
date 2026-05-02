@@ -60,7 +60,7 @@ export function Step2Waiver({ org, waiver, userId, leagueId, playerName, playerD
     )
     observer.observe(sentinelRef.current)
     return () => observer.disconnect()
-  }, [])
+  }, [showAgeGate])
 
   if (!waiver) {
     return (
