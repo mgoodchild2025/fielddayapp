@@ -65,29 +65,39 @@ function InningsGrid({ count, homeTeamName, awayTeamName }: { count: number; hom
   )
 }
 
-function SignatureBlock({ homeTeamName, awayTeamName }: { homeTeamName: string; awayTeamName: string }) {
-  const lines = [
-    'Referee 1',
-    'Referee 2',
-    `Home Captain (${homeTeamName})`,
-    `Away Captain (${awayTeamName})`,
-  ]
+function SignaturePerson({ label }: { label: string }) {
   return (
-    <div className="mt-8 pt-4 border-t-2 border-black space-y-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Signatures</p>
-      {lines.map((label) => (
-        <div key={label} className="flex items-end gap-6">
-          <span className="text-sm font-medium w-52 shrink-0">{label}</span>
-          <div className="flex-1">
-            <p className="text-[10px] text-gray-400 mb-0.5">Print name</p>
-            <div className="border-b border-black h-5" />
-          </div>
-          <div className="flex-1">
-            <p className="text-[10px] text-gray-400 mb-0.5">Signature</p>
-            <div className="border-b border-black h-5" />
-          </div>
+    <div>
+      <p className="text-sm font-semibold mb-1">{label}</p>
+      <div className="pl-2 space-y-2">
+        <div>
+          <p className="text-[10px] text-gray-400 mb-0.5">Print name</p>
+          <div className="border-b border-black h-6" />
         </div>
-      ))}
+        <div>
+          <p className="text-[10px] text-gray-400 mb-0.5">Signature</p>
+          <div className="border-b border-black h-7" />
+        </div>
+        <div className="w-48">
+          <p className="text-[10px] text-gray-400 mb-0.5">Date</p>
+          <div className="border-b border-black h-6" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SignatureBlock({ homeTeamName, awayTeamName }: { homeTeamName: string; awayTeamName: string }) {
+  return (
+    <div className="mt-8 pt-4 border-t-2 border-black">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-4">Signatures</p>
+      <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+        <SignaturePerson label="Referee 1" />
+        <SignaturePerson label="Referee 2" />
+        <SignaturePerson label="Scorekeeper" />
+        <SignaturePerson label={`Home Captain / Coach (${homeTeamName})`} />
+        <SignaturePerson label={`Away Captain / Coach (${awayTeamName})`} />
+      </div>
     </div>
   )
 }

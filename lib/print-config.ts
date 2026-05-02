@@ -7,7 +7,7 @@ export type ScoreStructure =
 
 export function getScoreStructure(sport: string): ScoreStructure {
   switch (sport) {
-    case 'volleyball':       return { type: 'sets',    count: 5 }
+    case 'volleyball':       return { type: 'sets',    count: 3 }
     case 'beach_volleyball': return { type: 'sets',    count: 3 }
     case 'basketball':       return { type: 'periods', labels: ['Q1', 'Q2', 'Q3', 'Q4', 'OT'] }
     case 'hockey':           return { type: 'periods', labels: ['P1', 'P2', 'P3', 'OT'] }
