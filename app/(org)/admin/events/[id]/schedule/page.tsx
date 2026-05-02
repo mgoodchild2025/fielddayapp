@@ -3,6 +3,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { getAdminScope } from '@/lib/admin-scope'
 import { AddGameForm } from '@/components/schedule/add-game-form'
+import { AssignSlotsCard } from '@/components/schedule/assign-slots-card'
 import { InsertBreakForm } from '@/components/schedule/insert-break-form'
 import { ScheduleImport } from '@/components/schedule/schedule-import'
 import { RoundRobinGenerator } from '@/components/schedule/round-robin-generator'
@@ -96,6 +97,17 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
     }
   })
 
+  // Collect unique unmatched slot labels from the current game list
+  const slotLabelSet = new Set<string>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(mappedGames as any[]).forEach((g: any) => {
+    if (!g.homeTeamId && g.homeTeamLabel) slotLabelSet.add(g.homeTeamLabel)
+    if (!g.awayTeamId && g.awayTeamLabel) slotLabelSet.add(g.awayTeamLabel)
+  })
+  const slotLabels = Array.from(slotLabelSet).sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+  )
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {/* Game list */}
@@ -112,6 +124,8 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
       {/* Sidebar tools — org admins only */}
       {isOrgAdmin && (
         <div className="space-y-4">
+          {/* Slot assignment — shown when template games exist and real teams are available */}
+          <AssignSlotsCard leagueId={id} slotLabels={slotLabels} teams={teams ?? []} />
           <RoundRobinGenerator leagueId={id} teamCount={(teams ?? []).length} maxTeams={maxParticipants} />
           <AddGameForm leagueId={id} sport={sport} teams={teams ?? []} />
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}

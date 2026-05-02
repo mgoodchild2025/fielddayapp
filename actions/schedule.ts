@@ -235,6 +235,59 @@ export async function deleteGame(gameId: string, leagueId: string) {
   return { error: null }
 }
 
+export async function assignSlotToTeam(input: {
+  leagueId: string
+  /** Each entry maps a slot label (e.g. "Team 3") to a real team id */
+  assignments: Array<{ slotLabel: string; teamId: string }>
+}) {
+  if (!input.leagueId || !input.assignments.length) {
+    return { error: 'Invalid input', count: 0 }
+  }
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated', count: 0 }
+
+  const { data: adminMember } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+  if (!adminMember) return { error: 'Admin access required', count: 0 }
+
+  // Apply each assignment — update both home and away slots in parallel
+  const updates = input.assignments.flatMap(({ slotLabel, teamId }) => [
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('games')
+      .update({ home_team_id: teamId, home_team_label: null })
+      .eq('league_id', input.leagueId)
+      .eq('organization_id', org.id)
+      .is('home_team_id', null)
+      .eq('home_team_label', slotLabel),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('games')
+      .update({ away_team_id: teamId, away_team_label: null })
+      .eq('league_id', input.leagueId)
+      .eq('organization_id', org.id)
+      .is('away_team_id', null)
+      .eq('away_team_label', slotLabel),
+  ])
+
+  const results = await Promise.all(updates)
+  const firstError = results.find(r => r.error)
+  if (firstError?.error) return { error: firstError.error.message, count: 0 }
+
+  revalidatePath(`/admin/events/${input.leagueId}/schedule`)
+  return { error: null, count: input.assignments.length }
+}
+
 export async function insertBreak(input: {
   leagueId: string
   /** UTC ISO string — games with scheduled_at >= this value get shifted forward */
