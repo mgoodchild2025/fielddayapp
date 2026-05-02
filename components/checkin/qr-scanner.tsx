@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
-import { checkInByToken } from '@/actions/checkin'
+import { checkInByToken, checkInWalkIn } from '@/actions/checkin'
 import type { CheckInResult } from '@/actions/checkin'
 import { unlockAudio, playCheckinSound } from '@/lib/audio'
 
@@ -9,6 +9,7 @@ interface Props {
   leagueId: string
   timezone: string
   checkinSound?: string | null
+  sessionId?: string   // if provided, do per-session check-in
 }
 
 type ScanState =
@@ -16,11 +17,14 @@ type ScanState =
   | { type: 'scanning' }
   | { type: 'success'; playerName: string; teamName: string | null }
   | { type: 'already_in'; playerName: string; checkedInAt: string }
+  | { type: 'not_in_session'; playerName: string; registrationId: string }
+  | { type: 'walk_in_success'; playerName: string }
   | { type: 'error'; message: string }
 
 function resultFromAction(r: CheckInResult): ScanState {
   if (r.status === 'success') return { type: 'success', playerName: r.playerName, teamName: r.teamName }
   if (r.status === 'already_checked_in') return { type: 'already_in', playerName: r.playerName, checkedInAt: r.checkedInAt }
+  if (r.status === 'not_registered_for_session') return { type: 'not_in_session', playerName: r.playerName, registrationId: r.registrationId }
   if (r.status === 'wrong_event') return { type: 'error', message: 'This QR is for a different event.' }
   if (r.status === 'unauthorized') return { type: 'error', message: 'You must be logged in to check in players.' }
   return { type: 'error', message: 'QR code not recognised.' }
@@ -32,13 +36,14 @@ function extractToken(raw: string): string | null {
   return match ? match[0] : null
 }
 
-export function QRScanner({ leagueId, timezone, checkinSound }: Props) {
+export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const lastTokenRef = useRef<string | null>(null)
   const cooldownRef = useRef(false)
   const [isActive, setIsActive] = useState(false)
   const [scanState, setScanState] = useState<ScanState>({ type: 'idle' })
   const [isPending, startTransition] = useTransition()
+  const [isWalkInPending, startWalkInTransition] = useTransition()
   const [cameraError, setCameraError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -65,15 +70,30 @@ export function QRScanner({ leagueId, timezone, checkinSound }: Props) {
             setScanState({ type: 'scanning' })
 
             startTransition(async () => {
-              const result = await checkInByToken(token, leagueId)
+              const result = await checkInByToken(token, leagueId, sessionId)
               const nextState = resultFromAction(result)
               setScanState(nextState)
-              if (nextState.type === 'success') playCheckinSound(checkinSound)
-              setTimeout(() => {
-                lastTokenRef.current = null
-                cooldownRef.current = false
-                setScanState({ type: 'idle' })
-              }, 3000)
+
+              if (nextState.type === 'success') {
+                playCheckinSound(checkinSound)
+                setTimeout(() => {
+                  lastTokenRef.current = null
+                  cooldownRef.current = false
+                  setScanState({ type: 'idle' })
+                }, 3000)
+              } else if (nextState.type === 'not_in_session') {
+                // Keep state visible so admin can choose; unblock scanner for other players after 8s
+                setTimeout(() => {
+                  lastTokenRef.current = null
+                  cooldownRef.current = false
+                }, 8000)
+              } else {
+                setTimeout(() => {
+                  lastTokenRef.current = null
+                  cooldownRef.current = false
+                  setScanState({ type: 'idle' })
+                }, 3000)
+              }
             })
           },
           () => { /* ignore per-frame decode errors */ },
@@ -98,13 +118,31 @@ export function QRScanner({ leagueId, timezone, checkinSound }: Props) {
         html5QrCode.stop().catch(() => undefined)
       }
     }
-  }, [isActive, leagueId])
+  }, [isActive, leagueId, sessionId])
 
   function handleStop() {
     setIsActive(false)
     setScanState({ type: 'idle' })
     lastTokenRef.current = null
     cooldownRef.current = false
+  }
+
+  function handleWalkIn(registrationId: string, playerName: string) {
+    if (!sessionId) return
+    startWalkInTransition(async () => {
+      const result = await checkInWalkIn(registrationId, sessionId, leagueId)
+      if (result.error) {
+        setScanState({ type: 'error', message: result.error })
+      } else {
+        setScanState({ type: 'walk_in_success', playerName })
+        playCheckinSound(checkinSound)
+      }
+      setTimeout(() => {
+        lastTokenRef.current = null
+        cooldownRef.current = false
+        setScanState({ type: 'idle' })
+      }, 3000)
+    })
   }
 
   return (
@@ -171,6 +209,42 @@ export function QRScanner({ leagueId, timezone, checkinSound }: Props) {
                 <p className="font-semibold text-green-800">{scanState.playerName}</p>
                 {scanState.teamName && <p className="text-sm text-green-600">{scanState.teamName}</p>}
                 <p className="text-xs text-green-600 mt-1">Checked in</p>
+              </div>
+            )}
+
+            {scanState.type === 'walk_in_success' && (
+              <div className="w-full bg-green-50 border border-green-200 rounded-lg px-5 py-4 text-center">
+                <p className="text-2xl mb-1">✓</p>
+                <p className="font-semibold text-green-800">{scanState.playerName}</p>
+                <p className="text-xs text-green-600 mt-1">Added as walk-in & checked in</p>
+              </div>
+            )}
+
+            {scanState.type === 'not_in_session' && (
+              <div className="w-full bg-amber-50 border border-amber-200 rounded-lg px-5 py-4">
+                <p className="text-2xl mb-1 text-center">⚠</p>
+                <p className="font-semibold text-amber-800 text-center">{scanState.playerName}</p>
+                <p className="text-xs text-amber-700 text-center mt-1">Not registered for this session</p>
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={() => handleWalkIn(scanState.registrationId, scanState.playerName)}
+                    disabled={isWalkInPending}
+                    className="flex-1 px-3 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60"
+                    style={{ backgroundColor: 'var(--brand-primary)' }}
+                  >
+                    {isWalkInPending ? 'Adding…' : 'Add as Walk-in'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      lastTokenRef.current = null
+                      cooldownRef.current = false
+                      setScanState({ type: 'idle' })
+                    }}
+                    className="px-3 py-2 rounded-md text-sm font-medium border border-amber-300 text-amber-700 hover:bg-amber-100"
+                  >
+                    Dismiss
+                  </button>
+                </div>
               </div>
             )}
 

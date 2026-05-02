@@ -1,42 +1,57 @@
 'use client'
 
 import { useState, useMemo, useTransition } from 'react'
-import { checkInByToken, undoCheckIn } from '@/actions/checkin'
+import { checkInByToken, undoCheckIn, manualSessionCheckIn, undoSessionCheckIn } from '@/actions/checkin'
 
 interface Registration {
-  id: string
+  id: string                      // registration.id (event-level)
   playerName: string
   teamName: string | null
   checkinToken: string
   checkedInAt: string | null
+  isWalkIn?: boolean
+  sessionRegistrationId?: string  // present when in session mode
 }
 
 interface Props {
   registrations: Registration[]
   leagueId: string
   timezone: string
+  sessionId?: string              // if provided, use per-session check-in actions
 }
 
 // ─── Individual row / card ────────────────────────────────────────────────────
 
-function useCheckInRow(reg: Registration, leagueId: string) {
+function useCheckInRow(reg: Registration, leagueId: string, sessionId?: string) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+
+  const isSessionMode = !!sessionId && !!reg.sessionRegistrationId
 
   function handleCheckIn() {
     setError(null)
     startTransition(async () => {
-      const result = await checkInByToken(reg.checkinToken, leagueId)
-      if (result.status === 'not_found') setError('Token not found')
-      else if (result.status === 'unauthorized') setError('Not authorised')
+      if (isSessionMode) {
+        const result = await manualSessionCheckIn(reg.sessionRegistrationId!, leagueId)
+        if (result?.error) setError(result.error)
+      } else {
+        const result = await checkInByToken(reg.checkinToken, leagueId)
+        if (result.status === 'not_found') setError('Token not found')
+        else if (result.status === 'unauthorized') setError('Not authorised')
+      }
     })
   }
 
   function handleUndo() {
     setError(null)
     startTransition(async () => {
-      const result = await undoCheckIn(reg.id, leagueId)
-      if (result?.error) setError(result.error)
+      if (isSessionMode) {
+        const result = await undoSessionCheckIn(reg.sessionRegistrationId!, leagueId)
+        if (result?.error) setError(result.error)
+      } else {
+        const result = await undoCheckIn(reg.id, leagueId)
+        if (result?.error) setError(result.error)
+      }
     })
   }
 
@@ -49,12 +64,14 @@ function TableRow({
   reg,
   leagueId,
   timezone,
+  sessionId,
 }: {
   reg: Registration
   leagueId: string
   timezone: string
+  sessionId?: string
 }) {
-  const { isPending, error, handleCheckIn, handleUndo } = useCheckInRow(reg, leagueId)
+  const { isPending, error, handleCheckIn, handleUndo } = useCheckInRow(reg, leagueId, sessionId)
 
   return (
     <tr
@@ -62,7 +79,12 @@ function TableRow({
       title={error ?? undefined}
     >
       <td className="px-4 py-3">
-        <div className="font-medium">{reg.playerName}</div>
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{reg.playerName}</span>
+          {reg.isWalkIn && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">Walk-in</span>
+          )}
+        </div>
         {reg.teamName && <div className="text-xs text-gray-400">{reg.teamName}</div>}
       </td>
       <td className="px-4 py-3">
@@ -115,12 +137,14 @@ function MobileCard({
   reg,
   leagueId,
   timezone,
+  sessionId,
 }: {
   reg: Registration
   leagueId: string
   timezone: string
+  sessionId?: string
 }) {
-  const { isPending, error, handleCheckIn, handleUndo } = useCheckInRow(reg, leagueId)
+  const { isPending, error, handleCheckIn, handleUndo } = useCheckInRow(reg, leagueId, sessionId)
   const checkedIn = !!reg.checkedInAt
 
   return (
@@ -128,7 +152,12 @@ function MobileCard({
       {/* Top row: name + status badge */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-semibold truncate">{reg.playerName}</p>
+          <div className="flex items-center gap-2">
+            <p className="font-semibold truncate">{reg.playerName}</p>
+            {reg.isWalkIn && (
+              <span className="shrink-0 text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">Walk-in</span>
+            )}
+          </div>
           {reg.teamName && (
             <p className="text-xs text-gray-500 truncate">{reg.teamName}</p>
           )}
@@ -181,7 +210,7 @@ function MobileCard({
 
 // ─── Main list component ──────────────────────────────────────────────────────
 
-export function CheckInList({ registrations, leagueId, timezone }: Props) {
+export function CheckInList({ registrations, leagueId, timezone, sessionId }: Props) {
   const [search, setSearch] = useState('')
   const [teamFilter, setTeamFilter] = useState('all')
 
@@ -266,7 +295,7 @@ export function CheckInList({ registrations, leagueId, timezone }: Props) {
             </thead>
             <tbody>
               {filtered.map((reg) => (
-                <TableRow key={reg.id} reg={reg} leagueId={leagueId} timezone={timezone} />
+                <TableRow key={reg.sessionRegistrationId ?? reg.id} reg={reg} leagueId={leagueId} timezone={timezone} sessionId={sessionId} />
               ))}
               {filtered.length === 0 && (
                 <tr>
@@ -288,7 +317,7 @@ export function CheckInList({ registrations, leagueId, timezone }: Props) {
           </div>
         ) : (
           filtered.map((reg) => (
-            <MobileCard key={reg.id} reg={reg} leagueId={leagueId} timezone={timezone} />
+            <MobileCard key={reg.sessionRegistrationId ?? reg.id} reg={reg} leagueId={leagueId} timezone={timezone} sessionId={sessionId} />
           ))
         )}
       </div>
