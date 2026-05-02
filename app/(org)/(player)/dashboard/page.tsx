@@ -38,7 +38,7 @@ export default async function PlayerDashboardPage() {
       id, scheduled_at, court,
       home_team:teams!games_home_team_id_fkey(id, name),
       away_team:teams!games_away_team_id_fkey(id, name),
-      league:leagues!games_league_id_fkey(name)
+      league:leagues!games_league_id_fkey(name, slug)
     `).eq('organization_id', org.id)
       .gte('scheduled_at', new Date().toISOString())
       .order('scheduled_at', { ascending: true })
@@ -124,15 +124,15 @@ export default async function PlayerDashboardPage() {
           const checkinUrl = checkinToken ? `${protocol}://${host}/checkin/${checkinToken}` : null
 
           return (
-            <div key={reg.id} className={`border rounded-md p-3 ${(needsWaiver || needsPayment) ? 'border-amber-200 bg-amber-50' : ''}`}>
+            <div key={reg.id} className={`relative border rounded-md p-3 transition-shadow hover:shadow-md ${(needsWaiver || needsPayment) ? 'border-amber-200 bg-amber-50' : ''}`}>
+              {/* Full-card tap target */}
+              {league?.slug && (
+                <Link href={`/events/${league.slug}`} className="absolute inset-0 rounded-md" aria-label={league.name ?? 'View event'} />
+              )}
               <div className="flex items-start justify-between gap-2">
-                <Link
-                  href={`/events/${league?.slug ?? ''}`}
-                  className="font-medium hover:underline"
-                  style={{ color: 'var(--brand-primary)' }}
-                >
+                <span className="font-medium" style={{ color: 'var(--brand-primary)' }}>
                   {league?.name ?? '—'}
-                </Link>
+                </span>
                 <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
                   isComplete ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
                 }`}>
@@ -158,7 +158,7 @@ export default async function PlayerDashboardPage() {
               </div>
 
               {showQR && checkinUrl && (
-                <div className="mt-2">
+                <div className="relative z-10 mt-2">
                   <QRCodeDisplay
                     checkinUrl={checkinUrl}
                     playerName=""
@@ -169,24 +169,28 @@ export default async function PlayerDashboardPage() {
               )}
 
               {needsWaiver && league?.slug && (
-                <Link
-                  href={`/register/${league.slug}`}
-                  className="mt-2 block w-full py-2 px-3 rounded-md text-sm font-semibold text-center border-2 hover:bg-amber-50 transition-colors"
-                  style={{ borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
-                >
-                  Sign Waiver →
-                </Link>
+                <div className="relative z-10 mt-2">
+                  <Link
+                    href={`/register/${league.slug}`}
+                    className="block w-full py-2 px-3 rounded-md text-sm font-semibold text-center border-2 hover:bg-amber-50 transition-colors"
+                    style={{ borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
+                  >
+                    Sign Waiver →
+                  </Link>
+                </div>
               )}
               {needsPayment && !needsWaiver && league?.slug && (
-                <PendingPaymentButton
-                  leagueId={league.id}
-                  leagueSlug={league.slug}
-                  registrationId={reg.id}
-                  orgId={org.id}
-                  userId={user.id}
-                  amountCents={payment.amount_cents}
-                  currency={payment.currency}
-                />
+                <div className="relative z-10">
+                  <PendingPaymentButton
+                    leagueId={league.id}
+                    leagueSlug={league.slug}
+                    registrationId={reg.id}
+                    orgId={org.id}
+                    userId={user.id}
+                    amountCents={payment.amount_cents}
+                    currency={payment.currency}
+                  />
+                </div>
               )}
             </div>
           )
@@ -213,7 +217,14 @@ export default async function PlayerDashboardPage() {
           const league = Array.isArray(g.league) ? g.league[0] : g.league
           const { date: gameDate, time: gameTime } = formatGameTime(g.scheduled_at, timezone)
           return (
-            <div key={g.id} className="border rounded-md p-3">
+            <div key={g.id} className="relative border rounded-md p-3 transition-shadow hover:shadow-md">
+              {(league as { slug?: string } | null)?.slug && (
+                <Link
+                  href={`/events/${(league as { slug?: string }).slug}`}
+                  className="absolute inset-0 rounded-md"
+                  aria-label={`View ${(league as { name?: string }).name ?? 'event'}`}
+                />
+              )}
               <p className="text-sm text-gray-500">
                 {gameDate} · {gameTime}
                 {g.court ? ` · Court ${g.court}` : ''}
@@ -251,7 +262,8 @@ export default async function PlayerDashboardPage() {
           const isCaptain = mt.role === 'captain'
 
           return (
-            <div key={mt.id} className="bg-white rounded-lg border p-5">
+            <div key={mt.id} className="relative bg-white rounded-lg border p-5 transition-shadow hover:shadow-md">
+              <Link href={`/teams/${team.id}`} className="absolute inset-0 rounded-lg" aria-label={`View team ${team.name}`} />
               <div className="flex items-center gap-2 mb-2">
                 <TeamAvatar
                   logoUrl={(team as { logo_url?: string | null }).logo_url ?? null}
@@ -259,13 +271,9 @@ export default async function PlayerDashboardPage() {
                   name={team.name}
                   size="sm"
                 />
-                <Link
-                  href={`/teams/${team.id}`}
-                  className="font-semibold hover:underline"
-                  style={{ color: 'var(--brand-primary)' }}
-                >
+                <span className="font-semibold" style={{ color: 'var(--brand-primary)' }}>
                   {team.name}
-                </Link>
+                </span>
                 {isCaptain && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Captain</span>
                 )}
@@ -292,7 +300,7 @@ export default async function PlayerDashboardPage() {
                         )}
                       </div>
                       {isCaptain && profile?.email && (
-                        <a href={`mailto:${profile.email}`} className="text-xs text-gray-400 hover:text-blue-600 transition-colors truncate min-w-0 max-w-[55%]">
+                        <a href={`mailto:${profile.email}`} className="relative z-10 text-xs text-gray-400 hover:text-blue-600 transition-colors truncate min-w-0 max-w-[55%]">
                           {profile.email}
                         </a>
                       )}
@@ -303,7 +311,7 @@ export default async function PlayerDashboardPage() {
 
               {/* Captain contact (for non-captains) */}
               {!isCaptain && captainProfile && (
-                <div className="mt-3 pt-3 border-t">
+                <div className="relative z-10 mt-3 pt-3 border-t">
                   <p className="text-xs text-gray-500 break-all">
                     Captain: <span className="font-medium text-gray-700">{captainProfile.full_name}</span>
                     {captainProfile.email && (
@@ -317,7 +325,9 @@ export default async function PlayerDashboardPage() {
 
               {/* Captain: message the whole team */}
               {isCaptain && activeMembers.length > 1 && (
-                <TeamMessageForm teamId={team.id} memberCount={activeMembers.length} />
+                <div className="relative z-10">
+                  <TeamMessageForm teamId={team.id} memberCount={activeMembers.length} />
+                </div>
               )}
             </div>
           )
