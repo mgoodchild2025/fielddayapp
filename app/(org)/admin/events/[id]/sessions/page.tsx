@@ -10,7 +10,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  const [{ data: league }, { data: sessions }] = await Promise.all([
+  const [{ data: league }, { data: sessions }, { data: branding }] = await Promise.all([
     db
       .from('leagues')
       .select('id, name, event_type')
@@ -28,7 +28,10 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
       .eq('league_id', id)
       .eq('organization_id', org.id)
       .order('scheduled_at', { ascending: true }),
+    db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
   ])
+
+  const timezone = branding?.timezone ?? 'America/Toronto'
 
   if (!league) notFound()
 
@@ -69,7 +72,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
         Players registered for this event will see upcoming sessions in their dashboard.
         Use <strong>Repeat weekly</strong> when adding a session to bulk-create the full schedule at once.
       </div>
-      <AdminSessionsManager leagueId={id} initialSessions={mapped} />
+      <AdminSessionsManager leagueId={id} initialSessions={mapped} timezone={timezone} />
     </div>
   )
 }

@@ -18,18 +18,26 @@ interface Session {
 interface Props {
   leagueId: string
   initialSessions: Session[]
+  timezone: string
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-function toLocalDatetime(iso: string) {
-  const d = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+/** Convert a UTC ISO string to a naive "YYYY-MM-DDTHH:mm" local string for a datetime-local input. */
+function toLocalDatetime(iso: string, timezone: string) {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+  const parts = Object.fromEntries(fmt.formatToParts(new Date(iso)).map((p) => [p.type, p.value]))
+  const h = parts.hour === '24' ? '00' : parts.hour  // Intl sometimes returns 24 for midnight
+  return `${parts.year}-${parts.month}-${parts.day}T${h}:${parts.minute}`
 }
 
-function formatDateTime(iso: string) {
+function formatDateTime(iso: string, timezone: string) {
   return new Date(iso).toLocaleString('en-CA', {
+    timeZone: timezone,
     weekday: 'short', month: 'short', day: 'numeric',
     year: 'numeric', hour: 'numeric', minute: '2-digit',
   })
@@ -50,7 +58,7 @@ const LABEL = 'block text-xs font-medium text-gray-700 mb-1'
 
 // ── Create form ───────────────────────────────────────────────────────────────
 
-function CreateForm({ leagueId, onDone }: { leagueId: string; onDone: () => void }) {
+function CreateForm({ leagueId, timezone, onDone }: { leagueId: string; timezone: string; onDone: () => void }) {
   const router = useRouter()
   const [repeat, setRepeat] = useState(false)
   const [selectedDays, setSelectedDays] = useState<number[]>([])
@@ -194,7 +202,7 @@ function CreateForm({ leagueId, onDone }: { leagueId: string; onDone: () => void
 
 // ── Edit form ─────────────────────────────────────────────────────────────────
 
-function EditForm({ session, leagueId, onDone }: { session: Session; leagueId: string; onDone: () => void }) {
+function EditForm({ session, leagueId, timezone, onDone }: { session: Session; leagueId: string; timezone: string; onDone: () => void }) {
   const router = useRouter()
   const [formError, setFormError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -229,7 +237,7 @@ function EditForm({ session, leagueId, onDone }: { session: Session; leagueId: s
             name="scheduled_at"
             type="datetime-local"
             required
-            defaultValue={toLocalDatetime(session.scheduled_at)}
+            defaultValue={toLocalDatetime(session.scheduled_at, timezone)}
             className={INPUT}
           />
         </div>
@@ -278,7 +286,7 @@ function EditForm({ session, leagueId, onDone }: { session: Session; leagueId: s
 
 // ── Main manager ──────────────────────────────────────────────────────────────
 
-export function AdminSessionsManager({ leagueId, initialSessions }: Props) {
+export function AdminSessionsManager({ leagueId, initialSessions, timezone }: Props) {
   const router = useRouter()
   const [showCreate, setShowCreate] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -316,7 +324,7 @@ export function AdminSessionsManager({ leagueId, initialSessions }: Props) {
       </div>
 
       {showCreate && (
-        <CreateForm leagueId={leagueId} onDone={() => setShowCreate(false)} />
+        <CreateForm leagueId={leagueId} timezone={timezone} onDone={() => setShowCreate(false)} />
       )}
 
       {sessions.length === 0 && !showCreate && (
@@ -330,11 +338,11 @@ export function AdminSessionsManager({ leagueId, initialSessions }: Props) {
           {sessions.map((s) => (
             <div key={s.id}>
               {editingId === s.id ? (
-                <EditForm session={s} leagueId={leagueId} onDone={() => setEditingId(null)} />
+                <EditForm session={s} leagueId={leagueId} timezone={timezone} onDone={() => setEditingId(null)} />
               ) : (
                 <div className={`bg-white border rounded-lg px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-1 ${s.status === 'cancelled' ? 'opacity-50' : ''}`}>
                   <div className="min-w-[180px]">
-                    <p className="font-medium text-sm">{formatDateTime(s.scheduled_at)}</p>
+                    <p className="font-medium text-sm">{formatDateTime(s.scheduled_at, timezone)}</p>
                     <p className="text-xs text-gray-400">{s.duration_minutes} min</p>
                   </div>
 

@@ -7,6 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
+import { parseLocalToUtc } from '@/lib/format-time'
 
 const sessionFieldsSchema = z.object({
   scheduled_at: z.string().min(1, 'Date & time required'),
@@ -19,28 +20,41 @@ const sessionFieldsSchema = z.object({
   repeat_until: z.string().optional(), // YYYY-MM-DD
 })
 
+/**
+ * Build recurring UTC ISO timestamps for a weekly schedule.
+ * Iterates calendar dates (timezone-independent), checks day-of-week,
+ * and converts each matching local date+time to UTC using the org timezone.
+ */
 function buildRecurringDates(
-  firstAt: Date,
-  days: number[],
-  until: Date
-): Date[] {
-  const dates: Date[] = []
-  const time = { h: firstAt.getHours(), m: firstAt.getMinutes() }
-  const daySet = new Set(days)
-  const cur = new Date(firstAt)
-  cur.setHours(0, 0, 0, 0)
-  const endDay = new Date(until)
-  endDay.setHours(23, 59, 59, 999)
+  firstLocalDatetime: string, // "YYYY-MM-DDTHH:mm" — naive local time
+  days: number[],             // 0=Sun…6=Sat
+  untilLocalDate: string,     // "YYYY-MM-DD"
+  timezone: string
+): string[] {
+  const sep = firstLocalDatetime.indexOf('T')
+  const startDate = firstLocalDatetime.slice(0, sep)   // "YYYY-MM-DD"
+  const timeStr = firstLocalDatetime.slice(sep + 1)    // "HH:mm"
 
-  while (cur <= endDay) {
-    if (daySet.has(cur.getDay())) {
-      const d = new Date(cur)
-      d.setHours(time.h, time.m, 0, 0)
-      dates.push(d)
+  const daySet = new Set(days)
+  const results: string[] = []
+
+  const [sy, sm, sd] = startDate.split('-').map(Number)
+  const [ey, em, ed] = untilLocalDate.split('-').map(Number)
+
+  // Iterate UTC calendar-day boundaries — getUTCDay() is timezone-independent for dates
+  let cur = new Date(Date.UTC(sy, sm - 1, sd))
+  const end = new Date(Date.UTC(ey, em - 1, ed))
+
+  while (cur <= end) {
+    if (daySet.has(cur.getUTCDay())) {
+      const y = cur.getUTCFullYear()
+      const m = String(cur.getUTCMonth() + 1).padStart(2, '0')
+      const d = String(cur.getUTCDate()).padStart(2, '0')
+      results.push(parseLocalToUtc(`${y}-${m}-${d}`, timeStr, timezone))
     }
-    cur.setDate(cur.getDate() + 1)
+    cur = new Date(cur.getTime() + 24 * 60 * 60 * 1000)
   }
-  return dates
+  return results
 }
 
 export async function createSession(
@@ -55,6 +69,16 @@ export async function createSession(
   if (!parsed.success) return { error: 'Invalid input' }
 
   const d = parsed.data
+
+  // Resolve org timezone so we correctly convert the naive local datetime input to UTC
+  const supabaseForTz = await createServerClient()
+  const { data: branding } = await supabaseForTz
+    .from('org_branding')
+    .select('timezone')
+    .eq('organization_id', org.id)
+    .single()
+  const timezone = branding?.timezone ?? 'America/Toronto'
+
   const base = {
     league_id: leagueId,
     organization_id: org.id,
@@ -64,17 +88,21 @@ export async function createSession(
     notes: d.notes || null,
   }
 
-  let scheduledDates: Date[]
+  // d.scheduled_at is "YYYY-MM-DDTHH:mm" from datetime-local input — naive local time.
+  // Convert to UTC using the org timezone.
+  const sep = d.scheduled_at.indexOf('T')
+  const datePart = d.scheduled_at.slice(0, sep)
+  const timePart = d.scheduled_at.slice(sep + 1)
+
+  let scheduledIsos: string[]
   if (d.repeat_days && d.repeat_days.length > 0 && d.repeat_until) {
-    const first = new Date(d.scheduled_at)
-    const until = new Date(d.repeat_until)
-    scheduledDates = buildRecurringDates(first, d.repeat_days, until)
-    if (scheduledDates.length === 0) return { error: 'No sessions fall in that date range for the selected days' }
+    scheduledIsos = buildRecurringDates(d.scheduled_at, d.repeat_days, d.repeat_until, timezone)
+    if (scheduledIsos.length === 0) return { error: 'No sessions fall in that date range for the selected days' }
   } else {
-    scheduledDates = [new Date(d.scheduled_at)]
+    scheduledIsos = [parseLocalToUtc(datePart, timePart, timezone)]
   }
 
-  const rows = scheduledDates.map((dt) => ({ ...base, scheduled_at: dt.toISOString() }))
+  const rows = scheduledIsos.map((iso) => ({ ...base, scheduled_at: iso }))
 
   const supabase = await createServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -101,11 +129,25 @@ export async function updateSession(
 
   const d = parsed.data
   const supabase = await createServerClient()
+
+  // Resolve org timezone so the naive local datetime input is stored as correct UTC
+  const { data: branding } = await supabase
+    .from('org_branding')
+    .select('timezone')
+    .eq('organization_id', org.id)
+    .single()
+  const timezone = branding?.timezone ?? 'America/Toronto'
+
+  const sep = d.scheduled_at.indexOf('T')
+  const scheduledAtUtc = sep !== -1
+    ? parseLocalToUtc(d.scheduled_at.slice(0, sep), d.scheduled_at.slice(sep + 1), timezone)
+    : d.scheduled_at
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any)
     .from('event_sessions')
     .update({
-      scheduled_at: d.scheduled_at,
+      scheduled_at: scheduledAtUtc,
       duration_minutes: d.duration_minutes,
       capacity: d.capacity ?? null,
       location_override: d.location_override || null,
