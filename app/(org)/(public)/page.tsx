@@ -48,7 +48,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
-      <OrgNav org={orgContext} logoUrl={branding?.logo_url ?? null} brandBar={false} />
+      <OrgNav org={orgContext} logoUrl={branding?.logo_url ?? null} />
 
       {/* Hero */}
       <section className="relative py-24 px-6 text-white" style={{ backgroundColor: 'var(--brand-secondary)' }}>
