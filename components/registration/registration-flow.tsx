@@ -129,6 +129,7 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
               afterWaiver()
             }}
             onSkip={afterWaiver}
+            onBack={() => setStep(1)}
           />
         )}
         {completing && (
@@ -143,6 +144,7 @@ export function RegistrationFlow({ org, league, waiver, profile, playerDetails, 
             userId={userId}
             registrationId={registrationId!}
             priceCents={effectivePriceCents}
+            onBack={() => setStep(waiver ? 2 : 1)}
           />
         )}
         {step === 3 && showTeamPaymentNotice && !completing && (

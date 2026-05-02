@@ -119,11 +119,16 @@ export default async function RegisterLeaguePage({
       initialStep = 3 // jump to payment
     } else if (waiver && !waiverSigned) {
       initialStep = 2 // jump to waiver
-    } else if (!needsPayment) {
-      // Waiver signed (or not required), no payment needed — activate server-side and redirect
+    } else if (!needsPayment && waiverSigned) {
+      // Waiver was signed in a prior session and no payment needed — safe to auto-activate
       const service = createServiceRoleClient()
       await service.from('registrations').update({ status: 'active' }).eq('id', existingReg.id)
       redirect(`/register/${slug}/success`)
+    } else if (!needsPayment) {
+      // No payment needed and no waiver signed yet (or no waiver required) —
+      // resume at step 2 so the user explicitly confirms rather than being
+      // silently activated if they navigated away mid-flow.
+      initialStep = 2
     } else {
       initialStep = 3
     }

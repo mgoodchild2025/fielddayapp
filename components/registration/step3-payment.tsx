@@ -11,9 +11,10 @@ interface Props {
   userId: string
   registrationId: string
   priceCents?: number
+  onBack?: () => void
 }
 
-export function Step3Payment({ org, league, userId, registrationId, priceCents }: Props) {
+export function Step3Payment({ org, league, userId, registrationId, priceCents, onBack }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -49,6 +50,15 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents }
   const currency = league.currency.toUpperCase()
 
   return (
+    <div className="space-y-4">
+      {onBack && (
+        <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 transition-colors">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back
+        </button>
+      )}
     <div className="bg-white rounded-lg border p-6 space-y-4">
       <h2 className="font-semibold text-lg">Payment</h2>
 
@@ -76,6 +86,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents }
       <p className="text-xs text-center text-gray-400">
         Secure checkout powered by Stripe. Your payment info is never stored on our servers.
       </p>
+    </div>
     </div>
   )
 }

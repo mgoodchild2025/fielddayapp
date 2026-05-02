@@ -16,6 +16,7 @@ interface Props {
   playerDob: string | null   // ISO date from player_details.date_of_birth
   onComplete: (signatureId: string) => void
   onSkip: () => void
+  onBack?: () => void
 }
 
 function calculateAge(dob: string): number {
@@ -27,7 +28,7 @@ function calculateAge(dob: string): number {
   return age
 }
 
-export function Step2Waiver({ org, waiver, userId, leagueId, playerName, playerDob, onComplete, onSkip }: Props) {
+export function Step2Waiver({ org, waiver, userId, leagueId, playerName, playerDob, onComplete, onSkip, onBack }: Props) {
   // Derive minor status from DOB when available; null = unknown
   const knownMinor: boolean | null = playerDob !== null ? calculateAge(playerDob) < 18 : null
 
@@ -63,11 +64,18 @@ export function Step2Waiver({ org, waiver, userId, leagueId, playerName, playerD
 
   if (!waiver) {
     return (
-      <div className="bg-white rounded-lg border p-6 text-center">
-        <p className="text-gray-500 mb-4">No waiver required for this league.</p>
-        <button onClick={onSkip} className="px-6 py-2.5 rounded-md font-semibold text-white" style={{ backgroundColor: 'var(--brand-primary)' }}>
-          Continue →
-        </button>
+      <div className="bg-white rounded-lg border p-6 text-center space-y-4">
+        <p className="text-gray-500">No waiver required for this league.</p>
+        <div className="flex gap-3 justify-center">
+          {onBack && (
+            <button onClick={onBack} className="px-5 py-2.5 rounded-md font-semibold border text-gray-600 hover:bg-gray-50 transition-colors">
+              ← Back
+            </button>
+          )}
+          <button onClick={onSkip} className="px-6 py-2.5 rounded-md font-semibold text-white" style={{ backgroundColor: 'var(--brand-primary)' }}>
+            Continue →
+          </button>
+        </div>
       </div>
     )
   }
@@ -213,6 +221,15 @@ export function Step2Waiver({ org, waiver, userId, leagueId, playerName, playerD
 
   return (
     <div className="space-y-4">
+      {onBack && (
+        <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 transition-colors">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back
+        </button>
+      )}
+
       {minorBanner}
 
       <div className="bg-white rounded-lg border p-5">
