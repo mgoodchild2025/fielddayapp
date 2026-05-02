@@ -3,25 +3,8 @@ import { createServerClient } from '@/lib/supabase/server'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { ViewEventsDropdown } from '@/components/events/view-events-dropdown'
+import { MarketingPage } from '@/components/marketing/marketing-page'
 import Link from 'next/link'
-import Image from 'next/image'
-
-// Marketing homepage — shown when no org context (fielddayapp.ca)
-function MarketingPage() {
-  return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-white px-6 text-center">
-      <Image
-        src="/Fieldday-og.png"
-        alt="Fieldday"
-        width={1200}
-        height={800}
-        className="w-72 sm:w-96 h-auto rounded-xl"
-        priority
-      />
-      <p className="mt-6 text-xl text-gray-600">Sports league management, built for your community.</p>
-    </main>
-  )
-}
 
 // Org homepage — shown when org context is present
 async function OrgHomePage({ orgId }: { orgId: string }) {
