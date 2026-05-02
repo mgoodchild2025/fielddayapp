@@ -11,9 +11,22 @@ interface Props {
   isFull: boolean
   isCancelled: boolean
   isLoggedIn: boolean
+  /** False when the event requires waiver/payment and the player hasn't registered yet */
+  isRegistered?: boolean
+  /** URL to send the player through to complete registration (waiver + payment) */
+  registerUrl?: string
 }
 
-export function SessionJoinButton({ sessionId, leagueId, isJoined, isFull, isCancelled, isLoggedIn }: Props) {
+export function SessionJoinButton({
+  sessionId,
+  leagueId,
+  isJoined,
+  isFull,
+  isCancelled,
+  isLoggedIn,
+  isRegistered = true,
+  registerUrl,
+}: Props) {
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
@@ -27,6 +40,19 @@ export function SessionJoinButton({ sessionId, leagueId, isJoined, isFull, isCan
         style={{ backgroundColor: 'var(--brand-primary)' }}
       >
         Log in to join
+      </a>
+    )
+  }
+
+  // Player needs to complete registration (waiver + payment) before joining sessions
+  if (!isRegistered && registerUrl) {
+    return (
+      <a
+        href={registerUrl}
+        className="px-4 py-1.5 rounded-md text-sm font-semibold text-white"
+        style={{ backgroundColor: 'var(--brand-primary)' }}
+      >
+        Register to join →
       </a>
     )
   }

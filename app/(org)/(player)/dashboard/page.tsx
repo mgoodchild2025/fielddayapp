@@ -166,7 +166,7 @@ export default async function PlayerDashboardPage() {
           const checkinToken = (reg as any).checkin_token as string | null
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const eventType = (league as any)?.event_type as string | undefined
-          const showQR = isComplete && checkinToken && (eventType === 'tournament' || eventType === 'league')
+          const showQR = isComplete && !!checkinToken
           const checkinUrl = checkinToken ? `${protocol}://${host}/checkin/${checkinToken}` : null
 
           return (

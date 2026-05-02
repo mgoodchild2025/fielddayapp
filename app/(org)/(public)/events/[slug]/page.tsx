@@ -455,6 +455,25 @@ export default async function EventDetailPage({
         .eq('registration_type' as never, 'season').maybeSingle()
     : { data: null }
 
+  // For per-session drop-in events, check if the player has an active event-level registration
+  // (completed the waiver + payment flow via /register). Required before joining sessions.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: myDropInRegistration } = (isSessionBased && !isSeasonPickup && user)
+    ? await supabase.from('registrations').select('id, status')
+        .eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id)
+        .in('status', ['active', 'pending'])
+        .maybeSingle()
+    : { data: null }
+
+  // An event-level registration is required before joining sessions when the event
+  // has a waiver or a drop-in fee (so waiver/payment are collected at registration time).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sessionRegistrationRequired = isSessionBased && !isSeasonPickup && (
+    !!(league as any).waiver_version_id ||
+    !!(league as any).drop_in_price_cents
+  )
+  const playerIsSessionRegistered = !sessionRegistrationRequired || !!myDropInRegistration
+
   // ── Live capacity counts ──────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const paymentMode: string = (league as any).payment_mode ?? 'per_player'
@@ -1116,6 +1135,8 @@ export default async function EventDetailPage({
                                     isFull={isFull}
                                     isCancelled={isCancelled}
                                     isLoggedIn={!!user}
+                                    isRegistered={playerIsSessionRegistered}
+                                    registerUrl={`/register/${league.slug}?mode=drop_in`}
                                   />
                                 ) : !user ? (
                                   <a
@@ -1134,6 +1155,8 @@ export default async function EventDetailPage({
                                   isFull={isFull}
                                   isCancelled={isCancelled}
                                   isLoggedIn={!!user}
+                                  isRegistered={playerIsSessionRegistered}
+                                  registerUrl={`/register/${league.slug}?mode=drop_in`}
                                 />
                               )}
                             </div>
