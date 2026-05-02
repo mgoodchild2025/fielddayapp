@@ -13,6 +13,7 @@ import { BracketView } from '@/components/bracket/bracket-view'
 import type { BracketData, BracketMatchData } from '@/components/bracket/bracket-view'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { BackLink } from '@/components/ui/back-link'
 import { formatGameTime } from '@/lib/format-time'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
@@ -744,7 +745,7 @@ export default async function EventDetailPage({
       {/* ── Event header ── */}
       <div style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 pb-5">
-          <Link href="/events" className="text-xs opacity-60 hover:opacity-90 transition-opacity">← All Events</Link>
+          <BackLink fallbackHref="/events" fallbackLabel="All Events" />
           <h1 className="text-3xl sm:text-4xl font-bold uppercase mt-2" style={{ fontFamily: 'var(--brand-heading-font)' }}>
             {league.name}
           </h1>
