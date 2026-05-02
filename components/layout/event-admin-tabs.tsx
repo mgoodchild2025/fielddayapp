@@ -14,6 +14,7 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
     if (pickupJoinPolicy === 'private') {
       t.push({ label: 'Invites', href: `/admin/events/${id}/invites` })
     }
+    t.push({ label: 'Check-in', href: `/admin/events/${id}/checkin` })
     return t
   }
 
@@ -22,6 +23,7 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
     if (pickupJoinPolicy === 'private') {
       t.push({ label: 'Invites', href: `/admin/events/${id}/invites` })
     }
+    t.push({ label: 'Check-in', href: `/admin/events/${id}/checkin` })
     return t
   }
 
