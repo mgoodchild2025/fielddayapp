@@ -31,6 +31,34 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
 
   const leagueTeamIds = teamIds?.map((t) => t.id) ?? []
 
+  // Fetch unique slot labels (template games with no team assigned yet)
+  const [{ data: homeSlotGames }, { data: awaySlotGames }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
+      .from('games')
+      .select('home_team_label')
+      .eq('league_id', id)
+      .eq('organization_id', org.id)
+      .is('home_team_id', null)
+      .not('home_team_label', 'is', null),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
+      .from('games')
+      .select('away_team_label')
+      .eq('league_id', id)
+      .eq('organization_id', org.id)
+      .is('away_team_id', null)
+      .not('away_team_label', 'is', null),
+  ])
+  const slotLabelSet = new Set<string>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(homeSlotGames ?? []).forEach((g: any) => g.home_team_label && slotLabelSet.add(g.home_team_label))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(awaySlotGames ?? []).forEach((g: any) => g.away_team_label && slotLabelSet.add(g.away_team_label))
+  const slotLabels = Array.from(slotLabelSet).sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+  )
+
   const [{ data: teams }, { data: joinRequests }, { data: registrations }, { data: assignedMembers }] =
     await Promise.all([
       supabase
@@ -215,7 +243,7 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
 
       {isOrgAdmin && (
         <div>
-          <AdminCreateTeamForm leagueId={id} registeredPlayers={unassignedPlayers} />
+          <AdminCreateTeamForm leagueId={id} registeredPlayers={unassignedPlayers} slotLabels={slotLabels} />
         </div>
       )}
     </div>

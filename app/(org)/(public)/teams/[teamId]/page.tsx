@@ -137,7 +137,7 @@ export default async function TeamDetailPage({
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
 
         <Link href="/dashboard" className="text-sm text-gray-500 hover:underline">← Dashboard</Link>
 
@@ -149,7 +149,7 @@ export default async function TeamDetailPage({
         )}
 
         {/* Team header */}
-        <div className="mt-4 flex items-center gap-4">
+        <div className="mt-4 flex items-center gap-3">
           <TeamAvatar logoUrl={team.logo_url ?? null} color={team.color} name={team.name} size="lg" />
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)' }}>{team.name}</h1>
@@ -175,12 +175,12 @@ export default async function TeamDetailPage({
 
         {/* Team code — managers and org admins only */}
         {isManager && team.team_code && (
-          <div className="mt-6 bg-white rounded-lg border p-4 flex items-center justify-between gap-4">
+          <div className="mt-6 bg-white rounded-lg border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Team Code</p>
               <p className="text-xl font-bold tracking-widest mt-0.5">{team.team_code}</p>
             </div>
-            <p className="text-xs text-gray-400">Share this code so players can join your team</p>
+            <p className="text-xs text-gray-400 sm:text-right">Share this code so players can join your team</p>
           </div>
         )}
 

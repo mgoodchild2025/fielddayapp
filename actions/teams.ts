@@ -155,6 +155,8 @@ const adminCreateTeamSchema = z.object({
   name: z.string().min(2),
   color: z.string().optional(),
   captainUserId: z.string().uuid().optional(),
+  /** Slot label to map (e.g. "Team 3") — replaces null-team games with this team */
+  slotLabel: z.string().optional(),
 })
 
 export async function adminCreateTeam(input: z.infer<typeof adminCreateTeamSchema>) {
@@ -179,9 +181,33 @@ export async function adminCreateTeam(input: z.infer<typeof adminCreateTeamSchem
 
   if (error) return { data: null, error: error.message }
 
+  const db = createServiceRoleClient()
+
+  // Map template slot → real team (update matching games)
+  if (parsed.data.slotLabel) {
+    await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any)
+        .from('games')
+        .update({ home_team_id: team.id, home_team_label: null })
+        .eq('league_id', parsed.data.leagueId)
+        .eq('organization_id', org.id)
+        .is('home_team_id', null)
+        .eq('home_team_label', parsed.data.slotLabel),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any)
+        .from('games')
+        .update({ away_team_id: team.id, away_team_label: null })
+        .eq('league_id', parsed.data.leagueId)
+        .eq('organization_id', org.id)
+        .is('away_team_id', null)
+        .eq('away_team_label', parsed.data.slotLabel),
+    ])
+    revalidatePath(`/admin/events/${parsed.data.leagueId}/schedule`)
+  }
+
   // Assign captain immediately if provided
   if (parsed.data.captainUserId) {
-    const db = createServiceRoleClient()
     await db.from('team_members').insert({
       organization_id: org.id,
       team_id: team.id,

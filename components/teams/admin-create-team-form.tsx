@@ -24,14 +24,17 @@ interface RegisteredPlayer {
 interface Props {
   leagueId: string
   registeredPlayers?: RegisteredPlayer[]
+  /** Unmatched slot labels from template schedule (e.g. ["Team 1", "Team 2"]) */
+  slotLabels?: string[]
 }
 
-export function AdminCreateTeamForm({ leagueId, registeredPlayers = [] }: Props) {
+export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabels = [] }: Props) {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedColor, setSelectedColor] = useState<string>('')
   const [captainUserId, setCaptainUserId] = useState<string>('')
+  const [slotLabel, setSlotLabel] = useState<string>('')
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -46,6 +49,7 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [] }: Props)
       ...data,
       color: selectedColor || undefined,
       captainUserId: captainUserId || undefined,
+      slotLabel: slotLabel || undefined,
     })
     if (result.error) {
       setError(result.error)
@@ -54,6 +58,7 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [] }: Props)
       reset()
       setSelectedColor('')
       setCaptainUserId('')
+      setSlotLabel('')
     }
     setLoading(false)
   }
@@ -91,6 +96,27 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [] }: Props)
             ))}
           </div>
         </div>
+
+        {slotLabels.length > 0 && (
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Map to schedule slot <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <select
+              value={slotLabel}
+              onChange={(e) => setSlotLabel(e.target.value)}
+              className="w-full border rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0"
+            >
+              <option value="">— Don&apos;t map yet —</option>
+              {slotLabels.map((label) => (
+                <option key={label} value={label}>{label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              All games scheduled for this slot will be reassigned to the new team.
+            </p>
+          </div>
+        )}
 
         {registeredPlayers.length > 0 && (
           <div>

@@ -94,46 +94,52 @@ export function CaptainRosterManager({ teamId, initialMembers, positions = [] }:
       {/* Member rows */}
       <ul className="divide-y">
         {members.map((m) => (
-          <li key={m.id} className="px-5 py-3 flex items-center gap-3">
-            <PlayerAvatar avatarUrl={m.avatarUrl} name={m.name || m.email} size="sm" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">
-                {m.name || m.email}
-                {m.isMe && <span className="ml-1.5 text-xs text-gray-400">(you)</span>}
-              </p>
-              {m.email && <p className="text-xs text-gray-400 truncate">{m.email}</p>}
+          <li key={m.id} className="px-4 py-3">
+            {/* Top row: avatar + name + remove */}
+            <div className="flex items-center gap-3">
+              <PlayerAvatar avatarUrl={m.avatarUrl} name={m.name || m.email} size="sm" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">
+                  {m.name || m.email}
+                  {m.isMe && <span className="ml-1.5 text-xs text-gray-400">(you)</span>}
+                </p>
+                {m.email && <p className="text-xs text-gray-400 truncate">{m.email}</p>}
+              </div>
+              {!m.isMe && (
+                <button
+                  onClick={() => handleRemove(m.id)}
+                  className="text-xs text-red-400 hover:text-red-600 transition-colors shrink-0 px-1"
+                  title="Remove from team"
+                >
+                  ✕
+                </button>
+              )}
             </div>
-            {positions.length > 0 && (
+            {/* Bottom row: selects — indented to align under name */}
+            <div className="flex gap-2 mt-2 pl-10">
+              {positions.length > 0 && (
+                <select
+                  value={m.position ?? ''}
+                  onChange={(e) => handlePositionChange(m.id, e.target.value)}
+                  className="flex-1 min-w-0 text-xs border rounded px-2 py-1 bg-white"
+                  title="Position"
+                >
+                  <option value="">Position…</option>
+                  {positions.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              )}
               <select
-                value={m.position ?? ''}
-                onChange={(e) => handlePositionChange(m.id, e.target.value)}
-                className="text-xs border rounded px-2 py-1 bg-white shrink-0"
-                title="Position"
+                value={m.role}
+                onChange={(e) => handleRoleChange(m.id, e.target.value as Role)}
+                className={`text-xs border rounded px-2 py-1 bg-white ${positions.length > 0 ? 'w-24 shrink-0' : 'flex-1'}`}
               >
-                <option value="">Position…</option>
-                {positions.map((p) => (
-                  <option key={p} value={p}>{p}</option>
+                {ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
                 ))}
               </select>
-            )}
-            <select
-              value={m.role}
-              onChange={(e) => handleRoleChange(m.id, e.target.value as Role)}
-              className="text-xs border rounded px-2 py-1 bg-white shrink-0"
-            >
-              {ROLES.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
-              ))}
-            </select>
-            {!m.isMe && (
-              <button
-                onClick={() => handleRemove(m.id)}
-                className="text-xs text-red-400 hover:text-red-600 transition-colors shrink-0 px-1"
-                title="Remove from team"
-              >
-                ✕
-              </button>
-            )}
+            </div>
           </li>
         ))}
         {members.length === 0 && (
