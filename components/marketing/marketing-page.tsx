@@ -36,13 +36,13 @@ function Hero() {
   return (
     <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white px-6 py-24 sm:py-32 text-center">
       <div className="max-w-3xl mx-auto">
-        <div className="w-fit mx-auto bg-white rounded-xl overflow-hidden mb-10 shadow-lg">
+        <div className="mb-10 flex justify-center">
           <Image
             src="/Fieldday-og.png"
             alt="Fieldday"
-            width={1200}
-            height={800}
-            className="w-72 sm:w-[480px] h-auto block"
+            width={839}
+            height={247}
+            className="w-64 sm:w-96 h-auto block"
             priority
           />
         </div>
