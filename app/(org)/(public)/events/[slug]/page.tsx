@@ -143,8 +143,19 @@ type GameRow = {
   }[] | null
 }
 
+function AttendanceBadge({ attendance }: { attendance: { in: number; out: number; total: number } }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-50 border border-green-100 text-green-700 whitespace-nowrap">
+      {attendance.in}/{attendance.total} ✓
+      {attendance.out > 0 && (
+        <span className="text-red-500">{attendance.out} ✗</span>
+      )}
+    </span>
+  )
+}
+
 function DateGroup({
-  date, games, timezone, isPast, captainTeamIds, userId, sport, myTeamIds, myRsvps,
+  date, games, timezone, isPast, captainTeamIds, userId, sport, myTeamIds, myRsvps, captainAttendance,
 }: {
   date: string
   games: GameRow[]
@@ -155,6 +166,7 @@ function DateGroup({
   sport: string | null
   myTeamIds?: Set<string>
   myRsvps?: Map<string, 'in' | 'out'>
+  captainAttendance?: Map<string, { in: number; out: number; total: number }>
 }) {
   return (
     <div>
@@ -179,6 +191,9 @@ function DateGroup({
           const rsvpStatus = myRsvps?.get(game.id) ?? null
           const showRsvp = !!userId && !!myTeamIdForGame && !isPast
             && game.status !== 'cancelled' && game.status !== 'postponed'
+
+          // Captain attendance badge
+          const attendance = isCaptain ? (captainAttendance?.get(game.id) ?? null) : null
 
           const hasScore = result && result.home_score !== null && result.away_score !== null
           const homeWon = hasScore && result!.home_score! > result!.away_score!
@@ -215,7 +230,7 @@ function DateGroup({
                 </div>
                 {/* Result footer */}
                 {hasScore ? (
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-2 flex items-center gap-2 flex-wrap">
                     <span className={`text-[10px] font-medium ${result!.status === 'confirmed' ? 'text-green-600' : 'text-amber-600'}`}>
                       {result!.status === 'confirmed' ? '✓ confirmed' : 'pending confirmation'}
                     </span>
@@ -224,6 +239,7 @@ function DateGroup({
                         ({result.sets.map((s: SetScore) => `${s.home}–${s.away}`).join(', ')})
                       </span>
                     )}
+                    {attendance && <AttendanceBadge attendance={attendance} />}
                   </div>
                 ) : (
                   <div className="mt-2 flex items-center gap-1.5 flex-wrap">
@@ -241,6 +257,7 @@ function DateGroup({
                     {game.cancellation_reason && (game.status === 'cancelled' || game.status === 'postponed') && (
                       <span className="text-[11px] text-gray-400 italic">{game.cancellation_reason}</span>
                     )}
+                    {attendance && <AttendanceBadge attendance={attendance} />}
                   </div>
                 )}
               </div>
@@ -278,14 +295,20 @@ function DateGroup({
                       <p className={`text-[10px] mt-0.5 ${result!.status === 'confirmed' ? 'text-green-600' : 'text-amber-600'}`}>
                         {result!.status === 'confirmed' ? '✓ confirmed' : 'pending'}
                       </p>
+                      {attendance && <div className="mt-1"><AttendanceBadge attendance={attendance} /></div>}
                     </div>
-                  ) : game.status !== 'cancelled' && game.status !== 'postponed' ? (
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
-                    }`}>
-                      {game.status === 'completed' ? 'Final' : game.status}
-                    </span>
-                  ) : null}
+                  ) : (
+                    <div className="flex flex-col items-end gap-1">
+                      {game.status !== 'cancelled' && game.status !== 'postponed' && (
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                          game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
+                        }`}>
+                          {game.status === 'completed' ? 'Final' : game.status}
+                        </span>
+                      )}
+                      {attendance && <AttendanceBadge attendance={attendance} />}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -617,6 +640,7 @@ export default async function EventDetailPage({
   let games: GameRow[] = []
   let captainTeamIds = new Set<string>()
   let myRsvps = new Map<string, 'in' | 'out'>()
+  let captainAttendance = new Map<string, { in: number; out: number; total: number }>()
 
   if (activeTab === 'schedule' && isTeamBased) {
     const { data: gamesData } = await supabase
@@ -654,6 +678,55 @@ export default async function EventDetailPage({
       for (const c of captainships ?? []) captainTeamIds.add(c.team_id)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const r of (rsvpData ?? []) as any[]) myRsvps.set(r.game_id, r.status as 'in' | 'out')
+
+      // ── Captain attendance counts ──────────────────────────────────────────
+      // Fetch team-wide RSVP counts + roster sizes for all teams the user captains
+      if (captainTeamIds.size > 0) {
+        const captainTeamIdArray = [...captainTeamIds]
+        const [{ data: teamMemberRows }, { data: teamRsvpRows }] = await Promise.all([
+          supabase
+            .from('team_members')
+            .select('team_id')
+            .in('team_id', captainTeamIdArray)
+            .eq('status', 'active'),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any)
+            .from('game_rsvps')
+            .select('game_id, team_id, status')
+            .in('team_id', captainTeamIdArray)
+            .in('game_id', gameIds),
+        ])
+
+        // Build team size map: teamId → count
+        const teamSizeMap = new Map<string, number>()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const row of (teamMemberRows ?? []) as any[]) {
+          teamSizeMap.set(row.team_id, (teamSizeMap.get(row.team_id) ?? 0) + 1)
+        }
+
+        // Build per-game RSVP counts (all team members, not just the captain)
+        const rsvpByGame = new Map<string, { in: number; out: number }>()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const r of (teamRsvpRows ?? []) as any[]) {
+          if (!rsvpByGame.has(r.game_id)) rsvpByGame.set(r.game_id, { in: 0, out: 0 })
+          const e = rsvpByGame.get(r.game_id)!
+          if (r.status === 'in') e.in++
+          else if (r.status === 'out') e.out++
+        }
+
+        // For each game, resolve the captain's team and attach counts
+        for (const game of games) {
+          const homeTeamObj = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team
+          const awayTeamObj = Array.isArray(game.away_team) ? game.away_team[0] : game.away_team
+          const hId = homeTeamObj?.id ?? game.home_team_id ?? ''
+          const aId = awayTeamObj?.id ?? game.away_team_id ?? ''
+          const captainTeamId = captainTeamIds.has(hId) ? hId : captainTeamIds.has(aId) ? aId : null
+          if (!captainTeamId) continue
+          const total = teamSizeMap.get(captainTeamId) ?? 0
+          const counts = rsvpByGame.get(game.id) ?? { in: 0, out: 0 }
+          captainAttendance.set(game.id, { in: counts.in, out: counts.out, total })
+        }
+      }
     } else if (user) {
       const { data: captainships } = await supabase
         .from('team_members')
@@ -1320,7 +1393,7 @@ export default async function EventDetailPage({
                     <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-4">Upcoming</p>
                     <div className="space-y-6">
                       {upcomingGroups.map(([date, dayGames]) => (
-                        <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast={false} captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} myTeamIds={myTeamIds} myRsvps={myRsvps} />
+                        <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast={false} captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} myTeamIds={myTeamIds} myRsvps={myRsvps} captainAttendance={captainAttendance} />
                       ))}
                     </div>
                   </section>
@@ -1330,7 +1403,7 @@ export default async function EventDetailPage({
                     <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-4">Results</p>
                     <div className="space-y-6">
                       {[...pastGroups].reverse().map(([date, dayGames]) => (
-                        <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} myTeamIds={myTeamIds} myRsvps={myRsvps} />
+                        <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} myTeamIds={myTeamIds} myRsvps={myRsvps} captainAttendance={captainAttendance} />
                       ))}
                     </div>
                   </section>
