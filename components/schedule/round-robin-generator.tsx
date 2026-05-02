@@ -318,7 +318,7 @@ export function RoundRobinGenerator({
                 <label className="block text-xs text-gray-500 mb-0.5">Start Date *</label>
                 <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required className={inputCls} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 items-end">
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Game Time</label>
                   <input type="time" value={gameTime} onChange={e => setGameTime(e.target.value)} className={inputCls} />
@@ -341,7 +341,7 @@ export function RoundRobinGenerator({
           {mode === 'day_schedule' && (
             <>
               {/* Date + time */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 items-end">
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Date *</label>
                   <input type="date" value={dsDate} onChange={e => setDsDate(e.target.value)} required className={inputCls} />
@@ -353,7 +353,7 @@ export function RoundRobinGenerator({
               </div>
 
               {/* Duration + break */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 items-end">
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Game duration (min)</label>
                   <input type="number" min={5} max={240} value={dsGameDuration} onChange={e => setDsGameDuration(e.target.value)} className={inputCls} />
