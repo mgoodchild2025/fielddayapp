@@ -62,10 +62,20 @@ export type CsvGameRow = {
 
 export async function generateRoundRobinSchedule(input: {
   leagueId: string
-  startDate: string
-  gameTime: string
-  daysBetweenRounds: number
-  courts: number
+  // ── Weekly mode ───────────────────────────────────────────────────────────
+  startDate?: string
+  gameTime?: string
+  daysBetweenRounds?: number
+  courts?: number
+  // ── Day-schedule mode ─────────────────────────────────────────────────────
+  daySchedule?: {
+    startDate: string          // YYYY-MM-DD
+    startTime: string          // HH:MM
+    gameDurationMinutes: number
+    breakBetweenSlotsMinutes: number
+    courtsAvailable: number
+    specialBreaks: Array<{ label: string; startTime: string; durationMinutes: number }>
+  }
   /** Template mode: generate placeholder slots when no teams are registered yet */
   expectedTeamCount?: number
 }) {
@@ -80,7 +90,7 @@ export async function generateRoundRobinSchedule(input: {
     .eq('organization_id', org.id)
     .eq('status', 'active')
 
-  const { generateRoundRobin, assignDates } = await import('@/lib/scheduler')
+  const { generateRoundRobin, assignDates, assignTimeSlots } = await import('@/lib/scheduler')
 
   // Template mode: no real teams — generate positional placeholder slots
   const useSlotMode = (!realTeams || realTeams.length < 2) && !!(input.expectedTeamCount && input.expectedTeamCount >= 2)
@@ -93,13 +103,27 @@ export async function generateRoundRobinSchedule(input: {
     : realTeams!
 
   const fixtures = generateRoundRobin(teams)
-  const scheduled = assignDates(fixtures, {
-    startDate: input.startDate,
-    gameTime: input.gameTime,
-    daysBetweenRounds: input.daysBetweenRounds,
-    courts: input.courts,
-    slotMode: useSlotMode,
-  })
+
+  let scheduled
+  if (input.daySchedule) {
+    const ds = input.daySchedule
+    scheduled = assignTimeSlots(fixtures, {
+      startDateTime: `${ds.startDate}T${ds.startTime}`,
+      gameDurationMinutes: ds.gameDurationMinutes,
+      breakBetweenSlotsMinutes: ds.breakBetweenSlotsMinutes,
+      courtsAvailable: ds.courtsAvailable,
+      specialBreaks: ds.specialBreaks,
+      slotMode: useSlotMode,
+    })
+  } else {
+    scheduled = assignDates(fixtures, {
+      startDate: input.startDate!,
+      gameTime: input.gameTime!,
+      daysBetweenRounds: input.daysBetweenRounds!,
+      courts: input.courts ?? 1,
+      slotMode: useSlotMode,
+    })
+  }
 
   const games = scheduled.map(g => ({
     organization_id: org.id,

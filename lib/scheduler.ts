@@ -75,6 +75,32 @@ export interface ScheduleOptions {
   slotMode?: boolean
 }
 
+/** A named break that pauses scheduling when a time slot would land inside it. */
+export interface SpecialBreak {
+  label: string           // e.g. "Lunch"
+  startTime: string       // HH:MM 24-hour, on the same calendar date as the first game
+  durationMinutes: number
+}
+
+/** Options for day-schedule mode: all rounds in one day, advancing by clock time. */
+export interface DayScheduleOptions {
+  /** Local datetime string for the first game slot, "YYYY-MM-DDTHH:MM" */
+  startDateTime: string
+  /** Length of each game in minutes */
+  gameDurationMinutes: number
+  /** Gap between consecutive time slots in minutes */
+  breakBetweenSlotsMinutes: number
+  /**
+   * How many games can run simultaneously (pipeline limiter).
+   * A round with more games than courts spills into sequential slots.
+   */
+  courtsAvailable: number
+  /** Named breaks — any slot that lands inside a break is pushed to its end. */
+  specialBreaks?: SpecialBreak[]
+  /** Same slot-mode semantics as ScheduleOptions.slotMode */
+  slotMode?: boolean
+}
+
 export interface ScheduledGame {
   homeTeamId: string | null
   awayTeamId: string | null
@@ -127,6 +153,93 @@ export function assignDates(fixtures: Fixture[], opts: ScheduleOptions): Schedul
         court,
       })
     })
+  }
+
+  return games
+}
+
+// ── Day-schedule mode ─────────────────────────────────────────────────────────
+
+/**
+ * Advance `time` past any special breaks it falls inside.
+ * Iterates until stable (handles back-to-back breaks, unlikely in practice).
+ */
+function advancePastBreaks(time: Date, breaks: SpecialBreak[]): Date {
+  let result = new Date(time)
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const br of breaks) {
+      const [h, m] = br.startTime.split(':').map(Number)
+      // Resolve break start against the current result's calendar date
+      const breakStart = new Date(result)
+      breakStart.setHours(h, m, 0, 0)
+      const breakEnd = new Date(breakStart.getTime() + br.durationMinutes * 60_000)
+      if (result >= breakStart && result < breakEnd) {
+        result = new Date(breakEnd)
+        changed = true
+        break
+      }
+    }
+  }
+  return result
+}
+
+/**
+ * Day-schedule variant of assignDates.
+ * Rounds are collapsed into time slots: up to `courtsAvailable` games per slot,
+ * each slot separated by gameDuration + breakBetweenSlots minutes.
+ * Special breaks push any slot that lands inside them to the break's end.
+ */
+export function assignTimeSlots(fixtures: Fixture[], opts: DayScheduleOptions): ScheduledGame[] {
+  const games: ScheduledGame[] = []
+  const courts = Math.max(1, opts.courtsAvailable)
+  const slotGapMs = (opts.gameDurationMinutes + opts.breakBetweenSlotsMinutes) * 60_000
+
+  // Parse local datetime string ("YYYY-MM-DDTHH:MM") as a local Date
+  const startDt = new Date(opts.startDateTime)
+
+  // Group fixtures by round, preserving round order
+  const byRound = new Map<number, Fixture[]>()
+  for (const f of fixtures) {
+    if (!byRound.has(f.round)) byRound.set(f.round, [])
+    byRound.get(f.round)!.push(f)
+  }
+
+  // Flatten rounds → batches (each batch ≤ courts games, run simultaneously)
+  const batches: { fixtures: Fixture[]; roundNum: number }[] = []
+  for (const [roundNum, roundFixtures] of byRound) {
+    for (let i = 0; i < roundFixtures.length; i += courts) {
+      batches.push({ fixtures: roundFixtures.slice(i, i + courts), roundNum })
+    }
+  }
+
+  const slotLabel = (id: string) => `Team ${id.replace('slot_', '')}`
+  let currentTime = new Date(startDt)
+
+  for (const batch of batches) {
+    const slotIso = currentTime.toISOString()
+
+    batch.fixtures.forEach((f, i) => {
+      const courtLabel = courts > 1 ? `Court ${i + 1}` : null
+      const rawHome = f.homeTeamId ?? ''
+      const rawAway = f.awayTeamId ?? ''
+      const homeIsSlot = opts.slotMode && rawHome.startsWith('slot_')
+      const awayIsSlot = opts.slotMode && rawAway.startsWith('slot_')
+      games.push({
+        homeTeamId:    homeIsSlot ? null : (rawHome || null),
+        awayTeamId:    awayIsSlot ? null : (rawAway || null),
+        homeTeamLabel: homeIsSlot ? slotLabel(rawHome) : null,
+        awayTeamLabel: awayIsSlot ? slotLabel(rawAway) : null,
+        scheduledAt: slotIso,
+        weekNumber: batch.roundNum,
+        court: courtLabel,
+      })
+    })
+
+    // Advance and skip over any special breaks
+    const rawNext = new Date(currentTime.getTime() + slotGapMs)
+    currentTime = advancePastBreaks(rawNext, opts.specialBreaks ?? [])
   }
 
   return games
