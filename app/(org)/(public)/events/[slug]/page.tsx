@@ -8,6 +8,7 @@ import { RequestJoinButton } from '@/components/teams/request-join-button'
 import { PlayerCreateTeamForm } from '@/components/teams/player-create-team-form'
 import { SessionJoinButton } from '@/components/sessions/session-join-button'
 import { CaptainScoreEntry } from '@/components/scores/captain-score-entry'
+import { GameRsvpButton } from '@/components/schedule/game-rsvp-button'
 import { EventRulesModal } from '@/components/events/event-rules-modal'
 import { BracketView } from '@/components/bracket/bracket-view'
 import type { BracketData, BracketMatchData } from '@/components/bracket/bracket-view'
@@ -119,6 +120,7 @@ type GameRow = {
   scheduled_at: string
   court: string | null
   status: string
+  cancellation_reason?: string | null
   week_number: number | null
   home_team_id: string | null
   away_team_id: string | null
@@ -142,7 +144,7 @@ type GameRow = {
 }
 
 function DateGroup({
-  date, games, timezone, isPast, captainTeamIds, userId, sport,
+  date, games, timezone, isPast, captainTeamIds, userId, sport, myTeamIds, myRsvps,
 }: {
   date: string
   games: GameRow[]
@@ -151,6 +153,8 @@ function DateGroup({
   captainTeamIds: Set<string>
   userId: string | null
   sport: string | null
+  myTeamIds?: Set<string>
+  myRsvps?: Map<string, 'in' | 'out'>
 }) {
   return (
     <div>
@@ -167,6 +171,14 @@ function DateGroup({
           const isCaptainOfAway = captainTeamIds.has(awayTeamId)
           const isCaptain = isCaptainOfHome || isCaptainOfAway
           const submittedByOpponent = result?.submitted_by != null && result.submitted_by !== userId
+
+          // RSVP: determine which team (if any) this player belongs to for this game
+          const myTeamIdForGame = myTeamIds?.has(homeTeamId) ? homeTeamId
+            : myTeamIds?.has(awayTeamId) ? awayTeamId
+            : null
+          const rsvpStatus = myRsvps?.get(game.id) ?? null
+          const showRsvp = !!userId && !!myTeamIdForGame && !isPast
+            && game.status !== 'cancelled' && game.status !== 'postponed'
 
           const hasScore = result && result.home_score !== null && result.away_score !== null
           const homeWon = hasScore && result!.home_score! > result!.away_score!
@@ -214,28 +226,44 @@ function DateGroup({
                     )}
                   </div>
                 ) : (
-                  <div className="mt-2">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
-                    }`}>
-                      {game.status === 'completed' ? 'Final' : game.status}
-                    </span>
+                  <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                    {game.status === 'cancelled' ? (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>
+                    ) : game.status === 'postponed' ? (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>
+                    ) : (
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
+                      }`}>
+                        {game.status === 'completed' ? 'Final' : game.status}
+                      </span>
+                    )}
+                    {game.cancellation_reason && (game.status === 'cancelled' || game.status === 'postponed') && (
+                      <span className="text-[11px] text-gray-400 italic">{game.cancellation_reason}</span>
+                    )}
                   </div>
                 )}
               </div>
 
               {/* ── Desktop layout: single row ── */}
-              <div className="hidden md:flex items-center gap-3">
+              <div className={`hidden md:flex items-center gap-3 ${game.status === 'cancelled' || game.status === 'postponed' ? 'opacity-70' : ''}`}>
                 <div className="w-14 shrink-0 text-xs text-gray-400 tabular-nums">{gameTime}</div>
                 <div className="flex-1 min-w-0">
-                  <p className={`font-semibold text-sm ${isPast ? 'text-gray-500' : ''}`}>
-                    {homeTeam?.name ?? game.home_team_label ?? 'TBD'}
-                    <span className="mx-2 font-normal text-gray-400">vs</span>
-                    {awayTeam?.name ?? game.away_team_label ?? 'TBD'}
-                  </p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className={`font-semibold text-sm ${isPast ? 'text-gray-500' : ''} ${game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-400' : ''}`}>
+                      {homeTeam?.name ?? game.home_team_label ?? 'TBD'}
+                      <span className="mx-2 font-normal text-gray-400">vs</span>
+                      {awayTeam?.name ?? game.away_team_label ?? 'TBD'}
+                    </p>
+                    {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
+                    {game.status === 'postponed' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
+                  </div>
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
                     {game.court && <span>Court {game.court}</span>}
                     {game.week_number && <><span>·</span><span>Wk {game.week_number}</span></>}
+                    {game.cancellation_reason && (game.status === 'cancelled' || game.status === 'postponed') && (
+                      <span className="italic">{game.cancellation_reason}</span>
+                    )}
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
@@ -251,17 +279,25 @@ function DateGroup({
                         {result!.status === 'confirmed' ? '✓ confirmed' : 'pending'}
                       </p>
                     </div>
-                  ) : (
+                  ) : game.status !== 'cancelled' && game.status !== 'postponed' ? (
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                       game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
                     }`}>
                       {game.status === 'completed' ? 'Final' : game.status}
                     </span>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
-              {isPast && isCaptain && result?.status !== 'confirmed' && (
+              {showRsvp && (
+                <GameRsvpButton
+                  gameId={game.id}
+                  teamId={myTeamIdForGame!}
+                  initialStatus={rsvpStatus}
+                />
+              )}
+
+              {isPast && isCaptain && result?.status !== 'confirmed' && game.status !== 'cancelled' && game.status !== 'postponed' && (
                 <CaptainScoreEntry
                   gameId={game.id}
                   sport={sport ?? undefined}
@@ -580,12 +616,13 @@ export default async function EventDetailPage({
 
   let games: GameRow[] = []
   let captainTeamIds = new Set<string>()
+  let myRsvps = new Map<string, 'in' | 'out'>()
 
   if (activeTab === 'schedule' && isTeamBased) {
     const { data: gamesData } = await supabase
       .from('games')
       .select(`
-        id, scheduled_at, court, status, week_number,
+        id, scheduled_at, court, status, cancellation_reason, week_number,
         home_team_id, away_team_id,
         home_team_label, away_team_label,
         home_team:teams!games_home_team_id_fkey(id, name),
@@ -598,7 +635,26 @@ export default async function EventDetailPage({
 
     games = (gamesData ?? []) as unknown as GameRow[]
 
-    if (user) {
+    if (user && games.length > 0) {
+      const gameIds = games.map((g) => g.id)
+      const [{ data: captainships }, { data: rsvpData }] = await Promise.all([
+        supabase
+          .from('team_members')
+          .select('team_id')
+          .eq('user_id', user.id)
+          .eq('role', 'captain')
+          .eq('status', 'active'),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any)
+          .from('game_rsvps')
+          .select('game_id, status')
+          .eq('user_id', user.id)
+          .in('game_id', gameIds),
+      ])
+      for (const c of captainships ?? []) captainTeamIds.add(c.team_id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const r of (rsvpData ?? []) as any[]) myRsvps.set(r.game_id, r.status as 'in' | 'out')
+    } else if (user) {
       const { data: captainships } = await supabase
         .from('team_members')
         .select('team_id')
@@ -1264,7 +1320,7 @@ export default async function EventDetailPage({
                     <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-4">Upcoming</p>
                     <div className="space-y-6">
                       {upcomingGroups.map(([date, dayGames]) => (
-                        <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast={false} captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} />
+                        <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast={false} captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} myTeamIds={myTeamIds} myRsvps={myRsvps} />
                       ))}
                     </div>
                   </section>
@@ -1274,7 +1330,7 @@ export default async function EventDetailPage({
                     <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-4">Results</p>
                     <div className="space-y-6">
                       {[...pastGroups].reverse().map(([date, dayGames]) => (
-                        <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} />
+                        <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} myTeamIds={myTeamIds} myRsvps={myRsvps} />
                       ))}
                     </div>
                   </section>

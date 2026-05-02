@@ -23,6 +23,8 @@ interface Game {
   timeLabel: string
   /** YYYY-MM-DD in org timezone — used for Print Day URL */
   dateKey: string
+  status: string
+  cancellationReason: string | null
   result: {
     homeScore: number | null
     awayScore: number | null
@@ -71,11 +73,31 @@ function PrintIcon() {
 export function ScheduleTable({ games, teams, leagueId, sport, timezone }: Props) {
   const [editingGame, setEditingGame] = useState<Game | null>(null)
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
-  const [filter, setFilter] = useState<'all' | 'needs'>('all')
+  const [filter, setFilter] = useState<'all' | 'needs' | 'cancelled'>('all')
+  // Track status overrides applied optimistically within this session
+  const [statusOverrides, setStatusOverrides] = useState<Map<string, { status: string; reason: string | null }>>(new Map())
 
-  const allVisible = games.filter((g) => !deletedIds.has(g.id))
-  const visible = allVisible.filter((g) => filter === 'needs' ? needsScore(g) : true)
-  const needsCount = allVisible.filter(needsScore).length
+  function handleStatusChanged(gameId: string, newStatus: string, reason: string | null) {
+    setStatusOverrides((prev) => new Map(prev).set(gameId, { status: newStatus, reason }))
+    if (editingGame?.id === gameId) {
+      setEditingGame((prev) => prev ? { ...prev, status: newStatus, cancellationReason: reason } : null)
+    }
+  }
+
+  // Merge status overrides into the game list
+  const gamesWithOverrides = games.map((g) => {
+    const override = statusOverrides.get(g.id)
+    return override ? { ...g, status: override.status, cancellationReason: override.reason } : g
+  })
+
+  const allVisible = gamesWithOverrides.filter((g) => !deletedIds.has(g.id))
+  const visible = allVisible.filter((g) => {
+    if (filter === 'needs') return needsScore(g) && g.status === 'scheduled'
+    if (filter === 'cancelled') return g.status === 'cancelled' || g.status === 'postponed'
+    return true
+  })
+  const needsCount = allVisible.filter((g) => needsScore(g) && g.status === 'scheduled').length
+  const cancelledCount = allVisible.filter((g) => g.status === 'cancelled' || g.status === 'postponed').length
 
   const groups = groupByDate(visible)
 
@@ -85,7 +107,7 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone }: Props
   return (
     <>
       {/* Filter pills */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
         <button
           onClick={() => setFilter('all')}
           className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
@@ -115,6 +137,23 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone }: Props
             </span>
           )}
         </button>
+        {cancelledCount > 0 && (
+          <button
+            onClick={() => setFilter('cancelled')}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5 ${
+              filter === 'cancelled'
+                ? 'bg-red-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            Cancelled/Postponed
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+              filter === 'cancelled' ? 'bg-white/30' : 'bg-red-100 text-red-700'
+            }`}>
+              {cancelledCount}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* ── Mobile: card list ── */}
@@ -138,7 +177,11 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone }: Props
             </div>
             <div className="space-y-2">
               {dayGames.map((game) => (
-                <div key={game.id} className={`bg-white rounded-lg border overflow-hidden ${needsScore(game) ? 'border-orange-200' : ''}`}>
+                <div key={game.id} className={`bg-white rounded-lg border overflow-hidden ${
+                  game.status === 'cancelled' ? 'border-red-200 opacity-75' :
+                  game.status === 'postponed' ? 'border-amber-200 opacity-75' :
+                  needsScore(game) ? 'border-orange-200' : ''
+                }`}>
                   <div className="px-4 py-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -147,9 +190,16 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone }: Props
                           {game.court ? ` · Court ${game.court}` : ''}
                           {game.weekNumber ? ` · Wk ${game.weekNumber}` : ''}
                         </p>
-                        <p className="font-semibold text-sm">
-                          {game.homeTeamName} <span className="text-gray-400 font-normal">vs</span> {game.awayTeamName}
-                        </p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className={`font-semibold text-sm ${game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-400' : ''}`}>
+                            {game.homeTeamName} <span className="text-gray-400 font-normal">vs</span> {game.awayTeamName}
+                          </p>
+                          {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
+                          {game.status === 'postponed' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
+                        </div>
+                        {game.cancellationReason && (game.status === 'cancelled' || game.status === 'postponed') && (
+                          <p className="text-[11px] text-gray-400 italic mt-0.5">{game.cancellationReason}</p>
+                        )}
                       </div>
                       <div className="shrink-0 text-right">
                         {game.result?.homeScore !== null && game.result?.homeScore !== undefined ? (
@@ -199,7 +249,7 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone }: Props
           </div>
         )) : (
           <div className="bg-white rounded-lg border px-4 py-12 text-center text-gray-400 text-sm">
-            {filter === 'needs' ? 'All games have scores — nice work! 🎉' : 'No games scheduled yet.'}
+            {filter === 'needs' ? 'All games have scores — nice work! 🎉' : filter === 'cancelled' ? 'No cancelled or postponed games.' : 'No games scheduled yet.'}
           </div>
         )}
       </div>
@@ -248,15 +298,24 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone }: Props
                     </tr>
                     {/* Game rows */}
                     {dayGames.map((game) => (
-                      <tr key={game.id} className="border-b last:border-0 hover:bg-gray-50 align-top">
+                      <tr key={game.id} className={`border-b last:border-0 hover:bg-gray-50 align-top ${game.status === 'cancelled' || game.status === 'postponed' ? 'opacity-60' : ''}`}>
                         <td className="px-4 py-3 text-gray-400 text-xs">{game.weekNumber ?? '—'}</td>
                         <td className="px-4 py-3">
                           <div className="text-xs text-gray-500">{game.timeLabel}</div>
                         </td>
                         <td className="px-4 py-3 font-medium">
-                          {game.homeTeamName}{' '}
-                          <span className="text-gray-400 font-normal text-xs">vs</span>{' '}
-                          {game.awayTeamName}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-400' : ''}>
+                              {game.homeTeamName}{' '}
+                              <span className="text-gray-400 font-normal text-xs">vs</span>{' '}
+                              {game.awayTeamName}
+                            </span>
+                            {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
+                            {game.status === 'postponed' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
+                          </div>
+                          {game.cancellationReason && (game.status === 'cancelled' || game.status === 'postponed') && (
+                            <p className="text-[11px] text-gray-400 italic mt-0.5">{game.cancellationReason}</p>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-gray-500">{game.court ?? '—'}</td>
                         <td className="px-4 py-3">
@@ -308,7 +367,7 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone }: Props
           </div>
         ) : (
           <div className="px-4 py-12 text-center text-gray-400">
-            {filter === 'needs' ? 'All games have scores — nice work! 🎉' : 'No games scheduled yet. Add a game or import from CSV.'}
+            {filter === 'needs' ? 'All games have scores — nice work! 🎉' : filter === 'cancelled' ? 'No cancelled or postponed games.' : 'No games scheduled yet. Add a game or import from CSV.'}
           </div>
         )}
       </div>
@@ -325,6 +384,8 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone }: Props
             scheduledAt: editingGame.scheduledAt,
             court: editingGame.court,
             weekNumber: editingGame.weekNumber,
+            status: editingGame.status,
+            cancellationReason: editingGame.cancellationReason,
           }}
           teams={teams}
           onClose={() => setEditingGame(null)}
@@ -332,6 +393,7 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone }: Props
             setDeletedIds((prev) => new Set([...prev, editingGame.id]))
             setEditingGame(null)
           }}
+          onStatusChanged={handleStatusChanged}
         />
       )}
     </>

@@ -32,7 +32,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
     (supabase as any)
       .from('games')
       .select(`
-        id, scheduled_at, court, week_number, status,
+        id, scheduled_at, court, week_number, status, cancellation_reason,
         home_team_id, away_team_id,
         home_team_label, away_team_label,
         home_team:teams!games_home_team_id_fkey(name),
@@ -85,6 +85,8 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
       dateKey: game.scheduled_at
         ? new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(game.scheduled_at))
         : '',
+      status: game.status ?? 'scheduled',
+      cancellationReason: game.cancellation_reason ?? null,
       result: result
         ? {
             homeScore: result.home_score,

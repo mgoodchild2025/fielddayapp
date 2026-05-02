@@ -4,8 +4,76 @@ import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
-import { parseLocalToUtc } from '@/lib/format-time'
+import { parseLocalToUtc, formatGameTime } from '@/lib/format-time'
+import { getResend, FROM_EMAIL } from '@/lib/resend'
+
+// ── Notification helpers ────────────────────────────────────────────────────
+
+/** Fetch active team members with profile data for both teams of a game. */
+async function getGameParticipants(orgId: string, homeTeamId: string | null, awayTeamId: string | null) {
+  const teamIds = [homeTeamId, awayTeamId].filter(Boolean) as string[]
+  if (!teamIds.length) return []
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (db as any)
+    .from('team_members')
+    .select('user_id, profile:profiles!team_members_user_id_fkey(full_name, email)')
+    .in('team_id', teamIds)
+    .eq('status', 'active')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data ?? []) as any[]).map((m: { user_id: string; profile: { full_name?: string; email?: string } | { full_name?: string; email?: string }[] | null }) => {
+    const profile = Array.isArray(m.profile) ? m.profile[0] : m.profile
+    return { userId: m.user_id as string, email: profile?.email as string | undefined, name: profile?.full_name as string | undefined }
+  }).filter((m: { userId: string }) => !!m.userId)
+}
+
+/** Insert in-app notifications and optionally send emails to all participants. */
+async function notifyGameStatusChange(opts: {
+  orgId: string
+  gameId: string
+  homeTeamId: string | null
+  awayTeamId: string | null
+  type: string
+  title: string
+  body: string
+  data?: Record<string, unknown>
+  sendEmails: boolean
+  emailSubject: string
+  emailHtml: string
+}) {
+  const participants = await getGameParticipants(opts.orgId, opts.homeTeamId, opts.awayTeamId)
+  if (!participants.length) return
+
+  const db = createServiceRoleClient()
+  await db.from('notifications').insert(
+    participants.map((p: { userId: string; email?: string; name?: string }) => ({
+      organization_id: opts.orgId,
+      user_id: p.userId,
+      type: opts.type,
+      title: opts.title,
+      body: opts.body,
+      data: { gameId: opts.gameId, ...(opts.data ?? {}) },
+    }))
+  )
+
+  if (opts.sendEmails) {
+    const resend = getResend()
+    await Promise.allSettled(
+      participants
+        .filter((p: { userId: string; email?: string }) => !!p.email)
+        .map((p: { userId: string; email?: string }) =>
+          resend.emails.send({
+            from: FROM_EMAIL,
+            to: p.email!,
+            subject: opts.emailSubject,
+            html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">${opts.emailHtml}</div>`,
+          })
+        )
+    )
+  }
+}
 
 const addGameSchema = z.object({
   leagueId: z.string().uuid(),
@@ -345,6 +413,208 @@ export async function insertBreak(input: {
   revalidatePath(`/admin/events/${input.leagueId}/schedule`)
   revalidatePath('/events/[slug]', 'page')
   return { error: null, count: gamesAfter.length }
+}
+
+// ── Game status actions ─────────────────────────────────────────────────────
+
+/** Shared admin auth check + game fetch. Returns org, game data, or error. */
+async function getGameForStatusChange(gameId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { org: null, supabase: null, game: null, error: 'Not authenticated' as string }
+
+  const { data: adminMember } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+  if (!adminMember) return { org: null, supabase: null, game: null, error: 'Admin access required' as string }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: game, error: gameError } = await (supabase as any)
+    .from('games')
+    .select(`
+      home_team_id, away_team_id, scheduled_at,
+      home_team:teams!games_home_team_id_fkey(name),
+      away_team:teams!games_away_team_id_fkey(name),
+      league:leagues!games_league_id_fkey(name, sport)
+    `)
+    .eq('id', gameId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (gameError || !game) return { org: null, supabase: null, game: null, error: 'Game not found' as string }
+  return { org, supabase, game, error: null }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveGameNames(game: any) {
+  const homeName: string = (Array.isArray(game.home_team) ? game.home_team[0] : game.home_team)?.name ?? 'TBD'
+  const awayName: string = (Array.isArray(game.away_team) ? game.away_team[0] : game.away_team)?.name ?? 'TBD'
+  const leagueRaw = Array.isArray(game.league) ? game.league[0] : game.league
+  const leagueName: string = leagueRaw?.name ?? ''
+  return { homeName, awayName, leagueName }
+}
+
+export async function cancelGame(input: {
+  gameId: string
+  leagueId: string
+  reason?: string
+  notify: boolean
+}) {
+  const { org, supabase, game, error: authError } = await getGameForStatusChange(input.gameId)
+  if (authError || !org || !supabase || !game) return { error: authError ?? 'Unknown error' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from('games')
+    .update({ status: 'cancelled', cancellation_reason: input.reason ?? null })
+    .eq('id', input.gameId)
+    .eq('organization_id', org.id)
+  if (error) return { error: error.message }
+
+  if (input.notify && (game.home_team_id || game.away_team_id)) {
+    const { data: branding } = await supabase
+      .from('org_branding')
+      .select('timezone')
+      .eq('organization_id', org.id)
+      .single()
+    const timezone = branding?.timezone ?? 'America/Toronto'
+    const { homeName, awayName, leagueName } = resolveGameNames(game)
+    const { time: timeLabel, date: dateLabel } = formatGameTime(game.scheduled_at, timezone)
+    const reasonSuffix = input.reason ? ` Reason: ${input.reason}` : ''
+    await notifyGameStatusChange({
+      orgId: org.id,
+      gameId: input.gameId,
+      homeTeamId: game.home_team_id,
+      awayTeamId: game.away_team_id,
+      type: 'game_cancelled',
+      title: 'Game Cancelled',
+      body: `${homeName} vs ${awayName} on ${dateLabel} at ${timeLabel} has been cancelled.${reasonSuffix}`,
+      sendEmails: true,
+      emailSubject: `Game Cancelled – ${homeName} vs ${awayName}`,
+      emailHtml: `
+        <h2 style="margin:0 0 8px;font-size:22px;">Game Cancelled</h2>
+        <p style="color:#374151;margin:0 0 16px;">
+          Your game <strong>${homeName} vs ${awayName}</strong> scheduled for
+          <strong>${dateLabel} at ${timeLabel}</strong>${leagueName ? ` (${leagueName})` : ''} has been <strong>cancelled</strong>.
+        </p>
+        ${input.reason ? `<p style="color:#6b7280;font-style:italic;margin:0;">${input.reason}</p>` : ''}
+      `,
+    })
+  }
+
+  revalidatePath(`/admin/events/${input.leagueId}/schedule`)
+  revalidatePath('/events/[slug]', 'page')
+  return { error: null }
+}
+
+export async function postponeGame(input: {
+  gameId: string
+  leagueId: string
+  reason?: string
+  notify: boolean
+}) {
+  const { org, supabase, game, error: authError } = await getGameForStatusChange(input.gameId)
+  if (authError || !org || !supabase || !game) return { error: authError ?? 'Unknown error' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from('games')
+    .update({ status: 'postponed', cancellation_reason: input.reason ?? null })
+    .eq('id', input.gameId)
+    .eq('organization_id', org.id)
+  if (error) return { error: error.message }
+
+  if (input.notify && (game.home_team_id || game.away_team_id)) {
+    const { data: branding } = await supabase
+      .from('org_branding')
+      .select('timezone')
+      .eq('organization_id', org.id)
+      .single()
+    const timezone = branding?.timezone ?? 'America/Toronto'
+    const { homeName, awayName, leagueName } = resolveGameNames(game)
+    const { time: timeLabel, date: dateLabel } = formatGameTime(game.scheduled_at, timezone)
+    const reasonSuffix = input.reason ? ` Reason: ${input.reason}` : ''
+    await notifyGameStatusChange({
+      orgId: org.id,
+      gameId: input.gameId,
+      homeTeamId: game.home_team_id,
+      awayTeamId: game.away_team_id,
+      type: 'game_postponed',
+      title: 'Game Postponed',
+      body: `${homeName} vs ${awayName} on ${dateLabel} at ${timeLabel} has been postponed.${reasonSuffix}`,
+      sendEmails: true,
+      emailSubject: `Game Postponed – ${homeName} vs ${awayName}`,
+      emailHtml: `
+        <h2 style="margin:0 0 8px;font-size:22px;">Game Postponed</h2>
+        <p style="color:#374151;margin:0 0 16px;">
+          Your game <strong>${homeName} vs ${awayName}</strong> scheduled for
+          <strong>${dateLabel} at ${timeLabel}</strong>${leagueName ? ` (${leagueName})` : ''} has been <strong>postponed</strong>.
+          A new date will be announced soon.
+        </p>
+        ${input.reason ? `<p style="color:#6b7280;font-style:italic;margin:0;">${input.reason}</p>` : ''}
+      `,
+    })
+  }
+
+  revalidatePath(`/admin/events/${input.leagueId}/schedule`)
+  revalidatePath('/events/[slug]', 'page')
+  return { error: null }
+}
+
+export async function restoreGame(input: {
+  gameId: string
+  leagueId: string
+  notify: boolean
+}) {
+  const { org, supabase, game, error: authError } = await getGameForStatusChange(input.gameId)
+  if (authError || !org || !supabase || !game) return { error: authError ?? 'Unknown error' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from('games')
+    .update({ status: 'scheduled', cancellation_reason: null })
+    .eq('id', input.gameId)
+    .eq('organization_id', org.id)
+  if (error) return { error: error.message }
+
+  if (input.notify && (game.home_team_id || game.away_team_id)) {
+    const { data: branding } = await supabase
+      .from('org_branding')
+      .select('timezone')
+      .eq('organization_id', org.id)
+      .single()
+    const timezone = branding?.timezone ?? 'America/Toronto'
+    const { homeName, awayName, leagueName } = resolveGameNames(game)
+    const { time: timeLabel, date: dateLabel } = formatGameTime(game.scheduled_at, timezone)
+    await notifyGameStatusChange({
+      orgId: org.id,
+      gameId: input.gameId,
+      homeTeamId: game.home_team_id,
+      awayTeamId: game.away_team_id,
+      type: 'game_restored',
+      title: 'Game Rescheduled',
+      body: `${homeName} vs ${awayName} is back on! See you ${dateLabel} at ${timeLabel}.`,
+      sendEmails: true,
+      emailSubject: `Game Back On – ${homeName} vs ${awayName}`,
+      emailHtml: `
+        <h2 style="margin:0 0 8px;font-size:22px;">Game Back On! 🎉</h2>
+        <p style="color:#374151;margin:0;">
+          Your game <strong>${homeName} vs ${awayName}</strong>${leagueName ? ` (${leagueName})` : ''} is back on —
+          see you <strong>${dateLabel} at ${timeLabel}</strong>.
+        </p>
+      `,
+    })
+  }
+
+  revalidatePath(`/admin/events/${input.leagueId}/schedule`)
+  revalidatePath('/events/[slug]', 'page')
+  return { error: null }
 }
 
 export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
