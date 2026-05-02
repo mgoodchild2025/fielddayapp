@@ -9,11 +9,16 @@ import Image from 'next/image'
 // Marketing homepage — shown when no org context (fielddayapp.ca)
 function MarketingPage() {
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-white">
-      <h1 className="text-6xl font-bold" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
-        Fieldday
-      </h1>
-      <p className="mt-4 text-xl text-gray-600">Sports league management, built for your community.</p>
+    <main className="min-h-screen flex flex-col items-center justify-center bg-white px-6 text-center">
+      <Image
+        src="/Fieldday-og.png"
+        alt="Fieldday"
+        width={400}
+        height={160}
+        className="w-64 sm:w-80 h-auto"
+        priority
+      />
+      <p className="mt-6 text-xl text-gray-600">Sports league management, built for your community.</p>
     </main>
   )
 }
