@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { orgSignup, checkSlugAvailable } from '@/actions/org-signup'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
@@ -390,8 +391,7 @@ function SuccessScreen({ email, slug }: { email: string; slug: string }) {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <header className="border-b border-gray-100 px-6 py-4 flex items-center gap-2">
-        <span className="text-emerald-500 font-black text-xl tracking-tight">⚡</span>
-        <span className="font-bold text-gray-900 text-lg tracking-tight">Fieldday</span>
+        <Image src="/Fieldday-Icon.png" alt="Fieldday" width={28} height={28} className="rounded" />
       </header>
       <div className="flex-1 flex items-center justify-center px-4 py-20">
         <div className="max-w-md w-full text-center">
@@ -429,8 +429,7 @@ function SignupsDisabledScreen() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <header className="border-b border-gray-100 px-6 py-4 flex items-center gap-2">
-        <span className="text-emerald-500 font-black text-xl tracking-tight">⚡</span>
-        <span className="font-bold text-gray-900 text-lg tracking-tight">Fieldday</span>
+        <Image src="/Fieldday-Icon.png" alt="Fieldday" width={28} height={28} className="rounded" />
       </header>
       <div className="flex-1 flex items-center justify-center px-4 py-20">
         <div className="max-w-md w-full text-center">
@@ -476,8 +475,7 @@ export function SignupPage({ signupsEnabled }: { signupsEnabled: boolean }) {
       {/* Nav */}
       <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-100 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-emerald-500 font-black text-xl tracking-tight">⚡</span>
-          <span className="font-bold text-gray-900 text-lg tracking-tight">Fieldday</span>
+          <Image src="/Fieldday-Icon.png" alt="Fieldday" width={28} height={28} className="rounded" />
         </div>
         <Link
           href="/login"
