@@ -1492,7 +1492,7 @@ export default async function EventDetailPage({
         <StickyRegisterBar
           href={stickyBar.href}
           label={stickyBar.label}
-          price={league.status === 'registration_open' || isOrgAdmin ? price : null}
+          price={(league.status === 'registration_open' && !teamsAtCapacity) || isOrgAdmin ? price : null}
         />
       )}
 
