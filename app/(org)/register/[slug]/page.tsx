@@ -97,6 +97,22 @@ export default async function RegisterLeaguePage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dropInPriceCents: number | null = (league as any).drop_in_price_cents ?? null
 
+  // Check whether the team cap is reached so we can disable the captain path
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leagueMaxTeams: number | null = (league as any).max_teams ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isPerTeamLeague = (league as any).payment_mode === 'per_team'
+  const { count: currentTeamCount } = isPerTeamLeague && leagueMaxTeams !== null
+    ? await supabase
+        .from('teams')
+        .select('*', { count: 'exact', head: true })
+        .eq('league_id', league.id)
+        .eq('organization_id', org.id)
+        .eq('status', 'active')
+    : { count: null }
+
+  const teamsAtCapacity = isPerTeamLeague && leagueMaxTeams !== null && (currentTeamCount ?? 0) >= leagueMaxTeams
+
   const positions = await getPositionsForSport(org.id, league.sport ?? '')
 
   // Use the league's specific waiver if set, otherwise fall back to the org-wide active waiver
@@ -191,6 +207,7 @@ export default async function RegisterLeaguePage({
       captainTeamName={captainTeamName}
       playerTeamId={playerTeamId}
       playerTeamName={playerTeamName}
+      teamsAtCapacity={teamsAtCapacity}
       leagueTeams={leagueTeams}
     />
   )

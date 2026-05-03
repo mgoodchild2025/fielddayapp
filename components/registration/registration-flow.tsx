@@ -35,6 +35,8 @@ interface Props {
   /** Set when user is already on a team as a non-captain (e.g. accepted a team invite) */
   playerTeamId?: string | null
   playerTeamName?: string | null
+  /** True when max_teams is reached — captain path is disabled, player path remains open */
+  teamsAtCapacity?: boolean
   leagueTeams?: TeamOption[]
 }
 
@@ -60,6 +62,7 @@ export function RegistrationFlow({
   captainTeamName = null,
   playerTeamId = null,
   playerTeamName = null,
+  teamsAtCapacity = false,
   leagueTeams = [],
 }: Props) {
   const router = useRouter()
@@ -69,13 +72,16 @@ export function RegistrationFlow({
   const showPaymentStep = effectivePriceCents > 0 && hasOnlinePayments && !isPerTeam
 
   // For per-team events, we show a role-select screen before step 1.
-  // Skip it if: resuming (initialStep > 1), or the user is already on a team as captain or player.
-  const inferredRole: 'captain' | 'player' | null = isPerTeam && (initialStep > 1 || captainTeamId || playerTeamId)
-    ? (captainTeamId ? 'captain' : 'player')
-    : null
+  // Skip it if: resuming (initialStep > 1), user is already on a team, or teams are full (force player).
+  const inferredRole: 'captain' | 'player' | null =
+    isPerTeam && (initialStep > 1 || captainTeamId || playerTeamId || teamsAtCapacity)
+      ? captainTeamId ? 'captain' : 'player'
+      : null
 
   const [role, setRole] = useState<'captain' | 'player' | null>(inferredRole)
-  const [showRoleSelect, setShowRoleSelect] = useState(isPerTeam && initialStep === 1 && !captainTeamId && !playerTeamId)
+  const [showRoleSelect, setShowRoleSelect] = useState(
+    isPerTeam && initialStep === 1 && !captainTeamId && !playerTeamId && !teamsAtCapacity
+  )
   const [step, setStep] = useState(initialStep)
   const [registrationId, setRegistrationId] = useState<string | null>(initialRegistrationId)
   const [completing, setCompleting] = useState(false)
@@ -129,6 +135,7 @@ export function RegistrationFlow({
           <Step0RoleSelect
             leagueName={league.name}
             priceCents={effectivePriceCents}
+            teamsAtCapacity={teamsAtCapacity}
             onSelect={(r) => {
               setRole(r)
               setShowRoleSelect(false)

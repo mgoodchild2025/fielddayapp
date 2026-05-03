@@ -546,9 +546,17 @@ export default async function EventDetailPage({
         .eq('league_id', league.id).eq('organization_id', org.id).in('status', ['pending', 'active'])
     : { count: null }
 
+  // Per-player events: registration is fully closed when max_participants is reached
   const isFull =
-    (paymentMode === 'per_team' && maxTeams !== null && (registeredTeamCount ?? 0) >= maxTeams) ||
-    (paymentMode !== 'per_team' && maxParticipants !== null && (registeredPlayerCount ?? 0) >= maxParticipants)
+    paymentMode !== 'per_team' &&
+    maxParticipants !== null &&
+    (registeredPlayerCount ?? 0) >= maxParticipants
+
+  // Per-team events: no new teams can be created, but players can still join existing teams
+  const teamsAtCapacity =
+    paymentMode === 'per_team' &&
+    maxTeams !== null &&
+    (registeredTeamCount ?? 0) >= maxTeams
 
   // Teams list (for open-registration team events)
   const canJoinTeam = isTeamBased && league.team_join_policy !== 'admin_only'
@@ -620,10 +628,12 @@ export default async function EventDetailPage({
 
   // Sticky register bar — shown on mobile overview tab when registration is open and user isn't registered
   const stickyBar: { href: string; label: string } | null =
-    activeTab === 'overview' && !isFull
-      ? isTeamBased && !myRegistration && isOpen
-        ? { href: `/register/${league.slug}`, label: 'Register Now' }
-        : isSeasonPickup && !mySeasonRegistration && isRegOpen && (!isPrivatePickup || hasSeasonInvite)
+    activeTab === 'overview'
+      ? isTeamBased && !myRegistration && isOpen && !isFull
+        ? teamsAtCapacity
+          ? { href: `/register/${league.slug}`, label: 'Join a Team →' }
+          : { href: `/register/${league.slug}`, label: 'Register Now' }
+        : isSeasonPickup && !mySeasonRegistration && isRegOpen && !isFull && (!isPrivatePickup || hasSeasonInvite)
         ? { href: `/register/${league.slug}`, label: 'Register for the Season' }
         : null
       : null
@@ -1025,10 +1035,13 @@ export default async function EventDetailPage({
               )}
               {/* Live capacity card — per-team */}
               {isTeamBased && paymentMode === 'per_team' && maxTeams !== null && (
-                <div className={`rounded-lg border p-4 ${isFull ? 'bg-red-50 border-red-200' : 'bg-white'}`}>
+                <div className={`rounded-lg border p-4 ${teamsAtCapacity ? 'bg-amber-50 border-amber-200' : 'bg-white'}`}>
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Teams</p>
-                  {isFull ? (
-                    <p className="font-semibold mt-1 text-red-600">🔒 Event Full</p>
+                  {teamsAtCapacity ? (
+                    <>
+                      <p className="font-semibold mt-1 text-amber-700">🔒 Teams Full</p>
+                      <p className="text-xs text-amber-600 mt-0.5">Players can still join existing teams</p>
+                    </>
                   ) : (
                     <>
                       <p className="font-semibold mt-1">{registeredTeamCount ?? 0} / {maxTeams}</p>
@@ -1361,6 +1374,14 @@ export default async function EventDetailPage({
                 <div className="w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide bg-red-50 border border-red-200 text-red-700" style={{ fontFamily: 'var(--brand-heading-font)' }}>
                   🔒 Event Full
                 </div>
+              ) : teamsAtCapacity && isOpen ? (
+                <Link
+                  href={`/register/${league.slug}`}
+                  className="inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: 'var(--brand-primary)', fontFamily: 'var(--brand-heading-font)' }}
+                >
+                  🙋 Join an Existing Team →
+                </Link>
               ) : isOpen ? (
                 <Link
                   href={`/register/${league.slug}`}

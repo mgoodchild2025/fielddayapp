@@ -3,10 +3,11 @@
 interface Props {
   leagueName: string
   priceCents: number
+  teamsAtCapacity?: boolean
   onSelect: (role: 'captain' | 'player') => void
 }
 
-export function Step0RoleSelect({ leagueName, priceCents, onSelect }: Props) {
+export function Step0RoleSelect({ leagueName, priceCents, teamsAtCapacity = false, onSelect }: Props) {
   const price = priceCents > 0 ? `$${(priceCents / 100).toFixed(0)}` : null
 
   return (
@@ -20,28 +21,39 @@ export function Step0RoleSelect({ leagueName, priceCents, onSelect }: Props) {
         </p>
 
         <div className="space-y-3">
-          <button
-            type="button"
-            onClick={() => onSelect('captain')}
-            className="w-full text-left rounded-lg border-2 p-4 hover:border-current transition-colors group"
-            style={{ borderColor: 'var(--brand-primary)' }}
+          <div
+            className={`w-full text-left rounded-lg border-2 p-4 transition-colors ${
+              teamsAtCapacity
+                ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                : 'hover:border-current cursor-pointer'
+            }`}
+            style={teamsAtCapacity ? undefined : { borderColor: 'var(--brand-primary)' }}
+            onClick={teamsAtCapacity ? undefined : () => onSelect('captain')}
+            role="button"
+            aria-disabled={teamsAtCapacity}
           >
             <div className="flex items-start gap-3">
               <div
                 className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-lg mt-0.5"
-                style={{ backgroundColor: 'var(--brand-primary)' }}
+                style={{ backgroundColor: teamsAtCapacity ? '#9ca3af' : 'var(--brand-primary)' }}
               >
                 🏆
               </div>
               <div>
                 <p className="font-semibold">I&apos;m a captain</p>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  I&apos;m registering my team.
-                  {price && ` I'll pay the ${price} team fee after setting up my roster.`}
-                </p>
+                {teamsAtCapacity ? (
+                  <p className="text-sm text-amber-600 mt-0.5 font-medium">
+                    🔒 Teams are full — no new teams are being accepted
+                  </p>
+                ) : (
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    I&apos;m registering my team.
+                    {price && ` I'll pay the ${price} team fee after setting up my roster.`}
+                  </p>
+                )}
               </div>
             </div>
-          </button>
+          </div>
 
           <button
             type="button"
