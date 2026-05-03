@@ -32,6 +32,9 @@ interface Props {
   dropInPriceCents?: number | null
   captainTeamId?: string | null
   captainTeamName?: string | null
+  /** Set when user is already on a team as a non-captain (e.g. accepted a team invite) */
+  playerTeamId?: string | null
+  playerTeamName?: string | null
   leagueTeams?: TeamOption[]
 }
 
@@ -55,6 +58,8 @@ export function RegistrationFlow({
   dropInPriceCents = null,
   captainTeamId = null,
   captainTeamName = null,
+  playerTeamId = null,
+  playerTeamName = null,
   leagueTeams = [],
 }: Props) {
   const router = useRouter()
@@ -64,13 +69,13 @@ export function RegistrationFlow({
   const showPaymentStep = effectivePriceCents > 0 && hasOnlinePayments && !isPerTeam
 
   // For per-team events, we show a role-select screen before step 1.
-  // If resuming (initialStep > 1), we can infer role: captainTeamId => captain, else player.
-  const inferredRole: 'captain' | 'player' | null = isPerTeam && initialStep > 1
+  // Skip it if: resuming (initialStep > 1), or the user is already on a team as captain or player.
+  const inferredRole: 'captain' | 'player' | null = isPerTeam && (initialStep > 1 || captainTeamId || playerTeamId)
     ? (captainTeamId ? 'captain' : 'player')
     : null
 
   const [role, setRole] = useState<'captain' | 'player' | null>(inferredRole)
-  const [showRoleSelect, setShowRoleSelect] = useState(isPerTeam && initialStep === 1)
+  const [showRoleSelect, setShowRoleSelect] = useState(isPerTeam && initialStep === 1 && !captainTeamId && !playerTeamId)
   const [step, setStep] = useState(initialStep)
   const [registrationId, setRegistrationId] = useState<string | null>(initialRegistrationId)
   const [completing, setCompleting] = useState(false)
@@ -100,9 +105,14 @@ export function RegistrationFlow({
     if (showPaymentStep) {
       setStep(3)
     } else if (isPerTeam) {
-      // Both captain and player paths go to step 3 — just different UI
       await activateRegistration(registrationId!)
-      setStep(3)
+      // Players already on a team (via invite) skip the team-join step entirely
+      if (isPlayer && playerTeamId) {
+        router.push(`/register/${league.slug}/success`)
+      } else {
+        // Both captain and player paths go to step 3 — just different UI
+        setStep(3)
+      }
     } else {
       await completeRegistration(registrationId)
     }
@@ -257,8 +267,29 @@ export function RegistrationFlow({
           />
         )}
 
+        {/* Step 3 — Player already on a team (accepted an invite before registering) */}
+        {step === 3 && isPerTeam && isPlayer && playerTeamId && !completing && (
+          <div className="bg-white rounded-lg border p-6 space-y-4 text-center">
+            <div className="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center mx-auto text-2xl">✅</div>
+            <div>
+              <h2 className="font-semibold text-lg">You&apos;re on the team!</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                You&apos;re already on <strong>{playerTeamName}</strong>. Your registration is complete.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push(`/register/${league.slug}/success`)}
+              className="block w-full py-3 rounded-md font-semibold text-white text-center"
+              style={{ backgroundColor: 'var(--brand-primary)' }}
+            >
+              Finish →
+            </button>
+          </div>
+        )}
+
         {/* Step 3 — Player: team code or browse */}
-        {step === 3 && isPerTeam && isPlayer && !completing && (
+        {step === 3 && isPerTeam && isPlayer && !playerTeamId && !completing && (
           <StepTeamJoin
             teams={leagueTeams}
             onComplete={() => router.push(`/register/${league.slug}/success`)}

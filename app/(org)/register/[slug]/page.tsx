@@ -72,13 +72,13 @@ export default async function RegisterLeaguePage({
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any).from('org_payment_settings').select('stripe_secret_key').eq('organization_id', org.id).maybeSingle(),
-    // Check if the user is already a captain for a team in this league
+    // Check if the user is already on any team in this league (any role)
     supabase
       .from('team_members')
-      .select('team_id, teams!team_members_team_id_fkey(id, name)')
+      .select('team_id, role, teams!team_members_team_id_fkey!inner(id, name, league_id)')
       .eq('user_id', user.id)
-      .eq('role', 'captain')
       .eq('status', 'active')
+      .eq('teams.league_id', league.id)
       .maybeSingle(),
     // Fetch teams for per-team events (player browse/join step)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -150,12 +150,20 @@ export default async function RegisterLeaguePage({
     }
   }
 
-  const captainTeamRow = captainTeam
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ? (() => { const t = (captainTeam as any).teams; return Array.isArray(t) ? t[0] : t })()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const myTeamRow = captainTeam as any
+  const myTeamInfo = myTeamRow
+    ? (() => { const t = myTeamRow.teams; return Array.isArray(t) ? t[0] : t })()
     : null
-  const captainTeamId = captainTeamRow?.id ?? null
-  const captainTeamName = captainTeamRow?.name ?? null
+  const myTeamId = myTeamInfo?.id ?? null
+  const myTeamName = myTeamInfo?.name ?? null
+  const myTeamRole = myTeamRow?.role ?? null
+
+  const captainTeamId = myTeamRole === 'captain' ? myTeamId : null
+  const captainTeamName = myTeamRole === 'captain' ? myTeamName : null
+  // Already on a team as a non-captain (e.g. accepted a team invite)
+  const playerTeamId = myTeamRole && myTeamRole !== 'captain' ? myTeamId : null
+  const playerTeamName = myTeamRole && myTeamRole !== 'captain' ? myTeamName : null
 
   // Shape teams for the player browse/join step
   const leagueTeams = (rawTeams ?? []).map((t: any) => ({
@@ -181,6 +189,8 @@ export default async function RegisterLeaguePage({
       dropInPriceCents={dropInPriceCents}
       captainTeamId={captainTeamId}
       captainTeamName={captainTeamName}
+      playerTeamId={playerTeamId}
+      playerTeamName={playerTeamName}
       leagueTeams={leagueTeams}
     />
   )
