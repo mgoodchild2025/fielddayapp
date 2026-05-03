@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { ChevronRight } from 'lucide-react'
 import { logout } from '@/actions/auth'
 
 interface Props {
@@ -78,20 +79,25 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
         </div>
 
         {userName && (
-          <div className="px-5 py-4 border-b border-white/10 flex items-center gap-3">
+          <Link
+            href="/profile"
+            onClick={() => setOpen(false)}
+            className="px-5 py-4 border-b border-white/10 flex items-center gap-3 hover:bg-white/10 active:bg-white/20 transition-colors"
+          >
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
               style={{ backgroundColor: 'var(--brand-primary)' }}
             >
               {getInitials(userName)}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold truncate">{userName}</p>
               {userEmail && userEmail !== userName && (
                 <p className="text-xs opacity-60 truncate">{userEmail}</p>
               )}
             </div>
-          </div>
+            <ChevronRight className="w-4 h-4 opacity-40 shrink-0" />
+          </Link>
         )}
 
         <nav className="flex-1 px-4 py-6 space-y-1">
@@ -110,9 +116,6 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
             <>
               <Link href="/dashboard" className="block px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
                 Dashboard
-              </Link>
-              <Link href="/profile" className="block px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
-                My Profile
               </Link>
               {isAdmin && (
                 <Link href="/admin" className="block px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
