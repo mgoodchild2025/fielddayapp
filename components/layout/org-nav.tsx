@@ -94,7 +94,7 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
             </div>
           )}
 
-          <MobileNav userName={userName} isAdmin={isAdmin} />
+          <MobileNav userName={userName} userEmail={user?.email ?? null} isAdmin={isAdmin} />
         </div>
       </div>
     </nav>

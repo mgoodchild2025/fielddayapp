@@ -7,10 +7,17 @@ import { logout } from '@/actions/auth'
 
 interface Props {
   userName: string | null
+  userEmail: string | null
   isAdmin: boolean
 }
 
-export function MobileNav({ userName, isAdmin }: Props) {
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return name.slice(0, 2).toUpperCase()
+}
+
+export function MobileNav({ userName, userEmail, isAdmin }: Props) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
 
@@ -69,6 +76,23 @@ export function MobileNav({ userName, isAdmin }: Props) {
           </button>
           <span className="font-semibold text-sm">Menu</span>
         </div>
+
+        {userName && (
+          <div className="px-5 py-4 border-b border-white/10 flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+              style={{ backgroundColor: 'var(--brand-primary)' }}
+            >
+              {getInitials(userName)}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate">{userName}</p>
+              {userEmail && userEmail !== userName && (
+                <p className="text-xs opacity-60 truncate">{userEmail}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         <nav className="flex-1 px-4 py-6 space-y-1">
           {userName && (
