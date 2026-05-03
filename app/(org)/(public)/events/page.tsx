@@ -17,7 +17,7 @@ export default async function EventsPage() {
   const [{ data: leagues }, { data: branding }, { data: orgMember }] = await Promise.all([
     (supabase as any)
       .from('leagues')
-      .select('id, name, slug, status, event_type, sport, price_cents, currency, season_start_date')
+      .select('id, name, slug, status, event_type, sport, price_cents, currency, season_start_date, max_teams')
       .eq('organization_id', org.id)
       .neq('status', 'draft')
       .order('created_at', { ascending: false }),
@@ -29,7 +29,24 @@ export default async function EventsPage() {
 
   const isOrgAdmin = ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
 
-  const events: EventItem[] = (leagues ?? []).map((l: EventItem) => ({
+  // Fetch team counts for open-registration leagues so we can show capacity
+  const openIds = (leagues ?? [])
+    .filter((l: { status: string }) => l.status === 'registration_open')
+    .map((l: { id: string }) => l.id)
+
+  const teamCountMap = new Map<string, number>()
+  if (openIds.length > 0) {
+    const { data: teamRows } = await supabase
+      .from('teams')
+      .select('league_id')
+      .in('league_id', openIds)
+    for (const t of teamRows ?? []) {
+      teamCountMap.set(t.league_id, (teamCountMap.get(t.league_id) ?? 0) + 1)
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const events: EventItem[] = (leagues ?? []).map((l: any) => ({
     id: l.id,
     name: l.name,
     slug: l.slug,
@@ -39,6 +56,8 @@ export default async function EventsPage() {
     price_cents: l.price_cents ?? 0,
     currency: l.currency ?? 'cad',
     season_start_date: l.season_start_date ?? null,
+    max_teams: l.max_teams ?? null,
+    team_count: teamCountMap.get(l.id) ?? 0,
   }))
 
   return (

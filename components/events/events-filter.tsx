@@ -13,6 +13,8 @@ export interface EventItem {
   price_cents: number
   currency: string
   season_start_date: string | null
+  max_teams: number | null
+  team_count: number
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -36,22 +38,46 @@ function formatYear(iso: string) {
 // ── Featured registration card ────────────────────────────────────────────────
 
 function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boolean }) {
+  const isFull = event.max_teams !== null && event.team_count >= event.max_teams
+  const showCapacity = event.max_teams !== null
+
   return (
     <Link
       href={`/events/${event.slug}`}
       className="group flex flex-col bg-white rounded-2xl border overflow-hidden hover:shadow-md transition-shadow"
     >
-      <div className="h-1.5 w-full shrink-0 bg-green-500" />
+      {/* Accent bar — green when open, gray when full */}
+      <div className={`h-1.5 w-full shrink-0 ${isFull ? 'bg-gray-300' : 'bg-green-500'}`} />
+
       <div className="flex flex-col flex-1 p-5 gap-4">
+        {/* Status badge + capacity fraction */}
         <div className="flex items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-            Open for Registration
-          </span>
-          {event.sport && (
-            <span className="text-xs text-gray-400 font-medium">{formatSport(event.sport)}</span>
+          {isFull ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-600">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+              Event Full
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              Open for Registration
+            </span>
           )}
+
+          {/* Capacity fraction + sport — right-aligned */}
+          <div className="flex items-center gap-2 shrink-0">
+            {showCapacity && (
+              <span className={`text-xs font-semibold tabular-nums ${isFull ? 'text-red-500' : 'text-gray-400'}`}>
+                {event.team_count} / {event.max_teams} teams
+              </span>
+            )}
+            {event.sport && !showCapacity && (
+              <span className="text-xs text-gray-400 font-medium">{formatSport(event.sport)}</span>
+            )}
+          </div>
         </div>
+
+        {/* Name + date */}
         <div>
           <h2
             className="text-xl font-bold text-gray-900 leading-snug"
@@ -65,13 +91,21 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
             </p>
           )}
         </div>
+
+        {/* Price + CTA */}
         <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100">
-          <span className="text-base font-bold text-green-600">
+          <span className={`text-base font-bold ${isFull ? 'text-gray-400' : 'text-green-600'}`}>
             {formatPrice(event.price_cents, event.currency)}
           </span>
-          <span className="text-sm font-semibold px-3 py-1.5 rounded-lg text-white bg-green-500 group-hover:bg-green-600 transition-colors">
-            Register →
-          </span>
+          {isFull ? (
+            <span className="text-sm font-semibold px-3 py-1.5 rounded-lg text-gray-400 bg-gray-100 cursor-default">
+              Event Full
+            </span>
+          ) : (
+            <span className="text-sm font-semibold px-3 py-1.5 rounded-lg text-white bg-green-500 group-hover:bg-green-600 transition-colors">
+              Register →
+            </span>
+          )}
         </div>
       </div>
     </Link>
