@@ -70,7 +70,8 @@ export default async function RegisterLeaguePage({
           .eq('registration_type' as never, 'season')
           .maybeSingle(),
     supabase.from('profiles').select('*').eq('id', user.id).single(),
-    supabase.from('stripe_connect_accounts').select('charges_enabled').eq('organization_id', org.id).maybeSingle(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any).from('org_payment_settings').select('stripe_secret_key').eq('organization_id', org.id).maybeSingle(),
     // Check if the user is already a captain for a team in this league
     supabase
       .from('team_members')
@@ -92,7 +93,7 @@ export default async function RegisterLeaguePage({
       : Promise.resolve({ data: [] }),
   ])
 
-  const hasOnlinePayments = !!connectAccount?.charges_enabled
+  const hasOnlinePayments = !!connectAccount?.stripe_secret_key
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dropInPriceCents: number | null = (league as any).drop_in_price_cents ?? null
 
