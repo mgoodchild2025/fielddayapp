@@ -24,7 +24,7 @@ export function RequestJoinButton({ teamId, teamName }: { teamId: string; teamNa
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Optional message to the captain…"
           rows={2}
-          className="w-full text-sm border rounded px-2 py-1.5 focus:outline-none focus:ring-1"
+          className="w-full text-base border rounded px-2 py-1.5 focus:outline-none focus:ring-1"
         />
         {error && <p className="text-xs text-red-600">{error}</p>}
         <div className="flex gap-2">

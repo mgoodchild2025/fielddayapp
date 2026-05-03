@@ -218,7 +218,7 @@ function SignupForm({
   const plan = PLANS.find((p) => p.id === selectedPlan)!
 
   const inputBase =
-    'w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition'
+    'w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-base md:text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition'
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -282,7 +282,7 @@ function SignupForm({
             value={slug}
             onChange={(e) => handleSlugChange(e.target.value)}
             placeholder="riverside-vc"
-            className="flex-1 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none bg-white"
+            className="flex-1 px-3.5 py-2.5 text-base md:text-sm text-gray-900 placeholder-gray-400 focus:outline-none bg-white"
           />
           <span className="px-3 py-2.5 bg-gray-50 border-l border-gray-200 text-xs text-gray-500 whitespace-nowrap select-none">
             .{PLATFORM_DOMAIN}

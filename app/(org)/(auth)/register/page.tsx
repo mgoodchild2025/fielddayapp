@@ -77,7 +77,7 @@ export default function RegisterPage() {
                 id={id}
                 type={type}
                 autoComplete={autoComplete}
-                className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                className="w-full border rounded-md px-3 py-2 text-base focus:outline-none focus:ring-2"
               />
               {errors[id as keyof FormData] && (
                 <p className="text-red-500 text-xs mt-1">{errors[id as keyof FormData]?.message}</p>

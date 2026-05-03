@@ -86,7 +86,7 @@ export function StepCaptainTeam({ leagueId, captainTeamId, captainTeamName, onBa
             onChange={(e) => setTeamName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreate() } }}
             placeholder="e.g. The Spikers"
-            className="w-full border rounded-md px-3 py-2 text-sm"
+            className="w-full border rounded-md px-3 py-2 text-base"
             autoFocus
           />
         </div>

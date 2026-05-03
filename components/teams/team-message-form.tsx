@@ -80,7 +80,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
           onChange={(e) => setSubject(e.target.value)}
           maxLength={120}
           required
-          className="w-full border rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-full border rounded px-3 py-1.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
         <textarea
           placeholder="Message…"
@@ -89,7 +89,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
           maxLength={2000}
           required
           rows={3}
-          className="w-full border rounded px-3 py-1.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-full border rounded px-3 py-1.5 text-base resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
         <div className="flex justify-end gap-2">
           <button

@@ -74,7 +74,7 @@ export function PlayerCreateTeamForm({ leagueId }: Props) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. The Spikers"
-            className="w-full border rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0"
+            className="w-full border rounded px-2.5 py-1.5 text-base focus:outline-none focus:ring-2 focus:ring-offset-0"
             autoFocus
           />
         </div>

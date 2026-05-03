@@ -121,7 +121,7 @@ export function CaptainRosterManager({ teamId, initialMembers, positions = [] }:
                 <select
                   value={m.position ?? ''}
                   onChange={(e) => handlePositionChange(m.id, e.target.value)}
-                  className="flex-1 min-w-0 text-xs border rounded px-2 py-1 bg-white"
+                  className="flex-1 min-w-0 text-base md:text-xs border rounded px-2 py-1 bg-white"
                   title="Position"
                 >
                   <option value="">Position…</option>
@@ -133,7 +133,7 @@ export function CaptainRosterManager({ teamId, initialMembers, positions = [] }:
               <select
                 value={m.role}
                 onChange={(e) => handleRoleChange(m.id, e.target.value as Role)}
-                className={`text-xs border rounded px-2 py-1 bg-white ${positions.length > 0 ? 'w-24 shrink-0' : 'flex-1'}`}
+                className={`text-base md:text-xs border rounded px-2 py-1 bg-white ${positions.length > 0 ? 'w-24 shrink-0' : 'flex-1'}`}
               >
                 {ROLES.map((r) => (
                   <option key={r.value} value={r.value}>{r.label}</option>
@@ -157,12 +157,12 @@ export function CaptainRosterManager({ teamId, initialMembers, positions = [] }:
             onChange={(e) => setAddEmail(e.target.value)}
             placeholder="player@example.com"
             required
-            className="flex-1 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 border rounded-md px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <select
             value={addRole}
             onChange={(e) => setAddRole(e.target.value as Role)}
-            className="border rounded-md px-3 py-2 text-sm"
+            className="border rounded-md px-3 py-2 text-base"
           >
             {ROLES.map((r) => (
               <option key={r.value} value={r.value}>{r.label}</option>
