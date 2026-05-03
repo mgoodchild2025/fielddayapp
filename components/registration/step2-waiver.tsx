@@ -171,7 +171,7 @@ export function Step2Waiver({ org, waiver, userId, leagueId, playerName, playerD
             onChange={(e) => setGuardianName(e.target.value)}
             disabled={!scrolledToBottom}
             placeholder={scrolledToBottom ? 'e.g. Jane Smith' : 'Scroll to the bottom to enable signing'}
-            className="w-full border rounded-md px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400"
+            className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-400"
           />
         </div>
         <div>
@@ -180,7 +180,7 @@ export function Step2Waiver({ org, waiver, userId, leagueId, playerName, playerD
             value={guardianRelationship}
             onChange={(e) => setGuardianRelationship(e.target.value as GuardianRelationship)}
             disabled={!scrolledToBottom}
-            className="w-full border rounded-md px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400"
+            className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-400"
           >
             <option value="parent">Parent</option>
             <option value="legal_guardian">Legal Guardian</option>
@@ -209,7 +209,7 @@ export function Step2Waiver({ org, waiver, userId, leagueId, playerName, playerD
           onChange={(e) => setSignatureName(e.target.value)}
           disabled={!scrolledToBottom}
           placeholder={scrolledToBottom ? 'Your full name' : 'Scroll to the bottom to enable signing'}
-          className="w-full border rounded-md px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400"
+          className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-400"
         />
       </div>
       <button
