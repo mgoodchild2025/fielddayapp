@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { upsertWaiver, setWaiverActive, deleteWaiver } from '@/actions/waivers'
+import { RichTextEditor } from '@/components/ui/rich-text-editor'
 
 interface Waiver {
   id: string
@@ -132,6 +133,10 @@ function WaiverForm({ waiver, onSaved, onCancel }: FormProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!content.trim() || content === '<p></p>') {
+      setError('Waiver text is required.')
+      return
+    }
     setLoading(true)
     setError(null)
 
@@ -173,13 +178,10 @@ function WaiverForm({ waiver, onSaved, onCancel }: FormProps) {
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Waiver Text</label>
         <p className="text-xs text-gray-400 mb-1">Players must scroll to the bottom before they can sign.</p>
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          rows={16}
-          required
-          placeholder="By signing this waiver, I acknowledge that..."
-          className="input font-mono text-xs leading-relaxed resize-y"
+        <RichTextEditor
+          content={content}
+          onChange={setContent}
+          minHeight="360px"
         />
       </div>
 

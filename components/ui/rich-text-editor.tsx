@@ -96,7 +96,7 @@ export function RichTextEditor({ content, onChange, minHeight = '220px', disable
     if (!editor) return
     const normalized = content || '<p></p>'
     if (editor.getHTML() !== normalized) {
-      editor.commands.setContent(normalized, { emitUpdate: false })
+      editor.commands.setContent(normalized)
     }
   }, [content, editor])
 
