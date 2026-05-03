@@ -1,0 +1,117 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "Fieldday Help",
+  "logo": {
+    "light": "/logo/fieldday-light.png",
+    "dark": "/logo/fieldday-dark.png"
+  },
+  "favicon": "/favicon.png",
+  "colors": {
+    "primary": "#10b981",
+    "light": "#34d399",
+    "dark": "#059669",
+    "anchors": {
+      "from": "#10b981",
+      "to": "#059669"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "fielddayapp.ca",
+      "url": "https://fielddayapp.ca"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Sign in",
+    "url": "https://fielddayapp.ca/login"
+  },
+  "tabs": [
+    {
+      "name": "Organizers",
+      "url": "getting-started"
+    },
+    {
+      "name": "Players",
+      "url": "players"
+    }
+  ],
+  "anchors": [
+    {
+      "name": "Website",
+      "icon": "globe",
+      "url": "https://fielddayapp.ca"
+    },
+    {
+      "name": "Email Support",
+      "icon": "envelope",
+      "url": "mailto:hello@fielddayapp.ca"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "pages": [
+        "getting-started/introduction",
+        "getting-started/create-your-organization",
+        "getting-started/setup-branding",
+        "getting-started/invite-co-organizers"
+      ]
+    },
+    {
+      "group": "Org Admin",
+      "pages": [
+        "org-admins/billing",
+        "org-admins/connect-stripe",
+        "org-admins/custom-domain",
+        "org-admins/managing-admins"
+      ]
+    },
+    {
+      "group": "Running Events",
+      "pages": [
+        "running-events/create-event",
+        "running-events/registration-setup",
+        "running-events/build-schedule",
+        "running-events/brackets",
+        "running-events/pools-divisions",
+        "running-events/drop-in-sessions"
+      ]
+    },
+    {
+      "group": "Registration & Payments",
+      "pages": [
+        "registration-payments/collecting-fees",
+        "registration-payments/early-bird-pricing",
+        "registration-payments/discount-codes",
+        "registration-payments/payment-plans",
+        "registration-payments/waivers"
+      ]
+    },
+    {
+      "group": "Game Day",
+      "pages": [
+        "game-day/score-submission",
+        "game-day/print-scoresheets",
+        "game-day/stats-leaderboards"
+      ]
+    },
+    {
+      "group": "Players",
+      "pages": [
+        "players/register-for-event",
+        "players/join-a-team",
+        "players/view-schedule",
+        "players/submit-scores",
+        "players/profile"
+      ]
+    },
+    {
+      "group": "Troubleshooting",
+      "pages": [
+        "troubleshooting/stripe-issues",
+        "troubleshooting/player-cant-register"
+      ]
+    }
+  ],
+  "footerSocials": {}
+}

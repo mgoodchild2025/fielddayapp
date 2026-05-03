@@ -1,0 +1,49 @@
+---
+title: Custom Domain
+description: Serve your org's public pages from your own domain name.
+---
+
+<Info>
+  Custom domain is available on the **Club** plan only.
+</Info>
+
+By default, your organization's public page is at `yourname.fielddayapp.ca`. With a custom domain, you can serve it from a domain you own — for example, `leagues.yourclub.com`.
+
+## Set up your custom domain
+
+### Step 1 — Add your domain in Fieldday
+
+1. Go to **Admin → Settings → Branding**
+2. Scroll to **Custom Domain**
+3. Enter your domain (e.g. `leagues.yourclub.com`)
+4. Click **Save**
+
+### Step 2 — Add a DNS record
+
+Log in to your domain registrar (e.g. GoDaddy, Namecheap, Cloudflare) and add a **CNAME record**:
+
+| Type | Name | Value |
+|---|---|---|
+| CNAME | `leagues` | `yourname.fielddayapp.ca` |
+
+Replace `leagues` with whatever subdomain you want to use, and `yourname` with your Fieldday slug.
+
+<Tip>
+  DNS changes can take up to 24 hours to propagate, though it's usually much faster (under an hour with most registrars).
+</Tip>
+
+### Step 3 — Wait for SSL
+
+Once the DNS record propagates, Fieldday automatically provisions an SSL certificate for your domain. This usually takes a few minutes after the DNS change is detected.
+
+## Verify it's working
+
+Visit your custom domain in a browser. You should see your Fieldday org page with a valid SSL padlock in the address bar.
+
+## Troubleshooting
+
+**"This site can't be reached"** — DNS hasn't propagated yet. Wait up to 24 hours and try again.
+
+**"Not secure" warning** — SSL certificate is still being provisioned. Wait a few minutes.
+
+**Still not working after 24 hours** — Double-check your CNAME record points to `yourname.fielddayapp.ca` (not an IP address).

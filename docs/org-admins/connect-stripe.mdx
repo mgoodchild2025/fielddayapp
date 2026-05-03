@@ -1,0 +1,41 @@
+---
+title: Connect Stripe for Payments
+description: Link your Stripe account to accept online registration fees from players.
+---
+
+Fieldday uses **Stripe Connect** to process registration payments. Players pay you directly — Fieldday never touches your money.
+
+<Info>
+  You need a Stripe account to accept online payments. Stripe is free to sign up — they charge a standard processing fee per transaction (typically 2.9% + 30¢ in Canada/US). See [stripe.com/pricing](https://stripe.com/pricing) for your region.
+</Info>
+
+## Connect your Stripe account
+
+1. Go to **Admin → Settings → Payments**
+2. Click **Connect with Stripe**
+3. You'll be redirected to Stripe to sign in or create an account
+4. Complete Stripe's onboarding — you'll need to provide:
+   - Business or personal information
+   - Bank account for payouts
+   - Identity verification (required by Stripe)
+5. Once complete, you'll be redirected back to Fieldday
+
+When the connection is successful, the Payments page will show your account as **Connected**.
+
+<Warning>
+  Stripe's identity verification can take 1–2 business days. You can set up events in the meantime, but players won't be able to complete payment until verification is approved.
+</Warning>
+
+## How payouts work
+
+- Stripe holds funds for a standard rolling period (typically 2 business days for established accounts)
+- Payouts are deposited directly to your connected bank account
+- You can view all transactions and payouts in your [Stripe dashboard](https://dashboard.stripe.com)
+
+## Disconnect Stripe
+
+To disconnect your Stripe account, go to **Admin → Settings → Payments** and click **Disconnect**. 
+
+<Warning>
+  Disconnecting Stripe will disable online payments for all your events. Players will see an error if they try to pay. Make sure no active registrations are in progress before disconnecting.
+</Warning>

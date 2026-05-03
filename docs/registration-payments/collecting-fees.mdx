@@ -1,0 +1,53 @@
+---
+title: Collecting Registration Fees
+description: Charge players or teams when they register for your event.
+---
+
+## Before you start
+
+You need to [connect your Stripe account](/org-admins/connect-stripe) before you can collect payments. If Stripe isn't connected, players will see an error at checkout.
+
+## Set a registration fee
+
+When creating or editing an event, set:
+
+- **Price** — the amount in dollars (e.g. `75` for $75.00)
+- **Payment mode** — charge per player or per team
+
+Leave the price as `0` for free events — players can still register without needing a payment method.
+
+## Payment modes
+
+| Mode | How it works |
+|---|---|
+| **Per player** | Each player pays individually when registering |
+| **Per team** | The team captain pays a single fee for the whole team |
+
+<Tip>
+  Per-team pricing works well for leagues where teams register together. Per-player pricing is better for individual sign-ups where players join teams after registering.
+</Tip>
+
+## How players pay
+
+Players pay via Stripe Checkout during registration. Fieldday supports all major credit and debit cards. Payment is processed immediately — players receive a confirmation email from Stripe.
+
+## View payments
+
+Go to **Admin → Events → [Your event] → Registrations** to see each registration and its payment status:
+
+- **Paid** — payment was successful
+- **Pending** — registration submitted but payment not yet completed
+- **Failed** — payment attempt failed
+- **Manual** — marked as paid manually by an admin (e.g. cash payment)
+
+## Mark a payment as manual
+
+If a player pays by cash or e-transfer, you can mark their registration as paid manually:
+
+1. Go to **Registrations**
+2. Find the player
+3. Click **Mark as paid**
+
+## Refunds
+
+Refunds are issued through your [Stripe dashboard](https://dashboard.stripe.com) — go to **Payments**, find the transaction, and click **Refund**. Fieldday doesn't currently support refunds directly from the admin panel.

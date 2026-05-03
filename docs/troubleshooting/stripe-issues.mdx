@@ -1,0 +1,56 @@
+---
+title: Stripe Payment Issues
+description: Common payment problems and how to fix them.
+---
+
+## "This organization has not configured online payments"
+
+**Cause:** The organizer hasn't connected their Stripe account yet.
+
+**Fix (for organizers):** Go to **Admin → Settings → Payments** and click **Connect with Stripe**. Complete Stripe's onboarding process.
+
+---
+
+## "Your card was declined"
+
+**Cause:** The player's card was declined by their bank.
+
+**Fix (for players):** Try a different card, or contact your bank to authorize the transaction. Common reasons for declines include:
+- Insufficient funds
+- Bank blocking the transaction for security reasons
+- Card not enabled for online purchases
+
+---
+
+## Player paid but their registration shows "Pending"
+
+**Cause:** The Stripe webhook notification was delayed.
+
+**Fix:** Wait a few minutes and refresh the registrations page — it usually resolves automatically. If it's still pending after 10 minutes, check your **Stripe Dashboard → Payments** to confirm the charge went through. If it did, you can manually mark the registration as paid in Fieldday.
+
+---
+
+## "Event is full" error during checkout
+
+**Cause:** Another team registered and filled the last spot while the player was in checkout.
+
+**Fix (for players):** Contact your league organizer — they may be able to expand capacity or add you to the waitlist.
+
+---
+
+## Stripe onboarding stuck or showing errors
+
+**Cause:** Stripe requires identity and bank account verification before you can accept payments.
+
+**Fix (for organizers):**
+1. Go to your [Stripe dashboard](https://dashboard.stripe.com)
+2. Check for any outstanding requirements under **Settings → Account details**
+3. Complete any outstanding verification steps
+
+Stripe verification can take 1–2 business days. You'll receive an email from Stripe when your account is approved.
+
+---
+
+## Refund questions
+
+Refunds are issued through your [Stripe dashboard](https://dashboard.stripe.com). Find the payment under **Payments**, click it, and select **Refund**. The refund typically appears on the player's card within 5–10 business days.
