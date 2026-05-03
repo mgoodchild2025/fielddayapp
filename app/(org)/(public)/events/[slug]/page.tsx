@@ -1039,7 +1039,7 @@ export default async function EventDetailPage({
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Teams</p>
                   {teamsAtCapacity ? (
                     <>
-                      <p className="font-semibold mt-1 text-amber-700">🔒 Teams Full</p>
+                      <p className="font-semibold mt-1 text-amber-700">{registeredTeamCount ?? 0} / {maxTeams} 🔒</p>
                       <p className="text-xs text-amber-600 mt-0.5">Players can still join existing teams</p>
                     </>
                   ) : (
