@@ -14,6 +14,7 @@ import { getPositionsForSport } from '@/actions/positions'
 import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { TeamAvatar } from '@/components/ui/team-avatar'
+import { CopyableCode } from '@/components/teams/copyable-code'
 import Link from 'next/link'
 
 export default async function TeamDetailPage({
@@ -231,7 +232,7 @@ export default async function TeamDetailPage({
           <div className="mt-6 bg-white rounded-lg border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Team Code</p>
-              <p className="text-xl font-bold tracking-widest mt-0.5">{team.team_code}</p>
+              <div className="mt-0.5"><CopyableCode code={team.team_code} /></div>
             </div>
             <p className="text-xs text-gray-400 sm:text-right">Share this code so players can join your team</p>
           </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Copy, Check } from 'lucide-react'
 import { regenerateTeamCode } from '@/actions/teams'
 
 interface Props {
@@ -30,16 +31,20 @@ export function TeamCodeBadge({ teamId, code: initialCode }: Props) {
   return (
     <div className="flex items-center gap-1.5 mt-2">
       <span className="text-xs text-gray-400">Code:</span>
-      <span className="font-mono font-bold text-sm tracking-widest bg-gray-100 px-2 py-0.5 rounded">
-        {code}
-      </span>
       <button
         onClick={handleCopy}
-        title="Copy code"
-        className="text-xs text-blue-600 hover:text-blue-700 px-1.5 py-0.5 rounded hover:bg-blue-50 transition-colors"
+        aria-label="Copy team code"
+        title="Copy team code"
+        className="group flex items-center gap-1 font-mono font-bold text-sm tracking-widest bg-gray-100 px-2 py-0.5 rounded hover:bg-gray-200 active:bg-gray-300 transition-colors cursor-pointer"
       >
-        {copied ? '✓ Copied' : 'Copy'}
+        {code}
+        {copied ? (
+          <Check className="w-3 h-3 text-green-500 shrink-0" />
+        ) : (
+          <Copy className="w-3 h-3 text-gray-400 group-hover:text-gray-600 shrink-0 transition-colors" />
+        )}
       </button>
+      {copied && <span className="text-xs text-green-600 font-medium">Copied!</span>}
       <button
         onClick={handleRegenerate}
         disabled={regenerating}
