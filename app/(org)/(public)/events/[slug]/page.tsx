@@ -4,7 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
-import { RequestJoinButton } from '@/components/teams/request-join-button'
+import { JoinTeamByCode } from '@/components/teams/join-team-by-code'
 import { PlayerCreateTeamForm } from '@/components/teams/player-create-team-form'
 import { SessionJoinButton } from '@/components/sessions/session-join-button'
 import { CaptainScoreEntry } from '@/components/scores/captain-score-entry'
@@ -1321,9 +1321,7 @@ export default async function EventDetailPage({
                 <h2 className="font-bold text-lg mb-3" style={{ fontFamily: 'var(--brand-heading-font)' }}>Teams</h2>
                 <div className="space-y-2">
                   {teams.map((team) => {
-                    const memberCount = (team.team_members ?? []).filter((m: { status: string }) => m.status === 'active').length
                     const isMember = myTeamIds.has(team.id)
-                    const hasRequest = myRequestTeamIds.has(team.id)
                     return (
                       <div key={team.id} className="bg-white rounded-lg border p-4 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
@@ -1333,26 +1331,18 @@ export default async function EventDetailPage({
                             name={team.name}
                             size="sm"
                           />
-                          <div>
-                            <p className="font-semibold">{team.name}</p>
-                            <p className="text-xs text-gray-500">{memberCount} player{memberCount !== 1 ? 's' : ''}</p>
-                          </div>
+                          <p className="font-semibold">{team.name}</p>
                         </div>
-                        <div>
-                          {isMember ? (
-                            <span className="text-xs text-green-600 font-medium">You&apos;re on this team</span>
-                          ) : hasRequest ? (
-                            <span className="text-xs text-amber-600 font-medium">Request pending…</span>
-                          ) : (league.team_join_policy !== 'admin_only' && myRegistration) ? (
-                            <RequestJoinButton teamId={team.id} teamName={team.name} />
-                          ) : !myRegistration ? (
-                            <span className="text-xs text-gray-400">Register to join</span>
-                          ) : null}
-                        </div>
+                        {isMember && (
+                          <span className="shrink-0 text-xs text-green-600 font-medium">✓ Your team</span>
+                        )}
                       </div>
                     )
                   })}
                 </div>
+                {canJoinTeam && myRegistration && (
+                  <JoinTeamByCode />
+                )}
               </div>
             )}
 
