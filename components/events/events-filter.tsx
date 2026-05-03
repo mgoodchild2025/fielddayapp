@@ -41,11 +41,8 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
       href={`/events/${event.slug}`}
       className="group flex flex-col bg-white rounded-2xl border overflow-hidden hover:shadow-md transition-shadow"
     >
-      {/* Green accent bar */}
       <div className="h-1.5 w-full shrink-0 bg-green-500" />
-
       <div className="flex flex-col flex-1 p-5 gap-4">
-        {/* Status + sport */}
         <div className="flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700">
             <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
@@ -55,8 +52,6 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
             <span className="text-xs text-gray-400 font-medium">{formatSport(event.sport)}</span>
           )}
         </div>
-
-        {/* Name + date */}
         <div>
           <h2
             className="text-xl font-bold text-gray-900 leading-snug"
@@ -70,14 +65,10 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
             </p>
           )}
         </div>
-
-        {/* Price + CTA */}
         <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100">
-          {(isOrgAdmin || event.price_cents !== undefined) ? (
-            <span className="text-base font-bold text-green-600">
-              {formatPrice(event.price_cents, event.currency)}
-            </span>
-          ) : <span />}
+          <span className="text-base font-bold text-green-600">
+            {formatPrice(event.price_cents, event.currency)}
+          </span>
           <span className="text-sm font-semibold px-3 py-1.5 rounded-lg text-white bg-green-500 group-hover:bg-green-600 transition-colors">
             Register →
           </span>
@@ -89,8 +80,8 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
 
 // ── Compact list row ──────────────────────────────────────────────────────────
 
-function EventRow({ event, tab }: { event: EventItem; tab: 'inseason' | 'past' }) {
-  const href = tab === 'inseason'
+function EventRow({ event, variant }: { event: EventItem; variant: 'inseason' | 'past' }) {
+  const href = variant === 'inseason'
     ? `/events/${event.slug}?tab=schedule`
     : `/events/${event.slug}?tab=standings`
 
@@ -102,7 +93,7 @@ function EventRow({ event, tab }: { event: EventItem; tab: 'inseason' | 'past' }
       <div className="flex items-center gap-3 min-w-0">
         <div
           className="w-1.5 h-1.5 rounded-full shrink-0"
-          style={{ backgroundColor: tab === 'inseason' ? 'var(--brand-primary)' : '#d1d5db' }}
+          style={{ backgroundColor: variant === 'inseason' ? 'var(--brand-primary)' : '#d1d5db' }}
         />
         <div className="min-w-0">
           <p className="text-sm font-semibold text-gray-800 truncate">{event.name}</p>
@@ -114,13 +105,10 @@ function EventRow({ event, tab }: { event: EventItem; tab: 'inseason' | 'past' }
       <div className="flex items-center gap-3 shrink-0">
         {event.season_start_date && (
           <span className="text-xs text-gray-400 hidden sm:block">
-            {tab === 'past' ? formatYear(event.season_start_date) : formatDate(event.season_start_date)}
+            {variant === 'past' ? formatYear(event.season_start_date) : formatDate(event.season_start_date)}
           </span>
         )}
-        <svg
-          className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors"
-          fill="none" stroke="currentColor" viewBox="0 0 24 24"
-        >
+        <svg className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
         </svg>
       </div>
@@ -128,59 +116,31 @@ function EventRow({ event, tab }: { event: EventItem; tab: 'inseason' | 'past' }
   )
 }
 
-// ── Tab bar ───────────────────────────────────────────────────────────────────
+// ── Section header ────────────────────────────────────────────────────────────
 
-function TabBar({
-  active,
-  onChange,
-  inSeasonCount,
-  pastCount,
-}: {
-  active: 'inseason' | 'past'
-  onChange: (t: 'inseason' | 'past') => void
-  inSeasonCount: number
-  pastCount: number
-}) {
+function SectionHeader({ label }: { label: string }) {
   return (
-    <div className="flex border-b border-gray-200">
-      {(['inseason', 'past'] as const).map((tab) => {
-        const label = tab === 'inseason' ? 'In Season' : 'Past Events'
-        const count = tab === 'inseason' ? inSeasonCount : pastCount
-        const isActive = active === tab
-        return (
-          <button
-            key={tab}
-            onClick={() => onChange(tab)}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-              isActive
-                ? 'border-[var(--brand-primary)] text-gray-900'
-                : 'border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-300'
-            }`}
-          >
-            {label}
-            <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-              isActive ? 'bg-gray-100 text-gray-600' : 'bg-gray-100 text-gray-400'
-            }`}>
-              {count}
-            </span>
-          </button>
-        )
-      })}
+    <div className="flex items-center gap-3 mb-3">
+      <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest whitespace-nowrap">
+        {label}
+      </h2>
+      <div className="flex-1 h-px bg-gray-200" />
     </div>
   )
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
+const PAST_PREVIEW = 5
+
 export function EventsFilter({ events, isOrgAdmin = false }: { events: EventItem[]; isOrgAdmin?: boolean }) {
+  const [showAllPast, setShowAllPast] = useState(false)
+
   const open     = events.filter((e) => e.status === 'registration_open')
   const inSeason = events.filter((e) => e.status === 'active')
   const past     = events.filter((e) => e.status === 'completed' || e.status === 'archived')
 
-  const defaultTab: 'inseason' | 'past' = inSeason.length > 0 ? 'inseason' : 'past'
-  const [tab, setTab] = useState<'inseason' | 'past'>(defaultTab)
-
-  const hasTabs = inSeason.length > 0 || past.length > 0
+  const visiblePast = showAllPast ? past : past.slice(0, PAST_PREVIEW)
 
   if (events.length === 0) {
     return (
@@ -191,11 +151,12 @@ export function EventsFilter({ events, isOrgAdmin = false }: { events: EventItem
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
 
-      {/* ── Featured: open for registration ─────────────────────────────────── */}
+      {/* ── 1. Open for registration ─────────────────────────────────────────── */}
       {open.length > 0 && (
-        <section className="space-y-3">
+        <section>
+          <SectionHeader label="Open for Registration" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {open.map((e) => (
               <FeaturedCard key={e.id} event={e} isOrgAdmin={isOrgAdmin} />
@@ -204,40 +165,38 @@ export function EventsFilter({ events, isOrgAdmin = false }: { events: EventItem
         </section>
       )}
 
-      {/* ── Tabbed section: in-season + past ────────────────────────────────── */}
-      {hasTabs && (
-        <section className="bg-white rounded-2xl border overflow-hidden">
-          {/* Only render the tab bar if both categories exist */}
-          {inSeason.length > 0 && past.length > 0 ? (
-            <div className="px-4">
-              <TabBar
-                active={tab}
-                onChange={setTab}
-                inSeasonCount={inSeason.length}
-                pastCount={past.length}
-              />
-            </div>
-          ) : (
-            <div className="px-4 pt-4 pb-1">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
-                {inSeason.length > 0 ? 'In Season' : 'Past Events'}
-              </p>
-            </div>
-          )}
-
-          {/* List */}
-          <div className="px-4 pb-2">
-            {(tab === 'inseason' ? inSeason : past).map((e) => (
-              <EventRow key={e.id} event={e} tab={tab} />
+      {/* ── 2. In season — always visible ───────────────────────────────────── */}
+      {inSeason.length > 0 && (
+        <section>
+          <SectionHeader label="In Season" />
+          <div className="bg-white rounded-2xl border px-4">
+            {inSeason.map((e) => (
+              <EventRow key={e.id} event={e} variant="inseason" />
             ))}
-
-            {/* Edge case: selected tab is empty */}
-            {(tab === 'inseason' ? inSeason : past).length === 0 && (
-              <p className="text-sm text-gray-400 py-6 text-center">
-                {tab === 'inseason' ? 'No events currently in season.' : 'No past events yet.'}
-              </p>
-            )}
           </div>
+        </section>
+      )}
+
+      {/* ── 3. Past events — collapsed beyond 5 ─────────────────────────────── */}
+      {past.length > 0 && (
+        <section>
+          <SectionHeader label="Past Events" />
+          <div className="bg-white rounded-2xl border px-4">
+            {visiblePast.map((e) => (
+              <EventRow key={e.id} event={e} variant="past" />
+            ))}
+          </div>
+
+          {past.length > PAST_PREVIEW && (
+            <button
+              onClick={() => setShowAllPast((v) => !v)}
+              className="mt-3 w-full text-sm font-medium py-2.5 rounded-xl border border-dashed border-gray-300 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors"
+            >
+              {showAllPast
+                ? 'Show fewer'
+                : `Show ${past.length - PAST_PREVIEW} more past event${past.length - PAST_PREVIEW !== 1 ? 's' : ''}`}
+            </button>
+          )}
         </section>
       )}
 
