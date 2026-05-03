@@ -72,13 +72,15 @@ export default async function RegisterLeaguePage({
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any).from('org_payment_settings').select('stripe_secret_key').eq('organization_id', org.id).maybeSingle(),
-    // Check if the user is already on any team in this league (any role)
+    // Check if the user is already on any team in this league (any role).
+    // Query starts from teams so league_id is filtered on the primary table (reliable).
     supabase
-      .from('team_members')
-      .select('team_id, role, teams!team_members_team_id_fkey!inner(id, name, league_id)')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .eq('teams.league_id', league.id)
+      .from('teams')
+      .select('id, name, team_members!inner(role)')
+      .eq('league_id', league.id)
+      .eq('organization_id', org.id)
+      .eq('team_members.user_id', user.id)
+      .eq('team_members.status', 'active')
       .maybeSingle(),
     // Fetch teams for per-team events (player browse/join step)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,14 +168,14 @@ export default async function RegisterLeaguePage({
     }
   }
 
+  // captainTeam is now shaped as { id, name, team_members: [{ role }] }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const myTeamRow = captainTeam as any
-  const myTeamInfo = myTeamRow
-    ? (() => { const t = myTeamRow.teams; return Array.isArray(t) ? t[0] : t })()
-    : null
-  const myTeamId = myTeamInfo?.id ?? null
-  const myTeamName = myTeamInfo?.name ?? null
-  const myTeamRole = myTeamRow?.role ?? null
+  const myTeamId = myTeamRow?.id ?? null
+  const myTeamName = myTeamRow?.name ?? null
+  const myTeamMembers = myTeamRow?.team_members
+  const myTeamMember = Array.isArray(myTeamMembers) ? myTeamMembers[0] : myTeamMembers
+  const myTeamRole = myTeamMember?.role ?? null
 
   const captainTeamId = myTeamRole === 'captain' ? myTeamId : null
   const captainTeamName = myTeamRole === 'captain' ? myTeamName : null
