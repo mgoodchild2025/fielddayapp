@@ -88,7 +88,7 @@ function EventRow({ event, variant }: { event: EventItem; variant: 'inseason' | 
   return (
     <Link
       href={href}
-      className="flex items-center justify-between gap-3 py-3.5 border-b border-gray-100 last:border-0 hover:bg-gray-50 -mx-4 px-4 transition-colors group"
+      className="flex items-center justify-between gap-3 py-3.5 border-b border-gray-100 last:border-0 hover:bg-gray-50 -mx-5 px-5 transition-colors group"
     >
       <div className="flex items-center gap-3 min-w-0">
         <div
@@ -116,31 +116,56 @@ function EventRow({ event, variant }: { event: EventItem; variant: 'inseason' | 
   )
 }
 
-// ── Section header ────────────────────────────────────────────────────────────
+// ── Accordion panel ───────────────────────────────────────────────────────────
 
-function SectionHeader({ label }: { label: string }) {
+function Accordion({
+  label,
+  count,
+  defaultOpen = false,
+  children,
+}: {
+  label: string
+  count: number
+  defaultOpen?: boolean
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+
   return (
-    <div className="flex items-center gap-3 mb-3">
-      <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest whitespace-nowrap">
-        {label}
-      </h2>
-      <div className="flex-1 h-px bg-gray-200" />
+    <div className="bg-white rounded-2xl border overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <span className="text-sm font-semibold text-gray-800">{label}</span>
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+            {count}
+          </span>
+        </div>
+        <svg
+          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="px-5 pb-2 border-t border-gray-100">
+          {children}
+        </div>
+      )}
     </div>
   )
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-const PAST_PREVIEW = 5
-
 export function EventsFilter({ events, isOrgAdmin = false }: { events: EventItem[]; isOrgAdmin?: boolean }) {
-  const [showAllPast, setShowAllPast] = useState(false)
-
   const open     = events.filter((e) => e.status === 'registration_open')
   const inSeason = events.filter((e) => e.status === 'active')
   const past     = events.filter((e) => e.status === 'completed' || e.status === 'archived')
-
-  const visiblePast = showAllPast ? past : past.slice(0, PAST_PREVIEW)
 
   if (events.length === 0) {
     return (
@@ -151,53 +176,33 @@ export function EventsFilter({ events, isOrgAdmin = false }: { events: EventItem
   }
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-4">
 
-      {/* ── 1. Open for registration ─────────────────────────────────────────── */}
+      {/* ── 1. Open for registration — featured cards ────────────────────────── */}
       {open.length > 0 && (
-        <section>
-          <SectionHeader label="Open for Registration" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {open.map((e) => (
-              <FeaturedCard key={e.id} event={e} isOrgAdmin={isOrgAdmin} />
-            ))}
-          </div>
-        </section>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {open.map((e) => (
+            <FeaturedCard key={e.id} event={e} isOrgAdmin={isOrgAdmin} />
+          ))}
+        </div>
       )}
 
-      {/* ── 2. In season — always visible ───────────────────────────────────── */}
+      {/* ── 2. In Season accordion ───────────────────────────────────────────── */}
       {inSeason.length > 0 && (
-        <section>
-          <SectionHeader label="In Season" />
-          <div className="bg-white rounded-2xl border px-4">
-            {inSeason.map((e) => (
-              <EventRow key={e.id} event={e} variant="inseason" />
-            ))}
-          </div>
-        </section>
+        <Accordion label="In Season" count={inSeason.length} defaultOpen={open.length === 0}>
+          {inSeason.map((e) => (
+            <EventRow key={e.id} event={e} variant="inseason" />
+          ))}
+        </Accordion>
       )}
 
-      {/* ── 3. Past events — collapsed beyond 5 ─────────────────────────────── */}
+      {/* ── 3. Past Events accordion ─────────────────────────────────────────── */}
       {past.length > 0 && (
-        <section>
-          <SectionHeader label="Past Events" />
-          <div className="bg-white rounded-2xl border px-4">
-            {visiblePast.map((e) => (
-              <EventRow key={e.id} event={e} variant="past" />
-            ))}
-          </div>
-
-          {past.length > PAST_PREVIEW && (
-            <button
-              onClick={() => setShowAllPast((v) => !v)}
-              className="mt-3 w-full text-sm font-medium py-2.5 rounded-xl border border-dashed border-gray-300 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors"
-            >
-              {showAllPast
-                ? 'Show fewer'
-                : `Show ${past.length - PAST_PREVIEW} more past event${past.length - PAST_PREVIEW !== 1 ? 's' : ''}`}
-            </button>
-          )}
-        </section>
+        <Accordion label="Past Events" count={past.length} defaultOpen={open.length === 0 && inSeason.length === 0}>
+          {past.map((e) => (
+            <EventRow key={e.id} event={e} variant="past" />
+          ))}
+        </Accordion>
       )}
 
     </div>
