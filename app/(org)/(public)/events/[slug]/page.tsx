@@ -5,7 +5,6 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { JoinTeamByCode } from '@/components/teams/join-team-by-code'
-import { PlayerCreateTeamForm } from '@/components/teams/player-create-team-form'
 import { SessionJoinButton } from '@/components/sessions/session-join-button'
 import { CaptainScoreEntry } from '@/components/scores/captain-score-entry'
 import { GameRsvpButton } from '@/components/schedule/game-rsvp-button'
@@ -1344,11 +1343,6 @@ export default async function EventDetailPage({
                   <JoinTeamByCode />
                 )}
               </div>
-            )}
-
-            {/* Create Team CTA — registered players not yet on any team */}
-            {canJoinTeam && myRegistration && myTeamIds.size === 0 && (
-              <PlayerCreateTeamForm leagueId={league.id} />
             )}
 
             {/* Registration CTA */}
