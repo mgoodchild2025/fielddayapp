@@ -35,9 +35,9 @@ export default async function PlayerDashboardPage() {
       payment:payments!payments_registration_id_fkey(id, status, amount_cents, currency)
     `).eq('organization_id', org.id).eq('user_id', user.id).order('created_at', { ascending: false }),
     supabase.from('games').select(`
-      id, scheduled_at, court,
-      home_team:teams!games_home_team_id_fkey(id, name),
-      away_team:teams!games_away_team_id_fkey(id, name),
+      id, scheduled_at, court, week_number,
+      home_team:teams!games_home_team_id_fkey(id, name, color),
+      away_team:teams!games_away_team_id_fkey(id, name, color),
       league:leagues!games_league_id_fkey(name, slug)
     `).eq('organization_id', org.id)
       .gte('scheduled_at', new Date().toISOString())
@@ -297,6 +297,10 @@ export default async function PlayerDashboardPage() {
             const awayTeam = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
             const league = Array.isArray(g.league) ? g.league[0] : g.league
             const { date: gameDate, time: gameTime } = formatGameTime(g.scheduled_at, timezone)
+            const homeColor = (homeTeam as { color?: string | null } | null)?.color
+            const awayColor = (awayTeam as { color?: string | null } | null)?.color
+            const isHomeMyTeam = myTeamIds.has(homeTeam?.id)
+            const isAwayMyTeam = myTeamIds.has(awayTeam?.id)
             return (
               <div key={`game-${g.id}`} className="relative border rounded-md p-3 transition-shadow hover:shadow-md">
                 {(league as { slug?: string } | null)?.slug && (
@@ -306,12 +310,33 @@ export default async function PlayerDashboardPage() {
                     aria-label={`View ${(league as { name?: string }).name ?? 'event'}`}
                   />
                 )}
-                <p className="text-sm text-gray-500">
-                  {gameDate} · {gameTime}
-                  {g.court ? ` · Court ${g.court}` : ''}
-                </p>
-                <p className="font-medium mt-0.5">{homeTeam?.name ?? 'TBD'} vs {awayTeam?.name ?? 'TBD'}</p>
-                <p className="text-xs text-gray-400">{(league as { name?: string } | null)?.name}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm text-gray-500">
+                    {gameDate} · {gameTime}
+                    {g.court ? ` · Court ${g.court}` : ''}
+                  </p>
+                  {g.week_number != null && (
+                    <span className="shrink-0 text-xs font-medium text-gray-500 bg-gray-100 rounded px-1.5 py-0.5 leading-tight">
+                      Wk {g.week_number}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                  {homeColor && (
+                    <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: homeColor }} />
+                  )}
+                  <span className={isHomeMyTeam ? 'font-semibold' : 'font-medium'}>
+                    {homeTeam?.name ?? 'TBD'}
+                  </span>
+                  <span className="text-gray-400 text-sm mx-0.5">vs</span>
+                  {awayColor && (
+                    <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: awayColor }} />
+                  )}
+                  <span className={isAwayMyTeam ? 'font-semibold' : 'font-medium'}>
+                    {awayTeam?.name ?? 'TBD'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400 mt-0.5">{(league as { name?: string } | null)?.name}</p>
               </div>
             )
           } else {
