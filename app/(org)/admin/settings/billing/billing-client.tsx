@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { createSubscriptionCheckout, createCustomerPortalSession } from '@/actions/billing'
 import type { SubscriptionRow } from '@/actions/billing'
+import { HelpLink } from '@/components/ui/help-link'
 
 const PLANS = [
   {
@@ -93,9 +94,12 @@ export function BillingPageClient({ subscription, successRedirect, canceledRedir
 
   return (
     <div className="max-w-3xl space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Billing & Subscription</h1>
-        <p className="mt-1 text-sm text-gray-500">Manage your Fieldday subscription and payment method.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Billing & Subscription</h1>
+          <p className="mt-1 text-sm text-gray-500">Manage your Fieldday subscription and payment method.</p>
+        </div>
+        <HelpLink href="https://docs.fielddayapp.ca/org-admins/billing" label="Billing docs" />
       </div>
 
       {/* Flash messages */}

@@ -72,10 +72,21 @@ function SidebarContent({ org, role, onClose }: { org: OrgContext; role: string;
         })}
       </nav>
 
-      <div className="p-4 border-t border-white/10">
+      <div className="p-4 border-t border-white/10 flex items-center justify-between">
         <Link href="/" onClick={onClose} className="text-xs opacity-50 hover:opacity-80 transition-opacity">
           ← Public site
         </Link>
+        <a
+          href="https://docs.fielddayapp.ca"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs opacity-50 hover:opacity-80 transition-opacity flex items-center gap-1"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Help
+        </a>
       </div>
     </div>
   )

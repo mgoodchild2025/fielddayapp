@@ -3,6 +3,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { StripeKeyForm } from '@/components/payments/stripe-key-form'
 import { StripeSetupGuide } from '@/components/payments/stripe-setup-guide'
+import { HelpLink } from '@/components/ui/help-link'
 
 export default async function PaymentSettingsPage() {
   const headersList = await headers()
@@ -32,6 +33,9 @@ export default async function PaymentSettingsPage() {
               Connect your own Stripe account to accept online registration payments.
               Without it, players can still register and you collect payment offline.
             </p>
+            <div className="mt-2">
+              <HelpLink href="https://docs.fielddayapp.ca/org-admins/connect-stripe" label="How to connect Stripe" />
+            </div>
           </div>
           <div className="shrink-0 mt-1">
             <StripeSetupGuide orgSlug={org.slug} />

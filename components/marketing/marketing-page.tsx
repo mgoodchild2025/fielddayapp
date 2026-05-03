@@ -12,6 +12,12 @@ function MarketingNav() {
           <span className="font-bold text-gray-900 text-lg tracking-tight">Fieldday</span>
         </Link>
         <div className="flex items-center gap-3">
+          <a
+            href="https://docs.fielddayapp.ca"
+            className="hidden sm:block text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            Docs
+          </a>
           <Link
             href="/login"
             className="hidden sm:block text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
@@ -95,7 +101,7 @@ const FEATURES = [
       </svg>
     ),
     title: 'Online Registration',
-    desc: 'Players register and pay online. Your roster fills automatically �� no spreadsheets.',
+    desc: 'Players register and pay online. Your roster fills automatically - no spreadsheets.',
   },
   {
     color: 'bg-violet-100 text-violet-700',
@@ -456,6 +462,8 @@ function MarketingFooter() {
     <footer className="border-t border-gray-100 px-6 py-8 text-center text-sm text-gray-400">
       <p>
         © {new Date().getFullYear()} Fieldday Sports Technology Inc.
+        {' · '}
+        <a href="https://docs.fielddayapp.ca" className="hover:text-gray-600 transition-colors">Docs</a>
         {' · '}
         <a href="#" className="hover:text-gray-600 transition-colors">Privacy</a>
         {' · '}

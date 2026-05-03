@@ -3,6 +3,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { DiscountForm } from './discount-form'
 import { DiscountRow } from './discount-row'
+import { HelpLink } from '@/components/ui/help-link'
 
 export default async function AdminDiscountsPage() {
   const headersList = await headers()
@@ -17,7 +18,10 @@ export default async function AdminDiscountsPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold mb-6">Discount Codes</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Discount Codes</h1>
+        <HelpLink href="https://docs.fielddayapp.ca/registration-payments/discount-codes" label="How discount codes work" />
+      </div>
 
       <div className="bg-white rounded-lg border p-5 mb-6">
         <h2 className="font-semibold mb-4">Create New Code</h2>
