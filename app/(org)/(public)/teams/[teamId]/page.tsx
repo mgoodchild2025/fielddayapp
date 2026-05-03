@@ -14,6 +14,7 @@ import { getPositionsForSport } from '@/actions/positions'
 import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { TeamAvatar } from '@/components/ui/team-avatar'
+import { CalendarSubscribeButton } from '@/components/teams/calendar-subscribe-button'
 import Link from 'next/link'
 
 export default async function TeamDetailPage({
@@ -39,7 +40,7 @@ export default async function TeamDetailPage({
     db
       .from('teams')
       .select(`
-        id, name, color, logo_url, team_code, league_id,
+        id, name, color, logo_url, team_code, league_id, calendar_token,
         league:leagues!teams_league_id_fkey(id, name, slug, sport, payment_mode, price_cents, currency),
         team_members(
           id, role, status, user_id, position,
@@ -75,6 +76,18 @@ export default async function TeamDetailPage({
   ])
 
   if (!team) notFound()
+
+  // Lazy-generate calendar token on first view — one-time write, no per-request cost after that
+  let calendarToken = (team as { calendar_token?: string | null }).calendar_token ?? null
+  if (!calendarToken) {
+    const { data: updated } = await db
+      .from('teams')
+      .update({ calendar_token: crypto.randomUUID() })
+      .eq('id', teamId)
+      .select('calendar_token')
+      .single()
+    calendarToken = updated?.calendar_token ?? null
+  }
 
   const league = Array.isArray(team.league) ? team.league[0] : team.league
   const leagueId = (league as { id?: string } | null)?.id ?? ''
@@ -235,6 +248,15 @@ export default async function TeamDetailPage({
             </div>
             <p className="text-xs text-gray-400 sm:text-right">Share this code so players can join your team</p>
           </div>
+        )}
+
+        {/* Calendar subscription — all team members */}
+        {calendarToken && (
+          <CalendarSubscribeButton
+            teamId={teamId}
+            calendarToken={calendarToken}
+            host={headersList.get('host') ?? ''}
+          />
         )}
 
         {/* Roster — editable for managers, read-only for players */}
