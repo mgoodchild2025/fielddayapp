@@ -101,6 +101,11 @@ export function RegistrationFlow({
         ? PLAYER_STEPS
         : PAYMENT_STEPS.filter((s) => s !== 'Payment')
 
+  function advanceStep(n: number) {
+    setStep(n)
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }
+
   async function completeRegistration(regId: string | null) {
     setCompleting(true)
     if (regId) await activateRegistration(regId)
@@ -109,7 +114,7 @@ export function RegistrationFlow({
 
   async function afterWaiver() {
     if (showPaymentStep) {
-      setStep(3)
+      advanceStep(3)
     } else if (isPerTeam) {
       await activateRegistration(registrationId!)
       // Players already on a team (via invite) skip the team-join step entirely
@@ -117,7 +122,7 @@ export function RegistrationFlow({
         router.push(`/register/${league.slug}/success`)
       } else {
         // Both captain and player paths go to step 3 — just different UI
-        setStep(3)
+        advanceStep(3)
       }
     } else {
       await completeRegistration(registrationId)
@@ -222,7 +227,7 @@ export function RegistrationFlow({
             positions={positions}
             registrationType={isDropIn ? 'drop_in' : 'season'}
             showTeamCode={!isPerTeam}
-            onComplete={(regId) => { setRegistrationId(regId); setStep(2) }}
+            onComplete={(regId) => { setRegistrationId(regId); advanceStep(2) }}
           />
         )}
 
@@ -242,7 +247,7 @@ export function RegistrationFlow({
               afterWaiver()
             }}
             onSkip={afterWaiver}
-            onBack={() => setStep(1)}
+            onBack={() => advanceStep(1)}
           />
         )}
 
@@ -260,7 +265,7 @@ export function RegistrationFlow({
             userId={userId}
             registrationId={registrationId!}
             priceCents={effectivePriceCents}
-            onBack={() => setStep(waiver ? 2 : 1)}
+            onBack={() => advanceStep(waiver ? 2 : 1)}
           />
         )}
 
@@ -270,7 +275,7 @@ export function RegistrationFlow({
             leagueId={league.id}
             captainTeamId={newCaptainTeamId}
             captainTeamName={newCaptainTeamName}
-            onBack={() => setStep(2)}
+            onBack={() => advanceStep(2)}
           />
         )}
 
@@ -300,7 +305,7 @@ export function RegistrationFlow({
           <StepTeamJoin
             teams={leagueTeams}
             onComplete={() => router.push(`/register/${league.slug}/success`)}
-            onBack={() => setStep(2)}
+            onBack={() => advanceStep(2)}
           />
         )}
       </div>

@@ -38,8 +38,17 @@ export function JoinTeamByCode() {
       setCodeError(result.error)
       return
     }
-    setJoinedName(codeValid.name)
+    const name = codeValid.name
+    setJoinedName(name)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
     router.refresh()
+    // Collapse back to button after showing success so the page shrinks
+    setTimeout(() => {
+      setJoinedName(null)
+      setOpen(false)
+      setTeamCode('')
+      setCodeValid(null)
+    }, 2500)
   }
 
   if (joinedName) {
