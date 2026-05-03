@@ -5,7 +5,7 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentOrg } from '@/lib/tenant'
-import { canAccess, getActiveLeagueCount } from '@/lib/features'
+import { getLimit, getActiveLeagueCount } from '@/lib/features'
 import type { Database } from '@/types/database'
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
@@ -57,10 +57,10 @@ export async function createLeague(
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
-  const hasMultiple = await canAccess(org.id, 'multiple_leagues')
-  if (!hasMultiple) {
+  const leagueCap = await getLimit(org.id, 'max_leagues')
+  if (leagueCap !== null) {
     const count = await getActiveLeagueCount(org.id)
-    if (count >= 1) return { data: null, error: 'UPGRADE_REQUIRED' }
+    if (count >= leagueCap) return { data: null, error: 'UPGRADE_REQUIRED' }
   }
 
   // Map event_type → league_type (legacy DB column)

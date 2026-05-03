@@ -29,6 +29,7 @@ export default async function PlatformAdminLayout({
           <span className="text-xs text-gray-400 uppercase tracking-widest font-medium">Platform Admin</span>
           <Link href="/super" className="text-sm text-gray-400 hover:text-white transition-colors">Organizations</Link>
           <Link href="/super/settings" className="text-sm text-gray-400 hover:text-white transition-colors">Settings</Link>
+          <Link href="/super/settings/plans" className="text-sm text-gray-400 hover:text-white transition-colors">Plan Config</Link>
         </div>
         <div className="flex items-center gap-4 text-sm">
           <span className="text-gray-400">{user.email}</span>
