@@ -284,10 +284,166 @@ function Pricing() {
         </div>
         <p className="text-center text-sm text-gray-400 mt-8">
           All plans include a 15-day free trial. Cancel anytime.{' '}
-          <Link href="/signup" className="text-emerald-600 hover:underline font-medium">
-            Compare all features →
-          </Link>
+          <a href="#features" className="text-emerald-600 hover:underline font-medium">
+            Compare all features ↓
+          </a>
         </p>
+      </div>
+    </section>
+  )
+}
+
+// ── Feature matrix ────────────────────────────────────────────────────────────
+
+function Check() {
+  return (
+    <svg className="w-5 h-5 text-emerald-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  )
+}
+
+function Dash() {
+  return <span className="block text-center text-gray-300 font-light text-lg leading-none">—</span>
+}
+
+type Cell = 'check' | 'dash' | string
+
+const MATRIX: Array<{
+  section?: string
+  label?: string
+  starter?: Cell
+  pro?: Cell
+  club?: Cell
+}> = [
+  { section: 'Events' },
+  { label: 'Active events',              starter: '3',          pro: '10',         club: 'Unlimited' },
+  { label: 'Registered players',         starter: '200',        pro: '1,000',      club: 'Unlimited' },
+  { label: 'Leagues & tournaments',      starter: 'check',      pro: 'check',      club: 'check' },
+  { label: 'Drop-in events',             starter: 'dash',       pro: 'check',      club: 'check' },
+  { label: 'Recurring sessions',         starter: 'dash',       pro: 'check',      club: 'check' },
+
+  { section: 'Scheduling' },
+  { label: 'Game schedule builder',              starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Single-elimination brackets',        starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Double-elimination brackets',        starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Pools & divisions',                  starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'CSV schedule import',                starter: 'dash',  pro: 'dash',  club: 'check' },
+  { label: 'Print scoresheets',                  starter: 'dash',  pro: 'check', club: 'check' },
+
+  { section: 'Registration & Payments' },
+  { label: 'Online registration',                starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Team or individual registration',    starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Stripe payments (you keep 100%)',    starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Digital waivers',                    starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Early bird pricing',                 starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Discount / promo codes',             starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Payment plans (installments)',        starter: 'dash',  pro: 'dash',  club: 'check' },
+
+  { section: 'Stats & Communications' },
+  { label: 'Live standings',                     starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Captain score submission',           starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Player stats & leaderboards',        starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Email notifications',                starter: 'check', pro: 'check', club: 'check' },
+  { label: 'SMS reminders',                      starter: 'dash',  pro: 'check', club: 'check' },
+
+  { section: 'Customisation' },
+  { label: 'Custom branding (logo, colours)',    starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Event rules templates',              starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Custom player positions',            starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Co-organizer accounts',              starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Custom favicon',                     starter: 'dash',  pro: 'dash',  club: 'check' },
+  { label: 'Custom domain',                      starter: 'dash',  pro: 'dash',  club: 'check' },
+]
+
+function CellValue({ value }: { value: Cell | undefined }) {
+  if (!value || value === 'dash') return <Dash />
+  if (value === 'check') return <Check />
+  return <span className="block text-center text-sm font-semibold text-gray-700">{value}</span>
+}
+
+function FeatureMatrix() {
+  return (
+    <section id="features" className="bg-white px-4 sm:px-6 py-20 sm:py-24">
+      <div className="max-w-5xl mx-auto">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight mb-4">
+            Compare all features
+          </h2>
+          <p className="text-lg text-gray-500">
+            Everything included in each plan, side by side.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 overflow-hidden">
+          {/* Sticky column headers */}
+          <div className="grid grid-cols-4 bg-gray-50 border-b border-gray-200">
+            <div className="px-5 py-4" />
+            {[
+              { name: 'Starter', price: '$49', popular: false },
+              { name: 'Pro',     price: '$99', popular: true  },
+              { name: 'Club',    price: '$199', popular: false },
+            ].map((plan) => (
+              <div key={plan.name} className={`px-3 py-4 text-center border-l border-gray-200 ${plan.popular ? 'bg-emerald-50' : ''}`}>
+                {plan.popular && (
+                  <span className="inline-block mb-1 text-[10px] font-bold uppercase tracking-widest text-emerald-600">
+                    Most Popular
+                  </span>
+                )}
+                <p className={`font-bold text-sm ${plan.popular ? 'text-emerald-700' : 'text-gray-900'}`}>{plan.name}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{plan.price}/mo</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Rows */}
+          {MATRIX.map((row, i) => {
+            if (row.section) {
+              return (
+                <div key={row.section} className={`grid grid-cols-4 bg-gray-50 border-t border-gray-200 ${i === 0 ? '' : 'border-t-2'}`}>
+                  <div className="col-span-4 px-5 py-2.5">
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">{row.section}</span>
+                  </div>
+                </div>
+              )
+            }
+            return (
+              <div key={row.label} className="grid grid-cols-4 border-t border-gray-100 hover:bg-gray-50/50 transition-colors">
+                <div className="px-5 py-3.5 flex items-center">
+                  <span className="text-sm text-gray-700">{row.label}</span>
+                </div>
+                <div className={`px-3 py-3.5 flex items-center justify-center border-l border-gray-100`}>
+                  <CellValue value={row.starter} />
+                </div>
+                <div className="px-3 py-3.5 flex items-center justify-center border-l border-gray-100 bg-emerald-50/40">
+                  <CellValue value={row.pro} />
+                </div>
+                <div className="px-3 py-3.5 flex items-center justify-center border-l border-gray-100">
+                  <CellValue value={row.club} />
+                </div>
+              </div>
+            )
+          })}
+
+          {/* CTA row */}
+          <div className="grid grid-cols-4 border-t-2 border-gray-200 bg-gray-50">
+            <div className="px-5 py-5" />
+            {(['starter', 'pro', 'club'] as const).map((plan) => (
+              <div key={plan} className={`px-3 py-5 border-l border-gray-200 ${plan === 'pro' ? 'bg-emerald-50' : ''}`}>
+                <Link
+                  href={`/signup?plan=${plan}`}
+                  className={`block text-center py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                    plan === 'pro'
+                      ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                      : 'bg-gray-900 hover:bg-gray-800 text-white'
+                  }`}
+                >
+                  Get started
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   )
@@ -319,6 +475,7 @@ export function MarketingPage() {
       <Features />
       <SportsRow />
       <Pricing />
+      <FeatureMatrix />
       <MarketingFooter />
     </div>
   )
