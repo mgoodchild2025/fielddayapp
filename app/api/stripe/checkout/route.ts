@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
         },
       ],
       metadata: { teamId, leagueId, orgId, paymentType: 'team' },
-      success_url: `${origin}/teams/${teamId}?payment=success`,
+      success_url: `${origin}/teams/${teamId}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/teams/${teamId}`,
     })
 

@@ -21,10 +21,10 @@ export default async function TeamDetailPage({
   searchParams,
 }: {
   params: Promise<{ teamId: string }>
-  searchParams: Promise<{ payment?: string }>
+  searchParams: Promise<{ payment?: string; session_id?: string }>
 }) {
   const { teamId } = await params
-  const { payment: paymentResult } = await searchParams
+  const { payment: paymentResult, session_id: sessionId } = await searchParams
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
@@ -88,7 +88,7 @@ export default async function TeamDetailPage({
   const isPerTeam = paymentMode === 'per_team' && leaguePriceCents > 0
 
   // Fetch team payment status + captain's own registration in parallel (per-team only)
-  const [{ data: teamPayment }, { data: myLeagueRegistration }] = isPerTeam
+  let [{ data: teamPayment }, { data: myLeagueRegistration }] = isPerTeam
     ? await Promise.all([
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (db as any)
@@ -107,6 +107,59 @@ export default async function TeamDetailPage({
           .maybeSingle(),
       ])
     : [{ data: null }, { data: null }]
+
+  // If Stripe redirected back with session_id but the webhook hasn't fired yet,
+  // verify the session directly and mark the payment paid immediately.
+  if (paymentResult === 'success' && sessionId && teamPayment && teamPayment.status !== 'paid') {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: paymentSettings } = await (db as any)
+        .from('org_payment_settings')
+        .select('stripe_secret_key')
+        .eq('organization_id', org.id)
+        .single()
+
+      if (paymentSettings?.stripe_secret_key) {
+        const Stripe = (await import('stripe')).default
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const orgStripe = new Stripe(paymentSettings.stripe_secret_key, { apiVersion: '2026-04-22.dahlia' as any })
+        const session = await orgStripe.checkout.sessions.retrieve(sessionId)
+        if (session.payment_status === 'paid') {
+          const paidAt = new Date(session.created * 1000).toISOString()
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (db as any)
+            .from('payments')
+            .update({ status: 'paid', paid_at: paidAt })
+            .eq('id', (teamPayment as { id: string }).id)
+
+          // Activate all team member registrations
+          const { data: members } = await db
+            .from('team_members')
+            .select('user_id')
+            .eq('team_id', teamId)
+            .eq('status', 'active')
+
+          if (members && members.length > 0) {
+            const userIds = members.map((m) => m.user_id).filter(Boolean) as string[]
+            if (userIds.length > 0) {
+              await db
+                .from('registrations')
+                .update({ status: 'active' })
+                .eq('league_id', leagueId)
+                .eq('organization_id', org.id)
+                .in('user_id', userIds)
+                .eq('status', 'pending')
+            }
+          }
+
+          // Reflect the updated status in this render
+          teamPayment = { ...teamPayment, status: 'paid', paid_at: paidAt }
+        }
+      }
+    } catch (err) {
+      console.error('[team-page] Stripe session verification failed:', err)
+    }
+  }
 
   const [positions, statDefs, seasonTotals] = await Promise.all([
     getPositionsForSport(org.id, leagueSport),
