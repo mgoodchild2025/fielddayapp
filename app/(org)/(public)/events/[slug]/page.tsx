@@ -16,6 +16,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { BackLink } from '@/components/ui/back-link'
 import { formatGameTime } from '@/lib/format-time'
+import { ChevronRight } from 'lucide-react'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { StickyRegisterBar } from '@/components/events/sticky-register-bar'
@@ -1324,8 +1325,8 @@ export default async function EventDetailPage({
                 <div className="space-y-2">
                   {teams.map((team) => {
                     const isMember = myTeamIds.has(team.id)
-                    return (
-                      <div key={team.id} className="bg-white rounded-lg border p-4 flex items-center justify-between gap-3">
+                    const inner = (
+                      <>
                         <div className="flex items-center gap-3">
                           <TeamAvatar
                             logoUrl={(team as { logo_url?: string | null }).logo_url ?? null}
@@ -1336,8 +1337,28 @@ export default async function EventDetailPage({
                           <p className="font-semibold">{team.name}</p>
                         </div>
                         {isMember && (
-                          <span className="shrink-0 text-xs text-green-600 font-medium">✓ Your team</span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-xs text-green-600 font-medium">✓ Your team</span>
+                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                          </div>
                         )}
+                      </>
+                    )
+                    if (isMember) {
+                      return (
+                        <Link
+                          key={team.id}
+                          href={`/teams/${team.id}`}
+                          aria-label={`View ${team.name} team details`}
+                          className="bg-white rounded-lg border p-4 flex items-center justify-between gap-3 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                        >
+                          {inner}
+                        </Link>
+                      )
+                    }
+                    return (
+                      <div key={team.id} className="bg-white rounded-lg border p-4 flex items-center justify-between gap-3">
+                        {inner}
                       </div>
                     )
                   })}
