@@ -9,6 +9,7 @@ import { PlayerCreateTeamForm } from '@/components/teams/player-create-team-form
 import { SessionJoinButton } from '@/components/sessions/session-join-button'
 import { CaptainScoreEntry } from '@/components/scores/captain-score-entry'
 import { GameRsvpButton } from '@/components/schedule/game-rsvp-button'
+import { GameAttendancePanel } from '@/components/schedule/game-attendance-panel'
 import { EventRulesModal } from '@/components/events/event-rules-modal'
 import { BracketView } from '@/components/bracket/bracket-view'
 import type { BracketData, BracketMatchData } from '@/components/bracket/bracket-view'
@@ -143,17 +144,6 @@ type GameRow = {
   }[] | null
 }
 
-function AttendanceBadge({ attendance }: { attendance: { in: number; out: number; total: number } }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-50 border border-green-100 text-green-700 whitespace-nowrap">
-      {attendance.in}/{attendance.total} ✓
-      {attendance.out > 0 && (
-        <span className="text-red-500">{attendance.out} ✗</span>
-      )}
-    </span>
-  )
-}
-
 function DateGroup({
   date, games, timezone, isPast, captainTeamIds, userId, sport, myTeamIds, myRsvps, captainAttendance,
 }: {
@@ -192,8 +182,11 @@ function DateGroup({
           const showRsvp = !!userId && !!myTeamIdForGame && !isPast
             && game.status !== 'cancelled' && game.status !== 'postponed'
 
-          // Captain attendance badge
-          const attendance = isCaptain ? (captainAttendance?.get(game.id) ?? null) : null
+          // Captain attendance panel
+          const captainTeamIdForGame: string | null = captainTeamIds.has(homeTeamId) ? homeTeamId
+            : captainTeamIds.has(awayTeamId) ? awayTeamId
+            : null
+          const attendance = captainTeamIdForGame ? (captainAttendance?.get(game.id) ?? null) : null
 
           const hasScore = result && result.home_score !== null && result.away_score !== null
           const homeWon = hasScore && result!.home_score! > result!.away_score!
@@ -239,7 +232,6 @@ function DateGroup({
                         ({result.sets.map((s: SetScore) => `${s.home}–${s.away}`).join(', ')})
                       </span>
                     )}
-                    {attendance && <AttendanceBadge attendance={attendance} />}
                   </div>
                 ) : (
                   <div className="mt-2 flex items-center gap-1.5 flex-wrap">
@@ -257,7 +249,6 @@ function DateGroup({
                     {game.cancellation_reason && (game.status === 'cancelled' || game.status === 'postponed') && (
                       <span className="text-[11px] text-gray-400 italic">{game.cancellation_reason}</span>
                     )}
-                    {attendance && <AttendanceBadge attendance={attendance} />}
                   </div>
                 )}
               </div>
@@ -295,22 +286,24 @@ function DateGroup({
                       <p className={`text-[10px] mt-0.5 ${result!.status === 'confirmed' ? 'text-green-600' : 'text-amber-600'}`}>
                         {result!.status === 'confirmed' ? '✓ confirmed' : 'pending'}
                       </p>
-                      {attendance && <div className="mt-1"><AttendanceBadge attendance={attendance} /></div>}
                     </div>
-                  ) : (
-                    <div className="flex flex-col items-end gap-1">
-                      {game.status !== 'cancelled' && game.status !== 'postponed' && (
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
-                        }`}>
-                          {game.status === 'completed' ? 'Final' : game.status}
-                        </span>
-                      )}
-                      {attendance && <AttendanceBadge attendance={attendance} />}
-                    </div>
-                  )}
+                  ) : game.status !== 'cancelled' && game.status !== 'postponed' ? (
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
+                    }`}>
+                      {game.status === 'completed' ? 'Final' : game.status}
+                    </span>
+                  ) : null}
                 </div>
               </div>
+
+              {attendance && captainTeamIdForGame && (
+                <GameAttendancePanel
+                  gameId={game.id}
+                  teamId={captainTeamIdForGame}
+                  initialCounts={attendance}
+                />
+              )}
 
               {showRsvp && (
                 <GameRsvpButton
