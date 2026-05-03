@@ -19,12 +19,10 @@ export type BooleanFeature =
   | 'event_rules_templates'
   | 'custom_positions'
   | 'favicon'
-  | 'waived_transaction_fee'
 
 export type LimitFeature =
-  | 'max_leagues'       // null = unlimited
-  | 'max_players'       // null = unlimited
-  | 'platform_fee_bps'  // basis points (200 = 2%)
+  | 'max_leagues'   // null = unlimited
+  | 'max_players'   // null = unlimited
 
 export type Feature = BooleanFeature | LimitFeature
 
@@ -45,9 +43,8 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   {
     label: 'Plan Limits',
     features: [
-      { key: 'max_leagues',      label: 'Max active leagues',  description: 'Maximum number of leagues in registration_open or active status', type: 'limit', unit: 'leagues' },
-      { key: 'max_players',      label: 'Max players',         description: 'Maximum org_members with player role', type: 'limit', unit: 'players' },
-      { key: 'platform_fee_bps', label: 'Platform fee',        description: 'Fee charged on payments in basis points (100 = 1%)', type: 'limit', unit: 'bps' },
+      { key: 'max_leagues', label: 'Max active leagues', description: 'Maximum number of leagues in registration_open or active status', type: 'limit', unit: 'leagues' },
+      { key: 'max_players', label: 'Max players',        description: 'Maximum org_members with player role', type: 'limit', unit: 'players' },
     ],
   },
   {
@@ -65,7 +62,6 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       { key: 'early_bird_pricing',    label: 'Early bird pricing',    description: 'Set a discounted early registration price with deadline', type: 'boolean' },
       { key: 'discount_codes',        label: 'Discount / promo codes', description: 'Create and manage promotional discount codes', type: 'boolean' },
       { key: 'payment_plans',         label: 'Payment plans',          description: 'Allow players to pay in instalments', type: 'boolean' },
-      { key: 'waived_transaction_fee',label: 'Waived platform fee',    description: 'No platform fee charged on payments (overrides fee bps)', type: 'boolean' },
     ],
   },
   {
@@ -179,11 +175,6 @@ export async function getLimit(orgId: string, feature: LimitFeature): Promise<nu
   return config.limit_value  // null = unlimited
 }
 
-/** Convenience: returns platform fee in basis points (0–500). */
-export async function getPlatformFeeBps(orgId: string): Promise<number> {
-  const fee = await getLimit(orgId, 'platform_fee_bps')
-  return fee ?? 0
-}
 
 /** Returns the count of active leagues for an org. */
 export async function getActiveLeagueCount(orgId: string): Promise<number> {
