@@ -120,7 +120,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
           ].map(({ label, name, type }) => (
             <div key={name} className={name === 'full_name' ? 'col-span-2' : ''}>
               <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-              <input {...register(name)} type={type} className="w-full border rounded-md px-3 py-2 text-sm" />
+              <input {...register(name)} type={type} className="w-full border rounded-md px-3 py-2 text-base" />
               {errors[name] && <p className="text-red-500 text-xs mt-1">{errors[name]?.message as string}</p>}
             </div>
           ))}
@@ -129,7 +129,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Skill Level *</label>
-            <select {...register('skill_level')} className="w-full border rounded-md px-3 py-2 text-sm">
+            <select {...register('skill_level')} className="w-full border rounded-md px-3 py-2 text-base">
               <option value="">Select…</option>
               <option value="beginner">Beginner</option>
               <option value="intermediate">Intermediate</option>
@@ -139,7 +139,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">T-Shirt Size *</label>
-            <select {...register('t_shirt_size')} className="w-full border rounded-md px-3 py-2 text-sm">
+            <select {...register('t_shirt_size')} className="w-full border rounded-md px-3 py-2 text-base">
               <option value="">Select…</option>
               {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -153,7 +153,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
             <select
               value={selectedPosition}
               onChange={(e) => setSelectedPosition(e.target.value)}
-              className="w-full border rounded-md px-3 py-2 text-sm"
+              className="w-full border rounded-md px-3 py-2 text-base"
             >
               <option value="">No preference</option>
               {positions.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -171,14 +171,14 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
           ].map(({ label, name, type }) => (
             <div key={name}>
               <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-              <input {...register(name)} type={type} className="w-full border rounded-md px-3 py-2 text-sm" />
+              <input {...register(name)} type={type} className="w-full border rounded-md px-3 py-2 text-base" />
               {errors[name] && <p className="text-red-500 text-xs mt-1">{errors[name]?.message as string}</p>}
             </div>
           ))}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">How did you hear about us?</label>
-          <input {...register('how_did_you_hear')} type="text" className="w-full border rounded-md px-3 py-2 text-sm" />
+          <input {...register('how_did_you_hear')} type="text" className="w-full border rounded-md px-3 py-2 text-base" />
         </div>
       </div>
 

@@ -172,12 +172,12 @@ export function ProfileForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-            <input {...register('full_name')} type="text" className="w-full border rounded-md px-3 py-2 text-sm" />
+            <input {...register('full_name')} type="text" className="w-full border rounded-md px-3 py-2 text-base" />
             {errors.full_name && <p className="text-red-500 text-xs mt-1">{errors.full_name.message}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-            <input {...register('phone')} type="tel" className="w-full border rounded-md px-3 py-2 text-sm" />
+            <input {...register('phone')} type="tel" className="w-full border rounded-md px-3 py-2 text-base" />
             <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
               <input {...register('sms_opted_in')} type="checkbox" className="rounded" />
               <span className="text-xs text-gray-600">Receive SMS game reminders</span>
@@ -187,7 +187,7 @@ export function ProfileForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Skill Level</label>
-            <select {...register('skill_level')} className="w-full border rounded-md px-3 py-2 text-sm">
+            <select {...register('skill_level')} className="w-full border rounded-md px-3 py-2 text-base">
               <option value="">Select…</option>
               <option value="beginner">Beginner</option>
               <option value="intermediate">Intermediate</option>
@@ -196,7 +196,7 @@ export function ProfileForm({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">T-Shirt Size</label>
-            <select {...register('t_shirt_size')} className="w-full border rounded-md px-3 py-2 text-sm">
+            <select {...register('t_shirt_size')} className="w-full border rounded-md px-3 py-2 text-base">
               <option value="">Select…</option>
               {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map((s) => (
                 <option key={s} value={s}>{s}</option>
@@ -215,7 +215,7 @@ export function ProfileForm({
             <input
               {...register('emergency_contact_name')}
               type="text"
-              className="w-full border rounded-md px-3 py-2 text-sm"
+              className="w-full border rounded-md px-3 py-2 text-base"
             />
           </div>
           <div>
@@ -223,7 +223,7 @@ export function ProfileForm({
             <input
               {...register('emergency_contact_phone')}
               type="tel"
-              className="w-full border rounded-md px-3 py-2 text-sm"
+              className="w-full border rounded-md px-3 py-2 text-base"
             />
           </div>
         </div>

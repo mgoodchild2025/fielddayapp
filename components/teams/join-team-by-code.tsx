@@ -94,7 +94,7 @@ export function JoinTeamByCode() {
         onBlur={handleCodeBlur}
         placeholder="e.g. AB3X7K"
         maxLength={6}
-        className="w-full border rounded-md px-3 py-2 text-sm font-mono tracking-widest uppercase"
+        className="w-full border rounded-md px-3 py-2 text-base font-mono tracking-widest uppercase"
         autoFocus
       />
       {validating && <p className="text-xs text-gray-400">Checking…</p>}
