@@ -3,7 +3,8 @@
 import { useRouter, usePathname } from 'next/navigation'
 
 const CATEGORIES = [
-  { href: '/admin/settings/branding',      label: 'Branding',       description: 'Colours, fonts, logo, and custom domain.' },
+  { href: '/admin/settings/billing',       label: 'Billing',         description: 'Manage your Fieldday subscription and payment method.' },
+  { href: '/admin/settings/branding',      label: 'Branding',        description: 'Colours, fonts, logo, and custom domain.' },
   { href: '/admin/settings/notifications', label: 'Notifications',   description: 'SMS game reminders and automated player messages.' },
   { href: '/admin/settings/payments',      label: 'Payments',        description: 'Connect your Stripe account to accept online payments.' },
   { href: '/admin/settings/waivers',       label: 'Waivers',         description: 'Liability waiver shown during player registration.' },
