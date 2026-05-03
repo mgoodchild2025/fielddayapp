@@ -65,32 +65,13 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           {branding?.tagline && (
             <p className="mt-4 text-xl md:text-2xl opacity-80">{branding.tagline}</p>
           )}
-          {/* Inline event rows — no button, no dropdown */}
-          {inSeasonEvents.length > 0 && (
-            <div className="mt-8 flex flex-col items-center gap-2 w-full max-w-xs mx-auto">
-              {inSeasonEvents.map((league) => (
-                <Link
-                  key={league.id}
-                  href={`/events/${league.slug}?tab=schedule`}
-                  className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors text-white"
-                >
-                  <span className="flex items-center gap-2.5 min-w-0">
-                    <span className="w-2 h-2 rounded-full bg-blue-300 shrink-0" />
-                    <span className="font-semibold truncate">{league.name}</span>
-                  </span>
-                  <svg className="w-4 h-4 shrink-0 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              ))}
-              <Link
-                href="/events"
-                className="mt-1 text-sm text-white/50 hover:text-white/80 transition-colors"
-              >
-                Browse all events →
-              </Link>
-            </div>
-          )}
+          <Link
+            href="/events"
+            className="inline-block mt-8 px-8 py-3 rounded-md font-semibold text-lg text-white transition-opacity hover:opacity-90 active:opacity-80"
+            style={{ backgroundColor: 'var(--brand-primary)', fontFamily: 'var(--brand-heading-font)' }}
+          >
+            View Events
+          </Link>
         </div>
       </section>
 
