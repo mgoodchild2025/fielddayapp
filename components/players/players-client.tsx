@@ -100,49 +100,37 @@ export function PlayersClient({ players, leagues, currentLeague, isOrgAdmin }: P
       {/* top-14 clears the fixed mobile admin bar (h-14); lg:top-0 resets for desktop */}
       <div className="sticky top-14 lg:top-0 z-20 bg-[#F8F8F8] -mx-4 px-4 lg:-mx-6 lg:px-6 pt-2 pb-3 border-b border-gray-200 mb-5">
 
-        {/* Search */}
-        <div className="relative mb-2.5">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-            fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-          </svg>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name or email…"
-            className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white text-base focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:border-transparent"
-          />
-        </div>
-
-        {/* League pills — horizontal scroll */}
-        {leagues.length > 0 && (
-          <div className="relative -mx-4 sm:mx-0">
-            <div className={`flex gap-2 overflow-x-auto px-4 sm:px-0 pb-0.5
-              [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]
-              transition-opacity ${leaguePending ? 'opacity-60' : ''}`}>
-              <LeaguePill
-                label="All leagues"
-                active={!currentLeague}
-                onClick={() => setLeague(null)}
-              />
-              {leagues.map((l) => (
-                <LeaguePill
-                  key={l.id}
-                  label={l.name}
-                  active={currentLeague === l.id}
-                  onClick={() => setLeague(l.id)}
-                />
-              ))}
-            </div>
-            {/* Right-edge fade */}
-            <div
-              className="pointer-events-none absolute right-0 top-0 bottom-0.5 w-8 sm:hidden"
-              style={{ background: 'linear-gradient(to left, #F8F8F8, transparent)' }}
+        {/* Search + league select — single row */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+              fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search name or email…"
+              className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:border-transparent"
             />
           </div>
-        )}
+
+          {leagues.length > 0 && (
+            <select
+              value={currentLeague ?? ''}
+              onChange={(e) => setLeague(e.target.value || null)}
+              disabled={leaguePending}
+              className={`shrink-0 border border-gray-200 bg-white rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:border-transparent transition-opacity ${leaguePending ? 'opacity-60' : ''}`}
+            >
+              <option value="">All leagues</option>
+              {leagues.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
 
         {/* Result count + clear */}
         <div className="flex items-center justify-between mt-2">
@@ -323,20 +311,3 @@ export function PlayersClient({ players, leagues, currentLeague, isOrgAdmin }: P
   )
 }
 
-// ── League pill ───────────────────────────────────────────────────────────────
-
-function LeaguePill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-        active
-          ? 'text-white'
-          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-      }`}
-      style={active ? { backgroundColor: 'var(--brand-secondary)' } : {}}
-    >
-      {label}
-    </button>
-  )
-}
