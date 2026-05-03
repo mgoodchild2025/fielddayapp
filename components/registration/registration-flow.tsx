@@ -116,12 +116,17 @@ export function RegistrationFlow({
     if (showPaymentStep) {
       advanceStep(3)
     } else if (isPerTeam) {
-      await activateRegistration(registrationId!)
-      // Players already on a team (via invite) skip the team-join step entirely
       if (isPlayer && playerTeamId) {
+        // Player already on a team via invite — activate and skip team-join
+        await activateRegistration(registrationId!)
         router.push(`/register/${league.slug}/success`)
+      } else if (isCaptain) {
+        // Captain: activate now (team fee already paid), then show team management
+        await activateRegistration(registrationId!)
+        advanceStep(3)
       } else {
-        // Both captain and player paths go to step 3 — just different UI
+        // Player not yet on a team: go to team-join step first.
+        // Registration is activated inside StepTeamJoin's onComplete, after they join.
         advanceStep(3)
       }
     } else {
@@ -304,7 +309,11 @@ export function RegistrationFlow({
         {step === 3 && isPerTeam && isPlayer && !playerTeamId && !completing && (
           <StepTeamJoin
             teams={leagueTeams}
-            onComplete={() => router.push(`/register/${league.slug}/success`)}
+            onComplete={async () => {
+              // Activate registration now that the player has joined (or skipped) team selection
+              if (registrationId) await activateRegistration(registrationId)
+              router.push(`/register/${league.slug}/success`)
+            }}
             onBack={() => advanceStep(2)}
           />
         )}

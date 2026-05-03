@@ -31,6 +31,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
       setResult('sent')
       setSubject('')
       setBody('')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
       // Auto-close after success
       setTimeout(() => {
         setOpen(false)

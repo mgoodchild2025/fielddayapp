@@ -15,6 +15,7 @@ export interface EventItem {
   season_start_date: string | null
   max_teams: number | null
   team_count: number
+  payment_mode: string | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -38,7 +39,11 @@ function formatYear(iso: string) {
 // ── Featured registration card ────────────────────────────────────────────────
 
 function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boolean }) {
-  const isFull = event.max_teams !== null && event.team_count >= event.max_teams
+  const isPerTeam = event.payment_mode === 'per_team'
+  // teamsAtCapacity: per-team event where all team slots are taken, but players can still join existing teams
+  const teamsAtCapacity = isPerTeam && event.max_teams !== null && event.team_count >= event.max_teams
+  // isFull: completely closed — no one can register (per-player cap reached)
+  const isFull = !isPerTeam && event.max_teams !== null && event.team_count >= event.max_teams
   const showCapacity = event.max_teams !== null
 
   return (
@@ -46,8 +51,10 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
       href={`/events/${event.slug}`}
       className="group flex flex-col bg-white rounded-2xl border overflow-hidden hover:shadow-md transition-shadow"
     >
-      {/* Accent bar — green when open, gray when full */}
-      <div className={`h-1.5 w-full shrink-0 ${isFull ? 'bg-gray-300' : 'bg-green-500'}`} />
+      {/* Accent bar */}
+      <div className={`h-1.5 w-full shrink-0 ${
+        isFull ? 'bg-gray-300' : teamsAtCapacity ? 'bg-amber-400' : 'bg-green-500'
+      }`} />
 
       <div className="flex flex-col flex-1 p-5 gap-4">
         {/* Status badge + capacity fraction */}
@@ -56,6 +63,11 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-600">
               <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
               Event Full
+            </span>
+          ) : teamsAtCapacity ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              Teams Full
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700">
@@ -67,7 +79,9 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
           {/* Capacity fraction + sport — right-aligned */}
           <div className="flex items-center gap-2 shrink-0">
             {showCapacity && (
-              <span className={`text-xs font-semibold tabular-nums ${isFull ? 'text-red-500' : 'text-gray-400'}`}>
+              <span className={`text-xs font-semibold tabular-nums ${
+                isFull ? 'text-red-500' : teamsAtCapacity ? 'text-amber-600' : 'text-gray-400'
+              }`}>
                 {event.team_count} / {event.max_teams} teams
               </span>
             )}
@@ -94,12 +108,20 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
 
         {/* Price + CTA */}
         <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100">
-          <span className={`text-base font-bold ${isFull ? 'text-gray-400' : 'text-green-600'}`}>
-            {formatPrice(event.price_cents, event.currency)}
-          </span>
+          {teamsAtCapacity ? (
+            <span className="text-sm text-amber-700 font-medium">Players can still join a team</span>
+          ) : (
+            <span className={`text-base font-bold ${isFull ? 'text-gray-400' : 'text-green-600'}`}>
+              {formatPrice(event.price_cents, event.currency)}
+            </span>
+          )}
           {isFull ? (
             <span className="text-sm font-semibold px-3 py-1.5 rounded-lg text-gray-400 bg-gray-100 cursor-default">
               Event Full
+            </span>
+          ) : teamsAtCapacity ? (
+            <span className="text-sm font-semibold px-3 py-1.5 rounded-lg text-white bg-amber-500 group-hover:bg-amber-600 transition-colors">
+              Join a Team →
             </span>
           ) : (
             <span className="text-sm font-semibold px-3 py-1.5 rounded-lg text-white bg-green-500 group-hover:bg-green-600 transition-colors">

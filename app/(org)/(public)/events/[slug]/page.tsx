@@ -941,13 +941,16 @@ export default async function EventDetailPage({
             {league.sport && (
               <span className="text-sm opacity-70 capitalize">{league.sport.replace(/_/g, ' ')}</span>
             )}
-            {(league.status === 'registration_open' || isOrgAdmin) && (
+            {((league.status === 'registration_open' && !teamsAtCapacity) || isOrgAdmin) && (
               <>
                 <span className="text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>{price}</span>
                 {dropInPriceLabel && (
                   <span className="text-sm text-white/60">{dropInPriceLabel}</span>
                 )}
               </>
+            )}
+            {teamsAtCapacity && !isOrgAdmin && (
+              <span className="text-sm text-amber-300 font-medium">🙋 Players can still join a team</span>
             )}
           </div>
         </div>

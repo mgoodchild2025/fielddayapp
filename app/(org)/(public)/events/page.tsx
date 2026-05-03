@@ -17,7 +17,7 @@ export default async function EventsPage() {
   const [{ data: leagues }, { data: branding }, { data: orgMember }] = await Promise.all([
     (supabase as any)
       .from('leagues')
-      .select('id, name, slug, status, event_type, sport, price_cents, currency, season_start_date, max_teams')
+      .select('id, name, slug, status, event_type, sport, price_cents, currency, season_start_date, max_teams, payment_mode')
       .eq('organization_id', org.id)
       .neq('status', 'draft')
       .order('created_at', { ascending: false }),
@@ -58,6 +58,7 @@ export default async function EventsPage() {
     season_start_date: l.season_start_date ?? null,
     max_teams: l.max_teams ?? null,
     team_count: teamCountMap.get(l.id) ?? 0,
+    payment_mode: l.payment_mode ?? 'per_player',
   }))
 
   return (

@@ -14,7 +14,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
     supabase.from('organizations').select('id, slug, name').eq('id', orgId).single(),
     supabase.from('org_branding').select('tagline, hero_image_url, logo_url').eq('organization_id', orgId).single(),
     supabase.from('leagues')
-      .select('id, name, slug, event_type, status, season_start_date, price_cents, currency')
+      .select('id, name, slug, event_type, status, season_start_date, price_cents, currency, max_teams, payment_mode')
       .eq('organization_id', orgId)
       .neq('status', 'draft')
       .neq('status', 'archived')
@@ -29,6 +29,25 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
   const openEvents = (leagues ?? []).filter((l) => l.status === 'registration_open')
   const inSeasonEvents = (leagues ?? []).filter((l) => l.status === 'active')
   const completedEvents = (leagues ?? []).filter((l) => l.status === 'completed')
+
+  // Fetch team counts for per-team open events so we can show capacity state on cards
+  const perTeamOpenIds = openEvents
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((l: any) => l.payment_mode === 'per_team')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((l: any) => l.id)
+
+  const homeTeamCountMap = new Map<string, number>()
+  if (perTeamOpenIds.length > 0) {
+    const { data: teamRows } = await supabase
+      .from('teams')
+      .select('league_id')
+      .in('league_id', perTeamOpenIds)
+      .eq('status', 'active')
+    for (const t of teamRows ?? []) {
+      homeTeamCountMap.set(t.league_id, (homeTeamCountMap.get(t.league_id) ?? 0) + 1)
+    }
+  }
 
   const eventTypeLabels: Record<string, string> = {
     league: 'League', tournament: 'Tournament', pickup: 'Pickup', drop_in: 'Drop-in',
@@ -86,34 +105,45 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {openEvents.map((league) => {
-              const et = (league as { event_type?: string | null }).event_type ?? 'league'
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const l = league as any
+              const et = l.event_type ?? 'league'
+              const isPerTeam = l.payment_mode === 'per_team'
+              const teamCount = homeTeamCountMap.get(l.id) ?? 0
+              const teamsAtCapacity = isPerTeam && l.max_teams !== null && teamCount >= l.max_teams
               return (
                 <Link
-                  key={league.id}
-                  href={`/events/${league.slug}`}
+                  key={l.id}
+                  href={`/events/${l.slug}`}
                   className="block bg-white rounded-lg shadow-sm border p-5 hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
                       {eventTypeLabels[et] ?? et}
                     </span>
-                    <span className="text-xs text-green-600 font-medium">Open</span>
+                    <span className={`text-xs font-medium ${teamsAtCapacity ? 'text-amber-600' : 'text-green-600'}`}>
+                      {teamsAtCapacity ? 'Teams Full' : 'Open'}
+                    </span>
                   </div>
                   <h3 className="text-lg font-bold mt-2" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-                    {league.name}
+                    {l.name}
                   </h3>
-                  {league.season_start_date && (
+                  {l.season_start_date && (
                     <p className="text-sm text-gray-500 mt-1">
-                      {new Date(league.season_start_date).toLocaleDateString('en-CA', {
+                      {new Date(l.season_start_date).toLocaleDateString('en-CA', {
                         month: 'short', day: 'numeric', year: 'numeric',
                       })}
                     </p>
                   )}
-                  <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>
-                    {league.price_cents === 0
-                      ? 'Free'
-                      : `$${(league.price_cents / 100).toFixed(0)} ${(league.currency ?? 'CAD').toUpperCase()}`}
-                  </p>
+                  {teamsAtCapacity ? (
+                    <p className="mt-3 text-sm font-medium text-amber-700">Players can still join a team</p>
+                  ) : (
+                    <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>
+                      {l.price_cents === 0
+                        ? 'Free'
+                        : `$${(l.price_cents / 100).toFixed(0)} ${(l.currency ?? 'CAD').toUpperCase()}`}
+                    </p>
+                  )}
                 </Link>
               )
             })}

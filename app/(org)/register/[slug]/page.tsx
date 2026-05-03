@@ -127,6 +127,29 @@ export default async function RegisterLeaguePage({
     waiver = data
   }
 
+  // captainTeam is shaped as { id, name, team_members: [{ role }] }
+  // Extract before the resume logic so we can use team membership to avoid
+  // redirecting per-team players to success before they've joined a team.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const myTeamRow = captainTeam as any
+  const myTeamId = myTeamRow?.id ?? null
+  const myTeamName = myTeamRow?.name ?? null
+  const myTeamMembers = myTeamRow?.team_members
+  const myTeamMember = Array.isArray(myTeamMembers) ? myTeamMembers[0] : myTeamMembers
+  const myTeamRole = myTeamMember?.role ?? null
+
+  const captainTeamId = myTeamRole === 'captain' ? myTeamId : null
+  const captainTeamName = myTeamRole === 'captain' ? myTeamName : null
+  // Already on a team as a non-captain (e.g. accepted a team invite)
+  const playerTeamId = myTeamRole && myTeamRole !== 'captain' ? myTeamId : null
+  const playerTeamName = myTeamRole && myTeamRole !== 'captain' ? myTeamName : null
+
+  // For per-team events: a player who hasn't joined a team yet must go through step 3
+  // (team code entry) before we consider their registration complete. Without this guard
+  // the resume logic would redirect them straight to /success after waiver signing.
+  const perTeamPlayerNeedsTeam =
+    isPerTeamLeague && captainTeamId === null && playerTeamId === null
+
   // Determine the right step to resume at if the player has an existing registration
   let initialStep = 1
   let initialRegistrationId: string | null = null
@@ -147,8 +170,12 @@ export default async function RegisterLeaguePage({
     const effectivePrice = isDropIn ? (dropInPriceCents ?? 0) : league.price_cents
     const needsPayment = effectivePrice > 0 && hasOnlinePayments && !paymentComplete
 
-    if (existingReg.status === 'active' && !needsPayment) {
+    if (existingReg.status === 'active' && !needsPayment && !perTeamPlayerNeedsTeam) {
       redirect(`/register/${slug}/success`)
+    } else if ((existingReg.status === 'active' || waiverSigned) && !needsPayment && perTeamPlayerNeedsTeam) {
+      // Per-team player: registration may be active/waiver signed but they haven't
+      // joined a team yet — send them to the team code step.
+      initialStep = 3
     } else if (needsPayment && (waiverSigned || !waiver)) {
       initialStep = 3 // jump to payment
     } else if (waiver && !waiverSigned) {
@@ -167,21 +194,6 @@ export default async function RegisterLeaguePage({
       initialStep = 3
     }
   }
-
-  // captainTeam is now shaped as { id, name, team_members: [{ role }] }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const myTeamRow = captainTeam as any
-  const myTeamId = myTeamRow?.id ?? null
-  const myTeamName = myTeamRow?.name ?? null
-  const myTeamMembers = myTeamRow?.team_members
-  const myTeamMember = Array.isArray(myTeamMembers) ? myTeamMembers[0] : myTeamMembers
-  const myTeamRole = myTeamMember?.role ?? null
-
-  const captainTeamId = myTeamRole === 'captain' ? myTeamId : null
-  const captainTeamName = myTeamRole === 'captain' ? myTeamName : null
-  // Already on a team as a non-captain (e.g. accepted a team invite)
-  const playerTeamId = myTeamRole && myTeamRole !== 'captain' ? myTeamId : null
-  const playerTeamName = myTeamRole && myTeamRole !== 'captain' ? myTeamName : null
 
   // Shape teams for the player browse/join step
   const leagueTeams = (rawTeams ?? []).map((t: any) => ({

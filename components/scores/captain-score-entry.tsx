@@ -176,6 +176,7 @@ export function CaptainScoreEntry({
     if (res.error) {
       setError(res.error)
     } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
       setOpen(false)
     }
   }
@@ -318,7 +319,7 @@ export function CaptainScoreEntry({
               {loading ? 'Submitting…' : 'Submit'}
             </button>
             <button
-              type="button" onClick={() => setOpen(false)}
+              type="button" onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setOpen(false) }}
               className="px-3 py-1.5 text-xs font-semibold border rounded text-gray-500 hover:bg-gray-50"
             >
               Cancel

@@ -96,6 +96,9 @@ export function Step2Waiver({ org, waiver, userId, leagueId, playerName, playerD
       guardianRelationship: isMinor ? guardianRelationship : undefined,
     })
     if (result.error) { setError(result.error); setLoading(false); return }
+    // Dismiss keyboard and reset scroll before the step transition
+    ;(document.activeElement as HTMLElement)?.blur()
+    window.scrollTo({ top: 0, behavior: 'instant' })
     onComplete(result.data!.signatureId)
   }
 
