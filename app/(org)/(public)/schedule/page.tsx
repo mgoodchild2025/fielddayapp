@@ -185,7 +185,7 @@ export default async function SchedulePage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
 
