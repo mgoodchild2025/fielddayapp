@@ -28,12 +28,12 @@ export default async function MyEventsPage() {
     (supabase as any).from('registrations').select(`
       id, status, created_at,
       league:leagues!registrations_league_id_fkey(
-        id, name, slug, status, event_type, sport, season_start_date, season_end_date
+        id, name, slug, league_status:status, event_type, sport, season_start_date, season_end_date
       )
     `)
       .eq('organization_id', org.id)
       .eq('user_id', user.id)
-      .eq('status', 'active')
+      .neq('status', 'cancelled')
       .order('created_at', { ascending: false }),
   ])
 
@@ -79,7 +79,7 @@ export default async function MyEventsPage() {
           <div className="space-y-3">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {events.map(({ registrationId, league }: any) => {
-              const statusInfo = STATUS_LABEL[league.status] ?? { label: league.status, className: 'bg-gray-100 text-gray-500' }
+              const statusInfo = STATUS_LABEL[league.league_status] ?? { label: league.league_status, className: 'bg-gray-100 text-gray-500' }
               return (
                 <Link
                   key={registrationId}
