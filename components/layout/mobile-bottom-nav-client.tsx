@@ -18,7 +18,7 @@ export function MobileBottomNavClient() {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white border-t border-gray-200"
+      className="fixed bottom-0 inset-x-0 z-50 bg-white border-t border-gray-200"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)', boxShadow: '0 -1px 8px rgba(0,0,0,0.06)' }}
       aria-label="Mobile navigation"
     >

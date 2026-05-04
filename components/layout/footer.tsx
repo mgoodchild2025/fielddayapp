@@ -7,7 +7,7 @@ interface FooterProps {
 export function Footer({ org }: FooterProps) {
   return (
     <footer
-      className="border-t mt-auto pt-8 pb-24 md:py-8 px-6"
+      className="border-t mt-auto pt-8 pb-24 px-6"
       style={{ backgroundColor: 'var(--brand-secondary)', color: 'rgba(255,255,255,0.6)' }}
     >
       <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
