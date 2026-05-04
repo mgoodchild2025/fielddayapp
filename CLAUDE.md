@@ -76,6 +76,36 @@ This adds: `team_join_requests` table, `venue_*`/`organizer_*`/`age_group`/`team
 - **Captains**: Public `/schedule` — past games show `CaptainScoreEntry`. One captain submits (status: `pending`), opposing captain confirms (status: `confirmed`).
 - **Actions**: `submitScore`, `confirmScore`, `adminSetScore` in `actions/scores.ts`
 
+## Game status management (cancel / postpone / restore)
+Admins can change a game's status from the **Edit Game** modal (pencil icon on any row in Admin → Leagues → [League] → Schedule).
+
+### Status flow
+```
+scheduled → cancelled   (via cancelGame)
+scheduled → postponed   (via postponeGame)
+cancelled → scheduled   (via restoreGame)
+postponed → scheduled   (via restoreGame)
+```
+
+### Actions (`actions/schedule.ts`)
+| Action | Function | What it does |
+|--------|----------|-------------|
+| Cancel | `cancelGame` | Sets `status = 'cancelled'`, stores optional `cancellation_reason` |
+| Postpone | `postponeGame` | Sets `status = 'postponed'`, stores optional `cancellation_reason` |
+| Restore | `restoreGame` | Sets `status = 'scheduled'`, clears `cancellation_reason` |
+
+All three accept a `notify: boolean` parameter. When `true` and the game has assigned teams, an in-app notification and email are sent to both teams:
+- Cancel: "Game Cancelled – {Home} vs {Away}"
+- Postpone: "Game Postponed – {Home} vs {Away}"
+- Restore: "Game Back On – {Home} vs {Away}"
+
+### UI behaviour
+- The **Cancel** and **Postpone** buttons are shown when `status === 'scheduled'` (or any non-cancelled/non-postponed status).
+- Clicking either button expands an inline confirmation form with an optional reason field and a "Notify teams" toggle.
+- Once cancelled or postponed, both buttons are replaced by a single **Restore Game** button.
+- On the public schedule, cancelled games show a red "Cancelled" badge and postponed games show an amber "Postponed" badge; the cancellation reason is displayed beneath if one was provided.
+- **Key file**: `components/schedule/edit-game-modal.tsx`
+
 ## Branding
 CSS variables set by `BrandProvider` from `org_branding` row:
 - `--brand-primary`, `--brand-secondary`, `--brand-bg`, `--brand-text`
