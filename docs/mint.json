@@ -93,7 +93,9 @@
         "game-day/manage-game-status",
         "game-day/score-submission",
         "game-day/print-scoresheets",
-        "game-day/stats-leaderboards"
+        "game-day/stats-leaderboards",
+        "game-day/check-in",
+        "game-day/notifications"
       ]
     },
     {
@@ -103,6 +105,7 @@
         "players/join-a-team",
         "players/view-schedule",
         "players/submit-scores",
+        "players/add-to-calendar",
         "players/profile"
       ]
     },

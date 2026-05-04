@@ -1,0 +1,74 @@
+---
+title: Notifications
+description: How in-app and SMS notifications work for players and organizers — and how to configure SMS game reminders.
+---
+
+## Player notifications
+
+Players receive in-app notifications for key events in their league activity. The bell icon in the top navigation shows a red badge when there are unread notifications.
+
+### Types of notifications
+
+| Type | When it's sent |
+|------|----------------|
+| **Team join request** | A captain receives this when a player requests to join their team |
+| **Game cancelled** | Both teams are notified when a game is cancelled (if Notify teams is on) |
+| **Game postponed** | Both teams are notified when a game is postponed |
+| **Game back on** | Both teams are notified when a cancelled or postponed game is restored |
+| **Team invite** | A player receives this when a captain invites them to a team |
+
+### Notification bell
+
+Clicking the bell icon opens a dropdown panel showing all unread notifications. Each notification shows:
+- A title and optional detail message
+- A relative timestamp (e.g. "2h ago")
+- An action button or link where relevant
+
+**Team join requests** can be approved or denied directly from the notification dropdown — no need to navigate to the team management page.
+
+Once a notification is actioned or dismissed it is removed from the unread list. Click **Mark all read** to clear all notifications at once.
+
+---
+
+## Admin: SMS game reminders
+
+Organizers can send automated SMS reminders to players before their games.
+
+<Info>
+  SMS reminders require a valid phone number on the player's profile and the player must have opted in to SMS. Reminders are only sent to players who have opted in.
+</Info>
+
+### Where to configure
+
+**Admin → Settings → Notifications**
+
+### Settings
+
+| Setting | Description |
+|---------|-------------|
+| **Enable SMS game reminders** | Master toggle — turns the feature on or off for your entire organization |
+| **Reminder timing** | How far in advance to send the reminder (e.g. 1 hour, 2 hours, 24 hours before game time) |
+| **Message template** | The SMS message text sent to players. Use the provided variables to personalize it. |
+
+### Message template variables
+
+You can include the following in your message template:
+
+| Variable | Replaced with |
+|----------|--------------|
+| `{home_team}` | Home team name |
+| `{away_team}` | Away team name |
+| `{time}` | Game time |
+| `{court}` | Court or field name |
+
+A 160-character counter is shown while editing the template to help keep messages within standard SMS length.
+
+<Tip>
+  Keep messages short and direct. Something like: "Reminder: {home_team} vs {away_team} today at {time} on {court}. Good luck!" works well.
+</Tip>
+
+### How reminders are sent
+
+When SMS game reminders are enabled, the system automatically sends the configured message to all eligible players on both teams at the configured time before each scheduled game.
+
+Reminders are **not** sent for games that are cancelled or postponed.
