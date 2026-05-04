@@ -1,0 +1,63 @@
+---
+title: Cancel, Postpone & Restore Games
+description: Mark a game as cancelled or postponed, notify both teams automatically, and restore it if plans change.
+---
+
+## Where to find it
+
+**Admin → Events → [Your event] → Schedule**
+
+Click the **pencil icon** on any game row to open the Edit Game modal. The cancel and postpone controls are at the bottom of the modal.
+
+## Cancel a game
+
+Use this when a game will not be played at all.
+
+1. Open the Edit Game modal for the game
+2. Click **Cancel Game**
+3. Optionally enter a reason (e.g. "Field unavailable due to weather")
+4. Toggle **Notify teams** on if you want both teams emailed
+5. Click **Yes, Cancel**
+
+The game is marked **Cancelled** and a red badge appears on the public schedule. If a reason was entered it is shown beneath the game.
+
+## Postpone a game
+
+Use this when a game is delayed or moved to a future date that hasn't been confirmed yet.
+
+1. Open the Edit Game modal for the game
+2. Click **Postpone**
+3. Optionally enter a reason (e.g. "Rescheduled — new date TBD")
+4. Toggle **Notify teams** on if you want both teams emailed
+5. Click **Yes, Postpone**
+
+The game is marked **Postponed** and an amber badge appears on the public schedule.
+
+<Tip>
+  After confirming the new date and time, edit the game to update it, then use **Restore Game** to return it to **Scheduled** status.
+</Tip>
+
+## Restore a game
+
+Once a cancelled or postponed game is back on, you can restore it to scheduled status.
+
+1. Open the Edit Game modal for the game
+2. Click **Restore Game**
+3. Toggle **Notify teams** on to send a "Game Back On" email to both teams
+4. Confirm
+
+The game returns to **Scheduled** status and the cancellation reason is cleared.
+
+## Team notifications
+
+When **Notify teams** is enabled, both the home and away teams receive an in-app notification and an email.
+
+| Action | Email subject | Message |
+|--------|--------------|---------|
+| Cancel | Game Cancelled – {Home} vs {Away} | Confirms the game has been called off and includes the reason if provided |
+| Postpone | Game Postponed – {Home} vs {Away} | Confirms the game is postponed and includes the reason if provided |
+| Restore | Game Back On – {Home} vs {Away} | Confirms the game is back on with the scheduled date and time |
+
+<Note>
+  Notifications are only sent to teams that have been assigned to the game. Template slots (e.g. "TBD") do not receive emails.
+</Note>

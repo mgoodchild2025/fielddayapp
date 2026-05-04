@@ -90,6 +90,7 @@
     {
       "group": "Game Day",
       "pages": [
+        "game-day/manage-game-status",
         "game-day/score-submission",
         "game-day/print-scoresheets",
         "game-day/stats-leaderboards"
