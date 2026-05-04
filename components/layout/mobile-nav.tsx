@@ -113,9 +113,6 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
 
           {userName ? (
             <>
-              <Link href="/dashboard" className="block px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
-                Dashboard
-              </Link>
               {isAdmin && (
                 <Link href="/admin" className="block px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
                   Admin Panel
