@@ -39,6 +39,9 @@ interface League {
   schedule_visibility: string
   standings_visibility: string
   bracket_visibility: string
+  days_of_week: string[] | null
+  skill_level: string | null
+  officiated: string | null
 }
 
 interface Waiver {
@@ -84,12 +87,36 @@ function toDateTimeInput(iso: string | null) {
   return iso ? iso.slice(0, 16) : ''
 }
 
+const DAYS = [
+  { value: 'mon', label: 'Mon' },
+  { value: 'tue', label: 'Tue' },
+  { value: 'wed', label: 'Wed' },
+  { value: 'thu', label: 'Thu' },
+  { value: 'fri', label: 'Fri' },
+  { value: 'sat', label: 'Sat' },
+  { value: 'sun', label: 'Sun' },
+] as const
+
+const SKILL_LEVELS = [
+  { value: 'recreational', label: 'Recreational' },
+  { value: 'intermediate', label: 'Intermediate' },
+  { value: 'competitive', label: 'Competitive' },
+] as const
+
+const OFFICIATED_OPTIONS = [
+  { value: 'self_officiated', label: 'Self-officiated' },
+  { value: 'referee', label: 'Referee' },
+] as const
+
 export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [rulesContent, setRulesContent] = useState(league.rules_content ?? '')
+  const [selectedDays, setSelectedDays] = useState<string[]>(league.days_of_week ?? [])
+  const [selectedSkill, setSelectedSkill] = useState<string>(league.skill_level ?? '')
+  const [selectedOfficiated, setSelectedOfficiated] = useState<string>(league.officiated ?? '')
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -135,6 +162,9 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
       schedule_visibility: (fd.get('schedule_visibility') as 'public' | 'participants') || 'public',
       standings_visibility: (fd.get('standings_visibility') as 'public' | 'participants') || 'public',
       bracket_visibility: (fd.get('bracket_visibility') as 'public' | 'participants') || 'public',
+      days_of_week: selectedDays.length ? selectedDays : undefined,
+      skill_level: (selectedSkill as 'recreational' | 'intermediate' | 'competitive') || undefined,
+      officiated: (selectedOfficiated as 'self_officiated' | 'referee') || undefined,
     } as any)
 
     setLoading(false)
@@ -299,6 +329,84 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
           {league.payment_mode === 'per_team'
             ? <input type="hidden" name="max_participants" value={league.max_participants ?? ''} />
             : <input type="hidden" name="max_teams" value={league.max_teams ?? ''} />}
+        </div>
+
+        {/* Event Details */}
+        <div className="border-t pt-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Event Details</p>
+          <div className="space-y-4">
+
+            {/* Days of week */}
+            <Field label="Days of Week">
+              <div className="flex flex-wrap gap-2 mt-1">
+                {DAYS.map((day) => {
+                  const active = selectedDays.includes(day.value)
+                  return (
+                    <button
+                      key={day.value}
+                      type="button"
+                      onClick={() =>
+                        setSelectedDays((prev) =>
+                          active ? prev.filter((d) => d !== day.value) : [...prev, day.value]
+                        )
+                      }
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                        active ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                      style={active ? { backgroundColor: 'var(--brand-primary)' } : {}}
+                    >
+                      {day.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </Field>
+
+            {/* Skill level */}
+            <Field label="Skill Level">
+              <div className="flex flex-wrap gap-2 mt-1">
+                {SKILL_LEVELS.map((opt) => {
+                  const active = selectedSkill === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setSelectedSkill(active ? '' : opt.value)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                        active ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                      style={active ? { backgroundColor: 'var(--brand-primary)' } : {}}
+                    >
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </Field>
+
+            {/* Officiated */}
+            <Field label="Officiated">
+              <div className="flex flex-wrap gap-2 mt-1">
+                {OFFICIATED_OPTIONS.map((opt) => {
+                  const active = selectedOfficiated === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setSelectedOfficiated(active ? '' : opt.value)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                        active ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                      style={active ? { backgroundColor: 'var(--brand-primary)' } : {}}
+                    >
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </Field>
+
+          </div>
         </div>
 
         {/* Venue */}

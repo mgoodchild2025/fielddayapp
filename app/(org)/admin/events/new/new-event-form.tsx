@@ -107,6 +107,9 @@ const schema = z.object({
   schedule_visibility: z.enum(['public', 'participants']).default('public'),
   standings_visibility: z.enum(['public', 'participants']).default('public'),
   bracket_visibility: z.enum(['public', 'participants']).default('public'),
+  days_of_week: z.array(z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])).optional().default([]),
+  skill_level: z.enum(['recreational', 'intermediate', 'competitive']).optional(),
+  officiated: z.enum(['self_officiated', 'referee']).optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -228,6 +231,9 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
   const [rulesContent, setRulesContent] = useState('')
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [openSection, setOpenSection] = useState<string | null>('basics')
+  const [selectedDays, setSelectedDays] = useState<string[]>([])
+  const [selectedSkill, setSelectedSkill] = useState<string>('')
+  const [selectedOfficiated, setSelectedOfficiated] = useState<string>('')
   const slugEditedRef = useRef(false)
 
   const {
@@ -292,6 +298,9 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
       ...(data as Parameters<typeof createLeague>[0]),
       rule_template_id: selectedTemplateId || undefined,
       rules_content: rulesContent || undefined,
+      days_of_week: selectedDays.length ? (selectedDays as ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[]) : [],
+      skill_level: (selectedSkill as 'recreational' | 'intermediate' | 'competitive') || undefined,
+      officiated: (selectedOfficiated as 'self_officiated' | 'referee') || undefined,
     })
     if (result.error) {
       setError(
@@ -354,6 +363,16 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
   })()
 
   const venueSummary = venueNameWatch || 'Not set'
+
+  const detailsSummary = [
+    selectedDays.length
+      ? selectedDays.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')
+      : null,
+    selectedSkill || null,
+    selectedOfficiated ? selectedOfficiated.replace('_', '-') : null,
+  ]
+    .filter(Boolean)
+    .join(' · ') || 'Optional'
 
   const waiverSummary = (() => {
     const parts: string[] = []
@@ -802,7 +821,96 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
           </div>
         </AccordionSection>
 
-        {/* ── 6. Waiver & Rules ── */}
+        {/* ── 6. Details ── */}
+        <AccordionSection
+          title="Details"
+          summary={detailsSummary}
+          isOpen={openSection === 'details'}
+          onToggle={() => toggle('details')}
+        >
+          {/* Days of week */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Days of Week</label>
+            <div className="flex flex-wrap gap-2">
+              {(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const).map((day) => {
+                const label = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }[day]
+                const active = selectedDays.includes(day)
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() =>
+                      setSelectedDays((prev) =>
+                        active ? prev.filter((d) => d !== day) : [...prev, day]
+                      )
+                    }
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      active ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                    style={active ? { backgroundColor: 'var(--brand-primary)' } : {}}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Skill level */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Skill Level</label>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { value: 'recreational', label: 'Recreational' },
+                { value: 'intermediate', label: 'Intermediate' },
+                { value: 'competitive', label: 'Competitive' },
+              ] as const).map((opt) => {
+                const active = selectedSkill === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setSelectedSkill(active ? '' : opt.value)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      active ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                    style={active ? { backgroundColor: 'var(--brand-primary)' } : {}}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Officiated */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Officiated</label>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { value: 'self_officiated', label: 'Self-officiated' },
+                { value: 'referee', label: 'Referee' },
+              ] as const).map((opt) => {
+                const active = selectedOfficiated === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setSelectedOfficiated(active ? '' : opt.value)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      active ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                    style={active ? { backgroundColor: 'var(--brand-primary)' } : {}}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </AccordionSection>
+
+        {/* ── 7. Waiver & Rules ── */}
         <AccordionSection
           title="Waiver & Rules"
           summary={waiverSummary}

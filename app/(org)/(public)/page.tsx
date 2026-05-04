@@ -14,7 +14,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
     supabase.from('organizations').select('id, slug, name').eq('id', orgId).single(),
     supabase.from('org_branding').select('tagline, hero_image_url, logo_url').eq('organization_id', orgId).single(),
     supabase.from('leagues')
-      .select('id, name, slug, event_type, status, season_start_date, price_cents, currency, max_teams, payment_mode')
+      .select('id, name, slug, event_type, status, season_start_date, price_cents, currency, max_teams, payment_mode, skill_level, days_of_week')
       .eq('organization_id', orgId)
       .neq('status', 'draft')
       .neq('status', 'archived')
@@ -134,6 +134,20 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
                         month: 'short', day: 'numeric', year: 'numeric',
                       })}
                     </p>
+                  )}
+                  {(l.skill_level || l.days_of_week?.length > 0) && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {l.skill_level && (
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500 capitalize">
+                          {l.skill_level}
+                        </span>
+                      )}
+                      {l.days_of_week?.map((d: string) => (
+                        <span key={d} className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500 capitalize">
+                          {d}
+                        </span>
+                      ))}
+                    </div>
                   )}
                   {teamsAtCapacity ? (
                     <p className="mt-3 text-sm font-medium text-amber-700">Players can still join a team</p>

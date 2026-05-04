@@ -16,6 +16,8 @@ export interface EventItem {
   max_teams: number | null
   team_count: number
   payment_mode: string | null
+  skill_level: string | null
+  days_of_week: string[] | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -106,6 +108,22 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
           )}
         </div>
 
+        {/* Metadata chips */}
+        {(event.skill_level || (event.days_of_week?.length ?? 0) > 0) && (
+          <div className="flex flex-wrap gap-1.5 -mt-1">
+            {event.skill_level && (
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500 capitalize">
+                {event.skill_level}
+              </span>
+            )}
+            {event.days_of_week?.map((d) => (
+              <span key={d} className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500 capitalize">
+                {d}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Price + CTA */}
         <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100">
           {teamsAtCapacity ? (
@@ -153,8 +171,12 @@ function EventRow({ event, variant }: { event: EventItem; variant: 'inseason' | 
         />
         <div className="min-w-0">
           <p className="text-sm font-semibold text-gray-800 truncate">{event.name}</p>
-          {event.sport && (
-            <p className="text-xs text-gray-400 mt-0.5">{formatSport(event.sport)}</p>
+          {(event.sport || event.skill_level) && (
+            <p className="text-xs text-gray-400 mt-0.5">
+              {event.sport ? formatSport(event.sport) : ''}
+              {event.sport && event.skill_level ? ' · ' : ''}
+              {event.skill_level ? event.skill_level.charAt(0).toUpperCase() + event.skill_level.slice(1) : ''}
+            </p>
           )}
         </div>
       </div>

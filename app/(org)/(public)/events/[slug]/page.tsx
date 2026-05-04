@@ -964,7 +964,9 @@ export default async function EventDetailPage({
             {league.description && (
               <p className="text-sm text-gray-600 leading-relaxed">{league.description}</p>
             )}
-            {(league.season_start_date || league.age_group || league.venue_name) && (
+            {(league.season_start_date || league.age_group || league.venue_name ||
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (league as any).skill_level || (league as any).officiated || (league as any).days_of_week?.length) && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
                 {league.season_start_date && (
                   <span>
@@ -973,6 +975,23 @@ export default async function EventDetailPage({
                   </span>
                 )}
                 {league.age_group && <span>{league.age_group}</span>}
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {(league as any).skill_level && (
+                  <span className="capitalize">{(league as any).skill_level}</span>
+                )}
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {(league as any).officiated && (
+                  <span>{(league as any).officiated === 'referee' ? 'Referee' : 'Self-officiated'}</span>
+                )}
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {(league as any).days_of_week?.length > 0 && (
+                  <span>
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {((league as any).days_of_week as string[])
+                      .map((d) => d.charAt(0).toUpperCase() + d.slice(1))
+                      .join(' / ')}
+                  </span>
+                )}
                 {league.venue_name && (
                   <span>
                     {league.venue_name}
@@ -1071,6 +1090,45 @@ export default async function EventDetailPage({
                 <div className="bg-white rounded-lg border p-4">
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Team Size</p>
                   <p className="font-semibold mt-1">{league.min_team_size}–{league.max_team_size} players</p>
+                </div>
+              )}
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {(league as any).days_of_week?.length > 0 && (
+                <div className="bg-white rounded-lg border p-4 col-span-2 sm:col-span-1">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Days</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const)
+                      .filter((d) => (league as any).days_of_week.includes(d))
+                      .map((d) => {
+                        const label = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }[d]
+                        return (
+                          <span
+                            key={d}
+                            className="px-2.5 py-0.5 rounded-full text-xs font-semibold text-white"
+                            style={{ backgroundColor: 'var(--brand-primary)' }}
+                          >
+                            {label}
+                          </span>
+                        )
+                      })}
+                  </div>
+                </div>
+              )}
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {(league as any).skill_level && (
+                <div className="bg-white rounded-lg border p-4">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Skill Level</p>
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  <p className="font-semibold mt-1 capitalize">{((league as any).skill_level as string).replace('_', ' ')}</p>
+                </div>
+              )}
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {(league as any).officiated && (
+                <div className="bg-white rounded-lg border p-4">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Officiated</p>
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  <p className="font-semibold mt-1">{(league as any).officiated === 'referee' ? 'Referee' : 'Self-officiated'}</p>
                 </div>
               )}
             </div>

@@ -42,6 +42,9 @@ const createLeagueSchema = z.object({
   schedule_visibility: z.enum(['public', 'participants']).default('public'),
   standings_visibility: z.enum(['public', 'participants']).default('public'),
   bracket_visibility: z.enum(['public', 'participants']).default('public'),
+  days_of_week: z.array(z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])).optional().default([]),
+  skill_level: z.enum(['recreational', 'intermediate', 'competitive']).optional(),
+  officiated: z.enum(['self_officiated', 'referee']).optional(),
 })
 
 export async function createLeague(
@@ -102,6 +105,9 @@ export async function createLeague(
       bracket_visibility: parsed.data.bracket_visibility,
       rule_template_id: rule_template_id || null,
       rules_content: rules_content || null,
+      days_of_week: parsed.data.days_of_week?.length ? parsed.data.days_of_week : null,
+      skill_level: parsed.data.skill_level ?? null,
+      officiated: parsed.data.officiated ?? null,
     })
     .select('id')
     .single()
