@@ -7,36 +7,54 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { z } from 'zod'
 
+const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+
+/** Returns true for internal/loopback addresses that should never appear in emails. */
+function isInternalHost(host: string): boolean {
+  return (
+    host.startsWith('0.0.0.0') ||
+    host.startsWith('127.') ||
+    host === 'localhost' ||
+    host.startsWith('localhost:')
+  )
+}
+
 /**
- * Derive the public-facing origin from incoming request headers.
+ * Derive the public-facing origin for auth email links.
  *
- * For server actions the browser sets `referer` to the URL of the page that
- * submitted the form — this is the most reliable source because it reflects
- * the actual domain the user navigated to (org subdomain, custom domain, etc.)
- * regardless of internal proxy addresses like 0.0.0.0:8080.
+ * Priority:
+ * 1. `referer` header — browser always sets this to the page URL on form submit,
+ *    giving the real public domain (org subdomain, custom domain, etc.).
+ * 2. `x-forwarded-host` — set by Vercel / CDN edge to the original hostname.
+ * 3. `NEXT_PUBLIC_PLATFORM_DOMAIN` env var — explicit, always-correct fallback.
  *
- * Falls back through x-forwarded-host → host for edge cases where referer is
- * absent (e.g. curl / server-to-server calls).
+ * Any candidate that resolves to an internal address (0.0.0.0, 127.x, localhost)
+ * is rejected so it never ends up in a confirmation email.
  */
 function getPublicOrigin(headersList: Awaited<ReturnType<typeof headers>>): string {
-  // 1. Referer — most reliable for browser-initiated server actions
+  const isDev = process.env.NODE_ENV === 'development'
+
+  // 1. Referer (most reliable for browser-initiated server actions)
   const referer = headersList.get('referer')
   if (referer) {
     try {
       const u = new URL(referer)
-      return u.origin // e.g. "https://acme.fielddayapp.ca"
+      if (isDev || !isInternalHost(u.hostname)) {
+        return u.origin
+      }
     } catch { /* fall through */ }
   }
-  // 2. x-forwarded-host + x-forwarded-proto (Vercel edge / CDN)
+
+  // 2. x-forwarded-host (Vercel edge sets this to the real public hostname)
   const fwdHost = headersList.get('x-forwarded-host')
-  if (fwdHost) {
+  if (fwdHost && (isDev || !isInternalHost(fwdHost))) {
     const proto = headersList.get('x-forwarded-proto') ?? 'https'
     return `${proto}://${fwdHost}`
   }
-  // 3. Raw host (local dev)
-  const host = headersList.get('host') ?? 'localhost:3000'
-  const proto = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https'
-  return `${proto}://${host}`
+
+  // 3. Explicit fallback: use the configured platform domain (always correct in prod)
+  if (isDev) return 'http://localhost:3000'
+  return `https://${PLATFORM_DOMAIN}`
 }
 
 const loginSchema = z.object({
