@@ -8,9 +8,10 @@ import type { PlayerRow, LeagueOption } from '@/components/players/players-clien
 export default async function PlayersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ league?: string }>
+  searchParams: Promise<{ league?: string; unregistered?: string }>
 }) {
-  const { league: leagueFilter } = await searchParams
+  const { league: leagueFilter, unregistered } = await searchParams
+  const unregisteredOnly = unregistered === '1'
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = createServiceRoleClient()
@@ -70,6 +71,16 @@ export default async function PlayersPage({
     members = members.filter((m) => m.user_id && leaguePlayerIds.has(m.user_id))
   }
 
+  // Unregistered-only filter: players who have no registrations in this org at all
+  if (unregisteredOnly) {
+    const { data: anyRegs } = await supabase
+      .from('registrations')
+      .select('user_id')
+      .eq('organization_id', org.id)
+    const registeredIds = new Set((anyRegs ?? []).map((r) => r.user_id))
+    members = members.filter((m) => !m.user_id || !registeredIds.has(m.user_id))
+  }
+
   const players: PlayerRow[] = members.map((m) => {
     const profile = Array.isArray(m.profile) ? m.profile[0] : m.profile
     return {
@@ -94,6 +105,7 @@ export default async function PlayersPage({
         players={players}
         leagues={leagues}
         currentLeague={leagueFilter ?? null}
+        unregisteredOnly={unregisteredOnly}
         isOrgAdmin={scope.isOrgAdmin}
       />
     </div>

@@ -28,6 +28,7 @@ interface Props {
   players: PlayerRow[]
   leagues: LeagueOption[]
   currentLeague: string | null
+  unregisteredOnly: boolean
   isOrgAdmin: boolean
 }
 
@@ -70,7 +71,7 @@ function ArrowIcon() {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function PlayersClient({ players, leagues, currentLeague, isOrgAdmin }: Props) {
+export function PlayersClient({ players, leagues, currentLeague, unregisteredOnly, isOrgAdmin }: Props) {
   const router = useRouter()
   const [query, setQuery] = useState('')
   const [leaguePending, startLeagueTransition] = useTransition()
@@ -85,14 +86,22 @@ export function PlayersClient({ players, leagues, currentLeague, isOrgAdmin }: P
     )
   }, [players, query])
 
-  function setLeague(id: string | null) {
-    setQuery('') // reset search when switching league
+  // Special sentinel value for the "no league" option in the select
+  const UNREGISTERED_VALUE = '__unregistered__'
+
+  function setLeague(value: string | null) {
+    setQuery('')
     startLeagueTransition(() => {
-      router.push(id ? `/admin/players?league=${id}` : '/admin/players')
+      if (value === UNREGISTERED_VALUE) {
+        router.push('/admin/players?unregistered=1')
+      } else {
+        router.push(value ? `/admin/players?league=${value}` : '/admin/players')
+      }
     })
   }
 
-  const hasFilters = !!query || !!currentLeague
+  const selectValue = unregisteredOnly ? UNREGISTERED_VALUE : (currentLeague ?? '')
+  const hasFilters = !!query || !!currentLeague || unregisteredOnly
 
   return (
     <div>
@@ -117,19 +126,19 @@ export function PlayersClient({ players, leagues, currentLeague, isOrgAdmin }: P
             />
           </div>
 
-          {leagues.length > 0 && (
-            <select
-              value={currentLeague ?? ''}
-              onChange={(e) => setLeague(e.target.value || null)}
-              disabled={leaguePending}
-              className={`shrink-0 border border-gray-200 bg-white rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:border-transparent transition-opacity ${leaguePending ? 'opacity-60' : ''}`}
-            >
-              <option value="">All leagues</option>
-              {leagues.map((l) => (
-                <option key={l.id} value={l.id}>{l.name}</option>
-              ))}
-            </select>
-          )}
+          <select
+            value={selectValue}
+            onChange={(e) => setLeague(e.target.value || null)}
+            disabled={leaguePending}
+            className={`shrink-0 border border-gray-200 bg-white rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:border-transparent transition-opacity ${leaguePending ? 'opacity-60' : ''}`}
+          >
+            <option value="">All players</option>
+            <option value={UNREGISTERED_VALUE}>Not registered</option>
+            {leagues.length > 0 && <option disabled>──────────</option>}
+            {leagues.map((l) => (
+              <option key={l.id} value={l.id}>{l.name}</option>
+            ))}
+          </select>
         </div>
 
         {/* Result count + clear */}
@@ -145,7 +154,7 @@ export function PlayersClient({ players, leagues, currentLeague, isOrgAdmin }: P
               className="text-xs font-medium hover:underline"
               style={{ color: 'var(--brand-primary)' }}
             >
-              Clear filters
+              Show all
             </button>
           )}
         </div>
