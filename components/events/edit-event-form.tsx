@@ -43,6 +43,8 @@ interface League {
   skill_level: string | null
   officiated: string | null
   checkin_enabled: boolean
+  early_bird_price_cents: number | null
+  early_bird_deadline: string | null
 }
 
 interface Waiver {
@@ -61,6 +63,7 @@ interface Props {
   league: League
   waivers: Waiver[]
   ruleTemplates: RuleTemplate[]
+  hasEarlyBird?: boolean
 }
 
 const SPORTS = [
@@ -109,7 +112,7 @@ const OFFICIATED_OPTIONS = [
   { value: 'referee', label: 'Referee' },
 ] as const
 
-export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
+export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = false }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -168,6 +171,10 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
       skill_level: (selectedSkill as 'recreational' | 'intermediate' | 'competitive') || undefined,
       officiated: (selectedOfficiated as 'self_officiated' | 'referee') || undefined,
       checkin_enabled: checkinEnabled,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      early_bird_price_cents: fd.get('early_bird_price_cents') ? Math.round(Number(fd.get('early_bird_price_cents')) * 100) : null as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      early_bird_deadline: (fd.get('early_bird_deadline') as string) || null as any,
     } as any)
 
     setLoading(false)
@@ -288,6 +295,41 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
                 <option value="per_team">Per Team</option>
               </select>
             </Field>
+          </div>
+        )}
+
+        {/* Early bird pricing — feature-gated, not shown for pickup/drop-in */}
+        {hasEarlyBird && league.event_type !== 'pickup' && league.event_type !== 'drop_in' && (
+          <div className="rounded-lg border border-amber-100 bg-amber-50 p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-amber-800">Early Bird Pricing</p>
+              <p className="text-xs text-amber-600 mt-0.5">Offer a discounted price until the deadline. Leave blank to disable.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Early bird price">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">$</span>
+                  <input
+                    name="early_bird_price_cents"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Leave blank to disable"
+                    defaultValue={league.early_bird_price_cents != null ? (league.early_bird_price_cents / 100).toFixed(2) : ''}
+                    className="input"
+                    style={{ paddingLeft: '1.75rem' }}
+                  />
+                </div>
+              </Field>
+              <Field label="Deadline">
+                <input
+                  name="early_bird_deadline"
+                  type="datetime-local"
+                  defaultValue={toDateTimeInput(league.early_bird_deadline)}
+                  className="input"
+                />
+              </Field>
+            </div>
           </div>
         )}
 

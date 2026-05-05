@@ -4,6 +4,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { updateLeagueStatus } from '@/actions/events'
 import { getLeagueOrganizers } from '@/actions/organizers'
+import { canAccess } from '@/lib/features'
 import { EditEventForm } from '@/components/events/edit-event-form'
 import { DeleteEventButton } from '@/components/events/delete-event-button'
 import { OrganizersPanel } from '@/components/events/organizers-panel'
@@ -33,6 +34,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     { data: waivers },
     { data: ruleTemplates },
     organizersData,
+    hasEarlyBird,
   ] = await Promise.all([
     supabase.from('leagues').select('*').eq('id', id).eq('organization_id', org.id).single(),
     supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
@@ -41,6 +43,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     supabase.from('waivers').select('id, title, version').eq('organization_id', org.id).order('created_at', { ascending: false }),
     supabase.from('league_rule_templates').select('id, title, content').eq('organization_id', org.id).order('created_at', { ascending: false }),
     getLeagueOrganizers(id),
+    canAccess(org.id, 'early_bird_pricing'),
   ])
 
   if (!league) notFound()
@@ -79,7 +82,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
       {/* Details */}
       <div className="md:col-span-2 bg-white rounded-lg border p-5">
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        {isOrgAdmin && <EditEventForm league={league as any} waivers={waivers ?? []} ruleTemplates={ruleTemplates ?? []} />}
+        {isOrgAdmin && <EditEventForm league={league as any} waivers={waivers ?? []} ruleTemplates={ruleTemplates ?? []} hasEarlyBird={hasEarlyBird} />}
         <dl className="space-y-3 text-sm mt-4">
           <Row label="Sport" value={league.sport ?? '—'} />
           {league.age_group && <Row label="Age Group" value={league.age_group} />}

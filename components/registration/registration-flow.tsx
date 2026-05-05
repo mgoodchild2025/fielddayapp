@@ -30,6 +30,8 @@ interface Props {
   positions?: string[]
   isDropIn?: boolean
   dropInPriceCents?: number | null
+  earlyBirdPriceCents?: number | null
+  earlyBirdDeadline?: string | null
   captainTeamId?: string | null
   captainTeamName?: string | null
   /** Set when user is already on a team as a non-captain (e.g. accepted a team invite) */
@@ -58,6 +60,8 @@ export function RegistrationFlow({
   positions = [],
   isDropIn = false,
   dropInPriceCents = null,
+  earlyBirdPriceCents = null,
+  earlyBirdDeadline = null,
   captainTeamId = null,
   captainTeamName = null,
   playerTeamId = null,
@@ -67,7 +71,8 @@ export function RegistrationFlow({
 }: Props) {
   const router = useRouter()
 
-  const effectivePriceCents = isDropIn ? (dropInPriceCents ?? 0) : league.price_cents
+  const earlyBirdActive = !isDropIn && earlyBirdPriceCents != null && earlyBirdDeadline != null && new Date() < new Date(earlyBirdDeadline)
+  const effectivePriceCents = isDropIn ? (dropInPriceCents ?? 0) : (earlyBirdActive ? earlyBirdPriceCents! : league.price_cents)
   const isPerTeam = (league as unknown as { payment_mode?: string }).payment_mode === 'per_team'
   const showPaymentStep = effectivePriceCents > 0 && hasOnlinePayments && !isPerTeam
 

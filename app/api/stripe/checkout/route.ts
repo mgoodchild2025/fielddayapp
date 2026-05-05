@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db2 = db as any
   const [{ data: league }, { data: paymentSettings }, { data: profile }, { data: registration }] = await Promise.all([
-    db2.from('leagues').select('name, price_cents, currency, drop_in_price_cents, max_participants, payment_mode').eq('id', leagueId).single(),
+    db2.from('leagues').select('name, price_cents, currency, drop_in_price_cents, max_participants, payment_mode, early_bird_price_cents, early_bird_deadline').eq('id', leagueId).single(),
     db2.from('org_payment_settings').select('stripe_secret_key').eq('organization_id', orgId).single(),
     db2.from('profiles').select('email').eq('id', userId).single(),
     db2.from('registrations').select('registration_type').eq('id', registrationId).single(),
@@ -161,7 +161,10 @@ export async function POST(request: NextRequest) {
   }
 
   const isDropIn = registration?.registration_type === 'drop_in'
-  const priceCents = isDropIn ? (league.drop_in_price_cents ?? league.price_cents) : league.price_cents
+  const earlyBirdActive = !isDropIn && league.early_bird_price_cents != null && league.early_bird_deadline != null && new Date() < new Date(league.early_bird_deadline)
+  const priceCents = isDropIn
+    ? (league.drop_in_price_cents ?? league.price_cents)
+    : (earlyBirdActive ? league.early_bird_price_cents : league.price_cents)
 
   if (!paymentSettings?.stripe_secret_key) {
     return NextResponse.json(
@@ -187,7 +190,7 @@ export async function POST(request: NextRequest) {
           currency: league.currency,
           unit_amount: priceCents,
           product_data: {
-            name: isDropIn ? `${league.name} — Drop-in` : league.name,
+            name: isDropIn ? `${league.name} — Drop-in` : earlyBirdActive ? `${league.name} — Early Bird` : league.name,
           },
         },
         quantity: 1,

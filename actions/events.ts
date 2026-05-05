@@ -47,6 +47,8 @@ const createLeagueSchema = z.object({
   skill_level: z.enum(['recreational', 'intermediate', 'competitive']).optional(),
   officiated: z.enum(['self_officiated', 'referee']).optional(),
   checkin_enabled: z.boolean().optional(),
+  early_bird_price_cents: z.coerce.number().min(0).optional(),
+  early_bird_deadline: z.string().optional(),
 })
 
 export async function createLeague(
@@ -113,6 +115,8 @@ export async function createLeague(
       skill_level: parsed.data.skill_level ?? null,
       officiated: parsed.data.officiated ?? null,
       checkin_enabled: parsed.data.checkin_enabled ?? false,
+      early_bird_price_cents: parsed.data.early_bird_price_cents ?? null,
+      early_bird_deadline: parsed.data.early_bird_deadline || null,
     })
     .select('id')
     .single()

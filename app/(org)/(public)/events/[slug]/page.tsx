@@ -621,7 +621,13 @@ export default async function EventDetailPage({
 
   const isOpen = league.status === 'registration_open' || league.status === 'active'
   const isRegOpen = league.status === 'registration_open'
-  const price = league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency?.toUpperCase()}`
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const earlyBirdPriceCents: number | null = (league as any).early_bird_price_cents ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const earlyBirdDeadline: string | null = (league as any).early_bird_deadline ?? null
+  const earlyBirdActive = earlyBirdPriceCents != null && earlyBirdDeadline != null && new Date() < new Date(earlyBirdDeadline)
+  const effectiveRegPrice = earlyBirdActive ? earlyBirdPriceCents! : league.price_cents
+  const price = effectiveRegPrice === 0 ? 'Free' : `$${(effectiveRegPrice / 100).toFixed(0)} ${league.currency?.toUpperCase()}${earlyBirdActive ? ' (Early Bird)' : ''}`
   const dropInPriceLabel = dropInPriceCents !== null
     ? (dropInPriceCents === 0 ? 'Free drop-in' : `$${(dropInPriceCents / 100).toFixed(0)} drop-in`)
     : null

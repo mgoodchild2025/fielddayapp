@@ -98,6 +98,10 @@ export default async function RegisterLeaguePage({
   const hasOnlinePayments = !!connectAccount?.stripe_secret_key
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dropInPriceCents: number | null = (league as any).drop_in_price_cents ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const earlyBirdPriceCents: number | null = (league as any).early_bird_price_cents ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const earlyBirdDeadline: string | null = (league as any).early_bird_deadline ?? null
 
   // Check whether the team cap is reached so we can disable the captain path
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -167,7 +171,9 @@ export default async function RegisterLeaguePage({
       .maybeSingle()
 
     const paymentComplete = payment?.status === 'paid'
-    const effectivePrice = isDropIn ? (dropInPriceCents ?? 0) : league.price_cents
+    const now = new Date()
+    const earlyBirdActive = !isDropIn && earlyBirdPriceCents != null && earlyBirdDeadline != null && now < new Date(earlyBirdDeadline)
+    const effectivePrice = isDropIn ? (dropInPriceCents ?? 0) : (earlyBirdActive ? earlyBirdPriceCents! : league.price_cents)
     const needsPayment = effectivePrice > 0 && hasOnlinePayments && !paymentComplete
 
     if (existingReg.status === 'active' && !needsPayment && !perTeamPlayerNeedsTeam) {
@@ -217,6 +223,8 @@ export default async function RegisterLeaguePage({
       positions={positions}
       isDropIn={isDropIn}
       dropInPriceCents={dropInPriceCents}
+      earlyBirdPriceCents={earlyBirdPriceCents}
+      earlyBirdDeadline={earlyBirdDeadline}
       captainTeamId={captainTeamId}
       captainTeamName={captainTeamName}
       playerTeamId={playerTeamId}
