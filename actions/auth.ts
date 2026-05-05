@@ -122,8 +122,21 @@ export async function signUp(input: { email: string; password: string; fullName:
     email,
   })
 
-  // Link any pending team invites for this email
   const service = createServiceRoleClient()
+
+  // If the player signed up on an org subdomain, add them to that org immediately
+  // so they appear in Admin → Players without needing to complete a league registration.
+  const orgId = headersList.get('x-org-id')
+  if (orgId) {
+    await service.from('org_members').upsert({
+      organization_id: orgId,
+      user_id: userId,
+      role: 'player',
+      status: 'active',
+    }, { onConflict: 'organization_id,user_id', ignoreDuplicates: true })
+  }
+
+  // Link any pending team invites for this email
   const { data: pendingInvites } = await service
     .from('team_members')
     .select('id, organization_id, team_id')
