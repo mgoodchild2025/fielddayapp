@@ -88,7 +88,7 @@ export default async function MyTeamsPage() {
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
 
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+      <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-8 flex-1">
         <h1
           className="text-2xl font-bold uppercase mb-6"
           style={{ fontFamily: 'var(--brand-heading-font)' }}
