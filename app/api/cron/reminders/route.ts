@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
 
     const { data: members } = await supabase
       .from('team_members')
-      .select('profiles(email, full_name)')
+      .select('profiles!team_members_user_id_fkey(email, full_name)')
       .in('team_id', teamIds)
     const profiles = (members ?? [])
       .flatMap(m => (Array.isArray(m.profiles) ? m.profiles : [m.profiles]))
@@ -220,7 +220,7 @@ export async function GET(req: NextRequest) {
         if (teamIds.length > 0) {
           const { data: members } = await supabase
             .from('team_members')
-            .select('profiles(phone, sms_opted_in)')
+            .select('profiles!team_members_user_id_fkey(phone, sms_opted_in)')
             .in('team_id', teamIds)
 
           const players = (members ?? [])
