@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 
 export interface EventItem {
@@ -18,6 +18,34 @@ export interface EventItem {
   payment_mode: string | null
   skill_level: string | null
   days_of_week: string[] | null
+}
+
+// ── Config ────────────────────────────────────────────────────────────────────
+
+const SPORT_EMOJI: Record<string, string> = {
+  volleyball:       '🏐',
+  beach_volleyball: '🏐',
+  soccer:           '⚽',
+  basketball:       '🏀',
+  hockey:           '🏒',
+  softball:         '🥎',
+  baseball:         '⚾',
+  flag_football:    '🏈',
+  football:         '🏈',
+  tennis:           '🎾',
+  badminton:        '🏸',
+  pickleball:       '🏓',
+  ultimate:         '🥏',
+  rugby:            '🏉',
+  lacrosse:         '🥍',
+}
+
+const EVENT_TYPE_LABEL: Record<string, string> = {
+  league:     'League',
+  tournament: 'Tournament',
+  pickup:     'Pickup',
+  clinic:     'Clinic',
+  camp:       'Camp',
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -38,13 +66,62 @@ function formatYear(iso: string) {
   return new Date(iso).getFullYear()
 }
 
+// ── Filter pills ──────────────────────────────────────────────────────────────
+
+function FilterPills<T extends string>({
+  label,
+  options,
+  selected,
+  onSelect,
+  renderOption,
+}: {
+  label: string
+  options: T[]
+  selected: T | null
+  onSelect: (v: T | null) => void
+  renderOption: (v: T) => React.ReactNode
+}) {
+  if (options.length < 2) return null
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs font-medium text-gray-400 shrink-0">{label}</span>
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none flex-wrap">
+        <button
+          onClick={() => onSelect(null)}
+          className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors border ${
+            selected === null
+              ? 'border-transparent text-white'
+              : 'border-gray-200 text-gray-500 bg-white hover:bg-gray-50'
+          }`}
+          style={selected === null ? { backgroundColor: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' } : {}}
+        >
+          All
+        </button>
+        {options.map((opt) => (
+          <button
+            key={opt}
+            onClick={() => onSelect(selected === opt ? null : opt)}
+            className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors border ${
+              selected === opt
+                ? 'border-transparent text-white'
+                : 'border-gray-200 text-gray-500 bg-white hover:bg-gray-50'
+            }`}
+            style={selected === opt ? { backgroundColor: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' } : {}}
+          >
+            {renderOption(opt)}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Featured registration card ────────────────────────────────────────────────
 
 function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boolean }) {
   const isPerTeam = event.payment_mode === 'per_team'
-  // teamsAtCapacity: per-team event where all team slots are taken, but players can still join existing teams
   const teamsAtCapacity = isPerTeam && event.max_teams !== null && event.team_count >= event.max_teams
-  // isFull: completely closed — no one can register (per-player cap reached)
   const isFull = !isPerTeam && event.max_teams !== null && event.team_count >= event.max_teams
   const showCapacity = event.max_teams !== null
 
@@ -78,7 +155,6 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
             </span>
           )}
 
-          {/* Capacity fraction + sport — right-aligned */}
           <div className="flex items-center gap-2 shrink-0">
             {showCapacity && (
               <span className={`text-xs font-semibold tabular-nums ${
@@ -241,20 +317,71 @@ function Accordion({
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export function EventsFilter({ events, isOrgAdmin = false }: { events: EventItem[]; isOrgAdmin?: boolean }) {
-  const open     = events.filter((e) => e.status === 'registration_open')
-  const inSeason = events.filter((e) => e.status === 'active')
-  const past     = events.filter((e) => e.status === 'completed' || e.status === 'archived')
+  const [selectedSport, setSelectedSport] = useState<string | null>(null)
+  const [selectedType,  setSelectedType]  = useState<string | null>(null)
 
-  if (events.length === 0) {
-    return (
-      <div className="text-center py-20 text-gray-400 text-sm">
-        No events available yet.
-      </div>
-    )
-  }
+  // Unique sport / event_type values present in the full list
+  const sports = useMemo(() => {
+    const seen = new Set<string>()
+    events.forEach((e) => { if (e.sport) seen.add(e.sport) })
+    return Array.from(seen).sort()
+  }, [events])
+
+  const eventTypes = useMemo(() => {
+    const seen = new Set<string>()
+    events.forEach((e) => { if (e.event_type) seen.add(e.event_type) })
+    return Array.from(seen).sort()
+  }, [events])
+
+  // Apply active filters
+  const filtered = useMemo(() => {
+    return events.filter((e) => {
+      if (selectedSport && e.sport !== selectedSport) return false
+      if (selectedType  && e.event_type !== selectedType)  return false
+      return true
+    })
+  }, [events, selectedSport, selectedType])
+
+  const open     = filtered.filter((e) => e.status === 'registration_open')
+  const inSeason = filtered.filter((e) => e.status === 'active')
+  const past     = filtered.filter((e) => e.status === 'completed' || e.status === 'archived')
+
+  const hasFilters = sports.length >= 2 || eventTypes.length >= 2
 
   return (
     <div className="space-y-4">
+
+      {/* ── Filter pills ────────────────────────────────────────────────────── */}
+      {hasFilters && (
+        <div className="bg-white rounded-2xl border px-4 py-3 space-y-2.5">
+          <FilterPills
+            label="Sport"
+            options={sports}
+            selected={selectedSport}
+            onSelect={setSelectedSport}
+            renderOption={(sport) => (
+              <span className="flex items-center gap-1.5">
+                {SPORT_EMOJI[sport] && <span>{SPORT_EMOJI[sport]}</span>}
+                {formatSport(sport)}
+              </span>
+            )}
+          />
+          <FilterPills
+            label="Type"
+            options={eventTypes}
+            selected={selectedType}
+            onSelect={setSelectedType}
+            renderOption={(type) => EVENT_TYPE_LABEL[type] ?? type.charAt(0).toUpperCase() + type.slice(1)}
+          />
+        </div>
+      )}
+
+      {/* ── No results ──────────────────────────────────────────────────────── */}
+      {filtered.length === 0 && (
+        <div className="text-center py-14 text-gray-400 text-sm bg-white rounded-2xl border">
+          No events match the selected filters.
+        </div>
+      )}
 
       {/* ── 1. Open for registration — featured cards ────────────────────────── */}
       {open.length > 0 && (
