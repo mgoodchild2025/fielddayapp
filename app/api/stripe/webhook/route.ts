@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       // Send confirmation to each member
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [{ data: league }, { data: org }] = await Promise.all([
-        (supabase as any).from('leagues').select('name, sport, event_type').eq('id', leagueId).single(),
+        (supabase as any).from('leagues').select('name, sport, event_type, checkin_enabled').eq('id', leagueId).single(),
         supabase.from('organizations').select('name').eq('id', orgId).single(),
       ])
 
@@ -96,10 +96,11 @@ export async function POST(request: NextRequest) {
         }
 
         const origin = process.env.NEXT_PUBLIC_APP_URL ?? ''
+        const checkinActive = (league as { checkin_enabled?: boolean } | null)?.checkin_enabled === true
         for (const profile of profiles ?? []) {
           if (profile.email) {
             const token = tokenByUserId.get((profile as unknown as { id?: string }).id ?? '')
-            const checkinUrl = token ? `${origin}/checkin/${token}` : null
+            const checkinUrl = (checkinActive && token) ? `${origin}/checkin/${token}` : null
             await sendRegistrationConfirmation({
               email: profile.email,
               name: profile.full_name,
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [{ data: profile }, { data: league }, { data: org }, { data: reg }] = await Promise.all([
         supabase.from('profiles').select('full_name, email').eq('id', userId).single(),
-        (supabase as any).from('leagues').select('name, sport, event_type').eq('id', leagueId ?? '').single(),
+        (supabase as any).from('leagues').select('name, sport, event_type, checkin_enabled').eq('id', leagueId ?? '').single(),
         supabase.from('organizations').select('name').eq('id', orgId).single(),
         (supabase as any).from('registrations').select('user_id, checkin_token').eq('id', registrationId).single(),
       ])
@@ -144,7 +145,8 @@ export async function POST(request: NextRequest) {
       if (profile?.email && league?.name) {
         const origin = process.env.NEXT_PUBLIC_APP_URL ?? ''
         const token = (reg as unknown as { checkin_token?: string } | null)?.checkin_token
-        const checkinUrl = token ? `${origin}/checkin/${token}` : null
+        const checkinEnabled = (league as { checkin_enabled?: boolean } | null)?.checkin_enabled === true
+        const checkinUrl = (checkinEnabled && token) ? `${origin}/checkin/${token}` : null
         await sendRegistrationConfirmation({
           email: profile.email,
           name: profile.full_name,
