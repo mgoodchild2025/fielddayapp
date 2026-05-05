@@ -242,6 +242,6 @@ export async function inviteMember(input: FormData) {
     return { error: null, invited: true, noAccount: true }
   }
 
-  revalidatePath('/admin/users')
+  revalidatePath('/admin/players')
   return { error: null, invited: true, noAccount: false }
 }
