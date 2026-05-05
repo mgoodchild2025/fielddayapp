@@ -12,7 +12,7 @@ function authorized(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  try {
   const supabase = createServiceRoleClient()
   const resend = getResend()
   const now = new Date()
@@ -313,4 +313,7 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true, processed: results, sms_diagnostics })
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: String(err), stack: err instanceof Error ? err.stack : undefined }, { status: 500 })
+  }
 }
