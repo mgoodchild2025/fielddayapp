@@ -104,6 +104,18 @@ export async function deleteWaiver(waiverId: string) {
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
+  // Block deletion if any player has already signed this waiver
+  const { count } = await supabase
+    .from('waiver_signatures')
+    .select('id', { count: 'exact', head: true })
+    .eq('waiver_id', waiverId)
+
+  if ((count ?? 0) > 0) {
+    return {
+      error: `This waiver has been signed by ${count} player${count === 1 ? '' : 's'} and cannot be deleted. You can create a new version instead.`,
+    }
+  }
+
   // Clear this waiver from any leagues that reference it (revert to "No waiver required")
   await supabase
     .from('leagues')
