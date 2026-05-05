@@ -38,11 +38,11 @@ export function Step4Confirmation({ league, registrationId }: Props) {
       )}
       <div className="flex flex-col gap-2 pt-2">
         <Link
-          href="/dashboard"
+          href="/my-events"
           className="w-full py-2.5 rounded-md font-semibold text-white"
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >
-          Go to Dashboard
+          My Events
         </Link>
         <Link href="/schedule" className="text-sm text-gray-500 hover:underline">
           View Schedule

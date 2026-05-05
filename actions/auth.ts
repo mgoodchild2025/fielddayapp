@@ -29,7 +29,7 @@ export async function login(input: { email: string; password: string; redirectTo
   const orgId = headersList.get('x-org-id')
 
   // Only allow relative paths to prevent open redirect
-  const safeRedirect = input.redirectTo?.startsWith('/') ? input.redirectTo : '/dashboard'
+  const safeRedirect = input.redirectTo?.startsWith('/') ? input.redirectTo : '/my-events'
   redirect(orgId ? safeRedirect : '/super')
 }
 
@@ -122,7 +122,7 @@ export async function updatePassword(newPassword: string): Promise<{ error: stri
   const { error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) return { error: error.message }
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  redirect('/my-events')
 }
 
 const updateProfileSchema = z.object({

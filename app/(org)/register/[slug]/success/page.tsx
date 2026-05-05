@@ -95,14 +95,14 @@ export default async function RegistrationSuccessPage({
               eventName={league?.name ?? ''}
             />
             <p className="text-xs text-gray-400 mt-3">
-              You can also find this QR code on your dashboard at any time.
+              You can also find this QR code under My Events at any time.
             </p>
           </div>
         )}
 
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-          <Link href="/dashboard" className="px-6 py-2.5 rounded-md font-semibold text-white" style={{ backgroundColor: 'var(--brand-primary)' }}>
-            Go to Dashboard
+          <Link href="/my-events" className="px-6 py-2.5 rounded-md font-semibold text-white" style={{ backgroundColor: 'var(--brand-primary)' }}>
+            My Events
           </Link>
           <Link href={`/events/${slug}`} className="px-6 py-2.5 rounded-md font-semibold border text-gray-700 hover:bg-gray-50">
             View Event

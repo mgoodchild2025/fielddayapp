@@ -41,11 +41,11 @@ export default async function OrganizerInvitePage({
           <p className="text-2xl font-bold mb-2">Invitation Not Found</p>
           <p className="text-gray-500 text-sm">This invitation link is invalid or has already been used.</p>
           <Link
-            href="/dashboard"
+            href="/my-events"
             className="mt-6 inline-block text-sm font-medium hover:underline"
             style={{ color: 'var(--brand-primary)' }}
           >
-            Go to Dashboard →
+            My Events →
           </Link>
         </div>
         <Footer org={org} />

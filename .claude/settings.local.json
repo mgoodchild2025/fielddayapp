@@ -67,7 +67,28 @@
       "Bash(sed -i '' 's|LeagueRulesPage|EventRulesPage|g' \"app/\\(org\\)/admin/settings/event-rules/page.tsx\")",
       "Bash(sed -i '' 's|/admin/settings/league-rules|/admin/settings/event-rules|g' \"app/\\(org\\)/admin/events/new/new-event-form.tsx\")",
       "Bash(sed -i '' 's|LeagueAdminLayout|EventAdminLayout|g' \"app/\\(org\\)/admin/events/[id]/layout.tsx\")",
-      "Bash(sed -i '' \"s|{ label: 'Leagues', value: leagues.length }|{ label: 'Events', value: leagues.length }|g\" \"app/\\(platform\\)/super/orgs/[id]/page.tsx\")"
+      "Bash(sed -i '' \"s|{ label: 'Leagues', value: leagues.length }|{ label: 'Events', value: leagues.length }|g\" \"app/\\(platform\\)/super/orgs/[id]/page.tsx\")",
+      "Bash(git -C /Users/mgoodchild/Fieldday status)",
+      "Bash(git -C /Users/mgoodchild/Fieldday log --oneline -5)",
+      "Bash(git -C /Users/mgoodchild/Fieldday add lib/email.ts actions/teams.ts)",
+      "Bash(git -C /Users/mgoodchild/Fieldday diff --stat HEAD)",
+      "Bash(git -C /Users/mgoodchild/Fieldday commit -m ' *)",
+      "Bash(git -C /Users/mgoodchild/Fieldday push origin main)",
+      "Bash(git -C /Users/mgoodchild/Fieldday status --short)",
+      "Bash(git -C /Users/mgoodchild/Fieldday log --oneline -3)",
+      "Bash(git -C /Users/mgoodchild/Fieldday add actions/branding.ts \"app/\\(org\\)/admin/settings/branding/branding-form.tsx\")",
+      "Bash(sed -n '119,145p' /Users/mgoodchild/Fieldday/supabase/migrations/001_initial_schema.sql)",
+      "Bash(sed -n '218,245p' /Users/mgoodchild/Fieldday/supabase/migrations/001_initial_schema.sql)",
+      "Bash(git -C /Users/mgoodchild/Fieldday add actions/brackets.ts actions/scores.ts app/\\\\\\(org\\\\\\)/admin/events/\\\\[id\\\\]/bracket/ components/bracket/ lib/bracket.ts supabase/migrations/018_brackets.sql app/\\\\\\(org\\\\\\)/\\\\\\(public\\\\\\)/events/\\\\[slug\\\\]/page.tsx components/layout/event-admin-tabs.tsx)",
+      "Bash(git -C /Users/mgoodchild/Fieldday add components/bracket/bracket-view.tsx)",
+      "Bash(git -C /Users/mgoodchild/Fieldday push)",
+      "Bash(git -C /Users/mgoodchild/Fieldday add actions/teams.ts actions/notifications.ts components/layout/notification-bell.tsx components/layout/org-nav.tsx)",
+      "Bash(git -C /Users/mgoodchild/Fieldday add supabase/migrations/019_org_payment_settings.sql actions/payment-settings.ts components/payments/stripe-key-form.tsx 'app/\\(org\\)/admin/settings/payments/page.tsx' app/api/stripe/checkout/route.ts app/api/stripe/webhook/route.ts)",
+      "Bash(git -C /Users/mgoodchild/Fieldday add components/payments/stripe-setup-guide.tsx app/\\\\\\(org\\\\\\)/admin/settings/payments/page.tsx)",
+      "Bash(grep -v \"//\\\\|error.message\\\\|upsertError\\\\|if \\(error\\\\|return { data: null, error\")",
+      "Bash(git -C /Users/mgoodchild/Fieldday add Dockerfile)",
+      "Bash(npm install *)",
+      "Bash(git -C /Users/mgoodchild/Fieldday add package-lock.json)"
     ]
   }
 }

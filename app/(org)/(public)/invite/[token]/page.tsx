@@ -36,8 +36,8 @@ export default async function InvitePage({
         <div className="max-w-md mx-auto px-4 py-16 text-center">
           <p className="text-2xl font-bold mb-2">Invite Not Found</p>
           <p className="text-gray-500 text-sm">This invitation link is invalid or has expired.</p>
-          <Link href="/dashboard" className="mt-6 inline-block text-sm font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
-            Go to Dashboard →
+          <Link href="/my-teams" className="mt-6 inline-block text-sm font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
+            My Teams →
           </Link>
         </div>
         <Footer org={org} />
@@ -87,7 +87,7 @@ export default async function InvitePage({
           {invite.status === 'accepted' && (
             <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-center text-sm text-green-700">
               ✓ This invitation has already been accepted.
-              <Link href="/dashboard" className="block mt-1 text-green-600 hover:underline">Go to Dashboard</Link>
+              <Link href="/my-teams" className="block mt-1 text-green-600 hover:underline">My Teams</Link>
             </div>
           )}
 
