@@ -54,16 +54,44 @@ export async function proxy(request: NextRequest) {
   const hostname = request.headers.get('host') ?? ''
   const baseHost = hostname.split(':')[0] // strip port for local dev
 
-  // ── Step 1: determine org context ─────────────────────────────────────────
+  // ── Step 1: refresh Supabase session early so we have the user for auth checks ──
+  // We create a temporary client here to read the current user. The response
+  // is rebuilt below once we know the org context.
+  let currentUser: { app_metadata?: Record<string, unknown> } | null = null
+  {
+    const tempResponse = NextResponse.next()
+    const tempClient = createServerClient(SUPABASE_URL, ANON_KEY, {
+      cookies: {
+        getAll() { return request.cookies.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          cookiesToSet.forEach(({ name, value, options }) =>
+            tempResponse.cookies.set(name, value, options)
+          )
+        },
+      },
+    })
+    const { data: { user } } = await tempClient.auth.getUser()
+    currentUser = user
+  }
+
+  // ── Step 2: determine org context ─────────────────────────────────────────
   let orgId: string | null = null
   let isImpersonating = false
 
   if (baseHost === `app.${PLATFORM_DOMAIN}` || baseHost === 'app.localhost') {
-    // Super-admin domain — check for impersonation cookie
+    // Super-admin domain — only honor impersonation cookie when the signed-in
+    // user is a verified platform admin (app_metadata.is_platform_admin = true,
+    // set exclusively via the service role — users cannot self-assign this).
     const impersonateOrgId = request.cookies.get('fieldday_impersonate_org_id')?.value
-    if (impersonateOrgId) {
+    const isPlatformAdmin = currentUser?.app_metadata?.is_platform_admin === true
+    if (impersonateOrgId && isPlatformAdmin) {
       orgId = impersonateOrgId
       isImpersonating = true
+    } else if (impersonateOrgId && !isPlatformAdmin) {
+      // Cookie present but user is not a platform admin — silently ignore and
+      // clear the cookie on the response so it can't be replayed.
+      console.warn('[proxy] impersonation attempted by non-admin user — ignoring')
     }
   } else if (baseHost === PLATFORM_DOMAIN || baseHost === 'localhost' || baseHost === '127.0.0.1') {
     // Marketing site or local dev
@@ -77,14 +105,14 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // ── Step 2: build request headers (with org context) ─────────────────────
+  // ── Step 3: build request headers (with org context) ─────────────────────
   const requestHeaders = new Headers(request.headers)
   if (orgId) requestHeaders.set('x-org-id', orgId)
   if (isImpersonating) requestHeaders.set('x-impersonating', '1')
   // Expose the full pathname+search so server components can build return-to URLs
   requestHeaders.set('x-pathname', request.nextUrl.pathname + request.nextUrl.search)
 
-  // ── Step 3: create the final response, then refresh the Supabase session ──
+  // ── Step 4: create the final response, refreshing the Supabase session ────
   // We do this in one pass so session-refresh cookies land on the correct
   // response object and aren't lost when we add the org header.
   let response = NextResponse.next({ request: { headers: requestHeaders } })
@@ -109,6 +137,11 @@ export async function proxy(request: NextRequest) {
 
   // Calling getUser() triggers session refresh if needed (setAll runs if tokens changed)
   await supabase.auth.getUser()
+
+  // If an unauthorised impersonation attempt was detected, clear the cookie
+  if (request.cookies.get('fieldday_impersonate_org_id')?.value && !isImpersonating) {
+    response.cookies.delete('fieldday_impersonate_org_id')
+  }
 
   return response
 }

@@ -6,6 +6,12 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
+import { createRateLimiter } from '@/lib/rate-limit'
+import { assertOrgAdmin } from '@/lib/auth'
+
+// 5 waiver signing attempts per 10 minutes per IP — enough for any legitimate
+// player, tight enough to prevent automated bulk signing.
+const signingLimiter = createRateLimiter({ windowMs: 10 * 60_000, max: 5 })
 
 // ─── Admin: create / update waiver ───────────────────────────────────────────
 
@@ -21,6 +27,8 @@ export async function upsertWaiver(input: z.infer<typeof upsertWaiverSchema>) {
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const auth = await assertOrgAdmin(org, ['org_admin', 'league_admin'])
+  if (auth.error) return { data: null, error: auth.error }
   const supabase = await createServerClient()
 
   if (parsed.data.id) {
@@ -77,6 +85,8 @@ export async function upsertWaiver(input: z.infer<typeof upsertWaiverSchema>) {
 export async function setWaiverActive(waiverId: string, active: boolean) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const auth = await assertOrgAdmin(org, ['org_admin', 'league_admin'])
+  if (auth.error) return { error: auth.error }
   const supabase = await createServerClient()
 
   if (active) {
@@ -112,6 +122,9 @@ export async function getWaiverSignatureCount(waiverId: string): Promise<number>
 export async function deleteWaiver(waiverId: string, force = false) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  // Only org_admin can delete waivers (not league_admin — too destructive)
+  const auth = await assertOrgAdmin(org, ['org_admin'])
+  if (auth.error) return { error: auth.error }
   const supabase = await createServerClient()
 
   // Block deletion if any player has already signed this waiver (unless force=true)
@@ -197,6 +210,11 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
     headersList.get('x-forwarded-for')?.split(',')[0].trim() ??
     headersList.get('x-real-ip') ??
     null
+
+  // Rate limit by IP to prevent automated bulk signing
+  const rateLimitKey = ipAddress ?? 'unknown'
+  const { limited } = signingLimiter.check(rateLimitKey)
+  if (limited) return { data: null, error: 'Too many requests. Please wait a few minutes and try again.' }
 
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()

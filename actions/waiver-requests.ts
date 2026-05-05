@@ -3,11 +3,14 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { assertOrgAdmin } from '@/lib/auth'
 import { sendWaiverSigningRequest } from './emails'
 
 export async function sendWaiverReminders(leagueId: string): Promise<{ sent: number; error: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const auth = await assertOrgAdmin(org)
+  if (auth.error) return { sent: 0, error: auth.error }
   const db = createServiceRoleClient()
 
   // Fetch the league (including waiver configuration)

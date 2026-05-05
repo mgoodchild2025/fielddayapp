@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentOrg } from '@/lib/tenant'
 import { getLimit, getActiveLeagueCount } from '@/lib/features'
+import { assertOrgAdmin } from '@/lib/auth'
 import type { Database } from '@/types/database'
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
@@ -60,6 +61,8 @@ export async function createLeague(
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const auth = await assertOrgAdmin(org)
+  if (auth.error) return { data: null, error: auth.error }
 
   const leagueCap = await getLimit(org.id, 'max_leagues')
   if (leagueCap !== null) {
@@ -123,6 +126,8 @@ export async function createLeague(
 export async function updateLeagueStatus(leagueId: string, status: LeagueStatus) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const auth = await assertOrgAdmin(org)
+  if (auth.error) return { data: null, error: auth.error }
 
   const supabase = await createServerClient()
   const { error } = await supabase
@@ -140,6 +145,8 @@ export async function updateLeagueStatus(leagueId: string, status: LeagueStatus)
 export async function deleteLeague(leagueId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const auth = await assertOrgAdmin(org, ['org_admin'])
+  if (auth.error) return { error: auth.error }
   const supabase = await createServerClient()
 
   // Delete child records in safe order (cascade may not cover everything)
@@ -193,6 +200,8 @@ export async function updateLeague(
 ) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const auth = await assertOrgAdmin(org)
+  if (auth.error) return { error: auth.error }
 
   const supabase = await createServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

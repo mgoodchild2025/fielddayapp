@@ -64,3 +64,32 @@ export async function getCurrentUser() {
   } = await supabase.auth.getUser()
   return user
 }
+
+/**
+ * Check whether the current user is an admin of the given org.
+ * Intended for use inside server actions (does NOT redirect — returns an error
+ * string so the action can return it to the caller).
+ *
+ * Returns { userId, role } on success, or { error } if unauthorized.
+ */
+export async function assertOrgAdmin(
+  org: OrgContext,
+  allowedRoles: OrgRole[] = ['org_admin', 'league_admin'],
+): Promise<{ userId: string; role: OrgRole; error?: never } | { error: string; userId?: never; role?: never }> {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: member } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .single()
+
+  if (!member) return { error: 'Not a member of this organization' }
+  if (!allowedRoles.includes(member.role as OrgRole)) return { error: 'Insufficient permissions' }
+
+  return { userId: user.id, role: member.role as OrgRole }
+}

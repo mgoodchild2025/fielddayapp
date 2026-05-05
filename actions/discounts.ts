@@ -5,6 +5,7 @@ import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
+import { assertOrgAdmin } from '@/lib/auth'
 
 const discountSchema = z.object({
   code: z.string().min(2).max(30).transform(s => s.toUpperCase().trim()),
@@ -21,6 +22,8 @@ export async function createDiscount(input: z.infer<typeof discountSchema>) {
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const auth = await assertOrgAdmin(org)
+  if (auth.error) return { error: auth.error }
   const supabase = createServiceRoleClient()
 
   const { data: existing } = await supabase
@@ -48,6 +51,8 @@ export async function createDiscount(input: z.infer<typeof discountSchema>) {
 export async function updateDiscount(id: string, input: Partial<z.infer<typeof discountSchema>> & { active?: boolean }) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const auth = await assertOrgAdmin(org)
+  if (auth.error) return { error: auth.error }
   const supabase = createServiceRoleClient()
 
   const { error } = await supabase
@@ -64,6 +69,8 @@ export async function updateDiscount(id: string, input: Partial<z.infer<typeof d
 export async function deleteDiscount(id: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const auth = await assertOrgAdmin(org)
+  if (auth.error) return { error: auth.error }
   const supabase = createServiceRoleClient()
 
   const { error } = await supabase
