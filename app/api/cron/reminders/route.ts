@@ -136,7 +136,7 @@ export async function GET(req: NextRequest) {
   type GameRow = {
     id: string; organization_id: string; scheduled_at: string
     home_team_id: string | null; away_team_id: string | null; venue_name: string | null
-    leagues: { name: string; organizations: { name: string } | { name: string }[] | null } | null
+    leagues: { name: string } | null
   }
   type LogRow = { game_id: string; minutes_before: number }
 
@@ -178,11 +178,19 @@ export async function GET(req: NextRequest) {
   if (remindersByOrg.size === 0) {
     sms_diagnostics.skipped_reason = 'No enabled reminder configs found in org_sms_reminders. Go to Admin → Settings → Notifications to add reminders.'
   } else {
+    // Fetch org names for all orgs that have reminders configured
+    const orgIds = [...remindersByOrg.keys()]
+    const { data: orgRows } = await supabase
+      .from('organizations')
+      .select('id, name')
+      .in('id', orgIds)
+    const orgNameById = new Map((orgRows ?? []).map(o => [o.id, o.name]))
+
     // Fetch all upcoming games in the next 24h (widest possible reminder window)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: smsGames, error: gamesErr } = await (supabase as any)
       .from('games')
-      .select('id, organization_id, scheduled_at, home_team_id, away_team_id, venue_name, leagues(name, organizations(name))')
+      .select('id, organization_id, scheduled_at, home_team_id, away_team_id, venue_name, leagues(name)')
       .gte('scheduled_at', now.toISOString())
       .lte('scheduled_at', in24h.toISOString()) as { data: GameRow[] | null; error: unknown }
 
@@ -225,12 +233,7 @@ export async function GET(req: NextRequest) {
 
       // Resolve org/league names once per game
       const league = game.leagues
-      const leagueOrg = league
-        ? (Array.isArray((league as { organizations?: unknown }).organizations)
-            ? (league as { organizations: { name: string }[] }).organizations[0]
-            : (league as { organizations?: { name: string } }).organizations)
-        : null
-      const orgName = leagueOrg?.name ?? 'Fieldday'
+      const orgName = orgNameById.get(orgId) ?? 'Fieldday'
       const leagueName = league?.name ?? 'Game'
       const gameTime = new Date(game.scheduled_at).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
       const venue = game.venue_name ? ` · ${game.venue_name}` : ''
