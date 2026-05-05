@@ -23,95 +23,89 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
     .single()
   const timezone = branding?.timezone ?? 'America/Toronto'
 
-  // Query from registrations so each registration's waiver appears as a separate row.
-  // A player who registers for two events using the same waiver template shares one
-  // waiver_signatures row (unique constraint), so querying waiver_signatures directly
-  // would under-count. Joining from registrations gives the correct per-event view.
+  // Query from waiver_signatures (one row per unique signing event) and join
+  // backwards to registrations → leagues so we can list which events each
+  // signature covers. This avoids the duplicate-date problem that arises when
+  // querying from registrations: because waiver_signatures has UNIQUE(user_id,
+  // waiver_id), one signature is shared across every event that uses the same
+  // waiver, so a registrations-based query repeats the same signed_at for each
+  // registration.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: regs } = await (db as any)
-    .from('registrations')
+  const { data: sigs } = await (db as any)
+    .from('waiver_signatures')
     .select(`
-      id,
-      waiver_signature_id,
-      player:profiles!registrations_user_id_fkey(full_name, email),
-      league:leagues!registrations_league_id_fkey(name),
-      signature:waiver_signatures!registrations_waiver_signature_id_fkey(
-        id, signed_at, signature_name, ip_address, guardian_relationship,
-        waiver:waivers!waiver_signatures_waiver_id_fkey(title, version)
+      id, signed_at, signature_name, ip_address, guardian_relationship,
+      player:profiles!waiver_signatures_user_id_fkey(full_name, email),
+      waiver:waivers!waiver_signatures_waiver_id_fkey(title, version),
+      registrations!registrations_waiver_signature_id_fkey(
+        league:leagues!registrations_league_id_fkey(name)
       )
     `)
     .eq('organization_id', org.id)
-    .not('waiver_signature_id', 'is', null)
-    .order('created_at', { ascending: false })
+    .order('signed_at', { ascending: false })
 
-  type Row = {
+  type RawSig = {
     id: string
-    waiver_signature_id: string
+    signed_at: string
+    signature_name: string
+    ip_address: string | null
+    guardian_relationship: string | null
     player: { full_name: string; email: string } | { full_name: string; email: string }[] | null
-    league: { name: string } | { name: string }[] | null
-    signature: {
-      id: string
-      signed_at: string
-      signature_name: string
-      ip_address: string | null
-      guardian_relationship: string | null
-      waiver: { title: string; version: number } | { title: string; version: number }[] | null
-    } | {
-      id: string
-      signed_at: string
-      signature_name: string
-      ip_address: string | null
-      guardian_relationship: string | null
-      waiver: { title: string; version: number } | { title: string; version: number }[] | null
-    }[] | null
+    waiver: { title: string; version: number } | { title: string; version: number }[] | null
+    registrations: { league: { name: string } | { name: string }[] | null }[] | null
   }
 
-  // Normalise all rows once
   type NormalisedRow = {
-    id: string
+    sigId: string
     playerName: string
     playerEmail: string
-    eventName: string
+    eventNames: string[]   // one signature may cover multiple events
     waiverTitle: string
     waiverVersion: number | null
-    sigId: string | null
-    signedAt: string | null
-    signatureName: string | null
+    signedAt: string
+    signatureName: string
     ipAddress: string | null
     guardianRelationship: string | null
   }
 
-  const allRows: NormalisedRow[] = ((regs ?? []) as Row[]).map((reg) => {
-    const player = Array.isArray(reg.player) ? reg.player[0] : reg.player
-    const league = Array.isArray(reg.league) ? reg.league[0] : reg.league
-    const sig = Array.isArray(reg.signature) ? reg.signature[0] : reg.signature
-    const waiver = sig ? (Array.isArray(sig.waiver) ? sig.waiver[0] : sig.waiver) : null
+  const allRows: NormalisedRow[] = ((sigs ?? []) as RawSig[]).map((sig) => {
+    const player = Array.isArray(sig.player) ? sig.player[0] : sig.player
+    const waiver = Array.isArray(sig.waiver) ? sig.waiver[0] : sig.waiver
+
+    // Collect all distinct event names linked to this signature
+    const eventNames = (sig.registrations ?? [])
+      .map((r) => {
+        const l = Array.isArray(r.league) ? r.league[0] : r.league
+        return l?.name ?? ''
+      })
+      .filter(Boolean)
+      .sort()
+
     return {
-      id: reg.id,
+      sigId: sig.id,
       playerName: player?.full_name ?? '',
       playerEmail: player?.email ?? '',
-      eventName: league?.name ?? '',
+      eventNames,
       waiverTitle: waiver?.title ?? '',
       waiverVersion: waiver?.version ?? null,
-      sigId: sig?.id ?? null,
-      signedAt: sig?.signed_at ?? null,
-      signatureName: sig?.signature_name ?? null,
-      ipAddress: sig?.ip_address ?? null,
-      guardianRelationship: sig?.guardian_relationship ?? null,
+      signedAt: sig.signed_at,
+      signatureName: sig.signature_name,
+      ipAddress: sig.ip_address,
+      guardianRelationship: sig.guardian_relationship,
     }
   })
 
   // Unique options for dropdowns (sorted)
-  const uniqueEvents = [...new Set(allRows.map((r) => r.eventName).filter(Boolean))].sort()
+  const uniqueEvents = [...new Set(allRows.flatMap((r) => r.eventNames))].sort()
   const uniqueWaivers = [...new Set(allRows.map((r) => r.waiverTitle).filter(Boolean))].sort()
 
   // Apply filters
   const qLower = q.toLowerCase()
   const filteredRows = allRows.filter((r) => {
-    if (eventFilter && r.eventName !== eventFilter) return false
+    if (eventFilter && !r.eventNames.includes(eventFilter)) return false
     if (waiverFilter && r.waiverTitle !== waiverFilter) return false
     if (qLower) {
-      const haystack = [r.playerName, r.playerEmail, r.signatureName ?? ''].join(' ').toLowerCase()
+      const haystack = [r.playerName, r.playerEmail, r.signatureName].join(' ').toLowerCase()
       if (!haystack.includes(qLower)) return false
     }
     return true
@@ -147,7 +141,7 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
             <thead>
               <tr className="border-b bg-gray-50 text-left">
                 <th className="px-4 py-3 font-medium text-gray-500">Player</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Event</th>
+                <th className="px-4 py-3 font-medium text-gray-500">Event(s)</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Waiver</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Signed</th>
                 <th className="px-4 py-3"></th>
@@ -158,7 +152,7 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
                 const isGuardian = !!row.guardianRelationship
                 const guardianLabel = row.guardianRelationship === 'legal_guardian' ? 'Legal guardian' : 'Parent'
                 return (
-                  <tr key={row.id} className="border-b last:border-0 hover:bg-gray-50">
+                  <tr key={row.sigId} className="border-b last:border-0 hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-medium">{row.playerName || '—'}</span>
@@ -169,14 +163,24 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
                         )}
                       </div>
                       <div className="text-xs text-gray-400">{row.playerEmail || '—'}</div>
-                      {isGuardian && row.signatureName && (
+                      {isGuardian && (
                         <div className="text-xs text-amber-700 mt-0.5">
                           Signed by {row.signatureName} ({guardianLabel})
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {row.eventName || <span className="text-gray-400">—</span>}
+                    <td className="px-4 py-3">
+                      {row.eventNames.length === 0 ? (
+                        <span className="text-gray-400 text-sm">—</span>
+                      ) : row.eventNames.length === 1 ? (
+                        <span className="text-sm text-gray-700">{row.eventNames[0]}</span>
+                      ) : (
+                        <div className="flex flex-col gap-0.5">
+                          {row.eventNames.map((name) => (
+                            <span key={name} className="text-xs text-gray-700">{name}</span>
+                          ))}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm">{row.waiverTitle || '—'}</div>
@@ -185,43 +189,37 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
-                      {row.signedAt ? (
-                        <>
-                          {new Date(row.signedAt).toLocaleDateString('en-CA', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            timeZone: timezone,
-                          })}
-                          <br />
-                          {new Date(row.signedAt).toLocaleTimeString('en-CA', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            timeZone: timezone,
-                          })}
-                        </>
-                      ) : '—'}
+                      {new Date(row.signedAt).toLocaleDateString('en-CA', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        timeZone: timezone,
+                      })}
+                      <br />
+                      {new Date(row.signedAt).toLocaleTimeString('en-CA', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        timeZone: timezone,
+                      })}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {row.sigId && (
-                        <div className="flex items-center justify-end gap-3">
-                          <Link
-                            href={`/admin/settings/waivers/signatures/${row.sigId}/print`}
-                            target="_blank"
-                            className="text-xs text-gray-400 hover:text-gray-600"
-                            title="Print / Save as PDF"
-                          >
-                            🖨
-                          </Link>
-                          <Link
-                            href={`/admin/settings/waivers/signatures/${row.sigId}`}
-                            className="text-xs font-medium hover:underline"
-                            style={{ color: 'var(--brand-primary)' }}
-                          >
-                            View →
-                          </Link>
-                        </div>
-                      )}
+                      <div className="flex items-center justify-end gap-3">
+                        <Link
+                          href={`/admin/settings/waivers/signatures/${row.sigId}/print`}
+                          target="_blank"
+                          className="text-xs text-gray-400 hover:text-gray-600"
+                          title="Print / Save as PDF"
+                        >
+                          🖨
+                        </Link>
+                        <Link
+                          href={`/admin/settings/waivers/signatures/${row.sigId}`}
+                          className="text-xs font-medium hover:underline"
+                          style={{ color: 'var(--brand-primary)' }}
+                        >
+                          View →
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 )
