@@ -211,24 +211,41 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
     .eq('waiver_id', parsed.data.waiverId)
     .maybeSingle()
 
-  if (existing) return { data: { signatureId: existing.id }, error: null }
+  let signatureId: string
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
-    .from('waiver_signatures')
-    .insert({
-      organization_id: org.id,
-      user_id: user.id,
-      waiver_id: parsed.data.waiverId,
-      signature_name: parsed.data.signatureName,
-      ip_address: ipAddress,
-      league_id: parsed.data.leagueId ?? null,
-      guardian_relationship: parsed.data.guardianRelationship ?? null,
-    })
-    .select('id')
-    .single()
+  if (existing) {
+    signatureId = existing.id
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
+      .from('waiver_signatures')
+      .insert({
+        organization_id: org.id,
+        user_id: user.id,
+        waiver_id: parsed.data.waiverId,
+        signature_name: parsed.data.signatureName,
+        ip_address: ipAddress,
+        league_id: parsed.data.leagueId ?? null,
+        guardian_relationship: parsed.data.guardianRelationship ?? null,
+      })
+      .select('id')
+      .single()
 
-  if (error) return { data: null, error: error.message }
+    if (error) return { data: null, error: error.message }
+    signatureId = data.id
+  }
 
-  return { data: { signatureId: data.id }, error: null }
+  // Always link the signature to the player's registration for this league,
+  // whether the signature is new or pre-existing (e.g. signed for another event).
+  if (parsed.data.leagueId) {
+    await supabase
+      .from('registrations')
+      .update({ waiver_signature_id: signatureId })
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
+      .eq('league_id', parsed.data.leagueId)
+      .is('waiver_signature_id', null) // only update rows not already linked
+  }
+
+  return { data: { signatureId }, error: null }
 }

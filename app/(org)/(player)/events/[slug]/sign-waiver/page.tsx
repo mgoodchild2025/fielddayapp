@@ -59,6 +59,18 @@ export default async function SignWaiverPage({
     .eq('user_id', user.id)
     .maybeSingle()
 
+  // If already signed (possibly for a different event), ensure this event's
+  // registration is linked to the existing signature so it doesn't show as unsigned.
+  if (existing) {
+    await supabase
+      .from('registrations')
+      .update({ waiver_signature_id: existing.id })
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
+      .eq('league_id', league.id)
+      .is('waiver_signature_id', null)
+  }
+
   // Fetch player profile for name and DOB
   const { data: profile } = await supabase
     .from('profiles')
