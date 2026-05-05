@@ -187,10 +187,10 @@ export default async function SchedulePage() {
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-10 flex-1">
 
-        <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-          My Schedule
+        <h1 className="text-2xl font-bold uppercase mb-6" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+          My Games
         </h1>
 
         {/* Upcoming */}
