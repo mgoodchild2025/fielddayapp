@@ -44,13 +44,12 @@ export async function signUp(input: { email: string; password: string; fullName:
   if (!parsed.success) return { data: null, error: 'Invalid input' }
 
   const supabase = await createServerClient()
-  // Derive the public origin from the `host` header, which always reflects the
-  // real domain the request arrived on (org subdomain, custom domain, or platform).
-  // The `origin` header can be absent for server-action POST requests, causing
-  // the fallback NEXT_PUBLIC_APP_URL (often localhost) to appear in the email link.
+  // Use x-forwarded-host (set by Vercel/proxies to the real public hostname) with
+  // host as a fallback for local dev. The raw `host` header on Vercel is the
+  // internal address (0.0.0.0:8080), not the public domain.
   const headersList = await headers()
-  const host = headersList.get('host') ?? ''
-  const proto = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https'
+  const host = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? ''
+  const proto = headersList.get('x-forwarded-proto') ?? (host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https')
   const origin = `${proto}://${host}`
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
@@ -117,8 +116,8 @@ export async function logout() {
 export async function resetPassword(email: string) {
   const supabase = await createServerClient()
   const headersList = await headers()
-  const host = headersList.get('host') ?? ''
-  const proto = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https'
+  const host = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? ''
+  const proto = headersList.get('x-forwarded-proto') ?? (host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https')
   const origin = `${proto}://${host}`
   await supabase.auth.resetPasswordForEmail(email, {
     // Route through the existing PKCE callback handler, then land on the confirm page
