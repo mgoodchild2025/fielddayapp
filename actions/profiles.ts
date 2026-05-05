@@ -29,6 +29,17 @@ export async function uploadPlayerAvatar(
 
   const service = createServiceRoleClient()
 
+  // Delete any existing avatar files for this user before uploading the new one.
+  // The extension can change between uploads (e.g. jpg → png), so we list the
+  // folder and remove all files rather than relying on the upsert overwrite.
+  const { data: existing } = await service.storage
+    .from('player-avatars')
+    .list(user.id)
+  if (existing && existing.length > 0) {
+    const toRemove = existing.map((f) => `${user.id}/${f.name}`)
+    await service.storage.from('player-avatars').remove(toRemove)
+  }
+
   const { error: uploadError } = await service.storage
     .from('player-avatars')
     .upload(path, bytes, { contentType: file.type, upsert: true })
