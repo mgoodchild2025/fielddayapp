@@ -234,6 +234,7 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
   const [selectedDays, setSelectedDays] = useState<string[]>([])
   const [selectedSkill, setSelectedSkill] = useState<string>('')
   const [selectedOfficiated, setSelectedOfficiated] = useState<string>('')
+  const [checkinEnabled, setCheckinEnabled] = useState<boolean>(false)
   const slugEditedRef = useRef(false)
 
   const {
@@ -301,6 +302,7 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
       days_of_week: selectedDays.length ? (selectedDays as ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[]) : [],
       skill_level: (selectedSkill as 'recreational' | 'intermediate' | 'competitive') || undefined,
       officiated: (selectedOfficiated as 'self_officiated' | 'referee') || undefined,
+      checkin_enabled: checkinEnabled,
     })
     if (result.error) {
       setError(
@@ -907,6 +909,22 @@ export function NewEventForm({ waivers, ruleTemplates }: Props) {
                 )
               })}
             </div>
+          </div>
+
+          {/* Check-in */}
+          <div>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={checkinEnabled}
+                onChange={(e) => setCheckinEnabled(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300"
+              />
+              <span className="text-sm text-gray-700">Enable QR code check-in</span>
+            </label>
+            <p className="text-xs text-gray-400 mt-1">
+              Players will receive a QR code in their confirmation email and can show it for check-in.
+            </p>
           </div>
         </AccordionSection>
 

@@ -42,6 +42,7 @@ interface League {
   days_of_week: string[] | null
   skill_level: string | null
   officiated: string | null
+  checkin_enabled: boolean
 }
 
 interface Waiver {
@@ -117,6 +118,7 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
   const [selectedDays, setSelectedDays] = useState<string[]>(league.days_of_week ?? [])
   const [selectedSkill, setSelectedSkill] = useState<string>(league.skill_level ?? '')
   const [selectedOfficiated, setSelectedOfficiated] = useState<string>(league.officiated ?? '')
+  const [checkinEnabled, setCheckinEnabled] = useState<boolean>(league.checkin_enabled)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -165,6 +167,7 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
       days_of_week: selectedDays.length ? selectedDays : undefined,
       skill_level: (selectedSkill as 'recreational' | 'intermediate' | 'competitive') || undefined,
       officiated: (selectedOfficiated as 'self_officiated' | 'referee') || undefined,
+      checkin_enabled: checkinEnabled,
     } as any)
 
     setLoading(false)
@@ -451,6 +454,21 @@ export function EditEventForm({ league, waivers, ruleTemplates }: Props) {
           <Field label="Reg Closes">
             <input name="registration_closes_at" type="datetime-local" defaultValue={toDateTimeInput(league.registration_closes_at)} className="input" />
           </Field>
+        </div>
+
+        <div>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={checkinEnabled}
+              onChange={(e) => setCheckinEnabled(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300"
+            />
+            <span className="text-sm text-gray-700">Enable QR code check-in</span>
+          </label>
+          <p className="text-xs text-gray-400 mt-1">
+            Players will receive a QR code in their confirmation email and can show it for check-in.
+          </p>
         </div>
 
         <Field label="Waiver">

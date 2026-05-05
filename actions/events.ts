@@ -45,6 +45,7 @@ const createLeagueSchema = z.object({
   days_of_week: z.array(z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])).optional().default([]),
   skill_level: z.enum(['recreational', 'intermediate', 'competitive']).optional(),
   officiated: z.enum(['self_officiated', 'referee']).optional(),
+  checkin_enabled: z.boolean().optional(),
 })
 
 export async function createLeague(
@@ -108,6 +109,7 @@ export async function createLeague(
       days_of_week: parsed.data.days_of_week?.length ? parsed.data.days_of_week : null,
       skill_level: parsed.data.skill_level ?? null,
       officiated: parsed.data.officiated ?? null,
+      checkin_enabled: parsed.data.checkin_enabled ?? false,
     })
     .select('id')
     .single()

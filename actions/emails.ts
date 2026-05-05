@@ -36,7 +36,7 @@ export async function sendRegistrationConfirmation({
   checkinUrl?: string | null
 }) {
   const sportEmoji = (sport && SPORT_EMOJI[sport]) ?? '🎉'
-  const showCheckin = !!checkinUrl && (eventType === 'tournament' || eventType === 'league')
+  const showCheckin = !!checkinUrl
   const qrImageUrl = checkinUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(checkinUrl)}`
     : null
@@ -63,7 +63,7 @@ export async function sendRegistrationConfirmation({
           You're officially registered for <strong>${leagueName}</strong> with ${orgName}.
         </p>
         <p style="color: #444; font-size: 16px;">
-          Log in to your dashboard to check your schedule, team info, and more.
+          Log in to view your schedule, team info, and more.
         </p>
         ${checkinBlock}
         <div style="margin-top: 32px; padding: 16px; background: #f9f9f9; border-radius: 8px; font-size: 14px; color: #666;">

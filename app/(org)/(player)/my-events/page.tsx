@@ -33,7 +33,7 @@ export default async function MyEventsPage() {
     (supabase as any).from('registrations').select(`
       id, status, checkin_token, created_at,
       league:leagues!registrations_league_id_fkey(
-        id, name, slug, league_status:status, event_type, sport, season_start_date, season_end_date
+        id, name, slug, league_status:status, event_type, sport, season_start_date, season_end_date, checkin_enabled
       )
     `)
       .eq('organization_id', org.id)
@@ -100,7 +100,7 @@ export default async function MyEventsPage() {
               {currentEvents.map(({ registrationId, registrationStatus, checkinUrl, league }: any) => {
                 const statusInfo = STATUS_LABEL[league.league_status] ?? { label: league.league_status, className: 'bg-gray-100 text-gray-500' }
                 const isActive = registrationStatus === 'active'
-                const showQR = isActive && !!checkinUrl && league.league_status === 'active'
+                const showQR = isActive && !!checkinUrl && league.league_status === 'active' && league.checkin_enabled === true
 
                 return (
                   <div
