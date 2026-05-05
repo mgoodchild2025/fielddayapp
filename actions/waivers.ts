@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 
 // ─── Admin: create / update waiver ───────────────────────────────────────────
@@ -99,21 +100,40 @@ export async function setWaiverActive(waiverId: string, active: boolean) {
 
 // ─── Admin: delete waiver ─────────────────────────────────────────────────────
 
-export async function deleteWaiver(waiverId: string) {
+export async function getWaiverSignatureCount(waiverId: string): Promise<number> {
+  const supabase = await createServerClient()
+  const { count } = await supabase
+    .from('waiver_signatures')
+    .select('id', { count: 'exact', head: true })
+    .eq('waiver_id', waiverId)
+  return count ?? 0
+}
+
+export async function deleteWaiver(waiverId: string, force = false) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
-  // Block deletion if any player has already signed this waiver
+  // Block deletion if any player has already signed this waiver (unless force=true)
   const { count } = await supabase
     .from('waiver_signatures')
     .select('id', { count: 'exact', head: true })
     .eq('waiver_id', waiverId)
 
-  if ((count ?? 0) > 0) {
+  if ((count ?? 0) > 0 && !force) {
     return {
       error: `This waiver has been signed by ${count} player${count === 1 ? '' : 's'} and cannot be deleted. You can create a new version instead.`,
     }
+  }
+
+  // If force=true, delete all signatures first using the service role client
+  if (force && (count ?? 0) > 0) {
+    const serviceClient = createServiceRoleClient()
+    const { error: sigDeleteError } = await serviceClient
+      .from('waiver_signatures')
+      .delete()
+      .eq('waiver_id', waiverId)
+    if (sigDeleteError) return { error: sigDeleteError.message }
   }
 
   // Clear this waiver from any leagues that reference it (revert to "No waiver required")

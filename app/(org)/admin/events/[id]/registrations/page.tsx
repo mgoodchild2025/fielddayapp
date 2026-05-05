@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { activateRegistration } from '@/actions/registrations'
 import { RemoveRegistrationButton } from '@/components/registrations/remove-registration-button'
+import { SendWaiverRemindersButton } from '@/components/registrations/send-waiver-reminders-button'
 
 const regStatusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -28,11 +29,11 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   const scope = await getAdminScope(org.id)
   const isOrgAdmin = scope.isOrgAdmin
 
-  const { data: branding } = await db
-    .from('org_branding')
-    .select('timezone')
-    .eq('organization_id', org.id)
-    .single()
+  const [{ data: branding }, { data: league }] = await Promise.all([
+    db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('leagues').select('name, slug, waiver_version_id').eq('id', id).eq('organization_id', org.id).single(),
+  ])
   const timezone = branding?.timezone ?? 'America/Toronto'
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,14 +49,26 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
     .order('created_at', { ascending: false })
 
   const rows = registrations ?? []
+  const unsignedCount = rows.filter((r: { status: string; waiver_signature_id: string | null }) => r.status === 'active' && !r.waiver_signature_id).length
+  const hasWaiver = !!(league as { waiver_version_id: string | null } | null)?.waiver_version_id
 
   return (
     <div>
       <p className="text-sm text-gray-500 mb-4">
         {rows.length} registration{rows.length !== 1 ? 's' : ''}
         {' · '}
-        {rows.filter((r) => r.status === 'active').length} active
+        {rows.filter((r: { status: string }) => r.status === 'active').length} active
       </p>
+
+      {isOrgAdmin && (
+        <div className="mb-4">
+          <SendWaiverRemindersButton
+            leagueId={id}
+            unsignedCount={unsignedCount}
+            hasWaiver={hasWaiver}
+          />
+        </div>
+      )}
 
       <div className="bg-white rounded-lg border overflow-hidden">
         <div className="overflow-x-auto">
@@ -72,7 +85,8 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
             </tr>
           </thead>
           <tbody>
-            {rows.map((reg) => {
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {rows.map((reg: any) => {
               const profile = Array.isArray(reg.user_profile)
                 ? reg.user_profile[0]
                 : reg.user_profile

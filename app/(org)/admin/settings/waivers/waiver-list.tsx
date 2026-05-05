@@ -11,6 +11,7 @@ interface Waiver {
   version: number
   is_active: boolean
   created_at: string
+  signature_count: number
 }
 
 interface Props {
@@ -66,52 +67,100 @@ export function WaiverList({ waivers: initial }: Props) {
       )}
 
       {waivers.map((waiver) => (
-        <div key={waiver.id} className="bg-white rounded-lg border overflow-hidden">
-          {/* Header row */}
-          <div className="flex items-center gap-3 px-5 py-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-semibold">{waiver.title}</span>
-                <span className="text-xs text-gray-400">v{waiver.version}</span>
-                {waiver.is_active && (
-                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Active</span>
-                )}
-              </div>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Created {new Date(waiver.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </p>
-            </div>
+        <WaiverCard
+          key={waiver.id}
+          waiver={waiver}
+          editingId={editingId}
+          setEditingId={setEditingId}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+          onActivated={handleActivated}
+        />
+      ))}
+    </div>
+  )
+}
 
-            <div className="flex items-center gap-2 shrink-0">
-              {!waiver.is_active && (
-                <ActivateButton waiverId={waiver.id} onActivated={() => handleActivated(waiver.id)} />
-              )}
-              <button
-                onClick={() => setEditingId(editingId === waiver.id ? null : waiver.id)}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium px-2 py-1 rounded hover:bg-blue-50"
-              >
-                {editingId === waiver.id ? 'Cancel' : 'Edit'}
-              </button>
-              <DeleteWaiverButton
-                waiverId={waiver.id}
-                isActive={waiver.is_active}
-                onDeleted={() => handleDeleted(waiver.id)}
-              />
-            </div>
+// ─── Waiver card ─────────────────────────────────────────────────────────────
+
+interface WaiverCardProps {
+  waiver: Waiver
+  editingId: string | null
+  setEditingId: (id: string | null) => void
+  onUpdated: (w: Waiver) => void
+  onDeleted: (id: string) => void
+  onActivated: (id: string) => void
+}
+
+function WaiverCard({ waiver, editingId, setEditingId, onUpdated, onDeleted, onActivated }: WaiverCardProps) {
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  return (
+    <div className="bg-white rounded-lg border overflow-hidden">
+      {/* Header row */}
+      <div className="flex items-center gap-3 px-5 py-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold">{waiver.title}</span>
+            <span className="text-xs text-gray-400">v{waiver.version}</span>
+            {waiver.is_active && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Active</span>
+            )}
+            {waiver.signature_count > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-600">
+                {waiver.signature_count} signed
+              </span>
+            )}
           </div>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Created {new Date(waiver.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
+          </p>
+        </div>
 
-          {/* Inline edit form */}
-          {editingId === waiver.id && (
-            <div className="border-t px-5 py-4 bg-gray-50">
-              <WaiverForm
-                waiver={waiver}
-                onSaved={(w) => { handleUpdated(w); setEditingId(null) }}
-                onCancel={() => setEditingId(null)}
-              />
-            </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {!waiver.is_active && (
+            <ActivateButton waiverId={waiver.id} onActivated={() => onActivated(waiver.id)} />
+          )}
+          <button
+            onClick={() => setEditingId(editingId === waiver.id ? null : waiver.id)}
+            className="text-sm text-blue-600 hover:text-blue-700 font-medium px-2 py-1 rounded hover:bg-blue-50"
+          >
+            {editingId === waiver.id ? 'Cancel' : 'Edit'}
+          </button>
+          {!confirmingDelete && (
+            <button
+              onClick={() => setConfirmingDelete(true)}
+              className="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50"
+            >
+              Delete
+            </button>
           )}
         </div>
-      ))}
+      </div>
+
+      {/* Inline delete confirm panel */}
+      {confirmingDelete && (
+        <div className="border-t px-5 py-4">
+          <DeleteConfirmPanel
+            waiverId={waiver.id}
+            isActive={waiver.is_active}
+            signatureCount={waiver.signature_count}
+            onDeleted={() => onDeleted(waiver.id)}
+            onCancel={() => setConfirmingDelete(false)}
+          />
+        </div>
+      )}
+
+      {/* Inline edit form */}
+      {editingId === waiver.id && (
+        <div className="border-t px-5 py-4 bg-gray-50">
+          <WaiverForm
+            waiver={waiver}
+            onSaved={(w) => { onUpdated(w); setEditingId(null) }}
+            onCancel={() => setEditingId(null)}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -158,6 +207,7 @@ function WaiverForm({ waiver, onSaved, onCancel }: FormProps) {
       version: waiver ? waiver.version + 1 : 1,
       is_active: makeActive || (waiver?.is_active ?? false),
       created_at: waiver?.created_at ?? new Date().toISOString(),
+      signature_count: waiver?.signature_count ?? 0,
     })
   }
 
@@ -245,29 +295,92 @@ function ActivateButton({ waiverId, onActivated }: { waiverId: string; onActivat
   )
 }
 
-// ─── Delete button ────────────────────────────────────────────────────────────
+// ─── Delete confirm panel ─────────────────────────────────────────────────────
 
-function DeleteWaiverButton({ waiverId, isActive, onDeleted }: { waiverId: string; isActive: boolean; onDeleted: () => void }) {
+function DeleteConfirmPanel({
+  waiverId,
+  isActive,
+  signatureCount,
+  onDeleted,
+  onCancel,
+}: {
+  waiverId: string
+  isActive: boolean
+  signatureCount: number
+  onDeleted: () => void
+  onCancel: () => void
+}) {
+  const [understood, setUnderstood] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  async function handle() {
-    const msg = isActive
-      ? 'Delete this active waiver?\n\nAny leagues currently using it will revert to "No waiver required". This cannot be undone.'
-      : 'Delete this waiver? Any leagues using it will revert to "No waiver required". This cannot be undone.'
-    if (!confirm(msg)) return
+  async function handleDelete() {
     setLoading(true)
-    const result = await deleteWaiver(waiverId)
-    if (result.error) { alert(result.error); setLoading(false); return }
+    setError(null)
+    const result = await deleteWaiver(waiverId, signatureCount > 0)
+    setLoading(false)
+    if (result.error) { setError(result.error); return }
     onDeleted()
   }
 
   return (
-    <button
-      onClick={handle}
-      disabled={loading}
-      className="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50"
-    >
-      {loading ? '…' : 'Delete'}
-    </button>
+    <div className="border border-red-200 rounded-md p-3 bg-red-50 text-sm space-y-3">
+      {signatureCount > 0 ? (
+        <>
+          <p className="text-red-700">
+            ⚠️ This waiver has been signed by {signatureCount} player{signatureCount !== 1 ? 's' : ''}.
+            Deleting it will permanently remove all signature records and cannot be undone.
+          </p>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={understood}
+              onChange={(e) => setUnderstood(e.target.checked)}
+              className="mt-0.5 rounded"
+            />
+            <span className="text-red-800 text-xs">I understand this will permanently delete all player signatures</span>
+          </label>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleDelete}
+              disabled={!understood || loading}
+              className="px-3 py-1.5 rounded-md text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? '…' : 'Delete Permanently'}
+            </button>
+            <button
+              onClick={onCancel}
+              className="text-xs text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="text-red-700">Are you sure? This cannot be undone.</p>
+          {isActive && (
+            <p className="text-xs text-red-600">Any leagues using this waiver will revert to &quot;No waiver required&quot;.</p>
+          )}
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleDelete}
+              disabled={loading}
+              className="px-3 py-1.5 rounded-md text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
+            >
+              {loading ? '…' : 'Delete'}
+            </button>
+            <button
+              onClick={onCancel}
+              className="text-xs text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   )
 }

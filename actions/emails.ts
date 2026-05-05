@@ -74,6 +74,46 @@ export async function sendRegistrationConfirmation({
   })
 }
 
+export async function sendWaiverSigningRequest({
+  email,
+  name,
+  leagueName,
+  orgName,
+  signUrl,
+}: {
+  email: string
+  name: string
+  leagueName: string
+  orgName: string
+  signUrl: string
+}) {
+  await getResend().emails.send({
+    from: FROM_EMAIL,
+    to: email,
+    subject: `Action required: Sign your waiver for ${leagueName}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+        <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 8px;">Waiver Signature Required</h1>
+        <p style="color: #444; font-size: 16px;">Hi ${name},</p>
+        <p style="color: #444; font-size: 16px;">
+          You need to sign the waiver for <strong>${leagueName}</strong> with ${orgName} before your first game.
+        </p>
+        <div style="margin-top: 28px; margin-bottom: 28px; text-align: center;">
+          <a
+            href="${signUrl}"
+            style="display: inline-block; background-color: #1f2937; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; padding: 14px 28px; border-radius: 8px;"
+          >
+            Sign Waiver →
+          </a>
+        </div>
+        <div style="margin-top: 32px; padding: 16px; background: #f9f9f9; border-radius: 8px; font-size: 14px; color: #666;">
+          Questions? Reply to this email.
+        </div>
+      </div>
+    `,
+  })
+}
+
 export async function sendPaymentFailedEmail({
   email,
   name,

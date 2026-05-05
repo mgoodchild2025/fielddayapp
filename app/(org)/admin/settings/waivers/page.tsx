@@ -16,6 +16,22 @@ export default async function AdminWaiversPage() {
     .order('is_active', { ascending: false }) // active first
     .order('created_at', { ascending: false })
 
+  // Fetch signature counts for all waivers in one query
+  const { data: sigCounts } = await supabase
+    .from('waiver_signatures')
+    .select('waiver_id')
+    .in('waiver_id', (waivers ?? []).map(w => w.id))
+
+  const sigCountMap = new Map<string, number>()
+  for (const row of sigCounts ?? []) {
+    sigCountMap.set(row.waiver_id, (sigCountMap.get(row.waiver_id) ?? 0) + 1)
+  }
+
+  const waiversWithCounts = (waivers ?? []).map(w => ({
+    ...w,
+    signature_count: sigCountMap.get(w.id) ?? 0,
+  }))
+
   return (
     <div className="max-w-3xl">
       <div className="mb-6 flex items-start justify-between gap-4">
@@ -34,7 +50,7 @@ export default async function AdminWaiversPage() {
         </Link>
       </div>
 
-      <WaiverList waivers={waivers ?? []} />
+      <WaiverList waivers={waiversWithCounts} />
     </div>
   )
 }
