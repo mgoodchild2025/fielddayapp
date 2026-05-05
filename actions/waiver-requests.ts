@@ -37,8 +37,8 @@ export async function sendWaiverReminders(leagueId: string): Promise<{ sent: num
     return { sent: 0, error: null }
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-  const signUrl = `${appUrl}/events/${league.slug}/sign-waiver`
+  const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+  const signUrl = `https://${org.slug}.${platformDomain}/events/${league.slug}/sign-waiver`
 
   let sent = 0
   for (const reg of registrations) {
