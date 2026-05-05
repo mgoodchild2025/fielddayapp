@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, CalendarDays, Trophy, Users, CircleUser } from 'lucide-react'
 import { logout } from '@/actions/auth'
 
 interface Props {
@@ -101,12 +101,29 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
 
         <nav className="flex-1 px-4 py-6 space-y-1">
           {userName && (
-            <Link
-              href="/events"
-              className="block px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors"
-            >
-              Events
-            </Link>
+            <>
+              <Link href="/events" className="block px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
+                Events
+              </Link>
+
+              <div className="border-t border-white/10 my-4" />
+
+              {[
+                { href: '/schedule',  label: 'My Games',   Icon: CalendarDays },
+                { href: '/my-events', label: 'My Events',  Icon: Trophy       },
+                { href: '/my-teams',  label: 'My Teams',   Icon: Users        },
+                { href: '/profile',   label: 'My Profile', Icon: CircleUser   },
+              ].map(({ href, label, Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors"
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  {label}
+                </Link>
+              ))}
+            </>
           )}
 
           <div className="border-t border-white/10 my-4" />
