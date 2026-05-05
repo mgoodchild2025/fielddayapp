@@ -66,57 +66,6 @@ function formatYear(iso: string) {
   return new Date(iso).getFullYear()
 }
 
-// ── Filter pills ──────────────────────────────────────────────────────────────
-
-function FilterPills<T extends string>({
-  label,
-  options,
-  selected,
-  onSelect,
-  renderOption,
-}: {
-  label: string
-  options: T[]
-  selected: T | null
-  onSelect: (v: T | null) => void
-  renderOption: (v: T) => React.ReactNode
-}) {
-  if (options.length < 2) return null
-
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs font-medium text-gray-400 shrink-0">{label}</span>
-      <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none flex-wrap">
-        <button
-          onClick={() => onSelect(null)}
-          className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors border ${
-            selected === null
-              ? 'border-transparent text-white'
-              : 'border-gray-200 text-gray-500 bg-white hover:bg-gray-50'
-          }`}
-          style={selected === null ? { backgroundColor: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' } : {}}
-        >
-          All
-        </button>
-        {options.map((opt) => (
-          <button
-            key={opt}
-            onClick={() => onSelect(selected === opt ? null : opt)}
-            className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors border ${
-              selected === opt
-                ? 'border-transparent text-white'
-                : 'border-gray-200 text-gray-500 bg-white hover:bg-gray-50'
-            }`}
-            style={selected === opt ? { backgroundColor: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' } : {}}
-          >
-            {renderOption(opt)}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 // ── Featured registration card ────────────────────────────────────────────────
 
 function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boolean }) {
@@ -353,26 +302,44 @@ export function EventsFilter({ events, isOrgAdmin = false }: { events: EventItem
 
       {/* ── Filter pills ────────────────────────────────────────────────────── */}
       {hasFilters && (
-        <div className="bg-white rounded-2xl border px-4 py-3 space-y-2.5">
-          <FilterPills
-            label="Sport"
-            options={sports}
-            selected={selectedSport}
-            onSelect={setSelectedSport}
-            renderOption={(sport) => (
-              <span className="flex items-center gap-1.5">
-                {SPORT_EMOJI[sport] && <span>{SPORT_EMOJI[sport]}</span>}
-                {formatSport(sport)}
-              </span>
-            )}
-          />
-          <FilterPills
-            label="Type"
-            options={eventTypes}
-            selected={selectedType}
-            onSelect={setSelectedType}
-            renderOption={(type) => EVENT_TYPE_LABEL[type] ?? type.charAt(0).toUpperCase() + type.slice(1)}
-          />
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {/* Sport pills */}
+          {sports.length >= 2 && sports.map((sport) => (
+            <button
+              key={`sport-${sport}`}
+              onClick={() => setSelectedSport(selectedSport === sport ? null : sport)}
+              className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                selectedSport === sport
+                  ? 'border-transparent text-white'
+                  : 'border-gray-200 text-gray-500 bg-white hover:bg-gray-50'
+              }`}
+              style={selectedSport === sport ? { backgroundColor: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' } : {}}
+            >
+              {SPORT_EMOJI[sport] && <span>{SPORT_EMOJI[sport]}</span>}
+              {formatSport(sport)}
+            </button>
+          ))}
+
+          {/* Divider between groups */}
+          {sports.length >= 2 && eventTypes.length >= 2 && (
+            <div className="w-px bg-gray-200 shrink-0 my-1" />
+          )}
+
+          {/* Event type pills */}
+          {eventTypes.length >= 2 && eventTypes.map((type) => (
+            <button
+              key={`type-${type}`}
+              onClick={() => setSelectedType(selectedType === type ? null : type)}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                selectedType === type
+                  ? 'border-transparent text-white'
+                  : 'border-gray-200 text-gray-500 bg-white hover:bg-gray-50'
+              }`}
+              style={selectedType === type ? { backgroundColor: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' } : {}}
+            >
+              {EVENT_TYPE_LABEL[type] ?? type.charAt(0).toUpperCase() + type.slice(1)}
+            </button>
+          ))}
         </div>
       )}
 
