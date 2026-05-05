@@ -24,7 +24,7 @@ export default async function RegistrationSuccessPage({
   const [{ data: branding }, { data: league }] = await Promise.all([
     supabase.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from('leagues').select('id, name, sport, season_start_date, event_type').eq('organization_id', org.id).eq('slug', slug).single(),
+    (supabase as any).from('leagues').select('id, name, sport, season_start_date, event_type, checkin_enabled').eq('organization_id', org.id).eq('slug', slug).single(),
   ])
 
   // Fetch the player's registration to get their check-in token
@@ -58,7 +58,7 @@ export default async function RegistrationSuccessPage({
   const host = headersList.get('host') ?? ''
   const protocol = headersList.get('x-forwarded-proto') ?? 'https'
   const checkinToken = registration?.checkin_token as string | null
-  const checkinUrl = checkinToken ? `${protocol}://${host}/checkin/${checkinToken}` : null
+  const checkinUrl = (checkinToken && league?.checkin_enabled === true) ? `${protocol}://${host}/checkin/${checkinToken}` : null
 
   // Per-team registrations stay pending until the captain pays — tweak wording
   const isPending = registration?.status === 'pending'
