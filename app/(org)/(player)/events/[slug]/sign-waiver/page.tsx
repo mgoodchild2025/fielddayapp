@@ -51,16 +51,19 @@ export default async function SignWaiverPage({
     redirect(`/events/${slug}`)
   }
 
-  // Check if already signed
-  const { data: existing } = await supabase
+  // Check if the player has already signed the waiver for this specific event.
+  // Scoped to league_id so signing for a different event doesn't block this one.
+  // Cast to any because league_id is not yet in the generated Supabase types.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing } = await (supabase as any)
     .from('waiver_signatures')
     .select('id, signed_at')
     .eq('waiver_id', waiver.id)
     .eq('user_id', user.id)
+    .eq('league_id', league.id)
     .maybeSingle()
 
-  // If already signed (possibly for a different event), ensure this event's
-  // registration is linked to the existing signature so it doesn't show as unsigned.
+  // If already signed for this event, make sure the registration row is linked.
   if (existing) {
     await supabase
       .from('registrations')

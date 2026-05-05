@@ -202,14 +202,23 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
 
-  // Check for existing signature for this waiver (re-use if already signed)
-  const { data: existing } = await supabase
+  // Check for an existing signature scoped to this specific event.
+  // Each event now gets its own signature row (UNIQUE(user_id, waiver_id, league_id))
+  // so signing the same waiver for a different event always creates a fresh record
+  // with an accurate timestamp for that event.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const existingQuery = (supabase as any)
     .from('waiver_signatures')
     .select('id')
     .eq('organization_id', org.id)
     .eq('user_id', user.id)
     .eq('waiver_id', parsed.data.waiverId)
-    .maybeSingle()
+
+  if (parsed.data.leagueId) {
+    existingQuery.eq('league_id', parsed.data.leagueId)
+  }
+
+  const { data: existing } = await existingQuery.maybeSingle()
 
   let signatureId: string
 
@@ -235,8 +244,7 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
     signatureId = data.id
   }
 
-  // Always link the signature to the player's registration for this league,
-  // whether the signature is new or pre-existing (e.g. signed for another event).
+  // Link the signature to the player's registration for this event.
   if (parsed.data.leagueId) {
     await supabase
       .from('registrations')
@@ -244,7 +252,7 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
       .eq('organization_id', org.id)
       .eq('user_id', user.id)
       .eq('league_id', parsed.data.leagueId)
-      .is('waiver_signature_id', null) // only update rows not already linked
+      .is('waiver_signature_id', null)
   }
 
   return { data: { signatureId }, error: null }
