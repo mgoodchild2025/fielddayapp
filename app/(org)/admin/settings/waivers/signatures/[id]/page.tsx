@@ -40,11 +40,21 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
 
   return (
     <div className="max-w-3xl">
-      <div className="mb-6">
-        <Link href="/admin/settings/waivers/signatures" className="text-sm text-gray-400 hover:text-gray-600">
-          ← Signed Waivers
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <Link href="/admin/settings/waivers/signatures" className="text-sm text-gray-400 hover:text-gray-600">
+            ← Signed Waivers
+          </Link>
+          <h1 className="text-2xl font-bold mt-1">{waiver?.title ?? 'Waiver'}</h1>
+        </div>
+        <Link
+          href={`/admin/settings/waivers/signatures/${id}/print`}
+          target="_blank"
+          className="shrink-0 flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-md border hover:bg-gray-50 transition-colors mt-6"
+          style={{ color: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' }}
+        >
+          🖨 Print / Save as PDF
         </Link>
-        <h1 className="text-2xl font-bold mt-1">{waiver?.title ?? 'Waiver'}</h1>
       </div>
 
       {/* Guardian notice banner */}

@@ -126,9 +126,28 @@ export async function deleteWaiver(waiverId: string, force = false) {
     }
   }
 
-  // If force=true, delete all signatures first using the service role client
+  // If force=true, sever FK references then delete signatures
   if (force && (count ?? 0) > 0) {
     const serviceClient = createServiceRoleClient()
+
+    // 1. Fetch the signature IDs for this waiver so we can null out registrations
+    const { data: sigs } = await serviceClient
+      .from('waiver_signatures')
+      .select('id')
+      .eq('waiver_id', waiverId)
+
+    const sigIds = (sigs ?? []).map((s: { id: string }) => s.id)
+
+    // 2. Null out registrations.waiver_signature_id for those signatures
+    if (sigIds.length > 0) {
+      const { error: regNullError } = await serviceClient
+        .from('registrations')
+        .update({ waiver_signature_id: null })
+        .in('waiver_signature_id', sigIds)
+      if (regNullError) return { error: regNullError.message }
+    }
+
+    // 3. Now it's safe to delete the signatures
     const { error: sigDeleteError } = await serviceClient
       .from('waiver_signatures')
       .delete()
