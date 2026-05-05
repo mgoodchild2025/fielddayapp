@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useTransition } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { updateProfile } from '@/actions/auth'
@@ -16,6 +16,7 @@ const schema = z.object({
   full_name: z.string().min(2),
   phone: z.string().optional(),
   sms_opted_in: z.boolean().optional(),
+  sms_game_day_enabled: z.boolean().optional(),
   skill_level: z.enum(['beginner', 'intermediate', 'competitive']).optional(),
   t_shirt_size: z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']).optional(),
   emergency_contact_name: z.string().optional(),
@@ -46,18 +47,22 @@ export function ProfileForm({
   // Display name for avatar fallback — may update live if user edits full_name
   const displayName = profile?.full_name ?? ''
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, control, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       full_name: profile?.full_name ?? '',
       phone: profile?.phone ?? '',
       sms_opted_in: profile?.sms_opted_in ?? false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      sms_game_day_enabled: (profile as any)?.sms_game_day_enabled ?? true,
       skill_level: (playerDetails?.skill_level as FormData['skill_level']) ?? undefined,
       t_shirt_size: (playerDetails?.t_shirt_size as FormData['t_shirt_size']) ?? undefined,
       emergency_contact_name: playerDetails?.emergency_contact_name ?? '',
       emergency_contact_phone: playerDetails?.emergency_contact_phone ?? '',
     },
   })
+
+  const smsOptedIn = useWatch({ control, name: 'sms_opted_in' })
 
   async function onSubmit(data: FormData) {
     setLoading(true)
@@ -178,10 +183,18 @@ export function ProfileForm({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
             <input {...register('phone')} type="tel" className="w-full border rounded-md px-3 py-2 text-base" />
-            <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
-              <input {...register('sms_opted_in')} type="checkbox" className="rounded" />
-              <span className="text-xs text-gray-600">Receive SMS game reminders</span>
-            </label>
+            <div className="mt-2 space-y-1.5">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input {...register('sms_opted_in')} type="checkbox" className="rounded" />
+                <span className="text-xs text-gray-600">Receive SMS notifications</span>
+              </label>
+              {smsOptedIn && (
+                <label className="flex items-center gap-2 cursor-pointer select-none pl-5">
+                  <input {...register('sms_game_day_enabled')} type="checkbox" className="rounded" />
+                  <span className="text-xs text-gray-500">Game Day — morning SMS on days I have a game</span>
+                </label>
+              )}
+            </div>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

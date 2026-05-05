@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 
   for (const game of games ?? []) {
     const league = Array.isArray(game.leagues) ? game.leagues[0] : game.leagues
-    const teamIds = [game.home_team_id, game.away_team_id].filter(Boolean)
+    const teamIds = [game.home_team_id, game.away_team_id].filter((id): id is string => Boolean(id))
     if (teamIds.length === 0) continue
 
     const { data: members } = await supabase
@@ -121,7 +121,8 @@ export async function GET(req: NextRequest) {
       </div>`,
     }).catch(() => {})
 
-    await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
       .from('payment_plan_installments')
       .update({ reminder_sent: now.toISOString() })
       .eq('id', inst.id)
@@ -311,6 +312,161 @@ export async function GET(req: NextRequest) {
 
     if (Object.keys(gameSkips).length > 0) sms_diagnostics.game_skips = gameSkips
   }
+
+  // 5. Game Day SMS — one per player per org per calendar day
+  //    Fires for games happening today (within the next 16 hours, after 7 am local org time)
+  //    Groups all of a player's games for the day into a single message.
+
+  const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+  const gameDay_diagnostics: Record<string, unknown> = {}
+
+  // Fetch all orgs that have at least one opted-in player (by checking org_branding for timezone)
+  // We query games in the next 16 hours across all orgs, then group by org timezone
+  const in16h = new Date(now.getTime() + 16 * 60 * 60 * 1000)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: gameDayGames, error: gameDayGamesErr } = await (supabase as any)
+    .from('games')
+    .select(`
+      id, organization_id, scheduled_at, court,
+      home_team:teams!games_home_team_id_fkey(id, name),
+      away_team:teams!games_away_team_id_fkey(id, name),
+      leagues(name)
+    `)
+    .eq('status', 'scheduled')
+    .gte('scheduled_at', now.toISOString())
+    .lte('scheduled_at', in16h.toISOString())
+
+  if (gameDayGamesErr) gameDay_diagnostics.games_error = JSON.stringify(gameDayGamesErr)
+  gameDay_diagnostics.games_in_window = (gameDayGames ?? []).length
+
+  if ((gameDayGames ?? []).length > 0) {
+    // Fetch org branding for timezone + org names for all orgs in the result set
+    const gameDayOrgIds = [...new Set((gameDayGames as { organization_id: string }[]).map(g => g.organization_id))]
+
+    const [{ data: brandingRows }, { data: gameDayOrgRows }] = await Promise.all([
+      supabase.from('org_branding').select('organization_id, timezone').in('organization_id', gameDayOrgIds),
+      supabase.from('organizations').select('id, name, slug').in('id', gameDayOrgIds),
+    ])
+
+    const timezoneByOrg = new Map((brandingRows ?? []).map(b => [b.organization_id, b.timezone ?? 'America/Toronto']))
+    const orgInfoById = new Map((gameDayOrgRows ?? []).map(o => [o.id, { name: o.name, slug: o.slug }]))
+
+    // Group games by org
+    type GDGame = {
+      id: string; organization_id: string; scheduled_at: string; court: string | null
+      home_team: { id: string; name: string } | null
+      away_team: { id: string; name: string } | null
+      leagues: { name: string } | { name: string }[] | null
+    }
+    const gamesByOrg = new Map<string, GDGame[]>()
+    for (const g of (gameDayGames as GDGame[]) ?? []) {
+      if (!gamesByOrg.has(g.organization_id)) gamesByOrg.set(g.organization_id, [])
+      gamesByOrg.get(g.organization_id)!.push(g)
+    }
+
+    for (const [orgId, orgGames] of gamesByOrg) {
+      const timezone = timezoneByOrg.get(orgId) ?? 'America/Toronto'
+      const orgInfo = orgInfoById.get(orgId)
+
+      // Only send after 7 am local time
+      const localHour = parseInt(new Intl.DateTimeFormat('en-CA', { timeZone: timezone, hour: 'numeric', hour12: false }).format(now), 10)
+      if (localHour < 7) continue
+
+      // Today's date in org timezone (YYYY-MM-DD)
+      const todayLocal = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(now)
+
+      // Collect all team IDs from today's games
+      const teamIds = [...new Set(
+        orgGames.flatMap(g => [g.home_team?.id, g.away_team?.id]).filter(Boolean) as string[]
+      )]
+      if (teamIds.length === 0) continue
+
+      // Get opted-in players with game-day SMS enabled
+      const { data: members } = await supabase
+        .from('team_members')
+        .select('user_id, team_id, profiles!team_members_user_id_fkey(phone, full_name, sms_opted_in, sms_game_day_enabled)')
+        .in('team_id', teamIds)
+
+      // Build map: user_id → { phone, name, teamIds[] }
+      type PlayerEntry = { phone: string; name: string; teamIds: Set<string> }
+      const playerMap = new Map<string, PlayerEntry>()
+      for (const m of members ?? []) {
+        const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (!p?.phone || !(p as any)?.sms_opted_in || !(p as any)?.sms_game_day_enabled) continue
+        if (!m.team_id || !m.user_id) continue
+        const userId = m.user_id
+        const teamId = m.team_id
+        if (!playerMap.has(userId)) {
+          playerMap.set(userId, { phone: p.phone, name: p.full_name ?? '', teamIds: new Set() })
+        }
+        playerMap.get(userId)!.teamIds.add(teamId)
+      }
+
+      if (playerMap.size === 0) continue
+
+      // Check already-sent logs for today
+      const userIds = [...playerMap.keys()]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: sentToday } = await (supabase as any)
+        .from('player_game_day_sms_logs')
+        .select('user_id')
+        .eq('organization_id', orgId)
+        .eq('log_date', todayLocal)
+        .in('user_id', userIds)
+
+      const alreadySentSet = new Set((sentToday ?? []).map((r: { user_id: string }) => r.user_id))
+
+      const scheduleUrl = `https://${orgInfo?.slug}.${platformDomain}/schedule`
+
+      for (const [userId, player] of playerMap) {
+        if (alreadySentSet.has(userId)) continue
+
+        // Find this player's games today (games where they're on the home or away team)
+        const myGames = orgGames.filter(g =>
+          (g.home_team?.id && player.teamIds.has(g.home_team.id)) ||
+          (g.away_team?.id && player.teamIds.has(g.away_team.id))
+        ).sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+
+        if (myGames.length === 0) continue
+
+        // Build game lines
+        const gameLines = myGames.map(g => {
+          const league = Array.isArray(g.leagues) ? g.leagues[0] : g.leagues
+          const myTeamIsHome = g.home_team?.id && player.teamIds.has(g.home_team.id)
+          const opponent = myTeamIsHome ? g.away_team?.name : g.home_team?.name
+          const time = new Date(g.scheduled_at).toLocaleTimeString('en-CA', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })
+          const venue = g.court ? ` · ${g.court}` : ''
+          const leagueName = league?.name ? `[${league.name}] ` : ''
+          return opponent
+            ? `${leagueName}${time}${venue} vs ${opponent}`
+            : `${leagueName}${time}${venue}`
+        })
+
+        const orgName = orgInfo?.name ?? 'Fieldday'
+        const intro = myGames.length === 1
+          ? `🏆 It's Game Day, ${player.name.split(' ')[0] || 'there'}!`
+          : `🏆 It's Game Day, ${player.name.split(' ')[0] || 'there'}! You've got ${myGames.length} games today.`
+
+        const smsBody = `${orgName}\n\n${intro}\n\n${gameLines.join('\n')}\n\nView your schedule: ${scheduleUrl}\n\nReply STOP to unsubscribe.`
+
+        try {
+          await sendSms(player.phone, smsBody)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase as any)
+            .from('player_game_day_sms_logs')
+            .insert({ user_id: userId, organization_id: orgId, log_date: todayLocal })
+            .catch(() => {})
+          results.push(`game_day sms sent to ${userId} (${orgId})`)
+        } catch (e) {
+          results.push(`game_day sms error for ${userId}: ${e}`)
+        }
+      }
+    }
+  }
+
+  sms_diagnostics.game_day = gameDay_diagnostics
 
   return NextResponse.json({ ok: true, processed: results, sms_diagnostics })
   } catch (err) {
