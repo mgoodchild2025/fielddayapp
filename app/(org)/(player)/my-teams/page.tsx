@@ -6,6 +6,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { TeamAvatar } from '@/components/ui/team-avatar'
+import { PastGamesToggle } from '@/components/schedule/past-games-toggle'
 
 const ROLE_LABEL: Record<string, string> = {
   captain: 'Captain',
@@ -84,7 +85,7 @@ export default async function MyTeamsPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
 
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
@@ -123,17 +124,14 @@ export default async function MyTeamsPage() {
             )}
 
             {past.length > 0 && (
-              <section>
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-                  Past
-                </h2>
+              <PastGamesToggle count={past.length}>
                 <div className="space-y-3">
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {past.map((m: any) => (
                     <TeamCard key={m.membershipId} {...m} />
                   ))}
                 </div>
-              </section>
+              </PastGamesToggle>
             )}
           </div>
         )}

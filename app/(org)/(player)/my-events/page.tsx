@@ -6,6 +6,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { QRCodeDisplay } from '@/components/checkin/qr-code-display'
+import { PastGamesToggle } from '@/components/schedule/past-games-toggle'
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   registration_open: { label: 'Open',       className: 'bg-green-50 text-green-700'   },
@@ -50,6 +51,15 @@ export default async function MyEventsPage() {
     return { registrationId: r.id, registrationStatus: r.status, checkinUrl, league }
   }).filter((r: { league: unknown }) => r.league)
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const currentEvents = events.filter((e: any) =>
+    ['active', 'registration_open'].includes(e.league?.league_status ?? '')
+  )
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pastEvents = events.filter((e: any) =>
+    !['active', 'registration_open'].includes(e.league?.league_status ?? '')
+  )
+
   function formatDate(iso: string | null) {
     if (!iso) return null
     return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -83,62 +93,104 @@ export default async function MyEventsPage() {
             </Link>
           </div>
         ) : (
-          <div className="space-y-3">
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {events.map(({ registrationId, registrationStatus, checkinUrl, league }: any) => {
-              const statusInfo = STATUS_LABEL[league.league_status] ?? { label: league.league_status, className: 'bg-gray-100 text-gray-500' }
-              const isActive = registrationStatus === 'active'
-              const showQR = isActive && !!checkinUrl && league.league_status === 'active'
+          <div>
+            {/* Current events */}
+            <div className="space-y-3">
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {currentEvents.map(({ registrationId, registrationStatus, checkinUrl, league }: any) => {
+                const statusInfo = STATUS_LABEL[league.league_status] ?? { label: league.league_status, className: 'bg-gray-100 text-gray-500' }
+                const isActive = registrationStatus === 'active'
+                const showQR = isActive && !!checkinUrl && league.league_status === 'active'
 
-              return (
-                <div
-                  key={registrationId}
-                  className="bg-white rounded-xl border overflow-hidden"
-                >
-                  {/* Main row — tappable link to event */}
-                  <Link
-                    href={`/events/${league.slug}`}
-                    className="flex items-center gap-4 px-4 py-4 hover:bg-gray-50 transition-colors group"
+                return (
+                  <div
+                    key={registrationId}
+                    className="bg-white rounded-xl border overflow-hidden"
                   >
-                    {/* Brand-coloured left accent */}
-                    <div
-                      className="w-1 self-stretch rounded-full shrink-0"
-                      style={{ backgroundColor: 'var(--brand-primary)' }}
-                    />
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-gray-900 truncate">{league.name}</p>
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${statusInfo.className}`}>
-                          {statusInfo.label}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {league.sport ? formatSport(league.sport) : ''}
-                        {league.sport && league.season_start_date ? ' · ' : ''}
-                        {formatDate(league.season_start_date) ?? ''}
-                      </p>
-                    </div>
-
-                    <svg className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-
-                  {/* QR code — shown for active registrations in active leagues */}
-                  {showQR && (
-                    <div className="px-4 pb-4 border-t border-gray-100 pt-3">
-                      <QRCodeDisplay
-                        checkinUrl={checkinUrl}
-                        playerName=""
-                        eventName={league.name}
-                        size={180}
+                    <Link
+                      href={`/events/${league.slug}`}
+                      className="flex items-center gap-4 px-4 py-4 hover:bg-gray-50 transition-colors group"
+                    >
+                      <div
+                        className="w-1 self-stretch rounded-full shrink-0"
+                        style={{ backgroundColor: 'var(--brand-primary)' }}
                       />
-                    </div>
-                  )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-gray-900 truncate">{league.name}</p>
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${statusInfo.className}`}>
+                            {statusInfo.label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {league.sport ? formatSport(league.sport) : ''}
+                          {league.sport && league.season_start_date ? ' · ' : ''}
+                          {formatDate(league.season_start_date) ?? ''}
+                        </p>
+                      </div>
+                      <svg className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Link>
+                    {showQR && (
+                      <div className="px-4 pb-4 border-t border-gray-100 pt-3">
+                        <QRCodeDisplay
+                          checkinUrl={checkinUrl}
+                          playerName=""
+                          eventName={league.name}
+                          size={180}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Past events — collapsed by default */}
+            {pastEvents.length > 0 && (
+              <PastGamesToggle count={pastEvents.length} label="events">
+                <div className="space-y-3">
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {pastEvents.map(({ registrationId, registrationStatus, checkinUrl, league }: any) => {
+                    const statusInfo = STATUS_LABEL[league.league_status] ?? { label: league.league_status, className: 'bg-gray-100 text-gray-500' }
+
+                    return (
+                      <div
+                        key={registrationId}
+                        className="bg-white rounded-xl border overflow-hidden"
+                      >
+                        <Link
+                          href={`/events/${league.slug}`}
+                          className="flex items-center gap-4 px-4 py-4 hover:bg-gray-50 transition-colors group"
+                        >
+                          <div
+                            className="w-1 self-stretch rounded-full shrink-0"
+                            style={{ backgroundColor: 'var(--brand-primary)' }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-semibold text-gray-900 truncate">{league.name}</p>
+                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${statusInfo.className}`}>
+                                {statusInfo.label}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {league.sport ? formatSport(league.sport) : ''}
+                              {league.sport && league.season_start_date ? ' · ' : ''}
+                              {formatDate(league.season_start_date) ?? ''}
+                            </p>
+                          </div>
+                          <svg className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </Link>
+                      </div>
+                    )
+                  })}
                 </div>
-              )
-            })}
+              </PastGamesToggle>
+            )}
           </div>
         )}
       </div>
