@@ -7,6 +7,38 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { z } from 'zod'
 
+/**
+ * Derive the public-facing origin from incoming request headers.
+ *
+ * For server actions the browser sets `referer` to the URL of the page that
+ * submitted the form — this is the most reliable source because it reflects
+ * the actual domain the user navigated to (org subdomain, custom domain, etc.)
+ * regardless of internal proxy addresses like 0.0.0.0:8080.
+ *
+ * Falls back through x-forwarded-host → host for edge cases where referer is
+ * absent (e.g. curl / server-to-server calls).
+ */
+function getPublicOrigin(headersList: Awaited<ReturnType<typeof headers>>): string {
+  // 1. Referer — most reliable for browser-initiated server actions
+  const referer = headersList.get('referer')
+  if (referer) {
+    try {
+      const u = new URL(referer)
+      return u.origin // e.g. "https://acme.fielddayapp.ca"
+    } catch { /* fall through */ }
+  }
+  // 2. x-forwarded-host + x-forwarded-proto (Vercel edge / CDN)
+  const fwdHost = headersList.get('x-forwarded-host')
+  if (fwdHost) {
+    const proto = headersList.get('x-forwarded-proto') ?? 'https'
+    return `${proto}://${fwdHost}`
+  }
+  // 3. Raw host (local dev)
+  const host = headersList.get('host') ?? 'localhost:3000'
+  const proto = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https'
+  return `${proto}://${host}`
+}
+
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
@@ -44,13 +76,11 @@ export async function signUp(input: { email: string; password: string; fullName:
   if (!parsed.success) return { data: null, error: 'Invalid input' }
 
   const supabase = await createServerClient()
-  // Use x-forwarded-host (set by Vercel/proxies to the real public hostname) with
-  // host as a fallback for local dev. The raw `host` header on Vercel is the
-  // internal address (0.0.0.0:8080), not the public domain.
+  // Derive origin from the `referer` header — the browser always sets this to the
+  // URL of the page that triggered the server action, giving us the real public
+  // domain (org subdomain or platform domain) regardless of internal proxy addresses.
   const headersList = await headers()
-  const host = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? ''
-  const proto = headersList.get('x-forwarded-proto') ?? (host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https')
-  const origin = `${proto}://${host}`
+  const origin = getPublicOrigin(headersList)
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
@@ -115,10 +145,7 @@ export async function logout() {
 
 export async function resetPassword(email: string) {
   const supabase = await createServerClient()
-  const headersList = await headers()
-  const host = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? ''
-  const proto = headersList.get('x-forwarded-proto') ?? (host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https')
-  const origin = `${proto}://${host}`
+  const origin = getPublicOrigin(await headers())
   await supabase.auth.resetPasswordForEmail(email, {
     // Route through the existing PKCE callback handler, then land on the confirm page
     redirectTo: `${origin}/auth/callback?next=/reset-password/confirm`,
