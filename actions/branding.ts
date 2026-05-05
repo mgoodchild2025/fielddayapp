@@ -122,6 +122,14 @@ export async function uploadOrgLogo(formData: FormData): Promise<{ url: string |
   const bytes = await file.arrayBuffer()
 
   const service = createServiceRoleClient()
+
+  // Delete any existing logo files before uploading (extension may differ)
+  const { data: existing } = await service.storage.from('org-branding').list(org.id)
+  if (existing && existing.length > 0) {
+    const toRemove = existing.map((f) => `${org.id}/${f.name}`)
+    await service.storage.from('org-branding').remove(toRemove)
+  }
+
   const { error: uploadError } = await service.storage
     .from('org-branding')
     .upload(path, bytes, { contentType: file.type, upsert: true })

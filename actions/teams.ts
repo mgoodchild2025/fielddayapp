@@ -1049,6 +1049,13 @@ export async function uploadTeamLogo(teamId: string, formData: FormData) {
   const path = `${org.id}/${teamId}/logo.${ext}`
   const buffer = Buffer.from(await file.arrayBuffer())
 
+  // Delete any existing team logo files before uploading (extension may differ)
+  const { data: existing } = await db.storage.from('team-logos').list(`${org.id}/${teamId}`)
+  if (existing && existing.length > 0) {
+    const toRemove = existing.map((f) => `${org.id}/${teamId}/${f.name}`)
+    await db.storage.from('team-logos').remove(toRemove)
+  }
+
   const { error: uploadError } = await db.storage
     .from('team-logos')
     .upload(path, buffer, { contentType: file.type, upsert: true })
