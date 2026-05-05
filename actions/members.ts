@@ -212,8 +212,10 @@ export async function inviteMember(input: FormData) {
     return { error: 'Unauthorized' }
   }
 
-  // Find existing profile by email
-  const { data: existingProfile } = await supabase
+  // Find existing profile by email — must use service role to bypass RLS,
+  // since the anon client can't read other users' profile rows.
+  const service = createServiceRoleClient()
+  const { data: existingProfile } = await service
     .from('profiles')
     .select('id')
     .eq('email', parsed.data.email)
@@ -221,7 +223,7 @@ export async function inviteMember(input: FormData) {
 
   if (existingProfile) {
     // User already has an account — add them directly
-    const { error } = await supabase
+    const { error } = await service
       .from('org_members')
       .upsert({
         organization_id: org.id,
