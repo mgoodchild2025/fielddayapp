@@ -302,44 +302,47 @@ export function EventsFilter({ events, isOrgAdmin = false }: { events: EventItem
 
       {/* ── Filter pills ────────────────────────────────────────────────────── */}
       {hasFilters && (
-        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          {/* Sport pills */}
-          {sports.length >= 2 && sports.map((sport) => (
-            <button
-              key={`sport-${sport}`}
-              onClick={() => setSelectedSport(selectedSport === sport ? null : sport)}
-              className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
-                selectedSport === sport
-                  ? 'border-transparent text-white'
-                  : 'border-gray-200 text-gray-500 bg-white hover:bg-gray-50'
-              }`}
-              style={selectedSport === sport ? { backgroundColor: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' } : {}}
-            >
-              {SPORT_EMOJI[sport] && <span>{SPORT_EMOJI[sport]}</span>}
-              {formatSport(sport)}
-            </button>
-          ))}
-
-          {/* Divider between groups */}
-          {sports.length >= 2 && eventTypes.length >= 2 && (
-            <div className="w-px bg-gray-200 shrink-0 my-1" />
+        <div className="space-y-2">
+          {/* Sport row — horizontally scrollable, no wrap */}
+          {sports.length >= 2 && (
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+              {sports.map((sport) => (
+                <button
+                  key={sport}
+                  onClick={() => setSelectedSport(selectedSport === sport ? null : sport)}
+                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                    selectedSport === sport
+                      ? 'border-transparent text-white'
+                      : 'border-gray-200 text-gray-500 bg-white hover:bg-gray-50'
+                  }`}
+                  style={selectedSport === sport ? { backgroundColor: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' } : {}}
+                >
+                  {SPORT_EMOJI[sport] && <span>{SPORT_EMOJI[sport]}</span>}
+                  {formatSport(sport)}
+                </button>
+              ))}
+            </div>
           )}
 
-          {/* Event type pills */}
-          {eventTypes.length >= 2 && eventTypes.map((type) => (
-            <button
-              key={`type-${type}`}
-              onClick={() => setSelectedType(selectedType === type ? null : type)}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
-                selectedType === type
-                  ? 'border-transparent text-white'
-                  : 'border-gray-200 text-gray-500 bg-white hover:bg-gray-50'
-              }`}
-              style={selectedType === type ? { backgroundColor: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' } : {}}
-            >
-              {EVENT_TYPE_LABEL[type] ?? type.charAt(0).toUpperCase() + type.slice(1)}
-            </button>
-          ))}
+          {/* Type row — horizontally scrollable, no wrap */}
+          {eventTypes.length >= 2 && (
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+              {eventTypes.map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setSelectedType(selectedType === type ? null : type)}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                    selectedType === type
+                      ? 'border-transparent text-white'
+                      : 'border-gray-200 text-gray-500 bg-white hover:bg-gray-50'
+                  }`}
+                  style={selectedType === type ? { backgroundColor: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' } : {}}
+                >
+                  {EVENT_TYPE_LABEL[type] ?? type.charAt(0).toUpperCase() + type.slice(1)}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
