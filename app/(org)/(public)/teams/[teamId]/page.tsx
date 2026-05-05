@@ -206,7 +206,7 @@ export default async function TeamDetailPage({
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
 
-        <Link href="/dashboard" className="text-sm text-gray-500 hover:underline">← Dashboard</Link>
+        <Link href="/my-teams" className="text-sm text-gray-500 hover:underline">← My Teams</Link>
 
         {/* Payment success banner */}
         {paymentResult === 'success' && (
