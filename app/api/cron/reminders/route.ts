@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
   const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000)
   const { data: games } = await supabase
     .from('games')
-    .select('id, organization_id, scheduled_at, home_team_id, away_team_id, venue_name, leagues(name)')
+    .select('id, organization_id, scheduled_at, home_team_id, away_team_id, court, leagues(name)')
     .gte('scheduled_at', now.toISOString())
     .lte('scheduled_at', in24h.toISOString())
     .is('reminder_sent', null)
@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
           <h2>You have a game tomorrow!</h2>
           <p><strong>League:</strong> ${league?.name ?? 'Your league'}</p>
           <p><strong>Time:</strong> ${gameTime}</p>
-          ${game.venue_name ? `<p><strong>Venue:</strong> ${game.venue_name}</p>` : ''}
+          ${game.court ? `<p><strong>Venue:</strong> ${game.court}</p>` : ''}
         </div>`,
       }).catch(() => {})
     }
@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
   type NotifSetting = { organization_id: string; sms_game_reminders_enabled: boolean }
   type GameRow = {
     id: string; organization_id: string; scheduled_at: string
-    home_team_id: string | null; away_team_id: string | null; venue_name: string | null
+    home_team_id: string | null; away_team_id: string | null; court: string | null
     leagues: { name: string } | null
   }
   type LogRow = { game_id: string; minutes_before: number }
@@ -190,7 +190,7 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: smsGames, error: gamesErr } = await (supabase as any)
       .from('games')
-      .select('id, organization_id, scheduled_at, home_team_id, away_team_id, venue_name, leagues(name)')
+      .select('id, organization_id, scheduled_at, home_team_id, away_team_id, court, leagues(name)')
       .gte('scheduled_at', now.toISOString())
       .lte('scheduled_at', in24h.toISOString()) as { data: GameRow[] | null; error: unknown }
 
@@ -236,7 +236,7 @@ export async function GET(req: NextRequest) {
       const orgName = orgNameById.get(orgId) ?? 'Fieldday'
       const leagueName = league?.name ?? 'Game'
       const gameTime = new Date(game.scheduled_at).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
-      const venue = game.venue_name ? ` · ${game.venue_name}` : ''
+      const venue = game.court ? ` · ${game.court}` : ''
 
       for (const reminder of orgReminders) {
         const logKey = `${game.id}:${reminder.minutes_before}`
