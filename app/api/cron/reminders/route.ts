@@ -156,7 +156,7 @@ export async function GET(req: NextRequest) {
       .select('organization_id, sms_game_reminders_enabled') as Promise<{ data: NotifSetting[] | null }>,
   ])
 
-  if (reminderConfigsErr) sms_diagnostics.reminder_config_error = String(reminderConfigsErr)
+  if (reminderConfigsErr) sms_diagnostics.reminder_config_error = JSON.stringify(reminderConfigsErr)
 
   // Orgs that have SMS reminders disabled
   const disabledOrgs = new Set(
@@ -186,7 +186,7 @@ export async function GET(req: NextRequest) {
       .gte('scheduled_at', now.toISOString())
       .lte('scheduled_at', in24h.toISOString()) as { data: GameRow[] | null; error: unknown }
 
-    if (gamesErr) sms_diagnostics.games_query_error = String(gamesErr)
+    if (gamesErr) sms_diagnostics.games_query_error = JSON.stringify(gamesErr)
     sms_diagnostics.upcoming_games_in_window = (smsGames ?? []).length
 
     const gameIds = (smsGames ?? []).map(g => g.id)
