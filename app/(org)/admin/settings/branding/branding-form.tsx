@@ -213,7 +213,7 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
 
       <div className="bg-white rounded-lg border p-5 space-y-4">
         <h2 className="font-semibold">Colours</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <ColorField label="Primary Color" name="primary_color" control={control} errors={errors} />
           <ColorField label="Secondary Color" name="secondary_color" control={control} errors={errors} />
           <ColorField label="Background Color" name="bg_color" control={control} errors={errors} />
