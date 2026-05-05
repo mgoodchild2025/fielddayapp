@@ -44,7 +44,14 @@ export async function signUp(input: { email: string; password: string; fullName:
   if (!parsed.success) return { data: null, error: 'Invalid input' }
 
   const supabase = await createServerClient()
-  const origin = (await headers()).get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
+  // Derive the public origin from the `host` header, which always reflects the
+  // real domain the request arrived on (org subdomain, custom domain, or platform).
+  // The `origin` header can be absent for server-action POST requests, causing
+  // the fallback NEXT_PUBLIC_APP_URL (often localhost) to appear in the email link.
+  const headersList = await headers()
+  const host = headersList.get('host') ?? ''
+  const proto = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https'
+  const origin = `${proto}://${host}`
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
@@ -109,7 +116,10 @@ export async function logout() {
 
 export async function resetPassword(email: string) {
   const supabase = await createServerClient()
-  const origin = (await headers()).get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const headersList = await headers()
+  const host = headersList.get('host') ?? ''
+  const proto = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https'
+  const origin = `${proto}://${host}`
   await supabase.auth.resetPasswordForEmail(email, {
     // Route through the existing PKCE callback handler, then land on the confirm page
     redirectTo: `${origin}/auth/callback?next=/reset-password/confirm`,
