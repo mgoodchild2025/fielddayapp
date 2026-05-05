@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 
 type OrgRole = 'org_admin' | 'league_admin' | 'captain' | 'player'
@@ -102,7 +103,9 @@ export async function reinstateMember(memberId: string) {
 /**
  * Permanently delete an org member. Only org_admin can do this.
  * Removes team_members rows first, then the org_members row.
- * This is irreversible — the user loses all org access and team memberships.
+ * If the user belongs to no other orgs after removal, their auth account is also
+ * deleted so they can re-register with the same email address.
+ * This is irreversible.
  */
 export async function deleteMember(memberId: string) {
   const headersList = await headers()
@@ -131,11 +134,13 @@ export async function deleteMember(memberId: string) {
 
   if (!member) return { error: 'Member not found' }
 
+  const targetUserId = member.user_id
+
   // Remove from all teams in this org
   await supabase
     .from('team_members')
     .delete()
-    .eq('user_id', member.user_id)
+    .eq('user_id', targetUserId)
     .eq('organization_id', org.id)
 
   // Hard-delete the org_members row
@@ -146,6 +151,24 @@ export async function deleteMember(memberId: string) {
     .eq('organization_id', org.id)
 
   if (error) return { error: error.message }
+
+  // Check whether the user still belongs to any other org.
+  // We use the service role client to query across all orgs (not scoped to current org).
+  const serviceClient = createServiceRoleClient()
+  const { count } = await serviceClient
+    .from('org_members')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', targetUserId)
+
+  // If they have no remaining org memberships, delete their auth account so they
+  // can sign up fresh with the same email and receive the confirmation email.
+  if ((count ?? 0) === 0) {
+    const { error: authDeleteError } = await serviceClient.auth.admin.deleteUser(targetUserId)
+    if (authDeleteError) {
+      // Non-fatal — org membership is already removed; log and continue.
+      console.error('[deleteMember] failed to delete auth account:', authDeleteError.message)
+    }
+  }
 
   revalidatePath('/admin/users')
   return { error: null }
