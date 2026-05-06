@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
+import { convertToWebP } from '@/lib/image-utils'
 
 const sponsorSchema = z.object({
   name: z.string().min(1).max(100),
@@ -94,12 +95,16 @@ export async function uploadSponsorLogo(
   if (!['image/jpeg','image/png','image/webp','image/svg+xml'].includes(file.type))
     return { url: null, error: 'JPEG, PNG, WebP, or SVG only' }
 
-  const ext = file.name.split('.').pop() ?? 'png'
-  const path = `${org.id}/sponsors/${sponsorId}.${ext}`
   const bytes = await file.arrayBuffer()
+  // SVG sponsor logos are kept as-is (vector format); raster logos are converted
+  const converted = await convertToWebP(bytes, file.type, { maxWidth: 800, maxHeight: 400 })
+  const uploadBytes = converted?.buffer ?? Buffer.from(bytes)
+  const uploadType = converted?.contentType ?? file.type
+  const ext = converted ? 'webp' : (file.name.split('.').pop() ?? 'png')
+  const path = `${org.id}/sponsors/${sponsorId}.${ext}`
   const db = createServiceRoleClient()
 
-  const { error: upErr } = await db.storage.from('org-branding').upload(path, bytes, { contentType: file.type, upsert: true })
+  const { error: upErr } = await db.storage.from('org-branding').upload(path, uploadBytes, { contentType: uploadType, upsert: true })
   if (upErr) return { url: null, error: upErr.message }
 
   const { data: { publicUrl } } = db.storage.from('org-branding').getPublicUrl(path)

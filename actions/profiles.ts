@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { convertToWebP } from '@/lib/image-utils'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_SIZE = 5 * 1024 * 1024 // 5 MB
@@ -23,9 +24,12 @@ export async function uploadPlayerAvatar(
     return { url: null, error: 'Unsupported file type. Use JPEG, PNG, WebP, or GIF.' }
   }
 
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
-  const path = `${user.id}/avatar.${ext}`
   const bytes = await file.arrayBuffer()
+  const converted = await convertToWebP(bytes, file.type, { maxWidth: 400, maxHeight: 400 })
+  const uploadBytes = converted?.buffer ?? Buffer.from(bytes)
+  const uploadType = converted?.contentType ?? file.type
+  const ext = converted ? 'webp' : (file.name.split('.').pop()?.toLowerCase() ?? 'jpg')
+  const path = `${user.id}/avatar.${ext}`
 
   const service = createServiceRoleClient()
 
@@ -42,7 +46,7 @@ export async function uploadPlayerAvatar(
 
   const { error: uploadError } = await service.storage
     .from('player-avatars')
-    .upload(path, bytes, { contentType: file.type, upsert: true })
+    .upload(path, uploadBytes, { contentType: uploadType, upsert: true })
 
   if (uploadError) return { url: null, error: uploadError.message }
 

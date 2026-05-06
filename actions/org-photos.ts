@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
+import { convertToWebP } from '@/lib/image-utils'
 
 // ── Upload a photo ────────────────────────────────────────────────────────────
 
@@ -23,16 +24,19 @@ export async function uploadOrgPhoto(
     return { id: null, url: null, error: 'Unsupported file type. Use JPEG, PNG, WebP, or GIF.' }
   }
 
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const bytes = await file.arrayBuffer()
+  const converted = await convertToWebP(bytes, file.type, { maxWidth: 1600, maxHeight: 1600 })
+  const uploadBytes = converted?.buffer ?? Buffer.from(bytes)
+  const uploadType = converted?.contentType ?? file.type
+  const ext = converted ? 'webp' : (file.name.split('.').pop()?.toLowerCase() ?? 'jpg')
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
   const path = `${org.id}/${filename}`
-  const bytes = await file.arrayBuffer()
 
   const db = createServiceRoleClient()
 
   const { error: uploadError } = await db.storage
     .from('org-photos')
-    .upload(path, bytes, { contentType: file.type })
+    .upload(path, uploadBytes, { contentType: uploadType })
 
   if (uploadError) return { id: null, url: null, error: uploadError.message }
 

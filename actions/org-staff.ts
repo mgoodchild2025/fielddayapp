@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
+import { convertToWebP } from '@/lib/image-utils'
 
 const staffSchema = z.object({
   name: z.string().min(1).max(100),
@@ -80,12 +81,15 @@ export async function uploadStaffAvatar(
   if (!['image/jpeg','image/png','image/webp'].includes(file.type))
     return { url: null, error: 'JPEG, PNG, or WebP only' }
 
-  const ext = file.name.split('.').pop() ?? 'jpg'
-  const path = `${org.id}/staff/${staffId}.${ext}`
   const bytes = await file.arrayBuffer()
+  const converted = await convertToWebP(bytes, file.type, { maxWidth: 400, maxHeight: 400 })
+  const uploadBytes = converted?.buffer ?? Buffer.from(bytes)
+  const uploadType = converted?.contentType ?? file.type
+  const ext = converted ? 'webp' : (file.name.split('.').pop() ?? 'jpg')
+  const path = `${org.id}/staff/${staffId}.${ext}`
   const db = createServiceRoleClient()
 
-  const { error: upErr } = await db.storage.from('org-branding').upload(path, bytes, { contentType: file.type, upsert: true })
+  const { error: upErr } = await db.storage.from('org-branding').upload(path, uploadBytes, { contentType: uploadType, upsert: true })
   if (upErr) return { url: null, error: upErr.message }
 
   const { data: { publicUrl } } = db.storage.from('org-branding').getPublicUrl(path)

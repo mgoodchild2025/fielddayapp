@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
+import { convertToWebP } from '@/lib/image-utils'
 
 const brandingSchema = z.object({
   orgId: z.string().uuid(),
@@ -117,9 +118,12 @@ export async function uploadOrgLogo(formData: FormData): Promise<{ url: string |
     return { url: null, error: 'Unsupported file type' }
   }
 
-  const ext = file.name.split('.').pop() ?? 'png'
-  const path = `${org.id}/logo.${ext}`
   const bytes = await file.arrayBuffer()
+  const converted = await convertToWebP(bytes, file.type, { maxWidth: 800, maxHeight: 800 })
+  const uploadBytes = converted?.buffer ?? Buffer.from(bytes)
+  const uploadType = converted?.contentType ?? file.type
+  const ext = converted ? 'webp' : (file.name.split('.').pop() ?? 'png')
+  const path = `${org.id}/logo.${ext}`
 
   const service = createServiceRoleClient()
 
@@ -132,7 +136,7 @@ export async function uploadOrgLogo(formData: FormData): Promise<{ url: string |
 
   const { error: uploadError } = await service.storage
     .from('org-branding')
-    .upload(path, bytes, { contentType: file.type, upsert: true })
+    .upload(path, uploadBytes, { contentType: uploadType, upsert: true })
 
   if (uploadError) return { url: null, error: uploadError.message }
 
