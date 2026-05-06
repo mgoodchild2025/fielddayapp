@@ -43,7 +43,7 @@ function Hero() {
     <section className="relative overflow-hidden bg-slate-950 text-white min-h-[520px] sm:min-h-[600px]">
       {/* Background photo */}
       <Image
-        src="/FielddayMarketing.png"
+        src="/FieldDayMarketing.png"
         alt=""
         fill
         priority
