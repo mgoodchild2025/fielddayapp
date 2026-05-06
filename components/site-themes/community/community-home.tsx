@@ -45,6 +45,8 @@ interface Branding {
   social_tiktok?: string | null
 }
 
+const DEFAULT_SECTION_ORDER = ['events', 'about', 'staff', 'photos']
+
 interface CommunityHomeProps {
   org: OrgContext & { name: string; slug: string }
   branding: Branding | null
@@ -56,6 +58,7 @@ interface CommunityHomeProps {
   inSeasonEvents: League[]
   completedEvents: League[]
   teamCountMap: Map<string, number>
+  sectionLayout: { key: string; visible: boolean }[] | null
 }
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
@@ -83,11 +86,9 @@ function EventCard({ league, teamCount }: { league: League; teamCount: number })
           {teamsAtCapacity ? 'Teams Full' : 'Open'}
         </span>
       </div>
-
       <h3 className="text-lg font-bold mt-2 leading-snug" style={{ fontFamily: 'var(--brand-heading-font)' }}>
         {league.name}
       </h3>
-
       {league.season_start_date && (
         <p className="text-sm text-gray-500 mt-1">
           Starts {new Date(league.season_start_date).toLocaleDateString('en-CA', {
@@ -95,7 +96,6 @@ function EventCard({ league, teamCount }: { league: League; teamCount: number })
           })}
         </p>
       )}
-
       {(league.skill_level || (league.days_of_week?.length ?? 0) > 0) && (
         <div className="flex flex-wrap gap-1.5 mt-2">
           {league.skill_level && (
@@ -110,7 +110,6 @@ function EventCard({ league, teamCount }: { league: League; teamCount: number })
           ))}
         </div>
       )}
-
       <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>
         {teamsAtCapacity
           ? 'Players can still join a team'
@@ -154,19 +153,143 @@ export function CommunityHome({
   inSeasonEvents,
   completedEvents,
   teamCountMap,
+  sectionLayout,
 }: CommunityHomeProps) {
-  const headline = heroContent.headline || org.name
-  const subheadline = heroContent.subheadline || branding?.tagline || null
-  const ctaLabel = heroContent.cta_label || 'View Events'
-  const ctaHref = heroContent.cta_href || '/events'
+  void completedEvents
 
-  void completedEvents // available for future use
+  const headline   = heroContent.headline   || org.name
+  const subheadline = heroContent.subheadline || branding?.tagline || null
+  const ctaLabel   = heroContent.cta_label  || 'View Events'
+  const ctaHref    = heroContent.cta_href   || '/events'
+
+  // Resolve ordered, visible section keys
+  const orderedKeys = (() => {
+    if (!sectionLayout || sectionLayout.length === 0) return DEFAULT_SECTION_ORDER
+    const visible = sectionLayout.filter(s => s.visible).map(s => s.key)
+    // Append any default keys not in stored layout
+    for (const k of DEFAULT_SECTION_ORDER) {
+      if (!sectionLayout.find(s => s.key === k)) visible.push(k)
+    }
+    return visible
+  })()
+
+  function renderSection(key: string) {
+    switch (key) {
+      case 'events':
+        return (openEvents.length > 0 || inSeasonEvents.length > 0) ? (
+          <div key="events">
+            {openEvents.length > 0 && (
+              <section className="max-w-5xl mx-auto w-full px-6 py-12">
+                <h2 className="text-2xl sm:text-3xl font-bold mb-6 uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+                  Open for Registration
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {openEvents.map((league) => (
+                    <EventCard key={league.id} league={league} teamCount={teamCountMap.get(league.id) ?? 0} />
+                  ))}
+                </div>
+              </section>
+            )}
+            {inSeasonEvents.length > 0 && (
+              <section className="max-w-5xl mx-auto w-full px-6 py-8">
+                <h2 className="text-xl sm:text-2xl font-bold mb-4 uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+                  In Season
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {inSeasonEvents.map((league) => (
+                    <Link
+                      key={league.id}
+                      href={`/events/${league.slug}`}
+                      className="block bg-white rounded-xl border border-gray-100 p-5 hover:shadow-sm transition-shadow"
+                    >
+                      <h3 className="font-bold" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</h3>
+                      <p className="text-sm text-gray-500 mt-1 capitalize">{EVENT_TYPE_LABELS[league.event_type ?? 'league'] ?? league.event_type}</p>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        ) : null
+
+      case 'about':
+        return aboutContent.body ? (
+          <section key="about" className="max-w-5xl mx-auto w-full px-6 py-12">
+            <div className="bg-white rounded-2xl border border-gray-100 p-8 sm:p-10">
+              <h2
+                className="text-2xl sm:text-3xl font-bold mb-4 uppercase"
+                style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-secondary)' }}
+              >
+                {aboutContent.title || 'About Us'}
+              </h2>
+              <p className="text-gray-600 leading-relaxed whitespace-pre-wrap text-sm sm:text-base">
+                {aboutContent.body}
+              </p>
+            </div>
+          </section>
+        ) : null
+
+      case 'staff':
+        return staff.length > 0 ? (
+          <section key="staff" className="max-w-5xl mx-auto w-full px-6 py-12">
+            <h2
+              className="text-2xl sm:text-3xl font-bold mb-8 uppercase"
+              style={{ fontFamily: 'var(--brand-heading-font)' }}
+            >
+              Meet the Team
+            </h2>
+            <div className="flex flex-wrap justify-center gap-8 sm:gap-10">
+              {staff.map((member) => (
+                <StaffAvatar key={member.id} member={member} />
+              ))}
+            </div>
+          </section>
+        ) : null
+
+      case 'photos':
+        return photos.length > 0 ? (
+          <section key="photos" className="max-w-5xl mx-auto w-full px-6 py-12">
+            <h2
+              className="text-2xl sm:text-3xl font-bold mb-6 uppercase"
+              style={{ fontFamily: 'var(--brand-heading-font)' }}
+            >
+              Gallery
+            </h2>
+            <div className="columns-2 sm:columns-3 gap-3 space-y-3">
+              {photos.map((photo) => (
+                <div key={photo.id} className="break-inside-avoid rounded-xl overflow-hidden group relative">
+                  <Image
+                    src={photo.url}
+                    alt={photo.caption ?? 'Gallery photo'}
+                    width={600}
+                    height={400}
+                    className="w-full object-cover"
+                    unoptimized
+                  />
+                  {photo.caption && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-3 py-2 translate-y-full group-hover:translate-y-0 transition-transform">
+                      <p className="text-white text-xs">{photo.caption}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null
+
+      default:
+        return null
+    }
+  }
+
+  const sections = orderedKeys.map(renderSection).filter(Boolean)
+  const hasNoEvents = openEvents.length === 0 && inSeasonEvents.length === 0
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
 
-      {/* ── Hero ── */}
+      {/* ── Hero (always first) ── */}
       <section
         className="relative py-24 px-6 text-white"
         style={{ backgroundColor: 'var(--brand-secondary)' }}
@@ -181,26 +304,14 @@ export function CommunityHome({
           {branding?.logo_url && (
             <div className="mb-6 flex justify-center">
               <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full ring-4 ring-white/20 overflow-hidden">
-                <Image
-                  src={branding.logo_url}
-                  alt={org.name}
-                  width={112}
-                  height={112}
-                  className="w-full h-full object-contain"
-                  unoptimized
-                />
+                <Image src={branding.logo_url} alt={org.name} width={112} height={112} className="w-full h-full object-contain" unoptimized />
               </div>
             </div>
           )}
-          <h1
-            className="text-5xl md:text-7xl font-bold uppercase tracking-tight"
-            style={{ fontFamily: 'var(--brand-heading-font)' }}
-          >
+          <h1 className="text-5xl md:text-7xl font-bold uppercase tracking-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>
             {headline}
           </h1>
-          {subheadline && (
-            <p className="mt-4 text-xl md:text-2xl opacity-80">{subheadline}</p>
-          )}
+          {subheadline && <p className="mt-4 text-xl md:text-2xl opacity-80">{subheadline}</p>}
           <Link
             href={ctaHref}
             className="inline-block mt-8 px-8 py-3 rounded-md font-semibold text-lg text-white transition-opacity hover:opacity-90 active:opacity-80"
@@ -211,111 +322,14 @@ export function CommunityHome({
         </div>
       </section>
 
-      {/* ── Open for Registration ── */}
-      {openEvents.length > 0 && (
-        <section className="max-w-5xl mx-auto w-full px-6 py-12">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-6 uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-            Open for Registration
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {openEvents.map((league) => (
-              <EventCard key={league.id} league={league} teamCount={teamCountMap.get(league.id) ?? 0} />
-            ))}
-          </div>
-        </section>
-      )}
+      {/* ── Dynamic sections in stored order ── */}
+      {sections}
 
-      {/* ── In Season ── */}
-      {inSeasonEvents.length > 0 && (
-        <section className="max-w-5xl mx-auto w-full px-6 py-8">
-          <h2 className="text-xl sm:text-2xl font-bold mb-4 uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-            In Season
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {inSeasonEvents.map((league) => (
-              <Link
-                key={league.id}
-                href={`/events/${league.slug}`}
-                className="block bg-white rounded-xl border border-gray-100 p-5 hover:shadow-sm transition-shadow"
-              >
-                <h3 className="font-bold" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</h3>
-                <p className="text-sm text-gray-500 mt-1 capitalize">{EVENT_TYPE_LABELS[league.event_type ?? 'league'] ?? league.event_type}</p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Empty state */}
-      {openEvents.length === 0 && inSeasonEvents.length === 0 && (
+      {/* Empty state only when events section is visible but both lists are empty */}
+      {hasNoEvents && orderedKeys.includes('events') && (
         <section className="max-w-5xl mx-auto w-full px-6 py-20 text-center">
           <p className="text-gray-400 text-lg">No events currently open.</p>
           <p className="text-gray-300 text-sm mt-1">Check back soon or contact the organizer.</p>
-        </section>
-      )}
-
-      {/* ── About ── */}
-      {aboutContent.body && (
-        <section className="max-w-5xl mx-auto w-full px-6 py-12">
-          <div className="bg-white rounded-2xl border border-gray-100 p-8 sm:p-10">
-            <h2
-              className="text-2xl sm:text-3xl font-bold mb-4 uppercase"
-              style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-secondary)' }}
-            >
-              {aboutContent.title || 'About Us'}
-            </h2>
-            <p className="text-gray-600 leading-relaxed whitespace-pre-wrap text-sm sm:text-base">
-              {aboutContent.body}
-            </p>
-          </div>
-        </section>
-      )}
-
-      {/* ── Meet the Team ── */}
-      {staff.length > 0 && (
-        <section className="max-w-5xl mx-auto w-full px-6 py-12">
-          <h2
-            className="text-2xl sm:text-3xl font-bold mb-8 uppercase"
-            style={{ fontFamily: 'var(--brand-heading-font)' }}
-          >
-            Meet the Team
-          </h2>
-          <div className="flex flex-wrap justify-center gap-8 sm:gap-10">
-            {staff.map((member) => (
-              <StaffAvatar key={member.id} member={member} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── Photo Gallery ── */}
-      {photos.length > 0 && (
-        <section className="max-w-5xl mx-auto w-full px-6 py-12">
-          <h2
-            className="text-2xl sm:text-3xl font-bold mb-6 uppercase"
-            style={{ fontFamily: 'var(--brand-heading-font)' }}
-          >
-            Gallery
-          </h2>
-          <div className="columns-2 sm:columns-3 gap-3 space-y-3">
-            {photos.map((photo) => (
-              <div key={photo.id} className="break-inside-avoid rounded-xl overflow-hidden group relative">
-                <Image
-                  src={photo.url}
-                  alt={photo.caption ?? 'Gallery photo'}
-                  width={600}
-                  height={400}
-                  className="w-full object-cover"
-                  unoptimized
-                />
-                {photo.caption && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-3 py-2 translate-y-full group-hover:translate-y-0 transition-transform">
-                    <p className="text-white text-xs">{photo.caption}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
         </section>
       )}
 

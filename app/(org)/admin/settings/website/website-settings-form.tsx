@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -8,6 +8,7 @@ import { saveWebsiteSettings } from '@/actions/website'
 import Link from 'next/link'
 
 type Theme = 'community' | 'club' | 'pro'
+type SectionItem = { key: string; label: string; visible: boolean }
 
 const schema = z.object({
   site_theme: z.enum(['community', 'club', 'pro']),
@@ -44,14 +45,63 @@ const THEMES: { id: Theme; label: string; description: string; available: boolea
   },
 ]
 
+// Sections available per theme (hero is always pinned first and not shown here)
+const THEME_SECTIONS: Record<Theme, SectionItem[]> = {
+  community: [
+    { key: 'events',   label: 'Events (Open & In Season)', visible: true },
+    { key: 'about',    label: 'About',                     visible: true },
+    { key: 'staff',    label: 'Meet the Team',             visible: true },
+    { key: 'photos',   label: 'Photo Gallery',             visible: true },
+  ],
+  club: [
+    { key: 'events',   label: 'Events (Open & In Season)', visible: true },
+    { key: 'about',    label: 'About',                     visible: true },
+    { key: 'staff',    label: 'Our Team',                  visible: true },
+    { key: 'sponsors', label: 'Sponsors',                  visible: true },
+  ],
+  pro: [
+    { key: 'results',  label: 'Recent Results',            visible: true },
+    { key: 'events',   label: 'Events & Active Leagues',   visible: true },
+    { key: 'staff',    label: 'The Team',                  visible: true },
+    { key: 'sponsors', label: 'Sponsors',                  visible: true },
+  ],
+}
+
+/** Merge stored order/visibility with theme defaults.
+ *  - Use stored order for keys that exist in both
+ *  - Append any new defaults not yet in stored
+ *  - Drop keys from stored that don't belong to this theme */
+function resolveLayout(
+  stored: { key: string; visible: boolean }[] | null,
+  theme: Theme
+): SectionItem[] {
+  const defaults = THEME_SECTIONS[theme]
+  if (!stored || stored.length === 0) return defaults.map(s => ({ ...s }))
+
+  const result: SectionItem[] = []
+  // Stored order, filtered to valid keys for this theme
+  for (const s of stored) {
+    const def = defaults.find(d => d.key === s.key)
+    if (def) result.push({ ...def, visible: s.visible })
+  }
+  // Append any new defaults not in stored
+  for (const def of defaults) {
+    if (!result.find(r => r.key === def.key)) {
+      result.push({ ...def })
+    }
+  }
+  return result
+}
+
 interface Props {
   currentTheme: Theme
   orgSlug: string
   heroContent: { headline?: string; subheadline?: string; cta_label?: string; cta_href?: string }
   aboutContent: { title?: string; body?: string }
+  savedSections: { key: string; visible: boolean }[] | null
 }
 
-export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutContent }: Props) {
+export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutContent, savedSections }: Props) {
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -72,11 +122,63 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
   const selectedTheme = watch('site_theme')
   const aboutBody = watch('about_body') ?? ''
 
+  // Section layout state — re-initialise when theme changes
+  const [sections, setSections] = useState<SectionItem[]>(() =>
+    resolveLayout(savedSections, currentTheme)
+  )
+  const prevTheme = useRef(selectedTheme)
+  useEffect(() => {
+    if (selectedTheme !== prevTheme.current) {
+      // Carry over visibility preferences for keys shared between themes
+      const next = resolveLayout(
+        sections.map(s => ({ key: s.key, visible: s.visible })),
+        selectedTheme
+      )
+      setSections(next)
+      prevTheme.current = selectedTheme
+    }
+  }, [selectedTheme, sections])
+
+  // ── Drag-to-reorder ──────────────────────────────────────────────────────
+  const dragKey = useRef<string | null>(null)
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null)
+
+  function handleDragStart(key: string) {
+    dragKey.current = key
+  }
+  function handleDragOver(e: React.DragEvent, key: string) {
+    e.preventDefault()
+    if (dragKey.current && dragKey.current !== key) setDragOverKey(key)
+  }
+  function handleDrop(targetKey: string) {
+    const fromKey = dragKey.current
+    if (!fromKey || fromKey === targetKey) { dragKey.current = null; setDragOverKey(null); return }
+    const from = sections.findIndex(s => s.key === fromKey)
+    const to   = sections.findIndex(s => s.key === targetKey)
+    const reordered = [...sections]
+    const [moved] = reordered.splice(from, 1)
+    reordered.splice(to, 0, moved)
+    setSections(reordered)
+    dragKey.current = null
+    setDragOverKey(null)
+  }
+  function handleDragEnd() {
+    dragKey.current = null
+    setDragOverKey(null)
+  }
+
+  function toggleVisible(key: string) {
+    setSections(prev => prev.map(s => s.key === key ? { ...s, visible: !s.visible } : s))
+  }
+
   async function onSubmit(data: FormData) {
     setLoading(true)
     setSaved(false)
     setSaveError(null)
-    const result = await saveWebsiteSettings(data)
+    const result = await saveWebsiteSettings({
+      ...data,
+      sections: sections.map(s => ({ key: s.key, visible: s.visible })),
+    })
     setLoading(false)
     if (result.error) {
       setSaveError(result.error)
@@ -85,6 +187,8 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
       setTimeout(() => setSaved(false), 3000)
     }
   }
+
+  void orgSlug // available for future use (preview link)
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -144,6 +248,71 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
           })}
         </div>
         <input type="hidden" {...register('site_theme')} />
+      </div>
+
+      {/* ── Page Sections ── */}
+      <div className="bg-white rounded-lg border p-5 space-y-4">
+        <div>
+          <h2 className="font-semibold">Page Sections</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Drag to reorder · toggle the eye to show or hide each section.
+            The <span className="font-medium text-gray-700">Hero</span> is always pinned at the top.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          {/* Hero — always pinned, not draggable */}
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-100 bg-gray-50 select-none">
+            <span className="text-gray-300 w-4 text-center text-lg leading-none">⠿</span>
+            <span className="flex-1 text-sm font-medium text-gray-400">Hero (always first)</span>
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-200 text-gray-400 uppercase tracking-wide">Pinned</span>
+          </div>
+
+          {sections.map((section) => (
+            <div
+              key={section.key}
+              draggable
+              onDragStart={() => handleDragStart(section.key)}
+              onDragOver={(e) => handleDragOver(e, section.key)}
+              onDrop={() => handleDrop(section.key)}
+              onDragEnd={handleDragEnd}
+              className={[
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all cursor-grab active:cursor-grabbing select-none',
+                dragOverKey === section.key
+                  ? 'border-orange-300 bg-orange-50 shadow-sm'
+                  : 'border-gray-200 bg-white hover:border-gray-300',
+                !section.visible ? 'opacity-50' : '',
+              ].join(' ')}
+            >
+              {/* Drag handle */}
+              <span className="text-gray-400 w-4 text-center text-lg leading-none">⠿</span>
+
+              {/* Label */}
+              <span className={`flex-1 text-sm font-medium ${section.visible ? 'text-gray-700' : 'text-gray-400 line-through'}`}>
+                {section.label}
+              </span>
+
+              {/* Visibility toggle */}
+              <button
+                type="button"
+                onClick={() => toggleVisible(section.key)}
+                title={section.visible ? 'Hide section' : 'Show section'}
+                className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded"
+              >
+                {section.visible ? (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── Hero Section ── */}

@@ -8,6 +8,8 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 
+const sectionItemSchema = z.object({ key: z.string(), visible: z.boolean() })
+
 const websiteSettingsSchema = z.object({
   site_theme: z.enum(['community', 'club', 'pro']),
   hero_headline: z.string().max(120).optional(),
@@ -16,6 +18,7 @@ const websiteSettingsSchema = z.object({
   hero_cta_href: z.string().max(200).optional(),
   about_title: z.string().max(80).optional(),
   about_body: z.string().max(2000).optional(),
+  sections: z.array(sectionItemSchema).optional(),
 })
 
 export async function saveWebsiteSettings(input: z.infer<typeof websiteSettingsSchema>) {
@@ -40,40 +43,33 @@ export async function saveWebsiteSettings(input: z.infer<typeof websiteSettingsS
 
   const now = new Date().toISOString()
 
-  // Upsert hero + about section content in parallel
-  const [{ error: heroErr }, { error: aboutErr }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Upsert hero + about + section_layout in parallel
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const upsert = (key: string, content: Record<string, unknown>) =>
     (db as any).from('org_site_content').upsert(
-      {
-        organization_id: org.id,
-        section_key: 'hero',
-        content: {
-          headline: parsed.data.hero_headline ?? '',
-          subheadline: parsed.data.hero_subheadline ?? '',
-          cta_label: parsed.data.hero_cta_label ?? '',
-          cta_href: parsed.data.hero_cta_href ?? '',
-        },
-        updated_at: now,
-      },
+      { organization_id: org.id, section_key: key, content, updated_at: now },
       { onConflict: 'organization_id,section_key' }
-    ),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_site_content').upsert(
-      {
-        organization_id: org.id,
-        section_key: 'about',
-        content: {
-          title: parsed.data.about_title ?? '',
-          body: parsed.data.about_body ?? '',
-        },
-        updated_at: now,
-      },
-      { onConflict: 'organization_id,section_key' }
-    ),
-  ])
+    )
 
-  if (heroErr) return { error: heroErr.message }
-  if (aboutErr) return { error: aboutErr.message }
+  const upserts = [
+    upsert('hero', {
+      headline:    parsed.data.hero_headline    ?? '',
+      subheadline: parsed.data.hero_subheadline ?? '',
+      cta_label:   parsed.data.hero_cta_label   ?? '',
+      cta_href:    parsed.data.hero_cta_href     ?? '',
+    }),
+    upsert('about', {
+      title: parsed.data.about_title ?? '',
+      body:  parsed.data.about_body  ?? '',
+    }),
+    ...(parsed.data.sections
+      ? [upsert('section_layout', { sections: parsed.data.sections })]
+      : []),
+  ]
+
+  const results = await Promise.all(upserts)
+  const firstErr = results.find(r => r.error)
+  if (firstErr?.error) return { error: firstErr.error.message }
 
   revalidatePath('/')
   revalidatePath('/admin/settings/website')

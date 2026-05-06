@@ -76,6 +76,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
     headline?: string; subheadline?: string; cta_label?: string; cta_href?: string
   }
   const aboutContent = (contentMap.get('about') ?? {}) as { title?: string; body?: string }
+  const sectionLayout = ((contentMap.get('section_layout') ?? {}) as { sections?: { key: string; visible: boolean }[] }).sections ?? null
 
   const orgContext = { id: org.id, slug: org.slug, name: org.name }
   const theme = (branding as unknown as { site_theme?: string })?.site_theme ?? 'community'
@@ -159,6 +160,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           openEvents={openEvents}
           inSeasonEvents={inSeasonEvents}
           teamCountMap={teamCountMap}
+          sectionLayout={sectionLayout}
         />
       )
     case 'pro':
@@ -173,6 +175,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           openEvents={openEvents}
           inSeasonEvents={inSeasonEvents}
           teamCountMap={teamCountMap}
+          sectionLayout={sectionLayout}
         />
       )
     default:
@@ -188,6 +191,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           inSeasonEvents={inSeasonEvents}
           completedEvents={completedEvents}
           teamCountMap={teamCountMap}
+          sectionLayout={sectionLayout}
         />
       )
   }

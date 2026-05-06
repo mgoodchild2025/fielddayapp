@@ -34,6 +34,9 @@ export default async function WebsiteSettingsPage() {
     headline?: string; subheadline?: string; cta_label?: string; cta_href?: string
   }
   const aboutContent = (contentMap.get('about') ?? {}) as { title?: string; body?: string }
+  const sectionLayoutContent = (contentMap.get('section_layout') ?? {}) as {
+    sections?: { key: string; visible: boolean }[]
+  }
 
   return (
     <div className="max-w-2xl">
@@ -43,6 +46,7 @@ export default async function WebsiteSettingsPage() {
         orgSlug={org.slug}
         heroContent={heroContent}
         aboutContent={aboutContent}
+        savedSections={sectionLayoutContent.sections ?? null}
       />
     </div>
   )

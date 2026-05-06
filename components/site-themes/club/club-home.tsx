@@ -24,6 +24,9 @@ interface Branding {
   social_tiktok?: string | null
 }
 
+const DEFAULT_SECTION_ORDER = ['events', 'about', 'staff', 'sponsors']
+const TIER_ORDER = ['gold', 'silver', 'bronze', 'standard']
+
 interface ClubHomeProps {
   org: OrgContext & { name: string; slug: string }
   branding: Branding | null
@@ -34,20 +37,16 @@ interface ClubHomeProps {
   openEvents: League[]
   inSeasonEvents: League[]
   teamCountMap: Map<string, number>
+  sectionLayout: { key: string; visible: boolean }[] | null
 }
-
-const TIER_ORDER = ['gold', 'silver', 'bronze', 'standard']
 
 function SponsorStrip({ sponsors }: { sponsors: Sponsor[] }) {
   if (sponsors.length === 0) return null
   const sorted = [...sponsors].sort((a, b) => TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier))
-
   return (
     <section className="border-t py-10 px-6" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <div className="max-w-5xl mx-auto">
-        <p className="text-xs font-semibold uppercase tracking-widest text-center text-gray-400 mb-6">
-          Our Sponsors
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-center text-gray-400 mb-6">Our Sponsors</p>
         <div className="flex flex-wrap items-center justify-center gap-8">
           {sorted.map((s) => {
             const el = s.logo_url ? (
@@ -99,17 +98,117 @@ function StaffRow({ staff }: { staff: StaffMember[] }) {
   )
 }
 
-export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, staff, openEvents, inSeasonEvents, teamCountMap }: ClubHomeProps) {
-  const headline = heroContent.headline || org.name
+export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, staff, openEvents, inSeasonEvents, teamCountMap, sectionLayout }: ClubHomeProps) {
+  const headline    = heroContent.headline    || org.name
   const subheadline = heroContent.subheadline || branding?.tagline || null
-  const ctaLabel = heroContent.cta_label || 'Register Now'
-  const ctaHref = heroContent.cta_href || '/events'
+  const ctaLabel    = heroContent.cta_label   || 'Register Now'
+  const ctaHref     = heroContent.cta_href    || '/events'
+
+  const orderedKeys = (() => {
+    if (!sectionLayout || sectionLayout.length === 0) return DEFAULT_SECTION_ORDER
+    const visible = sectionLayout.filter(s => s.visible).map(s => s.key)
+    for (const k of DEFAULT_SECTION_ORDER) {
+      if (!sectionLayout.find(s => s.key === k)) visible.push(k)
+    }
+    return visible
+  })()
+
+  function renderSection(key: string) {
+    switch (key) {
+      case 'events':
+        return (openEvents.length > 0 || inSeasonEvents.length > 0) ? (
+          <div key="events">
+            {openEvents.length > 0 && (
+              <section className="max-w-5xl mx-auto w-full px-6 py-12">
+                <h2 className="text-xl font-bold mb-5 uppercase tracking-wide" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+                  Open for Registration
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {openEvents.map((league) => {
+                    const isPerTeam = league.payment_mode === 'per_team'
+                    const teamCount = teamCountMap.get(league.id) ?? 0
+                    const atCapacity = isPerTeam && league.max_teams !== null && teamCount >= league.max_teams
+                    return (
+                      <Link key={league.id} href={`/events/${league.slug}`}
+                        className="group block bg-white border rounded-xl p-5 hover:border-gray-300 hover:shadow-sm transition-all"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full capitalize" style={{ backgroundColor: 'var(--brand-primary)', color: 'white' }}>
+                            {league.event_type ?? 'league'}
+                          </span>
+                          {atCapacity
+                            ? <span className="text-xs text-amber-600 font-medium">Teams Full</span>
+                            : <span className="text-xs text-green-600 font-medium">Open</span>}
+                        </div>
+                        <h3 className="font-bold text-base leading-snug" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</h3>
+                        {league.season_start_date && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            {new Date(league.season_start_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </p>
+                        )}
+                        <p className="mt-3 text-sm font-semibold group-hover:underline" style={{ color: 'var(--brand-primary)' }}>
+                          {league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency ?? 'CAD'}`} →
+                        </p>
+                      </Link>
+                    )
+                  })}
+                </div>
+              </section>
+            )}
+            {inSeasonEvents.length > 0 && (
+              <section className="max-w-5xl mx-auto w-full px-6 pb-10">
+                <h2 className="text-xl font-bold mb-5 uppercase tracking-wide" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+                  In Season
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {inSeasonEvents.map((league) => (
+                    <Link key={league.id} href={`/events/${league.slug}`}
+                      className="flex items-center justify-between bg-white border rounded-xl px-5 py-4 hover:shadow-sm transition-shadow"
+                    >
+                      <div>
+                        <p className="font-semibold text-sm" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</p>
+                        <p className="text-xs text-gray-400 mt-0.5 capitalize">{league.event_type ?? 'league'}</p>
+                      </div>
+                      <span className="text-xs text-gray-400">Standings →</span>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        ) : null
+
+      case 'about':
+        return aboutContent.body ? (
+          <section key="about" className="border-t py-12 px-6" style={{ backgroundColor: 'white' }}>
+            <div className="max-w-3xl mx-auto">
+              <h2 className="text-xl font-bold mb-4 uppercase tracking-wide" style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-secondary)' }}>
+                {aboutContent.title || 'About'}
+              </h2>
+              <p className="text-gray-600 leading-relaxed whitespace-pre-wrap text-sm sm:text-base">{aboutContent.body}</p>
+            </div>
+          </section>
+        ) : null
+
+      case 'staff':
+        return staff.length > 0 ? <StaffRow key="staff" staff={staff} /> : null
+
+      case 'sponsors':
+        return sponsors.length > 0 ? <SponsorStrip key="sponsors" sponsors={sponsors} /> : null
+
+      default:
+        return null
+    }
+  }
+
+  const sections = orderedKeys.map(renderSection).filter(Boolean)
+  const hasNoEvents = openEvents.length === 0 && inSeasonEvents.length === 0
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
 
-      {/* ── Hero — accent stripe, not full screen ── */}
+      {/* ── Hero ── */}
       <section className="relative py-16 sm:py-20 px-6" style={{ backgroundColor: 'var(--brand-primary)' }}>
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center gap-8">
           {branding?.logo_url && (
@@ -123,15 +222,13 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
             </h1>
             {subheadline && <p className="mt-2 text-white/80 text-lg">{subheadline}</p>}
             <div className="mt-6 flex flex-wrap gap-3 justify-center sm:justify-start">
-              <Link
-                href={ctaHref}
+              <Link href={ctaHref}
                 className="px-6 py-2.5 rounded-md font-semibold text-sm transition-opacity hover:opacity-90"
                 style={{ backgroundColor: 'var(--brand-secondary)', color: 'white', fontFamily: 'var(--brand-heading-font)' }}
               >
                 {ctaLabel}
               </Link>
-              <Link
-                href="/schedule"
+              <Link href="/schedule"
                 className="px-6 py-2.5 rounded-md font-semibold text-sm bg-white/15 text-white hover:bg-white/25 transition-colors"
               >
                 View Schedule
@@ -145,14 +242,8 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
       <div className="border-b bg-white">
         <div className="max-w-5xl mx-auto px-6">
           <div className="flex overflow-x-auto gap-0 -mb-px">
-            {[
-              { href: '/events', label: 'Events' },
-              { href: '/schedule', label: 'Schedule' },
-              { href: '/standings', label: 'Standings' },
-            ].map(({ href, label }) => (
-              <Link
-                key={href}
-                href={href}
+            {[{ href: '/events', label: 'Events' }, { href: '/schedule', label: 'Schedule' }, { href: '/standings', label: 'Standings' }].map(({ href, label }) => (
+              <Link key={href} href={href}
                 className="shrink-0 px-5 py-3.5 text-sm font-medium text-gray-500 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors"
               >
                 {label}
@@ -162,92 +253,16 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
         </div>
       </div>
 
-      {/* ── Open for Registration ── */}
-      {openEvents.length > 0 && (
-        <section className="max-w-5xl mx-auto w-full px-6 py-12">
-          <h2 className="text-xl font-bold mb-5 uppercase tracking-wide" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-            Open for Registration
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {openEvents.map((league) => {
-              const isPerTeam = league.payment_mode === 'per_team'
-              const teamCount = teamCountMap.get(league.id) ?? 0
-              const atCapacity = isPerTeam && league.max_teams !== null && teamCount >= league.max_teams
-              return (
-                <Link
-                  key={league.id}
-                  href={`/events/${league.slug}`}
-                  className="group block bg-white border rounded-xl p-5 hover:border-gray-300 hover:shadow-sm transition-all"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-full capitalize" style={{ backgroundColor: 'var(--brand-primary)', color: 'white' }}>
-                      {league.event_type ?? 'league'}
-                    </span>
-                    {atCapacity
-                      ? <span className="text-xs text-amber-600 font-medium">Teams Full</span>
-                      : <span className="text-xs text-green-600 font-medium">Open</span>}
-                  </div>
-                  <h3 className="font-bold text-base leading-snug" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</h3>
-                  {league.season_start_date && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      {new Date(league.season_start_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </p>
-                  )}
-                  <p className="mt-3 text-sm font-semibold group-hover:underline" style={{ color: 'var(--brand-primary)' }}>
-                    {league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency ?? 'CAD'}`} →
-                  </p>
-                </Link>
-              )
-            })}
-          </div>
-        </section>
-      )}
+      {/* ── Dynamic sections ── */}
+      {sections}
 
-      {/* ── In Season ── */}
-      {inSeasonEvents.length > 0 && (
-        <section className="max-w-5xl mx-auto w-full px-6 pb-10">
-          <h2 className="text-xl font-bold mb-5 uppercase tracking-wide" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-            In Season
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {inSeasonEvents.map((league) => (
-              <Link
-                key={league.id}
-                href={`/events/${league.slug}`}
-                className="flex items-center justify-between bg-white border rounded-xl px-5 py-4 hover:shadow-sm transition-shadow"
-              >
-                <div>
-                  <p className="font-semibold text-sm" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 capitalize">{league.event_type ?? 'league'}</p>
-                </div>
-                <span className="text-xs text-gray-400">Standings →</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── About ── */}
-      {aboutContent.body && (
-        <section className="border-t py-12 px-6" style={{ backgroundColor: 'white' }}>
-          <div className="max-w-3xl mx-auto">
-            <h2 className="text-xl font-bold mb-4 uppercase tracking-wide" style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-secondary)' }}>
-              {aboutContent.title || 'About'}
-            </h2>
-            <p className="text-gray-600 leading-relaxed whitespace-pre-wrap text-sm sm:text-base">{aboutContent.body}</p>
-          </div>
-        </section>
-      )}
-
-      {openEvents.length === 0 && inSeasonEvents.length === 0 && (
+      {hasNoEvents && orderedKeys.includes('events') && (
         <section className="max-w-5xl mx-auto w-full px-6 py-20 text-center">
           <p className="text-gray-400">No events currently open. Check back soon.</p>
         </section>
       )}
 
       <div className="flex-1" />
-      <StaffRow staff={staff} />
-      <SponsorStrip sponsors={sponsors} />
       <Footer org={org} social={branding} />
     </div>
   )
