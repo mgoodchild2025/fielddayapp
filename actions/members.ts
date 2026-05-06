@@ -36,7 +36,7 @@ export async function changeMemberRole(memberId: string, newRole: OrgRole) {
 
   if (error) return { error: error.message }
 
-  revalidatePath('/admin/users')
+  revalidatePath('/admin/players')
   return { error: null }
 }
 
@@ -66,7 +66,7 @@ export async function suspendMember(memberId: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath('/admin/users')
+  revalidatePath('/admin/players')
   return { error: null }
 }
 
@@ -96,7 +96,7 @@ export async function reinstateMember(memberId: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath('/admin/users')
+  revalidatePath('/admin/players')
   return { error: null }
 }
 
@@ -170,7 +170,7 @@ export async function deleteMember(memberId: string) {
     }
   }
 
-  revalidatePath('/admin/users')
+  revalidatePath('/admin/players')
   return { error: null }
 }
 
