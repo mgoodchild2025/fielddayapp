@@ -4,6 +4,8 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import type { OrgContext } from '@/lib/tenant'
 
+type Photo = { id: string; url: string; caption: string | null; display_order: number }
+
 type League = {
   id: string
   name: string
@@ -26,6 +28,11 @@ type HeroContent = {
   cta_href?: string
 }
 
+type AboutContent = {
+  title?: string
+  body?: string
+}
+
 interface CommunityHomeProps {
   org: OrgContext & { name: string; slug: string }
   branding: {
@@ -34,6 +41,8 @@ interface CommunityHomeProps {
     logo_url: string | null
   } | null
   heroContent: HeroContent
+  aboutContent: AboutContent
+  photos: Photo[]
   openEvents: League[]
   inSeasonEvents: League[]
   completedEvents: League[]
@@ -108,6 +117,8 @@ export function CommunityHome({
   org,
   branding,
   heroContent,
+  aboutContent,
+  photos,
   openEvents,
   inSeasonEvents,
   completedEvents,
@@ -204,9 +215,57 @@ export function CommunityHome({
 
       {/* Empty state */}
       {openEvents.length === 0 && inSeasonEvents.length === 0 && (
-        <section className="max-w-5xl mx-auto w-full px-6 py-20 text-center flex-1">
+        <section className="max-w-5xl mx-auto w-full px-6 py-20 text-center">
           <p className="text-gray-400 text-lg">No events currently open.</p>
           <p className="text-gray-300 text-sm mt-1">Check back soon or contact the organizer.</p>
+        </section>
+      )}
+
+      {/* ── About ── */}
+      {aboutContent.body && (
+        <section className="max-w-5xl mx-auto w-full px-6 py-12">
+          <div className="bg-white rounded-2xl border border-gray-100 p-8 sm:p-10">
+            <h2
+              className="text-2xl sm:text-3xl font-bold mb-4 uppercase"
+              style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-secondary)' }}
+            >
+              {aboutContent.title || 'About Us'}
+            </h2>
+            <p className="text-gray-600 leading-relaxed whitespace-pre-wrap text-sm sm:text-base">
+              {aboutContent.body}
+            </p>
+          </div>
+        </section>
+      )}
+
+      {/* ── Photo Gallery ── */}
+      {photos.length > 0 && (
+        <section className="max-w-5xl mx-auto w-full px-6 py-12">
+          <h2
+            className="text-2xl sm:text-3xl font-bold mb-6 uppercase"
+            style={{ fontFamily: 'var(--brand-heading-font)' }}
+          >
+            Gallery
+          </h2>
+          <div className="columns-2 sm:columns-3 gap-3 space-y-3">
+            {photos.map((photo) => (
+              <div key={photo.id} className="break-inside-avoid rounded-xl overflow-hidden group relative">
+                <Image
+                  src={photo.url}
+                  alt={photo.caption ?? 'Gallery photo'}
+                  width={600}
+                  height={400}
+                  className="w-full object-cover"
+                  unoptimized
+                />
+                {photo.caption && (
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-3 py-2 translate-y-full group-hover:translate-y-0 transition-transform">
+                    <p className="text-white text-xs">{photo.caption}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </section>
       )}
 

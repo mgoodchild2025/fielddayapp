@@ -33,6 +33,7 @@ export default async function WebsiteSettingsPage() {
   const heroContent = (contentMap.get('hero') ?? {}) as {
     headline?: string; subheadline?: string; cta_label?: string; cta_href?: string
   }
+  const aboutContent = (contentMap.get('about') ?? {}) as { title?: string; body?: string }
 
   return (
     <div className="max-w-2xl">
@@ -41,6 +42,7 @@ export default async function WebsiteSettingsPage() {
         currentTheme={currentTheme}
         orgSlug={org.slug}
         heroContent={heroContent}
+        aboutContent={aboutContent}
       />
     </div>
   )

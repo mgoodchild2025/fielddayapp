@@ -6,7 +6,7 @@ import { CommunityHome } from '@/components/site-themes/community/community-home
 async function OrgHomePage({ orgId }: { orgId: string }) {
   const supabase = await createServerClient()
 
-  const [{ data: org }, { data: branding }, { data: leagues }, { data: siteContent }] = await Promise.all([
+  const [{ data: org }, { data: branding }, { data: leagues }, { data: siteContent }, { data: photos }] = await Promise.all([
     supabase.from('organizations').select('id, slug, name').eq('id', orgId).single(),
     supabase.from('org_branding')
       .select('tagline, hero_image_url, logo_url, site_theme')
@@ -24,6 +24,13 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
       .from('org_site_content')
       .select('section_key, content')
       .eq('organization_id', orgId),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('org_photos')
+      .select('id, url, caption, display_order')
+      .eq('organization_id', orgId)
+      .order('display_order', { ascending: true })
+      .limit(24),
   ])
 
   if (!org) return <MarketingPage />
@@ -35,6 +42,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
   const heroContent = (contentMap.get('hero') ?? {}) as {
     headline?: string; subheadline?: string; cta_label?: string; cta_href?: string
   }
+  const aboutContent = (contentMap.get('about') ?? {}) as { title?: string; body?: string }
 
   const orgContext = { id: org.id, slug: org.slug, name: org.name }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,6 +75,8 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
       ? { tagline: branding.tagline, hero_image_url: branding.hero_image_url, logo_url: branding.logo_url }
       : null,
     heroContent,
+    aboutContent,
+    photos: (photos ?? []) as { id: string; url: string; caption: string | null; display_order: number }[],
     openEvents,
     inSeasonEvents,
     completedEvents,

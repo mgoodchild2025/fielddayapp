@@ -14,6 +14,8 @@ const websiteSettingsSchema = z.object({
   hero_subheadline: z.string().max(200).optional(),
   hero_cta_label: z.string().max(40).optional(),
   hero_cta_href: z.string().max(200).optional(),
+  about_title: z.string().max(80).optional(),
+  about_body: z.string().max(2000).optional(),
 })
 
 export async function saveWebsiteSettings(input: z.infer<typeof websiteSettingsSchema>) {
@@ -36,22 +38,42 @@ export async function saveWebsiteSettings(input: z.infer<typeof websiteSettingsS
     )
   if (brandingErr) return { error: brandingErr.message }
 
-  // Upsert hero section content
-  const heroContent = {
-    headline: parsed.data.hero_headline ?? '',
-    subheadline: parsed.data.hero_subheadline ?? '',
-    cta_label: parsed.data.hero_cta_label ?? '',
-    cta_href: parsed.data.hero_cta_href ?? '',
-  }
+  const now = new Date().toISOString()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: contentErr } = await (db as any)
-    .from('org_site_content')
-    .upsert(
-      { organization_id: org.id, section_key: 'hero', content: heroContent, updated_at: new Date().toISOString() },
+  // Upsert hero + about section content in parallel
+  const [{ error: heroErr }, { error: aboutErr }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_site_content').upsert(
+      {
+        organization_id: org.id,
+        section_key: 'hero',
+        content: {
+          headline: parsed.data.hero_headline ?? '',
+          subheadline: parsed.data.hero_subheadline ?? '',
+          cta_label: parsed.data.hero_cta_label ?? '',
+          cta_href: parsed.data.hero_cta_href ?? '',
+        },
+        updated_at: now,
+      },
       { onConflict: 'organization_id,section_key' }
-    )
-  if (contentErr) return { error: contentErr.message }
+    ),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_site_content').upsert(
+      {
+        organization_id: org.id,
+        section_key: 'about',
+        content: {
+          title: parsed.data.about_title ?? '',
+          body: parsed.data.about_body ?? '',
+        },
+        updated_at: now,
+      },
+      { onConflict: 'organization_id,section_key' }
+    ),
+  ])
+
+  if (heroErr) return { error: heroErr.message }
+  if (aboutErr) return { error: aboutErr.message }
 
   revalidatePath('/')
   revalidatePath('/admin/settings/website')
