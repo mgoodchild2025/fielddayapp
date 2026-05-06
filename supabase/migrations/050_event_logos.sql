@@ -5,7 +5,7 @@ ALTER TABLE public.leagues ADD COLUMN IF NOT EXISTS logo_url text;
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
   'event-logos', 'event-logos', true,
-  2097152,  -- 2 MB
+  5242880,  -- 5 MB (see migration 051 for update)
   ARRAY['image/jpeg','image/png','image/webp','image/svg+xml']
 )
 ON CONFLICT (id) DO NOTHING;

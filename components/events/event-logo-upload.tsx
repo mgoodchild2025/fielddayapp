@@ -89,7 +89,7 @@ export function EventLogoUpload({ leagueId, logoUrl, sport, name }: Props) {
               Remove
             </button>
           )}
-          <p className="text-xs text-gray-400">JPEG, PNG, WebP, or SVG · Max 2 MB</p>
+          <p className="text-xs text-gray-400">JPEG, PNG, WebP, or SVG · Max 5 MB</p>
         </div>
       </div>
 

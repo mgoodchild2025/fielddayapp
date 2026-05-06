@@ -235,7 +235,7 @@ export async function uploadEventLogo(
 
   const file = formData.get('logo') as File | null
   if (!file || file.size === 0) return { url: null, error: 'No file provided' }
-  if (file.size > 2 * 1024 * 1024) return { url: null, error: 'File must be under 2 MB' }
+  if (file.size > 5 * 1024 * 1024) return { url: null, error: 'File must be under 5 MB' }
   if (!['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'].includes(file.type))
     return { url: null, error: 'JPEG, PNG, WebP, or SVG only' }
 
