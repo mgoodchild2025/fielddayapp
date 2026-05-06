@@ -49,9 +49,12 @@ export function OnboardingChecklist({ data }: { data: OnboardingChecklistData })
   const allComplete    = completedCount === STEPS.length
   const pct            = Math.round((completedCount / STEPS.length) * 100)
 
+  // Local dismissed state — hide immediately on click, fire action in background
+  const [dismissed, setDismissed]     = useState(false)
   // Success banner — show briefly then unmount
   const [showSuccess, setShowSuccess] = useState(false)
   const [gone, setGone]               = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isPending, startTransition]  = useTransition()
 
   useEffect(() => {
@@ -62,9 +65,11 @@ export function OnboardingChecklist({ data }: { data: OnboardingChecklistData })
     }
   }, [allComplete])
 
-  if (gone) return null
+  if (dismissed || gone) return null
 
   function handleDismiss() {
+    // Hide immediately — don't wait for the server round-trip
+    setDismissed(true)
     startTransition(async () => {
       await dismissOnboardingChecklist()
     })
@@ -110,8 +115,7 @@ export function OnboardingChecklist({ data }: { data: OnboardingChecklistData })
         {/* Dismiss */}
         <button
           onClick={handleDismiss}
-          disabled={isPending}
-          className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors disabled:opacity-40 -mt-0.5"
+          className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors -mt-0.5"
           aria-label="Dismiss checklist"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
