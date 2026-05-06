@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { OnboardingChecklist } from '@/components/admin/onboarding-checklist'
 
 export default async function AdminDashboardPage() {
   const headersList = await headers()
@@ -21,14 +22,28 @@ export default async function AdminDashboardPage() {
     { count: memberCount },
     { data: recentPayments },
     { data: activeLeagues },
+    { data: branding },
   ] = await Promise.all([
     supabase.from('leagues').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).neq('status', 'archived'),
     supabase.from('org_members').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).eq('status', 'active'),
     supabase.from('payments').select('amount_cents, currency, status, created_at, user_id').eq('organization_id', org.id).order('created_at', { ascending: false }).limit(5),
     supabase.from('leagues').select('id, name, slug, status').eq('organization_id', org.id).in('status', ['registration_open', 'active']).limit(5),
+    supabase.from('org_branding').select('logo_url, hero_image_url, tagline, site_theme, onboarding_dismissed_at').eq('organization_id', org.id).maybeSingle(),
   ])
 
   const totalRevenue = recentPayments?.filter((p) => p.status === 'paid').reduce((acc, p) => acc + p.amount_cents, 0) ?? 0
+
+  // Onboarding checklist — compute completion and visibility
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const b = branding as any
+  const checklistDismissed = !!b?.onboarding_dismissed_at
+  const checklistData = {
+    logoSet:           !!b?.logo_url,
+    websiteConfigured: !!(b?.site_theme && b.site_theme !== 'community') || !!b?.hero_image_url || !!b?.tagline,
+    eventCreated:      (leagueCount ?? 0) > 0,
+  }
+  const allChecklistDone = checklistData.logoSet && checklistData.websiteConfigured && checklistData.eventCreated
+  const showChecklist = !checklistDismissed && !allChecklistDone
 
   const stats = [
     { label: 'Active Events', shortLabel: 'Events', value: leagueCount ?? 0, href: '/admin/events' },
@@ -39,6 +54,12 @@ export default async function AdminDashboardPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">{org.name} — Dashboard</h1>
+
+      {showChecklist && (
+        <div className="mb-6">
+          <OnboardingChecklist data={checklistData} />
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
         {stats.map((s) => (
