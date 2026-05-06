@@ -8,11 +8,11 @@ import { ProHome } from '@/components/site-themes/pro/pro-home'
 async function OrgHomePage({ orgId }: { orgId: string }) {
   const supabase = await createServerClient()
 
-  const [{ data: org }, { data: branding }, { data: leagues }, { data: siteContent }, { data: photos }, { data: sponsors }, { data: recentResultsRaw }] = await Promise.all([
+  const [{ data: org }, { data: branding }, { data: leagues }, { data: siteContent }, { data: photos }, { data: sponsors }, { data: staff }, { data: recentResultsRaw }] = await Promise.all([
     supabase.from('organizations').select('id, slug, name').eq('id', orgId).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any).from('org_branding')
-      .select('tagline, hero_image_url, logo_url, site_theme')
+      .select('tagline, hero_image_url, logo_url, site_theme, contact_email, social_instagram, social_facebook, social_x, social_tiktok')
       .eq('organization_id', orgId)
       .single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,6 +39,13 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
     (supabase as any)
       .from('org_sponsors')
       .select('id, name, logo_url, website_url, tier, display_order')
+      .eq('organization_id', orgId)
+      .order('display_order'),
+    // Staff for public "Meet the Team" sections
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('org_staff')
+      .select('id, name, role, bio, avatar_url, display_order')
       .eq('organization_id', orgId)
       .order('display_order'),
     // Recent confirmed results for Pro theme
@@ -119,12 +126,23 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
     }))
 
   type Sponsor = { id: string; name: string; logo_url: string | null; website_url: string | null; tier: string; display_order: number }
+  type StaffMember = { id: string; name: string; role: string | null; bio: string | null; avatar_url: string | null; display_order: number }
   const sponsorList = (sponsors ?? []) as Sponsor[]
+  const staffList = (staff ?? []) as StaffMember[]
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const b = branding as any
   const brandingProps = b
-    ? { tagline: b.tagline as string | null, hero_image_url: b.hero_image_url as string | null, logo_url: b.logo_url as string | null }
+    ? {
+        tagline: b.tagline as string | null,
+        hero_image_url: b.hero_image_url as string | null,
+        logo_url: b.logo_url as string | null,
+        contact_email: b.contact_email as string | null,
+        social_instagram: b.social_instagram as string | null,
+        social_facebook: b.social_facebook as string | null,
+        social_x: b.social_x as string | null,
+        social_tiktok: b.social_tiktok as string | null,
+      }
     : null
   const photoList = (photos ?? []) as { id: string; url: string; caption: string | null; display_order: number }[]
 
@@ -137,6 +155,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           heroContent={heroContent}
           aboutContent={aboutContent}
           sponsors={sponsorList}
+          staff={staffList}
           openEvents={openEvents}
           inSeasonEvents={inSeasonEvents}
           teamCountMap={teamCountMap}
@@ -149,6 +168,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           branding={brandingProps}
           heroContent={heroContent}
           sponsors={sponsorList}
+          staff={staffList}
           recentResults={recentResults}
           openEvents={openEvents}
           inSeasonEvents={inSeasonEvents}
@@ -163,6 +183,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           heroContent={heroContent}
           aboutContent={aboutContent}
           photos={photoList}
+          staff={staffList}
           openEvents={openEvents}
           inSeasonEvents={inSeasonEvents}
           completedEvents={completedEvents}

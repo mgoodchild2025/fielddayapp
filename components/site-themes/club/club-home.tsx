@@ -11,13 +11,26 @@ type League = {
   days_of_week: string[] | null
 }
 type Sponsor = { id: string; name: string; logo_url: string | null; website_url: string | null; tier: string }
+type StaffMember = { id: string; name: string; role: string | null; bio: string | null; avatar_url: string | null }
+
+interface Branding {
+  tagline: string | null
+  hero_image_url: string | null
+  logo_url: string | null
+  contact_email?: string | null
+  social_instagram?: string | null
+  social_facebook?: string | null
+  social_x?: string | null
+  social_tiktok?: string | null
+}
 
 interface ClubHomeProps {
   org: OrgContext & { name: string; slug: string }
-  branding: { tagline: string | null; hero_image_url: string | null; logo_url: string | null } | null
+  branding: Branding | null
   heroContent: { headline?: string; subheadline?: string; cta_label?: string; cta_href?: string }
   aboutContent: { title?: string; body?: string }
   sponsors: Sponsor[]
+  staff: StaffMember[]
   openEvents: League[]
   inSeasonEvents: League[]
   teamCountMap: Map<string, number>
@@ -54,7 +67,39 @@ function SponsorStrip({ sponsors }: { sponsors: Sponsor[] }) {
   )
 }
 
-export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, openEvents, inSeasonEvents, teamCountMap }: ClubHomeProps) {
+function StaffRow({ staff }: { staff: StaffMember[] }) {
+  if (staff.length === 0) return null
+  return (
+    <section className="border-t py-12 px-6 bg-gray-50">
+      <div className="max-w-5xl mx-auto">
+        <h2 className="text-xl font-bold mb-6 uppercase tracking-wide" style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-secondary)' }}>
+          Our Team
+        </h2>
+        <div className="flex flex-wrap gap-6">
+          {staff.map((member) => (
+            <div key={member.id} className="flex items-center gap-3 bg-white border rounded-xl px-4 py-3 min-w-[180px]">
+              <div className="shrink-0 w-10 h-10 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--brand-primary)' }}>
+                {member.avatar_url ? (
+                  <Image src={member.avatar_url} alt={member.name} width={40} height={40} className="w-full h-full object-cover" unoptimized />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-sm font-bold text-white">
+                    {member.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-sm truncate">{member.name}</p>
+                {member.role && <p className="text-xs text-gray-500 truncate">{member.role}</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, staff, openEvents, inSeasonEvents, teamCountMap }: ClubHomeProps) {
   const headline = heroContent.headline || org.name
   const subheadline = heroContent.subheadline || branding?.tagline || null
   const ctaLabel = heroContent.cta_label || 'Register Now'
@@ -201,8 +246,9 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, o
       )}
 
       <div className="flex-1" />
+      <StaffRow staff={staff} />
       <SponsorStrip sponsors={sponsors} />
-      <Footer org={org} />
+      <Footer org={org} social={branding} />
     </div>
   )
 }

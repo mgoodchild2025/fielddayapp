@@ -16,12 +16,25 @@ type RecentResult = {
   league_name: string | null; scheduled_at: string
 }
 type Sponsor = { id: string; name: string; logo_url: string | null; website_url: string | null; tier: string }
+type StaffMember = { id: string; name: string; role: string | null; bio: string | null; avatar_url: string | null }
+
+interface Branding {
+  tagline: string | null
+  hero_image_url: string | null
+  logo_url: string | null
+  contact_email?: string | null
+  social_instagram?: string | null
+  social_facebook?: string | null
+  social_x?: string | null
+  social_tiktok?: string | null
+}
 
 interface ProHomeProps {
   org: OrgContext & { name: string; slug: string }
-  branding: { tagline: string | null; hero_image_url: string | null; logo_url: string | null } | null
+  branding: Branding | null
   heroContent: { headline?: string; subheadline?: string; cta_label?: string; cta_href?: string }
   sponsors: Sponsor[]
+  staff: StaffMember[]
   recentResults: RecentResult[]
   openEvents: League[]
   inSeasonEvents: League[]
@@ -81,7 +94,39 @@ function SponsorLogo({ sponsor, size }: { sponsor: Sponsor; size: 'sm' | 'lg' })
     : <div>{el}</div>
 }
 
-export function ProHome({ org, branding, heroContent, sponsors, recentResults, openEvents, inSeasonEvents, teamCountMap }: ProHomeProps) {
+function StaffSection({ staff }: { staff: StaffMember[] }) {
+  if (staff.length === 0) return null
+  return (
+    <section className="py-12 px-6" style={{ backgroundColor: 'var(--brand-bg)' }}>
+      <div className="max-w-5xl mx-auto">
+        <h2 className="text-xl font-black uppercase tracking-wide mb-6" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+          The Team
+        </h2>
+        <div className="flex flex-wrap gap-4">
+          {staff.map((member) => (
+            <div key={member.id} className="flex items-center gap-3 border rounded-xl px-4 py-3 bg-white">
+              <div className="shrink-0 w-9 h-9 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--brand-secondary)' }}>
+                {member.avatar_url ? (
+                  <Image src={member.avatar_url} alt={member.name} width={36} height={36} className="w-full h-full object-cover" unoptimized />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-sm font-black text-white">
+                    {member.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div>
+                <p className="font-bold text-sm uppercase tracking-tight leading-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>{member.name}</p>
+                {member.role && <p className="text-xs text-gray-500">{member.role}</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+export function ProHome({ org, branding, heroContent, sponsors, staff, recentResults, openEvents, inSeasonEvents, teamCountMap }: ProHomeProps) {
   const headline = heroContent.headline || org.name
   const subheadline = heroContent.subheadline || branding?.tagline || null
   const ctaLabel = heroContent.cta_label || 'Register'
@@ -216,8 +261,9 @@ export function ProHome({ org, branding, heroContent, sponsors, recentResults, o
       )}
 
       <div className="flex-1" />
+      <StaffSection staff={staff} />
       <SponsorSection sponsors={sponsors} />
-      <Footer org={org} />
+      <Footer org={org} social={branding} />
     </div>
   )
 }

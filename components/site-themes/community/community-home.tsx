@@ -5,6 +5,7 @@ import { Footer } from '@/components/layout/footer'
 import type { OrgContext } from '@/lib/tenant'
 
 type Photo = { id: string; url: string; caption: string | null; display_order: number }
+type StaffMember = { id: string; name: string; role: string | null; bio: string | null; avatar_url: string | null; display_order: number }
 
 type League = {
   id: string
@@ -33,16 +34,24 @@ type AboutContent = {
   body?: string
 }
 
+interface Branding {
+  tagline: string | null
+  hero_image_url: string | null
+  logo_url: string | null
+  contact_email?: string | null
+  social_instagram?: string | null
+  social_facebook?: string | null
+  social_x?: string | null
+  social_tiktok?: string | null
+}
+
 interface CommunityHomeProps {
   org: OrgContext & { name: string; slug: string }
-  branding: {
-    tagline: string | null
-    hero_image_url: string | null
-    logo_url: string | null
-  } | null
+  branding: Branding | null
   heroContent: HeroContent
   aboutContent: AboutContent
   photos: Photo[]
+  staff: StaffMember[]
   openEvents: League[]
   inSeasonEvents: League[]
   completedEvents: League[]
@@ -113,12 +122,34 @@ function EventCard({ league, teamCount }: { league: League; teamCount: number })
   )
 }
 
+function StaffAvatar({ member }: { member: StaffMember }) {
+  const initial = member.name.charAt(0).toUpperCase()
+  return (
+    <div className="text-center">
+      <div className="w-20 h-20 rounded-full overflow-hidden mx-auto mb-3 ring-2 ring-white shadow-sm"
+        style={{ backgroundColor: 'var(--brand-secondary)' }}>
+        {member.avatar_url ? (
+          <Image src={member.avatar_url} alt={member.name} width={80} height={80} className="w-full h-full object-cover" unoptimized />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-white">
+            {initial}
+          </div>
+        )}
+      </div>
+      <p className="font-semibold text-sm">{member.name}</p>
+      {member.role && <p className="text-xs text-gray-500 mt-0.5">{member.role}</p>}
+      {member.bio && <p className="text-xs text-gray-400 mt-1 leading-snug max-w-[10rem] mx-auto">{member.bio}</p>}
+    </div>
+  )
+}
+
 export function CommunityHome({
   org,
   branding,
   heroContent,
   aboutContent,
   photos,
+  staff,
   openEvents,
   inSeasonEvents,
   completedEvents,
@@ -128,6 +159,8 @@ export function CommunityHome({
   const subheadline = heroContent.subheadline || branding?.tagline || null
   const ctaLabel = heroContent.cta_label || 'View Events'
   const ctaHref = heroContent.cta_href || '/events'
+
+  void completedEvents // available for future use
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
@@ -238,6 +271,23 @@ export function CommunityHome({
         </section>
       )}
 
+      {/* ── Meet the Team ── */}
+      {staff.length > 0 && (
+        <section className="max-w-5xl mx-auto w-full px-6 py-12">
+          <h2
+            className="text-2xl sm:text-3xl font-bold mb-8 uppercase"
+            style={{ fontFamily: 'var(--brand-heading-font)' }}
+          >
+            Meet the Team
+          </h2>
+          <div className="flex flex-wrap justify-center gap-8 sm:gap-10">
+            {staff.map((member) => (
+              <StaffAvatar key={member.id} member={member} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ── Photo Gallery ── */}
       {photos.length > 0 && (
         <section className="max-w-5xl mx-auto w-full px-6 py-12">
@@ -270,7 +320,7 @@ export function CommunityHome({
       )}
 
       <div className="flex-1" />
-      <Footer org={org} />
+      <Footer org={org} social={branding} />
     </div>
   )
 }
