@@ -144,7 +144,7 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
                 </h2>
                 <div className="space-y-2">
                   {inSeasonEvents.map((league) => (
-                    <Link key={league.id} href={`/events/${league.slug}`}
+                    <Link key={league.id} href={`/events/${league.slug}?tab=standings`}
                       className="flex items-center justify-between bg-white border rounded-xl px-5 py-4 hover:shadow-sm transition-shadow"
                     >
                       <p className="font-bold text-sm uppercase tracking-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</p>

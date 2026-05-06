@@ -162,7 +162,7 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {inSeasonEvents.map((league) => (
-                    <Link key={league.id} href={`/events/${league.slug}`}
+                    <Link key={league.id} href={`/events/${league.slug}?tab=standings`}
                       className="flex items-center justify-between bg-white border rounded-xl px-5 py-4 hover:shadow-sm transition-shadow"
                     >
                       <div>
