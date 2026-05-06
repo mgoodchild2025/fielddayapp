@@ -26,16 +26,21 @@ const sizeClasses = {
 
 type Size = keyof typeof sizeClasses
 
+const sizePx: Record<Size, number> = { xs: 24, sm: 32, md: 48, lg: 80 }
+
 interface PlayerAvatarProps {
   avatarUrl: string | null | undefined
   name: string
   size?: Size
   className?: string
+  /** Set true for avatars in the first visible viewport to preload them */
+  priority?: boolean
 }
 
-export function PlayerAvatar({ avatarUrl, name, size = 'sm', className = '' }: PlayerAvatarProps) {
+export function PlayerAvatar({ avatarUrl, name, size = 'sm', className = '', priority = false }: PlayerAvatarProps) {
   const sizeClass = sizeClasses[size]
   const initial = (name || '?')[0].toUpperCase()
+  const px = sizePx[size]
 
   if (avatarUrl) {
     return (
@@ -43,10 +48,14 @@ export function PlayerAvatar({ avatarUrl, name, size = 'sm', className = '' }: P
         <Image
           src={avatarUrl}
           alt={name}
-          width={size === 'lg' ? 80 : size === 'md' ? 48 : size === 'xs' ? 24 : 32}
-          height={size === 'lg' ? 80 : size === 'md' ? 48 : size === 'xs' ? 24 : 32}
+          width={px}
+          height={px}
+          // Serve a correctly-sized WebP via Next.js image optimisation.
+          // The Supabase storage domain is already in next.config remotePatterns.
+          sizes={`${px}px`}
           className="w-full h-full object-cover"
-          unoptimized // avatars are already small; skip Next.js image optimization
+          priority={priority}
+          loading={priority ? undefined : 'lazy'}
         />
       </div>
     )

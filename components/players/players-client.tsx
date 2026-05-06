@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import { useState, useMemo, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
@@ -73,10 +73,13 @@ function ArrowIcon() {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+const PAGE_SIZE = 25
+
 export function PlayersClient({ players, leagues, currentLeague, unregisteredOnly, isOrgAdmin, currentUserId }: Props) {
   const router = useRouter()
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
+  const [page, setPage] = useState(1)
   const [leaguePending, startLeagueTransition] = useTransition()
 
   // Instant client-side search + role filter — no server round-trip
@@ -91,6 +94,12 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
       )
     })
   }, [players, query, roleFilter])
+
+  // Reset to page 1 whenever filters change so stale pages don't linger
+  useEffect(() => { setPage(1) }, [query, roleFilter, currentLeague, unregisteredOnly])
+
+  const visiblePlayers = filtered.slice(0, page * PAGE_SIZE)
+  const hasMore = visiblePlayers.length < filtered.length
 
   // Special sentinel value for the "no league" option in the select
   const UNREGISTERED_VALUE = '__unregistered__'
@@ -166,6 +175,7 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
             {hasFilters
               ? `${filtered.length} of ${players.length} players`
               : `${players.length} player${players.length !== 1 ? 's' : ''}`}
+            {hasMore && ` — showing ${visiblePlayers.length}`}
           </p>
           {hasFilters && (
             <button
@@ -181,7 +191,7 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
 
       {/* ── Mobile: card list ─────────────────────────────────────────────── */}
       <div className="md:hidden space-y-2">
-        {filtered.map((player) => (
+        {visiblePlayers.map((player, index) => (
           <div key={player.memberId} className="bg-white rounded-lg border overflow-hidden">
             {/* Card body — taps through to player detail */}
             <Link
@@ -192,6 +202,7 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
                 avatarUrl={player.avatarUrl}
                 name={player.fullName ?? '?'}
                 size="md"
+                priority={index < 3}
               />
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-sm text-gray-900 truncate">
@@ -252,6 +263,15 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
             {hasFilters ? 'No players match your search.' : 'No players found.'}
           </div>
         )}
+
+        {hasMore && (
+          <button
+            onClick={() => setPage((p) => p + 1)}
+            className="w-full py-3 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+          >
+            Load more ({filtered.length - visiblePlayers.length} remaining)
+          </button>
+        )}
       </div>
 
       {/* ── Desktop: table ────────────────────────────────────────────────── */}
@@ -269,7 +289,7 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
               </tr>
             </thead>
             <tbody>
-              {filtered.map((player) => (
+              {visiblePlayers.map((player, index) => (
                 <tr key={player.memberId} className="border-b last:border-0 hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">
                     <div className="flex items-center gap-2">
@@ -277,6 +297,7 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
                         avatarUrl={player.avatarUrl}
                         name={player.fullName ?? '?'}
                         size="sm"
+                        priority={index < 3}
                       />
                       {player.userId ? (
                         <Link
@@ -336,6 +357,19 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
                     {hasFilters ? 'No players match your search.' : 'No players found.'}
+                  </td>
+                </tr>
+              )}
+              {hasMore && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-3 text-center">
+                    <button
+                      onClick={() => setPage((p) => p + 1)}
+                      className="text-sm font-medium hover:underline"
+                      style={{ color: 'var(--brand-primary)' }}
+                    >
+                      Load more ({filtered.length - visiblePlayers.length} remaining)
+                    </button>
                   </td>
                 </tr>
               )}
