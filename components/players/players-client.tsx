@@ -76,17 +76,21 @@ function ArrowIcon() {
 export function PlayersClient({ players, leagues, currentLeague, unregisteredOnly, isOrgAdmin, currentUserId }: Props) {
   const router = useRouter()
   const [query, setQuery] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
   const [leaguePending, startLeagueTransition] = useTransition()
 
-  // Instant client-side search — no server round-trip
+  // Instant client-side search + role filter — no server round-trip
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return players
-    return players.filter((p) =>
-      (p.fullName ?? '').toLowerCase().includes(q) ||
-      (p.email ?? '').toLowerCase().includes(q)
-    )
-  }, [players, query])
+    return players.filter((p) => {
+      if (roleFilter && p.role !== roleFilter) return false
+      if (!q) return true
+      return (
+        (p.fullName ?? '').toLowerCase().includes(q) ||
+        (p.email ?? '').toLowerCase().includes(q)
+      )
+    })
+  }, [players, query, roleFilter])
 
   // Special sentinel value for the "no league" option in the select
   const UNREGISTERED_VALUE = '__unregistered__'
@@ -103,7 +107,7 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
   }
 
   const selectValue = unregisteredOnly ? UNREGISTERED_VALUE : (currentLeague ?? '')
-  const hasFilters = !!query || !!currentLeague || unregisteredOnly
+  const hasFilters = !!query || !!currentLeague || unregisteredOnly || !!roleFilter
 
   return (
     <div>
@@ -111,30 +115,43 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
       {/* top-14 clears the fixed mobile admin bar (h-14); lg:top-0 resets for desktop */}
       <div className="sticky top-14 lg:top-0 z-20 bg-[#F8F8F8] -mx-4 px-4 lg:-mx-6 lg:px-6 pt-2 pb-3 border-b border-gray-200 mb-5">
 
-        {/* Search + league select — single row */}
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-              fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-            </svg>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name or email…"
-              className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:border-transparent"
-            />
-          </div>
+        {/* Search — full width */}
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+          </svg>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search name or email…"
+            className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:border-transparent"
+          />
+        </div>
+
+        {/* Role + league selects — second row */}
+        <div className="flex gap-2 mt-2">
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="flex-1 border border-gray-200 bg-white rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:border-transparent"
+          >
+            <option value="">All roles</option>
+            <option value="org_admin">Org Admin</option>
+            <option value="league_admin">League Admin</option>
+            <option value="captain">Captain</option>
+            <option value="player">Player</option>
+          </select>
 
           <select
             value={selectValue}
             onChange={(e) => setLeague(e.target.value || null)}
             disabled={leaguePending}
-            className={`shrink-0 border border-gray-200 bg-white rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:border-transparent transition-opacity ${leaguePending ? 'opacity-60' : ''}`}
+            className={`flex-1 border border-gray-200 bg-white rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:border-transparent transition-opacity ${leaguePending ? 'opacity-60' : ''}`}
           >
-            <option value="">All players</option>
+            <option value="">All events</option>
             <option value={UNREGISTERED_VALUE}>Not registered</option>
             {leagues.length > 0 && <option disabled>──────────</option>}
             {leagues.map((l) => (
@@ -152,7 +169,7 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
           </p>
           {hasFilters && (
             <button
-              onClick={() => { setQuery(''); setLeague(null) }}
+              onClick={() => { setQuery(''); setRoleFilter(''); setLeague(null) }}
               className="text-xs font-medium hover:underline"
               style={{ color: 'var(--brand-primary)' }}
             >

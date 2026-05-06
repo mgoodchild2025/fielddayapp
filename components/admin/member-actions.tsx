@@ -11,36 +11,38 @@ interface Props {
 
 export function MemberActions({ memberId, memberName, status }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmSuspend, setConfirmSuspend] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  if (status === 'suspended') {
-    // Suspended: offer Reinstate or permanent Delete
-    if (confirmDelete) {
-      return (
-        <span className="flex items-center gap-1 flex-wrap">
-          <span className="text-xs text-red-700 font-medium">Delete permanently?</span>
-          <button
-            onClick={() =>
-              startTransition(async () => {
-                await deleteMember(memberId)
-                setConfirmDelete(false)
-              })
-            }
-            disabled={isPending}
-            className="text-xs text-white bg-red-600 hover:bg-red-700 px-2 py-0.5 rounded font-medium disabled:opacity-50"
-          >
-            {isPending ? 'Deleting…' : 'Yes, delete'}
-          </button>
-          <button
-            onClick={() => setConfirmDelete(false)}
-            className="text-xs text-gray-400 hover:text-gray-600"
-          >
-            Cancel
-          </button>
-        </span>
-      )
-    }
+  // ── Delete confirmation (shared — can appear from any status) ─────────────
+  if (confirmDelete) {
+    return (
+      <span className="flex items-center gap-1 flex-wrap">
+        <span className="text-xs text-red-700 font-medium">Delete permanently?</span>
+        <button
+          onClick={() =>
+            startTransition(async () => {
+              await deleteMember(memberId)
+              setConfirmDelete(false)
+            })
+          }
+          disabled={isPending}
+          className="text-xs text-white bg-red-600 hover:bg-red-700 px-2 py-0.5 rounded font-medium disabled:opacity-50"
+        >
+          {isPending ? 'Deleting…' : 'Yes, delete'}
+        </button>
+        <button
+          onClick={() => setConfirmDelete(false)}
+          className="text-xs text-gray-400 hover:text-gray-600"
+        >
+          Cancel
+        </button>
+      </span>
+    )
+  }
 
+  // ── Suspended member ───────────────────────────────────────────────────────
+  if (status === 'suspended') {
     return (
       <span className="flex items-center gap-2">
         <button
@@ -66,9 +68,7 @@ export function MemberActions({ memberId, memberName, status }: Props) {
     )
   }
 
-  // Active: offer Suspend
-  const [confirmSuspend, setConfirmSuspend] = useState(false)
-
+  // ── Active member — Suspend confirmation ───────────────────────────────────
   if (confirmSuspend) {
     return (
       <span className="flex items-center gap-1">
@@ -95,13 +95,24 @@ export function MemberActions({ memberId, memberName, status }: Props) {
     )
   }
 
+  // ── Active member — default actions ───────────────────────────────────────
   return (
-    <button
-      onClick={() => setConfirmSuspend(true)}
-      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
-      title={`Suspend ${memberName}`}
-    >
-      Suspend
-    </button>
+    <span className="flex items-center gap-2">
+      <button
+        onClick={() => setConfirmSuspend(true)}
+        className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+        title={`Suspend ${memberName}`}
+      >
+        Suspend
+      </button>
+      <span className="text-gray-200">|</span>
+      <button
+        onClick={() => setConfirmDelete(true)}
+        className="text-xs text-gray-400 hover:text-red-700 transition-colors font-medium"
+        title={`Permanently delete ${memberName}`}
+      >
+        Delete
+      </button>
+    </span>
   )
 }

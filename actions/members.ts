@@ -140,25 +140,24 @@ export async function deleteMember(memberId: string) {
 
   const targetUserId = member.user_id
 
+  // Use service role for all writes — RLS blocks cross-row deletes via user auth
+  const serviceClient = createServiceRoleClient()
+
   // Remove from all teams in this org
-  await supabase
+  await serviceClient
     .from('team_members')
     .delete()
     .eq('user_id', targetUserId)
     .eq('organization_id', org.id)
 
   // Hard-delete the org_members row
-  const { error } = await supabase
+  const { error } = await serviceClient
     .from('org_members')
     .delete()
     .eq('id', memberId)
     .eq('organization_id', org.id)
 
   if (error) return { error: error.message }
-
-  // Check whether the user still belongs to any other org.
-  // We use the service role client to query across all orgs (not scoped to current org).
-  const serviceClient = createServiceRoleClient()
   const { count } = await serviceClient
     .from('org_members')
     .select('id', { count: 'exact', head: true })
