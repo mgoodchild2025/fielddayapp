@@ -15,7 +15,7 @@ export async function changeMemberRole(memberId: string, newRole: OrgRole) {
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
 
-  // Verify caller is org_admin
+  // Verify caller is org_admin (cookie-based client — checks their session)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
@@ -28,7 +28,9 @@ export async function changeMemberRole(memberId: string, newRole: OrgRole) {
 
   if (!caller || caller.role !== 'org_admin') return { error: 'Unauthorized' }
 
-  const { error } = await supabase
+  // Use service role for the write — RLS blocks cross-row updates via user auth
+  const db = createServiceRoleClient()
+  const { error } = await db
     .from('org_members')
     .update({ role: newRole })
     .eq('id', memberId)
@@ -58,7 +60,8 @@ export async function suspendMember(memberId: string) {
 
   if (!caller || caller.role !== 'org_admin') return { error: 'Unauthorized' }
 
-  const { error } = await supabase
+  const db = createServiceRoleClient()
+  const { error } = await db
     .from('org_members')
     .update({ status: 'suspended' })
     .eq('id', memberId)
@@ -88,7 +91,8 @@ export async function reinstateMember(memberId: string) {
 
   if (!caller || caller.role !== 'org_admin') return { error: 'Unauthorized' }
 
-  const { error } = await supabase
+  const db = createServiceRoleClient()
+  const { error } = await db
     .from('org_members')
     .update({ status: 'active' })
     .eq('id', memberId)
