@@ -6,6 +6,7 @@ import { getAdminScope } from '@/lib/admin-scope'
 import { PlayersClient } from '@/components/players/players-client'
 import type { PlayerRow, LeagueOption } from '@/components/players/players-client'
 import { InvitePlayerButton } from '@/components/players/invite-player-form'
+import { PlayersHelpModal } from '@/components/admin/players-help-modal'
 
 export default async function PlayersPage({
   searchParams,
@@ -103,7 +104,10 @@ export default async function PlayersPage({
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Players</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold">Players</h1>
+          {scope.isOrgAdmin && <PlayersHelpModal />}
+        </div>
         {scope.isOrgAdmin && <InvitePlayerButton orgSlug={org.slug} />}
       </div>
 
