@@ -259,6 +259,24 @@ export async function GET(req: NextRequest) {
           continue
         }
 
+        // Claim the send slot atomically before doing any work.
+        // If another concurrent cron run already inserted this row the upsert
+        // returns 0 rows (ignoreDuplicates) and we skip — preventing duplicate sends.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: claimed } = await (supabase as any)
+          .from('game_sms_reminder_logs')
+          .upsert(
+            { game_id: game.id, minutes_before: reminder.minutes_before },
+            { onConflict: 'game_id,minutes_before', ignoreDuplicates: true }
+          )
+          .select('game_id')
+        if (!claimed || claimed.length === 0) {
+          skipReasons.push(`${reminder.minutes_before}min:already_claimed_by_concurrent_run`)
+          sentSet.add(logKey)
+          continue
+        }
+        sentSet.add(logKey)
+
         const { data: members } = await supabase
           .from('team_members')
           .select('profiles!team_members_user_id_fkey(phone, sms_opted_in)')
@@ -267,19 +285,20 @@ export async function GET(req: NextRequest) {
         const allPlayers = (members ?? [])
           .flatMap(m => (Array.isArray(m.profiles) ? m.profiles : [m.profiles]))
           .filter(Boolean)
-        const optedInPlayers = allPlayers.filter(p => p?.phone && p?.sms_opted_in)
+
+        // Deduplicate by phone — a player on both home and away team would appear twice otherwise
+        const seenPhones = new Set<string>()
+        const optedInPlayers = allPlayers.filter(p => {
+          if (!p?.phone || !p?.sms_opted_in) return false
+          if (seenPhones.has(p.phone)) return false
+          seenPhones.add(p.phone)
+          return true
+        })
 
         if (optedInPlayers.length === 0) {
           const noPhone = allPlayers.filter(p => !p?.phone).length
           const notOptedIn = allPlayers.filter(p => p?.phone && !p?.sms_opted_in).length
           skipReasons.push(`${reminder.minutes_before}min:no_opted_in_players(${allPlayers.length}_total,${noPhone}_no_phone,${notOptedIn}_not_opted_in)`)
-          // Still log as sent so we don't retry every 15min for events with no opted-in players
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (supabase as any)
-            .from('game_sms_reminder_logs')
-            .insert({ game_id: game.id, minutes_before: reminder.minutes_before })
-            .catch(() => {})
-          sentSet.add(logKey)
           continue
         }
 
@@ -297,13 +316,6 @@ export async function GET(req: NextRequest) {
           }
         }
 
-        // Log as sent
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any)
-          .from('game_sms_reminder_logs')
-          .insert({ game_id: game.id, minutes_before: reminder.minutes_before })
-          .catch(() => {})
-        sentSet.add(logKey)
         results.push(`sms reminder game ${game.id} (${reminder.minutes_before}min): ${sentCount} sent, ${failCount} failed`)
       }
 
@@ -431,6 +443,18 @@ export async function GET(req: NextRequest) {
 
         if (myGames.length === 0) continue
 
+        // Claim the send slot atomically before sending.
+        // If a concurrent cron run already inserted this row the upsert returns 0 rows.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: claimed } = await (supabase as any)
+          .from('player_game_day_sms_logs')
+          .upsert(
+            { user_id: userId, organization_id: orgId, log_date: todayLocal },
+            { onConflict: 'user_id,organization_id,log_date', ignoreDuplicates: true }
+          )
+          .select('user_id')
+        if (!claimed || claimed.length === 0) continue // already sent by a concurrent run
+
         // Build game lines
         const gameLines = myGames.map(g => {
           const league = Array.isArray(g.leagues) ? g.leagues[0] : g.leagues
@@ -453,11 +477,6 @@ export async function GET(req: NextRequest) {
 
         try {
           await sendSms(player.phone, smsBody)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (supabase as any)
-            .from('player_game_day_sms_logs')
-            .insert({ user_id: userId, organization_id: orgId, log_date: todayLocal })
-            .catch(() => {})
           results.push(`game_day sms sent to ${userId} (${orgId})`)
         } catch (e) {
           results.push(`game_day sms error for ${userId}: ${e}`)
