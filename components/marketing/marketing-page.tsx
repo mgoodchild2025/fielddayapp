@@ -40,41 +40,63 @@ function MarketingNav() {
 
 function Hero() {
   return (
-    <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white px-6 py-24 sm:py-32 text-center">
-      <div className="max-w-3xl mx-auto">
-        <div className="inline-flex bg-white rounded-xl overflow-hidden mb-10 shadow-lg p-4">
-          <Image
-            src="/Fieldday-og.png"
-            alt="Fieldday"
-            width={839}
-            height={247}
-            className="w-64 sm:w-96 h-auto"
-            priority
-          />
+    <section className="relative overflow-hidden bg-slate-950 text-white min-h-[520px] sm:min-h-[600px]">
+      {/* Background photo */}
+      <Image
+        src="/FielddayMarketing.png"
+        alt=""
+        fill
+        priority
+        className="object-cover object-[center_35%] sm:object-center"
+        sizes="100vw"
+      />
+
+      {/* Desktop scrim — heavy left (text side), fades to lighter right (photo side) */}
+      <div className="absolute inset-0 hidden sm:block bg-gradient-to-r from-slate-950/95 via-slate-950/75 to-slate-950/25" />
+
+      {/* Mobile scrim — top-to-bottom so text above the action reads clearly */}
+      <div className="absolute inset-0 sm:hidden bg-gradient-to-b from-slate-950/85 via-slate-950/65 to-slate-950/50" />
+
+      {/* Content */}
+      <div className="relative z-10 max-w-6xl mx-auto px-6 py-24 sm:py-36 flex flex-col sm:flex-row sm:items-center">
+        {/* Text column — full width on mobile, ~55% on desktop */}
+        <div className="sm:w-[55%] text-center sm:text-left">
+          <div className="inline-flex bg-white rounded-xl overflow-hidden mb-8 shadow-lg p-4">
+            <Image
+              src="/Fieldday-og.png"
+              alt="Fieldday"
+              width={839}
+              height={247}
+              className="w-48 sm:w-64 h-auto"
+              priority
+            />
+          </div>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight mb-5">
+            Run your league,<br className="hidden sm:block" />
+            <span className="text-emerald-400"> not the paperwork.</span>
+          </h1>
+          <p className="text-lg sm:text-xl text-slate-300 mb-10 leading-relaxed max-w-xl mx-auto sm:mx-0">
+            Fieldday handles scheduling, registrations, payments, standings, and team
+            communications — all in one place.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center sm:items-start justify-center sm:justify-start gap-4">
+            <Link
+              href="/signup"
+              className="w-full sm:w-auto px-8 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-emerald-900/30 text-base"
+            >
+              Start free trial →
+            </Link>
+            <a
+              href="#pricing"
+              className="w-full sm:w-auto px-8 py-3.5 border border-white/30 hover:border-white/60 text-white font-semibold rounded-xl transition-colors text-base"
+            >
+              See pricing ↓
+            </a>
+          </div>
+          <p className="mt-5 text-sm text-slate-400 text-center sm:text-left">
+            15-day free trial · No credit card required
+          </p>
         </div>
-        <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight leading-tight mb-6">
-          Run your league,<br className="hidden sm:block" />
-          <span className="text-emerald-400"> not the paperwork.</span>
-        </h1>
-        <p className="text-lg sm:text-xl text-slate-300 max-w-2xl mx-auto mb-10 leading-relaxed">
-          Fieldday handles scheduling, registrations, payments, standings, and team
-          communications — all in one place.
-        </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link
-            href="/signup"
-            className="w-full sm:w-auto px-8 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-emerald-900/30 text-base"
-          >
-            Start free trial →
-          </Link>
-          <a
-            href="#pricing"
-            className="w-full sm:w-auto px-8 py-3.5 border border-white/30 hover:border-white/60 text-white font-semibold rounded-xl transition-colors text-base"
-          >
-            See pricing ↓
-          </a>
-        </div>
-        <p className="mt-5 text-sm text-slate-400">15-day free trial · No credit card required</p>
       </div>
     </section>
   )
