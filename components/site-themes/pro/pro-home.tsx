@@ -104,55 +104,59 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
         return (openEvents.length > 0 || inSeasonEvents.length > 0) ? (
           <div key="events">
             {openEvents.length > 0 && (
-              <section className="max-w-5xl mx-auto w-full px-6 py-12">
-                <div className="flex items-baseline justify-between mb-5">
-                  <h2 className="text-xl font-black uppercase tracking-wide" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-                    Open for Registration
-                  </h2>
-                  <Link href="/events" className="text-xs text-gray-400 hover:text-gray-600">All events →</Link>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {openEvents.map((league) => {
-                    const isPerTeam = league.payment_mode === 'per_team'
-                    const teamCount = teamCountMap.get(league.id) ?? 0
-                    const atCapacity = isPerTeam && league.max_teams !== null && teamCount >= league.max_teams
-                    return (
-                      <Link key={league.id} href={`/events/${league.slug}`}
-                        className="group block rounded-xl border-l-4 bg-white border border-gray-100 hover:shadow-md transition-all p-5"
-                        style={{ borderLeftColor: 'var(--brand-primary)' }}
-                      >
-                        <h3 className="font-black text-base uppercase tracking-tight leading-tight mb-2" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-                          {league.name}
-                        </h3>
-                        <div className="flex items-center gap-2 text-xs text-gray-400">
-                          <span className="capitalize">{league.event_type ?? 'league'}</span>
-                          {league.skill_level && <><span>·</span><span className="capitalize">{league.skill_level}</span></>}
-                        </div>
-                        <p className="mt-3 text-sm font-bold" style={{ color: 'var(--brand-primary)' }}>
-                          {atCapacity ? 'Teams Full' : league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency ?? 'CAD'}`}
-                        </p>
-                      </Link>
-                    )
-                  })}
+              <section className="py-12">
+                <div className="max-w-5xl mx-auto px-6">
+                  <div className="flex items-baseline justify-between mb-5">
+                    <h2 className="text-xl font-black uppercase tracking-wide" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+                      Open for Registration
+                    </h2>
+                    <Link href="/events" className="text-xs text-gray-400 hover:text-gray-600">All events →</Link>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {openEvents.map((league) => {
+                      const isPerTeam = league.payment_mode === 'per_team'
+                      const teamCount = teamCountMap.get(league.id) ?? 0
+                      const atCapacity = isPerTeam && league.max_teams !== null && teamCount >= league.max_teams
+                      return (
+                        <Link key={league.id} href={`/events/${league.slug}`}
+                          className="group block rounded-xl border-l-4 bg-white border border-gray-100 hover:shadow-md transition-all p-5"
+                          style={{ borderLeftColor: 'var(--brand-primary)' }}
+                        >
+                          <h3 className="font-black text-base uppercase tracking-tight leading-tight mb-2" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+                            {league.name}
+                          </h3>
+                          <div className="flex items-center gap-2 text-xs text-gray-400">
+                            <span className="capitalize">{league.event_type ?? 'league'}</span>
+                            {league.skill_level && <><span>·</span><span className="capitalize">{league.skill_level}</span></>}
+                          </div>
+                          <p className="mt-3 text-sm font-bold" style={{ color: 'var(--brand-primary)' }}>
+                            {atCapacity ? 'Teams Full' : league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency ?? 'CAD'}`}
+                          </p>
+                        </Link>
+                      )
+                    })}
+                  </div>
                 </div>
               </section>
             )}
             {inSeasonEvents.length > 0 && (
-              <section className="max-w-5xl mx-auto w-full px-6 pb-12">
-                <h2 className="text-xl font-black uppercase tracking-wide mb-5" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-                  Active Leagues
-                </h2>
-                <div className="space-y-2">
-                  {inSeasonEvents.map((league) => (
-                    <Link key={league.id} href={`/events/${league.slug}?tab=standings`}
-                      className="flex items-center justify-between bg-white border rounded-xl px-5 py-4 hover:shadow-sm transition-shadow"
-                    >
-                      <p className="font-bold text-sm uppercase tracking-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</p>
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full text-white" style={{ backgroundColor: 'var(--brand-primary)' }}>
-                        Standings →
-                      </span>
-                    </Link>
-                  ))}
+              <section className="pb-12">
+                <div className="max-w-5xl mx-auto px-6">
+                  <h2 className="text-xl font-black uppercase tracking-wide mb-5" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+                    Active Leagues
+                  </h2>
+                  <div className="space-y-2">
+                    {inSeasonEvents.map((league) => (
+                      <Link key={league.id} href={`/events/${league.slug}?tab=standings`}
+                        className="flex items-center justify-between bg-white border rounded-xl px-5 py-4 hover:shadow-sm transition-shadow"
+                      >
+                        <p className="font-bold text-sm uppercase tracking-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</p>
+                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full text-white" style={{ backgroundColor: 'var(--brand-primary)' }}>
+                          Standings →
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               </section>
             )}
@@ -161,8 +165,8 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
 
       case 'staff':
         return staff.length > 0 ? (
-          <section key="staff" className="py-12 px-6" style={{ backgroundColor: 'var(--brand-bg)' }}>
-            <div className="max-w-5xl mx-auto">
+          <section key="staff" className="py-12" style={{ backgroundColor: 'var(--brand-bg)' }}>
+            <div className="max-w-5xl mx-auto px-6">
               <h2 className="text-xl font-black uppercase tracking-wide mb-6" style={{ fontFamily: 'var(--brand-heading-font)' }}>
                 The Team
               </h2>
@@ -195,8 +199,8 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
         const gold = sorted.filter(s => s.tier === 'gold')
         const rest = sorted.filter(s => s.tier !== 'gold')
         return (
-          <section key="sponsors" className="py-12 px-6" style={{ backgroundColor: 'var(--brand-secondary)' }}>
-            <div className="max-w-5xl mx-auto">
+          <section key="sponsors" className="py-12" style={{ backgroundColor: 'var(--brand-secondary)' }}>
+            <div className="max-w-5xl mx-auto px-6">
               <p className="text-xs font-semibold uppercase tracking-widest text-center text-white/40 mb-8">Partners & Sponsors</p>
               {gold.length > 0 && (
                 <div className="mb-8">
@@ -267,8 +271,10 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
       {sections}
 
       {hasNoEvents && orderedKeys.includes('events') && (
-        <section className="max-w-5xl mx-auto w-full px-6 py-20 text-center">
-          <p className="text-gray-400">No active events. Stay tuned.</p>
+        <section className="py-20 text-center">
+          <div className="max-w-5xl mx-auto px-6">
+            <p className="text-gray-400">No active events. Stay tuned.</p>
+          </div>
         </section>
       )}
 
