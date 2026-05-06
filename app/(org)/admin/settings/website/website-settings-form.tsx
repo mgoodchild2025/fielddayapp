@@ -31,15 +31,15 @@ const THEMES: { id: Theme; label: string; description: string; available: boolea
   {
     id: 'club',
     label: 'Club',
-    description: 'Clean and membership-focused. Highlights rosters, standings, and sponsors.',
-    available: false,
+    description: 'Clean and membership-focused. Highlights events, standings, and sponsors with a structured layout.',
+    available: true,
     icon: '🏆',
   },
   {
     id: 'pro',
     label: 'Pro',
-    description: 'Bold and competitive. Leads with live standings, leaderboards, and match results.',
-    available: false,
+    description: 'Bold and competitive. Dark hero, recent match results, and tiered sponsor section.',
+    available: true,
     icon: '⚡',
   },
 ]
@@ -228,22 +228,23 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
         </div>
       </div>
 
-      {/* ── Photos ── */}
-      <div className="bg-white rounded-lg border p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-semibold">Photo Gallery</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Upload event and action photos to show on your homepage.
-            </p>
+      {/* ── Content sub-pages ── */}
+      <div className="bg-white rounded-lg border divide-y">
+        {[
+          { href: '/admin/settings/website/photos',   label: 'Photo Gallery',      desc: 'Upload event and action photos.' },
+          { href: '/admin/settings/website/sponsors',  label: 'Sponsors',           desc: 'Add sponsor logos with tier levels (Gold, Silver, Bronze).' },
+          { href: '/admin/settings/website/staff',     label: 'Staff & Volunteers', desc: 'Feature the people who run your league.' },
+        ].map(({ href, label, desc }) => (
+          <div key={href} className="flex items-center justify-between px-5 py-4">
+            <div>
+              <p className="font-semibold text-sm">{label}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+            </div>
+            <Link href={href} className="shrink-0 px-4 py-2 text-sm font-medium border rounded-md hover:bg-gray-50 transition-colors">
+              Manage →
+            </Link>
           </div>
-          <Link
-            href="/admin/settings/website/photos"
-            className="shrink-0 px-4 py-2 text-sm font-medium border rounded-md hover:bg-gray-50 transition-colors"
-          >
-            Manage Photos →
-          </Link>
-        </div>
+        ))}
       </div>
 
       <button
