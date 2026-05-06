@@ -32,11 +32,12 @@ export async function saveWebsiteSettings(input: z.infer<typeof websiteSettingsS
   const db = createServiceRoleClient()
 
   // Update site_theme on org_branding (upsert in case row doesn't exist yet)
+  // Also stamp website_configured_at on first save — used by the onboarding checklist
   const { error: brandingErr } = await db
     .from('org_branding')
     .upsert(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      { organization_id: org.id, site_theme: parsed.data.site_theme } as any,
+      { organization_id: org.id, site_theme: parsed.data.site_theme, website_configured_at: new Date().toISOString() } as any,
       { onConflict: 'organization_id' }
     )
   if (brandingErr) return { error: brandingErr.message }

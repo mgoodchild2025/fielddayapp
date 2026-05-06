@@ -28,7 +28,7 @@ export default async function AdminDashboardPage() {
     supabase.from('org_members').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).eq('status', 'active'),
     supabase.from('payments').select('amount_cents, currency, status, created_at, user_id').eq('organization_id', org.id).order('created_at', { ascending: false }).limit(5),
     supabase.from('leagues').select('id, name, slug, status').eq('organization_id', org.id).in('status', ['registration_open', 'active']).limit(5),
-    supabase.from('org_branding').select('logo_url, hero_image_url, tagline, site_theme, onboarding_dismissed_at').eq('organization_id', org.id).maybeSingle(),
+    supabase.from('org_branding').select('logo_url, onboarding_dismissed_at, website_configured_at').eq('organization_id', org.id).maybeSingle(),
   ])
 
   const totalRevenue = recentPayments?.filter((p) => p.status === 'paid').reduce((acc, p) => acc + p.amount_cents, 0) ?? 0
@@ -39,7 +39,7 @@ export default async function AdminDashboardPage() {
   const checklistDismissed = !!b?.onboarding_dismissed_at
   const checklistData = {
     logoSet:           !!b?.logo_url,
-    websiteConfigured: !!(b?.site_theme && b.site_theme !== 'community') || !!b?.hero_image_url || !!b?.tagline,
+    websiteConfigured: !!b?.website_configured_at,
     eventCreated:      (leagueCount ?? 0) > 0,
   }
   const allChecklistDone = checklistData.logoSet && checklistData.websiteConfigured && checklistData.eventCreated
