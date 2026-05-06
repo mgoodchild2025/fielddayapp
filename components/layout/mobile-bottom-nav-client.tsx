@@ -2,16 +2,26 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarDays, Trophy, Users, CircleUser } from 'lucide-react'
+import { CalendarDays, Trophy, Users } from 'lucide-react'
+import { NotificationBell } from './notification-bell'
+
+interface Notification {
+  id: string
+  type: string | null
+  title: string
+  body: string | null
+  created_at: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: any
+}
 
 const TABS = [
-  { href: '/schedule',  label: 'My Games',   Icon: CalendarDays },
-  { href: '/my-events', label: 'My Events',  Icon: Trophy       },
-  { href: '/my-teams',  label: 'My Teams',   Icon: Users        },
-  { href: '/profile',   label: 'My Profile', Icon: CircleUser   },
+  { href: '/schedule',  label: 'My Games',  Icon: CalendarDays },
+  { href: '/my-events', label: 'My Events', Icon: Trophy       },
+  { href: '/my-teams',  label: 'My Teams',  Icon: Users        },
 ] as const
 
-export function MobileBottomNavClient() {
+export function MobileBottomNavClient({ initialNotifications }: { initialNotifications: Notification[] }) {
   const pathname = usePathname()
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + '/')
@@ -38,6 +48,12 @@ export function MobileBottomNavClient() {
             </Link>
           )
         })}
+
+        {/* Notifications tab */}
+        <div className="flex-1 flex flex-col items-center justify-center min-h-[56px]" style={{ color: '#9ca3af' }}>
+          <NotificationBell initialNotifications={initialNotifications} dropUp />
+          <span className="text-[10px] font-medium leading-tight mt-0.5">Alerts</span>
+        </div>
       </div>
     </nav>
   )

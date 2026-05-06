@@ -17,6 +17,8 @@ interface Notification {
 
 interface Props {
   initialNotifications: Notification[]
+  /** When true the dropdown opens upward — for use in a bottom nav bar */
+  dropUp?: boolean
 }
 
 function relativeTime(dateStr: string) {
@@ -30,7 +32,7 @@ function relativeTime(dateStr: string) {
   return `${days}d ago`
 }
 
-export function NotificationBell({ initialNotifications }: Props) {
+export function NotificationBell({ initialNotifications, dropUp = false }: Props) {
   const [notifications, setNotifications] = useState(initialNotifications)
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -61,7 +63,7 @@ export function NotificationBell({ initialNotifications }: Props) {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="relative p-2 rounded-full hover:bg-white/10 transition-colors"
+        className={`relative p-2 rounded-full transition-colors ${dropUp ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}
         aria-label={count > 0 ? `${count} unread notification${count !== 1 ? 's' : ''}` : 'Notifications'}
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -76,7 +78,7 @@ export function NotificationBell({ initialNotifications }: Props) {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden text-gray-900">
+        <div className={`absolute right-0 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden text-gray-900 ${dropUp ? 'bottom-full mb-2' : 'mt-2'}`}>
           <div className="px-4 py-3 border-b flex items-center justify-between">
             <span className="font-semibold text-sm">Notifications</span>
             {count > 0 && (

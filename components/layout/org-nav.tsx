@@ -77,7 +77,9 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
 
           {user ? (
             <>
-              <NotificationBell initialNotifications={unreadNotifications} />
+              <div className="hidden md:block">
+                <NotificationBell initialNotifications={unreadNotifications} />
+              </div>
               <div className="hidden md:block">
                 <NavUserMenu userName={userName} isAdmin={isAdmin} />
               </div>
