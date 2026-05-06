@@ -13,17 +13,18 @@ type UploadItem = {
   errorMsg?: string
 }
 
+// ── Upload progress panel ─────────────────────────────────────────────────────
+
 function UploadProgress({ items }: { items: UploadItem[] }) {
-  const total     = items.length
-  const done      = items.filter(i => i.status === 'done').length
-  const errors    = items.filter(i => i.status === 'error').length
-  const pct       = total > 0 ? Math.round((done / total) * 100) : 0
-  const activeIdx = items.findIndex(i => i.status === 'active')
+  const total      = items.length
+  const done       = items.filter(i => i.status === 'done').length
+  const errors     = items.filter(i => i.status === 'error').length
+  const pct        = total > 0 ? Math.round((done / total) * 100) : 0
+  const activeIdx  = items.findIndex(i => i.status === 'active')
   const currentNum = activeIdx !== -1 ? activeIdx + 1 : done
 
   return (
     <div className="space-y-3">
-      {/* Label + counter */}
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-gray-700 truncate">
           {done < total
@@ -37,7 +38,6 @@ function UploadProgress({ items }: { items: UploadItem[] }) {
         </p>
       </div>
 
-      {/* Progress bar */}
       <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500 ease-out"
@@ -48,17 +48,11 @@ function UploadProgress({ items }: { items: UploadItem[] }) {
         />
       </div>
 
-      {/* Thumbnail strip */}
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         {items.map((item, i) => (
           <div key={i} className="relative shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={item.previewUrl}
-              alt=""
-              className="w-full h-full object-cover"
-            />
-            {/* Status overlay */}
+            <img src={item.previewUrl} alt="" className="w-full h-full object-cover" />
             {item.status === 'done' && (
               <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -74,9 +68,7 @@ function UploadProgress({ items }: { items: UploadItem[] }) {
                 </svg>
               </div>
             )}
-            {item.status === 'pending' && (
-              <div className="absolute inset-0 bg-black/50" />
-            )}
+            {item.status === 'pending' && <div className="absolute inset-0 bg-black/50" />}
             {item.status === 'error' && (
               <div className="absolute inset-0 bg-red-900/60 flex items-center justify-center">
                 <svg className="w-5 h-5 text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -88,7 +80,6 @@ function UploadProgress({ items }: { items: UploadItem[] }) {
         ))}
       </div>
 
-      {/* Per-file errors */}
       {items.filter(i => i.status === 'error').map((item, i) => (
         <p key={i} className="text-xs text-red-500">{item.file.name}: {item.errorMsg}</p>
       ))}
@@ -96,31 +87,59 @@ function UploadProgress({ items }: { items: UploadItem[] }) {
   )
 }
 
-export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
-  const [photos, setPhotos]           = useState<Photo[]>(initialPhotos)
-  const [uploadItems, setUploadItems] = useState<UploadItem[] | null>(null)
-  const [deletingId, setDeletingId]   = useState<string | null>(null)
-  const [editingCaption, setEditingCaption] = useState<{ id: string; value: string } | null>(null)
-  const [dragId, setDragId]           = useState<string | null>(null)
-  const [dragOverId, setDragOverId]   = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+// ── Main component ────────────────────────────────────────────────────────────
 
-  // Revoke object URLs on unmount / when items change
+export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
+  const [photos, setPhotos]                 = useState<Photo[]>(initialPhotos)
+  const [uploadItems, setUploadItems]       = useState<UploadItem[] | null>(null)
+  const [deletingId, setDeletingId]         = useState<string | null>(null)
+  const [editingCaption, setEditingCaption] = useState<{ id: string; value: string } | null>(null)
+
+  // ── Drag state ──────────────────────────────────────────────────────────────
+  const [dragId, setDragId]       = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+
+  // Ref to each photo card element — used for hit-testing during pointer drag
+  const itemRefs = useRef<Map<string, HTMLElement>>(new Map())
+
+  // Pending long-press context (cleared once drag activates or pointer lifts early)
+  const pendingRef = useRef<{
+    id: string
+    el: HTMLElement
+    pointerId: number
+    timer: ReturnType<typeof setTimeout>
+    startX: number
+    startY: number
+  } | null>(null)
+
+  // Keep a ref copy of dragId so the non-passive touchmove listener can read it
+  const dragIdRef = useRef<string | null>(null)
+  useEffect(() => { dragIdRef.current = dragId }, [dragId])
+
+  // Prevent page scroll while a drag is in progress (non-passive, must be added imperatively)
   useEffect(() => {
-    return () => {
-      uploadItems?.forEach(i => URL.revokeObjectURL(i.previewUrl))
+    function onTouchMove(e: TouchEvent) {
+      if (dragIdRef.current) e.preventDefault()
     }
+    document.addEventListener('touchmove', onTouchMove, { passive: false })
+    return () => document.removeEventListener('touchmove', onTouchMove)
+  }, [])
+
+  // Revoke object URLs on unmount
+  useEffect(() => {
+    return () => { uploadItems?.forEach(i => URL.revokeObjectURL(i.previewUrl)) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // ── Upload ────────────────────────────────────────────────────────────────
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (files.length === 0) return
     if (fileInputRef.current) fileInputRef.current.value = ''
 
-    // Build initial queue with local previews
     const items: UploadItem[] = files.map(file => ({
       file,
       previewUrl: URL.createObjectURL(file),
@@ -129,9 +148,7 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
     setUploadItems(items)
 
     const updated = [...items]
-
     for (let i = 0; i < files.length; i++) {
-      // Mark current file as active
       updated[i] = { ...updated[i], status: 'active' }
       setUploadItems([...updated])
 
@@ -153,7 +170,6 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
       setUploadItems([...updated])
     }
 
-    // Collapse the progress panel after a short pause so the user sees completion
     setTimeout(() => {
       updated.forEach(i => URL.revokeObjectURL(i.previewUrl))
       setUploadItems(null)
@@ -185,37 +201,102 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
     setEditingCaption(null)
   }
 
-  // ── Drag-to-reorder ───────────────────────────────────────────────────────
+  // ── Pointer drag (mouse + touch) ──────────────────────────────────────────
+  //
+  // Strategy:
+  //   • onPointerDown  → start a 250 ms long-press timer; record start position
+  //   • onPointerMove  → if timer hasn't fired yet, cancel if finger moved > 8 px
+  //                      (user is scrolling, not dragging); if drag is active,
+  //                      hit-test bounding rects to find the hovered slot
+  //   • timer fires    → setPointerCapture so all future events route here;
+  //                      activate drag visuals
+  //   • onPointerUp /
+  //     onPointerCancel → commit reorder or cancel; clear all state
 
-  function handleDragStart(id: string) { setDragId(id) }
-  function handleDragOver(e: React.DragEvent, id: string) {
-    e.preventDefault()
-    setDragOverId(id)
+  function hitTest(x: number, y: number): string | null {
+    for (const [id, el] of itemRefs.current) {
+      const r = el.getBoundingClientRect()
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return id
+    }
+    return null
   }
 
-  async function handleDrop(targetId: string) {
-    if (!dragId || dragId === targetId) { setDragId(null); setDragOverId(null); return }
-
-    const from = photos.findIndex(p => p.id === dragId)
-    const to   = photos.findIndex(p => p.id === targetId)
+  async function commitReorder(fromId: string, toId: string) {
+    const from = photos.findIndex(p => p.id === fromId)
+    const to   = photos.findIndex(p => p.id === toId)
     if (from === -1 || to === -1) return
-
     const reordered = [...photos]
     const [moved] = reordered.splice(from, 1)
     reordered.splice(to, 0, moved)
     const withOrders = reordered.map((p, i) => ({ ...p, display_order: i }))
-
     setPhotos(withOrders)
+    await reorderOrgPhotos(withOrders.map(p => ({ id: p.id, display_order: p.display_order })))
+  }
+
+  function handlePointerDown(e: React.PointerEvent, id: string) {
+    // Only respond to primary pointer (ignore secondary touches)
+    if (!e.isPrimary) return
+    const el = e.currentTarget as HTMLElement
+
+    const timer = setTimeout(() => {
+      const p = pendingRef.current
+      if (!p) return
+      try { p.el.setPointerCapture(p.pointerId) } catch { /* pointer already gone */ }
+      setDragId(id)
+      setDragOverId(id)
+    }, 250)
+
+    pendingRef.current = {
+      id,
+      el,
+      pointerId: e.pointerId,
+      timer,
+      startX: e.clientX,
+      startY: e.clientY,
+    }
+  }
+
+  function handlePointerMove(e: React.PointerEvent) {
+    if (!e.isPrimary) return
+    const pending = pendingRef.current
+    if (!pending) return
+
+    if (!dragId) {
+      // Drag hasn't activated yet — cancel if the finger has moved too much
+      const dx = Math.abs(e.clientX - pending.startX)
+      const dy = Math.abs(e.clientY - pending.startY)
+      if (dx > 8 || dy > 8) {
+        clearTimeout(pending.timer)
+        pendingRef.current = null
+      }
+      return
+    }
+
+    // Drag is active — find which slot is under the pointer
+    const over = hitTest(e.clientX, e.clientY)
+    if (over) setDragOverId(over)
+  }
+
+  function handlePointerUp(e: React.PointerEvent) {
+    if (!e.isPrimary) return
+    const pending = pendingRef.current
+    if (pending) {
+      clearTimeout(pending.timer)
+      pendingRef.current = null
+
+      if (dragId && dragOverId && dragId !== dragOverId) {
+        commitReorder(dragId, dragOverId)
+      }
+    }
     setDragId(null)
     setDragOverId(null)
-
-    await reorderOrgPhotos(withOrders.map(p => ({ id: p.id, display_order: p.display_order })))
   }
 
   const isUploading = uploadItems !== null && uploadItems.some(i => i.status === 'pending' || i.status === 'active')
 
   return (
     <div className="space-y-6">
+
       {/* Upload area */}
       <div className="bg-white rounded-lg border p-5">
         {uploadItems ? (
@@ -254,29 +335,45 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
           <p className="text-lg">No photos yet</p>
           <p className="text-sm mt-1">Upload photos to display a gallery on your public site.</p>
         </div>
-      ) : (
-        photos.length > 0 && (
-          <div>
-            <p className="text-xs text-gray-400 mb-3">Drag to reorder · {photos.length} photo{photos.length !== 1 ? 's' : ''}</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {photos.map((photo) => (
+      ) : photos.length > 0 && (
+        <div>
+          {/* Hint — different text for touch vs mouse */}
+          <p className="text-xs text-gray-400 mb-3">
+            <span className="hidden sm:inline">Drag to reorder · </span>
+            <span className="sm:hidden">Hold to reorder · </span>
+            {photos.length} photo{photos.length !== 1 ? 's' : ''}
+          </p>
+
+          <div
+            className="grid grid-cols-2 sm:grid-cols-3 gap-3"
+            // Cursor feedback during active drag
+            style={{ cursor: dragId ? 'grabbing' : undefined }}
+          >
+            {photos.map((photo) => {
+              const isBeingDragged = dragId === photo.id
+              const isDropTarget   = dragOverId === photo.id && dragId !== photo.id
+              const isEditingThisCaption = editingCaption?.id === photo.id
+
+              return (
                 <div
                   key={photo.id}
-                  draggable
-                  onDragStart={() => handleDragStart(photo.id)}
-                  onDragOver={(e) => handleDragOver(e, photo.id)}
-                  onDrop={() => handleDrop(photo.id)}
-                  onDragEnd={() => { setDragId(null); setDragOverId(null) }}
+                  ref={el => { if (el) itemRefs.current.set(photo.id, el); else itemRefs.current.delete(photo.id) }}
+                  onPointerDown={e => handlePointerDown(e, photo.id)}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onPointerCancel={handlePointerUp}
+                  // touch-action none only during active drag (set on the element
+                  // the pointer is captured to). Before drag, default touch-action
+                  // allows the page to scroll when the user touches a photo.
+                  style={{ touchAction: isBeingDragged ? 'none' : undefined, userSelect: 'none' }}
                   className={[
-                    'group relative rounded-xl overflow-hidden border-2 transition-all cursor-grab active:cursor-grabbing',
-                    dragOverId === photo.id && dragId !== photo.id
-                      ? 'border-orange-400 scale-[0.98]'
-                      : 'border-transparent',
-                    dragId === photo.id ? 'opacity-50' : '',
+                    'group relative rounded-xl overflow-hidden border-2 transition-all',
+                    isBeingDragged ? 'opacity-40 scale-95 cursor-grabbing border-transparent' : 'cursor-grab',
+                    isDropTarget ? 'border-orange-400 scale-[0.98]' : 'border-transparent',
                   ].join(' ')}
                 >
                   {/* Image */}
-                  <div className="aspect-square bg-gray-100">
+                  <div className="aspect-square bg-gray-100 pointer-events-none">
                     <Image
                       src={photo.url}
                       alt={photo.caption ?? 'Gallery photo'}
@@ -284,28 +381,25 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                       height={400}
                       className="w-full h-full object-cover"
                       unoptimized
+                      draggable={false}
                     />
                   </div>
 
-                  {/* Overlay actions */}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-end">
+                  {/* ── Desktop: hover overlay (hidden on touch screens) ── */}
+                  <div className="hidden sm:flex absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors items-end pointer-events-none group-hover:pointer-events-auto">
                     <div className="w-full p-2 translate-y-full group-hover:translate-y-0 transition-transform space-y-1.5">
-                      {/* Caption */}
-                      {editingCaption?.id === photo.id ? (
-                        <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                      {isEditingThisCaption ? (
+                        <div className="flex gap-1" onPointerDown={e => e.stopPropagation()}>
                           <input
                             autoFocus
-                            value={editingCaption.value}
+                            value={editingCaption!.value}
                             onChange={e => setEditingCaption({ id: photo.id, value: e.target.value })}
                             onKeyDown={e => { if (e.key === 'Enter') handleCaptionSave(); if (e.key === 'Escape') setEditingCaption(null) }}
                             className="flex-1 text-xs px-2 py-1 rounded bg-white/90 text-gray-800 focus:outline-none"
                             placeholder="Add caption…"
                             maxLength={100}
                           />
-                          <button
-                            onClick={handleCaptionSave}
-                            className="px-2 py-1 text-xs bg-white/90 text-gray-800 rounded font-medium hover:bg-white"
-                          >
+                          <button onClick={handleCaptionSave} className="px-2 py-1 text-xs bg-white/90 text-gray-800 rounded font-medium hover:bg-white">
                             ✓
                           </button>
                         </div>
@@ -317,7 +411,6 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                           {photo.caption || '+ Add caption'}
                         </button>
                       )}
-                      {/* Delete */}
                       <button
                         onClick={() => handleDelete(photo.id)}
                         disabled={deletingId === photo.id}
@@ -327,11 +420,65 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                       </button>
                     </div>
                   </div>
+
+                  {/* ── Mobile: always-visible bottom action bar ── */}
+                  <div className="sm:hidden absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent pt-6 pb-2 px-2 pointer-events-none">
+                    <div className="flex items-end justify-between gap-1 pointer-events-auto">
+                      {/* Caption area */}
+                      <div className="flex-1 min-w-0" onPointerDown={e => e.stopPropagation()}>
+                        {isEditingThisCaption ? (
+                          <div className="flex gap-1">
+                            <input
+                              autoFocus
+                              value={editingCaption!.value}
+                              onChange={e => setEditingCaption({ id: photo.id, value: e.target.value })}
+                              onKeyDown={e => { if (e.key === 'Enter') handleCaptionSave(); if (e.key === 'Escape') setEditingCaption(null) }}
+                              className="flex-1 text-xs px-2 py-1 rounded bg-white/90 text-gray-800 focus:outline-none min-w-0"
+                              placeholder="Add caption…"
+                              maxLength={100}
+                            />
+                            <button onClick={handleCaptionSave} className="px-2 py-1 text-xs bg-white/90 text-gray-800 rounded font-medium">
+                              ✓
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setEditingCaption({ id: photo.id, value: photo.caption ?? '' })}
+                            className="text-left text-xs text-white/80 truncate w-full"
+                          >
+                            {photo.caption || '+ caption'}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Delete button */}
+                      {!isEditingThisCaption && (
+                        <button
+                          onPointerDown={e => e.stopPropagation()}
+                          onClick={() => handleDelete(photo.id)}
+                          disabled={deletingId === photo.id}
+                          className="shrink-0 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center disabled:opacity-50"
+                          aria-label="Remove photo"
+                        >
+                          {deletingId === photo.id ? (
+                            <svg className="w-3 h-3 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
+              )
+            })}
           </div>
-        )
+        </div>
       )}
     </div>
   )
