@@ -12,12 +12,6 @@ function MarketingNav() {
           <span className="font-bold text-gray-900 text-lg tracking-tight">Fieldday</span>
         </Link>
         <div className="flex items-center gap-3">
-          <a
-            href="https://docs.fielddayapp.ca"
-            className="hidden sm:block text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            Docs
-          </a>
           <Link
             href="/login"
             className="hidden sm:block text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
