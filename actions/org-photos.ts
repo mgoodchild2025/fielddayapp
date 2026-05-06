@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
-import { convertToWebP } from '@/lib/image-utils'
+import { convertToWebP, rotateImage } from '@/lib/image-utils'
 
 // ── Upload a photo ────────────────────────────────────────────────────────────
 
@@ -19,7 +19,7 @@ export async function uploadOrgPhoto(
 
   const file = formData.get('photo') as File | null
   if (!file || file.size === 0) return { id: null, url: null, error: 'No file provided' }
-  if (file.size > 5 * 1024 * 1024) return { id: null, url: null, error: 'File must be under 5 MB' }
+  if (file.size > 10 * 1024 * 1024) return { id: null, url: null, error: 'File must be under 10 MB' }
   if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
     return { id: null, url: null, error: 'Unsupported file type. Use JPEG, PNG, WebP, or GIF.' }
   }
@@ -166,4 +166,72 @@ export async function reorderOrgPhotos(
   revalidatePath('/')
   revalidatePath('/admin/settings/website/photos')
   return { error: null }
+}
+
+// ── Rotate a photo ────────────────────────────────────────────────────────────
+
+export async function rotateOrgPhoto(
+  photoId: string,
+  direction: 'cw' | 'ccw',
+): Promise<{ url: string | null; error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  await requireOrgMember(org, ['org_admin', 'league_admin'])
+
+  const db = createServiceRoleClient()
+
+  // Fetch the current URL for this photo
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: photo } = await (db as any)
+    .from('org_photos')
+    .select('url')
+    .eq('id', photoId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (!photo) return { url: null, error: 'Photo not found' }
+
+  const url: string = (photo as { url: string }).url
+
+  // Derive storage path from URL (strip cache-bust query param)
+  const bucketPrefix = `/org-photos/`
+  const pathStart = url.indexOf(bucketPrefix)
+  if (pathStart === -1) return { url: null, error: 'Unable to locate storage file' }
+  const storagePath = url.slice(pathStart + bucketPrefix.length).split('?')[0]
+
+  // Download the current image
+  const { data: fileData, error: downloadErr } = await db.storage
+    .from('org-photos')
+    .download(storagePath)
+  if (downloadErr || !fileData) return { url: null, error: downloadErr?.message ?? 'Download failed' }
+
+  const degrees = direction === 'cw' ? 90 : 270
+  const rotated = await rotateImage(await fileData.arrayBuffer(), degrees as 90 | 270)
+
+  // Re-upload to the same path (always .webp after rotation)
+  const newPath = storagePath.replace(/\.[^.]+$/, '.webp')
+
+  // If extension changed (was .jpg/.png → now .webp), remove old file first
+  if (newPath !== storagePath) {
+    await db.storage.from('org-photos').remove([storagePath])
+  }
+
+  const { error: upErr } = await db.storage
+    .from('org-photos')
+    .upload(newPath, rotated.buffer, { contentType: rotated.contentType, upsert: true })
+  if (upErr) return { url: null, error: upErr.message }
+
+  const { data: { publicUrl } } = db.storage.from('org-photos').getPublicUrl(newPath)
+  const newUrl = `${publicUrl}?t=${Date.now()}`
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any)
+    .from('org_photos')
+    .update({ url: newUrl })
+    .eq('id', photoId)
+    .eq('organization_id', org.id)
+
+  revalidatePath('/')
+  revalidatePath('/admin/settings/website/photos')
+  return { url: newUrl, error: null }
 }

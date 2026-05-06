@@ -36,3 +36,19 @@ export async function convertToWebP(
 
   return { buffer: webpBuffer, contentType: 'image/webp' }
 }
+
+/**
+ * Rotate an image by the given degrees and return as WebP.
+ * Degrees must be 90, 180, or 270 (clockwise).
+ */
+export async function rotateImage(
+  input: ArrayBuffer | Buffer,
+  degrees: 90 | 180 | 270,
+): Promise<{ buffer: Buffer; contentType: 'image/webp' }> {
+  const buf = Buffer.isBuffer(input) ? input : Buffer.from(input)
+  const rotated = await sharp(buf)
+    .rotate(degrees)
+    .webp({ quality: 82 })
+    .toBuffer()
+  return { buffer: rotated, contentType: 'image/webp' }
+}
