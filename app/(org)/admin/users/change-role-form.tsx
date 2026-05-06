@@ -19,8 +19,9 @@ const roleColors: Record<OrgRole, string> = {
   player: 'bg-gray-100 text-gray-600',
 }
 
-// On the admins page, only these roles are assignable
-const adminRoles: OrgRole[] = ['org_admin', 'league_admin']
+// All roles are assignable — downgrading to player/captain removes admin access
+// but leaves team memberships, captain assignments, and league registrations intact
+const adminRoles: OrgRole[] = ['org_admin', 'league_admin', 'captain', 'player']
 
 export function ChangeMemberRoleForm({
   memberId,
