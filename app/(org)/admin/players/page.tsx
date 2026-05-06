@@ -1,5 +1,6 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
+import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { PlayersClient } from '@/components/players/players-client'
@@ -17,6 +18,9 @@ export default async function PlayersPage({
   const org = await getCurrentOrg(headersList)
   const supabase = createServiceRoleClient()
   const scope = await getAdminScope(org.id)
+  const authClient = await createServerClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  const currentUserId = user?.id ?? null
 
   // For scoped league_admin users: determine which leagues to expose
   const effectiveLeagueIds: string[] | null = !scope.isOrgAdmin && scope.assignedLeagueIds !== null
@@ -109,6 +113,7 @@ export default async function PlayersPage({
         currentLeague={leagueFilter ?? null}
         unregisteredOnly={unregisteredOnly}
         isOrgAdmin={scope.isOrgAdmin}
+        currentUserId={currentUserId}
       />
     </div>
   )

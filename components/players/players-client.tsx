@@ -4,7 +4,8 @@ import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
-import { DeletePlayerButton } from '@/components/players/delete-player-button'
+import { ChangeMemberRoleForm } from '@/components/admin/change-role-form'
+import { MemberActions } from '@/components/admin/member-actions'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ interface Props {
   currentLeague: string | null
   unregisteredOnly: boolean
   isOrgAdmin: boolean
+  currentUserId: string | null
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -71,7 +73,7 @@ function ArrowIcon() {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function PlayersClient({ players, leagues, currentLeague, unregisteredOnly, isOrgAdmin }: Props) {
+export function PlayersClient({ players, leagues, currentLeague, unregisteredOnly, isOrgAdmin, currentUserId }: Props) {
   const router = useRouter()
   const [query, setQuery] = useState('')
   const [leaguePending, startLeagueTransition] = useTransition()
@@ -273,9 +275,16 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
                   <td className="px-4 py-3 text-gray-500">{player.email ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-500">{player.phone ?? '—'}</td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[player.role] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {player.role.replace(/_/g, ' ')}
-                    </span>
+                    {isOrgAdmin && player.userId !== currentUserId ? (
+                      <ChangeMemberRoleForm
+                        memberId={player.memberId}
+                        currentRole={player.role as 'org_admin' | 'league_admin' | 'captain' | 'player'}
+                      />
+                    ) : (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[player.role] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {player.role.replace(/_/g, ' ')}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -285,8 +294,8 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {player.userId && (
-                      <span className="flex items-center gap-1 whitespace-nowrap">
+                    <span className="flex items-center gap-2 whitespace-nowrap">
+                      {player.userId && (
                         <Link
                           href={`/admin/players/${player.userId}`}
                           className="text-xs font-medium hover:underline"
@@ -294,14 +303,15 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
                         >
                           View →
                         </Link>
-                        {isOrgAdmin && (
-                          <DeletePlayerButton
-                            userId={player.userId}
-                            name={player.fullName ?? player.email ?? 'this player'}
-                          />
-                        )}
-                      </span>
-                    )}
+                      )}
+                      {isOrgAdmin && player.userId !== currentUserId && (
+                        <MemberActions
+                          memberId={player.memberId}
+                          memberName={player.fullName ?? player.email ?? 'this player'}
+                          status={player.status}
+                        />
+                      )}
+                    </span>
                   </td>
                 </tr>
               ))}
