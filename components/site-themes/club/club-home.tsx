@@ -2,10 +2,12 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
+import { EventAvatar } from '@/components/ui/event-avatar'
 import type { OrgContext } from '@/lib/tenant'
 
 type League = {
   id: string; name: string; slug: string; event_type: string | null; status: string
+  sport: string | null; logo_url: string | null
   season_start_date: string | null; price_cents: number; currency: string | null
   max_teams: number | null; payment_mode: string | null; skill_level: string | null
   days_of_week: string[] | null
@@ -141,7 +143,10 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
                               ? <span className="text-xs text-amber-600 font-medium">Teams Full</span>
                               : <span className="text-xs text-green-600 font-medium">Open</span>}
                           </div>
-                          <h3 className="font-bold text-base leading-snug" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</h3>
+                          <div className="flex items-center gap-3 mb-1">
+                            <EventAvatar logoUrl={league.logo_url} name={league.name} sport={league.sport} size="sm" />
+                            <h3 className="font-bold text-base leading-snug" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</h3>
+                          </div>
                           {league.season_start_date && (
                             <p className="text-xs text-gray-400 mt-1">
                               {new Date(league.season_start_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -168,9 +173,12 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
                       <Link key={league.id} href={`/events/${league.slug}?tab=standings`}
                         className="flex items-center justify-between bg-white border rounded-xl px-5 py-4 hover:shadow-sm transition-shadow"
                       >
-                        <div>
-                          <p className="font-semibold text-sm" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</p>
-                          <p className="text-xs text-gray-400 mt-0.5 capitalize">{league.event_type ?? 'league'}</p>
+                        <div className="flex items-center gap-3">
+                          <EventAvatar logoUrl={league.logo_url} name={league.name} sport={league.sport} size="sm" />
+                          <div>
+                            <p className="font-semibold text-sm" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</p>
+                            <p className="text-xs text-gray-400 mt-0.5 capitalize">{league.event_type ?? 'league'}</p>
+                          </div>
                         </div>
                         <span className="text-xs text-gray-400">Standings →</span>
                       </Link>

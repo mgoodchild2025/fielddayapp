@@ -17,7 +17,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
       .single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any).from('leagues')
-      .select('id, name, slug, event_type, status, season_start_date, price_cents, currency, max_teams, payment_mode, skill_level, days_of_week')
+      .select('id, name, slug, event_type, sport, logo_url, status, season_start_date, price_cents, currency, max_teams, payment_mode, skill_level, days_of_week')
       .eq('organization_id', orgId)
       .neq('status', 'draft')
       .neq('status', 'archived')
@@ -83,6 +83,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
 
   type League = {
     id: string; name: string; slug: string; event_type: string | null; status: string
+    sport: string | null; logo_url: string | null
     season_start_date: string | null; price_cents: number; currency: string | null
     max_teams: number | null; payment_mode: string | null; skill_level: string | null
     days_of_week: string[] | null

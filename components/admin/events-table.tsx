@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { DeleteEventRowButton } from '@/components/events/delete-event-row-button'
+import { EventAvatar } from '@/components/ui/event-avatar'
 
 type League = {
   id: string
@@ -10,6 +11,8 @@ type League = {
   slug: string
   status: string
   event_type: string | null
+  sport: string | null
+  logo_url: string | null
   price_cents: number
   currency: string
   season_start_date: string | null
@@ -141,7 +144,8 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
               {filtered.map(league => (
                 <tr key={league.id} className="border-b last:border-0 hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">
-                    <Link href={`/admin/events/${league.id}`} className="hover:underline" style={{ color: 'var(--brand-primary)' }}>
+                    <Link href={`/admin/events/${league.id}`} className="flex items-center gap-2 hover:underline" style={{ color: 'var(--brand-primary)' }}>
+                      <EventAvatar logoUrl={league.logo_url} name={league.name} sport={league.sport} size="sm" />
                       {league.name}
                     </Link>
                   </td>
@@ -200,9 +204,12 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
               className="block bg-white rounded-lg border p-4 hover:shadow-sm transition-shadow"
             >
               {/* Name */}
-              <p className="font-semibold mb-2" style={{ color: 'var(--brand-primary)' }}>
-                {league.name}
-              </p>
+              <div className="flex items-center gap-2 mb-2">
+                <EventAvatar logoUrl={league.logo_url} name={league.name} sport={league.sport} size="sm" />
+                <p className="font-semibold" style={{ color: 'var(--brand-primary)' }}>
+                  {league.name}
+                </p>
+              </div>
 
               {/* Type + Status badges */}
               <div className="flex flex-wrap gap-1.5 mb-2">

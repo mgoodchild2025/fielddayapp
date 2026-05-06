@@ -19,6 +19,7 @@ import { formatGameTime } from '@/lib/format-time'
 import { ChevronRight } from 'lucide-react'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
+import { EventAvatar } from '@/components/ui/event-avatar'
 import { StickyRegisterBar } from '@/components/events/sticky-register-bar'
 import { EventTabSelect } from '@/components/events/event-tab-select'
 import { CaptainStatsEntry } from '@/components/stats/captain-stats-entry'
@@ -936,9 +937,21 @@ export default async function EventDetailPage({
       <div style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 pb-5">
           <BackLink fallbackHref="/events" fallbackLabel="All Events" />
-          <h1 className="text-3xl sm:text-4xl font-bold uppercase mt-2" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-            {league.name}
-          </h1>
+          <div className="flex items-center gap-4 mt-2">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {(league as any).logo_url && (
+              <EventAvatar
+                logoUrl={(league as any).logo_url}
+                name={league.name}
+                sport={league.sport ?? null}
+                size="lg"
+                className="shrink-0 shadow-sm"
+              />
+            )}
+            <h1 className="text-3xl sm:text-4xl font-bold uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+              {league.name}
+            </h1>
+          </div>
           <div className="flex flex-wrap items-center gap-3 mt-3">
             <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
               isRegOpen ? 'bg-green-400/20 text-green-200' : 'bg-white/10 text-white/70'

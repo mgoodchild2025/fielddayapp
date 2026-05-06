@@ -260,19 +260,20 @@ export async function GET(req: NextRequest) {
         }
 
         // Claim the send slot atomically before doing any work.
-        // If another concurrent cron run already inserted this row the upsert
-        // returns 0 rows (ignoreDuplicates) and we skip — preventing duplicate sends.
+        // Plain INSERT — if the row already exists (PK conflict on game_id+minutes_before),
+        // Postgres returns error code 23505 and we skip, preventing duplicate sends.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: claimed } = await (supabase as any)
+        const { error: claimErr } = await (supabase as any)
           .from('game_sms_reminder_logs')
-          .upsert(
-            { game_id: game.id, minutes_before: reminder.minutes_before },
-            { onConflict: 'game_id,minutes_before', ignoreDuplicates: true }
-          )
-          .select('game_id')
-        if (!claimed || claimed.length === 0) {
-          skipReasons.push(`${reminder.minutes_before}min:already_claimed_by_concurrent_run`)
-          sentSet.add(logKey)
+          .insert({ game_id: game.id, minutes_before: reminder.minutes_before })
+        if (claimErr) {
+          if (claimErr.code === '23505') {
+            // Already inserted by this or a concurrent run — skip
+            skipReasons.push(`${reminder.minutes_before}min:already_claimed_by_concurrent_run`)
+            sentSet.add(logKey)
+          } else {
+            skipReasons.push(`${reminder.minutes_before}min:log_insert_error(${claimErr.message})`)
+          }
           continue
         }
         sentSet.add(logKey)
@@ -444,16 +445,20 @@ export async function GET(req: NextRequest) {
         if (myGames.length === 0) continue
 
         // Claim the send slot atomically before sending.
-        // If a concurrent cron run already inserted this row the upsert returns 0 rows.
+        // Plain INSERT — if the row already exists (UNIQUE constraint on user_id+organization_id+log_date),
+        // Postgres returns error code 23505 and we skip, preventing duplicate sends even across
+        // concurrent cron runs. Upsert was unreliable here because the table has an auto-generated
+        // UUID primary key — every upsert payload without an explicit id generated a new UUID,
+        // so the PK conflict never fired and every upsert inserted a new row.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: claimed } = await (supabase as any)
+        const { error: claimErr } = await (supabase as any)
           .from('player_game_day_sms_logs')
-          .upsert(
-            { user_id: userId, organization_id: orgId, log_date: todayLocal },
-            { onConflict: 'user_id,organization_id,log_date', ignoreDuplicates: true }
-          )
-          .select('user_id')
-        if (!claimed || claimed.length === 0) continue // already sent by a concurrent run
+          .insert({ user_id: userId, organization_id: orgId, log_date: todayLocal })
+        if (claimErr) {
+          if (claimErr.code === '23505') continue // already sent — skip silently
+          results.push(`game_day log error for ${userId}: ${claimErr.message}`)
+          continue
+        }
 
         // Build game lines
         const gameLines = myGames.map(g => {

@@ -2,10 +2,12 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
+import { EventAvatar } from '@/components/ui/event-avatar'
 import type { OrgContext } from '@/lib/tenant'
 
 type League = {
   id: string; name: string; slug: string; event_type: string | null; status: string
+  sport: string | null; logo_url: string | null
   season_start_date: string | null; price_cents: number; currency: string | null
   max_teams: number | null; payment_mode: string | null; skill_level: string | null
   days_of_week: string[] | null
@@ -122,9 +124,12 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
                           className="group block rounded-xl border-l-4 bg-white border border-gray-100 hover:shadow-md transition-all p-5"
                           style={{ borderLeftColor: 'var(--brand-primary)' }}
                         >
-                          <h3 className="font-black text-base uppercase tracking-tight leading-tight mb-2" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-                            {league.name}
-                          </h3>
+                          <div className="flex items-center gap-3 mb-2">
+                            <EventAvatar logoUrl={league.logo_url} name={league.name} sport={league.sport} size="sm" />
+                            <h3 className="font-black text-base uppercase tracking-tight leading-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+                              {league.name}
+                            </h3>
+                          </div>
                           <div className="flex items-center gap-2 text-xs text-gray-400">
                             <span className="capitalize">{league.event_type ?? 'league'}</span>
                             {league.skill_level && <><span>·</span><span className="capitalize">{league.skill_level}</span></>}
@@ -150,7 +155,10 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
                       <Link key={league.id} href={`/events/${league.slug}?tab=standings`}
                         className="flex items-center justify-between bg-white border rounded-xl px-5 py-4 hover:shadow-sm transition-shadow"
                       >
-                        <p className="font-bold text-sm uppercase tracking-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</p>
+                        <div className="flex items-center gap-3">
+                          <EventAvatar logoUrl={league.logo_url} name={league.name} sport={league.sport} size="sm" />
+                          <p className="font-bold text-sm uppercase tracking-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</p>
+                        </div>
                         <span className="text-xs font-semibold px-2.5 py-1 rounded-full text-white" style={{ backgroundColor: 'var(--brand-primary)' }}>
                           Standings →
                         </span>

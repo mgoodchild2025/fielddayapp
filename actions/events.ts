@@ -4,9 +4,11 @@ import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { getLimit, getActiveLeagueCount } from '@/lib/features'
-import { assertOrgAdmin } from '@/lib/auth'
+import { assertOrgAdmin, requireOrgMember } from '@/lib/auth'
+import { convertToWebP } from '@/lib/image-utils'
 import type { Database } from '@/types/database'
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
@@ -219,4 +221,74 @@ export async function updateLeague(
 
   revalidatePath(`/admin/events/${leagueId}`)
   return { data: null, error: null }
+}
+
+// ─── Event logo upload ────────────────────────────────────────────────────────
+
+export async function uploadEventLogo(
+  leagueId: string,
+  formData: FormData,
+): Promise<{ url: string | null; error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  await requireOrgMember(org, ['org_admin', 'league_admin'])
+
+  const file = formData.get('logo') as File | null
+  if (!file || file.size === 0) return { url: null, error: 'No file provided' }
+  if (file.size > 2 * 1024 * 1024) return { url: null, error: 'File must be under 2 MB' }
+  if (!['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'].includes(file.type))
+    return { url: null, error: 'JPEG, PNG, WebP, or SVG only' }
+
+  const bytes = await file.arrayBuffer()
+  // SVGs kept as-is (vector); raster images converted to WebP
+  const converted = await convertToWebP(bytes, file.type, { maxWidth: 800, maxHeight: 800 })
+  const uploadBytes = converted?.buffer ?? Buffer.from(bytes)
+  const uploadType = converted?.contentType ?? file.type
+  const ext = converted ? 'webp' : (file.name.split('.').pop()?.toLowerCase() ?? 'png')
+  const path = `${org.id}/${leagueId}/logo.${ext}`
+
+  const db = createServiceRoleClient()
+
+  // Delete existing files before uploading — extension may differ between uploads
+  const { data: existing } = await db.storage.from('event-logos').list(`${org.id}/${leagueId}`)
+  if (existing && existing.length > 0) {
+    await db.storage.from('event-logos').remove(existing.map(f => `${org.id}/${leagueId}/${f.name}`))
+  }
+
+  const { error: upErr } = await db.storage
+    .from('event-logos')
+    .upload(path, uploadBytes, { contentType: uploadType, upsert: true })
+  if (upErr) return { url: null, error: upErr.message }
+
+  const { data: { publicUrl } } = db.storage.from('event-logos').getPublicUrl(path)
+  const url = `${publicUrl}?t=${Date.now()}`
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('leagues').update({ logo_url: url }).eq('id', leagueId).eq('organization_id', org.id)
+
+  revalidatePath(`/admin/events/${leagueId}`)
+  revalidatePath('/', 'layout')
+  return { url, error: null }
+}
+
+export async function removeEventLogo(
+  leagueId: string,
+): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  await requireOrgMember(org, ['org_admin', 'league_admin'])
+
+  const db = createServiceRoleClient()
+
+  const { data: existing } = await db.storage.from('event-logos').list(`${org.id}/${leagueId}`)
+  if (existing && existing.length > 0) {
+    await db.storage.from('event-logos').remove(existing.map(f => `${org.id}/${leagueId}/${f.name}`))
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('leagues').update({ logo_url: null }).eq('id', leagueId).eq('organization_id', org.id)
+
+  revalidatePath(`/admin/events/${leagueId}`)
+  revalidatePath('/', 'layout')
+  return { error: null }
 }

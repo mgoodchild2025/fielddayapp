@@ -9,6 +9,7 @@ import { EditEventForm } from '@/components/events/edit-event-form'
 import { DeleteEventButton } from '@/components/events/delete-event-button'
 import { OrganizersPanel } from '@/components/events/organizers-panel'
 import { StatsVisibilityToggle } from '@/components/stats/stats-visibility-toggle'
+import { EventLogoUpload } from '@/components/events/event-logo-upload'
 import type { Database } from '@/types/database'
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
@@ -141,6 +142,15 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
 
       {/* Sidebar */}
       <div className="space-y-4">
+        {/* Logo upload */}
+        <EventLogoUpload
+          leagueId={id}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          logoUrl={(league as any).logo_url ?? null}
+          sport={league.sport ?? null}
+          name={league.name}
+        />
+
         {/* Organizers */}
         <OrganizersPanel
           leagueId={id}
