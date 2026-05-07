@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function CartDrawer({ orgId }: Props) {
-  const { items, removeItem, updateQty, clearCart, totalCents, isOpen, closeCart } = useCart()
+  const { items, isLoading, removeItem, updateQty, clearCart, totalCents, isOpen, closeCart } = useCart()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -92,7 +92,14 @@ export function CartDrawer({ orgId }: Props) {
 
         {/* Items */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {items.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full py-12">
+              <svg className="w-6 h-6 text-gray-300 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+            </div>
+          ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-12">
               <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
                 <svg className="w-7 h-7 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -102,7 +109,7 @@ export function CartDrawer({ orgId }: Props) {
               <p className="text-sm font-medium text-gray-600">Your cart is empty</p>
               <p className="text-xs text-gray-400">Add items from the shop to get started.</p>
             </div>
-          ) : (
+          ) : items.length > 0 ? (
             <div className="space-y-4">
               {items.map((item, idx) => (
                 <div key={idx} className="flex gap-3">
@@ -165,7 +172,7 @@ export function CartDrawer({ orgId }: Props) {
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Footer */}

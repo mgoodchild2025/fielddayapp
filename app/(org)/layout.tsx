@@ -86,7 +86,6 @@ export default async function OrgLayout({
     supabase.from('org_branding').select('*').eq('organization_id', orgId).single(),
     supabase.auth.getUser(),
   ])
-  const userId = user?.id ?? null
 
   const headingFont = branding?.heading_font ?? 'Barlow Condensed'
   const bodyFont = branding?.body_font ?? 'DM Sans'
@@ -98,9 +97,9 @@ export default async function OrgLayout({
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link href={googleFontsUrl} rel="stylesheet" />
       <BrandProvider branding={branding as OrgBranding | null}>
-        <CartProvider userId={userId}>
+        <CartProvider orgId={orgId}>
           {children}
-          {userId && <CartButton orgId={orgId} />}
+          {user && <CartButton orgId={orgId} />}
         </CartProvider>
       </BrandProvider>
     </>
