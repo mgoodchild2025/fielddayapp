@@ -58,7 +58,9 @@ function ResetForm() {
       return
     }
 
-    router.push('/my-events')
+    // Platform admin domain → super panel; org subdomain → player dashboard
+    const isAppDomain = window.location.hostname.startsWith('app.')
+    router.push(isAppDomain ? '/super' : '/my-events')
   }
 
   return (

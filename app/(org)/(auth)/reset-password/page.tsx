@@ -28,7 +28,9 @@ export default function ResetPasswordPage() {
     // browser session. Email scanners fetching the link won't have the cookie
     // and cannot complete the exchange, so the token stays valid for the user.
     await supabase.auth.resetPasswordForEmail(data.email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password/confirm`,
+      // Point directly at the confirm page on this subdomain so the email
+      // link preserves the org domain — no auth/callback hop needed.
+      redirectTo: `${window.location.origin}/reset-password/confirm`,
     })
     setSent(true)
     setLoading(false)
