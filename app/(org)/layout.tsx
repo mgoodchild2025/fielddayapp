@@ -97,7 +97,7 @@ export default async function OrgLayout({
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link href={googleFontsUrl} rel="stylesheet" />
       <BrandProvider branding={branding as OrgBranding | null}>
-        <CartProvider orgId={orgId}>
+        <CartProvider orgId={orgId} userId={user?.id ?? null}>
           {children}
           {user && <CartButton orgId={orgId} />}
         </CartProvider>

@@ -39,7 +39,7 @@ export const CartContext = createContext<CartContextValue | null>(null)
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
-export function CartProvider({ orgId, children }: { orgId: string; children: React.ReactNode }) {
+export function CartProvider({ orgId, userId, children }: { orgId: string; userId: string | null; children: React.ReactNode }) {
   const [items,     setItems]     = useState<StoredItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isOpen,    setIsOpen]    = useState(false)
@@ -52,14 +52,8 @@ export function CartProvider({ orgId, children }: { orgId: string; children: Rea
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const db = useCallback(() => createClient(), [])()
 
-  // Current user id — resolved once; needed for INSERT (user_id NOT NULL, no DB default)
-  const userIdRef = useRef<string | null>(null)
-  useEffect(() => {
-    db.auth.getUser().then(({ data: { user } }) => {
-      userIdRef.current = user?.id ?? null
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // userId comes from the server-side layout — available synchronously, no race condition
+  const userIdRef = useRef<string | null>(userId)
 
   // ── DB helpers ─────────────────────────────────────────────────────────────
 
