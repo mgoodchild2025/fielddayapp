@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { updatePassword } from '@/actions/auth'
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
 const schema = z.object({
@@ -17,7 +18,13 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-export default function ResetPasswordConfirmPage() {
+function ResetForm() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  // Present when the email link uses the token_hash template (new flow).
+  // Absent when the user arrived via the PKCE code callback (already authenticated).
+  const tokenHash = searchParams.get('token_hash')
+
   const [serverError, setServerError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -28,12 +35,30 @@ export default function ResetPasswordConfirmPage() {
   async function onSubmit(data: FormData) {
     setLoading(true)
     setServerError(null)
-    const result = await updatePassword(data.password)
-    if (result?.error) {
-      setServerError(result.error)
-      setLoading(false)
+    const supabase = createClient()
+
+    if (tokenHash) {
+      // Verify the token only on explicit form submit — never on page load.
+      // This means email scanners that fetch the URL do NOT consume the token.
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: 'recovery',
+      })
+      if (error) {
+        setServerError(error.message)
+        setLoading(false)
+        return
+      }
     }
-    // On success the server action redirects to /dashboard
+
+    const { error } = await supabase.auth.updateUser({ password: data.password })
+    if (error) {
+      setServerError(error.message)
+      setLoading(false)
+      return
+    }
+
+    router.push('/my-events')
   }
 
   return (
@@ -92,5 +117,13 @@ export default function ResetPasswordConfirmPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function ResetPasswordConfirmPage() {
+  return (
+    <Suspense>
+      <ResetForm />
+    </Suspense>
   )
 }
