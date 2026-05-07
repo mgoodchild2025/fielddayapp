@@ -56,6 +56,28 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
   const userIdRef = useRef<string | null>(userId)
   console.log('[cart] CartProvider mounted, userId:', userId, 'orgId:', orgId)
 
+  // ── Auth state listener ────────────────────────────────────────────────────
+  // The server-side session can be stale (expired refresh token). When the
+  // Supabase client refreshes auth on the client side, pick up the new userId
+  // and reload the cart so cross-device sync works even with stale cookies.
+  useEffect(() => {
+    const { data: { subscription } } = db.auth.onAuthStateChange((event, session) => {
+      const newId = session?.user?.id ?? null
+      console.log('[cart] onAuthStateChange:', event, 'userId:', newId)
+      if (newId && newId !== userIdRef.current) {
+        userIdRef.current = newId
+        // Trigger a cart reload by setting a flag via setIsLoading
+        setIsLoading(true)
+      }
+      if (!session) {
+        userIdRef.current = null
+        setItems([])
+      }
+    })
+    return () => subscription.unsubscribe()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ── DB helpers ─────────────────────────────────────────────────────────────
 
   const dbSave = useCallback(async (
@@ -100,12 +122,12 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
     if (error) console.error('[cart] clear error:', error.message)
   }, [db, orgId])
 
-  // ── Load on mount ──────────────────────────────────────────────────────────
+  // ── Load on mount + after auth resolves ───────────────────────────────────
 
   useEffect(() => {
+    if (!isLoading) return  // only run when loading flag is set
     let cancelled = false
     ;(async () => {
-      setIsLoading(true)
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data, error } = await (db as any)
@@ -117,6 +139,7 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
         console.log('[cart] load raw rows:', data?.length ?? 0, error?.message)
         if (error) { console.error('[cart] load error:', error.message, error.code, error.details); return }
         if (!data || cancelled) return
+        if (data.length === 0) { setItems([]); return }
 
         // Enrich with item + variant display data in a single batch
         const itemIds    = [...new Set((data as { item_id: string }[]).map(r => r.item_id))]
@@ -166,9 +189,9 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
       }
     })()
     return () => { cancelled = true }
-  // Run once on mount; orgId and db are stable
+  // Re-runs whenever isLoading is set to true (initial mount + after auth resolves)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [isLoading])
 
   // ── addItem ────────────────────────────────────────────────────────────────
 
