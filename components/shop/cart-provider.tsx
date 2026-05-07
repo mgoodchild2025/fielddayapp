@@ -26,7 +26,7 @@ type CartContextValue = {
   closeCart: () => void
 }
 
-const CartContext = createContext<CartContextValue | null>(null)
+export const CartContext = createContext<CartContextValue | null>(null)
 
 const STORAGE_KEY = 'fieldday-shop-cart'
 

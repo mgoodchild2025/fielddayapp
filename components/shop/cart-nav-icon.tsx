@@ -1,9 +1,13 @@
 'use client'
 
-import { useCart } from './cart-provider'
+import { useContext } from 'react'
+import { CartContext } from './cart-provider'
 
 export function CartNavIcon() {
-  const { totalCount, openCart, isOpen } = useCart()
+  const ctx = useContext(CartContext)
+  // Not inside a CartProvider (e.g. public pages) — render nothing
+  if (!ctx) return null
+  const { totalCount, openCart, isOpen } = ctx
 
   return (
     <button
