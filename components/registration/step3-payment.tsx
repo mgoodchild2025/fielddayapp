@@ -100,16 +100,18 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
         {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">{error}</div>}
 
         <div className="border rounded-md divide-y">
-          {/* Registration fee */}
-          <div className="flex justify-between items-center px-4 py-3">
-            <div>
-              <span className="font-medium">{league.name}</span>
-              <p className="text-xs text-gray-400 mt-0.5">Registration fee</p>
+          {/* Registration fee — omit when free */}
+          {registrationPriceCents > 0 && (
+            <div className="flex justify-between items-center px-4 py-3">
+              <div>
+                <span className="font-medium">{league.name}</span>
+                <p className="text-xs text-gray-400 mt-0.5">Registration fee</p>
+              </div>
+              <span className="font-bold text-lg tabular-nums" style={{ color: 'var(--brand-primary)' }}>
+                ${registrationPrice.toFixed(0)} {currency}
+              </span>
             </div>
-            <span className="font-bold text-lg tabular-nums" style={{ color: 'var(--brand-primary)' }}>
-              ${registrationPrice.toFixed(0)} {currency}
-            </span>
-          </div>
+          )}
 
           {/* Merchandise line items */}
           {merchLineItems.map((li) => (

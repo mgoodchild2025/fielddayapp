@@ -81,8 +81,9 @@ export function RegistrationFlow({
   const effectivePriceCents = isDropIn ? (dropInPriceCents ?? 0) : (earlyBirdActive ? earlyBirdPriceCents! : league.price_cents)
   const isPerTeam = (league as unknown as { payment_mode?: string }).payment_mode === 'per_team'
   const showPaymentStep = effectivePriceCents > 0 && hasOnlinePayments && !isPerTeam
-  // Show the add-ons step only when merch items exist and we have a payment step
-  const showAddOnsStep = leagueMerch.length > 0 && showPaymentStep
+  // Show add-ons whenever merch exists and online payments are available —
+  // independent of whether the base registration fee is non-zero.
+  const showAddOnsStep = leagueMerch.length > 0 && hasOnlinePayments && !isPerTeam
 
   // For per-team events, we show a role-select screen before step 1.
   // Skip it if: resuming (initialStep > 1), user is already on a team, or teams are full (force player).
@@ -108,7 +109,7 @@ export function RegistrationFlow({
   const isPlayer = role === 'player'
 
   // Choose the right step labels for the progress bar
-  const steps = showPaymentStep
+  const steps = (showPaymentStep || showAddOnsStep)
     ? (showAddOnsStep ? PAYMENT_STEPS_WITH_MERCH : PAYMENT_STEPS)
     : isPerTeam && isCaptain
       ? CAPTAIN_STEPS
@@ -290,14 +291,18 @@ export function RegistrationFlow({
             }}
             onSkip={() => {
               setMerchSelections([])
-              advanceStep(4)
+              if (showPaymentStep) {
+                advanceStep(4)
+              } else {
+                completeRegistration(registrationId)
+              }
             }}
             onBack={() => advanceStep(2)}
           />
         )}
 
         {/* Step 3 (no merch) or Step 4 (with merch) — Per-player payment */}
-        {((step === 3 && showPaymentStep && !showAddOnsStep) || (step === 4 && showAddOnsStep)) && !completing && (
+        {((step === 3 && showPaymentStep && !showAddOnsStep) || (step === 4 && showAddOnsStep && (showPaymentStep || merchSelections.length > 0))) && !completing && (
           <Step3Payment
             org={org}
             league={league}

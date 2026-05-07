@@ -286,7 +286,7 @@ export async function POST(request: NextRequest) {
     mode: 'payment',
     currency: league.currency,
     line_items: [
-      {
+      ...(priceCents > 0 ? [{
         price_data: {
           currency: league.currency,
           unit_amount: priceCents,
@@ -295,7 +295,7 @@ export async function POST(request: NextRequest) {
           },
         },
         quantity: 1,
-      },
+      }] : []),
       ...merch_line_items,
     ],
     customer_email: profile?.email ?? undefined,
