@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { resetPassword } from '@/actions/auth'
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
 const schema = z.object({
@@ -23,7 +23,13 @@ export default function ResetPasswordPage() {
 
   async function onSubmit(data: FormData) {
     setLoading(true)
-    await resetPassword(data.email)
+    const supabase = createClient()
+    // Called from the browser so the PKCE code_verifier cookie is set in this
+    // browser session. Email scanners fetching the link won't have the cookie
+    // and cannot complete the exchange, so the token stays valid for the user.
+    await supabase.auth.resetPasswordForEmail(data.email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password/confirm`,
+    })
     setSent(true)
     setLoading(false)
   }

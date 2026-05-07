@@ -175,15 +175,6 @@ export async function logout() {
   redirect('/')
 }
 
-export async function resetPassword(email: string) {
-  const supabase = await createServerClient()
-  const origin = getPublicOrigin(await headers())
-  await supabase.auth.resetPasswordForEmail(email, {
-    // Route through the existing PKCE callback handler, then land on the confirm page
-    redirectTo: `${origin}/auth/callback?next=/reset-password/confirm`,
-  })
-  return { data: null, error: null }
-}
 
 export async function updatePassword(newPassword: string): Promise<{ error: string | null }> {
   const supabase = await createServerClient()
