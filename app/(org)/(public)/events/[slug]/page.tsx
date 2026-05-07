@@ -595,18 +595,51 @@ export default async function EventDetailPage({
   // A participant is anyone with a registration OR a team membership in this league
   const isParticipant = isOrgAdmin || !!myRegistration || myTeamIds.size > 0 || !!mySeasonRegistration || mySessionIds.size > 0
 
-  // Fetch the org admin's profile to display as event organizer
-  const { data: orgAdminRow } = await db
-    .from('org_members')
-    .select('profiles!org_members_user_id_fkey(full_name, avatar_url, email, phone)')
+  // Fetch event-specific organizers from league_organizers, then fall back to first org admin
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: organizerRows } = await (db as any)
+    .from('league_organizers')
+    .select('user_id')
+    .eq('league_id', league.id)
     .eq('organization_id', org.id)
-    .eq('role', 'org_admin')
     .eq('status', 'active')
-    .limit(1)
-    .single()
-  const orgAdminProfile = orgAdminRow
-    ? (Array.isArray(orgAdminRow.profiles) ? orgAdminRow.profiles[0] : orgAdminRow.profiles)
-    : null
+    .order('created_at', { ascending: true })
+
+  const organizerUserIds: string[] = (organizerRows ?? [])
+    .map((r: { user_id: string | null }) => r.user_id)
+    .filter(Boolean)
+
+  let eventOrganizers: { full_name: string | null; avatar_url: string | null; email: string | null; phone: string | null }[] = []
+
+  if (organizerUserIds.length > 0) {
+    const { data: profiles } = await db
+      .from('profiles')
+      .select('id, full_name, avatar_url, email, phone')
+      .in('id', organizerUserIds)
+    // Preserve the order from league_organizers
+    const profileMap = Object.fromEntries(
+      (profiles ?? []).map((p: { id: string; full_name: string | null; avatar_url: string | null; email: string | null; phone: string | null }) => [p.id, p])
+    )
+    eventOrganizers = organizerUserIds
+      .map(id => profileMap[id])
+      .filter(Boolean)
+  }
+
+  if (eventOrganizers.length === 0) {
+    // Backwards compat: fall back to the first org admin
+    const { data: orgAdminRow } = await db
+      .from('org_members')
+      .select('profiles!org_members_user_id_fkey(full_name, avatar_url, email, phone)')
+      .eq('organization_id', org.id)
+      .eq('role', 'org_admin')
+      .eq('status', 'active')
+      .limit(1)
+      .single()
+    const fallback = orgAdminRow
+      ? (Array.isArray(orgAdminRow.profiles) ? orgAdminRow.profiles[0] : orgAdminRow.profiles)
+      : null
+    if (fallback) eventOrganizers = [fallback]
+  }
 
   // Filter tabs by visibility — restricted tabs are hidden from non-participants
   const tabs = isInSeasonOrCompleted
@@ -1187,35 +1220,41 @@ export default async function EventDetailPage({
               </div>
             )}
 
-            {/* Organizer */}
-            {!isInSeasonOrCompleted && orgAdminProfile && (
+            {/* Organizers */}
+            {!isInSeasonOrCompleted && eventOrganizers.length > 0 && (
               <div className="bg-white rounded-lg border p-5">
-                <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">Organizer</p>
-                <div className="flex items-center gap-3">
-                  <PlayerAvatar
-                    avatarUrl={orgAdminProfile.avatar_url ?? null}
-                    name={orgAdminProfile.full_name ?? ''}
-                    size="md"
-                  />
-                  <div>
-                    <p className="font-semibold text-sm">{orgAdminProfile.full_name}</p>
-                    {isParticipant && orgAdminProfile.email && (
-                      <a
-                        href={`mailto:${orgAdminProfile.email}`}
-                        className="text-sm text-blue-600 hover:underline block mt-0.5"
-                      >
-                        {orgAdminProfile.email}
-                      </a>
-                    )}
-                    {isParticipant && orgAdminProfile.phone && (
-                      <a
-                        href={`tel:${orgAdminProfile.phone}`}
-                        className="text-sm text-gray-600 hover:underline block mt-0.5"
-                      >
-                        {orgAdminProfile.phone}
-                      </a>
-                    )}
-                  </div>
+                <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">
+                  {eventOrganizers.length === 1 ? 'Organizer' : 'Organizers'}
+                </p>
+                <div className="space-y-3">
+                  {eventOrganizers.map((organizer, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <PlayerAvatar
+                        avatarUrl={organizer.avatar_url ?? null}
+                        name={organizer.full_name ?? ''}
+                        size="md"
+                      />
+                      <div>
+                        <p className="font-semibold text-sm">{organizer.full_name}</p>
+                        {isParticipant && organizer.email && (
+                          <a
+                            href={`mailto:${organizer.email}`}
+                            className="text-sm text-blue-600 hover:underline block mt-0.5"
+                          >
+                            {organizer.email}
+                          </a>
+                        )}
+                        {isParticipant && organizer.phone && (
+                          <a
+                            href={`tel:${organizer.phone}`}
+                            className="text-sm text-gray-600 hover:underline block mt-0.5"
+                          >
+                            {organizer.phone}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

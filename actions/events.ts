@@ -119,11 +119,33 @@ export async function createLeague(
       checkin_enabled: parsed.data.checkin_enabled ?? false,
       early_bird_price_cents: parsed.data.early_bird_price_cents ?? null,
       early_bird_deadline: parsed.data.early_bird_deadline || null,
+      created_by: auth.userId,
     })
     .select('id')
     .single()
 
   if (error) return { data: null, error: error.message }
+
+  // Auto-add the creator as the first event organizer
+  const db = createServiceRoleClient()
+  const { data: creatorProfile } = await db
+    .from('profiles')
+    .select('email')
+    .eq('id', auth.userId!)
+    .single()
+
+  if (creatorProfile?.email) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any).from('league_organizers').insert({
+      organization_id: org.id,
+      league_id: data.id,
+      user_id: auth.userId,
+      invited_email: creatorProfile.email,
+      invited_by: auth.userId,
+      status: 'active',
+      expires_at: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+    }).select('id').single()
+  }
 
   revalidatePath('/admin/events')
   return { data, error: null }

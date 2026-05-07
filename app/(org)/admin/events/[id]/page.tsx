@@ -158,8 +158,8 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
         {/* Organizers */}
         <OrganizersPanel
           leagueId={id}
-          orgAdmins={organizersData.orgAdmins}
-          coOrganizers={organizersData.coOrganizers}
+          organizers={organizersData.organizers}
+          availableAdmins={organizersData.availableAdmins}
           isOrgAdmin={isOrgAdmin}
         />
 

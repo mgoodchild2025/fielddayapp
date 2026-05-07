@@ -16,19 +16,23 @@ export type OrganizerRow = {
   status: 'pending' | 'active' | 'declined' | 'removed'
   user_id: string | null
   full_name: string | null
+  is_org_admin: boolean
   created_at: string
   expires_at: string
 }
 
-export type OrgAdminRow = {
+export type AvailableAdmin = {
   user_id: string
   full_name: string | null
   email: string | null
 }
 
+/** @deprecated kept for backward compat — use LeagueOrganizersResult */
+export type OrgAdminRow = AvailableAdmin
+
 export type LeagueOrganizersResult = {
-  orgAdmins: OrgAdminRow[]
-  coOrganizers: OrganizerRow[]
+  organizers: OrganizerRow[]
+  availableAdmins: AvailableAdmin[]
 }
 
 // ─── Get invite details (no auth required) ────────────────────────────────────
@@ -78,7 +82,7 @@ export async function getLeagueOrganizers(leagueId: string): Promise<LeagueOrgan
 
   // Check caller is admin
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { orgAdmins: [], coOrganizers: [] }
+  if (!user) return { organizers: [], availableAdmins: [] }
 
   const { data: member } = await supabase
     .from('org_members')
@@ -89,10 +93,10 @@ export async function getLeagueOrganizers(leagueId: string): Promise<LeagueOrgan
     .single()
 
   if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
-    return { orgAdmins: [], coOrganizers: [] }
+    return { organizers: [], availableAdmins: [] }
   }
 
-  // Fetch org admins
+  // Fetch all org admins for this org
   const { data: adminMembers } = await db
     .from('org_members')
     .select('user_id')
@@ -100,30 +104,20 @@ export async function getLeagueOrganizers(leagueId: string): Promise<LeagueOrgan
     .eq('role', 'org_admin')
     .eq('status', 'active')
 
-  const adminIds = (adminMembers ?? []).map((m: { user_id: string }) => m.user_id)
-  let orgAdmins: OrgAdminRow[] = []
-  if (adminIds.length > 0) {
-    const { data: profiles } = await db
-      .from('profiles')
-      .select('id, full_name, email')
-      .in('id', adminIds)
-    orgAdmins = (profiles ?? []).map((p: { id: string; full_name: string | null; email: string | null }) => ({
-      user_id: p.id,
-      full_name: p.full_name,
-      email: p.email,
-    }))
-  }
+  const orgAdminUserIds = new Set(
+    (adminMembers ?? []).map((m: { user_id: string }) => m.user_id)
+  )
 
-  // Fetch co-organizer rows (exclude removed)
+  // Fetch event-specific organizer rows (exclude removed/declined)
   const { data: organizerRows } = await anyDb
     .from('league_organizers')
     .select('id, invited_email, status, user_id, expires_at, created_at')
     .eq('league_id', leagueId)
     .eq('organization_id', org.id)
-    .neq('status', 'removed')
+    .not('status', 'in', '("removed","declined")')
     .order('created_at', { ascending: true })
 
-  // Enrich with names for accepted ones
+  // Enrich with names
   const userIds = (organizerRows ?? [])
     .filter((r: { user_id: string | null }) => r.user_id)
     .map((r: { user_id: string }) => r.user_id)
@@ -139,7 +133,7 @@ export async function getLeagueOrganizers(leagueId: string): Promise<LeagueOrgan
     )
   }
 
-  const coOrganizers: OrganizerRow[] = (organizerRows ?? []).map((r: {
+  const organizers: OrganizerRow[] = (organizerRows ?? []).map((r: {
     id: string
     invited_email: string
     status: string
@@ -152,11 +146,33 @@ export async function getLeagueOrganizers(leagueId: string): Promise<LeagueOrgan
     status: r.status as OrganizerRow['status'],
     user_id: r.user_id,
     full_name: r.user_id ? (profileMap[r.user_id] ?? null) : null,
+    is_org_admin: r.user_id ? orgAdminUserIds.has(r.user_id) : false,
     expires_at: r.expires_at,
     created_at: r.created_at,
   }))
 
-  return { orgAdmins, coOrganizers }
+  // Org admins not yet assigned to this event (available to add directly)
+  const assignedUserIds = new Set(
+    (organizerRows ?? [])
+      .filter((r: { user_id: string | null; status: string }) => r.user_id && r.status !== 'removed')
+      .map((r: { user_id: string }) => r.user_id)
+  )
+
+  const unassignedAdminIds = [...orgAdminUserIds].filter(id => !assignedUserIds.has(id))
+  let availableAdmins: AvailableAdmin[] = []
+  if (unassignedAdminIds.length > 0) {
+    const { data: profiles } = await db
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', unassignedAdminIds)
+    availableAdmins = (profiles ?? []).map((p: { id: string; full_name: string | null; email: string | null }) => ({
+      user_id: p.id,
+      full_name: p.full_name,
+      email: p.email,
+    }))
+  }
+
+  return { organizers, availableAdmins }
 }
 
 // ─── Invite co-organizer ──────────────────────────────────────────────────────
@@ -210,6 +226,7 @@ export async function inviteCoOrganizer(input: { leagueId: string; email: string
     .eq('email', email)
     .maybeSingle()
 
+  let isExistingOrgAdmin = false
   if (existingProfile) {
     const { data: existingOrgAdmin } = await db
       .from('org_members')
@@ -219,7 +236,7 @@ export async function inviteCoOrganizer(input: { leagueId: string; email: string
       .eq('role', 'org_admin')
       .maybeSingle()
 
-    if (existingOrgAdmin) return { error: `${email} is already an org admin and can manage all events` }
+    if (existingOrgAdmin) isExistingOrgAdmin = true
   }
 
   const { data: inviterProfile } = await db
@@ -228,7 +245,28 @@ export async function inviteCoOrganizer(input: { leagueId: string; email: string
     .eq('id', user.id)
     .single()
 
-  // Upsert invite row (reset token + expiry if re-inviting)
+  // Org admins are added directly (no invite needed)
+  if (isExistingOrgAdmin && existingProfile) {
+    const farFuture = new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString()
+    const { error: upsertError } = await anyDb
+      .from('league_organizers')
+      .upsert({
+        organization_id: org.id,
+        league_id: parsed.data.leagueId,
+        invited_email: email,
+        invited_by: user.id,
+        user_id: existingProfile.id,
+        status: 'active',
+        token: crypto.randomUUID(),
+        expires_at: farFuture,
+      }, { onConflict: 'league_id,invited_email', ignoreDuplicates: false })
+
+    if (upsertError) return { error: upsertError.message }
+    revalidatePath(`/admin/events/${parsed.data.leagueId}`)
+    return { error: null }
+  }
+
+  // Non-admin: send invite email
   const newToken = crypto.randomUUID()
   const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
@@ -286,6 +324,68 @@ export async function inviteCoOrganizer(input: { leagueId: string; email: string
   })
 
   revalidatePath(`/admin/events/${parsed.data.leagueId}`)
+  return { error: null }
+}
+
+// ─── Add an existing org admin directly (no invite email) ────────────────────
+
+export async function addOrgAdminAsOrganizer(input: { leagueId: string; userId: string }) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyDb = db as any
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: callerMember } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .single()
+
+  if (!callerMember || callerMember.role !== 'org_admin') return { error: 'Only org admins can add organizers' }
+
+  // Confirm the target is also an org admin
+  const { data: targetMember } = await db
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', input.userId)
+    .eq('role', 'org_admin')
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (!targetMember) return { error: 'User is not an org admin of this organization' }
+
+  const { data: targetProfile } = await db
+    .from('profiles')
+    .select('email')
+    .eq('id', input.userId)
+    .single()
+
+  if (!targetProfile?.email) return { error: 'Could not find email for that user' }
+
+  const { error: upsertError } = await anyDb
+    .from('league_organizers')
+    .upsert({
+      organization_id: org.id,
+      league_id: input.leagueId,
+      invited_email: targetProfile.email,
+      invited_by: user.id,
+      user_id: input.userId,
+      status: 'active',
+      token: crypto.randomUUID(),
+      expires_at: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+    }, { onConflict: 'league_id,invited_email', ignoreDuplicates: false })
+
+  if (upsertError) return { error: upsertError.message }
+
+  revalidatePath(`/admin/events/${input.leagueId}`)
   return { error: null }
 }
 
