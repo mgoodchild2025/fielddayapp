@@ -5,6 +5,24 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getResend, FROM_EMAIL } from '@/lib/resend'
 import { getNewOrgNotificationEmail } from './platform-settings'
 
+const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+const LOGO_URL = `https://${PLATFORM_DOMAIN}/Fieldday-Icon.png`
+
+function platformEmailHeader(): string {
+  return `
+    <div style="background:#111827;padding:20px 32px;">
+      <table style="border-collapse:collapse;"><tr>
+        <td style="padding:0;vertical-align:middle;">
+          <img src="${LOGO_URL}" alt="Fieldday" width="32" height="32"
+               style="display:block;border-radius:6px;">
+        </td>
+        <td style="padding:0 0 0 10px;vertical-align:middle;">
+          <span style="color:#fff;font-size:17px;font-weight:700;letter-spacing:0.5px;">Fieldday</span>
+        </td>
+      </tr></table>
+    </div>`
+}
+
 const signupSchema = z.object({
   orgName: z.string().min(2, 'Organization name must be at least 2 characters').max(60),
   slug: z
@@ -188,9 +206,7 @@ function buildWelcomeEmail({
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
   <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
-    <div style="background:#111827;padding:24px 32px;">
-      <h1 style="color:#fff;margin:0;font-size:16px;font-weight:700;letter-spacing:1px;">⚡ Fieldday</h1>
-    </div>
+    ${platformEmailHeader()}
     <div style="padding:32px;">
       <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Your organization is ready</h2>
       <p style="color:#6b7280;margin:0 0 8px;font-size:15px;line-height:1.6;">Hi ${fullName},</p>
@@ -227,9 +243,7 @@ function buildVerificationEmail({
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
   <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
-    <div style="background:#111827;padding:24px 32px;">
-      <h1 style="color:#fff;margin:0;font-size:16px;font-weight:700;letter-spacing:1px;">⚡ Fieldday</h1>
-    </div>
+    ${platformEmailHeader()}
     <div style="padding:32px;">
       <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Confirm your email</h2>
       <p style="color:#6b7280;margin:0 0 8px;font-size:15px;line-height:1.6;">Hi ${fullName},</p>
@@ -274,9 +288,7 @@ function buildNewOrgEmail({
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
   <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
-    <div style="background:#111827;padding:24px 32px;">
-      <h1 style="color:#fff;margin:0;font-size:16px;font-weight:700;letter-spacing:1px;">⚡ Fieldday Platform</h1>
-    </div>
+    ${platformEmailHeader()}
     <div style="padding:32px;">
       <h2 style="margin:0 0 4px;color:#111827;font-size:22px;">New Organization Signed Up</h2>
       <p style="color:#6b7280;margin:0 0 28px;font-size:14px;">A new organization has started a 15-day free trial.</p>
