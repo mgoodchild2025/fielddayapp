@@ -2,6 +2,8 @@ import { headers } from 'next/headers'
 import type { Metadata } from 'next'
 import { createServerClient } from '@/lib/supabase/server'
 import { BrandProvider } from '@/components/branding/brand-provider'
+import { CartProvider } from '@/components/shop/cart-provider'
+import { CartButton } from '@/components/shop/cart-button'
 import type { OrgBranding } from '@/types/database'
 
 // ── Dynamic metadata per org ─────────────────────────────────────────────────
@@ -96,7 +98,10 @@ export default async function OrgLayout({
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link href={googleFontsUrl} rel="stylesheet" />
       <BrandProvider branding={branding as OrgBranding | null}>
-        {children}
+        <CartProvider>
+          {children}
+          <CartButton orgId={orgId} />
+        </CartProvider>
       </BrandProvider>
     </>
   )
