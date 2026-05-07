@@ -1,9 +1,9 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { loadCart, saveCartItem, deleteCartItem, clearCartItems } from '@/actions/cart'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
-// ── Public CartItem type (used by ShopItemCard, CartDrawer, etc.) ─────────────
+// ── Public CartItem type ───────────────────────────────────────────────────────
 
 export type CartItem = {
   itemId:         string
@@ -16,164 +16,207 @@ export type CartItem = {
   imageUrl:       string | null
 }
 
-// Internal extension that carries the DB row id
-type StoredCartItem = CartItem & { cartItemId: string | null }
+// Internal: CartItem + the DB row id
+type StoredItem = CartItem & { cartItemId: string | null }
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
 type CartContextValue = {
-  items:       CartItem[]
-  isLoading:   boolean
-  addItem:     (item: CartItem) => void
-  removeItem:  (index: number)  => void
-  updateQty:   (index: number, qty: number) => void
-  clearCart:   () => void
-  totalCents:  number
-  totalCount:  number
-  isOpen:      boolean
-  openCart:    () => void
-  closeCart:   () => void
+  items:      CartItem[]
+  isLoading:  boolean
+  addItem:    (item: CartItem) => void
+  removeItem: (index: number)  => void
+  updateQty:  (index: number, qty: number) => void
+  clearCart:  () => void
+  totalCents: number
+  totalCount: number
+  isOpen:     boolean
+  openCart:   () => void
+  closeCart:  () => void
 }
 
 export const CartContext = createContext<CartContextValue | null>(null)
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
-interface CartProviderProps {
-  orgId:    string
-  children: React.ReactNode
-}
-
-export function CartProvider({ orgId, children }: CartProviderProps) {
-  const [items,     setItems]     = useState<StoredCartItem[]>([])
+export function CartProvider({ orgId, children }: { orgId: string; children: React.ReactNode }) {
+  const [items,     setItems]     = useState<StoredItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isOpen,    setIsOpen]    = useState(false)
 
-  // ── Load cart from server on mount ─────────────────────────────────────────
+  // Keep a ref in sync so callbacks can read current items without stale closure
+  const itemsRef = useRef<StoredItem[]>([])
+  useEffect(() => { itemsRef.current = items }, [items])
+
+  // Single shared browser-client instance
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const db = useCallback(() => createClient(), [])()
+
+  // ── DB helpers ─────────────────────────────────────────────────────────────
+
+  const dbSave = useCallback(async (
+    itemId: string, variantId: string | null, quantity: number
+  ): Promise<string | null> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const q = (db as any).from('cart_items').select('id').eq('organization_id', orgId).eq('item_id', itemId)
+    const { data: existing } = await (variantId ? q.eq('variant_id', variantId) : q.is('variant_id', null)).maybeSingle()
+
+    if (existing?.id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any).from('cart_items').update({ quantity, updated_at: new Date().toISOString() }).eq('id', existing.id)
+      return existing.id as string
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: inserted, error } = await (db as any)
+      .from('cart_items')
+      .insert({ organization_id: orgId, item_id: itemId, variant_id: variantId ?? null, quantity })
+      .select('id')
+      .single()
+    if (error) console.error('[cart] insert error:', error.message)
+    return (inserted?.id as string) ?? null
+  }, [db, orgId])
+
+  const dbDelete = useCallback(async (cartItemId: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (db as any).from('cart_items').delete().eq('id', cartItemId)
+    if (error) console.error('[cart] delete error:', error.message)
+  }, [db])
+
+  const dbClear = useCallback(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (db as any).from('cart_items').delete().eq('organization_id', orgId)
+    if (error) console.error('[cart] clear error:', error.message)
+  }, [db, orgId])
+
+  // ── Load on mount ──────────────────────────────────────────────────────────
+
   useEffect(() => {
     let cancelled = false
-    setIsLoading(true)
-    loadCart(orgId).then((loaded) => {
-      if (!cancelled) {
-        setItems(loaded.map((c) => ({ ...c })))
-        setIsLoading(false)
+    ;(async () => {
+      setIsLoading(true)
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (db as any)
+          .from('cart_items')
+          .select('id, quantity, item_id, variant_id')
+          .eq('organization_id', orgId)
+          .order('created_at')
+
+        if (error) { console.error('[cart] load error:', error.message); return }
+        if (!data || cancelled) return
+
+        // Enrich with item + variant display data in a single batch
+        const itemIds    = [...new Set((data as { item_id: string }[]).map(r => r.item_id))]
+        const variantIds = [...new Set((data as { variant_id: string | null }[]).map(r => r.variant_id).filter(Boolean) as string[])]
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const [{ data: itemRows }, { data: variantRows }] = await Promise.all([
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (db as any).from('merchandise_items').select('id, name, price_cents, currency, image_url').in('id', itemIds),
+          variantIds.length > 0
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ? (db as any).from('merchandise_variants').select('id, label').in('id', variantIds)
+            : Promise.resolve({ data: [] }),
+        ])
+
+        if (cancelled) return
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const itemMap    = new Map<string, any>((itemRows    ?? []).map((r: any) => [r.id, r]))
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const variantMap = new Map<string, any>((variantRows ?? []).map((r: any) => [r.id, r]))
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const loaded: StoredItem[] = (data as any[])
+          .filter((r: any) => itemMap.has(r.item_id))
+          .map((r: any) => {
+            const item    = itemMap.get(r.item_id)
+            const variant = r.variant_id ? (variantMap.get(r.variant_id) ?? null) : null
+            return {
+              cartItemId:     r.id,
+              itemId:         item.id,
+              variantId:      r.variant_id ?? null,
+              quantity:       r.quantity,
+              name:           item.name,
+              variantLabel:   variant?.label ?? null,
+              unitPriceCents: item.price_cents,
+              currency:       item.currency ?? 'cad',
+              imageUrl:       item.image_url ?? null,
+            }
+          })
+
+        setItems(loaded)
+      } finally {
+        if (!cancelled) setIsLoading(false)
       }
-    }).catch(() => {
-      if (!cancelled) setIsLoading(false)
-    })
+    })()
     return () => { cancelled = true }
-  // orgId is stable per layout mount
+  // Run once on mount; orgId and db are stable
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // ── addItem ────────────────────────────────────────────────────────────────
+
   const addItem = useCallback((newItem: CartItem) => {
     const key = `${newItem.itemId}:${newItem.variantId ?? 'none'}`
+    const current = itemsRef.current
+    const idx = current.findIndex(c => `${c.itemId}:${c.variantId ?? 'none'}` === key)
 
-    setItems((prev) => {
-      const idx = prev.findIndex(
-        (c) => `${c.itemId}:${c.variantId ?? 'none'}` === key
-      )
-      if (idx >= 0) {
-        // Merge: increment quantity
-        const merged = prev.map((c, i) =>
-          i === idx ? { ...c, quantity: Math.min(10, c.quantity + newItem.quantity) } : c
-        )
-        // Sync merged quantity to server in background
-        const mergedItem = merged[idx]
-        saveCartItem(orgId, newItem.itemId, newItem.variantId, mergedItem.quantity)
-          .then((cartItemId) => {
-            if (cartItemId) {
-              setItems((cur) => cur.map((c, i) =>
-                i === idx ? { ...c, cartItemId } : c
-              ))
-            }
-          })
-          .catch(console.error)
-        return merged
-      }
-      // New item — optimistic add with null cartItemId until server responds
-      const optimistic: StoredCartItem = { ...newItem, cartItemId: null }
-      saveCartItem(orgId, newItem.itemId, newItem.variantId, newItem.quantity)
-        .then((cartItemId) => {
-          if (cartItemId) {
-            setItems((cur) => {
-              const newIdx = cur.findIndex(
-                (c) => `${c.itemId}:${c.variantId ?? 'none'}` === key
-              )
-              if (newIdx >= 0) {
-                return cur.map((c, i) => i === newIdx ? { ...c, cartItemId } : c)
-              }
-              return cur
-            })
-          }
+    if (idx >= 0) {
+      const newQty = Math.min(10, current[idx].quantity + newItem.quantity)
+      setItems(prev => prev.map((c, i) => i === idx ? { ...c, quantity: newQty } : c))
+      dbSave(newItem.itemId, newItem.variantId, newQty).catch(console.error)
+    } else {
+      setItems(prev => [...prev, { ...newItem, cartItemId: null }])
+      dbSave(newItem.itemId, newItem.variantId, newItem.quantity).then(cartItemId => {
+        if (!cartItemId) return
+        setItems(prev => {
+          const i = prev.findIndex(c => `${c.itemId}:${c.variantId ?? 'none'}` === key)
+          return i >= 0 ? prev.map((c, j) => j === i ? { ...c, cartItemId } : c) : prev
         })
-        .catch(console.error)
-      return [...prev, optimistic]
-    })
-  }, [orgId])
+      }).catch(console.error)
+    }
+  }, [dbSave])
 
   // ── removeItem ─────────────────────────────────────────────────────────────
+
   const removeItem = useCallback((index: number) => {
-    setItems((prev) => {
-      const item = prev[index]
-      if (item?.cartItemId) {
-        deleteCartItem(item.cartItemId).catch(console.error)
-      }
-      return prev.filter((_, i) => i !== index)
-    })
-  }, [])
+    const item = itemsRef.current[index]
+    setItems(prev => prev.filter((_, i) => i !== index))
+    if (item?.cartItemId) dbDelete(item.cartItemId).catch(console.error)
+  }, [dbDelete])
 
   // ── updateQty ──────────────────────────────────────────────────────────────
+
   const updateQty = useCallback((index: number, qty: number) => {
-    if (qty < 1) {
-      // Delegate to removeItem
-      setItems((prev) => {
-        const item = prev[index]
-        if (item?.cartItemId) {
-          deleteCartItem(item.cartItemId).catch(console.error)
-        }
-        return prev.filter((_, i) => i !== index)
-      })
-      return
-    }
+    const item = itemsRef.current[index]
+    if (!item) return
+    if (qty < 1) { removeItem(index); return }
     const clamped = Math.min(10, qty)
-    setItems((prev) => {
-      const item = prev[index]
-      if (!item) return prev
-      if (item.cartItemId) {
-        saveCartItem(orgId, item.itemId, item.variantId, clamped).catch(console.error)
-      }
-      return prev.map((c, i) => i === index ? { ...c, quantity: clamped } : c)
-    })
-  }, [orgId])
+    setItems(prev => prev.map((c, i) => i === index ? { ...c, quantity: clamped } : c))
+    dbSave(item.itemId, item.variantId, clamped).catch(console.error)
+  }, [dbSave, removeItem])
 
   // ── clearCart ──────────────────────────────────────────────────────────────
+
   const clearCart = useCallback(() => {
     setItems([])
-    clearCartItems(orgId).catch(console.error)
-  }, [orgId])
+    dbClear().catch(console.error)
+  }, [dbClear])
 
-  // ── Derived totals ─────────────────────────────────────────────────────────
-  const totalCents = items.reduce((sum, c) => sum + c.unitPriceCents * c.quantity, 0)
-  const totalCount = items.reduce((sum, c) => sum + c.quantity, 0)
+  // ── Derived values ─────────────────────────────────────────────────────────
 
-  // Expose items without the internal cartItemId field
+  const totalCents = items.reduce((s, c) => s + c.unitPriceCents * c.quantity, 0)
+  const totalCount = items.reduce((s, c) => s + c.quantity, 0)
   const publicItems: CartItem[] = items.map(({ cartItemId: _, ...rest }) => rest)
 
   return (
     <CartContext.Provider value={{
-      items:      publicItems,
-      isLoading,
-      addItem,
-      removeItem,
-      updateQty,
-      clearCart,
-      totalCents,
-      totalCount,
-      isOpen,
-      openCart:  () => setIsOpen(true),
-      closeCart: () => setIsOpen(false),
+      items: publicItems, isLoading,
+      addItem, removeItem, updateQty, clearCart,
+      totalCents, totalCount,
+      isOpen, openCart: () => setIsOpen(true), closeCart: () => setIsOpen(false),
     }}>
       {children}
     </CartContext.Provider>
