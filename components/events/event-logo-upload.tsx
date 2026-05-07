@@ -11,6 +11,30 @@ interface Props {
   name: string
 }
 
+// Rotate image 90° clockwise using canvas, return a new JPEG blob
+async function rotateCw(src: string): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width  = img.naturalHeight
+      canvas.height = img.naturalWidth
+      const ctx = canvas.getContext('2d')!
+      ctx.translate(canvas.width / 2, canvas.height / 2)
+      ctx.rotate(Math.PI / 2)
+      ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2)
+      canvas.toBlob(
+        (blob) => blob ? resolve(blob) : reject(new Error('canvas toBlob failed')),
+        'image/jpeg',
+        0.92,
+      )
+    }
+    img.onerror = reject
+    img.src = src
+  })
+}
+
 export function EventLogoUpload({ leagueId, logoUrl, sport, name }: Props) {
   const [preview, setPreview] = useState<string | null>(logoUrl)
   const [error, setError] = useState<string | null>(null)
@@ -30,8 +54,27 @@ export function EventLogoUpload({ leagueId, logoUrl, sport, name }: Props) {
       } else {
         setPreview(result.url)
       }
-      // Reset input so the same file can be re-uploaded if needed
       if (fileInputRef.current) fileInputRef.current.value = ''
+    })
+  }
+
+  function handleRotate() {
+    if (!preview) return
+    setError(null)
+    startTransition(async () => {
+      try {
+        const blob = await rotateCw(preview)
+        const fd = new FormData()
+        fd.append('logo', new File([blob], 'logo.jpg', { type: 'image/jpeg' }))
+        const result = await uploadEventLogo(leagueId, fd)
+        if (result.error) {
+          setError(result.error)
+        } else {
+          setPreview(result.url)
+        }
+      } catch {
+        setError('Failed to rotate image. Please try again.')
+      }
     })
   }
 
@@ -80,6 +123,16 @@ export function EventLogoUpload({ leagueId, logoUrl, sport, name }: Props) {
           >
             {pending ? 'Uploading…' : preview ? '↑ Replace logo' : '↑ Upload logo'}
           </button>
+          {preview && !pending && (
+            <button
+              type="button"
+              onClick={handleRotate}
+              disabled={pending}
+              className="px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 text-left"
+            >
+              ↻ Rotate 90°
+            </button>
+          )}
           {preview && !pending && (
             <button
               type="button"
