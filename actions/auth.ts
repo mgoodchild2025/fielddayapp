@@ -52,9 +52,10 @@ function getPublicOrigin(headersList: Awaited<ReturnType<typeof headers>>): stri
     return `${proto}://${fwdHost}`
   }
 
-  // 3. Explicit fallback: use the configured platform domain (always correct in prod)
+  // 3. Explicit fallback: use the app subdomain so password-reset links land on
+  //    a page that has the auth/callback route, not the marketing site.
   if (isDev) return 'http://localhost:3000'
-  return `https://${PLATFORM_DOMAIN}`
+  return `https://app.${PLATFORM_DOMAIN}`
 }
 
 const loginSchema = z.object({
