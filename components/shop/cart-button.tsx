@@ -1,5 +1,6 @@
 'use client'
 
+import { usePathname } from 'next/navigation'
 import { useCart } from './cart-provider'
 import { CartDrawer } from './cart-drawer'
 
@@ -9,11 +10,15 @@ interface Props {
 
 export function CartButton({ orgId }: Props) {
   const { totalCount, openCart, isOpen } = useCart()
+  const pathname = usePathname()
+
+  // Floating button is only shown on the shop page — elsewhere the nav
+  // cart icon is sufficient and the floating button would be redundant.
+  const onShopPage = pathname === '/shop' || pathname.startsWith('/shop/')
 
   return (
     <>
-      {/* Floating cart button — only shown when cart has items */}
-      {totalCount > 0 && !isOpen && (
+      {totalCount > 0 && !isOpen && onShopPage && (
         <button
           type="button"
           onClick={openCart}
