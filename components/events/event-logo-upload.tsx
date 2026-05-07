@@ -56,7 +56,7 @@ export function EventLogoUpload({ leagueId, logoUrl, sport, name }: Props) {
         <div className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden shrink-0 bg-gray-50">
           {preview ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={preview} alt={name} className="w-full h-full object-contain" />
+            <img src={preview} alt={name} className="w-full h-full object-cover" style={{ imageOrientation: 'from-image' }} />
           ) : (
             <EventAvatar logoUrl={null} name={name} sport={sport} size="lg" className="opacity-50" />
           )}

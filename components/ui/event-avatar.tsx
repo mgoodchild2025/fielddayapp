@@ -60,7 +60,8 @@ export function EventAvatar({ logoUrl, name, sport, size = 'sm', className = '' 
           alt={name}
           width={px}
           height={px}
-          className="w-full h-full object-contain"
+          className="w-full h-full object-cover"
+          style={{ imageOrientation: 'from-image' }}
           unoptimized
         />
       </div>
