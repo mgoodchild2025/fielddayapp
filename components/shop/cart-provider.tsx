@@ -90,6 +90,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = useCallback(() => {
     setItems([])
+    try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
   }, [])
 
   const totalCents = items.reduce((sum, c) => sum + c.unitPriceCents * c.quantity, 0)

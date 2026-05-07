@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { NavUserMenu } from './nav-user-menu'
 import { MobileNav } from './mobile-nav'
 import { NotificationBell } from './notification-bell'
+import { CartNavIcon } from '@/components/shop/cart-nav-icon'
 import type { OrgContext } from '@/lib/tenant'
 
 interface OrgNavProps {
@@ -78,7 +79,8 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
 
           {user ? (
             <>
-              <div className="hidden md:block">
+              <div className="hidden md:flex items-center gap-1">
+                <CartNavIcon />
                 <NotificationBell initialNotifications={unreadNotifications} />
               </div>
               <div className="hidden md:block">
@@ -97,6 +99,11 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
             </div>
           )}
 
+          {user && (
+            <div className="md:hidden">
+              <CartNavIcon />
+            </div>
+          )}
           <MobileNav userName={userName} userEmail={user?.email ?? null} isAdmin={isAdmin} />
         </div>
       </div>
