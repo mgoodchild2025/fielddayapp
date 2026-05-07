@@ -215,13 +215,13 @@ export function CommunityHome({
       case 'about':
         return aboutContent.body ? (
           <section key="about" className="max-w-5xl mx-auto w-full px-6 py-12">
+            <h2
+              className="text-2xl sm:text-3xl font-bold mb-6 uppercase"
+              style={{ fontFamily: 'var(--brand-heading-font)' }}
+            >
+              {aboutContent.title || 'About Us'}
+            </h2>
             <div className="bg-white rounded-2xl border border-gray-100 p-8 sm:p-10">
-              <h2
-                className="text-2xl sm:text-3xl font-bold mb-4 uppercase"
-                style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-secondary)' }}
-              >
-                {aboutContent.title || 'About Us'}
-              </h2>
               <p className="text-gray-600 leading-relaxed whitespace-pre-wrap text-sm sm:text-base">
                 {aboutContent.body}
               </p>

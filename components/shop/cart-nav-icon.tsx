@@ -9,6 +9,9 @@ export function CartNavIcon() {
   if (!ctx) return null
   const { totalCount, openCart, isOpen } = ctx
 
+  // Hide entirely when cart is empty
+  if (totalCount === 0) return null
+
   return (
     <button
       type="button"

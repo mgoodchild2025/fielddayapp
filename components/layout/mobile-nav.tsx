@@ -106,10 +106,6 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
                 <CalendarRange className="w-4 h-4 shrink-0" />
                 Events
               </Link>
-              <Link href="/shop" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
-                <ShoppingBag className="w-4 h-4 shrink-0" />
-                Shop
-              </Link>
 
               <div className="border-t border-white/10 my-4" />
 
@@ -118,6 +114,7 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
                 { href: '/my-events', label: 'My Events',  Icon: Trophy       },
                 { href: '/my-teams',  label: 'My Teams',   Icon: Users        },
                 { href: '/profile',   label: 'My Profile', Icon: CircleUser   },
+                { href: '/shop',      label: 'Shop',        Icon: ShoppingBag  },
               ].map(({ href, label, Icon }) => (
                 <Link
                   key={href}

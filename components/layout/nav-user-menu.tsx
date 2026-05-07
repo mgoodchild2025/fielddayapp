@@ -10,12 +10,15 @@ interface Props {
   isAdmin: boolean
 }
 
-const NAV_ITEMS = [
-  { href: '/shop',      label: 'Shop',       Icon: ShoppingBag  },
+const PRIMARY_NAV_ITEMS = [
   { href: '/schedule',  label: 'My Games',   Icon: CalendarDays },
   { href: '/my-events', label: 'My Events',  Icon: Trophy       },
   { href: '/my-teams',  label: 'My Teams',   Icon: Users        },
   { href: '/profile',   label: 'My Profile', Icon: CircleUser   },
+] as const
+
+const SECONDARY_NAV_ITEMS = [
+  { href: '/shop', label: 'Shop', Icon: ShoppingBag },
 ] as const
 
 export function NavUserMenu({ userName, isAdmin }: Props) {
@@ -45,7 +48,19 @@ export function NavUserMenu({ userName, isAdmin }: Props) {
 
       {open && (
         <div className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-lg border py-1 z-50 text-gray-800 text-sm">
-          {NAV_ITEMS.map(({ href, label, Icon }) => (
+          {PRIMARY_NAV_ITEMS.map(({ href, label, Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors"
+            >
+              <Icon className="w-4 h-4 text-gray-400 shrink-0" />
+              {label}
+            </Link>
+          ))}
+          <div className="border-t my-1" />
+          {SECONDARY_NAV_ITEMS.map(({ href, label, Icon }) => (
             <Link
               key={href}
               href={href}
