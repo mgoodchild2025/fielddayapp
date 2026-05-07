@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Image from 'next/image'
 import { MerchItemForm } from './merch-item-form'
 import { deleteMerchandiseItem } from '@/actions/merchandise'
 import type { MerchItem } from '@/actions/merchandise'
@@ -95,6 +96,18 @@ export function MerchItemList({ items: initialItems }: Props) {
               ) : (
                 <div className="bg-white rounded-lg border p-4">
                   <div className="flex items-start justify-between gap-4">
+                    {item.image_url && (
+                      <div className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border bg-gray-50">
+                        <Image
+                          src={item.image_url}
+                          alt={item.name}
+                          fill
+                          sizes="56px"
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-gray-900 truncate">{item.name}</span>

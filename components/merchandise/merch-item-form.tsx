@@ -109,6 +109,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
         name: name.trim(),
         description: description.trim() || null,
         price_cents: priceCents,
+        image_url: imageUrl,
         is_active: item?.is_active ?? true,
       })
 
