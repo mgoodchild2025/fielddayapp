@@ -1,7 +1,8 @@
 -- 056_merchandise.sql
 -- Merchandise sales feature: item library, variants, league assignments, orders
 
--- ── merchandise_items ─────────────────────────────────────────────────────────
+-- ── Create all tables first so cross-table policy references resolve ──────────
+
 CREATE TABLE IF NOT EXISTS public.merchandise_items (
   id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid        NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
@@ -14,7 +15,46 @@ CREATE TABLE IF NOT EXISTS public.merchandise_items (
   created_at      timestamptz NOT NULL DEFAULT now()
 );
 
-ALTER TABLE public.merchandise_items ENABLE ROW LEVEL SECURITY;
+CREATE TABLE IF NOT EXISTS public.merchandise_variants (
+  id             uuid    PRIMARY KEY DEFAULT gen_random_uuid(),
+  item_id        uuid    NOT NULL REFERENCES public.merchandise_items(id) ON DELETE CASCADE,
+  label          text    NOT NULL,
+  stock_quantity integer,
+  sort_order     integer NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS public.league_merchandise (
+  league_id uuid NOT NULL REFERENCES public.leagues(id) ON DELETE CASCADE,
+  item_id   uuid NOT NULL REFERENCES public.merchandise_items(id) ON DELETE CASCADE,
+  PRIMARY KEY (league_id, item_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.merchandise_orders (
+  id               uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  uuid        NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  league_id        uuid        NOT NULL REFERENCES public.leagues(id),
+  registration_id  uuid        REFERENCES public.registrations(id) ON DELETE SET NULL,
+  user_id          uuid        NOT NULL REFERENCES public.profiles(id),
+  item_id          uuid        NOT NULL REFERENCES public.merchandise_items(id),
+  variant_id       uuid        REFERENCES public.merchandise_variants(id),
+  quantity         integer     NOT NULL DEFAULT 1,
+  unit_price_cents integer     NOT NULL,
+  status           text        NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending','paid','fulfilled','cancelled')),
+  notes            text,
+  payment_id       uuid,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  fulfilled_at     timestamptz
+);
+
+-- ── Enable RLS ────────────────────────────────────────────────────────────────
+
+ALTER TABLE public.merchandise_items    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.merchandise_variants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.league_merchandise   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.merchandise_orders   ENABLE ROW LEVEL SECURITY;
+
+-- ── merchandise_items policies ────────────────────────────────────────────────
 
 DROP POLICY IF EXISTS "service_role_all_merchandise_items" ON public.merchandise_items;
 CREATE POLICY "service_role_all_merchandise_items" ON public.merchandise_items
@@ -56,17 +96,7 @@ CREATE POLICY "player_read_merchandise_items" ON public.merchandise_items
     )
   );
 
-
--- ── merchandise_variants ──────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS public.merchandise_variants (
-  id             uuid    PRIMARY KEY DEFAULT gen_random_uuid(),
-  item_id        uuid    NOT NULL REFERENCES public.merchandise_items(id) ON DELETE CASCADE,
-  label          text    NOT NULL,
-  stock_quantity integer,          -- null = unlimited
-  sort_order     integer NOT NULL DEFAULT 0
-);
-
-ALTER TABLE public.merchandise_variants ENABLE ROW LEVEL SECURITY;
+-- ── merchandise_variants policies ─────────────────────────────────────────────
 
 DROP POLICY IF EXISTS "service_role_all_merchandise_variants" ON public.merchandise_variants;
 CREATE POLICY "service_role_all_merchandise_variants" ON public.merchandise_variants
@@ -110,15 +140,7 @@ CREATE POLICY "player_read_merchandise_variants" ON public.merchandise_variants
     )
   );
 
-
--- ── league_merchandise ────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS public.league_merchandise (
-  league_id uuid NOT NULL REFERENCES public.leagues(id) ON DELETE CASCADE,
-  item_id   uuid NOT NULL REFERENCES public.merchandise_items(id) ON DELETE CASCADE,
-  PRIMARY KEY (league_id, item_id)
-);
-
-ALTER TABLE public.league_merchandise ENABLE ROW LEVEL SECURITY;
+-- ── league_merchandise policies ───────────────────────────────────────────────
 
 DROP POLICY IF EXISTS "service_role_all_league_merchandise" ON public.league_merchandise;
 CREATE POLICY "service_role_all_league_merchandise" ON public.league_merchandise
@@ -159,27 +181,7 @@ CREATE POLICY "player_read_league_merchandise" ON public.league_merchandise
     )
   );
 
-
--- ── merchandise_orders ────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS public.merchandise_orders (
-  id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id uuid        NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
-  league_id       uuid        NOT NULL REFERENCES public.leagues(id),
-  registration_id uuid        REFERENCES public.registrations(id) ON DELETE SET NULL,
-  user_id         uuid        NOT NULL REFERENCES public.profiles(id),
-  item_id         uuid        NOT NULL REFERENCES public.merchandise_items(id),
-  variant_id      uuid        REFERENCES public.merchandise_variants(id),
-  quantity        integer     NOT NULL DEFAULT 1,
-  unit_price_cents integer    NOT NULL,
-  status          text        NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending','paid','fulfilled','cancelled')),
-  notes           text,
-  payment_id      uuid,       -- linked after webhook confirms
-  created_at      timestamptz NOT NULL DEFAULT now(),
-  fulfilled_at    timestamptz
-);
-
-ALTER TABLE public.merchandise_orders ENABLE ROW LEVEL SECURITY;
+-- ── merchandise_orders policies ───────────────────────────────────────────────
 
 DROP POLICY IF EXISTS "service_role_all_merchandise_orders" ON public.merchandise_orders;
 CREATE POLICY "service_role_all_merchandise_orders" ON public.merchandise_orders
