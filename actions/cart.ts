@@ -32,7 +32,11 @@ export async function loadCart(orgId: string): Promise<StoredCartItem[]> {
     .eq('organization_id', orgId)
     .order('created_at')
 
-  if (error || !data) return []
+  if (error) {
+    console.error('[cart] loadCart error:', error.message)
+    return []
+  }
+  if (!data) return []
 
   return (data as unknown as CartRow[])
     .filter((row) => row.item !== null)
@@ -83,7 +87,7 @@ export async function saveCartItem(
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: inserted } = await (supabase as any)
+  const { data: inserted, error: insertError } = await (supabase as any)
     .from('cart_items')
     .insert({
       organization_id: orgId,
@@ -94,6 +98,7 @@ export async function saveCartItem(
     .select('id')
     .single()
 
+  if (insertError) console.error('[cart] saveCartItem insert error:', insertError.message)
   return (inserted?.id as string) ?? null
 }
 
