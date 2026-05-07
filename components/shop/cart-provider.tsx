@@ -52,6 +52,15 @@ export function CartProvider({ orgId, children }: { orgId: string; children: Rea
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const db = useCallback(() => createClient(), [])()
 
+  // Current user id — resolved once; needed for INSERT (user_id NOT NULL, no DB default)
+  const userIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    db.auth.getUser().then(({ data: { user } }) => {
+      userIdRef.current = user?.id ?? null
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ── DB helpers ─────────────────────────────────────────────────────────────
 
   const dbSave = useCallback(async (
@@ -67,10 +76,13 @@ export function CartProvider({ orgId, children }: { orgId: string; children: Rea
       return existing.id as string
     }
 
+    const userId = userIdRef.current
+    if (!userId) return null
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: inserted, error } = await (db as any)
       .from('cart_items')
-      .insert({ organization_id: orgId, item_id: itemId, variant_id: variantId ?? null, quantity })
+      .insert({ user_id: userId, organization_id: orgId, item_id: itemId, variant_id: variantId ?? null, quantity })
       .select('id')
       .single()
     if (error) console.error('[cart] insert error:', error.message)
