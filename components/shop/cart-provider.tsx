@@ -28,36 +28,47 @@ type CartContextValue = {
 
 export const CartContext = createContext<CartContextValue | null>(null)
 
-const STORAGE_KEY = 'fieldday-shop-cart'
+interface CartProviderProps {
+  userId: string | null
+  children: React.ReactNode
+}
 
-export function CartProvider({ children }: { children: React.ReactNode }) {
+export function CartProvider({ userId, children }: CartProviderProps) {
+  // Key is user-scoped so different users on the same device don't share a cart.
+  // When userId is null (signed out) we don't touch localStorage at all.
+  const storageKey = userId ? `fieldday-shop-cart-${userId}` : null
+
   const [items, setItems] = useState<CartItem[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [hydrated, setHydrated] = useState(false)
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount (only when signed in)
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        const parsed = JSON.parse(stored) as CartItem[]
-        if (Array.isArray(parsed)) setItems(parsed)
+    if (storageKey) {
+      try {
+        const stored = localStorage.getItem(storageKey)
+        if (stored) {
+          const parsed = JSON.parse(stored) as CartItem[]
+          if (Array.isArray(parsed)) setItems(parsed)
+        }
+      } catch {
+        // ignore malformed storage
       }
-    } catch {
-      // ignore malformed storage
     }
     setHydrated(true)
+  // storageKey is stable per user session — intentional single-run
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Persist to localStorage whenever items change (after hydration)
+  // Persist to localStorage whenever items change (after hydration, signed-in only)
   useEffect(() => {
-    if (!hydrated) return
+    if (!hydrated || !storageKey) return
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
+      localStorage.setItem(storageKey, JSON.stringify(items))
     } catch {
       // ignore storage errors (private browsing, full storage, etc.)
     }
-  }, [items, hydrated])
+  }, [items, hydrated, storageKey])
 
   const addItem = useCallback((newItem: CartItem) => {
     setItems((prev) => {
@@ -90,8 +101,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = useCallback(() => {
     setItems([])
-    try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
-  }, [])
+    if (storageKey) {
+      try { localStorage.removeItem(storageKey) } catch { /* ignore */ }
+    }
+  }, [storageKey])
 
   const totalCents = items.reduce((sum, c) => sum + c.unitPriceCents * c.quantity, 0)
   const totalCount = items.reduce((sum, c) => sum + c.quantity, 0)
