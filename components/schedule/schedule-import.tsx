@@ -3,9 +3,11 @@
 import { useState, useRef } from 'react'
 import Papa from 'papaparse'
 import { importGamesFromCsv, type CsvGameRow } from '@/actions/schedule'
+import { venueLabelLower } from '@/lib/venue-label'
 
 interface Props {
   leagueId: string
+  sport?: string
 }
 
 const CSV_TEMPLATE_ROWS = [
@@ -26,7 +28,7 @@ function downloadTemplate() {
   URL.revokeObjectURL(url)
 }
 
-export function ScheduleImport({ leagueId }: Props) {
+export function ScheduleImport({ leagueId, sport }: Props) {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<{ count: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -59,7 +61,7 @@ export function ScheduleImport({ leagueId }: Props) {
     <div className="bg-white rounded-lg border p-4">
       <h3 className="font-semibold mb-1 text-sm">Import from CSV</h3>
       <p className="text-xs text-gray-400 mb-1">
-        Columns: date (YYYY-MM-DD), time (HH:MM), home_team, away_team, court, week
+        Columns: date (YYYY-MM-DD), time (HH:MM), home_team, away_team, {venueLabelLower(sport)} (column name: <code className="font-mono">court</code>), week
       </p>
       <p className="text-xs text-gray-400 mb-3">
         Times are interpreted in your org&apos;s configured timezone.

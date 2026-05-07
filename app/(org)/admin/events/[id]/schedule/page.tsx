@@ -128,11 +128,11 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
         <div className="space-y-4">
           {/* Slot assignment — shown when template games exist and real teams are available */}
           <AssignSlotsCard leagueId={id} slotLabels={slotLabels} teams={teams ?? []} />
-          <RoundRobinGenerator leagueId={id} teamCount={(teams ?? []).length} maxTeams={maxParticipants} />
+          <RoundRobinGenerator leagueId={id} teamCount={(teams ?? []).length} maxTeams={maxParticipants} sport={sport} />
           <AddGameForm leagueId={id} sport={sport} teams={teams ?? []} />
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <InsertBreakForm leagueId={id} gameTimes={(mappedGames as any[]).map((g: any) => g.scheduledAt as string).filter(Boolean)} />
-          <ScheduleImport leagueId={id} />
+          <ScheduleImport leagueId={id} sport={sport} />
         </div>
       )}
     </div>

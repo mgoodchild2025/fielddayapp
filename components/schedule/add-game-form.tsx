@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { addGame } from '@/actions/schedule'
+import { venueLabel } from '@/lib/venue-label'
 
 const schema = z.object({
   homeTeamId: z.string().optional(),
@@ -25,11 +26,6 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-function venueLabel(sport?: string): string {
-  if (sport === 'hockey') return 'Rink'
-  if (['baseball', 'softball', 'soccer', 'flag_football', 'ultimate_frisbee'].includes(sport ?? '')) return 'Field'
-  return 'Court'
-}
 
 interface Props {
   leagueId: string

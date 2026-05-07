@@ -3,6 +3,7 @@
 import { useState, useTransition, useMemo } from 'react'
 import { generateRoundRobinSchedule } from '@/actions/schedule'
 import { useRouter } from 'next/navigation'
+import { venueLabel } from '@/lib/venue-label'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -75,10 +76,12 @@ export function RoundRobinGenerator({
   leagueId,
   teamCount,
   maxTeams = null,
+  sport,
 }: {
   leagueId: string
   teamCount: number
   maxTeams?: number | null
+  sport?: string
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -324,7 +327,7 @@ export function RoundRobinGenerator({
                   <input type="time" value={gameTime} onChange={e => setGameTime(e.target.value)} className={inputCls} />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-0.5">Courts</label>
+                  <label className="block text-xs text-gray-500 mb-0.5">{venueLabel(sport)}s</label>
                   <input type="number" min={1} max={10} value={courts} onChange={e => setCourts(e.target.value)} className={inputCls} />
                 </div>
               </div>
@@ -366,7 +369,7 @@ export function RoundRobinGenerator({
 
               {/* Courts */}
               <div>
-                <label className="block text-xs text-gray-500 mb-0.5">Simultaneous courts</label>
+                <label className="block text-xs text-gray-500 mb-0.5">Simultaneous {venueLabel(sport).toLowerCase()}s</label>
                 <input type="number" min={1} max={10} value={dsCourts} onChange={e => setDsCourts(e.target.value)} className={inputCls} />
                 <p className="text-xs text-gray-400 mt-0.5">
                   Games in a round fill all courts; overflow spills to the next time slot.

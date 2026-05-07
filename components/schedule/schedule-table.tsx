@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { AdminScoreEntry } from '@/components/scores/admin-score-entry'
 import { EditGameModal } from '@/components/schedule/edit-game-modal'
+import { venueLabel } from '@/lib/venue-label'
 
 interface SetScore { home: number; away: number }
 
@@ -187,7 +188,7 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone }: Props
                       <div className="min-w-0">
                         <p className="text-xs text-gray-400 mb-1">
                           {game.timeLabel}
-                          {game.court ? ` · Court ${game.court}` : ''}
+                          {game.court ? ` · ${venueLabel(sport)} ${game.court}` : ''}
                           {game.weekNumber ? ` · Wk ${game.weekNumber}` : ''}
                         </p>
                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -388,6 +389,7 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone }: Props
             cancellationReason: editingGame.cancellationReason,
           }}
           teams={teams}
+          sport={sport}
           onClose={() => setEditingGame(null)}
           onDeleted={() => {
             setDeletedIds((prev) => new Set([...prev, editingGame.id]))

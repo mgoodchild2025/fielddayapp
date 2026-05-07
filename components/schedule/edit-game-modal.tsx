@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { updateGame, deleteGame, cancelGame, postponeGame, restoreGame } from '@/actions/schedule'
+import { venueLabel } from '@/lib/venue-label'
 
 interface Team {
   id: string
@@ -23,6 +24,7 @@ interface Props {
     cancellationReason: string | null
   }
   teams: Team[]
+  sport?: string
   onClose: () => void
   onDeleted: () => void
   onStatusChanged?: (gameId: string, newStatus: string, reason: string | null) => void
@@ -35,7 +37,7 @@ function toLocalDatetimeValue(utcIso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-export function EditGameModal({ game, teams, onClose, onDeleted, onStatusChanged }: Props) {
+export function EditGameModal({ game, teams, sport, onClose, onDeleted, onStatusChanged }: Props) {
   const [homeTeamId, setHomeTeamId] = useState(game.homeTeamId ?? '')
   const [awayTeamId, setAwayTeamId] = useState(game.awayTeamId ?? '')
   const [homeTeamLabel, setHomeTeamLabel] = useState(game.homeTeamLabel ?? '')
@@ -180,7 +182,7 @@ export function EditGameModal({ game, teams, onClose, onDeleted, onStatusChanged
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Court</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">{venueLabel(sport)}</label>
               <input
                 type="text"
                 value={court}
