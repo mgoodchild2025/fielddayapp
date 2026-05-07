@@ -54,32 +54,37 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
 
   // userId comes from the server-side layout — available synchronously, no race condition
   const userIdRef = useRef<string | null>(userId)
+  console.log('[cart] CartProvider mounted, userId:', userId, 'orgId:', orgId)
 
   // ── DB helpers ─────────────────────────────────────────────────────────────
 
   const dbSave = useCallback(async (
     itemId: string, variantId: string | null, quantity: number
   ): Promise<string | null> => {
+    const uid = userIdRef.current
+    console.log('[cart] dbSave called, userId:', uid, 'itemId:', itemId, 'qty:', quantity)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const q = (db as any).from('cart_items').select('id').eq('organization_id', orgId).eq('item_id', itemId)
-    const { data: existing } = await (variantId ? q.eq('variant_id', variantId) : q.is('variant_id', null)).maybeSingle()
+    const { data: existing, error: existingError } = await (variantId ? q.eq('variant_id', variantId) : q.is('variant_id', null)).maybeSingle()
+    console.log('[cart] existing check:', existing, existingError?.message)
 
     if (existing?.id) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('cart_items').update({ quantity, updated_at: new Date().toISOString() }).eq('id', existing.id)
+      const { error: updateError } = await (db as any).from('cart_items').update({ quantity, updated_at: new Date().toISOString() }).eq('id', existing.id)
+      console.log('[cart] update result:', updateError?.message ?? 'ok')
       return existing.id as string
     }
 
-    const userId = userIdRef.current
-    if (!userId) return null
+    if (!uid) { console.error('[cart] dbSave: userId is null, cannot insert'); return null }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: inserted, error } = await (db as any)
       .from('cart_items')
-      .insert({ user_id: userId, organization_id: orgId, item_id: itemId, variant_id: variantId ?? null, quantity })
+      .insert({ user_id: uid, organization_id: orgId, item_id: itemId, variant_id: variantId ?? null, quantity })
       .select('id')
       .single()
-    if (error) console.error('[cart] insert error:', error.message)
+    console.log('[cart] insert result:', inserted?.id ?? null, error?.message)
+    if (error) console.error('[cart] insert error:', error.message, error.code, error.details)
     return (inserted?.id as string) ?? null
   }, [db, orgId])
 
@@ -109,7 +114,8 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
           .eq('organization_id', orgId)
           .order('created_at')
 
-        if (error) { console.error('[cart] load error:', error.message); return }
+        console.log('[cart] load raw rows:', data?.length ?? 0, error?.message)
+        if (error) { console.error('[cart] load error:', error.message, error.code, error.details); return }
         if (!data || cancelled) return
 
         // Enrich with item + variant display data in a single batch
@@ -126,6 +132,7 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
             : Promise.resolve({ data: [] }),
         ])
 
+        console.log('[cart] itemRows:', itemRows?.length ?? 0, 'variantRows:', variantRows?.length ?? 0)
         if (cancelled) return
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -152,6 +159,7 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
             }
           })
 
+        console.log('[cart] loaded items:', loaded.length)
         setItems(loaded)
       } finally {
         if (!cancelled) setIsLoading(false)
