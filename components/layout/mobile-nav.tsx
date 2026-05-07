@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronRight, CalendarDays, Trophy, Users, CircleUser } from 'lucide-react'
+import { ChevronRight, CalendarDays, Trophy, Users, CircleUser, ShoppingBag, CalendarRange, LayoutDashboard, LogOut } from 'lucide-react'
 import { logout } from '@/actions/auth'
 
 interface Props {
@@ -62,7 +62,7 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
         />
       )}
 
-      {/* Drawer — slides from right. overflowX:hidden on <html> prevents iOS Safari viewport expansion. */}
+      {/* Drawer — slides from right */}
       <div
         className={`fixed top-0 right-0 h-full w-72 z-50 flex flex-col md:hidden transition-transform duration-200 ${
           open ? 'translate-x-0' : 'translate-x-full'
@@ -99,13 +99,15 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
           </Link>
         )}
 
-        <nav className="flex-1 px-4 py-6 space-y-1">
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           {userName && (
             <>
-              <Link href="/events" className="block px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
+              <Link href="/events" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
+                <CalendarRange className="w-4 h-4 shrink-0" />
                 Events
               </Link>
-              <Link href="/shop" className="block px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
+              <Link href="/shop" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
+                <ShoppingBag className="w-4 h-4 shrink-0" />
                 Shop
               </Link>
 
@@ -120,6 +122,7 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
                 <Link
                   key={href}
                   href={href}
+                  onClick={() => setOpen(false)}
                   className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors"
                 >
                   <Icon className="w-4 h-4 shrink-0" />
@@ -134,7 +137,8 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
           {userName ? (
             <>
               {isAdmin && (
-                <Link href="/admin" className="block px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
+                <Link href="/admin" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
+                  <LayoutDashboard className="w-4 h-4 shrink-0" />
                   Admin Panel
                 </Link>
               )}
@@ -142,8 +146,9 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
               <form action={logout}>
                 <button
                   type="submit"
-                  className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium text-red-300 hover:bg-white/10 transition-colors"
+                  className="w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-300 hover:bg-white/10 transition-colors"
                 >
+                  <LogOut className="w-4 h-4 shrink-0" />
                   Sign out
                 </button>
               </form>

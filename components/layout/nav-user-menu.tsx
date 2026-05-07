@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { CalendarDays, Trophy, Users, CircleUser } from 'lucide-react'
+import { CalendarDays, Trophy, Users, CircleUser, ShoppingBag } from 'lucide-react'
 import { logout } from '@/actions/auth'
 
 interface Props {
@@ -11,6 +11,7 @@ interface Props {
 }
 
 const NAV_ITEMS = [
+  { href: '/shop',      label: 'Shop',       Icon: ShoppingBag  },
   { href: '/schedule',  label: 'My Games',   Icon: CalendarDays },
   { href: '/my-events', label: 'My Events',  Icon: Trophy       },
   { href: '/my-teams',  label: 'My Teams',   Icon: Users        },
