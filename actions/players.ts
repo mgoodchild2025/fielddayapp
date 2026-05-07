@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentOrg } from '@/lib/tenant'
-import { sendSms as twilioSendSms } from '@/lib/twilio'
+import { sendSms as twilioSendSms, toE164 } from '@/lib/twilio'
 
 async function requireOrgAdmin() {
   const headersList = await headers()
@@ -54,7 +54,7 @@ export async function updatePlayerDetails(
 
   const { error: profileErr } = await db
     .from('profiles')
-    .update({ full_name, phone: phone || null })
+    .update({ full_name, phone: phone ? toE164(phone) : null })
     .eq('id', userId)
   if (profileErr) return { error: profileErr.message }
 

@@ -26,7 +26,7 @@ export function getTwilioConfigStatus() {
   }
 }
 
-function toE164(phone: string): string {
+export function toE164(phone: string): string {
   const digits = phone.replace(/\D/g, '')
   if (digits.length === 10) return `+1${digits}`      // North American 10-digit
   if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`

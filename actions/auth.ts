@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { toE164 } from '@/lib/twilio'
 import { z } from 'zod'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
@@ -208,7 +209,7 @@ export async function updateProfile(input: z.infer<typeof updateProfileSchema>) 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any).from('profiles').update({
       full_name: parsed.data.full_name,
-      phone: parsed.data.phone ?? null,
+      phone: parsed.data.phone ? toE164(parsed.data.phone) : null,
       sms_opted_in: parsed.data.sms_opted_in ?? false,
       sms_game_day_enabled: parsed.data.sms_game_day_enabled ?? true,
     }).eq('id', user.id),
