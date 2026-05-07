@@ -199,6 +199,52 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // ── Shop session expired or cancelled — restore reserved stock ───────────
+  if (event.type === 'checkout.session.expired') {
+    const session = event.data.object as Stripe.Checkout.Session
+    const { paymentType, merchOrderIds: rawIds } = session.metadata ?? {}
+
+    if (paymentType === 'shop') {
+      const orderIds = rawIds?.split(',').filter(Boolean) ?? []
+      if (orderIds.length > 0) {
+        // Fetch the pending orders so we know which variants to restore
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: pendingOrders } = await (supabase as any)
+          .from('merchandise_orders')
+          .select('id, variant_id, quantity')
+          .in('id', orderIds)
+          .eq('status', 'pending')
+
+        // Restore stock: for each variant, re-read current qty and add back
+        for (const order of (pendingOrders ?? []) as { id: string; variant_id: string | null; quantity: number }[]) {
+          if (!order.variant_id) continue
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: variant } = await (supabase as any)
+            .from('merchandise_variants')
+            .select('stock_quantity')
+            .eq('id', order.variant_id)
+            .single()
+
+          if (variant && variant.stock_quantity !== null) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabase as any)
+              .from('merchandise_variants')
+              .update({ stock_quantity: variant.stock_quantity + order.quantity })
+              .eq('id', order.variant_id)
+          }
+        }
+
+        // Delete the abandoned pending orders (they were never paid)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+          .from('merchandise_orders')
+          .delete()
+          .in('id', orderIds)
+          .eq('status', 'pending')
+      }
+    }
+  }
+
   if (event.type === 'payment_intent.payment_failed') {
     const pi = event.data.object as Stripe.PaymentIntent
     const { registrationId, userId, leagueId } = pi.metadata ?? {}

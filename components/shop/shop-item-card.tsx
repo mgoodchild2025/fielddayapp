@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { ShopItem } from '@/actions/merchandise'
 import type { CartItem } from './cart-provider'
 
@@ -21,15 +21,28 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
   const needsVariantSelection = hasVariants && !selectedVariantId
   const selectedVariant = item.variants.find((v) => v.id === selectedVariantId) ?? null
 
+  // Max qty: capped at available stock (null = unlimited → 10)
+  const maxQty = selectedVariant?.stock_quantity != null
+    ? Math.max(0, Math.min(10, selectedVariant.stock_quantity))
+    : 10
+
+  // Clamp quantity down if variant changes to one with less stock
+  useEffect(() => {
+    setQuantity((q) => Math.min(q, Math.max(1, maxQty)))
+  }, [maxQty])
+
   const cardKey = `${item.id}:${selectedVariantId ?? 'none'}`
   const justAdded = addedKey === cardKey
 
+  // Selected variant is fully sold out
+  const selectedSoldOut = selectedVariant !== null && selectedVariant.stock_quantity === 0
+
   function handleAdd() {
-    if (needsVariantSelection) return
+    if (needsVariantSelection || selectedSoldOut || maxQty === 0) return
     onAddToCart({
       itemId: item.id,
       variantId: selectedVariantId,
-      quantity,
+      quantity: Math.min(quantity, maxQty),
       name: item.name,
       variantLabel: selectedVariant?.label ?? null,
       unitPriceCents: item.price_cents,
@@ -85,7 +98,12 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
             <option value="">Select size</option>
             {item.variants.map((v) => (
               <option key={v.id} value={v.id} disabled={v.stock_quantity === 0}>
-                {v.label}{v.stock_quantity === 0 ? ' — Sold out' : v.stock_quantity !== null && v.stock_quantity <= 3 ? ` (${v.stock_quantity} left)` : ''}
+                {v.label}
+                {v.stock_quantity === 0
+                  ? ' — Sold out'
+                  : v.stock_quantity !== null && v.stock_quantity <= 3
+                  ? ` (${v.stock_quantity} left)`
+                  : ''}
               </option>
             ))}
           </select>
@@ -98,14 +116,16 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
             <button
               type="button"
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="w-7 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors text-base leading-none"
+              disabled={quantity <= 1}
+              className="w-7 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors text-base leading-none disabled:opacity-30"
               aria-label="Decrease quantity"
             >−</button>
             <span className="w-6 text-center text-xs font-semibold text-gray-800">{quantity}</span>
             <button
               type="button"
-              onClick={() => setQuantity((q) => Math.min(10, q + 1))}
-              className="w-7 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors text-base leading-none"
+              onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
+              disabled={quantity >= maxQty}
+              className="w-7 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors text-base leading-none disabled:opacity-30"
               aria-label="Increase quantity"
             >+</button>
           </div>
@@ -114,7 +134,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
           <button
             type="button"
             onClick={handleAdd}
-            disabled={needsVariantSelection}
+            disabled={needsVariantSelection || selectedSoldOut || maxQty === 0}
             className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${
               justAdded
                 ? 'bg-green-500 text-white scale-95'
@@ -122,7 +142,13 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
             }`}
             style={justAdded ? {} : { backgroundColor: 'var(--brand-primary)' }}
           >
-            {justAdded ? '✓ Added' : needsVariantSelection ? 'Pick size' : 'Add to cart'}
+            {justAdded
+              ? '✓ Added'
+              : selectedSoldOut || maxQty === 0
+              ? 'Sold out'
+              : needsVariantSelection
+              ? 'Pick size'
+              : 'Add to cart'}
           </button>
         </div>
       </div>
