@@ -137,8 +137,6 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
             </Link>
           )}
 
-          <div className="border-t border-white/10 my-4" />
-
           {userName ? (
             <>
               {isAdmin && (
