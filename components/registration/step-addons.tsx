@@ -1,17 +1,20 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 
 export type MerchItemForStep = {
   id: string
   name: string
   description: string | null
-  price_cents: number
+  price_cents: number           // base price (kept for reference)
+  effective_price_cents: number // actual charge — override if set, else base
   currency: string
+  image_url: string | null
   variants: {
     id: string
     label: string
-    stock_quantity: number | null
+    available_stock: number | null  // null = unlimited; already computed server-side
   }[]
 }
 
@@ -45,7 +48,7 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
     setSelections((prev) => {
       const next = new Map(prev)
       const existing = next.get(itemId) ?? { variantId: null, quantity: 0 }
-      // When changing variant, reset to 0 if different variant selected
+      // When changing variant, reset qty to 0 to avoid exceeding new variant's stock
       const newQty = variantId !== existing.variantId ? 0 : existing.quantity
       next.set(itemId, { variantId, quantity: newQty })
       return next
@@ -78,12 +81,12 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
     if (item.variants.length === 0) return null
     const sel = getSelection(item.id)
     const variant = item.variants.find((v) => v.id === sel.variantId)
-    return variant?.stock_quantity ?? null
+    return variant?.available_stock ?? null
   }
 
   function isVariantOutOfStock(item: MerchItemForStep, variantId: string): boolean {
     const variant = item.variants.find((v) => v.id === variantId)
-    return variant?.stock_quantity === 0
+    return variant?.available_stock === 0
   }
 
   const activeSelections: MerchSelection[] = Array.from(selections.entries())
@@ -96,7 +99,7 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
 
   const totalCents = activeSelections.reduce((sum, sel) => {
     const item = items.find((i) => i.id === sel.itemId)
-    return sum + (item?.price_cents ?? 0) * sel.quantity
+    return sum + (item?.effective_price_cents ?? 0) * sel.quantity
   }, 0)
 
   function handleContinue() {
@@ -134,16 +137,40 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
           return (
             <div key={item.id} className="bg-white rounded-lg border p-4 space-y-3">
               {/* Item header */}
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                {/* Thumbnail */}
+                {item.image_url && (
+                  <div className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0 border bg-gray-50">
+                    <Image
+                      src={item.image_url}
+                      alt={item.name}
+                      fill
+                      sizes="64px"
+                      className="object-cover"
+                      unoptimized
+                    />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-gray-900">{item.name}</h3>
-                  {item.description && (
-                    <p className="text-sm text-gray-500 mt-0.5">{item.description}</p>
-                  )}
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-medium text-gray-900">{item.name}</h3>
+                      {item.description && (
+                        <p className="text-sm text-gray-500 mt-0.5">{item.description}</p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="font-bold text-lg" style={{ color: 'var(--brand-primary)' }}>
+                        ${(item.effective_price_cents / 100).toFixed(0)}
+                      </span>
+                      {item.price_cents !== item.effective_price_cents && (
+                        <p className="text-xs text-gray-400 line-through">
+                          ${(item.price_cents / 100).toFixed(0)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <span className="font-bold text-lg shrink-0" style={{ color: 'var(--brand-primary)' }}>
-                  ${(item.price_cents / 100).toFixed(0)}
-                </span>
               </div>
 
               {/* Variant picker */}
@@ -154,6 +181,7 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
                     {item.variants.map((v) => {
                       const selected = sel.variantId === v.id
                       const outOfStock = isVariantOutOfStock(item, v.id)
+                      const lowStock = v.available_stock !== null && v.available_stock > 0 && v.available_stock <= 5
                       return (
                         <button
                           key={v.id}
@@ -172,8 +200,9 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
                           style={selected ? { backgroundColor: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' } : {}}
                         >
                           {v.label}
-                          {v.stock_quantity !== null && v.stock_quantity > 0 && v.stock_quantity <= 5 && (
-                            <span className="ml-1 text-xs opacity-70">({v.stock_quantity} left)</span>
+                          {outOfStock && <span className="ml-1 text-xs">(sold out)</span>}
+                          {lowStock && !outOfStock && (
+                            <span className="ml-1 text-xs opacity-70">({v.available_stock} left)</span>
                           )}
                         </button>
                       )
@@ -203,7 +232,7 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
                     onClick={() => setQuantity(item.id, 1)}
                     disabled={!canAdd || atMax}
                     className="w-8 h-8 rounded-full border flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    title={!canAdd ? 'Select a size first' : atMax ? 'Maximum stock reached' : undefined}
+                    title={!canAdd ? 'Select a size first' : atMax ? 'No more stock available' : undefined}
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -217,7 +246,7 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
 
                 {sel.quantity > 0 && (
                   <span className="ml-auto text-sm font-medium text-gray-700">
-                    ${((item.price_cents * sel.quantity) / 100).toFixed(2)} {currency}
+                    ${((item.effective_price_cents * sel.quantity) / 100).toFixed(2)} {currency}
                   </span>
                 )}
               </div>
@@ -251,7 +280,9 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
           className="flex-1 py-3 rounded-md font-semibold text-white transition-opacity"
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >
-          {activeSelections.length > 0 ? `Add ${activeSelections.reduce((s, a) => s + a.quantity, 0)} item${activeSelections.reduce((s, a) => s + a.quantity, 0) !== 1 ? 's' : ''} →` : 'Continue →'}
+          {activeSelections.length > 0
+            ? `Add ${activeSelections.reduce((s, a) => s + a.quantity, 0)} item${activeSelections.reduce((s, a) => s + a.quantity, 0) !== 1 ? 's' : ''} →`
+            : 'Continue →'}
         </button>
       </div>
     </div>

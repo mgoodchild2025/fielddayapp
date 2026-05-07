@@ -31,6 +31,31 @@ export type MerchItem = {
   variants: MerchVariant[]
 }
 
+/** Variant with computed available_stock (stock_quantity minus active orders). */
+export type LeagueMerchVariant = {
+  id: string
+  label: string
+  stock_quantity: number | null  // raw DB value
+  available_stock: number | null // null = unlimited; computed server-side
+  sort_order: number
+}
+
+/** Item attached to a league, including price override and stock-aware variants. */
+export type LeagueMerchItem = {
+  id: string
+  organization_id: string
+  name: string
+  description: string | null
+  price_cents: number           // base item price
+  price_override_cents: number | null  // league-specific override
+  effective_price_cents: number        // override ?? base
+  currency: string
+  image_url: string | null
+  is_active: boolean
+  created_at: string
+  variants: LeagueMerchVariant[]
+}
+
 export type MerchOrder = {
   id: string
   organization_id: string
@@ -112,48 +137,87 @@ export async function getMerchandiseItems(orgId: string): Promise<MerchItem[]> {
   }))
 }
 
-/** Fetch items + variants attached to a specific league (active items only). */
-export async function getLeagueMerchandise(leagueId: string): Promise<MerchItem[]> {
+/**
+ * Fetch items + variants attached to a specific league (active items only).
+ * Returns LeagueMerchItem[] with:
+ *   - price_override_cents: league-specific price override
+ *   - effective_price_cents: override ?? base price
+ *   - variants[].available_stock: stock_quantity minus active (pending+paid) orders
+ */
+export async function getLeagueMerchandise(leagueId: string): Promise<LeagueMerchItem[]> {
   const db = createServiceRoleClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rows, error } = await (db as any)
     .from('league_merchandise')
-    .select('item_id')
+    .select('item_id, price_override_cents')
     .eq('league_id', leagueId)
 
-  if (error || !rows || (rows as { item_id: string }[]).length === 0) return []
+  if (error || !rows || (rows as { item_id: string; price_override_cents: number | null }[]).length === 0) return []
 
-  const itemIds = (rows as { item_id: string }[]).map((r) => r.item_id)
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: items } = await (db as any)
-    .from('merchandise_items')
-    .select('*')
-    .in('id', itemIds)
-    .eq('is_active', true)
-    .order('created_at', { ascending: true })
-
-  if (!items || (items as MerchItem[]).length === 0) return []
+  const typedRows = rows as { item_id: string; price_override_cents: number | null }[]
+  const itemIds = typedRows.map((r) => r.item_id)
+  const priceOverrideMap = new Map<string, number | null>(
+    typedRows.map((r) => [r.item_id, r.price_override_cents])
+  )
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: variants } = await (db as any)
-    .from('merchandise_variants')
-    .select('*')
-    .in('item_id', (items as MerchItem[]).map((i) => i.id))
-    .order('sort_order', { ascending: true })
+  const [{ data: items }, { data: variants }, { data: activeOrders }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('merchandise_items')
+      .select('*')
+      .in('id', itemIds)
+      .eq('is_active', true)
+      .order('created_at', { ascending: true }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('merchandise_variants')
+      .select('*')
+      .in('item_id', itemIds)
+      .order('sort_order', { ascending: true }),
+    // Active order quantities per variant — used for stock enforcement
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('merchandise_orders')
+      .select('variant_id, quantity')
+      .eq('league_id', leagueId)
+      .in('status', ['pending', 'paid'])
+      .not('variant_id', 'is', null),
+  ])
 
-  const variantsByItem = new Map<string, MerchVariant[]>()
+  // Sum ordered quantities per variant
+  const orderedByVariant = new Map<string, number>()
+  for (const order of (activeOrders ?? []) as { variant_id: string; quantity: number }[]) {
+    if (order.variant_id) {
+      orderedByVariant.set(
+        order.variant_id,
+        (orderedByVariant.get(order.variant_id) ?? 0) + order.quantity
+      )
+    }
+  }
+
+  // Build variant map with computed available_stock
+  const variantsByItem = new Map<string, LeagueMerchVariant[]>()
   for (const v of (variants ?? []) as MerchVariantRow[]) {
     const arr = variantsByItem.get(v.item_id) ?? []
-    arr.push(v)
+    const ordered = orderedByVariant.get(v.id) ?? 0
+    arr.push({
+      id: v.id,
+      label: v.label,
+      stock_quantity: v.stock_quantity,
+      available_stock: v.stock_quantity !== null ? Math.max(0, v.stock_quantity - ordered) : null,
+      sort_order: v.sort_order,
+    })
     variantsByItem.set(v.item_id, arr)
   }
 
-  return (items as MerchItem[]).map((item) => ({
-    ...item,
-    variants: variantsByItem.get(item.id) ?? [],
-  }))
+  return (items as MerchItem[]).map((item) => {
+    const priceOverride = priceOverrideMap.get(item.id) ?? null
+    return {
+      ...item,
+      price_override_cents: priceOverride,
+      effective_price_cents: priceOverride ?? item.price_cents,
+      variants: variantsByItem.get(item.id) ?? [],
+    }
+  })
 }
 
 /** Fetch all orders for a league with joined player and item details. */
@@ -174,7 +238,7 @@ export async function getMerchandiseOrders(leagueId: string): Promise<MerchOrder
   const itemIds = [...new Set(typedOrders.map((o) => o.item_id))]
   const variantIds = typedOrders.map((o) => o.variant_id).filter(Boolean) as string[]
 
-  const [{ data: profiles }, { data: items }, { data: variants }] = await Promise.all([
+  const [{ data: profiles }, { data: items }, { data: variantRows }] = await Promise.all([
     db.from('profiles').select('id, full_name, email').in('id', userIds),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('merchandise_items').select('id, name').in('id', itemIds),
@@ -195,7 +259,7 @@ export async function getMerchandiseOrders(leagueId: string): Promise<MerchOrder
   }
 
   const variantMap = new Map<string, string>()
-  for (const v of (variants ?? []) as { id: string; label: string }[]) {
+  for (const v of (variantRows ?? []) as { id: string; label: string }[]) {
     variantMap.set(v.id, v.label)
   }
 
@@ -209,6 +273,58 @@ export async function getMerchandiseOrders(leagueId: string): Promise<MerchOrder
 }
 
 // ── Write actions ──────────────────────────────────────────────────────────────
+
+/** Upload an image for a merchandise item. Org/league admin only. */
+export async function uploadMerchandiseImage(
+  itemId: string,
+  formData: FormData
+): Promise<{ error: string | null; url: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const role = await getCallerRole(org.id)
+  if (!role || !['org_admin', 'league_admin'].includes(role)) {
+    return { error: 'Unauthorized', url: null }
+  }
+
+  const file = formData.get('image') as File | null
+  if (!file || file.size === 0) return { error: 'No file provided', url: null }
+  if (file.size > 5 * 1024 * 1024) return { error: 'File must be under 5 MB', url: null }
+
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+  if (!allowedTypes.includes(file.type)) {
+    return { error: 'File must be JPEG, PNG, or WebP', url: null }
+  }
+
+  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
+  const path = `${org.id}/${itemId}.${ext}`
+
+  const db = createServiceRoleClient()
+  const arrayBuffer = await file.arrayBuffer()
+  const buffer = Buffer.from(arrayBuffer)
+
+  const { error: uploadError } = await db.storage
+    .from('merchandise-images')
+    .upload(path, buffer, { contentType: file.type, upsert: true })
+
+  if (uploadError) return { error: uploadError.message, url: null }
+
+  const { data: { publicUrl } } = db.storage
+    .from('merchandise-images')
+    .getPublicUrl(path)
+
+  const url = `${publicUrl}?t=${Date.now()}`
+
+  // Persist on the item row
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any)
+    .from('merchandise_items')
+    .update({ image_url: url })
+    .eq('id', itemId)
+    .eq('organization_id', org.id)
+
+  revalidatePath('/admin/settings/merchandise')
+  return { error: null, url }
+}
 
 /** Create or update a merchandise item. Org admin only. */
 export async function upsertMerchandiseItem(data: {
@@ -371,6 +487,32 @@ export async function toggleLeagueMerchandise(
     if (error) return { error: error.message }
   }
 
+  revalidatePath(`/admin/events/${leagueId}/merchandise`)
+  return { error: null }
+}
+
+/** Set or clear a per-event price override for a league merchandise item. */
+export async function updateLeagueMerchandisePrice(
+  leagueId: string,
+  itemId: string,
+  priceOverrideCents: number | null
+): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const role = await getCallerRole(org.id)
+  if (!role || !['org_admin', 'league_admin'].includes(role)) {
+    return { error: 'Unauthorized' }
+  }
+
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
+    .from('league_merchandise')
+    .update({ price_override_cents: priceOverrideCents })
+    .eq('league_id', leagueId)
+    .eq('item_id', itemId)
+
+  if (error) return { error: error.message }
   revalidatePath(`/admin/events/${leagueId}/merchandise`)
   return { error: null }
 }

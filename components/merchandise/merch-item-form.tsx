@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { upsertMerchandiseItem, upsertMerchandiseVariants } from '@/actions/merchandise'
+import { useState, useTransition, useRef } from 'react'
+import Image from 'next/image'
+import { upsertMerchandiseItem, upsertMerchandiseVariants, uploadMerchandiseImage } from '@/actions/merchandise'
 import type { MerchItem } from '@/actions/merchandise'
 
 type VariantDraft = {
@@ -24,6 +25,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
   const [priceStr, setPriceStr] = useState(
     item ? (item.price_cents / 100).toFixed(2) : ''
   )
+  const [imageUrl, setImageUrl] = useState<string | null>(item?.image_url ?? null)
   const [variants, setVariants] = useState<VariantDraft[]>(() =>
     (item?.variants ?? []).map((v) => ({
       key: nextKey++,
@@ -34,6 +36,8 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   function addVariant() {
     setVariants((prev) => [...prev, { key: nextKey++, label: '', stock_quantity: '' }])
@@ -57,6 +61,33 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
       ;[next[idx], next[swapIdx]] = [next[swapIdx], next[idx]]
       return next
     })
+  }
+
+  async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Must have a saved item ID to upload
+    if (!item?.id) {
+      setError('Save the item first, then add an image.')
+      return
+    }
+
+    setIsUploadingImage(true)
+    setError(null)
+
+    const fd = new FormData()
+    fd.append('image', file)
+    const result = await uploadMerchandiseImage(item.id, fd)
+    setIsUploadingImage(false)
+
+    if (result.error) {
+      setError(result.error)
+    } else if (result.url) {
+      setImageUrl(result.url)
+    }
+    // reset file input
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -105,6 +136,77 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
       </div>
 
       <div className="px-5 py-4 space-y-4">
+        {/* Image upload */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Item image <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <div className="flex items-center gap-4">
+            {/* Preview circle */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingImage}
+              className="relative w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden hover:border-gray-400 transition-colors group shrink-0 disabled:opacity-50"
+              title={item?.id ? 'Click to upload image' : 'Save item first to add image'}
+            >
+              {imageUrl ? (
+                <>
+                  <Image
+                    src={imageUrl}
+                    alt={name || 'Item image'}
+                    fill
+                    sizes="80px"
+                    className="object-cover rounded-xl"
+                    unoptimized
+                  />
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </div>
+                </>
+              ) : isUploadingImage ? (
+                <svg className="w-5 h-5 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                </svg>
+              )}
+            </button>
+
+            <div className="text-xs text-gray-500 space-y-1">
+              {item?.id ? (
+                <>
+                  <p>JPEG, PNG, or WebP · max 5 MB</p>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingImage}
+                    className="font-medium text-[var(--brand-primary)] hover:opacity-80 transition-opacity disabled:opacity-50"
+                  >
+                    {imageUrl ? 'Replace image' : 'Upload image'}
+                  </button>
+                </>
+              ) : (
+                <p className="italic text-gray-400">Save the item first to add an image</p>
+              )}
+            </div>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handleImageChange}
+          />
+        </div>
+
         {/* Name */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Item name</label>

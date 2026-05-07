@@ -7,6 +7,7 @@ import { RegistrationFlow } from '@/components/registration/registration-flow'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getPositionsForSport } from '@/actions/positions'
 import { getLeagueMerchandise } from '@/actions/merchandise'
+import type { MerchItemForStep } from '@/components/registration/step-addons'
 
 export default async function RegisterLeaguePage({
   params,
@@ -120,10 +121,27 @@ export default async function RegisterLeaguePage({
 
   const teamsAtCapacity = isPerTeamLeague && leagueMaxTeams !== null && (currentTeamCount ?? 0) >= leagueMaxTeams
 
-  const [positions, leagueMerch] = await Promise.all([
+  const [positions, leagueMerchRaw] = await Promise.all([
     getPositionsForSport(org.id, league.sport ?? ''),
     getLeagueMerchandise(league.id),
   ])
+
+  // Map LeagueMerchItem (with available_stock + effective_price_cents) to the
+  // shape the registration flow and add-ons step expect.
+  const leagueMerch: MerchItemForStep[] = leagueMerchRaw.map((item) => ({
+    id: item.id,
+    name: item.name,
+    description: item.description,
+    price_cents: item.price_cents,
+    effective_price_cents: item.effective_price_cents,
+    currency: item.currency,
+    image_url: item.image_url,
+    variants: item.variants.map((v) => ({
+      id: v.id,
+      label: v.label,
+      available_stock: v.available_stock,
+    })),
+  }))
 
   // Use the league's specific waiver if set, otherwise fall back to the org-wide active waiver
   let waiver = null

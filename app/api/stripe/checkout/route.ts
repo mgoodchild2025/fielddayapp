@@ -181,6 +181,7 @@ export async function POST(request: NextRequest) {
   // ── Merchandise: validate server-side prices and create pending orders ──────
   type MerchItemRow = { id: string; price_cents: number; name: string; is_active: boolean }
   type MerchVariantRow = { id: string; item_id: string; label: string; stock_quantity: number | null }
+  type LeagueMerchRow = { item_id: string; price_override_cents: number | null }
 
   let merchOrderIds: string[] = []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -190,13 +191,19 @@ export async function POST(request: NextRequest) {
     const itemIds = [...new Set(merchSelections.map((s) => s.itemId))]
     const variantIds = merchSelections.map((s) => s.variantId).filter(Boolean) as string[]
 
-    const [{ data: merchItems }, { data: merchVariants }] = await Promise.all([
+    const [{ data: merchItems }, { data: merchVariants }, { data: leagueMerchRows }] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any).from('merchandise_items').select('id, price_cents, name, is_active').in('id', itemIds),
       variantIds.length > 0
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ? (db as any).from('merchandise_variants').select('id, item_id, label, stock_quantity').in('id', variantIds)
         : Promise.resolve({ data: [] }),
+      // Fetch price overrides for this league
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('league_merchandise')
+        .select('item_id, price_override_cents')
+        .eq('league_id', leagueId)
+        .in('item_id', itemIds),
     ])
 
     const itemMap = new Map<string, MerchItemRow>()
@@ -204,6 +211,13 @@ export async function POST(request: NextRequest) {
 
     const variantMap = new Map<string, MerchVariantRow>()
     for (const v of (merchVariants ?? []) as MerchVariantRow[]) variantMap.set(v.id, v)
+
+    // Map item_id → effective price (override if set, else base)
+    const effectivePriceMap = new Map<string, number>()
+    for (const row of (leagueMerchRows ?? []) as LeagueMerchRow[]) {
+      const base = itemMap.get(row.item_id)?.price_cents ?? 0
+      effectivePriceMap.set(row.item_id, row.price_override_cents ?? base)
+    }
 
     const orderRows: {
       organization_id: string
@@ -224,6 +238,9 @@ export async function POST(request: NextRequest) {
       const variant = sel.variantId ? variantMap.get(sel.variantId) : null
       if (sel.variantId && !variant) continue
 
+      // Use server-side effective price (override ?? base); never trust client-sent price
+      const effectivePrice = effectivePriceMap.get(item.id) ?? item.price_cents
+
       orderRows.push({
         organization_id: orgId,
         league_id: leagueId,
@@ -232,7 +249,7 @@ export async function POST(request: NextRequest) {
         item_id: item.id,
         variant_id: sel.variantId ?? null,
         quantity: sel.quantity,
-        unit_price_cents: item.price_cents,  // server-side price, not client-sent
+        unit_price_cents: effectivePrice,
         status: 'pending',
       })
 
@@ -240,7 +257,7 @@ export async function POST(request: NextRequest) {
       merch_line_items.push({
         price_data: {
           currency: league.currency,
-          unit_amount: item.price_cents,
+          unit_amount: effectivePrice,
           product_data: { name: itemLabel },
         },
         quantity: sel.quantity,

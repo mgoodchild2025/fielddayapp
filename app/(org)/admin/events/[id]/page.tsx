@@ -5,11 +5,13 @@ import { createServerClient } from '@/lib/supabase/server'
 import { updateLeagueStatus } from '@/actions/events'
 import { getLeagueOrganizers } from '@/actions/organizers'
 import { canAccess } from '@/lib/features'
+import { getMerchandiseOrders } from '@/actions/merchandise'
 import { EditEventForm } from '@/components/events/edit-event-form'
 import { DeleteEventButton } from '@/components/events/delete-event-button'
 import { OrganizersPanel } from '@/components/events/organizers-panel'
 import { StatsVisibilityToggle } from '@/components/stats/stats-visibility-toggle'
 import { EventLogoUpload } from '@/components/events/event-logo-upload'
+import { MerchSummaryWidget } from '@/components/merchandise/merch-summary-widget'
 import type { Database } from '@/types/database'
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
@@ -36,6 +38,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     { data: ruleTemplates },
     organizersData,
     hasEarlyBird,
+    merchOrders,
   ] = await Promise.all([
     supabase.from('leagues').select('*').eq('id', id).eq('organization_id', org.id).single(),
     supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
@@ -45,6 +48,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     supabase.from('league_rule_templates').select('id, title, content').eq('organization_id', org.id).order('created_at', { ascending: false }),
     getLeagueOrganizers(id),
     canAccess(org.id, 'early_bird_pricing'),
+    getMerchandiseOrders(id),
   ])
 
   if (!league) notFound()
@@ -158,6 +162,9 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
           coOrganizers={organizersData.coOrganizers}
           isOrgAdmin={isOrgAdmin}
         />
+
+        {/* Merchandise summary — only rendered when there are orders */}
+        <MerchSummaryWidget orders={merchOrders} leagueId={id} />
 
         {isOrgAdmin && transition && (
           <div className="bg-white rounded-lg border p-5">
