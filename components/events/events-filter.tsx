@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import { EventAvatar } from '@/components/ui/event-avatar'
 
 export interface EventItem {
   id: string
@@ -10,6 +11,7 @@ export interface EventItem {
   status: string
   event_type: string | null
   sport: string | null
+  logo_url: string | null
   price_cents: number
   currency: string
   season_start_date: string | null
@@ -119,7 +121,9 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
         </div>
 
         {/* Name + date */}
-        <div>
+        <div className="flex items-start gap-3">
+          <EventAvatar logoUrl={event.logo_url} name={event.name} sport={event.sport} size="md" className="shrink-0 mt-0.5 border border-gray-100" />
+          <div className="min-w-0">
           <h2
             className="text-xl font-bold text-gray-900 leading-snug"
             style={{ fontFamily: 'var(--brand-heading-font)' }}
@@ -131,6 +135,7 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
               Starts {formatDate(event.season_start_date)}
             </p>
           )}
+          </div>
         </div>
 
         {/* Metadata chips */}
@@ -190,10 +195,7 @@ function EventRow({ event, variant }: { event: EventItem; variant: 'inseason' | 
       className="flex items-center justify-between gap-3 py-3.5 border-b border-gray-100 last:border-0 hover:bg-gray-50 -mx-5 px-5 transition-colors group"
     >
       <div className="flex items-center gap-3 min-w-0">
-        <div
-          className="w-1.5 h-1.5 rounded-full shrink-0"
-          style={{ backgroundColor: variant === 'inseason' ? 'var(--brand-primary)' : '#d1d5db' }}
-        />
+        <EventAvatar logoUrl={event.logo_url} name={event.name} sport={event.sport} size="sm" className="border border-gray-100" />
         <div className="min-w-0">
           <p className="text-sm font-semibold text-gray-800 truncate">{event.name}</p>
           {(event.sport || event.skill_level) && (

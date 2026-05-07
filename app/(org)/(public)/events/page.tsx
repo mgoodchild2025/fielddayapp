@@ -53,6 +53,7 @@ export default async function EventsPage() {
     status: l.status,
     event_type: l.event_type,
     sport: l.sport,
+    logo_url: l.logo_url ?? null,
     price_cents: l.price_cents ?? 0,
     currency: l.currency ?? 'cad',
     season_start_date: l.season_start_date ?? null,

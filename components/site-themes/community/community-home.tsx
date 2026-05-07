@@ -2,6 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
+import { EventAvatar } from '@/components/ui/event-avatar'
 import type { OrgContext } from '@/lib/tenant'
 
 type Photo = { id: string; url: string; caption: string | null; display_order: number }
@@ -13,6 +14,8 @@ type League = {
   slug: string
   event_type: string | null
   status: string
+  logo_url: string | null
+  sport: string | null
   season_start_date: string | null
   price_cents: number
   currency: string | null
@@ -86,9 +89,12 @@ function EventCard({ league, teamCount }: { league: League; teamCount: number })
           {teamsAtCapacity ? 'Teams Full' : 'Open'}
         </span>
       </div>
-      <h3 className="text-lg font-bold mt-2 leading-snug" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-        {league.name}
-      </h3>
+      <div className="flex items-start gap-3 mt-2">
+        <EventAvatar logoUrl={league.logo_url} name={league.name} sport={league.sport} size="md" className="shrink-0 border border-gray-100" />
+        <h3 className="text-lg font-bold leading-snug" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+          {league.name}
+        </h3>
+      </div>
       {league.season_start_date && (
         <p className="text-sm text-gray-500 mt-1">
           Starts {new Date(league.season_start_date).toLocaleDateString('en-CA', {
