@@ -6,9 +6,11 @@ import { Step0RoleSelect } from './step0-role-select'
 import { Step1PlayerDetails } from './step1-player-details'
 import { Step2Waiver } from './step2-waiver'
 import { Step3Payment } from './step3-payment'
+import { StepAddons } from './step-addons'
 import { StepCaptainTeam } from './step-captain-team'
 import { StepTeamJoin } from './step-team-join'
 import type { TeamOption } from './step-team-join'
+import type { MerchItemForStep, MerchSelection } from './step-addons'
 import { linkWaiverToRegistration, activateRegistration } from '@/actions/registrations'
 import type { Database } from '@/types/database'
 
@@ -40,12 +42,15 @@ interface Props {
   /** True when max_teams is reached — captain path is disabled, player path remains open */
   teamsAtCapacity?: boolean
   leagueTeams?: TeamOption[]
+  /** Merchandise items available for this league. When empty, the add-ons step is skipped. */
+  leagueMerch?: MerchItemForStep[]
 }
 
 // Steps used in the progress bar (step 0 = role select, shown separately; never in bar)
 const PLAYER_STEPS = ['Player Details', 'Waiver', 'Join a Team']
 const CAPTAIN_STEPS = ['Player Details', 'Waiver', 'Create Team']
 const PAYMENT_STEPS = ['Player Details', 'Waiver', 'Payment']
+const PAYMENT_STEPS_WITH_MERCH = ['Player Details', 'Waiver', 'Add-ons', 'Payment']
 
 export function RegistrationFlow({
   org,
@@ -68,6 +73,7 @@ export function RegistrationFlow({
   playerTeamName = null,
   teamsAtCapacity = false,
   leagueTeams = [],
+  leagueMerch = [],
 }: Props) {
   const router = useRouter()
 
@@ -75,6 +81,8 @@ export function RegistrationFlow({
   const effectivePriceCents = isDropIn ? (dropInPriceCents ?? 0) : (earlyBirdActive ? earlyBirdPriceCents! : league.price_cents)
   const isPerTeam = (league as unknown as { payment_mode?: string }).payment_mode === 'per_team'
   const showPaymentStep = effectivePriceCents > 0 && hasOnlinePayments && !isPerTeam
+  // Show the add-ons step only when merch items exist and we have a payment step
+  const showAddOnsStep = leagueMerch.length > 0 && showPaymentStep
 
   // For per-team events, we show a role-select screen before step 1.
   // Skip it if: resuming (initialStep > 1), user is already on a team, or teams are full (force player).
@@ -93,13 +101,15 @@ export function RegistrationFlow({
   // Track the captain's newly-created team so we can redirect after waiver
   const [newCaptainTeamId, setNewCaptainTeamId] = useState<string | null>(captainTeamId)
   const [newCaptainTeamName, setNewCaptainTeamName] = useState<string | null>(captainTeamName)
+  // Merchandise selections from add-ons step
+  const [merchSelections, setMerchSelections] = useState<MerchSelection[]>([])
 
   const isCaptain = role === 'captain'
   const isPlayer = role === 'player'
 
   // Choose the right step labels for the progress bar
   const steps = showPaymentStep
-    ? PAYMENT_STEPS
+    ? (showAddOnsStep ? PAYMENT_STEPS_WITH_MERCH : PAYMENT_STEPS)
     : isPerTeam && isCaptain
       ? CAPTAIN_STEPS
       : isPerTeam && isPlayer
@@ -118,7 +128,10 @@ export function RegistrationFlow({
   }
 
   async function afterWaiver() {
-    if (showPaymentStep) {
+    if (showAddOnsStep) {
+      // go to add-ons step (step 3), then payment is step 4
+      advanceStep(3)
+    } else if (showPaymentStep) {
       advanceStep(3)
     } else if (isPerTeam) {
       if (isPlayer && playerTeamId) {
@@ -267,15 +280,33 @@ export function RegistrationFlow({
           </div>
         )}
 
-        {/* Step 3 — Per-player payment */}
-        {step === 3 && showPaymentStep && !completing && (
+        {/* Step 3 — Add-ons (merchandise), only when merch is configured */}
+        {step === 3 && showAddOnsStep && !completing && (
+          <StepAddons
+            items={leagueMerch}
+            onContinue={(sels) => {
+              setMerchSelections(sels)
+              advanceStep(4)
+            }}
+            onSkip={() => {
+              setMerchSelections([])
+              advanceStep(4)
+            }}
+            onBack={() => advanceStep(2)}
+          />
+        )}
+
+        {/* Step 3 (no merch) or Step 4 (with merch) — Per-player payment */}
+        {((step === 3 && showPaymentStep && !showAddOnsStep) || (step === 4 && showAddOnsStep)) && !completing && (
           <Step3Payment
             org={org}
             league={league}
             userId={userId}
             registrationId={registrationId!}
             priceCents={effectivePriceCents}
-            onBack={() => advanceStep(waiver ? 2 : 1)}
+            merchSelections={merchSelections}
+            leagueMerch={leagueMerch}
+            onBack={() => advanceStep(showAddOnsStep ? 3 : (waiver ? 2 : 1))}
           />
         )}
 

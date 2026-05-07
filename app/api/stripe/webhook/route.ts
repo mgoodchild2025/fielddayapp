@@ -119,6 +119,8 @@ export async function POST(request: NextRequest) {
 
     // ── Per-player payment (existing flow) ──────────────────────────────
     if (registrationId && userId) {
+      const { merchOrderIds: rawMerchOrderIds } = session.metadata ?? {}
+
       await Promise.all([
         supabase
           .from('payments')
@@ -133,6 +135,29 @@ export async function POST(request: NextRequest) {
           .update({ status: 'active' })
           .eq('id', registrationId),
       ])
+
+      // Mark merchandise orders as paid and link payment_id
+      if (rawMerchOrderIds) {
+        const orderIds = rawMerchOrderIds.split(',').filter(Boolean)
+        if (orderIds.length > 0) {
+          // Find the payment record we just updated to get its id
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: paymentRecord } = await (supabase as any)
+            .from('payments')
+            .select('id')
+            .eq('stripe_checkout_session_id', session.id)
+            .single()
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase as any)
+            .from('merchandise_orders')
+            .update({
+              status: 'paid',
+              payment_id: paymentRecord?.id ?? null,
+            })
+            .in('id', orderIds)
+        }
+      }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [{ data: profile }, { data: league }, { data: org }, { data: reg }] = await Promise.all([

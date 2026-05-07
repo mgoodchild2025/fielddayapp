@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation'
 import { RegistrationFlow } from '@/components/registration/registration-flow'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getPositionsForSport } from '@/actions/positions'
+import { getLeagueMerchandise } from '@/actions/merchandise'
 
 export default async function RegisterLeaguePage({
   params,
@@ -119,7 +120,10 @@ export default async function RegisterLeaguePage({
 
   const teamsAtCapacity = isPerTeamLeague && leagueMaxTeams !== null && (currentTeamCount ?? 0) >= leagueMaxTeams
 
-  const positions = await getPositionsForSport(org.id, league.sport ?? '')
+  const [positions, leagueMerch] = await Promise.all([
+    getPositionsForSport(org.id, league.sport ?? ''),
+    getLeagueMerchandise(league.id),
+  ])
 
   // Use the league's specific waiver if set, otherwise fall back to the org-wide active waiver
   let waiver = null
@@ -231,6 +235,7 @@ export default async function RegisterLeaguePage({
       playerTeamName={playerTeamName}
       teamsAtCapacity={teamsAtCapacity}
       leagueTeams={leagueTeams}
+      leagueMerch={leagueMerch}
     />
   )
 }

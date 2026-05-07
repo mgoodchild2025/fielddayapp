@@ -15,6 +15,7 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
       t.push({ label: 'Invites', href: `/admin/events/${id}/invites` })
     }
     t.push({ label: 'Check-in', href: `/admin/events/${id}/checkin` })
+    t.push({ label: 'Merchandise', href: `/admin/events/${id}/merchandise` })
     return t
   }
 
@@ -24,6 +25,7 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
       t.push({ label: 'Invites', href: `/admin/events/${id}/invites` })
     }
     t.push({ label: 'Check-in', href: `/admin/events/${id}/checkin` })
+    t.push({ label: 'Merchandise', href: `/admin/events/${id}/merchandise` })
     return t
   }
 
@@ -36,6 +38,7 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
       { label: 'Stats', href: `/admin/events/${id}/stats` },
       { label: 'Bracket', href: `/admin/events/${id}/bracket` },
       { label: 'Check-in', href: `/admin/events/${id}/checkin` },
+      { label: 'Merchandise', href: `/admin/events/${id}/merchandise` },
     ]
   }
 
@@ -48,6 +51,7 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
       { label: 'Stats', href: `/admin/events/${id}/stats` },
       { label: 'Bracket', href: `/admin/events/${id}/bracket` },
       { label: 'Check-in', href: `/admin/events/${id}/checkin` },
+      { label: 'Merchandise', href: `/admin/events/${id}/merchandise` },
     ]
   }
 
@@ -56,6 +60,7 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
     ...base,
     { label: 'Teams', href: `/admin/events/${id}/teams` },
     { label: 'Schedule', href: `/admin/events/${id}/schedule` },
+    { label: 'Merchandise', href: `/admin/events/${id}/merchandise` },
   ]
 }
 

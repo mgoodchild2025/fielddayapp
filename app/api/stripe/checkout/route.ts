@@ -9,6 +9,11 @@ const playerSchema = z.object({
   userId: z.string().uuid(),
   registrationId: z.string().uuid(),
   orgId: z.string().uuid(),
+  merchSelections: z.array(z.object({
+    itemId: z.string().uuid(),
+    variantId: z.string().uuid().nullable(),
+    quantity: z.number().int().positive(),
+  })).optional().default([]),
 })
 
 const teamSchema = z.object({
@@ -134,7 +139,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const { leagueId, leagueSlug, userId, registrationId, orgId } = parsed.data
+  const { leagueId, leagueSlug, userId, registrationId, orgId, merchSelections } = parsed.data
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db2 = db as any
@@ -173,6 +178,85 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // ── Merchandise: validate server-side prices and create pending orders ──────
+  type MerchItemRow = { id: string; price_cents: number; name: string; is_active: boolean }
+  type MerchVariantRow = { id: string; item_id: string; label: string; stock_quantity: number | null }
+
+  let merchOrderIds: string[] = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const merch_line_items: any[] = []
+
+  if (merchSelections.length > 0) {
+    const itemIds = [...new Set(merchSelections.map((s) => s.itemId))]
+    const variantIds = merchSelections.map((s) => s.variantId).filter(Boolean) as string[]
+
+    const [{ data: merchItems }, { data: merchVariants }] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('merchandise_items').select('id, price_cents, name, is_active').in('id', itemIds),
+      variantIds.length > 0
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? (db as any).from('merchandise_variants').select('id, item_id, label, stock_quantity').in('id', variantIds)
+        : Promise.resolve({ data: [] }),
+    ])
+
+    const itemMap = new Map<string, MerchItemRow>()
+    for (const i of (merchItems ?? []) as MerchItemRow[]) itemMap.set(i.id, i)
+
+    const variantMap = new Map<string, MerchVariantRow>()
+    for (const v of (merchVariants ?? []) as MerchVariantRow[]) variantMap.set(v.id, v)
+
+    const orderRows: {
+      organization_id: string
+      league_id: string
+      registration_id: string
+      user_id: string
+      item_id: string
+      variant_id: string | null
+      quantity: number
+      unit_price_cents: number
+      status: string
+    }[] = []
+
+    for (const sel of merchSelections) {
+      const item = itemMap.get(sel.itemId)
+      if (!item || !item.is_active) continue
+
+      const variant = sel.variantId ? variantMap.get(sel.variantId) : null
+      if (sel.variantId && !variant) continue
+
+      orderRows.push({
+        organization_id: orgId,
+        league_id: leagueId,
+        registration_id: registrationId,
+        user_id: userId,
+        item_id: item.id,
+        variant_id: sel.variantId ?? null,
+        quantity: sel.quantity,
+        unit_price_cents: item.price_cents,  // server-side price, not client-sent
+        status: 'pending',
+      })
+
+      const itemLabel = variant ? `${item.name} — ${variant.label}` : item.name
+      merch_line_items.push({
+        price_data: {
+          currency: league.currency,
+          unit_amount: item.price_cents,
+          product_data: { name: itemLabel },
+        },
+        quantity: sel.quantity,
+      })
+    }
+
+    if (orderRows.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: insertedOrders } = await (db as any)
+        .from('merchandise_orders')
+        .insert(orderRows)
+        .select('id')
+      merchOrderIds = ((insertedOrders ?? []) as { id: string }[]).map((r) => r.id)
+    }
+  }
+
   const orgStripe = new Stripe(paymentSettings.stripe_secret_key, {
     apiVersion: '2026-04-22.dahlia' as const,
     typescript: true,
@@ -195,9 +279,17 @@ export async function POST(request: NextRequest) {
         },
         quantity: 1,
       },
+      ...merch_line_items,
     ],
     customer_email: profile?.email ?? undefined,
-    metadata: { registrationId, leagueId, userId, orgId, paymentType: 'player' },
+    metadata: {
+      registrationId,
+      leagueId,
+      userId,
+      orgId,
+      paymentType: 'player',
+      ...(merchOrderIds.length > 0 ? { merchOrderIds: merchOrderIds.join(',') } : {}),
+    },
     success_url: `${origin}/register/${leagueSlug}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/register/${leagueSlug}`,
   })
