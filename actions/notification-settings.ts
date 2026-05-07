@@ -17,9 +17,16 @@ export type SmsReminder = {
 export type NotificationSettings = {
   smsGameRemindersEnabled: boolean
   reminders: SmsReminder[]
+  registrationNotificationsEnabled: boolean
+  /** Custom recipient email. When null, notifications go to all org_admin members. */
+  registrationNotificationEmail: string | null
 }
 
-type OrgNotifRow = { sms_game_reminders_enabled: boolean } | null
+type OrgNotifRow = {
+  sms_game_reminders_enabled: boolean
+  registration_notifications_enabled: boolean
+  registration_notification_email: string | null
+} | null
 type OrgSmsReminderRow = {
   id: string
   minutes_before: number
@@ -37,7 +44,7 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
   const [{ data: notif }, { data: reminders }] = await Promise.all([
     (db as any)
       .from('org_notification_settings')
-      .select('sms_game_reminders_enabled')
+      .select('sms_game_reminders_enabled, registration_notifications_enabled, registration_notification_email')
       .eq('organization_id', org.id)
       .single() as Promise<{ data: OrgNotifRow }>,
     (db as any)
@@ -55,6 +62,8 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
       messageTemplate: r.message_template,
       enabled: r.enabled,
     })),
+    registrationNotificationsEnabled: (notif as OrgNotifRow)?.registration_notifications_enabled ?? false,
+    registrationNotificationEmail: (notif as OrgNotifRow)?.registration_notification_email ?? null,
   }
 }
 
@@ -76,12 +85,18 @@ export async function saveNotificationSettings(
     }
   }
 
-  // 1. Upsert master toggle
+  // 1. Upsert master toggle + registration notification settings
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: notifErr } = await (db as any)
     .from('org_notification_settings')
     .upsert(
-      { organization_id: org.id, sms_game_reminders_enabled: settings.smsGameRemindersEnabled, updated_at: new Date().toISOString() },
+      {
+        organization_id: org.id,
+        sms_game_reminders_enabled: settings.smsGameRemindersEnabled,
+        registration_notifications_enabled: settings.registrationNotificationsEnabled,
+        registration_notification_email: settings.registrationNotificationEmail?.trim() || null,
+        updated_at: new Date().toISOString(),
+      },
       { onConflict: 'organization_id' }
     ) as { error: { message: string } | null }
 

@@ -15,7 +15,7 @@ export default async function NotificationSettingsPage() {
     <div className="max-w-2xl">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Notifications</h1>
-        <p className="text-sm text-gray-500 mt-1">Configure automated messages sent to your players.</p>
+        <p className="text-sm text-gray-500 mt-1">Configure automated messages sent to players and alerts sent to admins.</p>
       </div>
       <NotificationSettingsForm initial={settings} />
     </div>

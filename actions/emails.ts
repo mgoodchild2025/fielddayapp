@@ -114,6 +114,55 @@ export async function sendWaiverSigningRequest({
   })
 }
 
+export async function sendRegistrationAdminNotification({
+  to,
+  playerName,
+  playerEmail,
+  leagueName,
+  orgName,
+  adminUrl,
+}: {
+  to: string | string[]
+  playerName: string | null
+  playerEmail: string | null
+  leagueName: string
+  orgName: string
+  adminUrl: string
+}) {
+  const displayName = playerName ?? playerEmail ?? 'A player'
+  const emailLine = playerEmail
+    ? `<p style="color:#444;font-size:15px;margin:4px 0;"><strong>Email:</strong> ${playerEmail}</p>`
+    : ''
+
+  await getResend().emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: `New registration — ${leagueName}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+        <h1 style="font-size:22px;font-weight:bold;margin-bottom:4px;">New Registration 🎉</h1>
+        <p style="color:#555;font-size:15px;margin-top:0;">Someone just registered for one of your events on ${orgName}.</p>
+
+        <div style="margin:24px 0;padding:16px 20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
+          <p style="color:#444;font-size:15px;margin:4px 0;"><strong>Player:</strong> ${displayName}</p>
+          ${emailLine}
+          <p style="color:#444;font-size:15px;margin:4px 0;"><strong>Event:</strong> ${leagueName}</p>
+        </div>
+
+        <a href="${adminUrl}"
+          style="display:inline-block;margin-top:8px;padding:10px 22px;background:#111827;color:#fff;text-decoration:none;border-radius:7px;font-size:14px;font-weight:600;">
+          View in Admin Portal →
+        </a>
+
+        <p style="color:#aaa;font-size:12px;margin-top:32px;">
+          You're receiving this because registration notifications are enabled for ${orgName}.
+          Turn them off in Admin → Settings → Notifications.
+        </p>
+      </div>
+    `,
+  })
+}
+
 export async function sendPaymentFailedEmail({
   email,
   name,

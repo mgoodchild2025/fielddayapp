@@ -33,6 +33,8 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
   const [reminders, setReminders] = useState<ReminderDraft[]>(() =>
     initial.reminders.map((r) => ({ key: nextKey++, minutesBefore: r.minutesBefore, messageTemplate: r.messageTemplate, enabled: r.enabled }))
   )
+  const [regNotifEnabled, setRegNotifEnabled] = useState(initial.registrationNotificationsEnabled)
+  const [regNotifEmail, setRegNotifEmail] = useState(initial.registrationNotificationEmail ?? '')
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -80,6 +82,8 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
           messageTemplate,
           enabled,
         })),
+        registrationNotificationsEnabled: regNotifEnabled,
+        registrationNotificationEmail: regNotifEmail.trim() || null,
       })
       if (res.error) {
         setError(res.error)
@@ -206,6 +210,41 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
           </p>
         </>
       )}
+
+      {/* ── Admin registration notifications ───────────────────────────── */}
+      <div className="bg-white rounded-lg border divide-y">
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-4 p-5">
+          <div>
+            <p className="font-medium text-gray-900">Registration Notifications</p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Send an email to admins whenever a player completes a registration.
+            </p>
+          </div>
+          <Toggle checked={regNotifEnabled} onChange={setRegNotifEnabled} />
+        </div>
+
+        {/* Recipient row — only when enabled */}
+        {regNotifEnabled && (
+          <div className="px-5 py-4 space-y-1.5">
+            <label className="block text-sm font-medium text-gray-700">
+              Recipient email
+            </label>
+            <input
+              type="email"
+              value={regNotifEmail}
+              onChange={(e) => setRegNotifEmail(e.target.value)}
+              placeholder="Leave blank to notify all Org Admins"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:border-transparent"
+            />
+            <p className="text-xs text-gray-400">
+              {regNotifEmail.trim()
+                ? `Notifications will go to ${regNotifEmail.trim()}.`
+                : 'Notifications will go to all Org Admin members.'}
+            </p>
+          </div>
+        )}
+      </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
