@@ -82,10 +82,17 @@ function EventCard({ league, teamCount }: { league: League; teamCount: number })
       className="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-150"
     >
       <div className="flex items-start justify-between mb-2">
-        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-          {EVENT_TYPE_LABELS[et] ?? et}
-        </span>
-        <span className={`text-xs font-medium ${teamsAtCapacity ? 'text-amber-600' : 'text-green-600'}`}>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+            {EVENT_TYPE_LABELS[et] ?? et}
+          </span>
+          {league.sport && (
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 capitalize">
+              {league.sport.replace(/_/g, ' ')}
+            </span>
+          )}
+        </div>
+        <span className={`text-xs font-medium shrink-0 ml-2 ${teamsAtCapacity ? 'text-amber-600' : 'text-green-600'}`}>
           {teamsAtCapacity ? 'Teams Full' : 'Open'}
         </span>
       </div>
