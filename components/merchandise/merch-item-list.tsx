@@ -114,6 +114,11 @@ export function MerchItemList({ items: initialItems }: Props) {
                         <span className="text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>
                           ${(item.price_cents / 100).toFixed(2)} {item.currency.toUpperCase()}
                         </span>
+                        {item.shop_enabled && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Shop
+                          </span>
+                        )}
                       </div>
 
                       {item.description && (

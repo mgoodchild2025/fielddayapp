@@ -71,7 +71,7 @@ export default async function EventMerchandisePage({
             All merchandise orders placed by players registering for this event.
           </p>
         </div>
-        <MerchandiseOrdersTable leagueId={leagueId} orders={orders} />
+        <MerchandiseOrdersTable fulfillAllTarget={{ type: 'league', leagueId }} orders={orders} />
       </section>
     </div>
   )

@@ -33,6 +33,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
       stock_quantity: v.stock_quantity != null ? String(v.stock_quantity) : '',
     }))
   )
+  const [shopEnabled, setShopEnabled] = useState(item?.shop_enabled ?? false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -111,6 +112,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
         price_cents: priceCents,
         image_url: imageUrl,
         is_active: item?.is_active ?? true,
+        shop_enabled: shopEnabled,
       })
 
       if (result.error) { setError(result.error); return }
@@ -251,6 +253,23 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
               required
             />
           </div>
+        </div>
+
+        {/* Shop toggle */}
+        <div className="flex items-center justify-between py-3 border-t">
+          <div>
+            <p className="text-sm font-medium text-gray-900">Show in shop</p>
+            <p className="text-xs text-gray-500">Players can purchase this item at any time from the shop</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={shopEnabled}
+            onClick={() => setShopEnabled(!shopEnabled)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[var(--brand-primary)] ${shopEnabled ? 'bg-[var(--brand-primary)]' : 'bg-gray-200'}`}
+          >
+            <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${shopEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
         </div>
 
         {/* Variants */}

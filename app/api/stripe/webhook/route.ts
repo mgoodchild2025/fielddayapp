@@ -117,6 +117,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true })
     }
 
+    // ── Standalone shop payment ───────────────────────────────────────────
+    if (paymentType === 'shop') {
+      const { merchOrderIds: rawShopOrderIds } = session.metadata ?? {}
+      const shopOrderIds = rawShopOrderIds?.split(',').filter(Boolean) ?? []
+      if (shopOrderIds.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+          .from('merchandise_orders')
+          .update({ status: 'paid' })
+          .in('id', shopOrderIds)
+      }
+      return NextResponse.json({ received: true })
+    }
+
     // ── Per-player payment (existing flow) ──────────────────────────────
     if (registrationId && userId) {
       const { merchOrderIds: rawMerchOrderIds } = session.metadata ?? {}

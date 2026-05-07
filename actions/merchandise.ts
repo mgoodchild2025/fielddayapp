@@ -27,7 +27,19 @@ export type MerchItem = {
   currency: string
   image_url: string | null
   is_active: boolean
+  shop_enabled: boolean
   created_at: string
+  variants: MerchVariant[]
+}
+
+/** Simplified item type used by the standalone shop page. */
+export type ShopItem = {
+  id: string
+  name: string
+  description: string | null
+  price_cents: number
+  currency: string
+  image_url: string | null
   variants: MerchVariant[]
 }
 
@@ -59,7 +71,7 @@ export type LeagueMerchItem = {
 export type MerchOrder = {
   id: string
   organization_id: string
-  league_id: string
+  league_id: string | null
   registration_id: string | null
   user_id: string
   item_id: string
@@ -335,6 +347,7 @@ export async function upsertMerchandiseItem(data: {
   currency?: string
   image_url?: string | null
   is_active?: boolean
+  shop_enabled?: boolean
 }): Promise<{ error: string | null; id: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -352,6 +365,7 @@ export async function upsertMerchandiseItem(data: {
     currency: data.currency ?? 'cad',
     image_url: data.image_url ?? null,
     is_active: data.is_active ?? true,
+    shop_enabled: data.shop_enabled ?? false,
   }
 
   if (data.id) {
@@ -609,5 +623,141 @@ export async function cancelMerchandiseOrders(registrationId: string): Promise<{
     .eq('status', 'pending')
 
   if (error) return { error: error.message }
+  return { error: null }
+}
+
+// ── Standalone Shop ────────────────────────────────────────────────────────────
+
+/** Fetch items available in the standalone shop (shop_enabled=true, active). */
+export async function getShopItems(orgId: string): Promise<ShopItem[]> {
+  const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: items, error } = await (db as any)
+    .from('merchandise_items')
+    .select('id, name, description, price_cents, currency, image_url')
+    .eq('organization_id', orgId)
+    .eq('shop_enabled', true)
+    .eq('is_active', true)
+    .order('name')
+
+  if (error || !items) return []
+
+  const itemIds = (items as ShopItem[]).map((i) => i.id)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: variants } = await (db as any)
+    .from('merchandise_variants')
+    .select('id, item_id, label, stock_quantity, sort_order')
+    .in('item_id', itemIds)
+    .order('sort_order', { ascending: true })
+
+  const variantsByItem = new Map<string, MerchVariant[]>()
+  for (const v of (variants ?? []) as MerchVariantRow[]) {
+    const arr = variantsByItem.get(v.item_id) ?? []
+    arr.push({ id: v.id, label: v.label, stock_quantity: v.stock_quantity, sort_order: v.sort_order })
+    variantsByItem.set(v.item_id, arr)
+  }
+
+  return (items as ShopItem[]).map((item) => ({
+    ...item,
+    variants: variantsByItem.get(item.id) ?? [],
+  }))
+}
+
+/** Fetch all standalone shop orders (league_id IS NULL) for an org. */
+export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
+  const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: orders, error } = await (db as any)
+    .from('merchandise_orders')
+    .select('*')
+    .eq('organization_id', orgId)
+    .is('league_id', null)
+    .order('created_at', { ascending: false })
+
+  if (error || !orders || (orders as MerchOrder[]).length === 0) return []
+
+  const typedOrders = orders as MerchOrder[]
+  const userIds = [...new Set(typedOrders.map((o) => o.user_id))]
+  const itemIds = [...new Set(typedOrders.map((o) => o.item_id))]
+  const variantIds = typedOrders.map((o) => o.variant_id).filter(Boolean) as string[]
+
+  const [{ data: profiles }, { data: items }, { data: variantRows }] = await Promise.all([
+    db.from('profiles').select('id, full_name, email').in('id', userIds),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('merchandise_items').select('id, name').in('id', itemIds),
+    variantIds.length > 0
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (db as any).from('merchandise_variants').select('id, label').in('id', variantIds)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const profileMap = new Map<string, { full_name: string | null; email: string | null }>()
+  for (const p of (profiles ?? []) as { id: string; full_name: string | null; email: string | null }[]) {
+    profileMap.set(p.id, p)
+  }
+  const itemMap = new Map<string, string>()
+  for (const i of (items ?? []) as { id: string; name: string }[]) {
+    itemMap.set(i.id, i.name)
+  }
+  const variantMap = new Map<string, string>()
+  for (const v of (variantRows ?? []) as { id: string; label: string }[]) {
+    variantMap.set(v.id, v.label)
+  }
+
+  return typedOrders.map((order) => ({
+    ...order,
+    player_name: profileMap.get(order.user_id)?.full_name ?? null,
+    player_email: profileMap.get(order.user_id)?.email ?? null,
+    item_name: itemMap.get(order.item_id) ?? 'Unknown item',
+    variant_label: order.variant_id ? (variantMap.get(order.variant_id) ?? null) : null,
+  }))
+}
+
+/** Bulk fulfill all paid standalone shop orders for an org. */
+export async function fulfillAllShopOrders(orgId: string): Promise<{ error: string | null; count: number }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const role = await getCallerRole(org.id)
+  if (!role || !['org_admin', 'league_admin'].includes(role)) {
+    return { error: 'Unauthorized', count: 0 }
+  }
+
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (db as any)
+    .from('merchandise_orders')
+    .update({ status: 'fulfilled', fulfilled_at: new Date().toISOString() })
+    .eq('organization_id', orgId)
+    .is('league_id', null)
+    .eq('status', 'paid')
+    .select('id')
+
+  if (error) return { error: error.message, count: 0 }
+  return { error: null, count: ((data ?? []) as unknown[]).length }
+}
+
+/** Toggle shop_enabled for an item (org admin only). */
+export async function setItemShopEnabled(itemId: string, shopEnabled: boolean): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const role = await getCallerRole(org.id)
+  if (!role || !['org_admin', 'league_admin'].includes(role)) {
+    return { error: 'Unauthorized' }
+  }
+
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
+    .from('merchandise_items')
+    .update({ shop_enabled: shopEnabled })
+    .eq('id', itemId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin/settings/merchandise')
+  revalidatePath('/shop')
   return { error: null }
 }

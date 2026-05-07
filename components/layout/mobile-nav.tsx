@@ -105,6 +105,9 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
               <Link href="/events" className="block px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
                 Events
               </Link>
+              <Link href="/shop" className="block px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
+                Shop
+              </Link>
 
               <div className="border-t border-white/10 my-4" />
 

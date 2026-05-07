@@ -1,11 +1,15 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { fulfillMerchandiseOrder, fulfillAllMerchandiseOrders } from '@/actions/merchandise'
+import { fulfillMerchandiseOrder, fulfillAllMerchandiseOrders, fulfillAllShopOrders } from '@/actions/merchandise'
 import type { MerchOrder } from '@/actions/merchandise'
 
+type FulfillAllTarget =
+  | { type: 'league'; leagueId: string }
+  | { type: 'shop'; orgId: string }
+
 interface Props {
-  leagueId: string
+  fulfillAllTarget: FulfillAllTarget
   orders: MerchOrder[]
 }
 
@@ -24,7 +28,7 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-export function MerchandiseOrdersTable({ leagueId, orders: initialOrders }: Props) {
+export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders }: Props) {
   const [orders, setOrders] = useState<MerchOrder[]>(initialOrders)
   const [error, setError] = useState<string | null>(null)
   const [fulfillPendingId, setFulfillPendingId] = useState<string | null>(null)
@@ -53,7 +57,9 @@ export function MerchandiseOrdersTable({ leagueId, orders: initialOrders }: Prop
     setError(null)
     setFulfillAllPending(true)
     startTransition(async () => {
-      const result = await fulfillAllMerchandiseOrders(leagueId)
+      const result = fulfillAllTarget.type === 'shop'
+        ? await fulfillAllShopOrders(fulfillAllTarget.orgId)
+        : await fulfillAllMerchandiseOrders(fulfillAllTarget.leagueId)
       setFulfillAllPending(false)
       if (result.error) {
         setError(result.error)

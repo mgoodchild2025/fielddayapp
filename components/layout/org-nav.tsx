@@ -72,6 +72,7 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
               <Link href="/events" className="opacity-80 hover:opacity-100 transition-opacity">Events</Link>
               <Link href="/schedule" className="opacity-80 hover:opacity-100 transition-opacity">Schedule</Link>
               <Link href="/standings" className="opacity-80 hover:opacity-100 transition-opacity">Standings</Link>
+              <Link href="/shop" className="opacity-80 hover:opacity-100 transition-opacity">Shop</Link>
             </div>
           )}
 
