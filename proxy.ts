@@ -29,10 +29,15 @@ async function resolveOrgId(baseHost: string): Promise<string | null> {
     }
   }
 
-  // Custom domain
+  // Custom domain — try the exact host, then www-stripped / www-prefixed variant
+  // so that entering "kaboomsportsgroup.com" in the form works for both
+  // "kaboomsportsgroup.com" and "www.kaboomsportsgroup.com" visitors.
   try {
+    const wwwVariant = baseHost.startsWith('www.')
+      ? baseHost.slice(4)           // www.foo.com → foo.com
+      : `www.${baseHost}`           // foo.com → www.foo.com
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/org_branding?custom_domain=eq.${baseHost}&select=organization_id&limit=1`,
+      `${SUPABASE_URL}/rest/v1/org_branding?custom_domain=in.(${baseHost},${wwwVariant})&select=organization_id&limit=1`,
       { headers: REST_HEADERS }
     )
     const [branding] = await res.json()
