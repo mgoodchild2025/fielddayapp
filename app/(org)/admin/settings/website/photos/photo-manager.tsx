@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
-import { uploadOrgPhoto, deleteOrgPhoto, updatePhotoCaption, reorderOrgPhotos, rotateOrgPhoto } from '@/actions/org-photos'
+import { uploadOrgPhoto, deleteOrgPhoto, updatePhotoCaption, reorderOrgPhotos, rotateOrgPhoto, togglePhotoFeatured } from '@/actions/org-photos'
 
-type Photo = { id: string; url: string; caption: string | null; display_order: number }
+type Photo = { id: string; url: string; caption: string | null; display_order: number; featured: boolean }
 
 type UploadItem = {
   file: File
@@ -94,6 +94,7 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
   const [uploadItems, setUploadItems]       = useState<UploadItem[] | null>(null)
   const [deletingId, setDeletingId]         = useState<string | null>(null)
   const [rotatingId, setRotatingId]         = useState<string | null>(null)
+  const [togglingId, setTogglingId]         = useState<string | null>(null)
   const [editingCaption, setEditingCaption] = useState<{ id: string; value: string } | null>(null)
 
   // ── Drag state ──────────────────────────────────────────────────────────────
@@ -164,7 +165,7 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
         if (result.id && result.url) {
           setPhotos(prev => [
             ...prev,
-            { id: result.id!, url: result.url!, caption: null, display_order: prev.length },
+            { id: result.id!, url: result.url!, caption: null, display_order: prev.length, featured: false },
           ])
         }
       }
@@ -213,6 +214,19 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
       prev.map(p => p.id === editingCaption.id ? { ...p, caption: editingCaption.value || null } : p)
     )
     setEditingCaption(null)
+  }
+
+  // ── Featured toggle ───────────────────────────────────────────────────────
+
+  async function handleToggleFeatured(id: string, current: boolean) {
+    setTogglingId(id)
+    const result = await togglePhotoFeatured(id, !current)
+    setTogglingId(null)
+    if (result.error) {
+      alert(result.error)
+    } else {
+      setPhotos(prev => prev.map(p => p.id === id ? { ...p, featured: !current } : p))
+    }
   }
 
   // ── Pointer drag (mouse + touch) ──────────────────────────────────────────
@@ -355,7 +369,7 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
           <p className="text-xs text-gray-400 mb-3">
             <span className="hidden sm:inline">Drag to reorder · </span>
             <span className="sm:hidden">Hold to reorder · </span>
-            {photos.length} photo{photos.length !== 1 ? 's' : ''}
+            {photos.length} photo{photos.length !== 1 ? 's' : ''} · ⭐ {photos.filter(p => p.featured).length} featured on home page
           </p>
 
           <div
@@ -399,6 +413,13 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                     />
                   </div>
 
+                  {/* Featured badge — always visible top-left */}
+                  {photo.featured && (
+                    <div className="absolute top-1.5 left-1.5 z-10 pointer-events-none">
+                      <span className="text-sm leading-none drop-shadow-sm" title="Featured on home page">⭐</span>
+                    </div>
+                  )}
+
                   {/* Rotating spinner overlay */}
                   {rotatingId === photo.id && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
@@ -436,6 +457,18 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                         </button>
                       )}
                       <div className="flex items-center gap-1">
+                        {/* Featured toggle */}
+                        <button
+                          onClick={() => handleToggleFeatured(photo.id, photo.featured)}
+                          disabled={togglingId === photo.id}
+                          className={[
+                            'flex-1 text-xs text-center py-0.5 rounded hover:bg-white/10 disabled:opacity-40 transition-colors',
+                            photo.featured ? 'text-yellow-300' : 'text-white/60 hover:text-white',
+                          ].join(' ')}
+                          title={photo.featured ? 'Remove from home page' : 'Feature on home page'}
+                        >
+                          ⭐
+                        </button>
                         {/* Rotate CCW */}
                         <button
                           onClick={() => handleRotate(photo.id, 'ccw')}
@@ -497,9 +530,21 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                         )}
                       </div>
 
-                      {/* Rotate + Delete buttons */}
+                      {/* Rotate + Delete + Featured buttons */}
                       {!isEditingThisCaption && (
                         <div className="flex items-center gap-1 shrink-0" onPointerDown={e => e.stopPropagation()}>
+                          {/* Featured toggle */}
+                          <button
+                            onClick={() => handleToggleFeatured(photo.id, photo.featured)}
+                            disabled={togglingId === photo.id}
+                            className={[
+                              'w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-sm disabled:opacity-50',
+                              photo.featured ? 'text-yellow-300' : 'text-white/60',
+                            ].join(' ')}
+                            aria-label={photo.featured ? 'Remove from home page' : 'Feature on home page'}
+                          >
+                            ⭐
+                          </button>
                           {/* Rotate CCW */}
                           <button
                             onClick={() => handleRotate(photo.id, 'ccw')}

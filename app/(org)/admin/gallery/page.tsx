@@ -15,7 +15,7 @@ export default async function AdminGalleryPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: photos } = await (db as any)
     .from('org_photos')
-    .select('id, url, caption, display_order')
+    .select('id, url, caption, display_order, featured')
     .eq('organization_id', org.id)
     .order('display_order', { ascending: true })
 
@@ -25,7 +25,7 @@ export default async function AdminGalleryPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gallery</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Upload and manage photos visible to all members on the public gallery page.
+            Upload and manage photos. ⭐ Star photos to feature them on your home page.
           </p>
         </div>
         <Link

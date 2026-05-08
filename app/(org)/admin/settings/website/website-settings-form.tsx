@@ -400,7 +400,7 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
       {/* ── Content sub-pages ── */}
       <div className="bg-white rounded-lg border divide-y">
         {[
-          { href: '/admin/settings/website/photos',   label: 'Photo Gallery',      desc: 'Upload event and action photos.' },
+          { href: '/admin/gallery',                     label: 'Photo Gallery',      desc: 'Upload photos and star the ones to feature on the home page.' },
           { href: '/admin/settings/website/sponsors',  label: 'Sponsors',           desc: 'Add sponsor logos with tier levels (Gold, Silver, Bronze).' },
           { href: '/admin/settings/website/staff',     label: 'Staff & Volunteers', desc: 'Feature the people who run your league.' },
         ].map(({ href, label, desc }) => (

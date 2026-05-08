@@ -33,8 +33,8 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
       .from('org_photos')
       .select('id, url, caption, display_order')
       .eq('organization_id', orgId)
-      .order('display_order', { ascending: true })
-      .limit(24),
+      .eq('featured', true)
+      .order('display_order', { ascending: true }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from('org_sponsors')

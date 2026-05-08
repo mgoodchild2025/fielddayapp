@@ -176,6 +176,32 @@ export async function reorderOrgPhotos(
   return { error: null }
 }
 
+// ── Toggle featured ──────────────────────────────────────────────────────────
+
+export async function togglePhotoFeatured(
+  photoId: string,
+  featured: boolean,
+): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  await requireOrgMember(org, ['org_admin', 'league_admin'])
+
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
+    .from('org_photos')
+    .update({ featured })
+    .eq('id', photoId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+  revalidatePath('/')
+  revalidatePath('/gallery')
+  revalidatePath('/admin/gallery')
+  revalidatePath('/admin/settings/website/photos')
+  return { error: null }
+}
+
 // ── Rotate a photo ────────────────────────────────────────────────────────────
 
 export async function rotateOrgPhoto(
