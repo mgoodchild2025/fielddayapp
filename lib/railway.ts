@@ -204,16 +204,15 @@ export async function addRailwayCustomDomain(domain: string): Promise<RailwayDom
 
   let domainId: string | null = created?.customDomainCreate?.id ?? null
 
-  // If creation failed, log the errors and attempt recovery.
+  // If creation failed for any reason, try to recover an existing domain ID.
+  // Railway returns INTERNAL_SERVER_ERROR (not a friendly "already exists" message)
+  // when the domain is already registered, so we always attempt recovery on any error.
   if (!domainId && errors.length > 0) {
     console.log('[railway] customDomainCreate errors:', errors)
-    // If the domain already exists in Railway, recover its ID by listing all domains.
-    if (errors.some((e) => /already|exist/i.test(e))) {
-      console.log('[railway] domain already exists — looking up existing ID for:', domain)
-      domainId = await findExistingDomainId(
-        cfg.token, cfg.projectId, cfg.serviceId, cfg.environmentId, domain,
-      )
-    }
+    console.log('[railway] attempting to recover existing domain ID for:', domain)
+    domainId = await findExistingDomainId(
+      cfg.token, cfg.projectId, cfg.serviceId, cfg.environmentId, domain,
+    )
   }
 
   if (!domainId) {
