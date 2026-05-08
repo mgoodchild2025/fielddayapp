@@ -64,11 +64,14 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
   const oldDomain  = existing?.custom_domain ?? null
   const railwayId  = existing?.railway_domain_id ?? null
   const domainChanged = newDomain !== oldDomain
+  // Also re-register if the domain is already saved but was never successfully
+  // registered with Railway (e.g. saved before the integration was set up)
+  const needsRailwayRegistration = domainChanged || (!!newDomain && !railwayId)
 
   let newRailwayId: string | null = railwayId
   let domainError: string | null = null
 
-  if (domainChanged && isRailwayConfigured()) {
+  if (needsRailwayRegistration && isRailwayConfigured()) {
     // Remove the old domain from Railway if one was registered
     if (oldDomain && railwayId) {
       await removeRailwayCustomDomain(railwayId)
