@@ -158,12 +158,46 @@ export async function refreshDnsStatus(orgId: string): Promise<{ records: Railwa
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: branding } = await (service as any)
     .from('org_branding')
-    .select('railway_domain_id')
+    .select('custom_domain, railway_domain_id')
     .eq('organization_id', orgId)
-    .maybeSingle() as { data: { railway_domain_id: string | null } | null }
+    .maybeSingle() as { data: { custom_domain: string | null; railway_domain_id: string | null } | null }
 
-  const railwayDomainId = branding?.railway_domain_id
-  if (!railwayDomainId) return { records: null, error: 'No Railway domain ID on file — save the domain first.' }
+  let railwayDomainId = branding?.railway_domain_id ?? null
+
+  // If we don't have a Railway domain ID yet but we have a saved custom domain,
+  // try to register it now (Railway will recover an existing registration if the
+  // domain was previously added manually or before ID-tracking was in place).
+  if (!railwayDomainId && branding?.custom_domain) {
+    if (!isRailwayConfigured()) {
+      return { records: null, error: 'Railway API is not configured. Add RAILWAY_API_TOKEN to your environment.' }
+    }
+    const result = await addRailwayCustomDomain(branding.custom_domain)
+    if (!result) {
+      return { records: null, error: 'Could not register domain with Railway. Check RAILWAY_API_TOKEN and Railway dashboard.' }
+    }
+    railwayDomainId = result.id
+    // Persist the recovered ID and DNS records for future calls
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (service as any)
+      .from('org_branding')
+      .update({
+        railway_domain_id:   result.id,
+        railway_cname_host:  result.dnsRecords.find((r) => r.recordType === 'CNAME')?.hostlabel  ?? null,
+        railway_cname_value: result.dnsRecords.find((r) => r.recordType === 'CNAME')?.requiredValue ?? null,
+        railway_txt_host:    result.dnsRecords.find((r) => r.recordType === 'TXT')?.hostlabel    ?? null,
+        railway_txt_value:   result.dnsRecords.find((r) => r.recordType === 'TXT')?.requiredValue ?? null,
+      })
+      .eq('organization_id', orgId)
+
+    // Return records from the registration call (status will be PENDING)
+    if (result.dnsRecords.length > 0) {
+      return { records: result.dnsRecords, error: null }
+    }
+  }
+
+  if (!railwayDomainId) {
+    return { records: null, error: 'No custom domain saved. Enter a domain name and click Save first.' }
+  }
 
   const records = await getRailwayDomainStatus(railwayDomainId)
   if (!records) return { records: null, error: 'Could not reach Railway API. Check RAILWAY_API_TOKEN.' }

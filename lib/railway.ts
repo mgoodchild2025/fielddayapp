@@ -84,23 +84,9 @@ export interface RailwayDomainResult {
 }
 
 // ── Domain list query — used to recover an existing domain ID ─────────────────
+// Railway's schema has changed over time; try two known shapes.
 
-const LIST_DOMAINS_QUERY = `
-  query ListServiceDomains($projectId: String!, $serviceId: String!, $environmentId: String!) {
-    domains(projectId: $projectId, serviceId: $serviceId, environmentId: $environmentId) {
-      customDomains {
-        id
-        domain
-      }
-    }
-  }
-`
-
-type ListDomainsResponse = {
-  domains: {
-    customDomains: Array<{ id: string; domain: string }>
-  }
-}
+type DomainEntry = { id: string; domain: string }
 
 async function findExistingDomainId(
   token: string,
@@ -109,15 +95,46 @@ async function findExistingDomainId(
   environmentId: string,
   targetDomain: string,
 ): Promise<string | null> {
-  const { data } = await gql<ListDomainsResponse>(token, LIST_DOMAINS_QUERY, {
-    projectId,
-    serviceId,
-    environmentId,
-  })
-  const match = data?.domains?.customDomains?.find(
-    (d) => d.domain.toLowerCase() === targetDomain.toLowerCase(),
-  )
-  return match?.id ?? null
+  // Shape 1: top-level `domains` object with `customDomains` array
+  const { data: shape1, errors: e1 } = await gql<{
+    domains: { customDomains: DomainEntry[] }
+  }>(token, `
+    query ListServiceDomains($projectId: String!, $serviceId: String!, $environmentId: String!) {
+      domains(projectId: $projectId, serviceId: $serviceId, environmentId: $environmentId) {
+        customDomains { id domain }
+      }
+    }
+  `, { projectId, serviceId, environmentId })
+
+  const list1 = shape1?.domains?.customDomains ?? []
+  if (list1.length > 0 || e1.length === 0) {
+    const match = list1.find((d) => d.domain.toLowerCase() === targetDomain.toLowerCase())
+    if (match) { console.log('[railway] recovered domain ID via shape1:', match.id); return match.id }
+  } else {
+    console.log('[railway] shape1 list query errors:', e1)
+  }
+
+  // Shape 2: top-level `customDomains` array directly
+  const { data: shape2, errors: e2 } = await gql<{
+    customDomains: DomainEntry[]
+  }>(token, `
+    query ListServiceDomains2($projectId: String!, $serviceId: String!, $environmentId: String!) {
+      customDomains(projectId: $projectId, serviceId: $serviceId, environmentId: $environmentId) {
+        id domain
+      }
+    }
+  `, { projectId, serviceId, environmentId })
+
+  const list2 = shape2?.customDomains ?? []
+  if (list2.length > 0 || e2.length === 0) {
+    const match = list2.find((d) => d.domain.toLowerCase() === targetDomain.toLowerCase())
+    if (match) { console.log('[railway] recovered domain ID via shape2:', match.id); return match.id }
+  } else {
+    console.log('[railway] shape2 list query errors:', e2)
+  }
+
+  console.log('[railway] could not recover existing domain ID for:', targetDomain)
+  return null
 }
 
 // ── DNS record query (shared by create and refresh) ───────────────────────────
@@ -187,16 +204,22 @@ export async function addRailwayCustomDomain(domain: string): Promise<RailwayDom
 
   let domainId: string | null = created?.customDomainCreate?.id ?? null
 
-  // If creation failed because the domain already exists in Railway, recover its ID
-  // by listing all domains for this service rather than treating it as a hard error.
-  if (!domainId && errors.some((e) => /already|exist/i.test(e))) {
-    console.log('[railway] domain already exists — looking up existing ID for:', domain)
-    domainId = await findExistingDomainId(
-      cfg.token, cfg.projectId, cfg.serviceId, cfg.environmentId, domain,
-    )
+  // If creation failed, log the errors and attempt recovery.
+  if (!domainId && errors.length > 0) {
+    console.log('[railway] customDomainCreate errors:', errors)
+    // If the domain already exists in Railway, recover its ID by listing all domains.
+    if (errors.some((e) => /already|exist/i.test(e))) {
+      console.log('[railway] domain already exists — looking up existing ID for:', domain)
+      domainId = await findExistingDomainId(
+        cfg.token, cfg.projectId, cfg.serviceId, cfg.environmentId, domain,
+      )
+    }
   }
 
-  if (!domainId) return null
+  if (!domainId) {
+    console.log('[railway] addRailwayCustomDomain failed — no domain ID obtained for:', domain)
+    return null
+  }
 
   // Step 2 — fetch the required DNS records
   const dnsRecords = await fetchDnsRecords(cfg.token, domainId, cfg.projectId)
