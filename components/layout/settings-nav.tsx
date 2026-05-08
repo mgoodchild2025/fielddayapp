@@ -14,7 +14,6 @@ const CATEGORIES = [
   { href: '/admin/settings/positions',     label: 'Positions',       description: 'Customise player positions available per sport.' },
   { href: '/admin/settings/discounts',     label: 'Discount Codes',  description: 'Create and manage promo / discount codes.' },
   { href: '/admin/settings/merchandise',  label: 'Merchandise',     description: 'Items players can purchase during registration (jerseys, hats, etc.).' },
-  { href: '/admin/users',                  label: 'Admins',          description: 'Manage org admins and league admins.' },
 ]
 
 export function SettingsNav() {
