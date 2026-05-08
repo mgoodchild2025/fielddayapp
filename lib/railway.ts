@@ -14,16 +14,17 @@
 
 const RAILWAY_API = 'https://backboard.railway.app/graphql/v2'
 
-function getConfig(): { token: string; serviceId: string; environmentId: string } | null {
+function getConfig(): { token: string; projectId: string; serviceId: string; environmentId: string } | null {
   const token = process.env.RAILWAY_API_TOKEN
-  const serviceId = process.env.RAILWAY_SERVICE_ID
-  const environmentId = process.env.RAILWAY_ENVIRONMENT_ID
+  const projectId = process.env.RAILWAY_PROJECT_ID       // auto-injected by Railway
+  const serviceId = process.env.RAILWAY_SERVICE_ID       // auto-injected by Railway
+  const environmentId = process.env.RAILWAY_ENVIRONMENT_ID // auto-injected by Railway
 
-  if (!token || !serviceId || !environmentId) {
-    // Not configured — caller should fall back to manual instructions
+  if (!token || !projectId || !serviceId || !environmentId) {
+    // Not fully configured — caller should fall back to manual instructions
     return null
   }
-  return { token, serviceId, environmentId }
+  return { token, projectId, serviceId, environmentId }
 }
 
 async function graphql<T>(
@@ -79,7 +80,7 @@ export async function addRailwayCustomDomain(domain: string): Promise<RailwayDom
     customDomainCreate: {
       id: string
       domain: string
-      status: { cname: string | null } | null
+      syncStatus: string | null
     }
   }>(
     cfg.token,
@@ -87,12 +88,13 @@ export async function addRailwayCustomDomain(domain: string): Promise<RailwayDom
       customDomainCreate(input: $input) {
         id
         domain
-        status { cname }
+        syncStatus
       }
     }`,
     {
       input: {
         domain,
+        projectId: cfg.projectId,
         serviceId: cfg.serviceId,
         environmentId: cfg.environmentId,
       },
@@ -101,10 +103,13 @@ export async function addRailwayCustomDomain(domain: string): Promise<RailwayDom
 
   if (!data?.customDomainCreate) return null
 
+  // Fetch the CNAME target from the status query now that we have the domain ID
+  const cnameTarget = await fetchCnameTarget(cfg.token, data.customDomainCreate.id, cfg.projectId)
+
   return {
     id: data.customDomainCreate.id,
     domain: data.customDomainCreate.domain,
-    cnameTarget: data.customDomainCreate.status?.cname ?? null,
+    cnameTarget,
   }
 }
 
@@ -127,10 +132,48 @@ export async function removeRailwayCustomDomain(railwayDomainId: string): Promis
   return data?.customDomainDelete === true
 }
 
+/**
+ * Fetch the CNAME target value for a custom domain after it has been created.
+ * Railway returns this via a separate status query.
+ */
+async function fetchCnameTarget(
+  token: string,
+  domainId: string,
+  projectId: string,
+): Promise<string | null> {
+  const data = await graphql<{
+    customDomain: {
+      status: {
+        dnsRecords: Array<{ hostlabel: string; requiredValue: string; status: string }>
+      } | null
+    }
+  }>(
+    token,
+    `query GetCustomDomainStatus($id: String!, $projectId: String!) {
+      customDomain(id: $id, projectId: $projectId) {
+        status {
+          dnsRecords {
+            hostlabel
+            requiredValue
+            status
+          }
+        }
+      }
+    }`,
+    { id: domainId, projectId },
+  )
+
+  // The CNAME record is the one that is not a TXT record (requiredValue starts with a hostname)
+  const records = data?.customDomain?.status?.dnsRecords ?? []
+  const cname = records.find((r) => !r.requiredValue.startsWith('railway-verify='))
+  return cname?.requiredValue ?? null
+}
+
 /** Returns true if Railway API env vars are configured. */
 export function isRailwayConfigured(): boolean {
   return !!(
     process.env.RAILWAY_API_TOKEN &&
+    process.env.RAILWAY_PROJECT_ID &&
     process.env.RAILWAY_SERVICE_ID &&
     process.env.RAILWAY_ENVIRONMENT_ID
   )
