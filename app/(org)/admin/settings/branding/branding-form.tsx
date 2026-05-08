@@ -296,12 +296,19 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
           ))}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Custom Domain</label>
-            <input {...register('custom_domain')} type="text" placeholder="leagues.yourclub.com" className="w-full border rounded-md px-3 py-2 text-sm font-mono" />
-            <div className="mt-2 p-3 bg-blue-50 border border-blue-100 rounded-md text-xs text-blue-800 space-y-1">
-              <p className="font-semibold">DNS Setup Instructions</p>
-              <p>Add a <strong>CNAME</strong> record in your DNS provider pointing to:</p>
-              <code className="block mt-1 px-2 py-1 bg-white border border-blue-200 rounded font-mono select-all">app.fielddayapp.ca</code>
-              <p className="text-blue-600 mt-1">Changes may take up to 24 hours to propagate. Leave blank to use your free subdomain.</p>
+            <input {...register('custom_domain')} type="text" placeholder="www.yourclub.com" className="w-full border rounded-md px-3 py-2 text-sm font-mono" />
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-100 rounded-md text-xs text-blue-800 space-y-2">
+              <p className="font-semibold">Two-step DNS setup</p>
+              <div>
+                <p className="font-medium">Step 1 — Add the domain in Railway</p>
+                <p className="text-blue-700">In your Railway project, open the service → Settings → Custom Domains → Add Domain. Railway will give you a <strong>CNAME target</strong> to use in step 2 and will automatically provision an SSL certificate.</p>
+              </div>
+              <div>
+                <p className="font-medium">Step 2 — Create a DNS record</p>
+                <p className="text-blue-700">At your DNS provider, add a <strong>CNAME</strong> record for your domain pointing to the hostname Railway gave you (e.g. <code className="bg-white px-1 rounded">fieldday.up.railway.app</code>).</p>
+                <p className="mt-1 text-blue-600"><strong>Using a root domain (e.g. kaboomsportsgroup.ca without www)?</strong> CNAME records cannot be placed on root domains. Use <code className="bg-white px-1 rounded">www.yourdomain.com</code> as the custom domain, then set up an apex → www redirect at your DNS provider, or use an ALIAS / ANAME record if your provider supports it.</p>
+              </div>
+              <p className="text-blue-600">DNS changes propagate in minutes to a few hours. Leave blank to use your free <code className="bg-white px-1 rounded">{'{slug}'}.fielddayapp.ca</code> subdomain.</p>
             </div>
           </div>
           <div>
