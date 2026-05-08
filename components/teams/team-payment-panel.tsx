@@ -31,6 +31,7 @@ export function TeamPaymentPanel({
 }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [manualInstructions, setManualInstructions] = useState<string | null>(null)
 
   async function handleCheckout() {
     setLoading(true)
@@ -42,7 +43,10 @@ export function TeamPaymentPanel({
         body: JSON.stringify({ leagueId, leagueSlug, teamId, orgId }),
       })
       const data = await res.json()
-      if (data.url) {
+      if (data.manual) {
+        setManualInstructions(data.instructions ?? '')
+        setLoading(false)
+      } else if (data.url) {
         window.location.href = data.url
       } else {
         setError(data.error ?? 'Something went wrong. Please try again.')
@@ -56,6 +60,34 @@ export function TeamPaymentPanel({
 
   const price = priceCents / 100
   const curr = currency.toUpperCase()
+
+  if (manualInstructions !== null) {
+    return (
+      <div className="mt-6 bg-white rounded-lg border overflow-hidden">
+        <div className="px-5 py-4 border-b flex items-center gap-3">
+          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-600 shrink-0">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </span>
+          <h2 className="font-semibold">Team registered!</h2>
+        </div>
+        <div className="px-5 py-4 space-y-3">
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 space-y-1">
+            <p className="text-sm font-semibold text-amber-900">Payment instructions</p>
+            {manualInstructions ? (
+              <p className="text-sm text-amber-800 whitespace-pre-wrap">{manualInstructions}</p>
+            ) : (
+              <p className="text-sm text-amber-700">Please contact the organizer to arrange payment.</p>
+            )}
+          </div>
+          <p className="text-xs text-gray-400">
+            Your team&apos;s spot is reserved. The organizer will confirm once payment is received.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   if (isPaid) {
     return (

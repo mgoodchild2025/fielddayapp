@@ -36,16 +36,17 @@ export async function POST(request: NextRequest) {
       db.from('leagues').select('name, price_cents, currency, max_teams').eq('id', leagueId).single(),
       db.from('teams').select('name').eq('id', teamId).single(),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('org_payment_settings').select('stripe_secret_key').eq('organization_id', orgId).single(),
+      (db as any).from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', orgId).single(),
     ])
 
     if (!league) return NextResponse.json({ error: 'League not found' }, { status: 404 })
     if (!team) return NextResponse.json({ error: 'Team not found' }, { status: 404 })
-    if (!paymentSettings?.stripe_secret_key) {
-      return NextResponse.json(
-        { error: 'This organization has not configured online payments. Please contact the organizer.' },
-        { status: 422 }
-      )
+
+    // ── Manual payment mode — skip Stripe entirely ───────────────────────────
+    const isManual = paymentSettings?.registration_payment_mode === 'manual' || !paymentSettings?.stripe_secret_key
+    if (isManual) {
+      const instructions = paymentSettings?.registration_manual_instructions ?? null
+      return NextResponse.json({ manual: true, instructions })
     }
 
     // ── Capacity guard: prevent payment if event is now full ─────────────────
