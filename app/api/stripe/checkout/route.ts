@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
   const db2 = db as any
   const [{ data: league }, { data: paymentSettings }, { data: profile }, { data: registration }] = await Promise.all([
     db2.from('leagues').select('name, price_cents, currency, drop_in_price_cents, max_participants, payment_mode, early_bird_price_cents, early_bird_deadline').eq('id', leagueId).single(),
-    db2.from('org_payment_settings').select('stripe_secret_key').eq('organization_id', orgId).single(),
+    db2.from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', orgId).maybeSingle(),
     db2.from('profiles').select('email').eq('id', userId).single(),
     db2.from('registrations').select('registration_type').eq('id', registrationId).single(),
   ])
@@ -171,11 +171,14 @@ export async function POST(request: NextRequest) {
     ? (league.drop_in_price_cents ?? league.price_cents)
     : (earlyBirdActive ? league.early_bird_price_cents : league.price_cents)
 
-  if (!paymentSettings?.stripe_secret_key) {
-    return NextResponse.json(
-      { error: 'This organization has not configured online payments. Please pay at registration or contact the organizer.' },
-      { status: 422 }
-    )
+  // Manual payment mode — skip Stripe entirely and return instructions to the client
+  const isManualRegistration =
+    paymentSettings?.registration_payment_mode === 'manual' || !paymentSettings?.stripe_secret_key
+  if (isManualRegistration) {
+    const instructions = paymentSettings?.registration_manual_instructions ?? null
+    // Mark registration as active (payment collected offline)
+    await db.from('registrations').update({ status: 'active' }).eq('id', registrationId)
+    return NextResponse.json({ manual: true, instructions })
   }
 
   // ── Merchandise: validate server-side prices and create pending orders ──────

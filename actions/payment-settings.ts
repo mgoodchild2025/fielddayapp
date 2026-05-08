@@ -83,6 +83,44 @@ export async function saveShopPaymentSettings(input: {
   return { error: null }
 }
 
+export async function saveRegistrationPaymentSettings(input: {
+  registrationPaymentMode: 'stripe' | 'manual'
+  registrationManualInstructions: string | null
+}) {
+  if (!['stripe', 'manual'].includes(input.registrationPaymentMode)) {
+    return { error: 'Invalid payment mode' }
+  }
+  if (input.registrationPaymentMode === 'manual' && !input.registrationManualInstructions?.trim()) {
+    return { error: 'Payment instructions are required for manual payment mode' }
+  }
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  await requireOrgMember(org, ['org_admin', 'league_admin'])
+
+  const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
+    .from('org_payment_settings')
+    .upsert(
+      {
+        organization_id: org.id,
+        registration_payment_mode: input.registrationPaymentMode,
+        registration_manual_instructions: input.registrationPaymentMode === 'manual'
+          ? input.registrationManualInstructions?.trim() ?? null
+          : null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'organization_id' }
+    )
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin/settings/payments')
+  return { error: null }
+}
+
 export async function clearPaymentSettings() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)

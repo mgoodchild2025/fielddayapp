@@ -20,6 +20,7 @@ interface Props {
 export function Step3Payment({ org, league, userId, registrationId, priceCents, merchSelections = [], leagueMerch = [], onBack }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [manualInstructions, setManualInstructions] = useState<string | null>(null)
 
   const registrationPriceCents = priceCents ?? league.price_cents
   const currency = league.currency.toUpperCase()
@@ -70,7 +71,10 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
         body: JSON.stringify(body),
       })
       const data = await res.json()
-      if (data.url) {
+      if (data.manual) {
+        setManualInstructions(data.instructions ?? '')
+        setLoading(false)
+      } else if (data.url) {
         window.location.href = data.url
       } else {
         setError(data.error ?? 'Something went wrong')
@@ -83,6 +87,35 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
   }
 
   const registrationPrice = registrationPriceCents / 100
+
+  // Manual payment — show instructions instead of Stripe button
+  if (manualInstructions !== null) {
+    return (
+      <div className="space-y-4">
+        <div className="bg-white rounded-lg border p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-600">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+            <h2 className="font-semibold text-lg">You&apos;re registered!</h2>
+          </div>
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 space-y-1">
+            <p className="text-sm font-semibold text-amber-900">Payment instructions</p>
+            {manualInstructions ? (
+              <p className="text-sm text-amber-800 whitespace-pre-wrap">{manualInstructions}</p>
+            ) : (
+              <p className="text-sm text-amber-700">Please contact the organizer to arrange payment.</p>
+            )}
+          </div>
+          <p className="text-xs text-gray-400">
+            Your spot is reserved. The organizer will confirm your registration once payment is received.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
