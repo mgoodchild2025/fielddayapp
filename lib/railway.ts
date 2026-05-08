@@ -148,6 +148,7 @@ const DNS_STATUS_QUERY = `
         dnsRecords {
           hostlabel
           requiredValue
+          recordType
           status
         }
       }
@@ -160,20 +161,31 @@ type DnsStatusResponse = {
     id: string
     domain: string
     status: {
-      dnsRecords: Array<{ hostlabel: string; requiredValue: string; status: string }>
+      dnsRecords: Array<{ hostlabel: string; requiredValue: string; recordType?: string; status: string }>
     } | null
   }
 }
 
 function parseDnsRecords(
-  raw: Array<{ hostlabel: string; requiredValue: string; status: string }>,
+  raw: Array<{ hostlabel: string; requiredValue: string; recordType?: string; status: string }>,
 ): RailwayDnsRecord[] {
-  return raw.map((r) => ({
-    hostlabel: r.hostlabel,
-    requiredValue: r.requiredValue,
-    recordType: r.requiredValue.startsWith('railway-verify=') ? 'TXT' : 'CNAME',
-    status: (['PENDING', 'VALID', 'INVALID'].includes(r.status) ? r.status : 'PENDING') as RailwayDnsRecord['status'],
-  }))
+  return raw.map((r) => {
+    // Prefer the explicit recordType from Railway's API; fall back to inspecting the value.
+    let recordType: 'CNAME' | 'TXT'
+    if (r.recordType === 'TXT') {
+      recordType = 'TXT'
+    } else if (r.recordType === 'CNAME') {
+      recordType = 'CNAME'
+    } else {
+      recordType = r.requiredValue.startsWith('railway-verify=') ? 'TXT' : 'CNAME'
+    }
+    return {
+      hostlabel: r.hostlabel,
+      requiredValue: r.requiredValue,
+      recordType,
+      status: (['PENDING', 'VALID', 'INVALID'].includes(r.status) ? r.status : 'PENDING') as RailwayDnsRecord['status'],
+    }
+  })
 }
 
 // ── Exported functions ────────────────────────────────────────────────────────
@@ -270,7 +282,9 @@ async function fetchDnsRecords(
   domainId: string,
   projectId: string,
 ): Promise<RailwayDnsRecord[]> {
-  const { data } = await gql<DnsStatusResponse>(token, DNS_STATUS_QUERY, { id: domainId, projectId })
+  const { data, errors } = await gql<DnsStatusResponse>(token, DNS_STATUS_QUERY, { id: domainId, projectId })
+  if (errors.length) console.log('[railway] fetchDnsRecords errors:', errors)
+  console.log('[railway] fetchDnsRecords raw:', JSON.stringify(data?.customDomain?.status))
   const raw = data?.customDomain?.status?.dnsRecords ?? []
   return parseDnsRecords(raw)
 }
