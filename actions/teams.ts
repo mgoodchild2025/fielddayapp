@@ -648,7 +648,8 @@ export async function requestToJoinTeam(teamId: string, message?: string) {
   const teamUrl = `https://${org.slug}.${platformDomain}/teams/${teamId}`
 
   // Fetch all captains + coaches on this team
-  const { data: managers } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: managers } = await (db as any)
     .from('team_members')
     .select('user_id, role, profiles!team_members_user_id_fkey(full_name, email)')
     .eq('team_id', teamId)
@@ -659,10 +660,12 @@ export async function requestToJoinTeam(teamId: string, message?: string) {
   let recipients: Array<{ userId: string; email: string }> = []
 
   if (managers && managers.length > 0) {
-    recipients = managers.map((m) => {
-      const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
-      return { userId: m.user_id, email: (profile as { email?: string } | null)?.email ?? '' }
-    }).filter((r) => r.email)
+    recipients = (managers as Array<{ user_id: string | null; profiles: unknown }>)
+      .map((m) => {
+        const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
+        return { userId: m.user_id, email: (profile as { email?: string } | null)?.email ?? '' }
+      })
+      .filter((r): r is { userId: string; email: string } => r.userId !== null && r.email !== '')
   } else {
     const { data: orgAdmins } = await db
       .from('org_members')

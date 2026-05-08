@@ -9,7 +9,7 @@ interface Props {
 
 export function InvitePlayerButton({ orgSlug }: Props) {
   const [open, setOpen] = useState(false)
-  const [result, setResult] = useState<{ error?: string; noAccount?: boolean } | null>(null)
+  const [result, setResult] = useState<{ error?: string | null; noAccount?: boolean; invited?: boolean } | null>(null)
   const [isPending, startTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
 

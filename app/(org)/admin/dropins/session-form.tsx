@@ -12,7 +12,7 @@ interface Session {
   location?: string | null
   capacity: number
   price_cents: number
-  sport: string
+  sport: string | null
 }
 
 interface Props {
@@ -46,9 +46,9 @@ export function DropInSessionForm({ session }: Props) {
       description,
       scheduled_at: new Date(scheduledAt).toISOString(),
       location,
-      capacity,
+      capacity: parseInt(capacity, 10),
       price_cents: Math.round(parseFloat(priceDollars) * 100),
-      sport,
+      sport: sport ?? 'multi',
     }
     startTransition(async () => {
       const result = session

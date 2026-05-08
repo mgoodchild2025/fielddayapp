@@ -23,7 +23,7 @@ export function DiscountForm() {
       const result = await createDiscount({
         code,
         type,
-        value,
+        value: Number(value),
         max_uses: maxUses ? parseInt(maxUses) : null,
         expires_at: expiresAt || null,
         applies_to: appliesTo,

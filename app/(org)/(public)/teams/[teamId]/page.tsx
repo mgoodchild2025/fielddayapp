@@ -38,7 +38,8 @@ export default async function TeamDetailPage({
 
   const [{ data: branding }, { data: team }, { data: myMembership }, { data: orgMember }, { data: joinRequests }, { data: orgBranding }] = await Promise.all([
     supabase.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
-    db
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
       .from('teams')
       .select(`
         id, name, color, logo_url, team_code, league_id, calendar_token,
@@ -81,7 +82,8 @@ export default async function TeamDetailPage({
   // Lazy-generate calendar token on first view — one-time write, no per-request cost after that
   let calendarToken = (team as { calendar_token?: string | null }).calendar_token ?? null
   if (!calendarToken) {
-    const { data: updated } = await db
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: updated } = await (db as any)
       .from('teams')
       .update({ calendar_token: crypto.randomUUID() })
       .eq('id', teamId)
@@ -178,7 +180,7 @@ export default async function TeamDetailPage({
   const [positions, statDefs, seasonTotals] = await Promise.all([
     getPositionsForSport(org.id, leagueSport),
     leagueId ? getStatDefinitions(org.id, leagueSport) : Promise.resolve([]),
-    leagueId ? getLeagueStatTotals(leagueId, org.id) : Promise.resolve({}),
+    leagueId ? getLeagueStatTotals(leagueId, org.id) : Promise.resolve({} as Record<string, Record<string, number>>),
   ])
 
   // Top-2 stat keys to show as badges (by display_order)

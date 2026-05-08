@@ -9,7 +9,7 @@ interface Template {
   title: string
   content: string
   created_at: string
-  updated_at: string
+  updated_at?: string
 }
 
 export function RuleTemplateList({ templates: initial }: { templates: Template[] }) {
@@ -61,7 +61,7 @@ export function RuleTemplateList({ templates: initial }: { templates: Template[]
               <p className="font-semibold">{t.title}</p>
               <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{t.content.slice(0, 120)}{t.content.length > 120 ? '…' : ''}</p>
               <p className="text-xs text-gray-400 mt-0.5">
-                Updated {new Date(t.updated_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
+                Updated {new Date(t.updated_at ?? t.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">

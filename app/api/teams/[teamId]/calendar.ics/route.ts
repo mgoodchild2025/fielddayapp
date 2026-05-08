@@ -60,7 +60,8 @@ export async function GET(
   const db = createServiceRoleClient()
 
   // Validate token against team ─────────────────────────────────────────────
-  const { data: team, error: teamErr } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: team, error: teamErr } = await (db as any)
     .from('teams')
     .select('id, name, calendar_token, league_id, league:leagues!teams_league_id_fkey(name, slug, venue_name, venue_address)')
     .eq('id', teamId)

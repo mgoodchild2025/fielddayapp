@@ -30,34 +30,37 @@ export default async function AdminPositionsPage() {
     .not('sport', 'is', null)
 
   // Get all sports this org has custom positions for
-  const { data: customRows } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: customRows } = await (db as any)
     .from('sport_positions')
     .select('sport')
     .eq('organization_id', org.id)
 
   const leagueSports = new Set((leagues ?? []).map(l => l.sport).filter(Boolean) as string[])
-  const customSports = new Set((customRows ?? []).map(r => r.sport))
+  const customSports = new Set(((customRows ?? []) as Array<{ sport: string }>).map(r => r.sport))
   const allSports = Array.from(new Set([...leagueSports, ...customSports]))
 
   // Also include all platform-default sports so admins can customise proactively
-  const { data: platformSports } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: platformSports } = await (db as any)
     .from('sport_positions')
     .select('sport')
     .is('organization_id', null)
 
-  const platformSportSet = Array.from(new Set((platformSports ?? []).map(r => r.sport)))
+  const platformSportSet = Array.from(new Set(((platformSports ?? []) as Array<{ sport: string }>).map(r => r.sport)))
   const sportsToShow = Array.from(new Set([...allSports, ...platformSportSet]))
 
   // Fetch positions per sport (org-specific if available, else defaults)
   const sportData: Array<{ sport: string; label: string; positions: SportPosition[]; isCustom: boolean }> = []
 
   for (const sport of sportsToShow) {
-    const orgPositions = (customRows ?? []).filter(r => r.sport === sport)
+    const orgPositions = ((customRows ?? []) as Array<{ sport: string }>).filter(r => r.sport === sport)
     const isCustom = orgPositions.length > 0
 
     let positions: SportPosition[] = []
     if (isCustom) {
-      const { data } = await db
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (db as any)
         .from('sport_positions')
         .select('id, sport, name, display_order, organization_id')
         .eq('organization_id', org.id)
@@ -65,7 +68,8 @@ export default async function AdminPositionsPage() {
         .order('display_order')
       positions = (data ?? []) as SportPosition[]
     } else {
-      const { data } = await db
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (db as any)
         .from('sport_positions')
         .select('id, sport, name, display_order, organization_id')
         .is('organization_id', null)

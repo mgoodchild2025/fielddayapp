@@ -82,7 +82,7 @@ export async function createEnrollment(input: {
   const now = new Date()
 
   if (plan.upfront_percent > 0) {
-    installments.push({ amount_cents: upfrontCents, due_date: now.toISOString(), status: 'pending', installment_number: 1 })
+    installments.push({ amount_cents: upfrontCents, due_date: now.toISOString(), status: 'pending' as const, installment_number: 1 })
   }
 
   const remainingCount = plan.installments - (plan.upfront_percent > 0 ? 1 : 0)
@@ -92,7 +92,7 @@ export async function createEnrollment(input: {
     installments.push({
       amount_cents: installmentCents,
       due_date: due.toISOString(),
-      status: 'pending',
+      status: 'pending' as const,
       installment_number: (plan.upfront_percent > 0 ? 2 : 1) + i,
     })
   }

@@ -24,7 +24,8 @@ export default async function AdminPoolsPage({ params }: { params: Promise<{ id:
       .eq('league_id', id)
       .eq('organization_id', org.id)
       .order('sort_order', { ascending: true }),
-    db
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
       .from('teams')
       .select('id, name, pool_id')
       .eq('league_id', id)
@@ -48,10 +49,10 @@ export default async function AdminPoolsPage({ params }: { params: Promise<{ id:
     <AdminPoolsManager
       leagueId={id}
       initialPools={pools ?? []}
-      initialTeams={(teams ?? []).map((t) => ({
+      initialTeams={(teams ?? []).map((t: { id: string; name: string; pool_id?: string | null }) => ({
         id: t.id,
         name: t.name,
-        pool_id: (t as { pool_id?: string | null }).pool_id ?? null,
+        pool_id: t.pool_id ?? null,
       }))}
     />
   )

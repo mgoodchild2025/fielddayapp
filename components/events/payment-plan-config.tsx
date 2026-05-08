@@ -36,9 +36,9 @@ export function PaymentPlanConfig({ leagueId, existing }: Props) {
       const result = await upsertPaymentPlan({
         league_id: leagueId,
         name,
-        installments,
-        interval_days: intervalDays,
-        upfront_percent: upfrontPercent,
+        installments: parseInt(installments, 10),
+        interval_days: parseInt(intervalDays, 10),
+        upfront_percent: parseInt(upfrontPercent, 10),
         enabled: true,
       })
       if (result.error) { setError(result.error); return }

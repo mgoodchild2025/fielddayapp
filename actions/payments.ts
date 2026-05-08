@@ -65,7 +65,8 @@ export async function updatePaymentStatus(input: z.infer<typeof updatePaymentSta
 
   const { error } = await supabase
     .from('payments')
-    .update(updates)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .update(updates as any)
     .eq('id', parsed.data.paymentId)
 
   if (error) return { error: error.message }

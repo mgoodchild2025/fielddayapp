@@ -209,8 +209,8 @@ export async function confirmScore(gameId: string) {
       .eq('game_id', gameId)
       .eq('organization_id', org.id)
       .single()
-    if (confirmedResult?.home_score !== null && confirmedResult?.away_score !== null) {
-      await advanceBracketFromScore(gameId, confirmedResult.home_score!, confirmedResult.away_score!, org.id)
+    if (confirmedResult && confirmedResult.home_score !== null && confirmedResult.away_score !== null) {
+      await advanceBracketFromScore(gameId, confirmedResult.home_score, confirmedResult.away_score, org.id)
     }
   } catch {
     console.error('[confirmScore] advanceBracketFromScore failed silently')

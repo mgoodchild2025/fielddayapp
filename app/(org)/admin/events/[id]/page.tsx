@@ -181,7 +181,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
           </div>
         )}
         {/* Stats visibility — only for team-based events that have stat support */}
-        {(league.event_type === 'league' || league.event_type === 'tournament') && isOrgAdmin && (
+        {(league.league_type === 'team' || league.league_type === 'tournament') && isOrgAdmin && (
           <StatsVisibilityToggle
             leagueId={id}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

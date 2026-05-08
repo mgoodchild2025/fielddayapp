@@ -20,7 +20,8 @@ export async function getPositionsForSport(orgId: string, sport: string): Promis
   const db = createServiceRoleClient()
 
   // Prefer org-specific rows; fall back to platform defaults
-  const { data: orgRows } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: orgRows } = await (db as any)
     .from('sport_positions')
     .select('name, display_order')
     .eq('organization_id', orgId)
@@ -28,17 +29,18 @@ export async function getPositionsForSport(orgId: string, sport: string): Promis
     .order('display_order')
 
   if (orgRows && orgRows.length > 0) {
-    return orgRows.map(r => r.name)
+    return (orgRows as Array<{ name: string }>).map(r => r.name)
   }
 
-  const { data: defaults } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: defaults } = await (db as any)
     .from('sport_positions')
     .select('name, display_order')
     .is('organization_id', null)
     .eq('sport', sport)
     .order('display_order')
 
-  return (defaults ?? []).map(r => r.name)
+  return ((defaults ?? []) as Array<{ name: string }>).map(r => r.name)
 }
 
 export async function getOrgPositionsForSport(sport: string): Promise<{ positions: SportPosition[]; isCustom: boolean }> {
@@ -46,7 +48,8 @@ export async function getOrgPositionsForSport(sport: string): Promise<{ position
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  const { data: orgRows } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: orgRows } = await (db as any)
     .from('sport_positions')
     .select('id, sport, name, display_order, organization_id')
     .eq('organization_id', org.id)
@@ -54,17 +57,18 @@ export async function getOrgPositionsForSport(sport: string): Promise<{ position
     .order('display_order')
 
   if (orgRows && orgRows.length > 0) {
-    return { positions: orgRows, isCustom: true }
+    return { positions: orgRows as SportPosition[], isCustom: true }
   }
 
-  const { data: defaults } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: defaults } = await (db as any)
     .from('sport_positions')
     .select('id, sport, name, display_order, organization_id')
     .is('organization_id', null)
     .eq('sport', sport)
     .order('display_order')
 
-  return { positions: defaults ?? [], isCustom: false }
+  return { positions: (defaults ?? []) as SportPosition[], isCustom: false }
 }
 
 const addOrgPositionSchema = z.object({
@@ -93,28 +97,33 @@ export async function addOrgPosition(input: z.infer<typeof addOrgPositionSchema>
 
   // If org has no custom positions yet, clone platform defaults first (minus the new sport entry)
   // so the org row set is complete before we add the new one.
-  const { data: existing } = await db.from('sport_positions').select('id')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing } = await (db as any).from('sport_positions').select('id')
     .eq('organization_id', org.id).eq('sport', parsed.data.sport).limit(1)
 
   if (!existing || existing.length === 0) {
-    const { data: defaults } = await db.from('sport_positions').select('sport, name, display_order')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: defaults } = await (db as any).from('sport_positions').select('sport, name, display_order')
       .is('organization_id', null).eq('sport', parsed.data.sport).order('display_order')
 
     if (defaults && defaults.length > 0) {
-      await db.from('sport_positions').insert(
-        defaults.map(d => ({ ...d, organization_id: org.id }))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any).from('sport_positions').insert(
+        (defaults as Array<{ sport: string; name: string; display_order: number }>).map(d => ({ ...d, organization_id: org.id }))
       )
     }
   }
 
   // Find max display_order for this org+sport
-  const { data: maxRow } = await db.from('sport_positions').select('display_order')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: maxRow } = await (db as any).from('sport_positions').select('display_order')
     .eq('organization_id', org.id).eq('sport', parsed.data.sport)
     .order('display_order', { ascending: false }).limit(1).single()
 
-  const nextOrder = (maxRow?.display_order ?? 0) + 1
+  const nextOrder = ((maxRow as { display_order?: number } | null)?.display_order ?? 0) + 1
 
-  const { error } = await db.from('sport_positions').insert({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any).from('sport_positions').insert({
     organization_id: org.id,
     sport: parsed.data.sport,
     name: parsed.data.name,
@@ -146,7 +155,8 @@ export async function removeOrgPosition(positionId: string) {
     return { error: 'Not authorized' }
   }
 
-  const { error } = await db.from('sport_positions').delete()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any).from('sport_positions').delete()
     .eq('id', positionId)
     .eq('organization_id', org.id) // safety: can only delete own org's rows
 
@@ -172,7 +182,8 @@ export async function resetOrgPositions(sport: string) {
     return { error: 'Not authorized' }
   }
 
-  const { error } = await db.from('sport_positions').delete()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any).from('sport_positions').delete()
     .eq('organization_id', org.id)
     .eq('sport', sport)
 
@@ -218,7 +229,8 @@ export async function setTeamMemberPosition(input: z.infer<typeof setTeamMemberP
   const isOrgAdmin = orgMember && ['org_admin', 'league_admin'].includes(orgMember.role)
   if (!isTeamManager && !isOrgAdmin) return { error: 'Not authorized' }
 
-  const { error } = await db.from('team_members')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any).from('team_members')
     .update({ position: parsed.data.position || null })
     .eq('id', parsed.data.memberId)
     .eq('team_id', parsed.data.teamId)
