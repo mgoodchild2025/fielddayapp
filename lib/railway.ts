@@ -83,20 +83,7 @@ export interface RailwayDomainResult {
  */
 export async function addRailwayCustomDomain(domain: string): Promise<RailwayDomainResult | null> {
   const cfg = getConfig()
-  if (!cfg) {
-    console.error('[railway] addRailwayCustomDomain: missing config —', {
-      hasToken: !!process.env.RAILWAY_API_TOKEN,
-      hasProjectId: !!process.env.RAILWAY_PROJECT_ID,
-      hasServiceId: !!process.env.RAILWAY_SERVICE_ID,
-      hasEnvironmentId: !!process.env.RAILWAY_ENVIRONMENT_ID,
-    })
-    return null
-  }
-  console.log('[railway] registering custom domain:', domain, {
-    projectId: cfg.projectId,
-    serviceId: cfg.serviceId,
-    environmentId: cfg.environmentId,
-  })
+  if (!cfg) return null
 
   const data = await graphql<{
     customDomainCreate: {
@@ -123,11 +110,7 @@ export async function addRailwayCustomDomain(domain: string): Promise<RailwayDom
     },
   )
 
-  if (!data?.customDomainCreate) {
-    console.error('[railway] customDomainCreate returned no data')
-    return null
-  }
-  console.log('[railway] domain registered:', data.customDomainCreate)
+  if (!data?.customDomainCreate) return null
 
   // Fetch the CNAME target from the status query now that we have the domain ID
   const cnameTarget = await fetchCnameTarget(cfg.token, data.customDomainCreate.id, cfg.projectId)
