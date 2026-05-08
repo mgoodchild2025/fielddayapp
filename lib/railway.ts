@@ -170,21 +170,34 @@ function parseDnsRecords(
   raw: Array<{ hostlabel: string; requiredValue: string; recordType?: string; status: string }>,
 ): RailwayDnsRecord[] {
   return raw.map((r) => {
-    // Prefer the explicit recordType from Railway's API; fall back to inspecting the value.
+    // Railway returns full enum strings (e.g. DNS_RECORD_TYPE_CNAME); normalise them.
+    const rt = r.recordType ?? ''
     let recordType: 'CNAME' | 'TXT'
-    if (r.recordType === 'TXT') {
+    if (rt === 'TXT' || rt === 'DNS_RECORD_TYPE_TXT') {
       recordType = 'TXT'
-    } else if (r.recordType === 'CNAME') {
+    } else if (rt === 'CNAME' || rt === 'DNS_RECORD_TYPE_CNAME') {
       recordType = 'CNAME'
     } else {
+      // Fall back: inspect the value
       recordType = r.requiredValue.startsWith('railway-verify=') ? 'TXT' : 'CNAME'
     }
-    return {
-      hostlabel: r.hostlabel,
-      requiredValue: r.requiredValue,
-      recordType,
-      status: (['PENDING', 'VALID', 'INVALID'].includes(r.status) ? r.status : 'PENDING') as RailwayDnsRecord['status'],
+
+    // Normalise status enum
+    const s = r.status ?? ''
+    let status: 'PENDING' | 'VALID' | 'INVALID'
+    if (s === 'VALID' || s === 'DNS_RECORD_STATUS_VALID') {
+      status = 'VALID'
+    } else if (
+      s === 'INVALID' ||
+      s === 'DNS_RECORD_STATUS_INVALID' ||
+      s === 'DNS_RECORD_STATUS_REQUIRES_UPDATE'
+    ) {
+      status = 'INVALID'
+    } else {
+      status = 'PENDING'
     }
+
+    return { hostlabel: r.hostlabel, requiredValue: r.requiredValue, recordType, status }
   })
 }
 
@@ -284,7 +297,6 @@ async function fetchDnsRecords(
 ): Promise<RailwayDnsRecord[]> {
   const { data, errors } = await gql<DnsStatusResponse>(token, DNS_STATUS_QUERY, { id: domainId, projectId })
   if (errors.length) console.log('[railway] fetchDnsRecords errors:', errors)
-  console.log('[railway] fetchDnsRecords raw:', JSON.stringify(data?.customDomain?.status))
   const raw = data?.customDomain?.status?.dnsRecords ?? []
   return parseDnsRecords(raw)
 }
