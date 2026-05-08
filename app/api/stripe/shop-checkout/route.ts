@@ -50,16 +50,14 @@ export async function POST(request: NextRequest) {
   // ── Load org payment settings ─────────────────────────────────────────────
   const { data: paymentSettings } = await db
     .from('org_payment_settings')
-    .select('stripe_secret_key')
+    .select('stripe_secret_key, shop_payment_mode, manual_payment_instructions')
     .eq('organization_id', orgId)
-    .single()
+    .maybeSingle()
 
-  if (!paymentSettings?.stripe_secret_key) {
-    return NextResponse.json(
-      { error: 'This organization has not configured online payments.' },
-      { status: 422 }
-    )
-  }
+  // Determine effective mode: if shop_payment_mode is 'manual' OR no Stripe key configured → manual path
+  const isManualMode =
+    paymentSettings?.shop_payment_mode === 'manual' ||
+    !paymentSettings?.stripe_secret_key
 
   // ── Resolve item + variant metadata server-side ───────────────────────────
   const itemIds    = [...new Set(items.map((s) => s.itemId))]
@@ -181,6 +179,14 @@ export async function POST(request: NextRequest) {
   }
 
   const orderIds = ((insertedOrders ?? []) as { id: string }[]).map((r) => r.id)
+
+  // ── Manual payment path — skip Stripe entirely ────────────────────────────
+  if (isManualMode) {
+    return NextResponse.json({
+      manual: true,
+      instructions: paymentSettings?.manual_payment_instructions ?? null,
+    })
+  }
 
   // ── Build Stripe line items ───────────────────────────────────────────────
   const lineItems = items.map((sel) => {

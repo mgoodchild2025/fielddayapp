@@ -3,6 +3,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { StripeKeyForm } from '@/components/payments/stripe-key-form'
 import { StripeSetupGuide } from '@/components/payments/stripe-setup-guide'
+import { ShopPaymentForm } from '@/components/payments/shop-payment-form'
 import { HelpLink } from '@/components/ui/help-link'
 
 export default async function PaymentSettingsPage() {
@@ -10,11 +11,17 @@ export default async function PaymentSettingsPage() {
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  const { data: settings } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: settings } = await (db as any)
     .from('org_payment_settings')
-    .select('stripe_secret_key, stripe_webhook_secret')
+    .select('stripe_secret_key, stripe_webhook_secret, shop_payment_mode, manual_payment_instructions')
     .eq('organization_id', org.id)
-    .single()
+    .maybeSingle() as { data: {
+      stripe_secret_key: string | null
+      stripe_webhook_secret: string | null
+      shop_payment_mode: string | null
+      manual_payment_instructions: string | null
+    } | null }
 
   const hasSecretKey = !!settings?.stripe_secret_key
   const hasWebhookSecret = !!settings?.stripe_webhook_secret
@@ -57,6 +64,23 @@ export default async function PaymentSettingsPage() {
         <a href="https://dashboard.stripe.com/register" target="_blank" rel="noopener noreferrer" className="underline">
           Create one free at stripe.com
         </a>. No monthly fees — Stripe charges a small per-transaction fee.
+      </div>
+
+      {/* Shop payment method */}
+      <div className="mt-8">
+        <div className="mb-4">
+          <h2 className="text-lg font-bold">Shop payment method</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Choose how players pay when purchasing items from your shop.
+            Online payment requires Stripe to be connected above.
+          </p>
+        </div>
+        <div className="bg-white rounded-lg border p-6">
+          <ShopPaymentForm
+            mode={(settings?.shop_payment_mode as 'stripe' | 'manual') ?? 'stripe'}
+            instructions={settings?.manual_payment_instructions ?? null}
+          />
+        </div>
       </div>
     </div>
   )

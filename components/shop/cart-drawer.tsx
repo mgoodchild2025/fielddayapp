@@ -42,7 +42,14 @@ export function CartDrawer({ orgId }: Props) {
       })
       const data = await res.json()
       if (data.url) {
+        // Stripe checkout — redirect to Stripe
         window.location.href = data.url
+      } else if (data.manual) {
+        // Manual payment — clear cart and go to success page
+        clearCart()
+        const params = new URLSearchParams({ manual: '1' })
+        if (data.instructions) params.set('instructions', encodeURIComponent(data.instructions))
+        window.location.href = `/shop/success?${params.toString()}`
       } else {
         setError(data.error ?? 'Something went wrong')
         setLoading(false)
