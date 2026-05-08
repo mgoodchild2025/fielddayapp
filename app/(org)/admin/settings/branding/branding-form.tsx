@@ -7,9 +7,27 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { updateBranding, uploadOrgLogo } from '@/actions/branding'
 import { FontPicker, HEADING_FONTS, BODY_FONTS } from '@/components/branding/font-picker'
-import type { Database } from '@/types/database'
+import { DnsRecordsPanel } from '@/components/branding/dns-records-panel'
+import type { RailwayDnsRecord } from '@/lib/railway'
 
-type OrgBranding = Database['public']['Tables']['org_branding']['Row']
+// Minimal subset of org_branding needed by this form (avoids depending on generated DB types
+// for columns that may not yet be in the snapshot)
+type OrgBranding = {
+  primary_color?: string | null
+  secondary_color?: string | null
+  bg_color?: string | null
+  text_color?: string | null
+  heading_font?: string | null
+  body_font?: string | null
+  tagline?: string | null
+  contact_email?: string | null
+  custom_domain?: string | null
+  social_instagram?: string | null
+  social_facebook?: string | null
+  social_x?: string | null
+  timezone?: string | null
+  logo_url?: string | null
+}
 
 const TIMEZONES = [
   'America/Toronto',
@@ -82,10 +100,19 @@ function ColorField({
   )
 }
 
-export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null; orgId: string }) {
+export function BrandingForm({
+  branding,
+  orgId,
+  initialDnsRecords,
+}: {
+  branding: OrgBranding | null
+  orgId: string
+  initialDnsRecords: RailwayDnsRecord[]
+}) {
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [domainWarning, setDomainWarning] = useState<string | null>(null)
+  const [dnsRecords, setDnsRecords] = useState<RailwayDnsRecord[]>(initialDnsRecords)
   const [loading, setLoading] = useState(false)
   const [logoUrl, setLogoUrl] = useState<string | null>(branding?.logo_url ?? null)
   const [logoError, setLogoError] = useState<string | null>(null)
@@ -146,6 +173,9 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
       setTimeout(() => setSaved(false), 3000)
       if ('domainWarning' in result && result.domainWarning) {
         setDomainWarning(result.domainWarning as string)
+      }
+      if ('dnsRecords' in result && Array.isArray(result.dnsRecords) && result.dnsRecords.length > 0) {
+        setDnsRecords(result.dnsRecords as RailwayDnsRecord[])
       }
     }
   }
@@ -308,17 +338,16 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Custom Domain</label>
             <input {...register('custom_domain')} type="text" placeholder="www.yourclub.com" className="w-full border rounded-md px-3 py-2 text-sm font-mono" />
-            <div className="mt-2 p-3 bg-blue-50 border border-blue-100 rounded-md text-xs text-blue-800 space-y-2">
-              <p className="font-semibold">DNS setup — one step</p>
-              <p className="text-blue-700">Save this form and Fieldday will register the domain with the hosting platform automatically. Then create a single DNS record at your registrar:</p>
-              <div className="bg-white border border-blue-100 rounded p-2 space-y-1">
-                <p><strong>Type:</strong> CNAME</p>
-                <p><strong>Host / Name:</strong> <code>www</code> (or your subdomain)</p>
-                <p><strong>Value / Target:</strong> ask Fieldday support for the current CNAME target</p>
-              </div>
-              <p className="text-blue-600"><strong>Root domain (e.g. yourdomain.com without www)?</strong> CNAME records cannot be placed on root domains — use <code className="bg-white px-1 rounded">www.yourdomain.com</code> and set up an apex → www redirect at your registrar, or use an ALIAS / ANAME record if your provider supports it (Cloudflare does).</p>
-              <p className="text-blue-600">DNS propagates in minutes to a few hours. Leave blank to use your free <code className="bg-white px-1 rounded">{'{slug}'}.fielddayapp.ca</code> subdomain.</p>
-            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              Save this form to register the domain automatically. DNS records will appear below.
+              Leave blank to use your free <code className="bg-gray-100 px-1 rounded">{'{slug}'}.fielddayapp.ca</code> subdomain.
+            </p>
+            {/* DNS records panel — shown once domain is saved and records are available */}
+            <DnsRecordsPanel
+              orgId={orgId}
+              domain={watch('custom_domain') ?? ''}
+              initialRecords={dnsRecords}
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>

@@ -7,7 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { convertToWebP } from '@/lib/image-utils'
-import { addRailwayCustomDomain, removeRailwayCustomDomain, isRailwayConfigured } from '@/lib/railway'
+import { addRailwayCustomDomain, removeRailwayCustomDomain, getRailwayDomainStatus, isRailwayConfigured, type RailwayDnsRecord } from '@/lib/railway'
 
 const brandingSchema = z.object({
   orgId: z.string().uuid(),
@@ -69,6 +69,7 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
   const needsRailwayRegistration = domainChanged || (!!newDomain && !railwayId)
 
   let newRailwayId: string | null = railwayId
+  let dnsRecords: RailwayDnsRecord[] = []
   let domainError: string | null = null
 
   if (needsRailwayRegistration && isRailwayConfigured()) {
@@ -83,6 +84,7 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
       const result = await addRailwayCustomDomain(newDomain)
       if (result) {
         newRailwayId = result.id
+        dnsRecords = result.dnsRecords
       } else {
         // Railway registration failed — save the domain anyway but surface a warning
         domainError = 'Domain saved, but could not register it with Railway automatically. ' +
@@ -108,14 +110,20 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
 
   if (error) return { data: null, error: error.message }
 
-  // ── Persist Railway domain ID in a separate update (non-blocking) ─────────
-  // Done separately so that a missing column (migration not yet applied) never
-  // prevents the branding fields above from saving.
-  if (domainChanged && newRailwayId !== railwayId) {
+  // ── Persist Railway domain ID + DNS records (separate, non-blocking) ───────
+  // Done separately so that missing columns (migrations not yet applied) never
+  // prevent the branding fields above from saving.
+  if (needsRailwayRegistration && newRailwayId !== railwayId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (service as any)
       .from('org_branding')
-      .update({ railway_domain_id: newRailwayId })
+      .update({
+        railway_domain_id:  newRailwayId,
+        railway_cname_host:  dnsRecords.find((r) => r.recordType === 'CNAME')?.hostlabel  ?? null,
+        railway_cname_value: dnsRecords.find((r) => r.recordType === 'CNAME')?.requiredValue ?? null,
+        railway_txt_host:    dnsRecords.find((r) => r.recordType === 'TXT')?.hostlabel    ?? null,
+        railway_txt_value:   dnsRecords.find((r) => r.recordType === 'TXT')?.requiredValue ?? null,
+      })
       .eq('organization_id', orgId)
   }
 
@@ -123,7 +131,44 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
   revalidatePath('/', 'layout')
 
   // Return domain warning as a non-fatal advisory (settings were saved)
-  return { data: null, error: null, domainWarning: domainError }
+  return { data: null, error: null, domainWarning: domainError, dnsRecords }
+}
+
+/**
+ * Re-query Railway for the latest DNS record statuses for the org's custom domain.
+ * Called by the "Check DNS" button in the branding form.
+ */
+export async function refreshDnsStatus(orgId: string): Promise<{ records: RailwayDnsRecord[] | null; error: string | null }> {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { records: null, error: 'Not authenticated' }
+
+  const { data: member } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', orgId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
+    return { records: null, error: 'Unauthorized' }
+  }
+
+  const service = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: branding } = await (service as any)
+    .from('org_branding')
+    .select('railway_domain_id')
+    .eq('organization_id', orgId)
+    .maybeSingle() as { data: { railway_domain_id: string | null } | null }
+
+  const railwayDomainId = branding?.railway_domain_id
+  if (!railwayDomainId) return { records: null, error: 'No Railway domain ID on file — save the domain first.' }
+
+  const records = await getRailwayDomainStatus(railwayDomainId)
+  if (!records) return { records: null, error: 'Could not reach Railway API. Check RAILWAY_API_TOKEN.' }
+
+  return { records, error: null }
 }
 
 const VALID_SOUNDS = new Set(['ding', 'chime', 'beep', 'success', 'airhorn'])
