@@ -88,8 +88,8 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (service as any)
+  // ── Save branding (without railway_domain_id — separate step below) ─────────
+  const { error } = await service
     .from('org_branding')
     .upsert({
       organization_id: orgId,
@@ -97,7 +97,6 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
       tagline: brandingData.tagline || null,
       contact_email: brandingData.contact_email || null,
       custom_domain: newDomain,
-      railway_domain_id: newRailwayId,
       social_instagram: brandingData.social_instagram || null,
       social_facebook: brandingData.social_facebook || null,
       social_x: brandingData.social_x || null,
@@ -105,6 +104,17 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
     }, { onConflict: 'organization_id' })
 
   if (error) return { data: null, error: error.message }
+
+  // ── Persist Railway domain ID in a separate update (non-blocking) ─────────
+  // Done separately so that a missing column (migration not yet applied) never
+  // prevents the branding fields above from saving.
+  if (domainChanged && newRailwayId !== railwayId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (service as any)
+      .from('org_branding')
+      .update({ railway_domain_id: newRailwayId })
+      .eq('organization_id', orgId)
+  }
 
   revalidatePath('/admin/settings/branding')
   revalidatePath('/', 'layout')
