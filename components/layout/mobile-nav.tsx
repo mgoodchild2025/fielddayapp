@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronRight, CalendarDays, Trophy, Users, CircleUser, ShoppingBag, CalendarRange, LayoutDashboard, LogOut } from 'lucide-react'
+import { ChevronRight, CalendarDays, Trophy, Users, CircleUser, ShoppingBag, CalendarRange, LayoutDashboard, LogOut, Images } from 'lucide-react'
 import { logout } from '@/actions/auth'
 
 interface Props {
@@ -129,6 +129,11 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
           )}
 
           <div className="border-t border-white/10 my-4" />
+
+          <Link href="/gallery" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
+            <Images className="w-4 h-4 shrink-0" />
+            Gallery
+          </Link>
 
           {userName && (
             <Link href="/shop" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">

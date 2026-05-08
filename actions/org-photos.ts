@@ -64,6 +64,8 @@ export async function uploadOrgPhoto(
   if (dbErr) return { id: null, url: null, error: dbErr.message }
 
   revalidatePath('/')
+  revalidatePath('/gallery')
+  revalidatePath('/admin/gallery')
   revalidatePath('/admin/settings/website/photos')
   return { id: (inserted as { id: string }).id, url: publicUrl, error: null }
 }
@@ -88,6 +90,8 @@ export async function updatePhotoCaption(
 
   if (error) return { error: error.message }
   revalidatePath('/')
+  revalidatePath('/gallery')
+  revalidatePath('/admin/gallery')
   revalidatePath('/admin/settings/website/photos')
   return { error: null }
 }
@@ -131,6 +135,8 @@ export async function deleteOrgPhoto(photoId: string): Promise<{ error: string |
   if (error) return { error: error.message }
 
   revalidatePath('/')
+  revalidatePath('/gallery')
+  revalidatePath('/admin/gallery')
   revalidatePath('/admin/settings/website/photos')
   return { error: null }
 }
@@ -164,6 +170,8 @@ export async function reorderOrgPhotos(
   )
 
   revalidatePath('/')
+  revalidatePath('/gallery')
+  revalidatePath('/admin/gallery')
   revalidatePath('/admin/settings/website/photos')
   return { error: null }
 }
@@ -232,6 +240,8 @@ export async function rotateOrgPhoto(
     .eq('organization_id', org.id)
 
   revalidatePath('/')
+  revalidatePath('/gallery')
+  revalidatePath('/admin/gallery')
   revalidatePath('/admin/settings/website/photos')
   return { url: newUrl, error: null }
 }

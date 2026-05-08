@@ -18,6 +18,7 @@ const orgAdminNav = [
   { label: 'Shop', href: '/admin/shop', icon: '🛍️' },
   { label: 'Teams', href: '/admin/teams', icon: '👥' },
   { label: 'Players', href: '/admin/players', icon: '🏃' },
+  { label: 'Gallery', href: '/admin/gallery', icon: '🖼️' },
   { label: 'Messages', href: '/admin/messages', icon: '✉️' },
   { label: 'Settings', href: '/admin/settings', icon: '⚙️' },
 ]

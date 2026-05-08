@@ -68,11 +68,12 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
 
         {/* Right: desktop nav + notifications + user menu + hamburger */}
         <div className="flex items-center gap-2 shrink-0">
-          {user && (
-            <div className="hidden md:flex items-center gap-6 text-sm font-medium">
+          <div className="hidden md:flex items-center gap-6 text-sm font-medium">
+            <Link href="/gallery" className="opacity-80 hover:opacity-100 transition-opacity">Gallery</Link>
+            {user && (
               <Link href="/events" className="opacity-80 hover:opacity-100 transition-opacity">Events</Link>
-            </div>
-          )}
+            )}
+          </div>
 
           {user ? (
             <>
