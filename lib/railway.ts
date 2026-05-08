@@ -6,9 +6,10 @@
  * adds, changes, or removes their custom domain.
  *
  * Required env vars (server-only):
- *   RAILWAY_API_TOKEN        — found in Railway → Account Settings → Tokens
- *   RAILWAY_SERVICE_ID       — found in Railway → project → service → Settings → General
- *   RAILWAY_ENVIRONMENT_ID   — found in Railway → project → Settings → Environments (the production env ID)
+ *   RAILWAY_API_TOKEN  — Railway dashboard → Account Settings (avatar) → Tokens → Create token
+ *
+ * Railway automatically injects RAILWAY_SERVICE_ID and RAILWAY_ENVIRONMENT_ID at runtime —
+ * do NOT set these manually; they are already present in every Railway service.
  */
 
 const RAILWAY_API = 'https://backboard.railway.app/graphql/v2'
