@@ -295,13 +295,13 @@ async function fetchDnsRecords(
   domainId: string,
   projectId: string,
 ): Promise<RailwayDnsRecord[]> {
-  // One-time schema introspection so we can see all available fields on CustomDomain
-  const { data: schema } = await gql<{ __type: { fields: Array<{ name: string }> } }>(
+  // One-time schema introspection — find all fields on CustomDomainStatus
+  const { data: schema } = await gql<{ __type: { fields: Array<{ name: string; type: { name: string; kind: string } }> } }>(
     token,
-    `{ __type(name: "CustomDomain") { fields { name } } }`,
+    `{ __type(name: "CustomDomainStatus") { fields { name type { name kind } } } }`,
     {},
   )
-  console.log('[railway] CustomDomain fields:', schema?.__type?.fields?.map((f) => f.name))
+  console.log('[railway] CustomDomainStatus fields:', JSON.stringify(schema?.__type?.fields))
 
   const { data, errors } = await gql<DnsStatusResponse>(token, DNS_STATUS_QUERY, { id: domainId, projectId })
   if (errors.length) console.log('[railway] fetchDnsRecords errors:', errors)
