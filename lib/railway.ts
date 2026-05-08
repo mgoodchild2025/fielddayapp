@@ -152,7 +152,6 @@ const DNS_STATUS_QUERY = `
           status
         }
       }
-      txtRecordValue
     }
   }
 `
@@ -164,7 +163,6 @@ type DnsStatusResponse = {
     status: {
       dnsRecords: Array<{ hostlabel: string; requiredValue: string; recordType?: string; status: string }>
     } | null
-    txtRecordValue?: string | null
   }
 }
 
@@ -297,9 +295,16 @@ async function fetchDnsRecords(
   domainId: string,
   projectId: string,
 ): Promise<RailwayDnsRecord[]> {
+  // One-time schema introspection so we can see all available fields on CustomDomain
+  const { data: schema } = await gql<{ __type: { fields: Array<{ name: string }> } }>(
+    token,
+    `{ __type(name: "CustomDomain") { fields { name } } }`,
+    {},
+  )
+  console.log('[railway] CustomDomain fields:', schema?.__type?.fields?.map((f) => f.name))
+
   const { data, errors } = await gql<DnsStatusResponse>(token, DNS_STATUS_QUERY, { id: domainId, projectId })
   if (errors.length) console.log('[railway] fetchDnsRecords errors:', errors)
-  console.log('[railway] customDomain full:', JSON.stringify(data?.customDomain))
   const raw = data?.customDomain?.status?.dnsRecords ?? []
   return parseDnsRecords(raw)
 }
