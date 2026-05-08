@@ -152,6 +152,7 @@ const DNS_STATUS_QUERY = `
           status
         }
       }
+      txtRecordValue
     }
   }
 `
@@ -163,6 +164,7 @@ type DnsStatusResponse = {
     status: {
       dnsRecords: Array<{ hostlabel: string; requiredValue: string; recordType?: string; status: string }>
     } | null
+    txtRecordValue?: string | null
   }
 }
 
@@ -297,6 +299,7 @@ async function fetchDnsRecords(
 ): Promise<RailwayDnsRecord[]> {
   const { data, errors } = await gql<DnsStatusResponse>(token, DNS_STATUS_QUERY, { id: domainId, projectId })
   if (errors.length) console.log('[railway] fetchDnsRecords errors:', errors)
+  console.log('[railway] customDomain full:', JSON.stringify(data?.customDomain))
   const raw = data?.customDomain?.status?.dnsRecords ?? []
   return parseDnsRecords(raw)
 }
