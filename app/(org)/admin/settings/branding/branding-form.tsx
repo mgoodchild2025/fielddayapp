@@ -85,6 +85,7 @@ function ColorField({
 export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null; orgId: string }) {
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [domainWarning, setDomainWarning] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [logoUrl, setLogoUrl] = useState<string | null>(branding?.logo_url ?? null)
   const [logoError, setLogoError] = useState<string | null>(null)
@@ -135,6 +136,7 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
     setLoading(true)
     setSaved(false)
     setSaveError(null)
+    setDomainWarning(null)
     const result = await updateBranding({ ...data, orgId })
     setLoading(false)
     if (result.error) {
@@ -142,6 +144,9 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
     } else {
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
+      if ('domainWarning' in result && result.domainWarning) {
+        setDomainWarning(result.domainWarning as string)
+      }
     }
   }
 
@@ -155,6 +160,12 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
       {saveError && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
           {saveError}
+        </div>
+      )}
+      {domainWarning && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded text-sm space-y-1">
+          <p className="font-semibold">Custom domain saved — manual step required</p>
+          <p>{domainWarning}</p>
         </div>
       )}
 
@@ -298,17 +309,15 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
             <label className="block text-sm font-medium text-gray-700 mb-1">Custom Domain</label>
             <input {...register('custom_domain')} type="text" placeholder="www.yourclub.com" className="w-full border rounded-md px-3 py-2 text-sm font-mono" />
             <div className="mt-2 p-3 bg-blue-50 border border-blue-100 rounded-md text-xs text-blue-800 space-y-2">
-              <p className="font-semibold">Two-step DNS setup</p>
-              <div>
-                <p className="font-medium">Step 1 — Add the domain in Railway</p>
-                <p className="text-blue-700">In your Railway project, open the service → Settings → Custom Domains → Add Domain. Railway will give you a <strong>CNAME target</strong> to use in step 2 and will automatically provision an SSL certificate.</p>
+              <p className="font-semibold">DNS setup — one step</p>
+              <p className="text-blue-700">Save this form and Fieldday will register the domain with the hosting platform automatically. Then create a single DNS record at your registrar:</p>
+              <div className="bg-white border border-blue-100 rounded p-2 space-y-1">
+                <p><strong>Type:</strong> CNAME</p>
+                <p><strong>Host / Name:</strong> <code>www</code> (or your subdomain)</p>
+                <p><strong>Value / Target:</strong> ask Fieldday support for the current CNAME target</p>
               </div>
-              <div>
-                <p className="font-medium">Step 2 — Create a DNS record</p>
-                <p className="text-blue-700">At your DNS provider, add a <strong>CNAME</strong> record for your domain pointing to the hostname Railway gave you (e.g. <code className="bg-white px-1 rounded">fieldday.up.railway.app</code>).</p>
-                <p className="mt-1 text-blue-600"><strong>Using a root domain (e.g. kaboomsportsgroup.ca without www)?</strong> CNAME records cannot be placed on root domains. Use <code className="bg-white px-1 rounded">www.yourdomain.com</code> as the custom domain, then set up an apex → www redirect at your DNS provider, or use an ALIAS / ANAME record if your provider supports it.</p>
-              </div>
-              <p className="text-blue-600">DNS changes propagate in minutes to a few hours. Leave blank to use your free <code className="bg-white px-1 rounded">{'{slug}'}.fielddayapp.ca</code> subdomain.</p>
+              <p className="text-blue-600"><strong>Root domain (e.g. yourdomain.com without www)?</strong> CNAME records cannot be placed on root domains — use <code className="bg-white px-1 rounded">www.yourdomain.com</code> and set up an apex → www redirect at your registrar, or use an ALIAS / ANAME record if your provider supports it (Cloudflare does).</p>
+              <p className="text-blue-600">DNS propagates in minutes to a few hours. Leave blank to use your free <code className="bg-white px-1 rounded">{'{slug}'}.fielddayapp.ca</code> subdomain.</p>
             </div>
           </div>
           <div>

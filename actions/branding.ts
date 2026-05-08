@@ -7,6 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { convertToWebP } from '@/lib/image-utils'
+import { addRailwayCustomDomain, removeRailwayCustomDomain, isRailwayConfigured } from '@/lib/railway'
 
 const brandingSchema = z.object({
   orgId: z.string().uuid(),
@@ -49,14 +50,54 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
 
   // Use service role to bypass RLS (membership already verified above)
   const service = createServiceRoleClient()
-  const { error } = await service
+
+  // ── Custom domain: sync with Railway ──────────────────────────────────────
+  // Read the current branding row so we know what domain (if any) is already registered.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing } = await (service as any)
+    .from('org_branding')
+    .select('custom_domain, railway_domain_id')
+    .eq('organization_id', orgId)
+    .maybeSingle() as { data: { custom_domain: string | null; railway_domain_id: string | null } | null }
+
+  const newDomain  = brandingData.custom_domain?.trim() || null
+  const oldDomain  = existing?.custom_domain ?? null
+  const railwayId  = existing?.railway_domain_id ?? null
+  const domainChanged = newDomain !== oldDomain
+
+  let newRailwayId: string | null = railwayId
+  let domainError: string | null = null
+
+  if (domainChanged && isRailwayConfigured()) {
+    // Remove the old domain from Railway if one was registered
+    if (oldDomain && railwayId) {
+      await removeRailwayCustomDomain(railwayId)
+      newRailwayId = null
+    }
+
+    // Register the new domain with Railway (provisions TLS cert automatically)
+    if (newDomain) {
+      const result = await addRailwayCustomDomain(newDomain)
+      if (result) {
+        newRailwayId = result.id
+      } else {
+        // Railway registration failed — save the domain anyway but surface a warning
+        domainError = 'Domain saved, but could not register it with Railway automatically. ' +
+          'Please add it manually in the Railway dashboard to enable SSL.'
+      }
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (service as any)
     .from('org_branding')
     .upsert({
       organization_id: orgId,
       ...brandingData,
       tagline: brandingData.tagline || null,
       contact_email: brandingData.contact_email || null,
-      custom_domain: brandingData.custom_domain || null,
+      custom_domain: newDomain,
+      railway_domain_id: newRailwayId,
       social_instagram: brandingData.social_instagram || null,
       social_facebook: brandingData.social_facebook || null,
       social_x: brandingData.social_x || null,
@@ -67,7 +108,9 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
 
   revalidatePath('/admin/settings/branding')
   revalidatePath('/', 'layout')
-  return { data: null, error: null }
+
+  // Return domain warning as a non-fatal advisory (settings were saved)
+  return { data: null, error: null, domainWarning: domainError }
 }
 
 const VALID_SOUNDS = new Set(['ding', 'chime', 'beep', 'success', 'airhorn'])
