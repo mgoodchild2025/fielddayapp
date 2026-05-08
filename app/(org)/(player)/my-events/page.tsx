@@ -7,6 +7,7 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { QRCodeDisplay } from '@/components/checkin/qr-code-display'
 import { PastGamesToggle } from '@/components/schedule/past-games-toggle'
+import { EventAvatar } from '@/components/ui/event-avatar'
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   registration_open: { label: 'Open',       className: 'bg-green-50 text-green-700'   },
@@ -33,7 +34,7 @@ export default async function MyEventsPage() {
     (supabase as any).from('registrations').select(`
       id, status, checkin_token, created_at,
       league:leagues!registrations_league_id_fkey(
-        id, name, slug, league_status:status, event_type, sport, season_start_date, season_end_date, checkin_enabled
+        id, name, slug, league_status:status, event_type, sport, logo_url, season_start_date, season_end_date, checkin_enabled
       )
     `)
       .eq('organization_id', org.id)
@@ -73,7 +74,7 @@ export default async function MyEventsPage() {
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
 
-      <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-8 flex-1">
+      <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-8 flex-1">
         <h1
           className="text-2xl font-bold uppercase mb-6"
           style={{ fontFamily: 'var(--brand-heading-font)' }}
@@ -109,12 +110,9 @@ export default async function MyEventsPage() {
                   >
                     <Link
                       href={`/events/${league.slug}`}
-                      className="flex items-center gap-4 px-4 py-4 hover:bg-gray-50 transition-colors group"
+                      className="flex items-center gap-3 px-4 py-4 hover:bg-gray-50 transition-colors group"
                     >
-                      <div
-                        className="w-1 self-stretch rounded-full shrink-0"
-                        style={{ backgroundColor: 'var(--brand-primary)' }}
-                      />
+                      <EventAvatar logoUrl={league.logo_url ?? null} name={league.name} sport={league.sport ?? null} size="sm" className="shrink-0 border border-gray-100" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-gray-900 truncate">{league.name}</p>
@@ -162,12 +160,9 @@ export default async function MyEventsPage() {
                       >
                         <Link
                           href={`/events/${league.slug}`}
-                          className="flex items-center gap-4 px-4 py-4 hover:bg-gray-50 transition-colors group"
+                          className="flex items-center gap-3 px-4 py-4 hover:bg-gray-50 transition-colors group"
                         >
-                          <div
-                            className="w-1 self-stretch rounded-full shrink-0"
-                            style={{ backgroundColor: 'var(--brand-primary)' }}
-                          />
+                          <EventAvatar logoUrl={league.logo_url ?? null} name={league.name} sport={league.sport ?? null} size="sm" className="shrink-0 border border-gray-100 opacity-60" />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="font-semibold text-gray-900 truncate">{league.name}</p>

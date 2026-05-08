@@ -15,13 +15,15 @@ export function ShopClient({ items }: Props) {
   const [addedKey, setAddedKey] = useState<string | null>(null)
 
   function handleAddToCart(item: CartItem) {
+    // Only auto-open the cart drawer when the cart was previously empty;
+    // subsequent additions just flash "Added ✓" so the user can keep browsing.
+    const wasEmpty = items.length === 0
     addItem(item)
-    // Flash "Added" feedback on the card, then open the drawer after a beat
     const key = `${item.itemId}:${item.variantId ?? 'none'}`
     setAddedKey(key)
     setTimeout(() => {
       setAddedKey(null)
-      openCart()
+      if (wasEmpty) openCart()
     }, 600)
   }
 

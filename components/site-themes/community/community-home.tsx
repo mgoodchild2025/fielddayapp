@@ -209,16 +209,47 @@ export function CommunityHome({
                   In Season
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {inSeasonEvents.map((league) => (
-                    <Link
-                      key={league.id}
-                      href={`/events/${league.slug}`}
-                      className="block bg-white rounded-xl border border-gray-100 p-5 hover:shadow-sm transition-shadow"
-                    >
-                      <h3 className="font-bold" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</h3>
-                      <p className="text-sm text-gray-500 mt-1 capitalize">{EVENT_TYPE_LABELS[league.event_type ?? 'league'] ?? league.event_type}</p>
-                    </Link>
-                  ))}
+                  {inSeasonEvents.map((league) => {
+                    const et = league.event_type ?? 'league'
+                    return (
+                      <Link
+                        key={league.id}
+                        href={`/events/${league.slug}`}
+                        className="block bg-white rounded-xl border border-gray-100 p-5 hover:shadow-sm transition-shadow"
+                      >
+                        <div className="flex items-start gap-1.5 flex-wrap mb-3">
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                            {EVENT_TYPE_LABELS[et] ?? et}
+                          </span>
+                          {league.sport && (
+                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 capitalize">
+                              {league.sport.replace(/_/g, ' ')}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <EventAvatar logoUrl={league.logo_url} name={league.name} sport={league.sport} size="sm" className="shrink-0 mt-0.5 border border-gray-100" />
+                          <div className="min-w-0">
+                            <h3 className="font-bold leading-snug" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</h3>
+                            {(league.skill_level || (league.days_of_week?.length ?? 0) > 0) && (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {league.skill_level && (
+                                  <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-600 capitalize">
+                                    {league.skill_level}
+                                  </span>
+                                )}
+                                {league.days_of_week?.map((d) => (
+                                  <span key={d} className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500 capitalize">
+                                    {d}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </Link>
+                    )
+                  })}
                 </div>
               </section>
             )}

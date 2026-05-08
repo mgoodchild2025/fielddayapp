@@ -71,8 +71,6 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
           {user && (
             <div className="hidden md:flex items-center gap-6 text-sm font-medium">
               <Link href="/events" className="opacity-80 hover:opacity-100 transition-opacity">Events</Link>
-              <Link href="/schedule" className="opacity-80 hover:opacity-100 transition-opacity">Schedule</Link>
-              <Link href="/standings" className="opacity-80 hover:opacity-100 transition-opacity">Standings</Link>
             </div>
           )}
 
@@ -99,8 +97,9 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
           )}
 
           {user && (
-            <div className="md:hidden">
+            <div className="md:hidden flex items-center gap-1">
               <CartNavIcon />
+              <NotificationBell initialNotifications={unreadNotifications} />
             </div>
           )}
           <MobileNav userName={userName} userEmail={user?.email ?? null} isAdmin={isAdmin} />

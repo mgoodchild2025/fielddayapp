@@ -187,11 +187,24 @@ export default async function SchedulePage() {
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
-      <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-10 flex-1">
+      <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-10 flex-1">
 
         <h1 className="text-2xl font-bold uppercase mb-6" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           My Games
         </h1>
+
+        {/* No-team contextual banner */}
+        {myTeamIds.size === 0 && allSessions.length === 0 && (
+          <div className="mb-4 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+            <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="text-sm text-amber-800">
+              <span className="font-semibold">You haven&apos;t joined a team yet.</span>{' '}
+              <Link href="/events" className="underline hover:no-underline">Browse events</Link> to register and get your personal schedule here.
+            </div>
+          </div>
+        )}
 
         {/* Upcoming */}
         <div className="space-y-2">
@@ -199,7 +212,7 @@ export default async function SchedulePage() {
             ? upcomingItems.map(renderItem)
             : (
               <div className="border rounded-md p-6 text-center text-sm text-gray-400 bg-white">
-                No games on the calendar — check back when your league publishes the schedule.
+                No upcoming games — check back when your league publishes the schedule.
               </div>
             )
           }

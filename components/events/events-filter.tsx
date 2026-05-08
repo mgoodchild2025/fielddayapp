@@ -46,6 +46,7 @@ const EVENT_TYPE_LABEL: Record<string, string> = {
   league:     'League',
   tournament: 'Tournament',
   pickup:     'Pickup',
+  drop_in:    'Drop-in',
   clinic:     'Clinic',
   camp:       'Camp',
 }
@@ -172,7 +173,7 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
               Join a Team →
             </span>
           ) : (
-            <span className="text-sm font-semibold px-3 py-1.5 rounded-lg text-white bg-green-500 group-hover:bg-green-600 transition-colors">
+            <span className="text-sm font-semibold px-3 py-1.5 rounded-lg text-white transition-opacity group-hover:opacity-90" style={{ backgroundColor: 'var(--brand-primary)' }}>
               Register →
             </span>
           )}
@@ -343,6 +344,21 @@ export function EventsFilter({ events, isOrgAdmin = false }: { events: EventItem
                   {EVENT_TYPE_LABEL[type] ?? type.charAt(0).toUpperCase() + type.slice(1)}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Clear all — only when a filter is active */}
+          {(selectedSport || selectedType) && (
+            <div className="flex">
+              <button
+                onClick={() => { setSelectedSport(null); setSelectedType(null) }}
+                className="text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear filters
+              </button>
             </div>
           )}
         </div>

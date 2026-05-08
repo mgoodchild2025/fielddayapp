@@ -37,11 +37,11 @@ export function NavUserMenu({ userName, isAdmin }: Props) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="px-4 py-1.5 rounded-md font-semibold transition-opacity hover:opacity-90 flex items-center gap-2"
+        className="px-4 py-1.5 rounded-md font-semibold transition-opacity hover:opacity-90 flex items-center gap-2 max-w-[200px]"
         style={{ backgroundColor: 'var(--brand-primary)', color: 'white' }}
       >
-        {userName ?? 'My Account'}
-        <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <span className="truncate">{userName ?? 'My Account'}</span>
+        <svg className={`w-3 h-3 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
