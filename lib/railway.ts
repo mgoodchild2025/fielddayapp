@@ -151,6 +151,9 @@ const DNS_STATUS_QUERY = `
           recordType
           status
         }
+        verificationDnsHost
+        verificationToken
+        verified
       }
     }
   }
@@ -162,6 +165,9 @@ type DnsStatusResponse = {
     domain: string
     status: {
       dnsRecords: Array<{ hostlabel: string; requiredValue: string; recordType?: string; status: string }>
+      verificationDnsHost?: string | null
+      verificationToken?: string | null
+      verified?: boolean | null
     } | null
   }
 }
@@ -295,16 +301,22 @@ async function fetchDnsRecords(
   domainId: string,
   projectId: string,
 ): Promise<RailwayDnsRecord[]> {
-  // One-time schema introspection — find all fields on CustomDomainStatus
-  const { data: schema } = await gql<{ __type: { fields: Array<{ name: string; type: { name: string; kind: string } }> } }>(
-    token,
-    `{ __type(name: "CustomDomainStatus") { fields { name type { name kind } } } }`,
-    {},
-  )
-  console.log('[railway] CustomDomainStatus fields:', JSON.stringify(schema?.__type?.fields))
-
   const { data, errors } = await gql<DnsStatusResponse>(token, DNS_STATUS_QUERY, { id: domainId, projectId })
   if (errors.length) console.log('[railway] fetchDnsRecords errors:', errors)
-  const raw = data?.customDomain?.status?.dnsRecords ?? []
-  return parseDnsRecords(raw)
+
+  const status = data?.customDomain?.status
+  const records = parseDnsRecords(status?.dnsRecords ?? [])
+
+  // Railway exposes the TXT ownership-verification record separately via
+  // verificationDnsHost + verificationToken rather than inside dnsRecords.
+  if (status?.verificationDnsHost && status?.verificationToken) {
+    records.push({
+      hostlabel: status.verificationDnsHost,
+      requiredValue: status.verificationToken,
+      recordType: 'TXT',
+      status: status.verified ? 'VALID' : 'PENDING',
+    })
+  }
+
+  return records
 }

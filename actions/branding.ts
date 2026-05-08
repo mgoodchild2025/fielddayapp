@@ -202,6 +202,18 @@ export async function refreshDnsStatus(orgId: string): Promise<{ records: Railwa
   const records = await getRailwayDomainStatus(railwayDomainId)
   if (!records) return { records: null, error: 'Could not reach Railway API. Check RAILWAY_API_TOKEN.' }
 
+  // Persist latest DNS records back to DB so the page load always shows both records
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (service as any)
+    .from('org_branding')
+    .update({
+      railway_cname_host:  records.find((r) => r.recordType === 'CNAME')?.hostlabel  ?? null,
+      railway_cname_value: records.find((r) => r.recordType === 'CNAME')?.requiredValue ?? null,
+      railway_txt_host:    records.find((r) => r.recordType === 'TXT')?.hostlabel    ?? null,
+      railway_txt_value:   records.find((r) => r.recordType === 'TXT')?.requiredValue ?? null,
+    })
+    .eq('organization_id', orgId)
+
   return { records, error: null }
 }
 
