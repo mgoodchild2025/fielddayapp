@@ -5,6 +5,7 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { convertToWebP } from '@/lib/image-utils'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -302,21 +303,23 @@ export async function uploadMerchandiseImage(
   if (!file || file.size === 0) return { error: 'No file provided', url: null }
   if (file.size > 5 * 1024 * 1024) return { error: 'File must be under 5 MB', url: null }
 
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
   if (!allowedTypes.includes(file.type)) {
-    return { error: 'File must be JPEG, PNG, or WebP', url: null }
+    return { error: 'File must be JPEG, PNG, GIF, or WebP', url: null }
   }
-
-  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
-  const path = `${org.id}/${itemId}.${ext}`
 
   const db = createServiceRoleClient()
   const arrayBuffer = await file.arrayBuffer()
-  const buffer = Buffer.from(arrayBuffer)
+
+  const converted = await convertToWebP(arrayBuffer, file.type, { maxWidth: 1200, maxHeight: 1200 })
+  const uploadBytes = converted?.buffer ?? Buffer.from(arrayBuffer)
+  const uploadType = converted?.contentType ?? file.type
+  const ext = converted ? 'webp' : (file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg')
+  const path = `${org.id}/${itemId}.${ext}`
 
   const { error: uploadError } = await db.storage
     .from('merchandise-images')
-    .upload(path, buffer, { contentType: file.type, upsert: true })
+    .upload(path, uploadBytes, { contentType: uploadType, upsert: true })
 
   if (uploadError) return { error: uploadError.message, url: null }
 

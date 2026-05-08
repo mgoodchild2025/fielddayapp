@@ -182,7 +182,7 @@ export function AdminEditTeamForm({ team, leagueId }: Props) {
                   onChange={handleFileChange}
                   className="w-full text-xs text-gray-600 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
                 />
-                <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP or SVG · max 2 MB</p>
+                <p className="text-xs text-gray-400 mt-1">JPG, PNG, GIF, WebP or SVG · max 2 MB · auto-converted to WebP</p>
               </div>
 
               {error && <p className="text-xs text-red-600">{error}</p>}

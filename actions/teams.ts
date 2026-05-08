@@ -7,6 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { sendEmail, buildJoinRequestEmail, buildJoinApprovedEmail, buildJoinDeclinedEmail, buildCaptainAssignedEmail, buildTeamAddedEmail } from '@/lib/email'
+import { convertToWebP } from '@/lib/image-utils'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1045,9 +1046,16 @@ export async function uploadTeamLogo(teamId: string, formData: FormData) {
   if (!file || file.size === 0) return { url: null, error: 'No file provided' }
   if (file.size > 2 * 1024 * 1024) return { url: null, error: 'File must be under 2 MB' }
 
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'].includes(file.type)) {
+    return { url: null, error: 'File must be JPEG, PNG, GIF, WebP, or SVG' }
+  }
+
+  const bytes = await file.arrayBuffer()
+  const converted = await convertToWebP(bytes, file.type, { maxWidth: 800, maxHeight: 800 })
+  const uploadBytes = converted?.buffer ?? Buffer.from(bytes)
+  const uploadType = converted?.contentType ?? file.type
+  const ext = converted ? 'webp' : (file.name.split('.').pop()?.toLowerCase() ?? 'png')
   const path = `${org.id}/${teamId}/logo.${ext}`
-  const buffer = Buffer.from(await file.arrayBuffer())
 
   // Delete any existing team logo files before uploading (extension may differ)
   const { data: existing } = await db.storage.from('team-logos').list(`${org.id}/${teamId}`)
@@ -1058,7 +1066,7 @@ export async function uploadTeamLogo(teamId: string, formData: FormData) {
 
   const { error: uploadError } = await db.storage
     .from('team-logos')
-    .upload(path, buffer, { contentType: file.type, upsert: true })
+    .upload(path, uploadBytes, { contentType: uploadType, upsert: true })
 
   if (uploadError) return { url: null, error: uploadError.message }
 

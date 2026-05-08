@@ -186,7 +186,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
             <div className="text-xs text-gray-500 space-y-1">
               {item?.id ? (
                 <>
-                  <p>JPEG, PNG, or WebP · max 5 MB</p>
+                  <p>JPEG, PNG, GIF, or WebP · max 5 MB · auto-converted to WebP</p>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -204,7 +204,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/gif,image/webp"
             className="hidden"
             onChange={handleImageChange}
           />

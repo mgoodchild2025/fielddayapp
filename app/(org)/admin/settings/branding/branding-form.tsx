@@ -167,7 +167,7 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
           <ul className="list-disc list-inside space-y-0.5 text-amber-700">
             <li><strong>Format:</strong> PNG with a transparent background</li>
             <li><strong>Shape:</strong> Square (1:1 ratio) — e.g. 512 × 512 px</li>
-            <li><strong>Size:</strong> At least 200 × 200 px, max 2 MB</li>
+            <li><strong>Size:</strong> At least 200 × 200 px, max 10 MB</li>
           </ul>
           <p className="text-amber-600 text-xs mt-1">
             The logo is displayed inside a circle on your public site. A transparent-background square PNG will fill the circle cleanly without any visible edges or white borders.
@@ -193,7 +193,7 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/png,image/svg+xml,image/webp"
+              accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
               className="hidden"
               onChange={handleLogoChange}
             />
@@ -205,7 +205,7 @@ export function BrandingForm({ branding, orgId }: { branding: OrgBranding | null
             >
               {logoUploading ? 'Uploading…' : logoUrl ? 'Replace logo' : 'Upload logo'}
             </button>
-            <p className="text-xs text-gray-400">PNG or SVG recommended · max 2 MB</p>
+            <p className="text-xs text-gray-400">PNG or SVG recommended · max 10 MB · auto-converted to WebP</p>
             {logoError && <p className="text-xs text-red-500">{logoError}</p>}
           </div>
         </div>
