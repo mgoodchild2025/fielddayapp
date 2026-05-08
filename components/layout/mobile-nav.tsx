@@ -57,14 +57,14 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
       {/* Backdrop */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          className="fixed inset-0 z-[55] bg-black/40 md:hidden"
           onClick={() => setOpen(false)}
         />
       )}
 
       {/* Drawer — slides from right */}
       <div
-        className={`fixed top-0 right-0 w-72 z-50 flex flex-col md:hidden transition-transform duration-200 ${
+        className={`fixed top-0 right-0 w-72 z-[60] flex flex-col md:hidden transition-transform duration-200 ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
         style={{ backgroundColor: 'var(--brand-secondary)', color: 'white', height: '100dvh' }}
@@ -99,7 +99,7 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
           </Link>
         )}
 
-        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto" style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto" style={{ paddingBottom: 'calc(56px + 1.5rem + env(safe-area-inset-bottom))' }}>
           {userName && (
             <>
               <Link href="/events" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
