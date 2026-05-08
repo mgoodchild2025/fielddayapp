@@ -28,7 +28,7 @@ async function gql<T>(
   token: string,
   query: string,
   variables: Record<string, unknown>,
-): Promise<T | null> {
+): Promise<{ data: T | null; errors: string[] }> {
   try {
     const res = await fetch(RAILWAY_API, {
       method: 'POST',
@@ -42,24 +42,24 @@ async function gql<T>(
     const text = await res.text()
     if (!res.ok) {
       console.error('[railway] HTTP error:', res.status, text)
-      return null
+      return { data: null, errors: [`HTTP ${res.status}`] }
     }
 
     let json: { data?: T; errors?: { message: string }[] }
     try { json = JSON.parse(text) } catch {
       console.error('[railway] non-JSON response:', text)
-      return null
+      return { data: null, errors: ['non-JSON response'] }
     }
 
-    if (json.errors?.length) {
+    const errors = json.errors?.map((e) => e.message) ?? []
+    if (errors.length) {
       console.error('[railway] GraphQL errors:', JSON.stringify(json.errors))
-      return null
     }
 
-    return json.data ?? null
+    return { data: json.data ?? null, errors }
   } catch (err) {
     console.error('[railway] fetch error:', err)
-    return null
+    return { data: null, errors: [String(err)] }
   }
 }
 
@@ -81,6 +81,43 @@ export interface RailwayDomainResult {
   id: string
   domain: string
   dnsRecords: RailwayDnsRecord[]
+}
+
+// ── Domain list query — used to recover an existing domain ID ─────────────────
+
+const LIST_DOMAINS_QUERY = `
+  query ListServiceDomains($projectId: String!, $serviceId: String!, $environmentId: String!) {
+    domains(projectId: $projectId, serviceId: $serviceId, environmentId: $environmentId) {
+      customDomains {
+        id
+        domain
+      }
+    }
+  }
+`
+
+type ListDomainsResponse = {
+  domains: {
+    customDomains: Array<{ id: string; domain: string }>
+  }
+}
+
+async function findExistingDomainId(
+  token: string,
+  projectId: string,
+  serviceId: string,
+  environmentId: string,
+  targetDomain: string,
+): Promise<string | null> {
+  const { data } = await gql<ListDomainsResponse>(token, LIST_DOMAINS_QUERY, {
+    projectId,
+    serviceId,
+    environmentId,
+  })
+  const match = data?.domains?.customDomains?.find(
+    (d) => d.domain.toLowerCase() === targetDomain.toLowerCase(),
+  )
+  return match?.id ?? null
 }
 
 // ── DNS record query (shared by create and refresh) ───────────────────────────
@@ -133,7 +170,7 @@ export async function addRailwayCustomDomain(domain: string): Promise<RailwayDom
   if (!cfg) return null
 
   // Step 1 — create the domain
-  const created = await gql<{ customDomainCreate: { id: string; domain: string } }>(
+  const { data: created, errors } = await gql<{ customDomainCreate: { id: string; domain: string } }>(
     cfg.token,
     `mutation AddCustomDomain($input: CustomDomainCreateInput!) {
       customDomainCreate(input: $input) { id domain }
@@ -148,13 +185,23 @@ export async function addRailwayCustomDomain(domain: string): Promise<RailwayDom
     },
   )
 
-  if (!created?.customDomainCreate) return null
-  const { id } = created.customDomainCreate
+  let domainId: string | null = created?.customDomainCreate?.id ?? null
+
+  // If creation failed because the domain already exists in Railway, recover its ID
+  // by listing all domains for this service rather than treating it as a hard error.
+  if (!domainId && errors.some((e) => /already|exist/i.test(e))) {
+    console.log('[railway] domain already exists — looking up existing ID for:', domain)
+    domainId = await findExistingDomainId(
+      cfg.token, cfg.projectId, cfg.serviceId, cfg.environmentId, domain,
+    )
+  }
+
+  if (!domainId) return null
 
   // Step 2 — fetch the required DNS records
-  const dnsRecords = await fetchDnsRecords(cfg.token, id, cfg.projectId)
+  const dnsRecords = await fetchDnsRecords(cfg.token, domainId, cfg.projectId)
 
-  return { id, domain, dnsRecords }
+  return { id: domainId, domain, dnsRecords }
 }
 
 /**
@@ -165,7 +212,7 @@ export async function removeRailwayCustomDomain(railwayDomainId: string): Promis
   const cfg = getConfig()
   if (!cfg) return false
 
-  const data = await gql<{ customDomainDelete: boolean }>(
+  const { data } = await gql<{ customDomainDelete: boolean }>(
     cfg.token,
     `mutation RemoveCustomDomain($id: String!) { customDomainDelete(id: $id) }`,
     { id: railwayDomainId },
@@ -201,7 +248,7 @@ async function fetchDnsRecords(
   domainId: string,
   projectId: string,
 ): Promise<RailwayDnsRecord[]> {
-  const data = await gql<DnsStatusResponse>(token, DNS_STATUS_QUERY, { id: domainId, projectId })
+  const { data } = await gql<DnsStatusResponse>(token, DNS_STATUS_QUERY, { id: domainId, projectId })
   const raw = data?.customDomain?.status?.dnsRecords ?? []
   return parseDnsRecords(raw)
 }
