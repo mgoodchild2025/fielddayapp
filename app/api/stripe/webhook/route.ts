@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { sendRegistrationConfirmation, sendPaymentFailedEmail } from '@/actions/emails'
+import { checkAndNotifyLowStock } from '@/actions/merchandise'
 
 export async function POST(request: NextRequest) {
   const body = await request.text()
@@ -127,6 +128,9 @@ export async function POST(request: NextRequest) {
           .from('merchandise_orders')
           .update({ status: 'paid' })
           .in('id', shopOrderIds)
+
+        // Check and notify admins if any item/variant is now low on stock
+        await checkAndNotifyLowStock(orgId, shopOrderIds)
       }
       return NextResponse.json({ received: true })
     }
@@ -170,6 +174,9 @@ export async function POST(request: NextRequest) {
               payment_id: paymentRecord?.id ?? null,
             })
             .in('id', orderIds)
+
+          // Check and notify admins if any item/variant is now low on stock
+          await checkAndNotifyLowStock(orgId, orderIds)
         }
       }
 

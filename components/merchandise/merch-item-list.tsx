@@ -7,6 +7,38 @@ import { deleteMerchandiseItem } from '@/actions/merchandise'
 import type { MerchItem } from '@/actions/merchandise'
 import { useRouter } from 'next/navigation'
 
+/** Returns stock status for an item. Considers variants first; falls back to item-level. */
+function getStockStatus(item: MerchItem): {
+  label: string
+  color: 'green' | 'amber' | 'red' | null
+} {
+  if (item.variants.length > 0) {
+    // Check per-variant stock — flag if ANY variant is low or out
+    const tracked = item.variants.filter((v) => v.stock_quantity !== null)
+    if (tracked.length === 0) return { label: '', color: null } // all unlimited
+
+    const outCount = tracked.filter((v) => v.stock_quantity! <= 0).length
+    const lowCount = tracked.filter((v) => v.stock_quantity! > 0 && v.stock_quantity! <= item.low_stock_threshold).length
+
+    if (outCount === tracked.length) return { label: `All ${outCount} size${outCount > 1 ? 's' : ''} out of stock`, color: 'red' }
+    if (outCount > 0) return { label: `${outCount} size${outCount > 1 ? 's' : ''} out of stock`, color: 'red' }
+    if (lowCount > 0) return { label: `${lowCount} size${lowCount > 1 ? 's' : ''} running low`, color: 'amber' }
+    return { label: '', color: 'green' }
+  }
+
+  // Item-level stock
+  if (item.stock_quantity === null) return { label: '', color: null } // unlimited
+  if (item.stock_quantity <= 0) return { label: 'Out of stock', color: 'red' }
+  if (item.stock_quantity <= item.low_stock_threshold) return { label: `${item.stock_quantity} left`, color: 'amber' }
+  return { label: `${item.stock_quantity} in stock`, color: 'green' }
+}
+
+const stockBadgeClasses: Record<'green' | 'amber' | 'red', string> = {
+  green: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  amber: 'bg-amber-50 text-amber-700 border border-amber-200',
+  red: 'bg-red-50 text-red-700 border border-red-200',
+}
+
 interface Props {
   items: MerchItem[]
 }
@@ -119,6 +151,15 @@ export function MerchItemList({ items: initialItems }: Props) {
                             Shop
                           </span>
                         )}
+                        {(() => {
+                          const { label, color } = getStockStatus(item)
+                          if (!label || !color) return null
+                          return (
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${stockBadgeClasses[color]}`}>
+                              {label}
+                            </span>
+                          )
+                        })()}
                       </div>
 
                       {item.description && (
@@ -127,17 +168,29 @@ export function MerchItemList({ items: initialItems }: Props) {
 
                       {item.variants.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mt-2">
-                          {item.variants.map((v) => (
-                            <span
-                              key={v.id}
-                              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
-                            >
-                              {v.label}
-                              {v.stock_quantity != null && (
-                                <span className="text-gray-400">· {v.stock_quantity} left</span>
-                              )}
-                            </span>
-                          ))}
+                          {item.variants.map((v) => {
+                            const isOut = v.stock_quantity !== null && v.stock_quantity <= 0
+                            const isLow = v.stock_quantity !== null && v.stock_quantity > 0 && v.stock_quantity <= item.low_stock_threshold
+                            return (
+                              <span
+                                key={v.id}
+                                className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${
+                                  isOut
+                                    ? 'bg-red-50 text-red-700'
+                                    : isLow
+                                    ? 'bg-amber-50 text-amber-700'
+                                    : 'bg-gray-100 text-gray-600'
+                                }`}
+                              >
+                                {v.label}
+                                {v.stock_quantity != null && (
+                                  <span className={isOut || isLow ? '' : 'text-gray-400'}>
+                                    · {v.stock_quantity === 0 ? 'out' : `${v.stock_quantity} left`}
+                                  </span>
+                                )}
+                              </span>
+                            )
+                          })}
                         </div>
                       )}
 

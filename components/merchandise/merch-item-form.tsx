@@ -37,6 +37,9 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
     item?.stock_quantity != null ? String(item.stock_quantity) : ''
   )
   const [shopEnabled, setShopEnabled] = useState(item?.shop_enabled ?? false)
+  const [lowStockThreshold, setLowStockThreshold] = useState(
+    item?.low_stock_threshold != null ? String(item.low_stock_threshold) : '5'
+  )
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -122,6 +125,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
         is_active: item?.is_active ?? true,
         shop_enabled: shopEnabled,
         stock_quantity: itemStock,
+        low_stock_threshold: lowStockThreshold.trim() ? parseInt(lowStockThreshold, 10) : 5,
       })
 
       if (result.error) { setError(result.error); return }
@@ -280,6 +284,21 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
             />
           </div>
         )}
+
+        {/* Low-stock threshold */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Low-stock alert threshold <span className="text-gray-400 font-normal">(notify when stock ≤ this number)</span>
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={lowStockThreshold}
+            onChange={(e) => setLowStockThreshold(e.target.value)}
+            placeholder="5"
+            className="w-40 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30"
+          />
+        </div>
 
         {/* Shop toggle */}
         <div className="flex items-center justify-between py-3 border-t">

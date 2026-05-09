@@ -30,6 +30,7 @@ export type MerchItem = {
   is_active: boolean
   shop_enabled: boolean
   stock_quantity: number | null
+  low_stock_threshold: number
   created_at: string
   variants: MerchVariant[]
 }
@@ -353,6 +354,7 @@ export async function upsertMerchandiseItem(data: {
   is_active?: boolean
   shop_enabled?: boolean
   stock_quantity?: number | null
+  low_stock_threshold?: number
 }): Promise<{ error: string | null; id: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -372,6 +374,7 @@ export async function upsertMerchandiseItem(data: {
     is_active: data.is_active ?? true,
     shop_enabled: data.shop_enabled ?? false,
     stock_quantity: data.stock_quantity ?? null,
+    low_stock_threshold: data.low_stock_threshold ?? 5,
   }
 
   if (data.id) {
@@ -720,6 +723,215 @@ export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
     item_name: itemMap.get(order.item_id) ?? 'Unknown item',
     variant_label: order.variant_id ? (variantMap.get(order.variant_id) ?? null) : null,
   }))
+}
+
+// ── Low-stock notifications ────────────────────────────────────────────────────
+
+export type LowStockAlert = {
+  itemId: string
+  itemName: string
+  variantId: string | null
+  variantLabel: string | null
+  currentStock: number
+  threshold: number
+}
+
+/**
+ * After orders are paid, check if any item/variant has dropped to or below its
+ * low_stock_threshold and send in-app + email notifications to all org admins.
+ *
+ * Called from the Stripe webhook (no auth context available — uses service role).
+ */
+export async function checkAndNotifyLowStock(
+  orgId: string,
+  orderIds: string[]
+): Promise<void> {
+  if (!orderIds.length) return
+
+  const db = createServiceRoleClient()
+
+  // Fetch the paid orders to know which items/variants were affected
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: orders } = await (db as any)
+    .from('merchandise_orders')
+    .select('item_id, variant_id, quantity')
+    .in('id', orderIds)
+
+  if (!orders || (orders as { item_id: string; variant_id: string | null }[]).length === 0) return
+
+  const typedOrders = orders as { item_id: string; variant_id: string | null; quantity: number }[]
+
+  // Collect unique item ids + variant ids
+  const itemIds = [...new Set(typedOrders.map((o) => o.item_id))]
+  const variantIds = [...new Set(typedOrders.map((o) => o.variant_id).filter(Boolean) as string[])]
+
+  // Fetch items with their thresholds and stock
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: items } = await (db as any)
+    .from('merchandise_items')
+    .select('id, name, stock_quantity, low_stock_threshold')
+    .in('id', itemIds)
+
+  // Fetch affected variants with their stock
+  const { data: variants } = variantIds.length > 0
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? await (db as any)
+        .from('merchandise_variants')
+        .select('id, item_id, label, stock_quantity')
+        .in('id', variantIds)
+    : { data: [] }
+
+  const itemMap = new Map<string, { name: string; stock_quantity: number | null; low_stock_threshold: number }>()
+  for (const item of (items ?? []) as { id: string; name: string; stock_quantity: number | null; low_stock_threshold: number }[]) {
+    itemMap.set(item.id, item)
+  }
+
+  // Build list of alerts
+  const alerts: LowStockAlert[] = []
+
+  for (const variant of (variants ?? []) as { id: string; item_id: string; label: string; stock_quantity: number | null }[]) {
+    const item = itemMap.get(variant.item_id)
+    if (!item || variant.stock_quantity === null) continue
+    if (variant.stock_quantity <= item.low_stock_threshold) {
+      alerts.push({
+        itemId: variant.item_id,
+        itemName: item.name,
+        variantId: variant.id,
+        variantLabel: variant.label,
+        currentStock: variant.stock_quantity,
+        threshold: item.low_stock_threshold,
+      })
+    }
+  }
+
+  // For items with no variants, check item-level stock
+  for (const order of typedOrders) {
+    if (order.variant_id) continue // handled above
+    const item = itemMap.get(order.item_id)
+    if (!item || item.stock_quantity === null) continue
+    if (item.stock_quantity <= item.low_stock_threshold) {
+      // Avoid duplicates if same item appears in multiple orders
+      if (!alerts.find((a) => a.itemId === order.item_id && a.variantId === null)) {
+        alerts.push({
+          itemId: order.item_id,
+          itemName: item.name,
+          variantId: null,
+          variantLabel: null,
+          currentStock: item.stock_quantity,
+          threshold: item.low_stock_threshold,
+        })
+      }
+    }
+  }
+
+  if (!alerts.length) return
+
+  // Fetch org admin user ids and emails
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: admins } = await (db as any)
+    .from('org_members')
+    .select('user_id, profiles(full_name, email)')
+    .eq('organization_id', orgId)
+    .eq('role', 'org_admin')
+
+  if (!admins || (admins as unknown[]).length === 0) return
+
+  const typedAdmins = admins as { user_id: string; profiles: { full_name: string | null; email: string | null } | null }[]
+
+  // Build a readable summary for the notification body
+  const alertLines = alerts.map((a) => {
+    const label = a.variantLabel ? `${a.itemName} (${a.variantLabel})` : a.itemName
+    return a.currentStock === 0 ? `${label}: out of stock` : `${label}: ${a.currentStock} left`
+  })
+  const isOutOfStock = alerts.some((a) => a.currentStock === 0)
+  const title = isOutOfStock ? '⚠️ Merchandise out of stock' : '⚠️ Merchandise running low'
+  const body = alertLines.slice(0, 3).join(' · ') + (alertLines.length > 3 ? ` (+${alertLines.length - 3} more)` : '')
+
+  // Insert in-app notifications for all org admins
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any)
+    .from('notifications')
+    .insert(
+      typedAdmins.map((admin) => ({
+        organization_id: orgId,
+        user_id: admin.user_id,
+        type: 'merch_low_stock',
+        title,
+        body,
+        data: { alerts },
+      }))
+    )
+
+  // Send email to each admin
+  const { RESEND_API_KEY, EMAIL_FROM } = process.env
+  if (!RESEND_API_KEY) return
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+
+  await Promise.allSettled(
+    typedAdmins
+      .filter((a) => !!a.profiles?.email)
+      .map((admin) => {
+        const rows = alerts
+          .map((a) => {
+            const label = a.variantLabel ? `${a.itemName} (${a.variantLabel})` : a.itemName
+            const stockText = a.currentStock === 0
+              ? '<span style="color:#dc2626;font-weight:600">Out of stock</span>'
+              : `<span style="color:#d97706;font-weight:600">${a.currentStock} left</span>`
+            return `<tr>
+              <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${label}</td>
+              <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;text-align:right">${stockText}</td>
+            </tr>`
+          })
+          .join('')
+
+        const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+<div style="max-width:560px;margin:32px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1)">
+  <div style="background:#7c3aed;padding:24px 32px">
+    <p style="margin:0;color:#ede9fe;font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase">Fieldday</p>
+  </div>
+  <div style="padding:32px">
+    <h1 style="margin:0 0 8px;font-size:20px;color:#111827">Merchandise stock alert</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280">
+      ${isOutOfStock ? 'One or more items are out of stock and can no longer be sold.' : 'One or more items are running low and may sell out soon.'}
+    </p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      <thead>
+        <tr>
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #e5e7eb;color:#374151">Item</th>
+          <th style="padding:8px 12px;text-align:right;border-bottom:2px solid #e5e7eb;color:#374151">Stock</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="margin-top:24px">
+      <a href="${appUrl}/admin/settings/merchandise" style="display:inline-block;padding:10px 20px;background:#7c3aed;color:#fff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none">
+        Manage merchandise →
+      </a>
+    </div>
+  </div>
+</div>
+</body>
+</html>`
+
+        return fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: EMAIL_FROM ?? 'noreply@fielddayapp.ca',
+            to: admin.profiles!.email!,
+            subject: `${title} — action needed`,
+            html,
+          }),
+        })
+      })
+  )
 }
 
 /** Bulk fulfill all paid standalone shop orders for an org. */
