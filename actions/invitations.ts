@@ -118,9 +118,20 @@ export async function sendTeamInvite(input: z.infer<typeof sendInviteSchema>) {
 
   if (existingMember) return { error: `${email} is already on this team` }
 
-  // Create invitation
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const anyDb = db as any
+
+  // Delete any stale pending invite for this email+team before inserting a fresh one.
+  // This handles orphaned invites left behind when a player was removed from the org,
+  // or any other case where the unique constraint would otherwise fire.
+  await anyDb
+    .from('team_invitations')
+    .delete()
+    .eq('team_id', parsed.data.teamId)
+    .ilike('invited_email', email)
+    .eq('status', 'pending')
+
+  // Create invitation
   const { data: invite, error: inviteError } = await anyDb
     .from('team_invitations')
     .insert({
@@ -134,10 +145,7 @@ export async function sendTeamInvite(input: z.infer<typeof sendInviteSchema>) {
     .select('token')
     .single()
 
-  if (inviteError) {
-    if (inviteError.code === '23505') return { error: `${email} already has a pending invite to this team` }
-    return { error: inviteError.message }
-  }
+  if (inviteError) return { error: inviteError.message }
 
   // Build accept/decline URLs from current request host
   const host = headersList.get('host') ?? ''
