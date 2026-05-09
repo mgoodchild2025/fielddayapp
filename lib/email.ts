@@ -134,6 +134,50 @@ export function buildJoinDeclinedEmail({
 </html>`
 }
 
+export function buildRosterReminderEmail({
+  recipientName,
+  teamName,
+  orgName,
+  senderName,
+  message,
+  teamUrl,
+}: {
+  recipientName: string
+  teamName: string
+  orgName: string
+  senderName: string
+  message?: string
+  teamUrl: string
+}): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+    <div style="background:#1e3a5f;padding:24px 32px;">
+      <h1 style="color:#fff;margin:0;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">${orgName}</h1>
+    </div>
+    <div style="padding:32px;">
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Action needed for ${teamName}</h2>
+      <p style="color:#6b7280;margin:0 0 16px;font-size:15px;line-height:1.6;">
+        Hi ${recipientName}, <strong>${senderName}</strong> sent you a reminder about your team <strong>${teamName}</strong>.
+      </p>
+      ${message ? `<p style="color:#374151;background:#f9fafb;border-left:3px solid #d1d5db;padding:10px 14px;margin:16px 0;font-size:14px;font-style:italic;">&ldquo;${message}&rdquo;</p>` : ''}
+      <div style="text-align:center;margin:28px 0 20px;">
+        <a href="${teamUrl}"
+           style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:700;font-size:16px;">
+          View Team →
+        </a>
+      </div>
+      <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">
+        Complete your registration and waiver if you haven&rsquo;t already.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`
+}
+
 export function buildPickupInviteEmail({
   orgName,
   leagueName,

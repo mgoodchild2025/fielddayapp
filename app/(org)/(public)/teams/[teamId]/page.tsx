@@ -6,7 +6,8 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { TeamMessageForm } from '@/components/teams/team-message-form'
-import { CaptainRosterManager } from '@/components/teams/captain-roster-manager'
+import { RosterManager } from '@/components/teams/roster-manager'
+import type { ActiveMember, PendingInvite } from '@/components/teams/roster-manager'
 import { AdminEditTeamForm } from '@/components/teams/admin-edit-team-form'
 import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
 import { TeamPaymentPanel } from '@/components/teams/team-payment-panel'
@@ -36,7 +37,7 @@ export default async function TeamDetailPage({
 
   const db = createServiceRoleClient()
 
-  const [{ data: branding }, { data: team }, { data: myMembership }, { data: orgMember }, { data: joinRequests }, { data: orgBranding }] = await Promise.all([
+  const [{ data: branding }, { data: team }, { data: myMembership }, { data: orgMember }, { data: joinRequests }, { data: orgBranding }, pendingInvitesResult] = await Promise.all([
     supabase.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)
@@ -75,6 +76,14 @@ export default async function TeamDetailPage({
       .eq('organization_id', org.id)
       .eq('status', 'pending'),
     db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
+      .from('team_invitations')
+      .select('id, invited_email, role, created_at, expires_at, invited_by')
+      .eq('team_id', teamId)
+      .eq('organization_id', org.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false }),
   ])
 
   if (!team) notFound()
@@ -177,15 +186,6 @@ export default async function TeamDetailPage({
     }
   }
 
-  const [positions, statDefs, seasonTotals] = await Promise.all([
-    getPositionsForSport(org.id, leagueSport),
-    leagueId ? getStatDefinitions(org.id, leagueSport) : Promise.resolve([]),
-    leagueId ? getLeagueStatTotals(leagueId, org.id) : Promise.resolve({} as Record<string, Record<string, number>>),
-  ])
-
-  // Top-2 stat keys to show as badges (by display_order)
-  const badgeStats = statDefs.slice(0, 2)
-
   const isOrgAdmin = ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
   // Must be a team member OR an org admin
   if (!myMembership && !isOrgAdmin) notFound()
@@ -202,6 +202,54 @@ export default async function TeamDetailPage({
   const isManager = isOrgAdmin || ['captain', 'coach'].includes(myMembership?.role ?? '')
   const captain = activeMembers.find((m) => m.role === 'captain')
   const captainProfile = captain ? (Array.isArray(captain.profile) ? captain.profile[0] : captain.profile) : null
+
+  const [positions, statDefs, seasonTotals] = await Promise.all([
+    getPositionsForSport(org.id, leagueSport),
+    leagueId ? getStatDefinitions(org.id, leagueSport) : Promise.resolve([]),
+    leagueId ? getLeagueStatTotals(leagueId, org.id) : Promise.resolve({} as Record<string, Record<string, number>>),
+  ])
+
+  // For managers: fetch registration + waiver status for all active members
+  const memberUserIds = activeMembers.map((m) => m.user_id).filter(Boolean) as string[]
+  const [registrationsResult, waiverSigsResult, leagueWaiverResult, inviterProfilesResult] = isManager && leagueId && memberUserIds.length > 0
+    ? await Promise.all([
+        db.from('registrations')
+          .select('user_id, status')
+          .eq('league_id', leagueId)
+          .eq('organization_id', org.id)
+          .in('user_id', memberUserIds),
+        db.from('waiver_signatures')
+          .select('user_id')
+          .eq('organization_id', org.id)
+          .in('user_id', memberUserIds),
+        db.from('waivers')
+          .select('id')
+          .eq('organization_id', org.id)
+          .eq('is_active', true)
+          .maybeSingle(),
+        // Fetch inviter names for pending invites
+        (async () => {
+          const rawInvites = (pendingInvitesResult as { data: Array<{ invited_by: string }> | null }).data ?? []
+          const inviterIds = [...new Set(rawInvites.map((i) => i.invited_by).filter(Boolean))]
+          if (inviterIds.length === 0) return { data: [] }
+          return db.from('profiles').select('id, full_name').in('id', inviterIds)
+        })(),
+      ])
+    : [{ data: [] }, { data: [] }, { data: null }, { data: [] }]
+
+  const regsByUser = Object.fromEntries(
+    ((registrationsResult as { data: Array<{ user_id: string; status: string }> | null }).data ?? []).map((r) => [r.user_id, r.status])
+  )
+  const signedUserIds = new Set(
+    ((waiverSigsResult as { data: Array<{ user_id: string }> | null }).data ?? []).map((s) => s.user_id)
+  )
+  const leagueHasWaiver = !!(leagueWaiverResult as { data: { id: string } | null }).data
+  const inviterMap = Object.fromEntries(
+    ((inviterProfilesResult as { data: Array<{ id: string; full_name: string | null }> | null }).data ?? []).map((p) => [p.id, p.full_name])
+  )
+
+  // Top-2 stat keys to show as badges (by display_order)
+  const badgeStats = statDefs.slice(0, 2)
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
@@ -264,11 +312,27 @@ export default async function TeamDetailPage({
 
         {/* Roster — editable for managers, read-only for players */}
         {isManager ? (
-          <CaptainRosterManager
+          <RosterManager
             teamId={team.id}
+            leagueId={leagueId}
+            leagueHasWaiver={leagueHasWaiver}
             positions={positions}
+            initialInvites={(((pendingInvitesResult as { data: Array<{ id: string; invited_email: string; role: string; created_at: string; expires_at: string; invited_by: string }> | null }).data) ?? []).map((inv) => ({
+              id: inv.id,
+              invitedEmail: inv.invited_email,
+              role: inv.role,
+              invitedAt: inv.created_at,
+              expiresAt: inv.expires_at,
+              inviterName: inviterMap[inv.invited_by] ?? null,
+            }) satisfies PendingInvite)}
             initialMembers={activeMembers.map((m) => {
               const profile = Array.isArray(m.profile) ? m.profile[0] : m.profile
+              const regStatus = m.user_id ? (regsByUser[m.user_id] as 'active' | 'pending' | undefined) ?? 'none' : 'none'
+              const waiverStatus = !leagueHasWaiver
+                ? 'not_required'
+                : m.user_id && signedUserIds.has(m.user_id)
+                ? 'signed'
+                : 'not_signed'
               return {
                 id: m.id,
                 role: m.role,
@@ -278,7 +342,9 @@ export default async function TeamDetailPage({
                 name: profile?.full_name ?? '',
                 email: profile?.email ?? '',
                 avatarUrl: profile?.avatar_url ?? null,
-              }
+                registrationStatus: regStatus,
+                waiverStatus: waiverStatus,
+              } satisfies ActiveMember
             })}
           />
         ) : (

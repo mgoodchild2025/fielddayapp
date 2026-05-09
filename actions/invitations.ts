@@ -303,6 +303,143 @@ export async function acceptTeamInvitation(token: string) {
   redirect(`/teams/${invite.team_id}`)
 }
 
+// ─── Resend invite ────────────────────────────────────────────────────────────
+
+export async function resendTeamInvite(inviteId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyDb = db as any
+
+  // Load the invite
+  const { data: invite } = await anyDb
+    .from('team_invitations')
+    .select('id, team_id, invited_email, role, token, invited_by, expires_at')
+    .eq('id', inviteId)
+    .eq('organization_id', org.id)
+    .eq('status', 'pending')
+    .single()
+
+  if (!invite) return { error: 'Invite not found or already accepted' }
+
+  // Verify caller is captain/coach or org admin
+  const [{ data: teamMember }, { data: orgMember }] = await Promise.all([
+    db.from('team_members').select('role')
+      .eq('team_id', invite.team_id)
+      .eq('user_id', user.id)
+      .eq('organization_id', org.id)
+      .eq('status', 'active')
+      .single(),
+    db.from('org_members').select('role')
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
+      .single(),
+  ])
+
+  const isTeamManager = teamMember && ['captain', 'coach'].includes(teamMember.role)
+  const isOrgAdmin = orgMember && ['org_admin', 'league_admin'].includes(orgMember.role)
+  if (!isTeamManager && !isOrgAdmin) return { error: 'Not authorized' }
+
+  // Extend expiry if expired (30 days from now)
+  const nowMs = Date.now()
+  const expiresMs = new Date(invite.expires_at).getTime()
+  let token = invite.token
+  if (expiresMs < nowMs) {
+    const newExpiry = new Date(nowMs + 30 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: updated } = await anyDb
+      .from('team_invitations')
+      .update({ expires_at: newExpiry })
+      .eq('id', inviteId)
+      .select('token')
+      .single()
+    token = updated?.token ?? token
+  }
+
+  // Build URLs
+  const host = headersList.get('host') ?? ''
+  const proto = headersList.get('x-forwarded-proto') ?? 'http'
+  const origin = `${proto}://${host}`
+  const acceptUrl = `${origin}/invite/${token}`
+  const declineUrl = `${origin}/invite/${token}?action=decline`
+
+  // Fetch team + inviter profile
+  const [{ data: team }, { data: inviterProfile }] = await Promise.all([
+    db.from('teams').select('name').eq('id', invite.team_id).single(),
+    db.from('profiles').select('full_name').eq('id', user.id).single(),
+  ])
+
+  const inviterName = inviterProfile?.full_name ?? 'A manager'
+
+  await sendEmail({
+    to: invite.invited_email,
+    subject: `Reminder: You've been invited to join ${team?.name ?? 'a team'}`,
+    html: buildTeamInviteEmail({
+      teamName: team?.name ?? 'your team',
+      orgName: org.name,
+      invitedBy: inviterName,
+      role: invite.role,
+      acceptUrl,
+      declineUrl,
+    }),
+  })
+
+  return { error: null }
+}
+
+// ─── Cancel invite (manager action) ──────────────────────────────────────────
+
+export async function cancelTeamInvitation(inviteId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyDb = db as any
+
+  const { data: invite } = await anyDb
+    .from('team_invitations')
+    .select('id, team_id, status')
+    .eq('id', inviteId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (!invite) return { error: 'Invite not found' }
+  if (invite.status !== 'pending') return { error: 'Invite is no longer pending' }
+
+  // Verify caller is captain/coach or org admin
+  const [{ data: teamMember }, { data: orgMember }] = await Promise.all([
+    db.from('team_members').select('role')
+      .eq('team_id', invite.team_id)
+      .eq('user_id', user.id)
+      .eq('organization_id', org.id)
+      .eq('status', 'active')
+      .single(),
+    db.from('org_members').select('role')
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
+      .single(),
+  ])
+
+  const isTeamManager = teamMember && ['captain', 'coach'].includes(teamMember.role)
+  const isOrgAdmin = orgMember && ['org_admin', 'league_admin'].includes(orgMember.role)
+  if (!isTeamManager && !isOrgAdmin) return { error: 'Not authorized' }
+
+  await anyDb.from('team_invitations').delete().eq('id', inviteId)
+
+  revalidatePath(`/teams/${invite.team_id}`)
+  return { error: null }
+}
+
 // ─── Decline invitation ───────────────────────────────────────────────────────
 
 export async function declineTeamInvitation(token: string) {

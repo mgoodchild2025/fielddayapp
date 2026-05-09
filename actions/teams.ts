@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
-import { sendEmail, buildJoinRequestEmail, buildJoinApprovedEmail, buildJoinDeclinedEmail, buildCaptainAssignedEmail, buildTeamAddedEmail } from '@/lib/email'
+import { sendEmail, buildJoinRequestEmail, buildJoinApprovedEmail, buildJoinDeclinedEmail, buildCaptainAssignedEmail, buildTeamAddedEmail, buildRosterReminderEmail } from '@/lib/email'
 import { convertToWebP } from '@/lib/image-utils'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -1159,4 +1159,91 @@ export async function captainAddPlayerByEmail(input: z.infer<typeof captainAddSc
   })
 
   return { error: result.error, invited: true }
+}
+
+// ─── Send roster reminder to an active team member ───────────────────────────
+
+export async function sendRosterReminder(
+  teamId: string,
+  memberId: string,
+  message?: string,
+) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  // Verify caller is captain/coach or org admin
+  const [{ data: teamMember }, { data: orgMember }] = await Promise.all([
+    db.from('team_members').select('role')
+      .eq('team_id', teamId)
+      .eq('user_id', user.id)
+      .eq('organization_id', org.id)
+      .eq('status', 'active')
+      .single(),
+    db.from('org_members').select('role')
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
+      .single(),
+  ])
+
+  const isTeamManager = teamMember && ['captain', 'coach'].includes(teamMember.role)
+  const isOrgAdmin = orgMember && ['org_admin', 'league_admin'].includes(orgMember.role)
+  if (!isTeamManager && !isOrgAdmin) return { error: 'Not authorized' }
+
+  // Get the target member
+  const { data: targetMember } = await db.from('team_members')
+    .select('user_id')
+    .eq('id', memberId)
+    .eq('team_id', teamId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (!targetMember?.user_id) return { error: 'Member not found' }
+
+  // Get profiles and team info
+  const [{ data: targetProfile }, { data: senderProfile }, { data: team }] = await Promise.all([
+    db.from('profiles').select('full_name, email').eq('id', targetMember.user_id).single(),
+    db.from('profiles').select('full_name').eq('id', user.id).single(),
+    db.from('teams').select('name').eq('id', teamId).single(),
+  ])
+
+  if (!targetProfile?.email) return { error: 'Member has no email address' }
+
+  const host = headersList.get('host') ?? ''
+  const proto = headersList.get('x-forwarded-proto') ?? 'http'
+  const teamUrl = `${proto}://${host}/teams/${teamId}`
+
+  const senderName = senderProfile?.full_name ?? 'Your team manager'
+  const recipientName = targetProfile.full_name ?? targetProfile.email
+  const teamName = team?.name ?? 'your team'
+
+  // In-app notification
+  await db.from('notifications').insert({
+    organization_id: org.id,
+    user_id: targetMember.user_id,
+    type: 'admin_message',
+    title: `Reminder from ${senderName}`,
+    body: message || `Please complete your registration and waiver for ${teamName}.`,
+    data: { team_id: teamId },
+  })
+
+  // Email
+  await sendEmail({
+    to: targetProfile.email,
+    subject: `Reminder: Action needed for ${teamName}`,
+    html: buildRosterReminderEmail({
+      recipientName,
+      teamName,
+      orgName: org.name,
+      senderName,
+      message,
+      teamUrl,
+    }),
+  })
+
+  return { error: null }
 }
