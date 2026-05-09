@@ -57,9 +57,10 @@ export async function createLeague(
   input: z.infer<typeof createLeagueSchema> & {
     rule_template_id?: string
     rules_content?: string
+    format_content?: string
   }
 ) {
-  const { rule_template_id, rules_content, ...rest } = input
+  const { rule_template_id, rules_content, format_content, ...rest } = input
   const parsed = createLeagueSchema.safeParse(rest)
   if (!parsed.success) return { data: null, error: 'Invalid input' }
 
@@ -113,6 +114,7 @@ export async function createLeague(
       bracket_visibility: parsed.data.bracket_visibility,
       rule_template_id: rule_template_id || null,
       rules_content: rules_content || null,
+      format_content: format_content || null,
       days_of_week: parsed.data.days_of_week?.length ? parsed.data.days_of_week : null,
       skill_level: parsed.data.skill_level ?? null,
       officiated: parsed.data.officiated ?? null,
@@ -224,6 +226,7 @@ export async function updateLeague(
     waiver_version_id?: string | null
     rule_template_id?: string | null
     rules_content?: string | null
+    format_content?: string | null
   }
 ) {
   const headersList = await headers()

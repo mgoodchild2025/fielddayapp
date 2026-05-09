@@ -27,6 +27,7 @@ import { StatsLeaderboard } from '@/components/stats/stats-leaderboard'
 import type { LeaderboardPlayer } from '@/components/stats/stats-leaderboard'
 import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
 import type { StatDef } from '@/actions/stats'
+import { RichTextContent } from '@/components/ui/rich-text-content'
 
 // ── Tab nav ───────────────────────────────────────────────────────────────────
 
@@ -467,10 +468,12 @@ export default async function EventDetailPage({
         { id: 'standings', label: 'Standings', visibility: 'public' as const },
         ...(hasBracket          ? [{ id: 'bracket', label: 'Bracket', visibility: 'public' as const }] : []),
         { id: 'stats', label: 'Stats', visibility: statsVisibility },
+        ...((league as any).format_content ? [{ id: 'format', label: 'Format', visibility: 'public' as const }] : []),
         ...(league.rules_content ? [{ id: 'rules',   label: 'Rules',   visibility: 'public' as const }] : []),
       ]
     : [
         { id: 'overview', label: 'Info',  visibility: 'public' as const },
+        ...((league as any).format_content ? [{ id: 'format', label: 'Format', visibility: 'public' as const }] : []),
         ...(league.rules_content ? [{ id: 'rules', label: 'Rules', visibility: 'public' as const }] : []),
       ]
 
@@ -1259,6 +1262,18 @@ export default async function EventDetailPage({
               </div>
             )}
 
+            {/* Format */}
+            {(league as any).format_content && (
+              <div className="bg-white rounded-lg border p-5">
+                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Event Format</p>
+                <EventRulesModal
+                  content={(league as any).format_content}
+                  title="Event Format"
+                  buttonLabel="View Event Format →"
+                />
+              </div>
+            )}
+
             {/* Rules */}
             {league.rules_content && (
               <div className="bg-white rounded-lg border p-5">
@@ -1596,12 +1611,25 @@ export default async function EventDetailPage({
           <StatsLeaderboard statDefs={statDefs} players={leaderboardPlayers} />
         )}
 
+        {/* ──────────────── FORMAT TAB ──────────────── */}
+        {activeTab === 'format' && (
+          <div>
+            {(league as any).format_content ? (
+              <div className="bg-white rounded-lg border p-5">
+                <RichTextContent content={(league as any).format_content} className="text-gray-700" />
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-16">No format posted yet.</p>
+            )}
+          </div>
+        )}
+
         {/* ──────────────── RULES TAB ──────────────── */}
         {activeTab === 'rules' && (
           <div>
             {league.rules_content ? (
               <div className="bg-white rounded-lg border p-5">
-                <p className="whitespace-pre-wrap text-gray-700 leading-relaxed text-sm">{league.rules_content}</p>
+                <RichTextContent content={league.rules_content} className="text-gray-700 leading-relaxed" />
               </div>
             ) : (
               <p className="text-gray-500 text-center py-16">No rules posted yet.</p>

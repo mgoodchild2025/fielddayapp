@@ -27,6 +27,7 @@ interface League {
   waiver_version_id: string | null
   rule_template_id: string | null
   rules_content: string | null
+  format_content: string | null
   age_group: string | null
   venue_name: string | null
   venue_address: string | null
@@ -118,6 +119,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [rulesContent, setRulesContent] = useState(league.rules_content ?? '')
+  const [formatContent, setFormatContent] = useState(league.format_content ?? '')
   const [selectedDays, setSelectedDays] = useState<string[]>(league.days_of_week ?? [])
   const [selectedSkill, setSelectedSkill] = useState<string>(league.skill_level ?? '')
   const [selectedOfficiated, setSelectedOfficiated] = useState<string>(league.officiated ?? '')
@@ -153,6 +155,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
       waiver_version_id: waiverVal || undefined,
       rule_template_id: ruleTemplateVal || undefined,
       rules_content: rulesContent || undefined,
+      format_content: formatContent || null,
       age_group: (fd.get('age_group') as string) || undefined,
       venue_name: (fd.get('venue_name') as string) || undefined,
       venue_address: (fd.get('venue_address') as string) || undefined,
@@ -549,6 +552,17 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
               </div>
             ))}
           </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Event Format</label>
+          <p className="text-xs text-gray-400 mb-2">Describe how the event is structured — playoff format, set/period rules, tiebreakers, etc.</p>
+          <input type="hidden" name="format_content" value={formatContent} />
+          <RichTextEditor
+            content={formatContent}
+            onChange={setFormatContent}
+            minHeight="160px"
+          />
         </div>
 
         <div>

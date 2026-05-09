@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { createLeague } from '@/actions/events'
 import { useRouter } from 'next/navigation'
+import { RichTextEditor } from '@/components/ui/rich-text-editor'
 
 function Field({
   label,
@@ -232,6 +233,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [rulesContent, setRulesContent] = useState('')
+  const [formatContent, setFormatContent] = useState('')
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [openSection, setOpenSection] = useState<string | null>('basics')
   const [selectedDays, setSelectedDays] = useState<string[]>([])
@@ -302,6 +304,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
       ...(data as Parameters<typeof createLeague>[0]),
       rule_template_id: selectedTemplateId || undefined,
       rules_content: rulesContent || undefined,
+      format_content: formatContent || undefined,
       days_of_week: selectedDays.length ? (selectedDays as ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[]) : [],
       skill_level: (selectedSkill as 'recreational' | 'intermediate' | 'competitive') || undefined,
       officiated: (selectedOfficiated as 'self_officiated' | 'referee') || undefined,
@@ -385,6 +388,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
       const w = waivers.find((w) => w.id === waiverVersionId)
       if (w) parts.push(`${w.title} v${w.version}`)
     }
+    if (formatContent) parts.push('Format added')
     if (rulesContent) parts.push('Rules added')
     return parts.length ? parts.join(' · ') : 'None'
   })()
@@ -996,6 +1000,18 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
+              Event Format
+            </label>
+            <p className="text-xs text-gray-400 mb-2">Describe how the event is structured — playoff format, set/period rules, tiebreakers, etc.</p>
+            <RichTextEditor
+              content={formatContent}
+              onChange={setFormatContent}
+              minHeight="160px"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Rules Template
             </label>
             <select
@@ -1029,12 +1045,10 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Rules Content
             </label>
-            <textarea
-              value={rulesContent}
-              onChange={(e) => setRulesContent(e.target.value)}
-              rows={10}
-              placeholder="Event rules shown to players on the event page…"
-              className={`${INPUT} font-mono text-xs leading-relaxed resize-y`}
+            <RichTextEditor
+              content={rulesContent}
+              onChange={setRulesContent}
+              minHeight="200px"
             />
             {rulesContent && selectedTemplateId && (
               <p className="text-xs text-gray-400 mt-1">
