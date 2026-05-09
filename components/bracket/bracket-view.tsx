@@ -5,6 +5,7 @@ import { recordBracketScore } from '@/actions/brackets'
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
+import { MatchEditModal } from './match-edit-modal'
 
 export interface BracketMatchData {
   id: string
@@ -44,11 +45,17 @@ export interface BracketData {
 
 const VOLLEYBALL_SPORTS = ['volleyball', 'beach_volleyball']
 
+export interface TeamRef {
+  id: string
+  name: string
+}
+
 interface Props {
   bracket: BracketData
   leagueId: string
   isAdmin?: boolean
   sport?: string
+  allTeams?: TeamRef[]
 }
 
 // ── Score entry modal ─────────────────────────────────────────────────────────
@@ -266,14 +273,17 @@ function MatchCard({
   leagueId,
   isAdmin,
   sport,
+  allTeams,
 }: {
   match: BracketMatchData
   bracketId: string
   leagueId: string
   isAdmin: boolean
   sport?: string
+  allTeams?: TeamRef[]
 }) {
   const [modalOpen, setModalOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
   const isTbd = match.status === 'pending'
   const isCompleted = match.status === 'completed'
@@ -286,6 +296,13 @@ function MatchCard({
         <ScoreModal
           match={match} bracketId={bracketId} leagueId={leagueId} sport={sport}
           onClose={() => setModalOpen(false)}
+        />
+      )}
+      {editOpen && isAdmin && allTeams && (
+        <MatchEditModal
+          match={match} bracketId={bracketId} leagueId={leagueId}
+          allTeams={allTeams}
+          onClose={() => setEditOpen(false)}
         />
       )}
       <div className={`w-52 rounded-lg border bg-white text-sm shadow-sm ${
@@ -354,6 +371,16 @@ function MatchCard({
             </button>
           </div>
         )}
+        {isAdmin && allTeams && !isBye && (
+          <div className={isReady || isCompleted ? '' : 'border-t'}>
+            <button
+              onClick={() => setEditOpen(true)}
+              className="w-full px-3 py-1.5 text-[10px] font-medium text-center text-gray-400 hover:bg-gray-50 hover:text-gray-600 active:bg-gray-100 transition-colors"
+            >
+              ✎ Edit match
+            </button>
+          </div>
+        )}
       </div>
     </>
   )
@@ -374,6 +401,7 @@ function BracketDiagram({
   bracketSize,
   firstRoundMatchCount,
   roundSortAscending = false,
+  allTeams,
 }: {
   matches: BracketMatchData[]
   bracketId: string
@@ -384,6 +412,7 @@ function BracketDiagram({
   firstRoundMatchCount: number
   /** LB rounds use ascending order (LBR1 left → LBR4 right); WB uses descending */
   roundSortAscending?: boolean
+  allTeams?: TeamRef[]
 }) {
   const roundNumbers = Array.from(new Set(matches.map((m) => m.roundNumber)))
     .sort((a, b) => roundSortAscending ? a - b : b - a)
@@ -445,7 +474,7 @@ function BracketDiagram({
                       )}
                       <MatchCard
                         match={match} bracketId={bracketId} leagueId={leagueId}
-                        isAdmin={isAdmin} sport={sport}
+                        isAdmin={isAdmin} sport={sport} allTeams={allTeams}
                       />
                     </div>
                   )
@@ -579,7 +608,7 @@ function BracketScoreList({
 
 // ── Main BracketView ──────────────────────────────────────────────────────────
 
-export function BracketView({ bracket, leagueId, isAdmin = false, sport }: Props) {
+export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeams }: Props) {
   const [view, setView] = useState<'bracket' | 'list'>('bracket')
   const bracketSize = bracket.bracketSize
   const isDE = bracket.bracketType === 'double_elimination'
@@ -683,6 +712,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport }: Props
                     sport={sport}
                     bracketSize={bracketSize}
                     firstRoundMatchCount={wbFirstRoundCount}
+                    allTeams={allTeams}
                   />
                 </div>
               )}
@@ -702,6 +732,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport }: Props
                     bracketSize={bracketSize}
                     firstRoundMatchCount={lbFirstRoundCount}
                     roundSortAscending
+                    allTeams={allTeams}
                   />
                 </div>
               )}
@@ -718,6 +749,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport }: Props
                     leagueId={leagueId}
                     isAdmin={isAdmin}
                     sport={sport}
+                    allTeams={allTeams}
                   />
                 </div>
               )}
@@ -733,6 +765,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport }: Props
                 sport={sport}
                 bracketSize={bracketSize}
                 firstRoundMatchCount={seFirstRoundCount}
+                allTeams={allTeams}
               />
 
               {/* 3rd place match */}
@@ -745,6 +778,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport }: Props
                     leagueId={leagueId}
                     isAdmin={isAdmin}
                     sport={sport}
+                    allTeams={allTeams}
                   />
                 </div>
               )}

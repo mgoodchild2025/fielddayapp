@@ -622,6 +622,115 @@ export async function updateMatchSchedule(input: {
   return { error: null }
 }
 
+// ── overrideBracketSlot ───────────────────────────────────────────────────────
+// Force-assigns (or clears) a team in a specific slot of a bracket match.
+// Blocked if the match already has a score recorded.
+
+export async function overrideBracketSlot(input: {
+  matchId: string
+  bracketId: string
+  leagueId: string
+  slot: 1 | 2
+  teamId: string | null
+}) {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: match } = await (db as any)
+    .from('bracket_matches')
+    .select('id, status, team1_id, team2_id')
+    .eq('id', input.matchId)
+    .eq('bracket_id', input.bracketId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (!match) return { error: 'Match not found' }
+  if (match.status === 'completed') return { error: 'Cannot change teams in a completed match' }
+
+  const updateField = input.slot === 1 ? 'team1_id' : 'team2_id'
+  const otherField = input.slot === 1 ? 'team2_id' : 'team1_id'
+  const otherTeamId = match[otherField]
+
+  const newStatus = input.teamId && otherTeamId ? 'ready' : 'pending'
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any).from('bracket_matches')
+    .update({ [updateField]: input.teamId, status: newStatus })
+    .eq('id', input.matchId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${input.leagueId}/bracket`)
+  return { error: null }
+}
+
+// ── swapBracketTeams ──────────────────────────────────────────────────────────
+// Swaps two team slots (potentially across different matches) within a bracket.
+// Blocked if either match has a score recorded.
+
+export async function swapBracketTeams(input: {
+  bracketId: string
+  leagueId: string
+  slotA: { matchId: string; slot: 1 | 2 }
+  slotB: { matchId: string; slot: 1 | 2 }
+}) {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  const matchIds = [input.slotA.matchId, input.slotB.matchId]
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: matches } = await (db as any)
+    .from('bracket_matches')
+    .select('id, status, team1_id, team2_id, team1_seed, team2_seed')
+    .in('id', matchIds)
+    .eq('bracket_id', input.bracketId)
+    .eq('organization_id', org.id)
+
+  if (!matches || matches.length !== 2) return { error: 'Matches not found' }
+
+  type MatchRow = { id: string; status: string; team1_id: string | null; team2_id: string | null; team1_seed: number | null; team2_seed: number | null }
+  const typedMatches = matches as MatchRow[]
+
+  if (typedMatches.some((m) => m.status === 'completed')) {
+    return { error: 'Cannot swap teams — one or both matches already have scores recorded' }
+  }
+
+  const matchMap = new Map(typedMatches.map((m) => [m.id, m]))
+  const matchA = matchMap.get(input.slotA.matchId)
+  const matchB = matchMap.get(input.slotB.matchId)
+  if (!matchA || !matchB) return { error: 'Matches not found' }
+
+  const teamA = input.slotA.slot === 1 ? matchA.team1_id : matchA.team2_id
+  const teamB = input.slotB.slot === 1 ? matchB.team1_id : matchB.team2_id
+  const seedA = input.slotA.slot === 1 ? matchA.team1_seed : matchA.team2_seed
+  const seedB = input.slotB.slot === 1 ? matchB.team1_seed : matchB.team2_seed
+
+  const fieldA = input.slotA.slot === 1 ? 'team1_id' : 'team2_id'
+  const fieldB = input.slotB.slot === 1 ? 'team1_id' : 'team2_id'
+  const seedFieldA = input.slotA.slot === 1 ? 'team1_seed' : 'team2_seed'
+  const seedFieldB = input.slotB.slot === 1 ? 'team1_seed' : 'team2_seed'
+
+  const otherA = input.slotA.slot === 1 ? matchA.team2_id : matchA.team1_id
+  const otherB = input.slotB.slot === 1 ? matchB.team2_id : matchB.team1_id
+  const statusA = teamB && otherA ? 'ready' : 'pending'
+  const statusB = teamA && otherB ? 'ready' : 'pending'
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('bracket_matches')
+    .update({ [fieldA]: teamB, [seedFieldA]: seedB, status: statusA })
+    .eq('id', input.slotA.matchId)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('bracket_matches')
+    .update({ [fieldB]: teamA, [seedFieldB]: seedA, status: statusB })
+    .eq('id', input.slotB.matchId)
+
+  revalidatePath(`/admin/events/${input.leagueId}/bracket`)
+  return { error: null }
+}
+
 // ── advanceBracketFromScore (called by scores.ts after confirm) ───────────────
 // Public hook: checks if a confirmed game is linked to a bracket match and auto-advances.
 

@@ -3,9 +3,10 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
-import { BracketSetupWizard } from '@/components/bracket/bracket-setup-wizard'
+import { PlayoffConfigWizard } from '@/components/bracket/playoff-config-wizard'
 import { recommendBracket, seedFromStandings, seedFromDivisionStandings, type TeamStanding } from '@/lib/bracket'
-import type { BracketData, BracketMatchData } from '@/components/bracket/bracket-view'
+import type { BracketData, BracketMatchData, TeamRef } from '@/components/bracket/bracket-view'
+import type { ExistingConfig } from '@/components/bracket/playoff-config-wizard'
 
 export default async function AdminBracketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: leagueId } = await params
@@ -16,7 +17,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
   const db = createServiceRoleClient()
   const scope = await getAdminScope(org.id)
 
-  // Load league + context
+  // ── Load context ────────────────────────────────────────────────────────────
   const [{ data: league }, { data: divisions }, { data: teams }, { data: results }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues').select('id, name, event_type, status, sport').eq('id', leagueId).eq('organization_id', org.id).single(),
@@ -28,16 +29,10 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
       .eq('status', 'confirmed'),
   ])
 
-  // Build standings
+  // ── Build standings ─────────────────────────────────────────────────────────
   const record: Record<string, TeamStanding> = {}
   for (const t of teams ?? []) {
-    record[t.id] = {
-      teamId: t.id,
-      teamName: t.name,
-      divisionId: t.division_id,
-      wins: 0, losses: 0, ties: 0,
-      pointsFor: 0, pointsAgainst: 0,
-    }
+    record[t.id] = { teamId: t.id, teamName: t.name, divisionId: t.division_id, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 }
   }
   for (const r of results ?? []) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -54,7 +49,6 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
   }
   const allStandings = Object.values(record)
 
-  // Seeded order for the wizard
   const divisionCount = (divisions ?? []).length
   const seededTeams = divisionCount >= 2
     ? seedFromDivisionStandings(
@@ -67,7 +61,6 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
       )
     : seedFromStandings(allStandings, (teams ?? []).length)
 
-  // Recommendation
   const recommendation = recommendBracket({
     teamCount: (teams ?? []).length,
     divisionCount,
@@ -75,43 +68,32 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
     eventType: league?.event_type ?? 'league',
   })
 
-  // Load existing bracket (if any)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: brackets } = await (db as any)
-    .from('brackets')
-    .select(`
-      id, name, bracket_size, bracket_type, third_place_game, status, published_at,
-      bracket_matches(
-        id, round_number, match_number,
-        team1_id, team2_id, team1_label, team2_label,
-        team1_seed, team2_seed,
-        is_bye, winner_team_id, score1, score2, sets, status,
-        winner_to_match_id, scheduled_at, court, notes
-      )
-    `)
-    .eq('league_id', leagueId)
-    .eq('organization_id', org.id)
-    .order('created_at', { ascending: true })
+  // ── All teams ref (for match-edit override dropdowns) ───────────────────────
+  const allTeams: TeamRef[] = (teams ?? []).map((t) => ({ id: t.id, name: t.name }))
 
-  // Build bracket data with team names resolved
+  // ── Load playoff config + tiers + bracket data ──────────────────────────────
   const teamNameMap = new Map((teams ?? []).map((t) => [t.id, t.name]))
 
   function buildBracketData(raw: {
-    id: string; name: string; bracket_size: number; bracket_type?: string; third_place_game: boolean; status: string;
+    id: string; name: string; bracket_size: number; bracket_type?: string;
+    third_place_game: boolean; status: string;
     bracket_matches: {
       id: string; round_number: number; match_number: number;
-      team1_id: string|null; team2_id: string|null;
-      team1_label: string|null; team2_label: string|null;
-      team1_seed: number|null; team2_seed: number|null;
-      is_bye: boolean; winner_team_id: string|null; score1: number|null; score2: number|null; sets: {s1:number;s2:number}[]|null;
-      status: string; winner_to_match_id: string|null; scheduled_at: string|null; court: string|null; notes: string|null;
+      team1_id: string | null; team2_id: string | null;
+      team1_label: string | null; team2_label: string | null;
+      team1_seed: number | null; team2_seed: number | null;
+      is_bye: boolean; winner_team_id: string | null;
+      score1: number | null; score2: number | null;
+      sets: { s1: number; s2: number }[] | null;
+      status: string; winner_to_match_id: string | null;
+      scheduled_at: string | null; court: string | null; notes: string | null;
     }[]
   }): BracketData {
     return {
       id: raw.id,
       name: raw.name,
       bracketSize: raw.bracket_size,
-      bracketType: (raw.bracket_type === 'double_elimination' ? 'double_elimination' : 'single_elimination') as 'single_elimination' | 'double_elimination',
+      bracketType: raw.bracket_type === 'double_elimination' ? 'double_elimination' : 'single_elimination',
       thirdPlaceGame: raw.third_place_game,
       status: raw.status,
       matches: (raw.bracket_matches ?? []).map((m): BracketMatchData => ({
@@ -140,12 +122,58 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
     }
   }
 
-  const existingBracket = brackets && brackets.length > 0
-    ? buildBracketData(brackets[0])
-    : null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: configRow } = await (db as any)
+    .from('playoff_configs')
+    .select(`
+      id, seeding_method,
+      playoff_tiers (
+        id, name, sort_order, seed_from, seed_to, bracket_type, third_place_game, bracket_id,
+        bracket:brackets (
+          id, name, bracket_size, bracket_type, third_place_game, status, published_at,
+          bracket_matches (
+            id, round_number, match_number,
+            team1_id, team2_id, team1_label, team2_label,
+            team1_seed, team2_seed,
+            is_bye, winner_team_id, score1, score2, sets, status,
+            winner_to_match_id, scheduled_at, court, notes
+          )
+        )
+      )
+    `)
+    .eq('league_id', leagueId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
 
-  // For leagues with divisions, show per-division brackets + championship option
-  const hasDivisions = divisionCount >= 2
+  let existingConfig: ExistingConfig | null = null
+
+  if (configRow) {
+    const sortedTiers = ((configRow.playoff_tiers ?? []) as {
+      id: string; name: string; sort_order: number; seed_from: number; seed_to: number;
+      bracket_type: string; third_place_game: boolean; bracket_id: string | null;
+      bracket: {
+        id: string; name: string; bracket_size: number; bracket_type?: string;
+        third_place_game: boolean; status: string;
+        bracket_matches: Parameters<typeof buildBracketData>[0]['bracket_matches'];
+      } | null;
+    }[]).sort((a, b) => a.sort_order - b.sort_order)
+
+    existingConfig = {
+      id: configRow.id,
+      seedingMethod: configRow.seeding_method as 'standings' | 'manual',
+      tiers: sortedTiers.map((t) => ({
+        id: t.id,
+        name: t.name,
+        sortOrder: t.sort_order,
+        seedFrom: t.seed_from,
+        seedTo: t.seed_to,
+        bracketType: (t.bracket_type === 'double_elimination' ? 'double_elimination' : 'single_elimination') as 'single_elimination' | 'double_elimination',
+        thirdPlaceGame: t.third_place_game,
+        bracketId: t.bracket_id,
+        bracket: t.bracket ? buildBracketData(t.bracket) : null,
+      })),
+    }
+  }
 
   return (
     <div>
@@ -156,43 +184,15 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
         </div>
       </div>
 
-      {hasDivisions && !existingBracket && (
-        <div className="mb-6 p-4 bg-amber-50 border border-amber-100 rounded-lg text-sm text-amber-800">
-          <p className="font-semibold mb-1">Multiple divisions detected</p>
-          <p>
-            This will create a single playoff bracket seeded by division standings — division champions receive the top seeds, followed by wild cards.
-            For separate per-division brackets that feed a cross-division championship, create one bracket per division then a second &ldquo;Championship&rdquo; bracket.
-          </p>
-        </div>
-      )}
-
-      <BracketSetupWizard
+      <PlayoffConfigWizard
         leagueId={leagueId}
-        recommendation={recommendation}
-        seededTeams={seededTeams}
-        existingBracket={existingBracket}
         sport={league?.sport ?? undefined}
         isOrgAdmin={scope.isOrgAdmin}
+        seededTeams={seededTeams}
+        allTeams={allTeams}
+        recommendation={recommendation}
+        existingConfig={existingConfig}
       />
-
-      {/* Multiple brackets for multi-division events */}
-      {hasDivisions && brackets && brackets.length > 1 && (
-        <div className="mt-12 space-y-8">
-          {brackets.slice(1).map((b: Parameters<typeof buildBracketData>[0]) => (
-            <div key={b.id}>
-              <h2 className="text-lg font-bold mb-4">{b.name}</h2>
-              <BracketSetupWizard
-                leagueId={leagueId}
-                recommendation={recommendation}
-                seededTeams={seededTeams}
-                existingBracket={buildBracketData(b)}
-                sport={league?.sport ?? undefined}
-                isOrgAdmin={scope.isOrgAdmin}
-              />
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }
