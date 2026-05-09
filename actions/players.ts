@@ -191,6 +191,16 @@ export async function removePlayerFromOrg(userId: string) {
   await db.from('team_members').delete().eq('user_id', userId).eq('organization_id', org.id)
   // Remove registrations within this org
   await db.from('registrations').delete().eq('user_id', userId).eq('organization_id', org.id)
+  // Cancel any pending team invitations so the email address can be re-invited later.
+  // Match on both user_id (invite sent after account existed) and email (invite sent before).
+  const { data: profile } = await db.from('profiles').select('email').eq('id', userId).single()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyDb = db as any
+  const cancelInvites = [
+    anyDb.from('team_invitations').delete().eq('invited_user_id', userId).eq('organization_id', org.id).eq('status', 'pending'),
+    ...(profile?.email ? [anyDb.from('team_invitations').delete().eq('invited_email', profile.email).eq('organization_id', org.id).eq('status', 'pending')] : []),
+  ]
+  await Promise.all(cancelInvites)
   // Remove the org membership itself
   const { error: e } = await db
     .from('org_members')
