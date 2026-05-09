@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { savePlayoffConfig, generateAllTierBrackets, deletePlayoffConfig } from '@/actions/playoff-config'
 import { publishBracket, deleteBracket } from '@/actions/brackets'
@@ -316,6 +316,104 @@ function TierBracketCard({
   )
 }
 
+// ── Manage-mode header with ⋯ more-options dropdown ──────────────────────────
+
+function ManageHeader({
+  existingConfig,
+  seededTeams,
+  isOrgAdmin,
+  isPending,
+  onEditTiers,
+  onRegenerate,
+  onDeleteConfig,
+}: {
+  existingConfig: ExistingConfig
+  seededTeams: TeamStanding[]
+  isOrgAdmin: boolean
+  isPending: boolean
+  onEditTiers: () => void
+  onRegenerate: () => void
+  onDeleteConfig: () => void
+}) {
+  const [moreOpen, setMoreOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Close on outside click
+  useEffect(() => {
+    if (!moreOpen) return
+    function handle(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMoreOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [moreOpen])
+
+  const maxSeed = existingConfig.tiers.length > 0
+    ? Math.max(...existingConfig.tiers.map((t) => t.seedTo))
+    : 0
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 bg-white rounded-xl border px-5 py-3.5">
+      <div>
+        <p className="font-semibold text-sm">
+          {existingConfig.tiers.length} playoff tier{existingConfig.tiers.length !== 1 ? 's' : ''}
+          {' · '}
+          <span className="font-normal text-gray-500">
+            Seeding: {existingConfig.seedingMethod === 'manual' ? 'Manual' : 'Auto (standings)'}
+          </span>
+        </p>
+        <p className="text-xs text-gray-400 mt-0.5">
+          Seeds 1–{maxSeed} · {seededTeams.length} team{seededTeams.length !== 1 ? 's' : ''} registered
+        </p>
+      </div>
+
+      {isOrgAdmin && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onEditTiers}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium border text-gray-600 hover:bg-gray-50"
+          >
+            ✎ Edit Tiers
+          </button>
+
+          {/* ⋯ More options */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMoreOpen((v) => !v)}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-medium border text-gray-600 hover:bg-gray-50"
+              title="More options"
+            >
+              ⋯
+            </button>
+
+            {moreOpen && (
+              <div className="absolute right-0 top-full mt-1 z-20 bg-white border rounded-lg shadow-lg py-1 min-w-[180px]">
+                <button
+                  onClick={() => { setMoreOpen(false); onRegenerate() }}
+                  disabled={isPending}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  ↺ Regenerate from Standings
+                </button>
+                <div className="border-t my-1" />
+                <button
+                  onClick={() => { setMoreOpen(false); onDeleteConfig() }}
+                  disabled={isPending}
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                >
+                  Remove config…
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main wizard ───────────────────────────────────────────────────────────────
 
 export function PlayoffConfigWizard({
@@ -447,6 +545,9 @@ export function PlayoffConfigWizard({
     if (!confirm('Remove the playoff configuration? Generated brackets are not deleted.')) return
     startTransition(async () => {
       await deletePlayoffConfig(leagueId)
+      // Reset wizard to fresh setup state so the user sees the wizard again
+      setStep('setup')
+      setTiers(buildTiersFromCount(defaultTotal, 1))
       router.refresh()
     })
   }
@@ -457,37 +558,15 @@ export function PlayoffConfigWizard({
     return (
       <div className="space-y-4">
         {/* Header bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-white rounded-xl border px-5 py-3.5">
-          <div>
-            <p className="font-semibold text-sm">
-              {existingConfig.tiers.length} playoff tier{existingConfig.tiers.length !== 1 ? 's' : ''}
-              {' · '}
-              <span className="font-normal text-gray-500">
-                Seeding: {existingConfig.seedingMethod === 'manual' ? 'Manual' : 'Auto (standings)'}
-              </span>
-            </p>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Seeds 1–{Math.max(...existingConfig.tiers.map((t) => t.seedTo))} · {seededTeams.length} team{seededTeams.length !== 1 ? 's' : ''} registered
-            </p>
-          </div>
-          {isOrgAdmin && (
-            <div className="flex gap-2">
-              <button
-                onClick={handleRegenerate}
-                disabled={isPending}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium border text-gray-600 hover:bg-gray-50 disabled:opacity-60"
-              >
-                {isPending ? '…' : '↺ Regenerate from Standings'}
-              </button>
-              <button
-                onClick={() => setStep('tiers')}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium border text-gray-600 hover:bg-gray-50"
-              >
-                ✎ Edit Tiers
-              </button>
-            </div>
-          )}
-        </div>
+        <ManageHeader
+          existingConfig={existingConfig}
+          seededTeams={seededTeams}
+          isOrgAdmin={isOrgAdmin}
+          isPending={isPending}
+          onEditTiers={() => setStep('tiers')}
+          onRegenerate={handleRegenerate}
+          onDeleteConfig={handleDeleteConfig}
+        />
 
         {genMsg && (
           <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-4 py-2">{genMsg}</p>
@@ -645,7 +724,8 @@ export function PlayoffConfigWizard({
           {existingConfig && (
             <button
               onClick={handleDeleteConfig}
-              className="ml-auto text-xs text-red-400 hover:text-red-600"
+              disabled={isPending}
+              className="ml-auto text-xs text-red-400 hover:text-red-600 disabled:opacity-50"
             >
               Remove config
             </button>
