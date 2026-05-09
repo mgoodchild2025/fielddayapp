@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { updateLeagueStatus } from '@/actions/events'
 import { getLeagueOrganizers } from '@/actions/organizers'
 import { canAccess } from '@/lib/features'
@@ -28,6 +29,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   const [
     { data: league },
@@ -44,8 +46,14 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
     supabase.from('teams').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
     supabase.from('games').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
-    supabase.from('waivers').select('id, title, version').eq('organization_id', org.id).order('created_at', { ascending: false }),
-    supabase.from('league_rule_templates').select('id, title, content').eq('organization_id', org.id).order('created_at', { ascending: false }),
+    // Use service role for these admin-only lookups — RLS on these tables requires
+    // app.current_org_id to be set in the Postgres session, which the session client
+    // does not provide. The service role bypasses RLS, and org scoping is enforced
+    // by the explicit .eq('organization_id', org.id) filter.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('waivers').select('id, title, version').eq('organization_id', org.id).order('created_at', { ascending: false }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('league_rule_templates').select('id, title, content').eq('organization_id', org.id).order('created_at', { ascending: false }),
     getLeagueOrganizers(id),
     canAccess(org.id, 'early_bird_pricing'),
     getMerchandiseOrders(id),
