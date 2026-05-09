@@ -98,23 +98,38 @@ export default async function InvitePage({
               </p>
 
               {!user ? (
-                <div className="mt-6">
-                  <p className="text-sm text-gray-500 text-center mb-4">
-                    Sign in to accept or decline this invitation.
-                  </p>
-                  <Link
-                    href={`/login?redirect=/invite/${token}`}
-                    className="w-full block text-center py-3 rounded-lg font-bold text-white"
-                    style={{ backgroundColor: 'var(--brand-primary)' }}
-                  >
-                    Sign In to Accept
-                  </Link>
-                  <Link
-                    href={`/register?redirect=/invite/${token}`}
-                    className="w-full block text-center py-2.5 mt-2 rounded-lg font-semibold text-gray-600 text-sm border border-gray-200 hover:bg-gray-50"
-                  >
-                    Create Account
-                  </Link>
+                <div className="mt-6 space-y-4">
+                  {/* Existing account */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 text-center">Already have an account?</p>
+                    <Link
+                      href={`/login?redirect=/invite/${token}`}
+                      className="w-full block text-center py-3 rounded-lg font-bold text-white"
+                      style={{ backgroundColor: 'var(--brand-primary)' }}
+                    >
+                      Sign In to Accept
+                    </Link>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 border-t border-gray-200" />
+                    <span className="text-xs text-gray-400">or</span>
+                    <div className="flex-1 border-t border-gray-200" />
+                  </div>
+
+                  {/* New account */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 text-center">New to {org.name}?</p>
+                    <Link
+                      href={`/register?redirect=/invite/${token}`}
+                      className="w-full block text-center py-2.5 rounded-lg font-semibold text-gray-700 text-sm border border-gray-300 hover:bg-gray-50 transition-colors"
+                    >
+                      Create a Free Account
+                    </Link>
+                    <p className="text-xs text-gray-400 text-center">
+                      After confirming your email you&apos;ll be brought straight back here to accept.
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <InviteActions token={token} />
