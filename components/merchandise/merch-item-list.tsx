@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import Image from 'next/image'
 import { MerchItemForm } from './merch-item-form'
 import { deleteMerchandiseItem } from '@/actions/merchandise'
@@ -47,6 +47,9 @@ export function MerchItemList({ items: initialItems }: Props) {
   const router = useRouter()
   const [items, setItems] = useState<MerchItem[]>(initialItems)
   const [editingId, setEditingId] = useState<string | null>(null)
+
+  // Sync local state when the server re-renders with fresh data (after router.refresh())
+  useEffect(() => { setItems(initialItems) }, [initialItems])
   const [showNew, setShowNew] = useState(false)
   const [archivingId, setArchivingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
