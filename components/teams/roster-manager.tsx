@@ -6,7 +6,6 @@ import { captainSetMemberRole, captainRemoveTeamMember, captainAddPlayerByEmail,
 import { resendTeamInvite, cancelTeamInvitation } from '@/actions/invitations'
 import { setTeamMemberPosition } from '@/actions/positions'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
-import { CopyWaiverLink } from '@/components/waivers/copy-waiver-link'
 
 type Role = 'captain' | 'coach' | 'player' | 'sub'
 
@@ -43,6 +42,7 @@ interface Props {
   teamId: string
   leagueId: string
   leagueSlug: string
+  teamCode: string | null
   leagueHasWaiver: boolean
   initialMembers: ActiveMember[]
   initialInvites: PendingInvite[]
@@ -65,6 +65,7 @@ export function RosterManager({
   teamId,
   leagueId,
   leagueSlug,
+  teamCode,
   leagueHasWaiver,
   initialMembers,
   initialInvites,
@@ -205,9 +206,18 @@ export function RosterManager({
   const totalCount = members.length + invites.length
   const [origin, setOrigin] = useState('')
   useEffect(() => { setOrigin(window.location.origin) }, [])
-  const waiverUrl = leagueHasWaiver && leagueSlug && origin
-    ? `${origin}/events/${leagueSlug}/waiver`
+  const inviteUrl = teamCode && leagueSlug && origin
+    ? `${origin}/events/${leagueSlug}?code=${teamCode}`
     : null
+
+  const [copied, setCopied] = useState(false)
+  function copyInviteLink() {
+    if (!inviteUrl) return
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   return (
     <>
@@ -217,7 +227,33 @@ export function RosterManager({
             <h2 className="font-semibold">Manage Roster</h2>
             <span className="text-xs text-gray-400">{totalCount} player{totalCount !== 1 ? 's' : ''}</span>
           </div>
-          {waiverUrl && <CopyWaiverLink url={waiverUrl} compact />}
+          {inviteUrl && (
+            <button
+              type="button"
+              onClick={copyInviteLink}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors"
+              style={copied
+                ? { borderColor: '#10b981', color: '#059669', backgroundColor: '#f0fdf4' }
+                : { borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)', backgroundColor: 'transparent' }
+              }
+            >
+              {copied ? (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                  Copy invite link
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {/* ── Pending invites section ── */}

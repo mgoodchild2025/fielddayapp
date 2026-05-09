@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { validateTeamCode, joinTeamByCode } from '@/actions/teams'
 
@@ -12,14 +12,24 @@ export function JoinTeamByCode() {
   const [loading, setLoading] = useState(false)
   const [joinedName, setJoinedName] = useState<string | null>(null)
 
-  async function handleSubmit(e?: React.FormEvent) {
-    e?.preventDefault()
-    const code = teamCode.trim().toUpperCase()
-    if (!code) return
+  // If the URL contains ?code=XXXXXX (from a captain's invite link),
+  // pre-fill and auto-submit so the player joins in one click.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const codeParam = params.get('code')?.trim().toUpperCase()
+    if (!codeParam) return
+    setTeamCode(codeParam)
+    setOpen(true)
+    // Small delay so the UI renders the open form before auto-submitting
+    const t = setTimeout(() => handleSubmitCode(codeParam), 300)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function handleSubmitCode(code: string) {
     setLoading(true)
     setError(null)
 
-    // Validate first, then join in one flow
     const validation = await validateTeamCode(code)
     if (validation.error || !validation.data) {
       setError(validation.error ?? 'Invalid code')
@@ -42,6 +52,13 @@ export function JoinTeamByCode() {
       setOpen(false)
       setTeamCode('')
     }, 2500)
+  }
+
+  async function handleSubmit(e?: React.FormEvent) {
+    e?.preventDefault()
+    const code = teamCode.trim().toUpperCase()
+    if (!code) return
+    handleSubmitCode(code)
   }
 
   if (joinedName) {
@@ -86,13 +103,16 @@ export function JoinTeamByCode() {
         autoFocus
       />
       {error && <p className="text-xs text-red-500">{error}</p>}
+      {loading && (
+        <p className="text-xs text-gray-400">Joining team…</p>
+      )}
       <button
         type="submit"
         disabled={loading || !teamCode.trim()}
         className="w-full py-2.5 rounded-md font-semibold text-white text-sm disabled:opacity-50"
         style={{ backgroundColor: 'var(--brand-primary)' }}
       >
-        {loading ? 'Checking…' : 'Join Team →'}
+        {loading ? 'Joining…' : 'Join Team →'}
       </button>
     </form>
   )
