@@ -302,18 +302,26 @@ export async function generateAllTierBrackets(
   const org = await getOrgAndRequireAdmin()
   const db = createServiceRoleClient()
 
-  // Load config + tiers
+  // Load config + tiers as two separate queries (avoids PostgREST schema-cache
+  // issues with newly created tables where relationship joins may not resolve yet)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: config } = await (db as any)
     .from('playoff_configs')
-    .select('id, seeding_method, playoff_tiers(id, name, sort_order, seed_from, seed_to, bracket_type, third_place_game, bracket_id)')
+    .select('id, seeding_method')
     .eq('league_id', leagueId)
     .eq('organization_id', org.id)
-    .single()
+    .maybeSingle()
 
   if (!config) return { error: 'No playoff config found. Save the config first.', generated: 0, skipped: 0 }
 
-  const tiers = ((config.playoff_tiers ?? []) as {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: tiersData } = await (db as any)
+    .from('playoff_tiers')
+    .select('id, name, sort_order, seed_from, seed_to, bracket_type, third_place_game, bracket_id')
+    .eq('config_id', config.id)
+    .eq('organization_id', org.id)
+
+  const tiers = ((tiersData ?? []) as {
     id: string; name: string; sort_order: number; seed_from: number; seed_to: number
     bracket_type: string; third_place_game: boolean; bracket_id: string | null
   }[]).sort((a, b) => a.sort_order - b.sort_order)

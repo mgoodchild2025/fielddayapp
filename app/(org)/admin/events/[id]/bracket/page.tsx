@@ -122,25 +122,12 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
     }
   }
 
+  // Load config + tiers + brackets as separate queries to avoid PostgREST
+  // schema-cache issues with newly created tables.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: configRow } = await (db as any)
     .from('playoff_configs')
-    .select(`
-      id, seeding_method,
-      playoff_tiers (
-        id, name, sort_order, seed_from, seed_to, bracket_type, third_place_game, bracket_id,
-        bracket:brackets (
-          id, name, bracket_size, bracket_type, third_place_game, status, published_at,
-          bracket_matches (
-            id, round_number, match_number,
-            team1_id, team2_id, team1_label, team2_label,
-            team1_seed, team2_seed,
-            is_bye, winner_team_id, score1, score2, sets, status,
-            winner_to_match_id, scheduled_at, court, notes
-          )
-        )
-      )
-    `)
+    .select('id, seeding_method')
     .eq('league_id', leagueId)
     .eq('organization_id', org.id)
     .maybeSingle()
@@ -148,15 +135,45 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
   let existingConfig: ExistingConfig | null = null
 
   if (configRow) {
-    const sortedTiers = ((configRow.playoff_tiers ?? []) as {
-      id: string; name: string; sort_order: number; seed_from: number; seed_to: number;
-      bracket_type: string; third_place_game: boolean; bracket_id: string | null;
-      bracket: {
-        id: string; name: string; bracket_size: number; bracket_type?: string;
-        third_place_game: boolean; status: string;
-        bracket_matches: Parameters<typeof buildBracketData>[0]['bracket_matches'];
-      } | null;
-    }[]).sort((a, b) => a.sort_order - b.sort_order)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: tiersData } = await (db as any)
+      .from('playoff_tiers')
+      .select('id, name, sort_order, seed_from, seed_to, bracket_type, third_place_game, bracket_id')
+      .eq('config_id', configRow.id)
+      .eq('organization_id', org.id)
+      .order('sort_order', { ascending: true })
+
+    // Load each tier's bracket (if any)
+    type RawTier = {
+      id: string; name: string; sort_order: number; seed_from: number; seed_to: number
+      bracket_type: string; third_place_game: boolean; bracket_id: string | null
+    }
+    const sortedTiers: RawTier[] = (tiersData ?? [])
+
+    const bracketIds = sortedTiers.map((t) => t.bracket_id).filter(Boolean) as string[]
+    type RawBracket = Parameters<typeof buildBracketData>[0]
+    const bracketMap = new Map<string, RawBracket>()
+
+    if (bracketIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: bracketsData } = await (db as any)
+        .from('brackets')
+        .select(`
+          id, name, bracket_size, bracket_type, third_place_game, status,
+          bracket_matches (
+            id, round_number, match_number,
+            team1_id, team2_id, team1_label, team2_label,
+            team1_seed, team2_seed,
+            is_bye, winner_team_id, score1, score2, sets, status,
+            winner_to_match_id, scheduled_at, court, notes
+          )
+        `)
+        .in('id', bracketIds)
+
+      for (const b of (bracketsData ?? []) as RawBracket[]) {
+        bracketMap.set(b.id, b)
+      }
+    }
 
     existingConfig = {
       id: configRow.id,
@@ -170,7 +187,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
         bracketType: (t.bracket_type === 'double_elimination' ? 'double_elimination' : 'single_elimination') as 'single_elimination' | 'double_elimination',
         thirdPlaceGame: t.third_place_game,
         bracketId: t.bracket_id,
-        bracket: t.bracket ? buildBracketData(t.bracket) : null,
+        bracket: t.bracket_id ? buildBracketData(bracketMap.get(t.bracket_id)!) : null,
       })),
     }
   }
