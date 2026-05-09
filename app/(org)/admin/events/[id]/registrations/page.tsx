@@ -6,6 +6,7 @@ import { getAdminScope } from '@/lib/admin-scope'
 import { activateRegistration } from '@/actions/registrations'
 import { RemoveRegistrationButton } from '@/components/registrations/remove-registration-button'
 import { SendWaiverRemindersButton } from '@/components/registrations/send-waiver-reminders-button'
+import { CopyWaiverLink } from '@/components/waivers/copy-waiver-link'
 
 const regStatusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -29,12 +30,15 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   const scope = await getAdminScope(org.id)
   const isOrgAdmin = scope.isOrgAdmin
 
-  const [{ data: branding }, { data: league }] = await Promise.all([
+  const [{ data: branding }, { data: league }, { data: activeWaiver }] = await Promise.all([
     db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues').select('name, slug, waiver_version_id').eq('id', id).eq('organization_id', org.id).single(),
+    db.from('waivers').select('id').eq('organization_id', org.id).eq('is_active', true).maybeSingle(),
   ])
   const timezone = branding?.timezone ?? 'America/Toronto'
+  const leagueSlug = (league as { slug?: string } | null)?.slug ?? ''
+  const hasWaiverConfigured = !!(league as { waiver_version_id?: string | null } | null)?.waiver_version_id || !!activeWaiver
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: registrations } = await (db as any)
@@ -52,6 +56,11 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   const unsignedCount = rows.filter((r: { status: string; waiver_signature_id: string | null }) => r.status === 'active' && !r.waiver_signature_id).length
   const hasWaiver = !!(league as { waiver_version_id: string | null } | null)?.waiver_version_id
 
+  // Build the public waiver signing URL from request headers
+  const host = headersList.get('host') ?? ''
+  const proto = headersList.get('x-forwarded-proto') ?? 'http'
+  const waiverUrl = leagueSlug ? `${proto}://${host}/events/${leagueSlug}/waiver` : ''
+
   return (
     <div>
       <p className="text-sm text-gray-500 mb-4">
@@ -59,6 +68,13 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
         {' · '}
         {rows.filter((r: { status: string }) => r.status === 'active').length} active
       </p>
+
+      {/* Waiver link — shown whenever org has a waiver configured */}
+      {hasWaiverConfigured && waiverUrl && (
+        <div className="mb-4">
+          <CopyWaiverLink url={waiverUrl} />
+        </div>
+      )}
 
       {isOrgAdmin && (
         <div className="mb-4">

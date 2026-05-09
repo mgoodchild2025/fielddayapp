@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { captainSetMemberRole, captainRemoveTeamMember, captainAddPlayerByEmail, sendRosterReminder } from '@/actions/teams'
 import { resendTeamInvite, cancelTeamInvitation } from '@/actions/invitations'
 import { setTeamMemberPosition } from '@/actions/positions'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
+import { CopyWaiverLink } from '@/components/waivers/copy-waiver-link'
 
 type Role = 'captain' | 'coach' | 'player' | 'sub'
 
@@ -41,6 +42,7 @@ export interface ActiveMember {
 interface Props {
   teamId: string
   leagueId: string
+  leagueSlug: string
   leagueHasWaiver: boolean
   initialMembers: ActiveMember[]
   initialInvites: PendingInvite[]
@@ -62,6 +64,7 @@ const WAIVER_BADGE: Record<string, { label: string; className: string }> = {
 export function RosterManager({
   teamId,
   leagueId,
+  leagueSlug,
   leagueHasWaiver,
   initialMembers,
   initialInvites,
@@ -200,13 +203,21 @@ export function RosterManager({
   // ── Render ─────────────────────────────────────────────────────────────────
 
   const totalCount = members.length + invites.length
+  const [origin, setOrigin] = useState('')
+  useEffect(() => { setOrigin(window.location.origin) }, [])
+  const waiverUrl = leagueHasWaiver && leagueSlug && origin
+    ? `${origin}/events/${leagueSlug}/waiver`
+    : null
 
   return (
     <>
       <div className="mt-6 bg-white rounded-lg border overflow-hidden">
-        <div className="px-5 py-4 border-b flex items-center justify-between">
-          <h2 className="font-semibold">Manage Roster</h2>
-          <span className="text-xs text-gray-400">{totalCount} player{totalCount !== 1 ? 's' : ''}</span>
+        <div className="px-5 py-4 border-b flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <h2 className="font-semibold">Manage Roster</h2>
+            <span className="text-xs text-gray-400">{totalCount} player{totalCount !== 1 ? 's' : ''}</span>
+          </div>
+          {waiverUrl && <CopyWaiverLink url={waiverUrl} compact />}
         </div>
 
         {/* ── Pending invites section ── */}

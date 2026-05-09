@@ -315,6 +315,7 @@ export default async function TeamDetailPage({
           <RosterManager
             teamId={team.id}
             leagueId={leagueId}
+            leagueSlug={leagueSlug}
             leagueHasWaiver={leagueHasWaiver}
             positions={positions}
             initialInvites={(((pendingInvitesResult as { data: Array<{ id: string; invited_email: string; role: string; created_at: string; expires_at: string; invited_by: string }> | null }).data) ?? []).map((inv) => ({

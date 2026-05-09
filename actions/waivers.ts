@@ -275,3 +275,134 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
 
   return { data: { signatureId }, error: null }
 }
+
+// ─── Guest: sign waiver without an account ────────────────────────────────────
+
+const signWaiverGuestSchema = z.object({
+  waiverId:             z.string().uuid(),
+  leagueId:             z.string().uuid(),
+  orgId:                z.string().uuid(),
+  guestName:            z.string().min(2),
+  guestEmail:           z.string().email(),
+  signatureName:        z.string().min(2),
+  guardianRelationship: z.enum(['parent', 'legal_guardian']).optional(),
+})
+
+export async function signWaiverAsGuest(input: z.infer<typeof signWaiverGuestSchema>) {
+  const parsed = signWaiverGuestSchema.safeParse(input)
+  if (!parsed.success) return { data: null, alreadySigned: false, error: 'Invalid input' }
+
+  const headersList = await headers()
+
+  const ipAddress =
+    headersList.get('x-forwarded-for')?.split(',')[0].trim() ??
+    headersList.get('x-real-ip') ??
+    null
+
+  // Rate-limit by IP (same budget as authenticated signing)
+  const rateLimitKey = ipAddress ?? 'unknown'
+  const { limited } = signingLimiter.check(rateLimitKey)
+  if (limited) return { data: null, alreadySigned: false, error: 'Too many requests. Please wait a few minutes and try again.' }
+
+  const db = createServiceRoleClient()
+  const email = parsed.data.guestEmail.toLowerCase()
+
+  // Verify waiver belongs to this org
+  const { data: waiver } = await db
+    .from('waivers')
+    .select('id')
+    .eq('id', parsed.data.waiverId)
+    .eq('organization_id', parsed.data.orgId)
+    .single()
+  if (!waiver) return { data: null, alreadySigned: false, error: 'Waiver not found' }
+
+  // Idempotency: if same email already signed this waiver for this league, return success
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing } = await (db as any)
+    .from('waiver_signatures')
+    .select('id')
+    .eq('organization_id', parsed.data.orgId)
+    .eq('waiver_id', parsed.data.waiverId)
+    .eq('league_id', parsed.data.leagueId)
+    .ilike('guest_email', email)
+    .is('user_id', null)
+    .maybeSingle()
+
+  if (existing) {
+    return { data: { signatureId: existing.id }, alreadySigned: true, error: null }
+  }
+
+  // If this email belongs to an existing profile, use the normal auth path instead
+  // so the signature shows up in their account history.
+  const { data: profile } = await db
+    .from('profiles')
+    .select('id')
+    .ilike('email', email)
+    .maybeSingle()
+
+  if (profile?.id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: authExisting } = await (db as any)
+      .from('waiver_signatures')
+      .select('id')
+      .eq('organization_id', parsed.data.orgId)
+      .eq('user_id', profile.id)
+      .eq('waiver_id', parsed.data.waiverId)
+      .eq('league_id', parsed.data.leagueId)
+      .maybeSingle()
+
+    if (authExisting) {
+      return { data: { signatureId: authExisting.id }, alreadySigned: true, error: null }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: newSig, error: sigErr } = await (db as any)
+      .from('waiver_signatures')
+      .insert({
+        organization_id: parsed.data.orgId,
+        user_id: profile.id,
+        waiver_id: parsed.data.waiverId,
+        league_id: parsed.data.leagueId,
+        signature_name: parsed.data.signatureName,
+        ip_address: ipAddress,
+        guardian_relationship: parsed.data.guardianRelationship ?? null,
+      })
+      .select('id')
+      .single()
+
+    if (sigErr) return { data: null, alreadySigned: false, error: sigErr.message }
+
+    // Link to their registration if one exists
+    await db
+      .from('registrations')
+      .update({ waiver_signature_id: newSig.id })
+      .eq('organization_id', parsed.data.orgId)
+      .eq('user_id', profile.id)
+      .eq('league_id', parsed.data.leagueId)
+      .is('waiver_signature_id', null)
+
+    return { data: { signatureId: newSig.id }, alreadySigned: false, error: null }
+  }
+
+  // Pure guest insert (no matching account)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: newSig, error: sigErr } = await (db as any)
+    .from('waiver_signatures')
+    .insert({
+      organization_id: parsed.data.orgId,
+      user_id: null,
+      guest_name: parsed.data.guestName,
+      guest_email: email,
+      waiver_id: parsed.data.waiverId,
+      league_id: parsed.data.leagueId,
+      signature_name: parsed.data.signatureName,
+      ip_address: ipAddress,
+      guardian_relationship: parsed.data.guardianRelationship ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (sigErr) return { data: null, alreadySigned: false, error: sigErr.message }
+
+  return { data: { signatureId: newSig.id }, alreadySigned: false, error: null }
+}
