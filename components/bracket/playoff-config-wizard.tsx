@@ -453,7 +453,7 @@ export function PlayoffConfigWizard({
 
   // ── MANAGE MODE: config + at least one bracket exists ─────────────────────
 
-  if (existingConfig && hasBrackets) {
+  if (existingConfig && hasBrackets && step !== 'tiers') {
     return (
       <div className="space-y-4">
         {/* Header bar */}
