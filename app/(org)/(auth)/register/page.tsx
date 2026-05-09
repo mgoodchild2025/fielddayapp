@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useSearchParams } from 'next/navigation'
 import { z } from 'zod'
 import { signUp } from '@/actions/auth'
 import Link from 'next/link'
@@ -24,6 +25,11 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
 
+  const searchParams = useSearchParams()
+  // Only allow relative paths to prevent open redirect
+  const redirectParam = searchParams.get('redirect') ?? ''
+  const redirectTo = redirectParam.startsWith('/') ? redirectParam : ''
+
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
@@ -31,7 +37,7 @@ export default function RegisterPage() {
   async function onSubmit(data: FormData) {
     setLoading(true)
     setServerError(null)
-    const result = await signUp({ email: data.email, password: data.password, fullName: data.full_name })
+    const result = await signUp({ email: data.email, password: data.password, fullName: data.full_name, redirectTo })
     if (result?.error) {
       setServerError(result.error)
       setLoading(false)
@@ -46,11 +52,16 @@ export default function RegisterPage() {
         <div className="text-center max-w-md">
           <div className="text-5xl mb-4">✓</div>
           <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--brand-heading-font)' }}>Check your email</h1>
-          <p className="text-gray-600">We sent a confirmation link to your email address. Click it to activate your account.</p>
+          <p className="text-gray-600">
+            We sent a confirmation link to your email address. Click it to activate your account
+            {redirectTo ? ' and continue to your destination.' : '.'}
+          </p>
         </div>
       </div>
     )
   }
+
+  const loginHref = redirectTo ? `/login?redirect=${encodeURIComponent(redirectTo)}` : '/login'
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: 'var(--brand-bg)' }}>
@@ -94,7 +105,7 @@ export default function RegisterPage() {
           </button>
           <p className="text-sm text-center text-gray-500 pt-2">
             Already have an account?{' '}
-            <Link href="/login" className="hover:underline" style={{ color: 'var(--brand-primary)' }}>Sign in</Link>
+            <Link href={loginHref} className="hover:underline" style={{ color: 'var(--brand-primary)' }}>Sign in</Link>
           </p>
         </form>
       </div>

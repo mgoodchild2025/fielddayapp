@@ -91,7 +91,7 @@ const signUpSchema = z.object({
   fullName: z.string().min(2),
 })
 
-export async function signUp(input: { email: string; password: string; fullName: string }) {
+export async function signUp(input: { email: string; password: string; fullName: string; redirectTo?: string }) {
   const parsed = signUpSchema.safeParse(input)
   if (!parsed.success) return { data: null, error: 'Invalid input' }
 
@@ -101,12 +101,20 @@ export async function signUp(input: { email: string; password: string; fullName:
   // domain (org subdomain or platform domain) regardless of internal proxy addresses.
   const headersList = await headers()
   const origin = getPublicOrigin(headersList)
+
+  // Thread the post-confirmation destination through the email link so the
+  // auth callback can redirect back to it (e.g. /invite/[token]).
+  const safeRedirect = input.redirectTo?.startsWith('/') ? input.redirectTo : ''
+  const callbackUrl = safeRedirect
+    ? `${origin}/auth/callback?next=${encodeURIComponent(safeRedirect)}`
+    : `${origin}/auth/callback`
+
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
       data: { full_name: parsed.data.fullName },
-      emailRedirectTo: `${origin}/auth/callback`,
+      emailRedirectTo: callbackUrl,
     },
   })
 
