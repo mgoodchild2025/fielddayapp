@@ -23,47 +23,43 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
     .single()
   const timezone = branding?.timezone ?? 'America/Toronto'
 
-  // Query from registrations — one row per event registration. Each registration
-  // now links to its own waiver_signatures row (UNIQUE(user_id, waiver_id, league_id)),
-  // so every row has a distinct signed_at timestamp accurate to that event.
+  // Two parallel queries:
+  // 1. Registered players — from registrations joined to waiver_signatures
+  // 2. Guests — directly from waiver_signatures where user_id IS NULL
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: regs } = await (db as any)
-    .from('registrations')
-    .select(`
-      id,
-      waiver_signature_id,
-      player:profiles!registrations_user_id_fkey(full_name, email),
-      league:leagues!registrations_league_id_fkey(name),
-      signature:waiver_signatures!registrations_waiver_signature_id_fkey(
-        id, signed_at, signature_name, ip_address, guardian_relationship,
-        waiver:waivers!waiver_signatures_waiver_id_fkey(title, version)
-      )
-    `)
-    .eq('organization_id', org.id)
-    .not('waiver_signature_id', 'is', null)
-    .order('created_at', { ascending: false })
+  const anyDb = db as any
 
-  type Row = {
-    id: string
-    waiver_signature_id: string
-    player: { full_name: string; email: string } | { full_name: string; email: string }[] | null
-    league: { name: string } | { name: string }[] | null
-    signature: {
-      id: string
-      signed_at: string
-      signature_name: string
-      ip_address: string | null
-      guardian_relationship: string | null
-      waiver: { title: string; version: number } | { title: string; version: number }[] | null
-    } | {
-      id: string
-      signed_at: string
-      signature_name: string
-      ip_address: string | null
-      guardian_relationship: string | null
-      waiver: { title: string; version: number } | { title: string; version: number }[] | null
-    }[] | null
-  }
+  const [{ data: regs }, { data: guestSigs }] = await Promise.all([
+    // ── Registered players ──────────────────────────────────────────────────
+    anyDb
+      .from('registrations')
+      .select(`
+        id,
+        waiver_signature_id,
+        player:profiles!registrations_user_id_fkey(full_name, email),
+        league:leagues!registrations_league_id_fkey(name),
+        signature:waiver_signatures!registrations_waiver_signature_id_fkey(
+          id, signed_at, signature_name, ip_address, guardian_relationship,
+          waiver:waivers!waiver_signatures_waiver_id_fkey(title, version)
+        )
+      `)
+      .eq('organization_id', org.id)
+      .not('waiver_signature_id', 'is', null)
+      .order('created_at', { ascending: false }),
+
+    // ── Guest signers (no account, no registration) ─────────────────────────
+    anyDb
+      .from('waiver_signatures')
+      .select(`
+        id, signed_at, signature_name, ip_address, guardian_relationship,
+        guest_name, guest_email,
+        league:leagues!waiver_signatures_league_id_fkey(name),
+        waiver:waivers!waiver_signatures_waiver_id_fkey(title, version)
+      `)
+      .eq('organization_id', org.id)
+      .is('user_id', null)
+      .order('signed_at', { ascending: false }),
+  ])
 
   type NormalisedRow = {
     id: string
@@ -77,9 +73,12 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
     signatureName: string | null
     ipAddress: string | null
     guardianRelationship: string | null
+    isGuest: boolean
   }
 
-  const allRows: NormalisedRow[] = ((regs ?? []) as Row[]).map((reg) => {
+  // Normalise registered-player rows
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const registeredRows: NormalisedRow[] = ((regs ?? []) as any[]).map((reg) => {
     const player = Array.isArray(reg.player) ? reg.player[0] : reg.player
     const league = Array.isArray(reg.league) ? reg.league[0] : reg.league
     const sig = Array.isArray(reg.signature) ? reg.signature[0] : reg.signature
@@ -96,7 +95,37 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
       signatureName: sig?.signature_name ?? null,
       ipAddress: sig?.ip_address ?? null,
       guardianRelationship: sig?.guardian_relationship ?? null,
+      isGuest: false,
     }
+  })
+
+  // Normalise guest rows
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const guestRows: NormalisedRow[] = ((guestSigs ?? []) as any[]).map((sig) => {
+    const league = Array.isArray(sig.league) ? sig.league[0] : sig.league
+    const waiver = Array.isArray(sig.waiver) ? sig.waiver[0] : sig.waiver
+    return {
+      id: sig.id,
+      playerName: sig.guest_name ?? '',
+      playerEmail: sig.guest_email ?? '',
+      eventName: league?.name ?? '',
+      waiverTitle: waiver?.title ?? '',
+      waiverVersion: waiver?.version ?? null,
+      sigId: sig.id,
+      signedAt: sig.signed_at ?? null,
+      signatureName: sig.signature_name ?? null,
+      ipAddress: sig.ip_address ?? null,
+      guardianRelationship: sig.guardian_relationship ?? null,
+      isGuest: true,
+    }
+  })
+
+  // Merge and sort by signed_at descending (registered rows already ordered by registration date;
+  // we re-sort the merged list by signature date for a coherent view).
+  const allRows = [...registeredRows, ...guestRows].sort((a, b) => {
+    const ta = a.signedAt ? new Date(a.signedAt).getTime() : 0
+    const tb = b.signedAt ? new Date(b.signedAt).getTime() : 0
+    return tb - ta
   })
 
   // Unique options for dropdowns (sorted)
@@ -160,6 +189,11 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-medium">{row.playerName || '—'}</span>
+                        {row.isGuest && (
+                          <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
+                            Guest
+                          </span>
+                        )}
                         {isGuardian && (
                           <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
                             👤 Minor
