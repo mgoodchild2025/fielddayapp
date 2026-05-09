@@ -29,6 +29,7 @@ export type MerchItem = {
   image_url: string | null
   is_active: boolean
   shop_enabled: boolean
+  stock_quantity: number | null
   created_at: string
   variants: MerchVariant[]
 }
@@ -351,6 +352,7 @@ export async function upsertMerchandiseItem(data: {
   image_url?: string | null
   is_active?: boolean
   shop_enabled?: boolean
+  stock_quantity?: number | null
 }): Promise<{ error: string | null; id: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -369,6 +371,7 @@ export async function upsertMerchandiseItem(data: {
     image_url: data.image_url ?? null,
     is_active: data.is_active ?? true,
     shop_enabled: data.shop_enabled ?? false,
+    stock_quantity: data.stock_quantity ?? null,
   }
 
   if (data.id) {

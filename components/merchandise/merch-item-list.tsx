@@ -142,7 +142,12 @@ export function MerchItemList({ items: initialItems }: Props) {
                       )}
 
                       {item.variants.length === 0 && (
-                        <p className="text-xs text-gray-400 mt-1">No size/variant options</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          No size/variant options
+                          {item.stock_quantity != null && (
+                            <span className="ml-1">· {item.stock_quantity} in stock</span>
+                          )}
+                        </p>
                       )}
                     </div>
 

@@ -33,6 +33,9 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
       stock_quantity: v.stock_quantity != null ? String(v.stock_quantity) : '',
     }))
   )
+  const [stockStr, setStockStr] = useState(
+    item?.stock_quantity != null ? String(item.stock_quantity) : ''
+  )
   const [shopEnabled, setShopEnabled] = useState(item?.shop_enabled ?? false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -105,6 +108,11 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
     }
 
     startTransition(async () => {
+      // Item-level stock only applies when no variants — variants track their own stock
+      const itemStock = variants.length === 0 && stockStr.trim()
+        ? parseInt(stockStr, 10)
+        : null
+
       const result = await upsertMerchandiseItem({
         id: item?.id,
         name: name.trim(),
@@ -113,6 +121,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
         image_url: imageUrl,
         is_active: item?.is_active ?? true,
         shop_enabled: shopEnabled,
+        stock_quantity: itemStock,
       })
 
       if (result.error) { setError(result.error); return }
@@ -254,6 +263,23 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
             />
           </div>
         </div>
+
+        {/* Stock quantity — only for variant-less items */}
+        {variants.length === 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Stock quantity <span className="text-gray-400 font-normal">(optional — leave blank for unlimited)</span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={stockStr}
+              onChange={(e) => setStockStr(e.target.value)}
+              placeholder="∞ unlimited"
+              className="w-40 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30"
+            />
+          </div>
+        )}
 
         {/* Shop toggle */}
         <div className="flex items-center justify-between py-3 border-t">
