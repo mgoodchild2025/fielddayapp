@@ -698,28 +698,30 @@ export function PlayoffConfigWizard({
         {err && <p className="text-sm text-red-500">{err}</p>}
 
         <div className="flex gap-3 flex-wrap">
-          {/* Generate = save config + create all brackets in one click */}
+          {/* Generate = save config + create all bracket draws in one click */}
           <button
             onClick={() => handleSaveConfig(true)}
             disabled={isPending || tiers.length === 0}
             className="px-6 py-2.5 rounded-lg font-semibold text-white disabled:opacity-60"
             style={{ backgroundColor: 'var(--brand-primary)' }}
           >
-            {isPending ? 'Generating…' : 'Save & Generate All Brackets →'}
+            {isPending ? 'Generating…' : 'Save & Generate Brackets →'}
           </button>
-          {/* Or just save the config for later */}
+          {/* Save tier definitions without building bracket draws yet */}
           <button
             onClick={() => handleSaveConfig(false)}
             disabled={isPending}
             className="px-5 py-2.5 rounded-lg font-medium border text-gray-600 hover:bg-gray-50 disabled:opacity-60"
           >
-            {isPending ? '…' : 'Save Config Only'}
+            {isPending ? '…' : 'Save Tiers Only'}
           </button>
+          {/* Go back: returns to bracket view when brackets exist (manage mode
+              triggers on any step !== 'tiers'), otherwise to setup picker */}
           <button
             onClick={() => setStep('setup')}
             className="px-4 py-2.5 rounded-lg font-medium text-gray-500 hover:bg-gray-50"
           >
-            ← Back
+            {hasBrackets ? '← View Brackets' : '← Back'}
           </button>
           {existingConfig && (
             <button
