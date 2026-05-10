@@ -25,8 +25,10 @@ export function AssignSlotsCard({ leagueId, slotLabels, teams }: Props) {
   const [success, setSuccess] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Don't render if nothing to map or no real teams to map to
-  if (slotLabels.length === 0 || teams.length === 0) return null
+  // Nothing to show if no unmatched labels exist
+  if (slotLabels.length === 0) return null
+
+  const hasTeams = teams.length > 0
 
   function handleChange(slot: string, teamId: string) {
     setAssignments(prev => ({ ...prev, [slot]: teamId }))
@@ -54,7 +56,6 @@ export function AssignSlotsCard({ leagueId, slotLabels, teams }: Props) {
         setSuccess(
           `${result.count} slot${result.count !== 1 ? 's' : ''} assigned. Games updated.`
         )
-        // Clear the saved slots from local state
         setAssignments(prev => {
           const next = { ...prev }
           toAssign.forEach(({ slotLabel }) => { next[slotLabel] = '' })
@@ -77,7 +78,9 @@ export function AssignSlotsCard({ leagueId, slotLabels, teams }: Props) {
         </span>
       </div>
       <p className="text-xs text-gray-400 mb-3">
-        Map placeholder slots from the generated schedule to real teams.
+        {hasTeams
+          ? 'Map imported team names to real teams.'
+          : 'These team names were imported from your CSV. Create teams (or wait for players to register) to map them.'}
       </p>
 
       {success && (
@@ -94,39 +97,46 @@ export function AssignSlotsCard({ leagueId, slotLabels, teams }: Props) {
       <div className="space-y-2 mb-3">
         {slotLabels.map(slot => (
           <div key={slot} className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-500 w-16 shrink-0 truncate" title={slot}>
+            <span className="text-xs font-medium text-gray-700 shrink-0 truncate max-w-[6rem]" title={slot}>
               {slot}
             </span>
-            <span className="text-gray-300 text-xs">→</span>
-            <select
-              value={assignments[slot] ?? ''}
-              onChange={e => handleChange(slot, e.target.value)}
-              className="flex-1 min-w-0 border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400"
-            >
-              <option value="">— assign later —</option>
-              {teams.map(t => (
-                <option
-                  key={t.id}
-                  value={t.id}
-                  // Dim teams already selected elsewhere (still selectable)
-                  className={picked.has(t.id) && assignments[slot] !== t.id ? 'text-gray-400' : ''}
+            {hasTeams ? (
+              <>
+                <span className="text-gray-300 text-xs">→</span>
+                <select
+                  value={assignments[slot] ?? ''}
+                  onChange={e => handleChange(slot, e.target.value)}
+                  className="flex-1 min-w-0 border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400"
                 >
-                  {t.name}
-                </option>
-              ))}
-            </select>
+                  <option value="">— assign later —</option>
+                  {teams.map(t => (
+                    <option
+                      key={t.id}
+                      value={t.id}
+                      className={picked.has(t.id) && assignments[slot] !== t.id ? 'text-gray-400' : ''}
+                    >
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <span className="text-xs text-gray-400 italic">— no teams yet —</span>
+            )}
           </div>
         ))}
       </div>
 
-      <button
-        onClick={handleSave}
-        disabled={pending || Object.values(assignments).every(v => !v)}
-        className="w-full py-2 rounded text-sm font-semibold text-white disabled:opacity-40 transition-opacity"
-        style={{ backgroundColor: 'var(--brand-primary)' }}
-      >
-        {pending ? 'Saving…' : 'Save assignments'}
-      </button>
+      {hasTeams && (
+        <button
+          onClick={handleSave}
+          disabled={pending || Object.values(assignments).every(v => !v)}
+          className="w-full py-2 rounded text-sm font-semibold text-white disabled:opacity-40 transition-opacity"
+          style={{ backgroundColor: 'var(--brand-primary)' }}
+        >
+          {pending ? 'Saving…' : 'Save assignments'}
+        </button>
+      )}
     </div>
   )
 }
