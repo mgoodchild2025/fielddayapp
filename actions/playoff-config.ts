@@ -391,20 +391,23 @@ export async function generateAllTierBrackets(
       await (db as any).from('playoff_tiers').update({ bracket_id: null }).eq('id', tier.id)
     }
 
-    // Slice the seeded teams for this tier's seed range
-    const tierTeams = seededTeams.slice(tier.seed_from - 1, tier.seed_to)
-    if (tierTeams.length < 2) {
-      // Not enough teams yet — scaffold with placeholders
+    // Use the tier's configured seed range as the bracket size.
+    // seededTeams may be empty or partial when no teams have registered yet —
+    // insertBracketWithMatches handles this by creating TBD-slotted matches that
+    // get populated when teams are assigned later via the seeding step.
+    const teamsAdvancing = tier.seed_to - tier.seed_from + 1
+    if (teamsAdvancing < 2) {
       skipped++
       continue
     }
+    const tierTeams = seededTeams.slice(tier.seed_from - 1, tier.seed_to)
 
     const { bracketId, error } = await insertBracketWithMatches(db, org.id, leagueId, {
       name: tier.name,
       bracketType: tier.bracket_type as 'single_elimination' | 'double_elimination',
-      teamsAdvancing: tierTeams.length,
+      teamsAdvancing,
       thirdPlaceGame: tier.third_place_game,
-      seededTeams: tierTeams,
+      seededTeams: tierTeams,  // may be empty/partial — slots left TBD
     })
 
     if (error || !bracketId) { skipped++; continue }
