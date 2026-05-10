@@ -739,17 +739,27 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
 
   const teamMap = new Map(teams?.map((t) => [t.name.toLowerCase(), t.id]))
 
-  const games = rows.map((row) => ({
-    organization_id: org.id,
-    league_id: leagueId,
-    scheduled_at: parseLocalToUtc(row.date, row.time, timezone),
-    home_team_id: teamMap.get(row.home_team.toLowerCase()) ?? null,
-    away_team_id: teamMap.get(row.away_team.toLowerCase()) ?? null,
-    court: row.court ?? null,
-    week_number: row.week ? parseInt(row.week, 10) : null,
-  }))
+  const games = rows.map((row) => {
+    const homeId = teamMap.get(row.home_team?.toLowerCase()) ?? null
+    const awayId = teamMap.get(row.away_team?.toLowerCase()) ?? null
+    return {
+      organization_id: org.id,
+      league_id: leagueId,
+      scheduled_at: parseLocalToUtc(row.date, row.time, timezone),
+      home_team_id: homeId,
+      away_team_id: awayId,
+      // When no matching team exists, store the CSV name as a label so it
+      // displays in the schedule and appears in the "Assign Teams" card
+      // for mapping once real teams are created or registered.
+      home_team_label: homeId ? null : (row.home_team?.trim() || null),
+      away_team_label: awayId ? null : (row.away_team?.trim() || null),
+      court: row.court ?? null,
+      week_number: row.week ? parseInt(row.week, 10) : null,
+    }
+  })
 
-  const { error } = await supabase.from('games').insert(games)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).from('games').insert(games)
   if (error) return { data: null, error: error.message }
 
   revalidatePath(`/admin/events/${leagueId}/schedule`)
