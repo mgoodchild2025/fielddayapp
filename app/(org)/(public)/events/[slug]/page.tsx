@@ -878,11 +878,12 @@ export default async function EventDetailPage({
     }
   }
 
-  let bracketData: BracketData | null = null
+  let allBracketData: BracketData[] = []
 
   if (activeTab === 'bracket' && hasBracket) {
+    // Fetch ALL published brackets for this league (one per tier)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rawBracket } = await (db as any)
+    const { data: rawBrackets } = await (db as any)
       .from('brackets')
       .select(`
         id, name, bracket_size, bracket_type, third_place_game, status, published_at,
@@ -898,10 +899,8 @@ export default async function EventDetailPage({
       .eq('organization_id', org.id)
       .not('published_at', 'is', null)
       .order('created_at', { ascending: true })
-      .limit(1)
-      .single()
 
-    if (rawBracket) {
+    if (rawBrackets && rawBrackets.length > 0) {
       // Build team name map from teams already fetched (or fetch them)
       const { data: bracketTeams } = await db
         .from('teams')
@@ -910,7 +909,8 @@ export default async function EventDetailPage({
         .eq('organization_id', org.id)
       const teamNameMap = new Map((bracketTeams ?? []).map((t) => [t.id, t.name]))
 
-      bracketData = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      allBracketData = rawBrackets.map((rawBracket: any) => ({
         id: rawBracket.id,
         name: rawBracket.name,
         bracketSize: rawBracket.bracket_size,
@@ -948,7 +948,7 @@ export default async function EventDetailPage({
           notes: m.notes,
           winnerToMatchId: m.winner_to_match_id,
         })),
-      }
+      }))
     }
   }
 
@@ -1599,11 +1599,18 @@ export default async function EventDetailPage({
 
         {/* ──────────────── BRACKET TAB ──────────────── */}
         {activeTab === 'bracket' && (
-          <div>
-            {!bracketData ? (
+          <div className="space-y-10">
+            {allBracketData.length === 0 ? (
               <p className="text-gray-500 text-center py-16">Playoffs not available yet.</p>
             ) : (
-              <BracketView bracket={bracketData} leagueId={league.id} />
+              allBracketData.map((bracket) => (
+                <div key={bracket.id}>
+                  {allBracketData.length > 1 && (
+                    <h2 className="text-lg font-bold mb-4 px-1">{bracket.name}</h2>
+                  )}
+                  <BracketView bracket={bracket} leagueId={league.id} />
+                </div>
+              ))
             )}
           </div>
         )}
