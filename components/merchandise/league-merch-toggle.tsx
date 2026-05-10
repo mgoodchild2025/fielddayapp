@@ -92,7 +92,11 @@ export function LeagueMerchToggle({ leagueId, allItems, enabledItemIds, enabledI
       <div className="bg-white rounded-lg border border-dashed p-8 text-center space-y-2">
         <p className="text-sm font-medium text-gray-600">No merchandise items in your library</p>
         <p className="text-xs text-gray-400">
-          Go to <strong>Settings → Merchandise</strong> to create items first.
+          Go to{' '}
+          <a href="/admin/shop?tab=items" className="underline font-medium">
+            Shop → Items
+          </a>{' '}
+          to create items first.
         </p>
       </div>
     )

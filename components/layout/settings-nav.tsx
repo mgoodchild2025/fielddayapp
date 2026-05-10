@@ -13,7 +13,6 @@ const CATEGORIES = [
   { href: '/admin/settings/event-rules',   label: 'Event Rules',     description: 'Reusable rule templates selectable per event.' },
   { href: '/admin/settings/positions',     label: 'Positions',       description: 'Customise player positions available per sport.' },
   { href: '/admin/settings/discounts',     label: 'Discount Codes',  description: 'Create and manage promo / discount codes.' },
-  { href: '/admin/settings/merchandise',  label: 'Merchandise',     description: 'Items players can purchase during registration (jerseys, hats, etc.).' },
 ]
 
 export function SettingsNav() {

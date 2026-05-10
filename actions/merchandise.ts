@@ -91,6 +91,7 @@ export type MerchOrder = {
   player_email?: string | null
   item_name?: string
   variant_label?: string | null
+  league_name?: string | null
 }
 
 export type MerchOrderInput = {
@@ -723,6 +724,88 @@ export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
     item_name: itemMap.get(order.item_id) ?? 'Unknown item',
     variant_label: order.variant_id ? (variantMap.get(order.variant_id) ?? null) : null,
   }))
+}
+
+/** Fetch ALL merchandise orders for an org across shop + all events, with league name. */
+export async function getAllMerchandiseOrders(orgId: string): Promise<MerchOrder[]> {
+  const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: orders, error } = await (db as any)
+    .from('merchandise_orders')
+    .select('*')
+    .eq('organization_id', orgId)
+    .order('created_at', { ascending: false })
+
+  if (error || !orders || (orders as MerchOrder[]).length === 0) return []
+
+  const typedOrders = orders as MerchOrder[]
+  const userIds = [...new Set(typedOrders.map((o) => o.user_id))]
+  const itemIds = [...new Set(typedOrders.map((o) => o.item_id))]
+  const variantIds = typedOrders.map((o) => o.variant_id).filter(Boolean) as string[]
+  const leagueIds = typedOrders.map((o) => o.league_id).filter(Boolean) as string[]
+
+  const [{ data: profiles }, { data: items }, { data: variantRows }, { data: leagues }] = await Promise.all([
+    db.from('profiles').select('id, full_name, email').in('id', userIds),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('merchandise_items').select('id, name').in('id', itemIds),
+    variantIds.length > 0
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (db as any).from('merchandise_variants').select('id, label').in('id', variantIds)
+      : Promise.resolve({ data: [] }),
+    leagueIds.length > 0
+      ? db.from('leagues').select('id, name').in('id', leagueIds)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const profileMap = new Map<string, { full_name: string | null; email: string | null }>()
+  for (const p of (profiles ?? []) as { id: string; full_name: string | null; email: string | null }[]) {
+    profileMap.set(p.id, p)
+  }
+  const itemMap = new Map<string, string>()
+  for (const i of (items ?? []) as { id: string; name: string }[]) {
+    itemMap.set(i.id, i.name)
+  }
+  const variantMap = new Map<string, string>()
+  for (const v of (variantRows ?? []) as { id: string; label: string }[]) {
+    variantMap.set(v.id, v.label)
+  }
+  const leagueMap = new Map<string, string>()
+  for (const l of (leagues ?? []) as { id: string; name: string }[]) {
+    leagueMap.set(l.id, l.name)
+  }
+
+  return typedOrders.map((order) => ({
+    ...order,
+    player_name: profileMap.get(order.user_id)?.full_name ?? null,
+    player_email: profileMap.get(order.user_id)?.email ?? null,
+    item_name: itemMap.get(order.item_id) ?? 'Unknown item',
+    variant_label: order.variant_id ? (variantMap.get(order.variant_id) ?? null) : null,
+    league_name: order.league_id ? (leagueMap.get(order.league_id) ?? null) : null,
+  }))
+}
+
+/** Mark all paid orders org-wide as fulfilled. */
+export async function fulfillAllOrgOrders(orgId: string): Promise<{ error: string | null; count: number }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const role = await getCallerRole(org.id)
+  if (!role || !['org_admin', 'league_admin'].includes(role)) {
+    return { error: 'Unauthorized', count: 0 }
+  }
+
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (db as any)
+    .from('merchandise_orders')
+    .update({ status: 'fulfilled', fulfilled_at: new Date().toISOString() })
+    .eq('organization_id', orgId)
+    .eq('status', 'paid')
+    .select('id')
+
+  if (error) return { error: error.message, count: 0 }
+  revalidatePath('/admin/shop')
+  return { error: null, count: (data as { id: string }[]).length }
 }
 
 // ── Low-stock notifications ────────────────────────────────────────────────────

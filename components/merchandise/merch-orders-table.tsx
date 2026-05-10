@@ -1,16 +1,18 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { fulfillMerchandiseOrder, fulfillAllMerchandiseOrders, fulfillAllShopOrders } from '@/actions/merchandise'
+import { fulfillMerchandiseOrder, fulfillAllMerchandiseOrders, fulfillAllShopOrders, fulfillAllOrgOrders } from '@/actions/merchandise'
 import type { MerchOrder } from '@/actions/merchandise'
 
 type FulfillAllTarget =
   | { type: 'league'; leagueId: string }
   | { type: 'shop'; orgId: string }
+  | { type: 'all'; orgId: string }
 
 interface Props {
   fulfillAllTarget: FulfillAllTarget
   orders: MerchOrder[]
+  showSource?: boolean
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -28,7 +30,22 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders }: Props) {
+function SourceBadge({ leagueName }: { leagueName?: string | null }) {
+  if (!leagueName) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+        Shop
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs text-gray-500 bg-gray-100 max-w-[140px] truncate" title={leagueName}>
+      {leagueName}
+    </span>
+  )
+}
+
+export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders, showSource = false }: Props) {
   const [orders, setOrders] = useState<MerchOrder[]>(initialOrders)
   const [error, setError] = useState<string | null>(null)
   const [fulfillPendingId, setFulfillPendingId] = useState<string | null>(null)
@@ -57,9 +74,14 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
     setError(null)
     setFulfillAllPending(true)
     startTransition(async () => {
-      const result = fulfillAllTarget.type === 'shop'
-        ? await fulfillAllShopOrders(fulfillAllTarget.orgId)
-        : await fulfillAllMerchandiseOrders(fulfillAllTarget.leagueId)
+      let result: { error: string | null }
+      if (fulfillAllTarget.type === 'all') {
+        result = await fulfillAllOrgOrders(fulfillAllTarget.orgId)
+      } else if (fulfillAllTarget.type === 'shop') {
+        result = await fulfillAllShopOrders(fulfillAllTarget.orgId)
+      } else {
+        result = await fulfillAllMerchandiseOrders(fulfillAllTarget.leagueId)
+      }
       setFulfillAllPending(false)
       if (result.error) {
         setError(result.error)
@@ -75,19 +97,25 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
     const exportable = orders.filter((o) => o.status !== 'cancelled')
     if (exportable.length === 0) return
 
-    const header = ['Player Name', 'Email', 'Item', 'Size / Variant', 'Qty', 'Unit Price', 'Total', 'Status']
-    const rows = exportable.map((o) => [
-      o.player_name ?? '',
-      o.player_email ?? '',
-      o.item_name ?? '',
-      o.variant_label ?? '',
-      String(o.quantity),
-      `$${(o.unit_price_cents / 100).toFixed(2)}`,
-      `$${((o.unit_price_cents * o.quantity) / 100).toFixed(2)}`,
-      o.status,
-    ])
+    const headerRow = showSource
+      ? ['Source', 'Player Name', 'Email', 'Item', 'Size / Variant', 'Qty', 'Unit Price', 'Total', 'Status']
+      : ['Player Name', 'Email', 'Item', 'Size / Variant', 'Qty', 'Unit Price', 'Total', 'Status']
 
-    const csv = [header, ...rows]
+    const rows = exportable.map((o) => {
+      const base = [
+        o.player_name ?? '',
+        o.player_email ?? '',
+        o.item_name ?? '',
+        o.variant_label ?? '',
+        String(o.quantity),
+        `$${(o.unit_price_cents / 100).toFixed(2)}`,
+        `$${((o.unit_price_cents * o.quantity) / 100).toFixed(2)}`,
+        o.status,
+      ]
+      return showSource ? [o.league_name ?? 'Shop', ...base] : base
+    })
+
+    const csv = [headerRow, ...rows]
       .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(','))
       .join('\n')
 
@@ -106,7 +134,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
     return (
       <div className="bg-white rounded-lg border border-dashed p-8 text-center space-y-1">
         <p className="text-sm font-medium text-gray-600">No merchandise orders yet</p>
-        <p className="text-xs text-gray-400">Orders will appear here once players purchase items during registration.</p>
+        <p className="text-xs text-gray-400">Orders will appear here once players purchase items.</p>
       </div>
     )
   }
@@ -115,6 +143,8 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
   const paidTotal = orders
     .filter((o) => o.status === 'paid' || o.status === 'fulfilled')
     .reduce((sum, o) => sum + o.unit_price_cents * o.quantity, 0)
+
+  const colSpan = showSource ? 8 : 7
 
   return (
     <div className="space-y-4">
@@ -175,6 +205,9 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
           <table className="min-w-full divide-y divide-gray-100">
             <thead>
               <tr className="bg-gray-50">
+                {showSource && (
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Source</th>
+                )}
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Player</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Item</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Size</th>
@@ -187,6 +220,11 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
             <tbody className="divide-y divide-gray-50">
               {orders.map((order) => (
                 <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
+                  {showSource && (
+                    <td className="px-4 py-3">
+                      <SourceBadge leagueName={order.league_name} />
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <div>
                       <p className="text-sm font-medium text-gray-900 truncate max-w-[160px]">
@@ -236,7 +274,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
             </tbody>
             <tfoot>
               <tr className="bg-gray-50 border-t">
-                <td colSpan={4} className="px-4 py-3 text-xs font-semibold text-gray-500">Total</td>
+                <td colSpan={showSource ? 5 : 4} className="px-4 py-3 text-xs font-semibold text-gray-500">Total</td>
                 <td className="px-4 py-3 text-right text-sm font-bold text-gray-800">
                   ${(total / 100).toFixed(2)}
                 </td>
