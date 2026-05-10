@@ -617,6 +617,71 @@ export async function restoreGame(input: {
   return { error: null }
 }
 
+/** Toggle the public visibility of a league's schedule. Org/league admin only. */
+export async function setSchedulePublished(leagueId: string, published: boolean) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: adminMember } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+
+  if (!adminMember) return { error: 'Admin access required' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from('leagues')
+    .update({ schedule_published: published })
+    .eq('id', leagueId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${leagueId}/schedule`)
+  revalidatePath('/events/[slug]', 'page')
+  return { error: null }
+}
+
+/** Delete ALL games for a league — used to clear a bad import. Admin only. */
+export async function clearAllGames(leagueId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: adminMember } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+
+  if (!adminMember) return { error: 'Admin access required' }
+
+  const { error } = await supabase
+    .from('games')
+    .delete()
+    .eq('league_id', leagueId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${leagueId}/schedule`)
+  revalidatePath('/events/[slug]', 'page')
+  return { error: null }
+}
+
 export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)

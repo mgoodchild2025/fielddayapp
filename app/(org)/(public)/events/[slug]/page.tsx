@@ -446,11 +446,13 @@ export default async function EventDetailPage({
   const standingsVisibility: string = (league as any).standings_visibility ?? 'public'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const bracketVisibility: string = (league as any).bracket_visibility ?? 'public'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const schedulePublished: boolean = (league as any).schedule_published ?? true
 
   // All possible tabs (visibility filtering happens after participant status is known, below)
   const allTeamTabs = [
     { id: 'overview', label: 'Overview', visibility: 'public' as const },
-    { id: 'schedule', label: 'Schedule', visibility: scheduleVisibility },
+    ...(schedulePublished ? [{ id: 'schedule', label: 'Schedule', visibility: scheduleVisibility }] : []),
     { id: 'standings', label: 'Standings', visibility: standingsVisibility },
     ...(hasBracket ? [{ id: 'bracket', label: 'Playoffs', visibility: bracketVisibility }] : []),
   ]
@@ -464,7 +466,7 @@ export default async function EventDetailPage({
 
   const inSeasonTabs = isTeamBased
     ? [
-        { id: 'schedule',  label: 'Schedule',  visibility: 'public' as const },
+        ...(schedulePublished ? [{ id: 'schedule',  label: 'Schedule',  visibility: 'public' as const }] : []),
         { id: 'standings', label: 'Standings', visibility: 'public' as const },
         ...(hasBracket          ? [{ id: 'bracket', label: 'Playoffs', visibility: 'public' as const }] : []),
         { id: 'stats', label: 'Stats', visibility: statsVisibility },

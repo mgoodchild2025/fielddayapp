@@ -30,7 +30,7 @@ export default async function SchedulePage() {
       id, scheduled_at, court, week_number, status,
       home_team:teams!games_home_team_id_fkey(id, name, color),
       away_team:teams!games_away_team_id_fkey(id, name, color),
-      league:leagues!games_league_id_fkey(name, slug)
+      league:leagues!games_league_id_fkey(name, slug, schedule_published)
     `)
       .eq('organization_id', org.id)
       .gte('scheduled_at', pastBound)
@@ -42,6 +42,14 @@ export default async function SchedulePage() {
   ])
 
   const timezone = branding?.timezone ?? 'America/Toronto'
+
+  // Filter out games from leagues with unpublished schedules
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const publishedGames = (allGames ?? []).filter((g: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const league = Array.isArray(g.league) ? g.league[0] : g.league
+    return league?.schedule_published !== false
+  })
 
   // Pickup sessions the player registered for (past 60 days + future)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,7 +75,7 @@ export default async function SchedulePage() {
   )
 
   // Games involving the player's teams (or all org games if no team memberships)
-  const relevantGames = (allGames ?? []).filter((g) => {
+  const relevantGames = publishedGames.filter((g) => {
     if (myTeamIds.size === 0) return true
     const homeTeam = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
     const awayTeam = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team

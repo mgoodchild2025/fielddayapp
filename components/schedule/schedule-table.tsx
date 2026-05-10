@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { AdminScoreEntry } from '@/components/scores/admin-score-entry'
 import { EditGameModal } from '@/components/schedule/edit-game-modal'
 import { venueLabel } from '@/lib/venue-label'
+import { deleteGame, setSchedulePublished, clearAllGames } from '@/actions/schedule'
 
 interface SetScore { home: number; away: number }
 
@@ -45,6 +47,8 @@ interface Props {
   leagueId: string
   sport: string
   timezone: string
+  schedulePublished?: boolean
+  isAdmin?: boolean
 }
 
 function needsScore(game: Game) {
@@ -62,6 +66,15 @@ function groupByDate(games: Game[]): { dateKey: string; dateLabel: string; games
   return Array.from(map.entries()).map(([dateKey, { dateLabel, games }]) => ({ dateKey, dateLabel, games }))
 }
 
+// Small trash SVG icon
+function TrashIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+      <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
 // Small printer SVG icon
 function PrintIcon() {
   return (
@@ -71,12 +84,45 @@ function PrintIcon() {
   )
 }
 
-export function ScheduleTable({ games, teams, leagueId, sport, timezone }: Props) {
+export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedulePublished = true, isAdmin = false }: Props) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
   const [editingGame, setEditingGame] = useState<Game | null>(null)
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [isClearing, setIsClearing] = useState(false)
   const [filter, setFilter] = useState<'all' | 'needs' | 'cancelled'>('all')
   // Track status overrides applied optimistically within this session
   const [statusOverrides, setStatusOverrides] = useState<Map<string, { status: string; reason: string | null }>>(new Map())
+
+  function handleDeleteGame(gameId: string) {
+    if (!confirm('Delete this game? This cannot be undone.')) return
+    setDeletingId(gameId)
+    startTransition(async () => {
+      await deleteGame(gameId, leagueId)
+      setDeletedIds((prev) => new Set([...prev, gameId]))
+      setDeletingId(null)
+    })
+  }
+
+  function handlePublishToggle() {
+    startTransition(async () => {
+      await setSchedulePublished(leagueId, !schedulePublished)
+      router.refresh()
+    })
+  }
+
+  function handleClearAll() {
+    const count = games.filter(g => !deletedIds.has(g.id)).length
+    if (!confirm(`Delete all ${count} game${count !== 1 ? 's' : ''}? This cannot be undone.`)) return
+    setIsClearing(true)
+    startTransition(async () => {
+      await clearAllGames(leagueId)
+      setDeletedIds(new Set(games.map(g => g.id)))
+      setIsClearing(false)
+      router.refresh()
+    })
+  }
 
   function handleStatusChanged(gameId: string, newStatus: string, reason: string | null) {
     setStatusOverrides((prev) => new Map(prev).set(gameId, { status: newStatus, reason }))
@@ -107,6 +153,44 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone }: Props
 
   return (
     <>
+      {/* Draft/Publish status banner — admin only */}
+      {isAdmin && (
+        <div className={`flex items-center justify-between gap-3 rounded-lg px-4 py-2.5 mb-4 text-sm ${
+          schedulePublished
+            ? 'bg-green-50 border border-green-200'
+            : 'bg-amber-50 border border-amber-200'
+        }`}>
+          <div className="flex items-center gap-2">
+            <span className={`inline-block w-2 h-2 rounded-full ${schedulePublished ? 'bg-green-500' : 'bg-amber-400'}`} />
+            <span className={`font-medium ${schedulePublished ? 'text-green-800' : 'text-amber-800'}`}>
+              {schedulePublished ? 'Published — players can view the schedule' : 'Draft — schedule is hidden from players'}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            {!schedulePublished && games.filter(g => !deletedIds.has(g.id)).length > 0 && (
+              <button
+                onClick={handleClearAll}
+                disabled={isPending || isClearing}
+                className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+              >
+                {isClearing ? 'Clearing…' : `Clear all ${games.filter(g => !deletedIds.has(g.id)).length} games`}
+              </button>
+            )}
+            <button
+              onClick={handlePublishToggle}
+              disabled={isPending}
+              className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors disabled:opacity-50 ${
+                schedulePublished
+                  ? 'text-gray-600 border border-gray-300 hover:bg-gray-100'
+                  : 'text-white bg-green-600 hover:bg-green-700'
+              }`}
+            >
+              {isPending ? '…' : schedulePublished ? 'Unpublish' : 'Publish Schedule →'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Filter pills */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <button
@@ -243,6 +327,16 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone }: Props
                     >
                       Edit
                     </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleDeleteGame(game.id)}
+                        disabled={deletingId === game.id}
+                        className="px-3 py-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 active:bg-red-100 disabled:opacity-40"
+                        title="Delete game"
+                      >
+                        <TrashIcon />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -357,6 +451,20 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone }: Props
                               <PrintIcon />
                               <span>stats</span>
                             </a>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDeleteGame(game.id)}
+                                disabled={deletingId === game.id}
+                                className="text-gray-300 hover:text-red-500 transition-colors disabled:opacity-40"
+                                title="Delete game"
+                              >
+                                {deletingId === game.id ? (
+                                  <span className="text-xs">…</span>
+                                ) : (
+                                  <TrashIcon />
+                                )}
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
