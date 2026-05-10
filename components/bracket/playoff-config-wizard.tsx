@@ -262,6 +262,17 @@ function TierBracketCard({
 
         {isOrgAdmin && tier.bracket && (
           <div className="flex items-center gap-2 shrink-0">
+            {tier.bracketId && (
+              <a
+                href={`/admin/events/${leagueId}/bracket/print?bracketId=${tier.bracketId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium border text-gray-600 hover:bg-gray-50 flex items-center gap-1"
+                title="Print bracket"
+              >
+                🖨 Print
+              </a>
+            )}
             {tier.bracket.status !== 'active' && (
               <button
                 onClick={handlePublish}

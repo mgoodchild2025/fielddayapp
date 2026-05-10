@@ -1,0 +1,134 @@
+import { headers } from 'next/headers'
+import { notFound } from 'next/navigation'
+import { getCurrentOrg } from '@/lib/tenant'
+import { createServerClient } from '@/lib/supabase/server'
+import { getAdminScope } from '@/lib/admin-scope'
+import { getScoreStructure } from '@/lib/print-config'
+import { PrintControls } from '@/components/print/print-controls'
+import { BracketSheet, type BracketMatch } from '@/components/print/bracket-sheet'
+
+export default async function BracketPrintPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ bracketId?: string }>
+}) {
+  const { id } = await params
+  const { bracketId } = await searchParams
+
+  if (!bracketId) notFound()
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const scope = await getAdminScope(org.id)
+  if (!scope.isOrgAdmin) notFound()
+
+  const supabase = await createServerClient()
+
+  // Org name + timezone
+  const [{ data: branding }, { data: orgRow }] = await Promise.all([
+    supabase.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
+    supabase.from('organizations').select('name').eq('id', org.id).single(),
+  ])
+  const timezone = branding?.timezone ?? 'America/Toronto'
+  const orgName = orgRow?.name ?? 'Fieldday'
+
+  // League info
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: league } = await (supabase as any)
+    .from('leagues')
+    .select('name, sport')
+    .eq('id', id)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (!league) notFound()
+  const leagueName: string = league.name ?? 'League'
+  const sport: string = league.sport ?? ''
+
+  // Bracket + matches
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawBracket } = await (supabase as any)
+    .from('brackets')
+    .select(`
+      id, name, bracket_size, bracket_type, status,
+      bracket_matches(
+        id, round_number, match_number,
+        team1_id, team2_id, team1_label, team2_label,
+        team1_seed, team2_seed, is_bye, winner_team_id,
+        winner_to_match_id, scheduled_at, court
+      )
+    `)
+    .eq('id', bracketId)
+    .eq('league_id', id)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (!rawBracket) notFound()
+
+  // Team name map
+  const { data: teams } = await supabase
+    .from('teams')
+    .select('id, name')
+    .eq('league_id', id)
+    .eq('organization_id', org.id)
+
+  const teamNameMap = new Map<string, string>((teams ?? []).map((t: { id: string; name: string }) => [t.id, t.name]))
+
+  // Map raw matches to BracketMatch[]
+  const matches: BracketMatch[] = (rawBracket.bracket_matches ?? [])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .sort((a: any, b: any) => a.round_number - b.round_number || a.match_number - b.match_number)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((m: any) => ({
+      id: m.id,
+      roundNumber: m.round_number,
+      matchNumber: m.match_number,
+      team1Name: m.team1_id ? (teamNameMap.get(m.team1_id) ?? null) : null,
+      team2Name: m.team2_id ? (teamNameMap.get(m.team2_id) ?? null) : null,
+      team1Seed: m.team1_seed,
+      team2Seed: m.team2_seed,
+      team1Label: m.team1_label,
+      team2Label: m.team2_label,
+      isBye: m.is_bye,
+      court: m.court,
+      scheduledAt: m.scheduled_at,
+      winnerToMatchId: m.winner_to_match_id,
+    }))
+
+  const scoreStructure = getScoreStructure(sport)
+
+  return (
+    <PrintPage>
+      <PrintControls />
+      <BracketSheet
+        bracketName={rawBracket.name ?? 'Bracket'}
+        leagueName={leagueName}
+        orgName={orgName}
+        sport={sport}
+        timezone={timezone}
+        matches={matches}
+        scoreStructure={scoreStructure}
+      />
+    </PrintPage>
+  )
+}
+
+// Minimal wrapper with print CSS
+function PrintPage({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <style>{`
+        @media print {
+          @page { size: letter portrait; margin: 0.75in; }
+          body  { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          .print\\:hidden { display: none !important; }
+        }
+      `}</style>
+      <div className="max-w-[8.5in] mx-auto p-8">
+        {children}
+      </div>
+    </>
+  )
+}
