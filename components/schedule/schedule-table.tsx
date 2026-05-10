@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { AdminScoreEntry } from '@/components/scores/admin-score-entry'
 import { EditGameModal } from '@/components/schedule/edit-game-modal'
 import { venueLabel } from '@/lib/venue-label'
-import { deleteGame, setSchedulePublished, clearAllGames } from '@/actions/schedule'
+import { deleteGame, deleteGames, setSchedulePublished, clearAllGames } from '@/actions/schedule'
 
 interface SetScore { home: number; away: number }
 
@@ -84,6 +84,18 @@ function PrintIcon() {
   )
 }
 
+// Indeterminate checkbox (native DOM property can't be set via React attr)
+function IndeterminateCheckbox({ checked, indeterminate, onChange, className }: {
+  checked: boolean; indeterminate: boolean; onChange: () => void; className?: string
+}) {
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => { if (ref.current) ref.current.indeterminate = indeterminate }, [indeterminate])
+  return (
+    <input ref={ref} type="checkbox" checked={checked} onChange={onChange}
+      className={`w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer ${className ?? ''}`} />
+  )
+}
+
 export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedulePublished = true, isAdmin = false }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -91,6 +103,7 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isClearing, setIsClearing] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState<'all' | 'needs' | 'cancelled'>('all')
   // Track status overrides applied optimistically within this session
   const [statusOverrides, setStatusOverrides] = useState<Map<string, { status: string; reason: string | null }>>(new Map())
@@ -101,6 +114,7 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
     startTransition(async () => {
       await deleteGame(gameId, leagueId)
       setDeletedIds((prev) => new Set([...prev, gameId]))
+      setSelectedIds((prev) => { const s = new Set(prev); s.delete(gameId); return s })
       setDeletingId(null)
     })
   }
@@ -119,8 +133,34 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
     startTransition(async () => {
       await clearAllGames(leagueId)
       setDeletedIds(new Set(games.map(g => g.id)))
+      setSelectedIds(new Set())
       setIsClearing(false)
       router.refresh()
+    })
+  }
+
+  function handleToggleSelect(gameId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      next.has(gameId) ? next.delete(gameId) : next.add(gameId)
+      return next
+    })
+  }
+
+  function handleSelectAll() {
+    const visibleIds = visible.map(g => g.id)
+    const allSelected = visibleIds.every(id => selectedIds.has(id))
+    setSelectedIds(allSelected ? new Set() : new Set(visibleIds))
+  }
+
+  function handleBulkDelete() {
+    const ids = Array.from(selectedIds)
+    const count = ids.length
+    if (!confirm(`Delete ${count} selected game${count !== 1 ? 's' : ''}? This cannot be undone.`)) return
+    startTransition(async () => {
+      await deleteGames(ids, leagueId)
+      setDeletedIds((prev) => new Set([...prev, ...ids]))
+      setSelectedIds(new Set())
     })
   }
 
@@ -147,6 +187,12 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
   const cancelledCount = allVisible.filter((g) => g.status === 'cancelled' || g.status === 'postponed').length
 
   const groups = groupByDate(visible)
+
+  // Selection state relative to currently visible games
+  const visibleIds = visible.map(g => g.id)
+  const selectedVisibleCount = visibleIds.filter(id => selectedIds.has(id)).length
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleCount === visibleIds.length
+  const someVisibleSelected = selectedVisibleCount > 0 && !allVisibleSelected
 
   // Base URL for print pages (relative to current path hierarchy)
   const printBase = `/admin/events/${leagueId}/schedule/print`
@@ -241,6 +287,30 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
         )}
       </div>
 
+      {/* Bulk action bar — appears when any games are selected */}
+      {isAdmin && selectedIds.size > 0 && (
+        <div className="flex items-center justify-between gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 mb-3 text-sm">
+          <span className="text-red-700 font-medium">
+            {selectedIds.size} game{selectedIds.size !== 1 ? 's' : ''} selected
+          </span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="text-xs text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              disabled={isPending}
+              className="px-3 py-1 rounded-md text-xs font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              {isPending ? 'Deleting…' : `Delete ${selectedIds.size} game${selectedIds.size !== 1 ? 's' : ''}`}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Mobile: card list ── */}
       <div className="md:hidden space-y-4">
         {groups.length > 0 ? groups.map(({ dateKey, dateLabel, games: dayGames }) => (
@@ -263,13 +333,22 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
             <div className="space-y-2">
               {dayGames.map((game) => (
                 <div key={game.id} className={`bg-white rounded-lg border overflow-hidden ${
+                  selectedIds.has(game.id) ? 'border-red-300 ring-1 ring-red-200' :
                   game.status === 'cancelled' ? 'border-red-200 opacity-75' :
                   game.status === 'postponed' ? 'border-amber-200 opacity-75' :
                   needsScore(game) ? 'border-orange-200' : ''
                 }`}>
                   <div className="px-4 py-3">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
+                      {isAdmin && (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(game.id)}
+                          onChange={() => handleToggleSelect(game.id)}
+                          className="mt-0.5 w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer shrink-0"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
                         <p className="text-xs text-gray-400 mb-1">
                           {game.timeLabel}
                           {game.court ? ` · ${venueLabel(sport)} ${game.court}` : ''}
@@ -356,6 +435,15 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
             <table className="w-full text-sm min-w-[620px]">
               <thead>
                 <tr className="border-b bg-gray-50 text-left">
+                  {isAdmin && (
+                    <th className="pl-4 pr-2 py-3 w-8">
+                      <IndeterminateCheckbox
+                        checked={allVisibleSelected}
+                        indeterminate={someVisibleSelected}
+                        onChange={handleSelectAll}
+                      />
+                    </th>
+                  )}
                   <th className="px-4 py-3 font-medium text-gray-500">Wk</th>
                   <th className="px-4 py-3 font-medium text-gray-500">Time</th>
                   <th className="px-4 py-3 font-medium text-gray-500">Matchup</th>
@@ -369,7 +457,7 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
                   <>
                     {/* Date group header */}
                     <tr key={`header-${dateKey}`} className="bg-gray-50 border-b border-t">
-                      <td colSpan={6} className="px-4 py-2">
+                      <td colSpan={isAdmin ? 7 : 6} className="px-4 py-2">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
                             {dateLabel}
@@ -393,7 +481,17 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
                     </tr>
                     {/* Game rows */}
                     {dayGames.map((game) => (
-                      <tr key={game.id} className={`border-b last:border-0 hover:bg-gray-50 align-top ${game.status === 'cancelled' || game.status === 'postponed' ? 'opacity-60' : ''}`}>
+                      <tr key={game.id} className={`border-b last:border-0 hover:bg-gray-50 align-top ${selectedIds.has(game.id) ? 'bg-red-50' : ''} ${game.status === 'cancelled' || game.status === 'postponed' ? 'opacity-60' : ''}`}>
+                        {isAdmin && (
+                          <td className="pl-4 pr-2 py-3 w-8">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(game.id)}
+                              onChange={() => handleToggleSelect(game.id)}
+                              className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                            />
+                          </td>
+                        )}
                         <td className="px-4 py-3 text-gray-400 text-xs">{game.weekNumber ?? '—'}</td>
                         <td className="px-4 py-3">
                           <div className="text-xs text-gray-500">{game.timeLabel}</div>

@@ -303,6 +303,40 @@ export async function deleteGame(gameId: string, leagueId: string) {
   return { error: null }
 }
 
+/** Delete a specific set of games by ID. Org/league admin only. */
+export async function deleteGames(gameIds: string[], leagueId: string) {
+  if (!gameIds.length) return { error: null }
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: adminMember } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+
+  if (!adminMember) return { error: 'Admin access required' }
+
+  const { error } = await supabase
+    .from('games')
+    .delete()
+    .in('id', gameIds)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${leagueId}/schedule`)
+  revalidatePath('/events/[slug]', 'page')
+  return { error: null }
+}
+
 export async function assignSlotToTeam(input: {
   leagueId: string
   /** Each entry maps a slot label (e.g. "Team 3") to a real team id */
