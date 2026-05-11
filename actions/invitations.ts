@@ -294,7 +294,7 @@ export async function acceptTeamInvitation(token: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: team } = await (db as any)
     .from('teams')
-    .select('name, league_id, team_code, leagues!teams_league_id_fkey(slug, status, price_cents, payment_mode)')
+    .select('name, league_id, team_code, leagues!teams_league_id_fkey(slug, status)')
     .eq('id', invite.team_id)
     .single()
 
@@ -315,41 +315,29 @@ export async function acceptTeamInvitation(token: string) {
 
   // Handle league registration
   if (team?.league_id) {
-    const { data: existingReg } = await db
-      .from('registrations')
-      .select('id, status')
-      .eq('organization_id', org.id)
-      .eq('league_id', team.league_id)
-      .eq('user_id', user.id)
-      .maybeSingle()
-
     const league = Array.isArray(team.leagues) ? team.leagues[0] : team.leagues
     const leagueStatus = (league as { status?: string } | null)?.status
     const leagueSlug = (league as { slug?: string } | null)?.slug
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const leaguePriceCents: number = (league as any)?.price_cents ?? 0
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const paymentMode: string = (league as any)?.payment_mode ?? 'per_player'
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const teamCode = (team as any)?.team_code
 
-    const canRouteToRegister =
-      leagueSlug &&
-      (leagueStatus === 'registration_open' || leagueStatus === 'active') &&
-      leaguePriceCents > 0 &&
-      paymentMode !== 'per_team'
+    if (leagueSlug && (leagueStatus === 'registration_open' || leagueStatus === 'active')) {
+      // Always route through the registration flow for open/active leagues.
+      // The register page determines whether payment, waiver, or neither is needed and
+      // resumes at the correct step — including collecting payment on unpaid registrations.
+      redirect(`/register/${leagueSlug}${teamCode ? `?code=${teamCode}` : ''}`)
+    } else if (leagueStatus !== 'draft') {
+      // Completed / archived league — auto-register if no existing registration.
+      // Draft leagues: player is on the team but registration waits until the event opens.
+      const { data: existingReg } = await db
+        .from('registrations')
+        .select('id')
+        .eq('organization_id', org.id)
+        .eq('league_id', team.league_id)
+        .eq('user_id', user.id)
+        .maybeSingle()
 
-    if (!existingReg) {
-      if (canRouteToRegister) {
-        // Send player through the registration flow so they complete waiver + payment.
-        // For active leagues the register page allows entry when the player is already
-        // a team member (added above), which is always true at this point.
-        redirect(`/register/${leagueSlug!}${teamCode ? `?code=${teamCode}` : ''}`)
-      } else if (leagueSlug && (leagueStatus === 'registration_open' || leagueStatus === 'active')) {
-        // Free event — redirect through register to capture waiver (no payment step shown).
-        redirect(`/register/${leagueSlug}${teamCode ? `?code=${teamCode}` : ''}`)
-      } else {
-        // League is completed / archived / free with no slug — auto-register silently.
+      if (!existingReg) {
         await db.from('registrations').insert({
           organization_id: org.id,
           league_id: team.league_id,
@@ -357,21 +345,8 @@ export async function acceptTeamInvitation(token: string) {
           status: 'active',
         })
       }
-    } else if (canRouteToRegister) {
-      // Player already has a registration but may not have paid (e.g. registered when free,
-      // price was later added). Check for a paid payment record; if absent, send through
-      // the registration flow which will resume at the payment step.
-      const { data: payment } = await db
-        .from('payments')
-        .select('id')
-        .eq('registration_id', existingReg.id)
-        .eq('status', 'paid')
-        .maybeSingle()
-
-      if (!payment) {
-        redirect(`/register/${leagueSlug!}${teamCode ? `?code=${teamCode}` : ''}`)
-      }
     }
+    // Draft league: just leave the player on the team with no registration.
   }
 
   redirect(`/teams/${invite.team_id}`)
