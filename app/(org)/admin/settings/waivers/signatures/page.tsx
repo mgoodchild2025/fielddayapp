@@ -23,43 +23,20 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
     .single()
   const timezone = branding?.timezone ?? 'America/Toronto'
 
-  // Two parallel queries:
-  // 1. Registered players — from registrations joined to waiver_signatures
-  // 2. Guests — directly from waiver_signatures where user_id IS NULL
+  // Single query against waiver_signatures for the whole org.
+  // Covers all cases: registered players, guests, standalone signings via shareable link.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const anyDb = db as any
-
-  const [{ data: regs }, { data: guestSigs }] = await Promise.all([
-    // ── Registered players ──────────────────────────────────────────────────
-    anyDb
-      .from('registrations')
-      .select(`
-        id,
-        waiver_signature_id,
-        player:profiles!registrations_user_id_fkey(full_name, email),
-        league:leagues!registrations_league_id_fkey(name),
-        signature:waiver_signatures!registrations_waiver_signature_id_fkey(
-          id, signed_at, signature_name, ip_address, guardian_relationship,
-          waiver:waivers!waiver_signatures_waiver_id_fkey(title, version)
-        )
-      `)
-      .eq('organization_id', org.id)
-      .not('waiver_signature_id', 'is', null)
-      .order('created_at', { ascending: false }),
-
-    // ── Guest signers (no account, no registration) ─────────────────────────
-    anyDb
-      .from('waiver_signatures')
-      .select(`
-        id, signed_at, signature_name, ip_address, guardian_relationship,
-        guest_name, guest_email,
-        league:leagues!waiver_signatures_league_id_fkey(name),
-        waiver:waivers!waiver_signatures_waiver_id_fkey(title, version)
-      `)
-      .eq('organization_id', org.id)
-      .is('user_id', null)
-      .order('signed_at', { ascending: false }),
-  ])
+  const { data: rawSigs } = await (db as any)
+    .from('waiver_signatures')
+    .select(`
+      id, signed_at, signature_name, ip_address, guardian_relationship,
+      user_id, guest_name, guest_email,
+      profile:profiles!waiver_signatures_user_id_fkey(full_name, email),
+      league:leagues!waiver_signatures_league_id_fkey(name),
+      waiver:waivers!waiver_signatures_waiver_id_fkey(title, version)
+    `)
+    .eq('organization_id', org.id)
+    .order('signed_at', { ascending: false })
 
   type NormalisedRow = {
     id: string
@@ -68,7 +45,7 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
     eventName: string
     waiverTitle: string
     waiverVersion: number | null
-    sigId: string | null
+    sigId: string
     signedAt: string | null
     signatureName: string | null
     ipAddress: string | null
@@ -76,66 +53,37 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
     isGuest: boolean
   }
 
-  // Normalise registered-player rows
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const registeredRows: NormalisedRow[] = ((regs ?? []) as any[]).map((reg) => {
-    const player = Array.isArray(reg.player) ? reg.player[0] : reg.player
-    const league = Array.isArray(reg.league) ? reg.league[0] : reg.league
-    const sig = Array.isArray(reg.signature) ? reg.signature[0] : reg.signature
-    const waiver = sig ? (Array.isArray(sig.waiver) ? sig.waiver[0] : sig.waiver) : null
-    return {
-      id: reg.id,
-      playerName: player?.full_name ?? '',
-      playerEmail: player?.email ?? '',
-      eventName: league?.name ?? '',
-      waiverTitle: waiver?.title ?? '',
-      waiverVersion: waiver?.version ?? null,
-      sigId: sig?.id ?? null,
-      signedAt: sig?.signed_at ?? null,
-      signatureName: sig?.signature_name ?? null,
-      ipAddress: sig?.ip_address ?? null,
-      guardianRelationship: sig?.guardian_relationship ?? null,
-      isGuest: false,
-    }
-  })
+  const allRows: NormalisedRow[] = ((rawSigs ?? []) as any[]).map((sig) => {
+    const profile = Array.isArray(sig.profile) ? sig.profile[0] : sig.profile
+    const league  = Array.isArray(sig.league)  ? sig.league[0]  : sig.league
+    const waiver  = Array.isArray(sig.waiver)  ? sig.waiver[0]  : sig.waiver
 
-  // Normalise guest rows
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const guestRows: NormalisedRow[] = ((guestSigs ?? []) as any[]).map((sig) => {
-    const league = Array.isArray(sig.league) ? sig.league[0] : sig.league
-    const waiver = Array.isArray(sig.waiver) ? sig.waiver[0] : sig.waiver
+    const isGuest = !sig.user_id
     return {
-      id: sig.id,
-      playerName: sig.guest_name ?? '',
-      playerEmail: sig.guest_email ?? '',
-      eventName: league?.name ?? '',
-      waiverTitle: waiver?.title ?? '',
-      waiverVersion: waiver?.version ?? null,
-      sigId: sig.id,
-      signedAt: sig.signed_at ?? null,
-      signatureName: sig.signature_name ?? null,
-      ipAddress: sig.ip_address ?? null,
+      id:                   sig.id,
+      playerName:           isGuest ? (sig.guest_name ?? '') : (profile?.full_name ?? ''),
+      playerEmail:          isGuest ? (sig.guest_email ?? '') : (profile?.email ?? ''),
+      eventName:            league?.name ?? '',
+      waiverTitle:          waiver?.title ?? '',
+      waiverVersion:        waiver?.version ?? null,
+      sigId:                sig.id,
+      signedAt:             sig.signed_at ?? null,
+      signatureName:        sig.signature_name ?? null,
+      ipAddress:            sig.ip_address ?? null,
       guardianRelationship: sig.guardian_relationship ?? null,
-      isGuest: true,
+      isGuest,
     }
-  })
-
-  // Merge and sort by signed_at descending (registered rows already ordered by registration date;
-  // we re-sort the merged list by signature date for a coherent view).
-  const allRows = [...registeredRows, ...guestRows].sort((a, b) => {
-    const ta = a.signedAt ? new Date(a.signedAt).getTime() : 0
-    const tb = b.signedAt ? new Date(b.signedAt).getTime() : 0
-    return tb - ta
   })
 
   // Unique options for dropdowns (sorted)
-  const uniqueEvents = [...new Set(allRows.map((r) => r.eventName).filter(Boolean))].sort()
+  const uniqueEvents  = [...new Set(allRows.map((r) => r.eventName).filter(Boolean))].sort()
   const uniqueWaivers = [...new Set(allRows.map((r) => r.waiverTitle).filter(Boolean))].sort()
 
   // Apply filters
   const qLower = q.toLowerCase()
   const filteredRows = allRows.filter((r) => {
-    if (eventFilter && r.eventName !== eventFilter) return false
+    if (eventFilter  && r.eventName   !== eventFilter)  return false
     if (waiverFilter && r.waiverTitle !== waiverFilter) return false
     if (qLower) {
       const haystack = [r.playerName, r.playerEmail, r.signatureName ?? ''].join(' ').toLowerCase()
@@ -235,25 +183,23 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
                       ) : '—'}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {row.sigId && (
-                        <div className="flex items-center justify-end gap-3">
-                          <Link
-                            href={`/admin/settings/waivers/signatures/${row.sigId}/print`}
-                            target="_blank"
-                            className="text-xs text-gray-400 hover:text-gray-600"
-                            title="Print / Save as PDF"
-                          >
-                            🖨
-                          </Link>
-                          <Link
-                            href={`/admin/settings/waivers/signatures/${row.sigId}`}
-                            className="text-xs font-medium hover:underline"
-                            style={{ color: 'var(--brand-primary)' }}
-                          >
-                            View →
-                          </Link>
-                        </div>
-                      )}
+                      <div className="flex items-center justify-end gap-3">
+                        <Link
+                          href={`/admin/settings/waivers/signatures/${row.sigId}/print`}
+                          target="_blank"
+                          className="text-xs text-gray-400 hover:text-gray-600"
+                          title="Print / Save as PDF"
+                        >
+                          🖨
+                        </Link>
+                        <Link
+                          href={`/admin/settings/waivers/signatures/${row.sigId}`}
+                          className="text-xs font-medium hover:underline"
+                          style={{ color: 'var(--brand-primary)' }}
+                        >
+                          View →
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 )
