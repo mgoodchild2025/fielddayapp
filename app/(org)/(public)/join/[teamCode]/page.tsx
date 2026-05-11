@@ -1,4 +1,5 @@
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
@@ -87,6 +88,13 @@ export default async function JoinTeamPage({
 
   const returnPath = `/join/${code}`
 
+  // Logged-in player who is eligible to join: skip the button click entirely.
+  // This handles the post-email-confirmation case where Supabase redirects back
+  // here with a simple /join/XXXXXX next param (no nested query params to mangle).
+  if (user && !alreadyMember && !isFull && leagueSlug) {
+    redirect(`/register/${leagueSlug}?code=${code}`)
+  }
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
@@ -148,14 +156,14 @@ export default async function JoinTeamPage({
             ) : (
               <div className="space-y-3">
                 <Link
-                  href={`/login?redirect=${encodeURIComponent(leagueSlug ? `/register/${leagueSlug}?code=${code}` : returnPath)}`}
+                  href={`/login?redirect=${encodeURIComponent(returnPath)}`}
                   className="block w-full py-3 rounded-lg font-bold text-white text-sm text-center transition-opacity hover:opacity-90"
                   style={{ backgroundColor: 'var(--brand-primary)' }}
                 >
                   Sign in to accept
                 </Link>
                 <Link
-                  href={`/register?redirect=${encodeURIComponent(leagueSlug ? `/register/${leagueSlug}?code=${code}` : returnPath)}`}
+                  href={`/register?redirect=${encodeURIComponent(returnPath)}`}
                   className="block w-full py-2.5 rounded-lg font-semibold text-sm text-center border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
                 >
                   Create account
