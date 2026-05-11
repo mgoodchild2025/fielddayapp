@@ -4,6 +4,10 @@ import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 
+function isHtml(str: string): boolean {
+  return /<[a-z][\s\S]*>/i.test(str?.trim() ?? '')
+}
+
 export default async function WaiverSignaturePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const headersList = await headers()
@@ -15,6 +19,7 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
     .from('waiver_signatures')
     .select(`
       id, signed_at, signature_name, ip_address, guardian_relationship,
+      league_name, team_name,
       player:profiles!waiver_signatures_user_id_fkey(full_name, email, phone),
       waiver:waivers!waiver_signatures_waiver_id_fkey(id, title, version, content),
       league:leagues!waiver_signatures_league_id_fkey(id, name, slug)
@@ -37,6 +42,10 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
   const league = Array.isArray(sig.league) ? sig.league[0] : sig.league
   const isGuardian = !!sig.guardian_relationship
   const guardianLabel = sig.guardian_relationship === 'legal_guardian' ? 'Legal Guardian' : 'Parent'
+  const contentIsHtml = isHtml(waiver?.content ?? '')
+  // Prefer the FK-joined league name; fall back to the denormalized text field (survives deletion)
+  const eventName = league?.name ?? sig.league_name ?? null
+  const teamName: string | null = sig.team_name ?? null
 
   return (
     <div className="max-w-3xl">
@@ -90,13 +99,21 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
                   className="font-medium hover:underline"
                   style={{ color: 'var(--brand-primary)' }}
                 >
-                  {league.name}
+                  {eventName}
                 </Link>
+              ) : eventName ? (
+                <span className="font-medium">{eventName}</span>
               ) : (
                 <span className="text-gray-400">—</span>
               )}
             </dd>
           </div>
+          {teamName && (
+            <div>
+              <dt className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Team</dt>
+              <dd className="font-medium">{teamName}</dd>
+            </div>
+          )}
           <div>
             <dt className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Signed At</dt>
             <dd className="font-medium">
@@ -147,8 +164,17 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
       {/* Waiver text as it was when signed */}
       <div className="bg-white rounded-lg border p-5">
         <h2 className="font-semibold mb-3">{waiver?.title}</h2>
-        <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap border rounded-md p-4 bg-gray-50 max-h-[600px] overflow-y-auto">
-          {waiver?.content ?? '—'}
+        <div className="border rounded-md p-4 bg-gray-50 max-h-[600px] overflow-y-auto">
+          {contentIsHtml ? (
+            <div
+              className="prose prose-sm max-w-none text-gray-700"
+              dangerouslySetInnerHTML={{ __html: waiver?.content ?? '' }}
+            />
+          ) : (
+            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+              {waiver?.content ?? '—'}
+            </p>
+          )}
         </div>
         <div className="mt-4 pt-4 border-t flex items-center justify-between">
           <div>

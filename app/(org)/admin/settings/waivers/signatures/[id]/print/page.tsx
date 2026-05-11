@@ -23,6 +23,7 @@ export default async function WaiverSignaturePrintPage({
     .from('waiver_signatures')
     .select(`
       id, signed_at, signature_name, ip_address, guardian_relationship,
+      league_name, team_name,
       player:profiles!waiver_signatures_user_id_fkey(full_name, email, phone),
       waiver:waivers!waiver_signatures_waiver_id_fkey(id, title, version, content),
       league:leagues!waiver_signatures_league_id_fkey(id, name)
@@ -45,6 +46,8 @@ export default async function WaiverSignaturePrintPage({
   const league = Array.isArray(sig.league) ? sig.league[0] : sig.league
   const isGuardian = !!sig.guardian_relationship
   const guardianLabel = sig.guardian_relationship === 'legal_guardian' ? 'Legal Guardian' : 'Parent'
+  const eventName: string = league?.name ?? sig.league_name ?? '—'
+  const teamName: string | null = sig.team_name ?? null
 
   const signedDate = new Date(sig.signed_at).toLocaleDateString('en-CA', {
     weekday: 'long',
@@ -88,7 +91,8 @@ export default async function WaiverSignaturePrintPage({
             )}
           </div>
           <div className="text-right text-xs text-gray-400 shrink-0 ml-6">
-            <p className="font-medium text-gray-600">{league?.name ?? '—'}</p>
+            <p className="font-medium text-gray-600">{eventName}</p>
+            {teamName && <p className="text-gray-500">{teamName}</p>}
             <p className="mt-1">{signedDate}</p>
             <p>{signedTime}</p>
           </div>
@@ -140,6 +144,12 @@ export default async function WaiverSignaturePrintPage({
             <p className="text-xs text-gray-500">{signedTime}</p>
           </div>
 
+          {teamName && (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-400 font-semibold mb-0.5">Team</p>
+              <p className="text-gray-900">{teamName}</p>
+            </div>
+          )}
           {sig.ip_address && (
             <div>
               <p className="text-xs uppercase tracking-wide text-gray-400 font-semibold mb-0.5">IP Address</p>
