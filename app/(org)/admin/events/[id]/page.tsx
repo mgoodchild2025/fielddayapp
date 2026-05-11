@@ -76,6 +76,13 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     await updateLeagueStatus(id, transition.next)
   }
 
+  async function setStatus(formData: FormData) {
+    'use server'
+    const newStatus = formData.get('status') as LeagueStatus
+    if (!newStatus) return
+    await updateLeagueStatus(id, newStatus)
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {/* Stats row */}
@@ -174,17 +181,46 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
         {/* Merchandise summary — only rendered when there are orders */}
         <MerchSummaryWidget orders={merchOrders} leagueId={id} />
 
-        {isOrgAdmin && transition && (
-          <div className="bg-white rounded-lg border p-5">
-            <h2 className="font-semibold text-sm mb-3">Advance Status</h2>
-            <form action={changeStatus}>
-              <button
-                type="submit"
-                className="w-full py-2 rounded-md text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: 'var(--brand-primary)' }}
-              >
-                {transition.label} →
-              </button>
+        {isOrgAdmin && (
+          <div className="bg-white rounded-lg border p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-sm">Event Status</h2>
+              <StatusBadge status={league.status} />
+            </div>
+
+            {/* Quick-advance button */}
+            {transition && (
+              <form action={changeStatus}>
+                <button
+                  type="submit"
+                  className="w-full py-2 rounded-md text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                >
+                  {transition.label} →
+                </button>
+              </form>
+            )}
+
+            {/* Manual override */}
+            <form action={setStatus} className="space-y-2">
+              <p className="text-xs text-gray-400">Set manually</p>
+              <div className="flex gap-2">
+                <select
+                  name="status"
+                  defaultValue={league.status}
+                  className="flex-1 border rounded-md px-2 py-1.5 text-sm text-gray-700 bg-white"
+                >
+                  {([ 'draft', 'registration_open', 'active', 'completed', 'archived' ] as LeagueStatus[]).map((s) => (
+                    <option key={s} value={s}>{statusLabel(s)}</option>
+                  ))}
+                </select>
+                <button
+                  type="submit"
+                  className="px-3 py-1.5 rounded-md text-sm font-medium border border-gray-300 hover:bg-gray-50 transition-colors"
+                >
+                  Set
+                </button>
+              </div>
             </form>
           </div>
         )}
@@ -219,5 +255,31 @@ function Row({ label, value }: { label: string; value: string }) {
       <dt className="text-gray-500">{label}</dt>
       <dd className="font-medium capitalize">{value}</dd>
     </div>
+  )
+}
+
+function statusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    draft: 'Draft',
+    registration_open: 'Registration Open',
+    active: 'Active',
+    completed: 'Completed',
+    archived: 'Archived',
+  }
+  return labels[status] ?? status
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    draft: 'bg-gray-100 text-gray-600',
+    registration_open: 'bg-blue-100 text-blue-700',
+    active: 'bg-green-100 text-green-700',
+    completed: 'bg-purple-100 text-purple-700',
+    archived: 'bg-gray-100 text-gray-400',
+  }
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${styles[status] ?? 'bg-gray-100 text-gray-600'}`}>
+      {statusLabel(status)}
+    </span>
   )
 }
