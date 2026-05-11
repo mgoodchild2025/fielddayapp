@@ -5,13 +5,8 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { getPositionsForSport } from '@/actions/positions'
 import { AdminCreateTeamForm } from '@/components/teams/admin-create-team-form'
-import { AdminEditTeamForm } from '@/components/teams/admin-edit-team-form'
-import { DeleteTeamButton } from '@/components/teams/delete-team-button'
-import { RosterManager } from '@/components/teams/roster-manager'
+import { AdminTeamCard } from '@/components/teams/admin-team-card'
 import type { ActiveMember, PendingInvite } from '@/components/teams/roster-manager'
-import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
-import { TeamCodeBadge } from '@/components/teams/team-code-badge'
-import { TeamAvatar } from '@/components/ui/team-avatar'
 import { AssignSlotsCard } from '@/components/schedule/assign-slots-card'
 
 export default async function TeamsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -209,7 +204,7 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div className="md:col-span-2 space-y-6">
+      <div className="md:col-span-2 space-y-2">
         {typedTeams.length > 0 ? (
           typedTeams.map((team) => {
             const allMembers = (team.team_members ?? []) as Array<{
@@ -222,7 +217,6 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
               ? (Array.isArray(captain.profile) ? captain.profile[0] : captain.profile)
               : null
 
-            // Build ActiveMember[] for RosterManager
             const initialMembers: ActiveMember[] = activeMembers.map((m) => {
               const profile = Array.isArray(m.profile) ? m.profile[0] : m.profile
               const regStatus = m.user_id
@@ -238,7 +232,7 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
                 role: m.role,
                 position: m.position ?? null,
                 userId: m.user_id,
-                isMe: false, // admin view — no "me" concept
+                isMe: false,
                 name: profile?.full_name ?? '',
                 email: profile?.email ?? '',
                 avatarUrl: profile?.avatar_url ?? null,
@@ -247,7 +241,6 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
               }
             })
 
-            // Build PendingInvite[] for RosterManager
             const teamInvites = invitesByTeam.get(team.id) ?? []
             const initialInvites: PendingInvite[] = teamInvites.map((inv) => ({
               id: inv.id,
@@ -255,10 +248,9 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
               role: inv.role,
               invitedAt: inv.created_at,
               expiresAt: inv.expires_at,
-              inviterName: null, // admin view — skip inviter name lookup
+              inviterName: null,
             }))
 
-            // Join requests for this specific team
             const teamJoinRequests = (joinRequestsByTeam.get(team.id) ?? []).map((req) => {
               const profile = Array.isArray(req.profile) ? req.profile[0] : req.profile
               return {
@@ -271,60 +263,25 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
             })
 
             return (
-              <div key={team.id} className="bg-white rounded-lg border overflow-hidden">
-                {/* Team header */}
-                <div className="px-4 py-4 flex items-center gap-3 border-b bg-gray-50">
-                  <TeamAvatar logoUrl={team.logo_url ?? null} color={team.color} name={team.name} size="sm" />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900">{team.name}</h3>
-                    {captainProfile?.full_name && (
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        Captain: {captainProfile.full_name}
-                      </p>
-                    )}
-                  </div>
-                  <span className="text-xs text-gray-400 shrink-0">
-                    {activeMembers.length} player{activeMembers.length !== 1 ? 's' : ''}
-                  </span>
-                  {isOrgAdmin && (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <AdminEditTeamForm
-                        team={{ id: team.id, name: team.name, color: team.color, logo_url: team.logo_url ?? null }}
-                        leagueId={id}
-                      />
-                      <DeleteTeamButton teamId={team.id} teamName={team.name} leagueId={id} />
-                    </div>
-                  )}
-                </div>
-
-                {/* Team code */}
-                {team.team_code && (
-                  <div className="px-4 py-3 border-b bg-white">
-                    <TeamCodeBadge teamId={team.id} code={team.team_code} />
-                  </div>
-                )}
-
-                {/* Pending join requests */}
-                {teamJoinRequests.length > 0 && (
-                  <div className="px-4 py-3 border-b">
-                    <PendingJoinRequests teamId={team.id} initialRequests={teamJoinRequests} />
-                  </div>
-                )}
-
-                {/* Full roster manager — invite by email, manage roles/positions, waiver & reg status */}
-                <div className="px-4 py-4">
-                  <RosterManager
-                    teamId={team.id}
-                    leagueId={id}
-                    leagueSlug={leagueSlug}
-                    teamCode={team.team_code ?? null}
-                    leagueHasWaiver={leagueHasWaiver}
-                    positions={positions}
-                    initialMembers={initialMembers}
-                    initialInvites={initialInvites}
-                  />
-                </div>
-              </div>
+              <AdminTeamCard
+                key={team.id}
+                leagueId={id}
+                leagueSlug={leagueSlug}
+                leagueHasWaiver={leagueHasWaiver}
+                positions={positions}
+                isOrgAdmin={isOrgAdmin}
+                team={{
+                  id: team.id,
+                  name: team.name,
+                  color: team.color ?? null,
+                  logo_url: team.logo_url ?? null,
+                  team_code: team.team_code ?? null,
+                }}
+                captainName={captainProfile?.full_name ?? null}
+                initialMembers={initialMembers}
+                initialInvites={initialInvites}
+                joinRequests={teamJoinRequests}
+              />
             )
           })
         ) : (
