@@ -105,7 +105,26 @@ export default async function RegisterLeaguePage({
   // random players from self-registering for a league that is no longer open.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (!isDropIn && (league as any).status === 'active' && !captainTeam && !existingReg) {
-    notFound()
+    // captainTeam uses the auth client which may be limited by RLS — use service role
+    // as an authoritative fallback before blocking the player.
+    const svcDb = createServiceRoleClient()
+    const { data: leagueTeamIds } = await svcDb
+      .from('teams')
+      .select('id')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .eq('league_id', (league as any).id)
+      .eq('organization_id', org.id)
+    const teamIds = (leagueTeamIds ?? []).map((t: { id: string }) => t.id)
+    const hasTeamMembership = teamIds.length > 0
+      ? !!(await svcDb
+          .from('team_members')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .in('team_id', teamIds)
+          .maybeSingle()).data
+      : false
+    if (!hasTeamMembership) notFound()
   }
 
   const hasOnlinePayments = !!connectAccount?.stripe_secret_key
