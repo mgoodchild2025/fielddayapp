@@ -3,15 +3,16 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
+import { getPositionsForSport } from '@/actions/positions'
 import { AdminCreateTeamForm } from '@/components/teams/admin-create-team-form'
-import { AdminAddMemberForm } from '@/components/teams/admin-add-member-form'
-import { TeamCodeBadge } from '@/components/teams/team-code-badge'
-import { RemovePlayerButton } from '@/components/teams/remove-player-button'
-import { DeleteTeamButton } from '@/components/teams/delete-team-button'
-import { JoinRequestButtons } from '@/components/teams/join-request-buttons'
 import { AdminEditTeamForm } from '@/components/teams/admin-edit-team-form'
-import { MakeCaptainButton } from '@/components/teams/make-captain-button'
+import { DeleteTeamButton } from '@/components/teams/delete-team-button'
+import { RosterManager } from '@/components/teams/roster-manager'
+import type { ActiveMember, PendingInvite } from '@/components/teams/roster-manager'
+import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
+import { TeamCodeBadge } from '@/components/teams/team-code-badge'
 import { TeamAvatar } from '@/components/ui/team-avatar'
+import { AssignSlotsCard } from '@/components/schedule/assign-slots-card'
 
 export default async function TeamsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -59,46 +60,125 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
     a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
   )
 
-  const [{ data: teams }, { data: joinRequests }, { data: registrations }, { data: assignedMembers }] =
-    await Promise.all([
-      supabase
-        .from('teams')
-        .select(`
-          id, name, color, logo_url, team_code, created_at,
-          team_members(
-            id, role, status, user_id, invited_email,
-            profiles!team_members_user_id_fkey(full_name)
-          )
-        `)
-        .eq('league_id', id)
-        .eq('organization_id', org.id)
-        .order('created_at', { ascending: true }),
-      db
-        .from('team_join_requests')
-        .select(`
-          id, message, created_at,
-          team:teams!team_join_requests_team_id_fkey(id, name),
-          requester:profiles!team_join_requests_user_id_fkey(full_name, email)
-        `)
-        .eq('organization_id', org.id)
-        .eq('status', 'pending')
-        .in('team_id', leagueTeamIds)
-        .order('created_at', { ascending: false }),
-      // All players registered for this event
-      db
-        .from('registrations')
-        .select('user_id, profiles!registrations_user_id_fkey(full_name, email)')
-        .eq('league_id', id)
-        .eq('organization_id', org.id),
-      // All user_ids currently assigned to any team in this event
-      leagueTeamIds.length > 0
-        ? db.from('team_members').select('user_id').in('team_id', leagueTeamIds)
-        : Promise.resolve({ data: [] as { user_id: string | null }[], error: null }),
-    ])
+  // Parallel data fetch — league meta + teams + join requests + registrations + invitations
+  const [
+    { data: league },
+    { data: teams },
+    { data: joinRequests },
+    { data: registrations },
+    { data: assignedMembers },
+    { data: waiverDef },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { data: pendingInvites } ,
+  ] = await Promise.all([
+    // League slug + sport for invite URLs and positions
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
+      .from('leagues')
+      .select('slug, sport')
+      .eq('id', id)
+      .eq('organization_id', org.id)
+      .single(),
+    // Teams with full member roster + positions + avatars
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
+      .from('teams')
+      .select(`
+        id, name, color, logo_url, team_code, created_at,
+        team_members(
+          id, role, status, user_id, position,
+          profile:profiles!team_members_user_id_fkey(full_name, email, avatar_url)
+        )
+      `)
+      .eq('league_id', id)
+      .eq('organization_id', org.id)
+      .order('created_at', { ascending: true }),
+    // Pending join requests across all league teams
+    leagueTeamIds.length > 0
+      ? db
+          .from('team_join_requests')
+          .select(`
+            id, message, created_at, team_id,
+            profile:profiles!team_join_requests_user_id_fkey(full_name, email)
+          `)
+          .eq('organization_id', org.id)
+          .eq('status', 'pending')
+          .in('team_id', leagueTeamIds)
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] as Array<{
+          id: string; message: string | null; created_at: string; team_id: string;
+          profile: { full_name: string; email: string } | { full_name: string; email: string }[] | null
+        }>, error: null }),
+    // All player registrations for this event
+    db
+      .from('registrations')
+      .select('user_id, profiles!registrations_user_id_fkey(full_name, email)')
+      .eq('league_id', id)
+      .eq('organization_id', org.id),
+    // All user_ids currently assigned to any team in this event
+    leagueTeamIds.length > 0
+      ? db.from('team_members').select('user_id').in('team_id', leagueTeamIds)
+      : Promise.resolve({ data: [] as { user_id: string | null }[], error: null }),
+    // Check if org has an active waiver
+    db.from('waivers').select('id').eq('organization_id', org.id).eq('is_active', true).maybeSingle(),
+    // Pending email invitations for all league teams
+    leagueTeamIds.length > 0
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (db as any)
+          .from('team_invitations')
+          .select('id, team_id, invited_email, role, created_at, expires_at, invited_by')
+          .eq('organization_id', org.id)
+          .eq('status', 'pending')
+          .in('team_id', leagueTeamIds)
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] as Array<{
+          id: string; team_id: string; invited_email: string; role: string;
+          created_at: string; expires_at: string; invited_by: string
+        }>, error: null }),
+  ])
 
-  const pendingRequests = joinRequests ?? []
+  const leagueSlug: string = (league as { slug?: string } | null)?.slug ?? ''
+  const leagueSport: string = (league as { sport?: string } | null)?.sport ?? ''
+  const leagueHasWaiver = !!(waiverDef as { id?: string } | null)?.id
 
-  // Players registered for the league but not yet on any team
+  // Positions for this sport
+  const positions = await getPositionsForSport(org.id, leagueSport)
+
+  // Collect all active member user_ids to batch-fetch waiver signatures
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const typedTeams = (teams ?? []) as any[]
+  const allMemberUserIds: string[] = []
+  for (const team of typedTeams) {
+    for (const m of team.team_members ?? []) {
+      if (m.user_id && m.status === 'active') allMemberUserIds.push(m.user_id)
+    }
+  }
+  const uniqueMemberUserIds = [...new Set(allMemberUserIds)]
+
+  // Waiver signatures + registrations for all active members
+  const [waiverSigsResult, regStatusResult] = uniqueMemberUserIds.length > 0
+    ? await Promise.all([
+        db.from('waiver_signatures')
+          .select('user_id')
+          .eq('organization_id', org.id)
+          .in('user_id', uniqueMemberUserIds),
+        db.from('registrations')
+          .select('user_id, status')
+          .eq('league_id', id)
+          .eq('organization_id', org.id)
+          .in('user_id', uniqueMemberUserIds),
+      ])
+    : [{ data: [] }, { data: [] }]
+
+  const signedUserIds = new Set(
+    ((waiverSigsResult as { data: Array<{ user_id: string }> | null }).data ?? []).map((s) => s.user_id)
+  )
+  const regByUser = Object.fromEntries(
+    ((regStatusResult as { data: Array<{ user_id: string; status: string }> | null }).data ?? [])
+      .map((r) => [r.user_id, r.status])
+  )
+
+  // Players registered but not yet on any team — for AdminCreateTeamForm
   const assignedUserIds = new Set((assignedMembers ?? []).map((m) => m.user_id).filter(Boolean))
   const unassignedPlayers = (registrations ?? [])
     .filter((r) => r.user_id && !assignedUserIds.has(r.user_id))
@@ -111,126 +191,139 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
       }
     })
 
+  // Group invites and join requests by team
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const invitesByTeam = new Map<string, any[]>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const inv of (pendingInvites ?? []) as any[]) {
+    if (!invitesByTeam.has(inv.team_id)) invitesByTeam.set(inv.team_id, [])
+    invitesByTeam.get(inv.team_id)!.push(inv)
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const joinRequestsByTeam = new Map<string, any[]>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const req of (joinRequests ?? []) as any[]) {
+    if (!joinRequestsByTeam.has(req.team_id)) joinRequestsByTeam.set(req.team_id, [])
+    joinRequestsByTeam.get(req.team_id)!.push(req)
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {/* Pending join requests banner — org admins only */}
-      {isOrgAdmin && pendingRequests.length > 0 && (
-        <div className="md:col-span-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <p className="text-sm font-semibold text-amber-800 mb-3">
-            {pendingRequests.length} pending join request{pendingRequests.length !== 1 ? 's' : ''}
-          </p>
-          <div className="space-y-2">
-            {pendingRequests.map((req) => {
-              type ReqRow = typeof req & {
-                team: { id: string; name: string } | { id: string; name: string }[] | null
-                requester: { full_name: string; email: string } | { full_name: string; email: string }[] | null
-              }
-              const r = req as ReqRow
-              const team = Array.isArray(r.team) ? r.team[0] : r.team
-              const requester = Array.isArray(r.requester) ? r.requester[0] : r.requester
-              return (
-                <div key={req.id} className="flex items-center justify-between gap-4 bg-white rounded border p-3">
-                  <div>
-                    <p className="text-sm font-medium">{requester?.full_name ?? '—'}</p>
-                    <p className="text-xs text-gray-500">{requester?.email ?? ''} · wants to join {team?.name ?? '—'}</p>
-                    {req.message && <p className="text-xs text-gray-600 mt-1 italic">&ldquo;{req.message}&rdquo;</p>}
-                  </div>
-                  <JoinRequestButtons requestId={req.id} />
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      <div className="md:col-span-2 space-y-6">
+        {typedTeams.length > 0 ? (
+          typedTeams.map((team) => {
+            const allMembers = (team.team_members ?? []) as Array<{
+              id: string; role: string; status: string; user_id: string | null; position: string | null;
+              profile: { full_name: string; email: string; avatar_url: string | null } | { full_name: string; email: string; avatar_url: string | null }[] | null
+            }>
+            const activeMembers = allMembers.filter((m) => m.status === 'active')
+            const captain = activeMembers.find((m) => m.role === 'captain')
+            const captainProfile = captain
+              ? (Array.isArray(captain.profile) ? captain.profile[0] : captain.profile)
+              : null
 
-      <div className="md:col-span-2 space-y-4">
-        {teams && teams.length > 0 ? (
-          teams.map((team) => {
-            const members = team.team_members ?? []
-            const captain = members.find((m) => m.role === 'captain')
-            const captainProfile = Array.isArray(captain?.profiles) ? captain?.profiles[0] : captain?.profiles
-            const activePlayers = members.filter((m) => m.status === 'active')
+            // Build ActiveMember[] for RosterManager
+            const initialMembers: ActiveMember[] = activeMembers.map((m) => {
+              const profile = Array.isArray(m.profile) ? m.profile[0] : m.profile
+              const regStatus = m.user_id
+                ? (regByUser[m.user_id] as 'active' | 'pending' | undefined) ?? 'none'
+                : 'none'
+              const waiverStatus = !leagueHasWaiver
+                ? 'not_required'
+                : m.user_id && signedUserIds.has(m.user_id)
+                ? 'signed'
+                : 'not_signed'
+              return {
+                id: m.id,
+                role: m.role,
+                position: m.position ?? null,
+                userId: m.user_id,
+                isMe: false, // admin view — no "me" concept
+                name: profile?.full_name ?? '',
+                email: profile?.email ?? '',
+                avatarUrl: profile?.avatar_url ?? null,
+                registrationStatus: regStatus,
+                waiverStatus,
+              }
+            })
+
+            // Build PendingInvite[] for RosterManager
+            const teamInvites = invitesByTeam.get(team.id) ?? []
+            const initialInvites: PendingInvite[] = teamInvites.map((inv) => ({
+              id: inv.id,
+              invitedEmail: inv.invited_email,
+              role: inv.role,
+              invitedAt: inv.created_at,
+              expiresAt: inv.expires_at,
+              inviterName: null, // admin view — skip inviter name lookup
+            }))
+
+            // Join requests for this specific team
+            const teamJoinRequests = (joinRequestsByTeam.get(team.id) ?? []).map((req) => {
+              const profile = Array.isArray(req.profile) ? req.profile[0] : req.profile
+              return {
+                id: req.id,
+                playerName: (profile as { full_name?: string } | null)?.full_name ?? '',
+                playerEmail: (profile as { email?: string } | null)?.email ?? '',
+                message: req.message ?? null,
+                createdAt: req.created_at,
+              }
+            })
 
             return (
-              <div key={team.id} className="bg-white rounded-lg border p-4">
-                <div className="flex items-center gap-3 mb-2">
+              <div key={team.id} className="bg-white rounded-lg border overflow-hidden">
+                {/* Team header */}
+                <div className="px-4 py-4 flex items-center gap-3 border-b bg-gray-50">
                   <TeamAvatar logoUrl={team.logo_url ?? null} color={team.color} name={team.name} size="sm" />
-                  <h3 className="font-semibold">{team.name}</h3>
-                  <span className="text-xs text-gray-400 ml-auto">
-                    {activePlayers.length} player{activePlayers.length !== 1 ? 's' : ''}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900">{team.name}</h3>
+                    {captainProfile?.full_name && (
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Captain: {captainProfile.full_name}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-400 shrink-0">
+                    {activeMembers.length} player{activeMembers.length !== 1 ? 's' : ''}
                   </span>
                   {isOrgAdmin && (
-                    <>
+                    <div className="flex items-center gap-2 shrink-0">
                       <AdminEditTeamForm
                         team={{ id: team.id, name: team.name, color: team.color, logo_url: team.logo_url ?? null }}
                         leagueId={id}
                       />
                       <DeleteTeamButton teamId={team.id} teamName={team.name} leagueId={id} />
-                    </>
+                    </div>
                   )}
                 </div>
 
-                {captainProfile?.full_name && (
-                  <p className="text-sm text-gray-500 mb-2">
-                    Captain: <span className="font-medium text-gray-700">{captainProfile.full_name}</span>
-                  </p>
-                )}
-
+                {/* Team code */}
                 {team.team_code && (
-                  <TeamCodeBadge teamId={team.id} code={team.team_code} />
+                  <div className="px-4 py-3 border-b bg-white">
+                    <TeamCodeBadge teamId={team.id} code={team.team_code} />
+                  </div>
                 )}
 
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {members.map((m) => {
-                    const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
-                    const displayName = profile?.full_name ?? m.invited_email ?? null
-                    if (!displayName) return null
-                    return (
-                      <span
-                        key={m.id}
-                        className={`inline-flex items-center text-xs rounded-full px-2 py-0.5 ${
-                          m.role === 'captain' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {displayName}
-                        {m.status === 'invited' && ' (invited)'}
-                        {isOrgAdmin && m.role !== 'captain' && m.status === 'active' && m.user_id && (
-                          <MakeCaptainButton
-                            memberId={m.id}
-                            teamId={team.id}
-                            leagueId={id}
-                            playerName={displayName}
-                          />
-                        )}
-                        {isOrgAdmin && (
-                          <RemovePlayerButton
-                            memberId={m.id}
-                            leagueId={id}
-                            playerName={displayName}
-                          />
-                        )}
-                      </span>
-                    )
-                  })}
+                {/* Pending join requests */}
+                {teamJoinRequests.length > 0 && (
+                  <div className="px-4 py-3 border-b">
+                    <PendingJoinRequests teamId={team.id} initialRequests={teamJoinRequests} />
+                  </div>
+                )}
+
+                {/* Full roster manager — invite by email, manage roles/positions, waiver & reg status */}
+                <div className="px-4 py-4">
+                  <RosterManager
+                    teamId={team.id}
+                    leagueId={id}
+                    leagueSlug={leagueSlug}
+                    teamCode={team.team_code ?? null}
+                    leagueHasWaiver={leagueHasWaiver}
+                    positions={positions}
+                    initialMembers={initialMembers}
+                    initialInvites={initialInvites}
+                  />
                 </div>
-
-                {isOrgAdmin && (
-                  <details className="mt-4">
-                    <summary className="text-sm font-medium text-blue-600 cursor-pointer hover:text-blue-700 list-none flex items-center gap-1">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                      Add Player
-                    </summary>
-                    <div className="mt-3 pt-3 border-t">
-                      <AdminAddMemberForm
-                        teamId={team.id}
-                        leagueId={id}
-                        registeredPlayers={unassignedPlayers}
-                      />
-                    </div>
-                  </details>
-                )}
               </div>
             )
           })
@@ -241,9 +334,17 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
         )}
       </div>
 
+      {/* Sidebar */}
       {isOrgAdmin && (
-        <div>
+        <div className="space-y-4">
           <AdminCreateTeamForm leagueId={id} registeredPlayers={unassignedPlayers} slotLabels={slotLabels} />
+          {slotLabels.length > 0 && (
+            <AssignSlotsCard
+              leagueId={id}
+              slotLabels={slotLabels}
+              teams={(typedTeams as Array<{ id: string; name: string }>).map((t) => ({ id: t.id, name: t.name }))}
+            />
+          )}
         </div>
       )}
     </div>
