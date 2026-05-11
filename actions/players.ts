@@ -7,6 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentOrg } from '@/lib/tenant'
 import { sendSms as twilioSendSms, toE164 } from '@/lib/twilio'
+import { optionalPhone, nullablePhone } from '@/lib/validation'
 
 async function requireOrgAdmin() {
   const headersList = await headers()
@@ -31,11 +32,11 @@ async function requireOrgAdmin() {
 
 const detailsSchema = z.object({
   full_name: z.string().min(1, 'Name is required'),
-  phone: z.string().optional(),
+  phone: optionalPhone,
   skill_level: z.enum(['beginner', 'intermediate', 'competitive']).optional().nullable(),
   t_shirt_size: z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']).optional().nullable(),
   emergency_contact_name: z.string().optional().nullable(),
-  emergency_contact_phone: z.string().optional().nullable(),
+  emergency_contact_phone: nullablePhone,
   date_of_birth: z.string().optional().nullable(),
   how_did_you_hear: z.string().optional().nullable(),
 })

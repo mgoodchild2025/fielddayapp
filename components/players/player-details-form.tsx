@@ -69,7 +69,12 @@ export function PlayerDetailsForm({ userId, profile, playerDetails, orgRole }: P
         </div>
         <div>
           <label className={labelClass}>Phone</label>
-          <input name="phone" defaultValue={profile.phone ?? ''} className={inputClass} />
+          <input
+            name="phone"
+            type="tel"
+            defaultValue={profile.phone ?? ''}
+            className={inputClass}
+          />
         </div>
         <div>
           <label className={labelClass}>Date of Birth</label>
@@ -124,6 +129,7 @@ export function PlayerDetailsForm({ userId, profile, playerDetails, orgRole }: P
             <label className={labelClass}>Phone</label>
             <input
               name="emergency_contact_phone"
+              type="tel"
               defaultValue={playerDetails?.emergency_contact_phone ?? ''}
               className={inputClass}
             />

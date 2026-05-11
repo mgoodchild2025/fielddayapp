@@ -7,6 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { toE164 } from '@/lib/twilio'
 import { z } from 'zod'
+import { optionalPhone } from '@/lib/validation'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
@@ -195,13 +196,13 @@ export async function updatePassword(newPassword: string): Promise<{ error: stri
 
 const updateProfileSchema = z.object({
   full_name: z.string().min(2),
-  phone: z.string().optional(),
+  phone: optionalPhone,
   sms_opted_in: z.boolean().optional(),
   sms_game_day_enabled: z.boolean().optional(),
   skill_level: z.enum(['beginner', 'intermediate', 'competitive']).optional(),
   t_shirt_size: z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']).optional(),
   emergency_contact_name: z.string().optional(),
-  emergency_contact_phone: z.string().optional(),
+  emergency_contact_phone: optionalPhone,
   orgId: z.string().uuid(),
 })
 

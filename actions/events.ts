@@ -9,6 +9,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { getLimit, getActiveLeagueCount } from '@/lib/features'
 import { assertOrgAdmin, requireOrgMember } from '@/lib/auth'
 import { convertToWebP } from '@/lib/image-utils'
+import { optionalPhone } from '@/lib/validation'
 import type { Database } from '@/types/database'
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
@@ -37,7 +38,7 @@ const createLeagueSchema = z.object({
   venue_surface: z.string().optional(),
   organizer_name: z.string().optional(),
   organizer_email: z.string().email().optional().or(z.literal('')),
-  organizer_phone: z.string().optional(),
+  organizer_phone: optionalPhone,
   team_join_policy: z.enum(['open', 'captain_invite', 'admin_only']).default('open'),
   pickup_join_policy: z.enum(['public', 'private']).default('public'),
   registration_mode: z.enum(['session', 'season']).default('session'),

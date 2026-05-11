@@ -2,6 +2,7 @@
 
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { requireOrgMember } from '@/lib/auth'
@@ -74,6 +75,15 @@ export async function saveNotificationSettings(
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin'])
   const db = createServiceRoleClient()
+
+  // Validate recipient email when provided
+  const recipientEmail = settings.registrationNotificationEmail?.trim() || null
+  if (recipientEmail) {
+    const emailParse = z.string().email().safeParse(recipientEmail)
+    if (!emailParse.success) {
+      return { error: 'Please enter a valid recipient email address' }
+    }
+  }
 
   // Validate messages
   for (const r of settings.reminders) {

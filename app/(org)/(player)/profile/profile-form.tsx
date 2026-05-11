@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { updateProfile } from '@/actions/auth'
 import { uploadPlayerAvatar } from '@/actions/profiles'
+import { optionalPhone } from '@/lib/validation'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import type { Database } from '@/types/database'
 
@@ -14,13 +15,13 @@ type PlayerDetails = Database['public']['Tables']['player_details']['Row']
 
 const schema = z.object({
   full_name: z.string().min(2),
-  phone: z.string().optional(),
+  phone: optionalPhone,
   sms_opted_in: z.boolean().optional(),
   sms_game_day_enabled: z.boolean().optional(),
   skill_level: z.enum(['beginner', 'intermediate', 'competitive']).optional(),
   t_shirt_size: z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']).optional(),
   emergency_contact_name: z.string().optional(),
-  emergency_contact_phone: z.string().optional(),
+  emergency_contact_phone: optionalPhone,
 })
 
 type FormData = z.infer<typeof schema>
@@ -183,6 +184,7 @@ export function ProfileForm({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
             <input {...register('phone')} type="tel" className="w-full border rounded-md px-3 py-2 text-base" />
+            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
             <div className="mt-2 space-y-1.5">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input {...register('sms_opted_in')} type="checkbox" className="rounded" />
@@ -238,6 +240,9 @@ export function ProfileForm({
               type="tel"
               className="w-full border rounded-md px-3 py-2 text-base"
             />
+            {errors.emergency_contact_phone && (
+              <p className="text-red-500 text-xs mt-1">{errors.emergency_contact_phone.message}</p>
+            )}
           </div>
         </div>
       </div>
