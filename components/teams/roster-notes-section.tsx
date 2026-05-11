@@ -44,12 +44,10 @@ function EditRow({
     setError(null)
     startTransition(async () => {
       if (note.id) {
-        // Update
         const result = await updateRosterNote({ id: note.id, teamId, name, email, note: noteText })
         if (result.error) { setError(result.error); return }
         onSave({ id: note.id, name: name.trim(), email: email.trim() || null, note: noteText.trim() || null, created_at: note.created_at ?? new Date().toISOString() })
       } else {
-        // Add new
         const result = await addRosterNote({ teamId, name, email, note: noteText })
         if (result.error) { setError(result.error); return }
         if (result.data) onSave(result.data)
@@ -62,38 +60,41 @@ function EditRow({
     if (e.key === 'Escape') onCancel()
   }
 
+  const inputClass = 'w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0 bg-white'
+  const ringStyle = { '--tw-ring-color': 'var(--brand-primary)' } as React.CSSProperties
+
   return (
-    <div className="border border-dashed border-gray-300 rounded-lg p-3 bg-gray-50 space-y-2">
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="block text-xs text-gray-500 mb-0.5">Name <span className="text-red-400">*</span></label>
-          <input
-            ref={nameRef}
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Full name"
-            maxLength={120}
-            className="w-full border rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0"
-            style={{ '--tw-ring-color': 'var(--brand-primary)' } as React.CSSProperties}
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-0.5">Email <span className="text-gray-400 font-normal">(optional)</span></label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="player@example.com"
-            className="w-full border rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0"
-            style={{ '--tw-ring-color': 'var(--brand-primary)' } as React.CSSProperties}
-          />
-        </div>
+    <div className="border border-dashed border-gray-300 rounded-lg p-3 bg-gray-50 space-y-2.5">
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Name <span className="text-red-400">*</span></label>
+        <input
+          ref={nameRef}
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Full name"
+          maxLength={120}
+          className={inputClass}
+          style={ringStyle}
+        />
       </div>
       <div>
-        <label className="block text-xs text-gray-500 mb-0.5">Note <span className="text-gray-400 font-normal">(optional)</span></label>
+        <label className="block text-xs text-gray-500 mb-1">
+          Email <span className="text-gray-400 font-normal">(optional — enables Invite)</span>
+        </label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="player@example.com"
+          className={inputClass}
+          style={ringStyle}
+        />
+      </div>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Note <span className="text-gray-400 font-normal">(optional)</span></label>
         <input
           type="text"
           value={noteText}
@@ -101,8 +102,8 @@ function EditRow({
           onKeyDown={handleKeyDown}
           placeholder="e.g. jersey #7, position OH, needs to sign waiver"
           maxLength={500}
-          className="w-full border rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0"
-          style={{ '--tw-ring-color': 'var(--brand-primary)' } as React.CSSProperties}
+          className={inputClass}
+          style={ringStyle}
         />
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}
@@ -111,7 +112,7 @@ function EditRow({
           type="button"
           onClick={handleSave}
           disabled={pending}
-          className="px-3 py-1.5 rounded text-xs font-semibold text-white disabled:opacity-50"
+          className="flex-1 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >
           {pending ? 'Saving…' : 'Save'}
@@ -119,7 +120,7 @@ function EditRow({
         <button
           type="button"
           onClick={onCancel}
-          className="px-3 py-1.5 rounded text-xs font-medium text-gray-600 border hover:bg-gray-100"
+          className="flex-1 py-2 rounded-lg text-sm font-medium text-gray-600 border hover:bg-gray-100"
         >
           Cancel
         </button>
@@ -183,51 +184,52 @@ function NoteRow({
   }
 
   return (
-    <div className="flex items-start gap-3 py-2.5 border-b last:border-0 group">
-      {/* Avatar placeholder */}
-      <div className="w-8 h-8 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center shrink-0 mt-0.5">
-        <span className="text-xs text-gray-400">?</span>
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium text-gray-700">{note.name}</span>
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 uppercase tracking-wide">
-            Unregistered
-          </span>
+    <div className="py-3 border-b last:border-0">
+      <div className="flex items-start gap-3">
+        {/* Avatar placeholder */}
+        <div className="w-8 h-8 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center shrink-0 mt-0.5">
+          <span className="text-xs text-gray-400">?</span>
         </div>
-        {note.email && !inviteSuccess && (
-          <p className="text-xs text-gray-400 mt-0.5">{note.email}</p>
-        )}
-        {note.note && (
-          <p className="text-xs text-gray-500 mt-0.5 italic">{note.note}</p>
-        )}
-        {inviteSuccess && (
-          <p className="text-xs text-green-600 mt-0.5 font-medium">✓ Invite sent to {note.email}</p>
-        )}
-        {inviteError && (
-          <p className="text-xs text-red-500 mt-0.5">{inviteError}</p>
-        )}
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-gray-700">{note.name}</span>
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 uppercase tracking-wide">
+              Unregistered
+            </span>
+          </div>
+          {note.email && !inviteSuccess && (
+            <p className="text-xs text-gray-400 mt-0.5">{note.email}</p>
+          )}
+          {note.note && (
+            <p className="text-xs text-gray-500 mt-0.5 italic">{note.note}</p>
+          )}
+          {inviteSuccess && (
+            <p className="text-xs text-green-600 mt-0.5 font-medium">✓ Invite sent to {note.email}</p>
+          )}
+          {inviteError && (
+            <p className="text-xs text-red-500 mt-0.5">{inviteError}</p>
+          )}
+        </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Actions — always visible, full-width row on mobile */}
+      <div className="flex items-center gap-2 mt-2 ml-11">
         {note.email && !inviteSuccess && (
           <button
             type="button"
             onClick={handleInvite}
             disabled={invitePending || inviting}
-            title="Send team invite to this email"
-            className="text-xs px-2 py-1 rounded border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 disabled:opacity-40 transition-colors"
+            className="flex-1 py-1.5 rounded-md text-xs font-semibold text-white disabled:opacity-40 transition-opacity"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
           >
-            Invite →
+            {invitePending || inviting ? 'Sending…' : 'Send Invite'}
           </button>
         )}
         <button
           type="button"
           onClick={() => setEditing(true)}
-          title="Edit"
-          className="text-xs px-2 py-1 rounded border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 transition-colors"
+          className={`${note.email && !inviteSuccess ? '' : 'flex-1'} py-1.5 px-3 rounded-md text-xs font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors`}
         >
           Edit
         </button>
@@ -235,10 +237,9 @@ function NoteRow({
           type="button"
           onClick={handleDelete}
           disabled={deleting}
-          title="Remove"
-          className="text-xs px-2 py-1 rounded border border-gray-200 text-red-400 hover:border-red-300 hover:text-red-600 disabled:opacity-40 transition-colors"
+          className="py-1.5 px-3 rounded-md text-xs font-medium text-red-500 border border-red-100 hover:bg-red-50 disabled:opacity-40 transition-colors"
         >
-          ✕
+          Remove
         </button>
       </div>
     </div>
@@ -266,36 +267,35 @@ export function RosterNotesSection({ teamId, initialNotes }: Props) {
 
   return (
     <div className="mt-4 bg-white rounded-lg border">
-      <div className="px-5 pt-4 pb-2 flex items-center justify-between">
-        <div>
-          <h2 className="font-semibold text-sm text-gray-700">Planning</h2>
-          <p className="text-xs text-gray-400 mt-0.5">
-            Track who you expect to join. These are not registered members.
-          </p>
+      <div className="px-5 pt-4 pb-2">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-semibold text-sm text-gray-700">Planning</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Track who you expect to join — not registered members.
+            </p>
+          </div>
+          {!adding && notes.length < 50 && (
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="shrink-0 text-sm font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              + Add person
+            </button>
+          )}
         </div>
-        {!adding && notes.length < 50 && (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="text-xs font-medium px-2.5 py-1.5 rounded border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-          >
-            + Add
-          </button>
-        )}
       </div>
 
       <div className="px-5 pb-4">
         {notes.length === 0 && !adding && (
-          <p className="text-sm text-gray-400 py-3 text-center">
-            No planning entries yet.{' '}
-            <button
-              type="button"
-              onClick={() => setAdding(true)}
-              className="underline hover:no-underline"
-            >
-              Add one
-            </button>
-          </p>
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="w-full mt-1 py-3 rounded-lg border border-dashed border-gray-200 text-sm text-gray-400 hover:border-gray-300 hover:text-gray-500 transition-colors"
+          >
+            + Add your first planning entry
+          </button>
         )}
 
         {notes.map((note) => (
