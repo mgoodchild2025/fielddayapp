@@ -74,7 +74,7 @@ export default async function RegisterLeaguePage({
           .maybeSingle(),
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from('org_payment_settings').select('stripe_secret_key, registration_payment_mode').eq('organization_id', org.id).maybeSingle(),
+    (supabase as any).from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', org.id).maybeSingle(),
     // Check if the user is already on any team in this league (any role).
     // Query starts from teams so league_id is filtered on the primary table (reliable).
     supabase
@@ -129,6 +129,8 @@ export default async function RegisterLeaguePage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const registrationPaymentMode = (connectAccount as any)?.registration_payment_mode ?? 'stripe'
   const hasOnlinePayments = !!connectAccount?.stripe_secret_key && registrationPaymentMode !== 'manual'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const manualPaymentInstructions: string | null = (connectAccount as any)?.registration_manual_instructions ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dropInPriceCents: number | null = (league as any).drop_in_price_cents ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -228,6 +230,10 @@ export default async function RegisterLeaguePage({
     const earlyBirdActive = !isDropIn && earlyBirdPriceCents != null && earlyBirdDeadline != null && now < new Date(earlyBirdDeadline)
     const effectivePrice = isDropIn ? (dropInPriceCents ?? 0) : (earlyBirdActive ? earlyBirdPriceCents! : league.price_cents)
     const needsPayment = effectivePrice > 0 && hasOnlinePayments && !paymentComplete
+    // Manual payment: price set but no Stripe — player must see payment instructions
+    // before we activate them. There's no DB record for offline payments, so we
+    // always show the step until the player explicitly clicks "Complete Registration".
+    const needsManualPayment = effectivePrice > 0 && !hasOnlinePayments
 
     if (existingReg.status === 'active' && !needsPayment && !perTeamPlayerNeedsTeam) {
       redirect(`/register/${slug}/success`)
@@ -235,16 +241,16 @@ export default async function RegisterLeaguePage({
       // Per-team player: registration may be active/waiver signed but they haven't
       // joined a team yet — send them to the team code step.
       initialStep = 3
-    } else if (needsPayment && (waiverSigned || !waiver)) {
-      initialStep = 3 // jump to payment
+    } else if ((needsPayment || needsManualPayment) && (waiverSigned || !waiver)) {
+      initialStep = 3 // jump to payment (Stripe or manual instructions)
     } else if (waiver && !waiverSigned) {
       initialStep = 2 // jump to waiver
-    } else if (!needsPayment && waiverSigned) {
-      // Waiver was signed in a prior session and no payment needed — safe to auto-activate
+    } else if (!needsPayment && !needsManualPayment && waiverSigned) {
+      // Truly free event: waiver signed, no payment of any kind needed — auto-activate
       const service = createServiceRoleClient()
       await service.from('registrations').update({ status: 'active' }).eq('id', existingReg.id)
       redirect(`/register/${slug}/success`)
-    } else if (!needsPayment) {
+    } else if (!needsPayment && !needsManualPayment) {
       // No payment needed and no waiver signed yet (or no waiver required) —
       // resume at step 2 so the user explicitly confirms rather than being
       // silently activated if they navigated away mid-flow.
@@ -286,6 +292,7 @@ export default async function RegisterLeaguePage({
       leagueTeams={leagueTeams}
       leagueMerch={leagueMerch}
       initialTeamCode={initialTeamCode}
+      manualPaymentInstructions={manualPaymentInstructions}
     />
   )
 }

@@ -46,6 +46,12 @@ interface Props {
   leagueMerch?: MerchItemForStep[]
   /** Pre-filled team code from the invite link (?code=XXXXXX) */
   initialTeamCode?: string | null
+  /**
+   * Manual payment instructions from org settings. When set and the event has a
+   * price but no online (Stripe) payments, the registration flow shows an info
+   * step with these instructions before completing the registration.
+   */
+  manualPaymentInstructions?: string | null
 }
 
 // Steps used in the progress bar (step 0 = role select, shown separately; never in bar)
@@ -53,6 +59,7 @@ const PLAYER_STEPS = ['Player Details', 'Waiver', 'Join a Team']
 const CAPTAIN_STEPS = ['Player Details', 'Waiver', 'Create Team']
 const PAYMENT_STEPS = ['Player Details', 'Waiver', 'Payment']
 const PAYMENT_STEPS_WITH_MERCH = ['Player Details', 'Waiver', 'Add-ons', 'Payment']
+const MANUAL_PAYMENT_STEPS = ['Player Details', 'Waiver', 'Payment Info']
 
 export function RegistrationFlow({
   org,
@@ -77,6 +84,7 @@ export function RegistrationFlow({
   leagueTeams = [],
   leagueMerch = [],
   initialTeamCode = null,
+  manualPaymentInstructions = null,
 }: Props) {
   const router = useRouter()
 
@@ -84,6 +92,9 @@ export function RegistrationFlow({
   const effectivePriceCents = isDropIn ? (dropInPriceCents ?? 0) : (earlyBirdActive ? earlyBirdPriceCents! : league.price_cents)
   const isPerTeam = (league as unknown as { payment_mode?: string }).payment_mode === 'per_team'
   const showPaymentStep = effectivePriceCents > 0 && hasOnlinePayments && !isPerTeam
+  // Manual payment: price is set but Stripe is not configured/enabled.
+  // Show an informational step with the org's offline payment instructions.
+  const showManualPaymentStep = effectivePriceCents > 0 && !hasOnlinePayments && !isPerTeam
   // Show add-ons whenever merch exists and online payments are available —
   // independent of whether the base registration fee is non-zero.
   const showAddOnsStep = leagueMerch.length > 0 && hasOnlinePayments && !isPerTeam
@@ -116,11 +127,13 @@ export function RegistrationFlow({
   // Choose the right step labels for the progress bar
   const steps = (showPaymentStep || showAddOnsStep)
     ? (showAddOnsStep ? PAYMENT_STEPS_WITH_MERCH : PAYMENT_STEPS)
-    : isPerTeam && isCaptain
-      ? CAPTAIN_STEPS
-      : isPerTeam && isPlayer
-        ? PLAYER_STEPS
-        : PAYMENT_STEPS.filter((s) => s !== 'Payment')
+    : showManualPaymentStep
+      ? MANUAL_PAYMENT_STEPS
+      : isPerTeam && isCaptain
+        ? CAPTAIN_STEPS
+        : isPerTeam && isPlayer
+          ? PLAYER_STEPS
+          : PAYMENT_STEPS.filter((s) => s !== 'Payment')
 
   function advanceStep(n: number) {
     setStep(n)
@@ -143,6 +156,9 @@ export function RegistrationFlow({
       // go to add-ons step (step 3), then payment is step 4
       advanceStep(3)
     } else if (showPaymentStep) {
+      advanceStep(3)
+    } else if (showManualPaymentStep) {
+      // Show the offline payment instructions before completing registration
       advanceStep(3)
     } else if (isPerTeam) {
       if (isPlayer && playerTeamId) {
@@ -318,6 +334,49 @@ export function RegistrationFlow({
             }}
             onBack={() => advanceStep(2)}
           />
+        )}
+
+        {/* Step 3 — Manual / offline payment instructions */}
+        {step === 3 && showManualPaymentStep && !completing && (
+          <div className="bg-white rounded-lg border p-6 space-y-5">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Payment Required</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Your registration fee is{' '}
+                <strong className="text-gray-800">
+                  ${(effectivePriceCents / 100).toFixed(2)}
+                </strong>
+                . Payment is collected offline — please follow the instructions below.
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+              {manualPaymentInstructions ? (
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{manualPaymentInstructions}</p>
+              ) : (
+                <p className="text-sm text-gray-500 italic">
+                  Please contact the organizer for payment instructions.
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => completeRegistration(registrationId)}
+              disabled={completing}
+              className="w-full py-3 rounded-lg font-semibold text-white text-sm disabled:opacity-50 transition-opacity hover:opacity-90"
+              style={{ backgroundColor: 'var(--brand-primary)' }}
+            >
+              Complete Registration →
+            </button>
+            <button
+              type="button"
+              onClick={() => advanceStep(waiver ? 2 : 1)}
+              className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              ← Back
+            </button>
+          </div>
         )}
 
         {/* Step 3 (no merch) or Step 4 (with merch) — Per-player payment */}
