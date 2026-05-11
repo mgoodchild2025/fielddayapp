@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -36,17 +36,37 @@ interface Props {
   registrationType?: 'season' | 'drop_in'
   /** Show the team-code field (hidden for per-team events where joining happens in a dedicated step) */
   showTeamCode?: boolean
-  onComplete: (registrationId: string) => void
+  /** Pre-filled team code from the invite link — auto-validates on mount */
+  initialTeamCode?: string | null
+  /** registrationId is always provided; joinedTeamId is set when the player joined a team via code */
+  onComplete: (registrationId: string, joinedTeamId?: string) => void
 }
 
-export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, positions = [], registrationType = 'season', showTeamCode = true, onComplete }: Props) {
+export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, positions = [], registrationType = 'season', showTeamCode = true, initialTeamCode = null, onComplete }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedPosition, setSelectedPosition] = useState('')
-  const [teamCode, setTeamCode] = useState('')
+  const [teamCode, setTeamCode] = useState(initialTeamCode ?? '')
   const [teamCodeError, setTeamCodeError] = useState<string | null>(null)
   const [teamCodeValid, setTeamCodeValid] = useState<{ id: string; name: string } | null>(null)
   const [validating, setValidating] = useState(false)
+
+  // Auto-validate a pre-filled team code from the invite link
+  useEffect(() => {
+    const code = (initialTeamCode ?? '').trim().toUpperCase()
+    if (!code || !showTeamCode) return
+    setValidating(true)
+    validateTeamCode(code).then((result) => {
+      setValidating(false)
+      if (result.error) {
+        setTeamCodeError(result.error)
+      } else {
+        setTeamCodeValid(result.data)
+      }
+    })
+  // Only run once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -99,11 +119,13 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
     }
 
     // If a valid team code was provided, join the team now
+    let joinedTeamId: string | undefined
     if (teamCodeValid) {
       await joinTeamByCode(teamCode.trim().toUpperCase())
+      joinedTeamId = teamCodeValid.id
     }
 
-    onComplete(result.data!.registrationId)
+    onComplete(result.data!.registrationId, joinedTeamId)
   }
 
   return (

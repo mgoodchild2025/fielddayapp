@@ -105,6 +105,8 @@ export function RegistrationFlow({
   // Track the captain's newly-created team so we can redirect after waiver
   const [newCaptainTeamId, setNewCaptainTeamId] = useState<string | null>(captainTeamId)
   const [newCaptainTeamName, setNewCaptainTeamName] = useState<string | null>(captainTeamName)
+  // For per-player events: team ID joined via team code in Step 1
+  const [step1TeamId, setStep1TeamId] = useState<string | null>(null)
   // Merchandise selections from add-ons step
   const [merchSelections, setMerchSelections] = useState<MerchSelection[]>([])
 
@@ -128,7 +130,12 @@ export function RegistrationFlow({
   async function completeRegistration(regId: string | null) {
     setCompleting(true)
     if (regId) await activateRegistration(regId)
-    router.push(`/register/${league.slug}/success`)
+    // If the player joined a team via code in Step 1, land on that team page
+    if (step1TeamId) {
+      router.push(`/teams/${step1TeamId}`)
+    } else {
+      router.push(`/register/${league.slug}/success`)
+    }
   }
 
   async function afterWaiver() {
@@ -259,7 +266,12 @@ export function RegistrationFlow({
             positions={positions}
             registrationType={isDropIn ? 'drop_in' : 'season'}
             showTeamCode={!isPerTeam}
-            onComplete={(regId) => { setRegistrationId(regId); advanceStep(2) }}
+            initialTeamCode={!isPerTeam ? initialTeamCode : null}
+            onComplete={(regId, teamId) => {
+              setRegistrationId(regId)
+              if (teamId) setStep1TeamId(teamId)
+              advanceStep(2)
+            }}
           />
         )}
 

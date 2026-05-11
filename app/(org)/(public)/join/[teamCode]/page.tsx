@@ -33,7 +33,7 @@ export default async function JoinTeamPage({
     .from('teams')
     .select(`
       id, name, color, logo_url, team_code,
-      league:leagues!teams_league_id_fkey(id, name, slug, sport, max_team_size)
+      league:leagues!teams_league_id_fkey(id, name, slug, sport, max_team_size, status, payment_mode)
     `)
     .eq('team_code', code)
     .eq('organization_id', org.id)
@@ -63,6 +63,8 @@ export default async function JoinTeamPage({
   const leagueName: string = (league as { name?: string } | null)?.name ?? ''
   const leagueSlug: string = (league as { slug?: string } | null)?.slug ?? ''
   const maxTeamSize: number | null = (league as { max_team_size?: number | null } | null)?.max_team_size ?? null
+  const leagueStatus: string = (league as { status?: string } | null)?.status ?? ''
+  const leagueRegistrationOpen = leagueStatus === 'registration_open'
 
   // Check current team size
   const { count: memberCount } = await db
@@ -91,8 +93,28 @@ export default async function JoinTeamPage({
   // Logged-in player who is eligible to join: skip the button click entirely.
   // This handles the post-email-confirmation case where Supabase redirects back
   // here with a simple /join/XXXXXX next param (no nested query params to mangle).
-  if (user && !alreadyMember && !isFull && leagueSlug) {
-    redirect(`/register/${leagueSlug}?code=${code}`)
+  if (user && !alreadyMember && !isFull) {
+    if (leagueRegistrationOpen && leagueSlug) {
+      // League is open for registration: send through the full flow (payment, waiver, etc.)
+      redirect(`/register/${leagueSlug}?code=${code}`)
+    } else if (!leagueRegistrationOpen) {
+      // League is active / closed: add the player directly (mid-season addition),
+      // matching the behaviour of acceptTeamInvitation for non-open leagues.
+      await db.from('team_members' as never).upsert({
+        organization_id: org.id,
+        team_id: team.id,
+        user_id: user.id,
+        role: 'player',
+        status: 'active',
+      } as never, { onConflict: 'team_id,user_id' } as never)
+      await db.from('org_members').upsert({
+        organization_id: org.id,
+        user_id: user.id,
+        role: 'player',
+        status: 'active',
+      }, { onConflict: 'organization_id,user_id', ignoreDuplicates: true })
+      redirect(`/teams/${team.id}`)
+    }
   }
 
   return (
