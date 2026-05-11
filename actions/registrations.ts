@@ -28,14 +28,19 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
 
-  // ── Capacity check (per-player events only) ──────────────────────────────
+  // ── League status + capacity check ──────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: leagueCap } = await (supabase as any)
     .from('leagues')
-    .select('payment_mode, max_participants')
+    .select('status, payment_mode, max_participants')
     .eq('id', parsed.data.leagueId)
     .eq('organization_id', org.id)
     .single()
+
+  // Registrations are only allowed for open or active events.
+  if (!leagueCap || leagueCap.status === 'draft') {
+    return { data: null, error: 'Registration is not open for this event' }
+  }
 
   if (leagueCap?.payment_mode !== 'per_team' && leagueCap?.max_participants) {
     const { count } = await supabase
