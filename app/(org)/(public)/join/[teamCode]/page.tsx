@@ -148,14 +148,14 @@ export default async function JoinTeamPage({
             ) : (
               <div className="space-y-3">
                 <Link
-                  href={`/login?redirect=${encodeURIComponent(returnPath)}`}
+                  href={`/login?redirect=${encodeURIComponent(leagueSlug ? `/register/${leagueSlug}?code=${code}` : returnPath)}`}
                   className="block w-full py-3 rounded-lg font-bold text-white text-sm text-center transition-opacity hover:opacity-90"
                   style={{ backgroundColor: 'var(--brand-primary)' }}
                 >
                   Sign in to accept
                 </Link>
                 <Link
-                  href={`/register?redirect=${encodeURIComponent(returnPath)}`}
+                  href={`/register?redirect=${encodeURIComponent(leagueSlug ? `/register/${leagueSlug}?code=${code}` : returnPath)}`}
                   className="block w-full py-2.5 rounded-lg font-semibold text-sm text-center border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
                 >
                   Create account
