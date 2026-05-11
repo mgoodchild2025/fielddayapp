@@ -19,6 +19,7 @@ export type OrganizerRow = {
   is_org_admin: boolean
   created_at: string
   expires_at: string
+  show_contact_info: boolean
 }
 
 export type AvailableAdmin = {
@@ -111,7 +112,7 @@ export async function getLeagueOrganizers(leagueId: string): Promise<LeagueOrgan
   // Fetch event-specific organizer rows (exclude removed/declined)
   const { data: organizerRows } = await anyDb
     .from('league_organizers')
-    .select('id, invited_email, status, user_id, expires_at, created_at')
+    .select('id, invited_email, status, user_id, expires_at, created_at, show_contact_info')
     .eq('league_id', leagueId)
     .eq('organization_id', org.id)
     .not('status', 'in', '("removed","declined")')
@@ -140,6 +141,7 @@ export async function getLeagueOrganizers(leagueId: string): Promise<LeagueOrgan
     user_id: string | null
     expires_at: string
     created_at: string
+    show_contact_info: boolean
   }) => ({
     id: r.id,
     invited_email: r.invited_email,
@@ -149,6 +151,7 @@ export async function getLeagueOrganizers(leagueId: string): Promise<LeagueOrgan
     is_org_admin: r.user_id ? orgAdminUserIds.has(r.user_id) : false,
     expires_at: r.expires_at,
     created_at: r.created_at,
+    show_contact_info: r.show_contact_info ?? true,
   }))
 
   // Org admins not yet assigned to this event (available to add directly)
@@ -634,6 +637,51 @@ export async function resendOrganizerInvite(organizerId: string) {
       declineUrl,
     }),
   })
+
+  revalidatePath(`/admin/events/${organizer.league_id}`)
+  return { error: null }
+}
+
+// ─── Toggle contact info visibility ──────────────────────────────────────────
+
+export async function updateOrganizerContactVisibility(organizerId: string, showContactInfo: boolean) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyDb = db as any
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: member } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .single()
+
+  if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
+    return { error: 'Only admins can change contact visibility' }
+  }
+
+  const { data: organizer, error: fetchError } = await anyDb
+    .from('league_organizers')
+    .select('id, league_id')
+    .eq('id', organizerId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (fetchError || !organizer) return { error: 'Organizer not found' }
+
+  const { error: updateError } = await anyDb
+    .from('league_organizers')
+    .update({ show_contact_info: showContactInfo })
+    .eq('id', organizerId)
+
+  if (updateError) return { error: updateError.message }
 
   revalidatePath(`/admin/events/${organizer.league_id}`)
   return { error: null }

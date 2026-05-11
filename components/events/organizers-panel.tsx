@@ -6,6 +6,7 @@ import {
   addOrgAdminAsOrganizer,
   removeCoOrganizer,
   resendOrganizerInvite,
+  updateOrganizerContactVisibility,
   type OrganizerRow,
   type AvailableAdmin,
 } from '@/actions/organizers'
@@ -73,6 +74,7 @@ export function OrganizersPanel({
             is_org_admin: true,
             created_at: new Date().toISOString(),
             expires_at: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+            show_contact_info: true,
           }])
           setAvailableAdmins(prev => prev.filter(a => a.user_id !== selectedAdminId))
         }
@@ -103,6 +105,7 @@ export function OrganizersPanel({
             is_org_admin: false,
             created_at: new Date().toISOString(),
             expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            show_contact_info: true,
           },
         ])
       }
@@ -133,6 +136,19 @@ export function OrganizersPanel({
     })
   }
 
+  function handleToggleContactInfo(organizer: OrganizerRow) {
+    const next = !organizer.show_contact_info
+    // Optimistic update
+    setOrganizers(prev => prev.map(o => o.id === organizer.id ? { ...o, show_contact_info: next } : o))
+    startAction(async () => {
+      const result = await updateOrganizerContactVisibility(organizer.id, next)
+      if (result.error) {
+        // Revert on failure
+        setOrganizers(prev => prev.map(o => o.id === organizer.id ? { ...o, show_contact_info: !next } : o))
+      }
+    })
+  }
+
   return (
     <div className="bg-white rounded-lg border p-5">
       <h2 className="font-semibold text-gray-800 mb-4">Organizers</h2>
@@ -143,39 +159,58 @@ export function OrganizersPanel({
         )}
 
         {activeOrganizers.map(organizer => (
-          <div key={organizer.id} className="flex items-center justify-between gap-3 py-2 border-b last:border-0">
-            <div className="min-w-0">
-              <p className="text-sm font-medium truncate">
-                {organizer.full_name ?? organizer.invited_email}
-              </p>
-              {organizer.full_name && (
-                <p className="text-xs text-gray-400 truncate">{organizer.invited_email}</p>
-              )}
-            </div>
-            <div className="shrink-0 flex items-center gap-2">
-              <StatusBadge row={organizer} />
-              {isOrgAdmin && (
-                <div className="flex items-center gap-1">
-                  {organizer.status === 'pending' && (
+          <div key={organizer.id} className="py-2 border-b last:border-0">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">
+                  {organizer.full_name ?? organizer.invited_email}
+                </p>
+                {organizer.full_name && (
+                  <p className="text-xs text-gray-400 truncate">{organizer.invited_email}</p>
+                )}
+              </div>
+              <div className="shrink-0 flex items-center gap-2">
+                <StatusBadge row={organizer} />
+                {isOrgAdmin && (
+                  <div className="flex items-center gap-1">
+                    {organizer.status === 'pending' && (
+                      <button
+                        onClick={() => handleResend(organizer)}
+                        disabled={actionPending}
+                        className="text-xs text-gray-400 hover:text-gray-600 disabled:opacity-50 px-1"
+                      >
+                        Resend
+                      </button>
+                    )}
                     <button
-                      onClick={() => handleResend(organizer)}
-                      disabled={actionPending}
-                      className="text-xs text-gray-400 hover:text-gray-600 disabled:opacity-50 px-1"
+                      onClick={() => handleRemove(organizer)}
+                      disabled={actionPending || (organizer.status === 'active' && activeCount <= 1)}
+                      className="text-xs text-red-400 hover:text-red-600 disabled:opacity-30 px-1"
+                      title={organizer.status === 'active' && activeCount <= 1 ? 'Cannot remove the only organizer' : 'Remove organizer'}
                     >
-                      Resend
+                      Remove
                     </button>
-                  )}
-                  <button
-                    onClick={() => handleRemove(organizer)}
-                    disabled={actionPending || (organizer.status === 'active' && activeCount <= 1)}
-                    className="text-xs text-red-400 hover:text-red-600 disabled:opacity-30 px-1"
-                    title={organizer.status === 'active' && activeCount <= 1 ? 'Cannot remove the only organizer' : 'Remove organizer'}
-                  >
-                    Remove
-                  </button>
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
+            {/* Contact info visibility toggle — active organizers only */}
+            {isOrgAdmin && organizer.status === 'active' && (
+              <div className="flex items-center justify-between mt-1.5">
+                <span className="text-xs text-gray-400">Show contact info to participants</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={organizer.show_contact_info}
+                  onClick={() => handleToggleContactInfo(organizer)}
+                  disabled={actionPending}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${organizer.show_contact_info ? '' : 'bg-gray-200'}`}
+                  style={organizer.show_contact_info ? { backgroundColor: 'var(--brand-primary)' } : undefined}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${organizer.show_contact_info ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>

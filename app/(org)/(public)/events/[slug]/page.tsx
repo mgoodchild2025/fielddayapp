@@ -604,17 +604,22 @@ export default async function EventDetailPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: organizerRows } = await (db as any)
     .from('league_organizers')
-    .select('user_id')
+    .select('user_id, show_contact_info')
     .eq('league_id', league.id)
     .eq('organization_id', org.id)
     .eq('status', 'active')
     .order('created_at', { ascending: true })
 
-  const organizerUserIds: string[] = (organizerRows ?? [])
-    .map((r: { user_id: string | null }) => r.user_id)
-    .filter(Boolean)
+  const organizerEntries: { user_id: string; show_contact_info: boolean }[] = (organizerRows ?? [])
+    .filter((r: { user_id: string | null }) => r.user_id)
+    .map((r: { user_id: string; show_contact_info: boolean }) => ({
+      user_id: r.user_id,
+      show_contact_info: r.show_contact_info ?? true,
+    }))
 
-  let eventOrganizers: { full_name: string | null; avatar_url: string | null; email: string | null; phone: string | null }[] = []
+  const organizerUserIds: string[] = organizerEntries.map(e => e.user_id)
+
+  let eventOrganizers: { full_name: string | null; avatar_url: string | null; email: string | null; phone: string | null; show_contact_info: boolean }[] = []
 
   if (organizerUserIds.length > 0) {
     const { data: profiles } = await db
@@ -625,9 +630,13 @@ export default async function EventDetailPage({
     const profileMap = Object.fromEntries(
       (profiles ?? []).map((p: { id: string; full_name: string | null; avatar_url: string | null; email: string | null; phone: string | null }) => [p.id, p])
     )
-    eventOrganizers = organizerUserIds
-      .map(id => profileMap[id])
-      .filter(Boolean)
+    eventOrganizers = organizerEntries
+      .map(e => {
+        const p = profileMap[e.user_id]
+        if (!p) return null
+        return { ...p, show_contact_info: e.show_contact_info }
+      })
+      .filter(Boolean) as typeof eventOrganizers
   }
 
   if (eventOrganizers.length === 0) {
@@ -643,7 +652,8 @@ export default async function EventDetailPage({
     const fallback = orgAdminRow
       ? (Array.isArray(orgAdminRow.profiles) ? orgAdminRow.profiles[0] : orgAdminRow.profiles)
       : null
-    if (fallback) eventOrganizers = [fallback]
+    // Fallback organizers show contact info by default
+    if (fallback) eventOrganizers = [{ ...fallback, show_contact_info: true }]
   }
 
   // Filter tabs by visibility — restricted tabs are hidden from non-participants
@@ -1241,7 +1251,7 @@ export default async function EventDetailPage({
                       />
                       <div>
                         <p className="font-semibold text-sm">{organizer.full_name}</p>
-                        {isParticipant && organizer.email && (
+                        {isParticipant && organizer.show_contact_info && organizer.email && (
                           <a
                             href={`mailto:${organizer.email}`}
                             className="text-sm text-blue-600 hover:underline block mt-0.5"
@@ -1249,7 +1259,7 @@ export default async function EventDetailPage({
                             {organizer.email}
                           </a>
                         )}
-                        {isParticipant && organizer.phone && (
+                        {isParticipant && organizer.show_contact_info && organizer.phone && (
                           <a
                             href={`tel:${organizer.phone}`}
                             className="text-sm text-gray-600 hover:underline block mt-0.5"
