@@ -61,7 +61,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const maxParticipants: number | null = (league as any)?.max_participants ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const schedulePublished: boolean = (league as any)?.schedule_published ?? true
+  const schedulePublished: boolean = (league as any)?.schedule_published ?? false
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mappedGames = (games ?? []).map((game: any) => {

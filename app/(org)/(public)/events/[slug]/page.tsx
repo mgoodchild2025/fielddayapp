@@ -447,7 +447,7 @@ export default async function EventDetailPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const bracketVisibility: string = (league as any).bracket_visibility ?? 'public'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const schedulePublished: boolean = (league as any).schedule_published ?? true
+  const schedulePublished: boolean = (league as any).schedule_published ?? false
 
   // All possible tabs (visibility filtering happens after participant status is known, below)
   const allTeamTabs = [
