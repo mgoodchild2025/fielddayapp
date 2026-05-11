@@ -25,12 +25,13 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
 
   // Single query against waiver_signatures for the whole org.
   // Covers all cases: registered players, guests, standalone signings via shareable link.
+  // league_name (stored column) is used as fallback when the league has been deleted.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawSigs } = await (db as any)
     .from('waiver_signatures')
     .select(`
       id, signed_at, signature_name, ip_address, guardian_relationship,
-      user_id, guest_name, guest_email,
+      user_id, guest_name, guest_email, league_name, team_name,
       profile:profiles!waiver_signatures_user_id_fkey(full_name, email),
       league:leagues!waiver_signatures_league_id_fkey(name),
       waiver:waivers!waiver_signatures_waiver_id_fkey(title, version)
@@ -43,6 +44,7 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
     playerName: string
     playerEmail: string
     eventName: string
+    teamName: string | null
     waiverTitle: string
     waiverVersion: number | null
     sigId: string
@@ -60,11 +62,15 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
     const waiver  = Array.isArray(sig.waiver)  ? sig.waiver[0]  : sig.waiver
 
     const isGuest = !sig.user_id
+    // Use the joined league name when available; fall back to the stored league_name
+    // for signatures whose league has since been deleted.
+    const eventName = league?.name ?? sig.league_name ?? ''
     return {
       id:                   sig.id,
       playerName:           isGuest ? (sig.guest_name ?? '') : (profile?.full_name ?? ''),
       playerEmail:          isGuest ? (sig.guest_email ?? '') : (profile?.email ?? ''),
-      eventName:            league?.name ?? '',
+      eventName,
+      teamName:             sig.team_name ?? null,
       waiverTitle:          waiver?.title ?? '',
       waiverVersion:        waiver?.version ?? null,
       sigId:                sig.id,
@@ -149,6 +155,9 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
                         )}
                       </div>
                       <div className="text-xs text-gray-400">{row.playerEmail || '—'}</div>
+                      {row.teamName && (
+                        <div className="text-xs text-gray-500 mt-0.5">🏅 {row.teamName}</div>
+                      )}
                       {isGuardian && row.signatureName && (
                         <div className="text-xs text-amber-700 mt-0.5">
                           Signed by {row.signatureName} ({guardianLabel})

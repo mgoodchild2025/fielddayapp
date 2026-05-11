@@ -193,6 +193,7 @@ const signWaiverSchema = z.object({
   waiverId: z.string().uuid(),
   signatureName: z.string().min(2),
   leagueId: z.string().uuid().optional(),
+  leagueName: z.string().optional(),
   // Guardian fields — present only when the player is under 18.
   // signatureName holds the guardian's legal name; guardianRelationship identifies them.
   guardianRelationship: z.enum(['parent', 'legal_guardian']).optional(),
@@ -253,6 +254,7 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
         signature_name: parsed.data.signatureName,
         ip_address: ipAddress,
         league_id: parsed.data.leagueId ?? null,
+        league_name: parsed.data.leagueName ?? null,
         guardian_relationship: parsed.data.guardianRelationship ?? null,
       })
       .select('id')
@@ -281,9 +283,11 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
 const signWaiverGuestSchema = z.object({
   waiverId:             z.string().uuid(),
   leagueId:             z.string().uuid(),
+  leagueName:           z.string(),
   orgId:                z.string().uuid(),
   guestName:            z.string().min(2),
   guestEmail:           z.string().email(),
+  teamName:             z.string().optional(),
   signatureName:        z.string().min(2),
   guardianRelationship: z.enum(['parent', 'legal_guardian']).optional(),
 })
@@ -363,6 +367,8 @@ export async function signWaiverAsGuest(input: z.infer<typeof signWaiverGuestSch
         user_id: profile.id,
         waiver_id: parsed.data.waiverId,
         league_id: parsed.data.leagueId,
+        league_name: parsed.data.leagueName,
+        team_name: parsed.data.teamName ?? null,
         signature_name: parsed.data.signatureName,
         ip_address: ipAddress,
         guardian_relationship: parsed.data.guardianRelationship ?? null,
@@ -395,6 +401,8 @@ export async function signWaiverAsGuest(input: z.infer<typeof signWaiverGuestSch
       guest_email: email,
       waiver_id: parsed.data.waiverId,
       league_id: parsed.data.leagueId,
+      league_name: parsed.data.leagueName,
+      team_name: parsed.data.teamName ?? null,
       signature_name: parsed.data.signatureName,
       ip_address: ipAddress,
       guardian_relationship: parsed.data.guardianRelationship ?? null,

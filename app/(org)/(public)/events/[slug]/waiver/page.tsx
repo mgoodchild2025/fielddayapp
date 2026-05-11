@@ -137,6 +137,7 @@ export default async function GuestWaiverPage({
           <GuestWaiverForm
             waiver={waiver}
             leagueId={leagueId}
+            leagueName={leagueName}
             orgId={org.id}
             prefill={prefill}
           />

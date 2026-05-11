@@ -13,6 +13,7 @@ interface Waiver {
 interface Props {
   waiver: Waiver
   leagueId: string
+  leagueName: string
   orgId: string
   prefill?: { name: string; email: string } | null
 }
@@ -30,9 +31,10 @@ function getAge(dob: string): number | null {
   return age
 }
 
-export function GuestWaiverForm({ waiver, leagueId, orgId, prefill }: Props) {
+export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }: Props) {
   const [name, setName] = useState(prefill?.name ?? '')
   const [email, setEmail] = useState(prefill?.email ?? '')
+  const [teamName, setTeamName] = useState('')
   const [dob, setDob] = useState('')
   const [isMinorToggle, setIsMinorToggle] = useState(false)
   const [guardianName, setGuardianName] = useState('')
@@ -87,9 +89,11 @@ export function GuestWaiverForm({ waiver, leagueId, orgId, prefill }: Props) {
     const result = await signWaiverAsGuest({
       waiverId: waiver.id,
       leagueId,
+      leagueName,
       orgId,
       guestName: name.trim(),
       guestEmail: email.trim(),
+      teamName: teamName.trim() || undefined,
       signatureName: isMinor ? guardianName.trim() : signatureName.trim(),
       guardianRelationship: isMinor ? guardianRel : undefined,
     })
@@ -148,6 +152,20 @@ export function GuestWaiverForm({ waiver, leagueId, orgId, prefill }: Props) {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
+            className="w-full border rounded-md px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Team Name <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            type="text"
+            value={teamName}
+            onChange={(e) => setTeamName(e.target.value)}
+            placeholder="e.g. The Spikers"
+            autoComplete="off"
             className="w-full border rounded-md px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
