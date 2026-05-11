@@ -13,7 +13,11 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-const PRESET_COLORS = ['#EF4444', '#F97316', '#EAB308', '#22C55E', '#3B82F6', '#8B5CF6', '#EC4899', '#6B7280']
+const PRESET_COLORS = [
+  '#ef4444', '#f97316', '#eab308', '#22c55e',
+  '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899',
+  '#000000', '#6b7280',
+]
 
 interface RegisteredPlayer {
   userId: string
@@ -84,16 +88,42 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabe
 
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Colour</label>
-          <div className="flex gap-1.5 flex-wrap">
-            {PRESET_COLORS.map((color) => (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {PRESET_COLORS.map((c) => (
               <button
-                key={color}
+                key={c}
                 type="button"
-                onClick={() => setSelectedColor(selectedColor === color ? '' : color)}
-                className={`w-6 h-6 rounded-full border-2 transition-transform ${selectedColor === color ? 'border-gray-800 scale-110' : 'border-transparent'}`}
-                style={{ backgroundColor: color }}
+                onClick={() => setSelectedColor(selectedColor === c ? '' : c)}
+                className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110"
+                style={{
+                  backgroundColor: c,
+                  borderColor: selectedColor === c ? 'white' : 'transparent',
+                  boxShadow: selectedColor === c ? `0 0 0 2px ${c}` : 'none',
+                }}
+                title={c}
               />
             ))}
+            {/* Custom colour picker */}
+            <label
+              className="w-6 h-6 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-gray-400 transition-colors overflow-hidden"
+              title="Custom colour"
+            >
+              <input
+                type="color"
+                value={selectedColor || '#3b82f6'}
+                onChange={(e) => setSelectedColor(e.target.value)}
+                className="opacity-0 absolute w-0 h-0"
+              />
+              <span className="text-gray-400 text-xs leading-none">+</span>
+            </label>
+            {/* Preview swatch */}
+            {selectedColor && (
+              <div
+                className="w-6 h-6 rounded-full border"
+                style={{ backgroundColor: selectedColor }}
+                title={selectedColor}
+              />
+            )}
           </div>
         </div>
 
