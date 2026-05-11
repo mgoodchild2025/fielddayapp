@@ -355,10 +355,15 @@ export function RegistrationFlow({
           <StepTeamJoin
             teams={leagueTeams}
             initialTeamCode={initialTeamCode}
-            onComplete={async () => {
+            onComplete={async (teamId?: string) => {
               // Activate registration now that the player has joined (or skipped) team selection
               if (registrationId) await activateRegistration(registrationId)
-              router.push(`/register/${league.slug}/success`)
+              // If the player arrived via an invite link and we know the team, send them there
+              if (teamId && initialTeamCode) {
+                router.push(`/teams/${teamId}`)
+              } else {
+                router.push(`/register/${league.slug}/success`)
+              }
             }}
             onBack={() => advanceStep(2)}
           />

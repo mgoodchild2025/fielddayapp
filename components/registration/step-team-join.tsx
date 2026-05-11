@@ -13,7 +13,7 @@ export interface TeamOption {
 interface Props {
   teams: TeamOption[]
   initialTeamCode?: string | null
-  onComplete: () => void
+  onComplete: (teamId?: string) => void
   onBack: () => void
 }
 
@@ -65,7 +65,7 @@ export function StepTeamJoin({ initialTeamCode, onComplete, onBack }: Props) {
       setCodeError(result.error)
       return
     }
-    onComplete()
+    onComplete(codeValid.id)
   }
 
   return (
