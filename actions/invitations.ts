@@ -19,7 +19,12 @@ export interface InviteDetails {
   expires_at: string
   team_id: string
   team_name: string
+  team_color: string | null
   inviter_name: string | null
+  league_name: string | null
+  league_slug: string | null
+  member_count: number
+  max_team_size: number | null
 }
 
 // ─── Get invite details (no auth required — for page preview) ─────────────────
@@ -40,10 +45,25 @@ export async function getInviteDetails(token: string): Promise<InviteDetails | n
 
   if (!invite) return null
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: team }, { data: inviter }] = await Promise.all([
-    db.from('teams').select('name').eq('id', invite.team_id).single(),
+    (db as any).from('teams').select('name, color, league_id').eq('id', invite.team_id).single(),
     db.from('profiles').select('full_name').eq('id', invite.invited_by).single(),
   ])
+
+  // Fetch league info + member count in parallel
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leagueId = (team as any)?.league_id ?? null
+  const [leagueResult, { count: memberCount }] = await Promise.all([
+    leagueId
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (db as any).from('leagues').select('name, slug, max_team_size').eq('id', leagueId).single()
+      : Promise.resolve({ data: null }),
+    db.from('team_members').select('*', { count: 'exact', head: true }).eq('team_id', invite.team_id).eq('status', 'active'),
+  ])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const league = (leagueResult as any)?.data ?? null
 
   return {
     id: invite.id,
@@ -52,8 +72,15 @@ export async function getInviteDetails(token: string): Promise<InviteDetails | n
     invited_email: invite.invited_email,
     expires_at: invite.expires_at,
     team_id: invite.team_id,
-    team_name: team?.name ?? 'Unknown Team',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    team_name: (team as any)?.name ?? 'Unknown Team',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    team_color: (team as any)?.color ?? null,
     inviter_name: inviter?.full_name ?? null,
+    league_name: (league as { name?: string } | null)?.name ?? null,
+    league_slug: (league as { slug?: string } | null)?.slug ?? null,
+    member_count: memberCount ?? 0,
+    max_team_size: (league as { max_team_size?: number | null } | null)?.max_team_size ?? null,
   }
 }
 

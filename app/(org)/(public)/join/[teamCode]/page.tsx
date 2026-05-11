@@ -100,7 +100,7 @@ export default async function JoinTeamPage({
           )}
 
           <div className="px-6 py-8 text-center space-y-1">
-            {/* Team logo / colour circle */}
+            {/* Team avatar */}
             <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white mb-4"
               style={{ backgroundColor: team.color ?? '#6b7280' }}
             >
@@ -112,14 +112,14 @@ export default async function JoinTeamPage({
             {leagueName && (
               <p className="text-sm text-gray-500">{leagueName}</p>
             )}
-            {maxTeamSize && (
+            {maxTeamSize != null && (
               <p className="text-xs text-gray-400 mt-1">
                 {memberCount ?? 0} / {maxTeamSize} players
               </p>
             )}
           </div>
 
-          <div className="px-6 pb-8">
+          <div className="px-6 pb-8 space-y-4">
             {alreadyMember ? (
               <div className="space-y-3 text-center">
                 <p className="text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
@@ -134,18 +134,16 @@ export default async function JoinTeamPage({
                 </Link>
               </div>
             ) : isFull ? (
-              <div className="text-center">
-                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-                  This team is full and not accepting new players.
-                </p>
-              </div>
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-center">
+                This team is full and not accepting new players.
+              </p>
             ) : user ? (
               <Link
                 href={leagueSlug ? `/register/${leagueSlug}?code=${code}` : `/teams/${team.id}`}
                 className="block w-full py-3 rounded-lg font-bold text-white text-sm text-center transition-opacity hover:opacity-90"
                 style={{ backgroundColor: 'var(--brand-primary)' }}
               >
-                Register &amp; Join {team.name} →
+                Accept Invitation →
               </Link>
             ) : (
               <div className="space-y-3">
@@ -154,16 +152,16 @@ export default async function JoinTeamPage({
                   className="block w-full py-3 rounded-lg font-bold text-white text-sm text-center transition-opacity hover:opacity-90"
                   style={{ backgroundColor: 'var(--brand-primary)' }}
                 >
-                  Log in to join
+                  Sign in to accept
                 </Link>
                 <Link
                   href={`/register?redirect=${encodeURIComponent(returnPath)}`}
-                  className="block w-full py-3 rounded-lg font-semibold text-sm text-center border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                  className="block w-full py-2.5 rounded-lg font-semibold text-sm text-center border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
                 >
                   Create account
                 </Link>
                 <p className="text-center text-xs text-gray-400">
-                  You need an account to join the team.
+                  You need an account to accept this invitation.
                 </p>
               </div>
             )}
