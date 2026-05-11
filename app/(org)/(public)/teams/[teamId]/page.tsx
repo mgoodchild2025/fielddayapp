@@ -17,6 +17,8 @@ import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { CopyableCode } from '@/components/teams/copyable-code'
 import { CalendarSubscribeButton } from '@/components/teams/calendar-subscribe-button'
+import { RosterNotesSection } from '@/components/teams/roster-notes-section'
+import { getRosterNotes } from '@/actions/roster-notes'
 import Link from 'next/link'
 
 export default async function TeamDetailPage({
@@ -203,10 +205,11 @@ export default async function TeamDetailPage({
   const captain = activeMembers.find((m) => m.role === 'captain')
   const captainProfile = captain ? (Array.isArray(captain.profile) ? captain.profile[0] : captain.profile) : null
 
-  const [positions, statDefs, seasonTotals] = await Promise.all([
+  const [positions, statDefs, seasonTotals, rosterNotes] = await Promise.all([
     getPositionsForSport(org.id, leagueSport),
     leagueId ? getStatDefinitions(org.id, leagueSport) : Promise.resolve([]),
     leagueId ? getLeagueStatTotals(leagueId, org.id) : Promise.resolve({} as Record<string, Record<string, number>>),
+    isManager ? getRosterNotes(team.id) : Promise.resolve([]),
   ])
 
   // For managers: fetch registration + waiver status for all active members
@@ -450,6 +453,15 @@ export default async function TeamDetailPage({
                 createdAt: req.created_at,
               }
             })}
+          />
+        )}
+
+        {/* Roster planning notes — managers only */}
+        {isManager && (
+          <RosterNotesSection
+            teamId={team.id}
+            initialNotes={rosterNotes}
+            leagueSlug={leagueSlug || null}
           />
         )}
 

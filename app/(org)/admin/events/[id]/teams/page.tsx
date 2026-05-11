@@ -7,6 +7,7 @@ import { getPositionsForSport } from '@/actions/positions'
 import { AdminCreateTeamForm } from '@/components/teams/admin-create-team-form'
 import { AdminTeamCard } from '@/components/teams/admin-team-card'
 import type { ActiveMember, PendingInvite } from '@/components/teams/roster-manager'
+import type { RosterNote } from '@/actions/roster-notes'
 import { AssignSlotsCard } from '@/components/schedule/assign-slots-card'
 
 export default async function TeamsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -186,6 +187,22 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
       }
     })
 
+  // Roster notes — fetch all for this league's teams in one query
+  const rosterNotesByTeam = new Map<string, RosterNote[]>()
+  if (leagueTeamIds.length > 0) {
+    const { data: allNotes } = await db
+      .from('roster_notes' as never)
+      .select('id, team_id, name, email, note, created_at')
+      .eq('organization_id', org.id)
+      .in('team_id', leagueTeamIds as never)
+      .order('created_at', { ascending: true })
+      .returns<(RosterNote & { team_id: string })[]>()
+    for (const note of (allNotes ?? []) as (RosterNote & { team_id: string })[]) {
+      if (!rosterNotesByTeam.has(note.team_id)) rosterNotesByTeam.set(note.team_id, [])
+      rosterNotesByTeam.get(note.team_id)!.push(note)
+    }
+  }
+
   // Group invites and join requests by team
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const invitesByTeam = new Map<string, any[]>()
@@ -281,6 +298,7 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
                 initialMembers={initialMembers}
                 initialInvites={initialInvites}
                 joinRequests={teamJoinRequests}
+                rosterNotes={rosterNotesByTeam.get(team.id) ?? []}
               />
             )
           })

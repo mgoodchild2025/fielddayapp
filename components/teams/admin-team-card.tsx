@@ -8,6 +8,8 @@ import { TeamCodeBadge } from '@/components/teams/team-code-badge'
 import { RosterManager } from '@/components/teams/roster-manager'
 import type { ActiveMember, PendingInvite } from '@/components/teams/roster-manager'
 import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
+import { RosterNotesSection } from '@/components/teams/roster-notes-section'
+import type { RosterNote } from '@/actions/roster-notes'
 
 interface JoinRequest {
   id: string
@@ -34,6 +36,7 @@ interface Props {
   initialMembers: ActiveMember[]
   initialInvites: PendingInvite[]
   joinRequests: JoinRequest[]
+  rosterNotes: RosterNote[]
 }
 
 export function AdminTeamCard({
@@ -47,6 +50,7 @@ export function AdminTeamCard({
   initialMembers,
   initialInvites,
   joinRequests,
+  rosterNotes,
 }: Props) {
   const [expanded, setExpanded] = useState(false)
 
@@ -172,6 +176,15 @@ export function AdminTeamCard({
               positions={positions}
               initialMembers={initialMembers}
               initialInvites={initialInvites}
+            />
+          </div>
+
+          {/* Roster planning notes */}
+          <div className="px-4 pb-4">
+            <RosterNotesSection
+              teamId={team.id}
+              initialNotes={rosterNotes}
+              leagueSlug={leagueSlug}
             />
           </div>
         </div>
