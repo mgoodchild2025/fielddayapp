@@ -11,7 +11,7 @@ import { StepCaptainTeam } from './step-captain-team'
 import { StepTeamJoin } from './step-team-join'
 import type { TeamOption } from './step-team-join'
 import type { MerchItemForStep, MerchSelection } from './step-addons'
-import { linkWaiverToRegistration, activateRegistration } from '@/actions/registrations'
+import { activateRegistration } from '@/actions/registrations'
 import type { Database } from '@/types/database'
 
 type League = Database['public']['Tables']['leagues']['Row']
@@ -283,12 +283,10 @@ export function RegistrationFlow({
             userId={userId}
             leagueId={league.id}
             leagueName={league.name}
+            registrationId={registrationId}
             playerName={profile?.full_name ?? ''}
             playerDob={playerDetails?.date_of_birth ?? null}
-            onComplete={async (sigId) => {
-              if (registrationId) {
-                await linkWaiverToRegistration(registrationId, sigId)
-              }
+            onComplete={async () => {
               afterWaiver()
             }}
             onSkip={afterWaiver}

@@ -24,6 +24,7 @@ export default async function WaiverSignaturePrintPage({
     .select(`
       id, signed_at, signature_name, ip_address, guardian_relationship,
       league_name, team_name,
+      guest_name, guest_email,
       player:profiles!waiver_signatures_user_id_fkey(full_name, email, phone),
       waiver:waivers!waiver_signatures_waiver_id_fkey(id, title, version, content),
       league:leagues!waiver_signatures_league_id_fkey(id, name)
@@ -41,13 +42,20 @@ export default async function WaiverSignaturePrintPage({
     .single()
   const timezone = branding?.timezone ?? 'America/Toronto'
 
-  const player = Array.isArray(sig.player) ? sig.player[0] : sig.player
+  const playerProfile = Array.isArray(sig.player) ? sig.player[0] : sig.player
   const waiver = Array.isArray(sig.waiver) ? sig.waiver[0] : sig.waiver
   const league = Array.isArray(sig.league) ? sig.league[0] : sig.league
   const isGuardian = !!sig.guardian_relationship
   const guardianLabel = sig.guardian_relationship === 'legal_guardian' ? 'Legal Guardian' : 'Parent'
   const eventName: string = league?.name ?? sig.league_name ?? '—'
   const teamName: string | null = sig.team_name ?? null
+  // Guest signatures have no user_id — fall back to guest_name / guest_email
+  const player = {
+    full_name: playerProfile?.full_name ?? sig.guest_name ?? null,
+    email: playerProfile?.email ?? sig.guest_email ?? null,
+    phone: playerProfile?.phone ?? null,
+  }
+  const isGuestSig = !playerProfile && (sig.guest_email || sig.guest_name)
 
   const signedDate = new Date(sig.signed_at).toLocaleDateString('en-CA', {
     weekday: 'long',
@@ -103,7 +111,7 @@ export default async function WaiverSignaturePrintPage({
           <div className="mb-6 rounded border border-gray-300 px-4 py-3 bg-gray-50">
             <p className="text-sm font-semibold text-gray-800">⚠ Guardian-Signed Waiver</p>
             <p className="text-xs text-gray-600 mt-1">
-              {player?.full_name ?? 'This player'} was under 18 at the time of registration.
+              {player.full_name ?? 'This player'} was under 18 at the time of registration.
               This waiver was signed by their {guardianLabel.toLowerCase()}.
             </p>
           </div>
@@ -112,10 +120,12 @@ export default async function WaiverSignaturePrintPage({
         {/* Signatory details */}
         <div className="mb-6 rounded border border-gray-200 px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
           <div>
-            <p className="text-xs uppercase tracking-wide text-gray-400 font-semibold mb-0.5">Player</p>
-            <p className="font-medium text-gray-900">{player?.full_name ?? '—'}</p>
-            {player?.email && <p className="text-xs text-gray-500">{player.email}</p>}
-            {player?.phone && <p className="text-xs text-gray-500">{player.phone}</p>}
+            <p className="text-xs uppercase tracking-wide text-gray-400 font-semibold mb-0.5">
+              Player{isGuestSig ? ' (Guest)' : ''}
+            </p>
+            <p className="font-medium text-gray-900">{player.full_name ?? '—'}</p>
+            {player.email && <p className="text-xs text-gray-500">{player.email}</p>}
+            {player.phone && <p className="text-xs text-gray-500">{player.phone}</p>}
           </div>
 
           {isGuardian && (
@@ -184,7 +194,7 @@ export default async function WaiverSignaturePrintPage({
             <div className="flex-1">
               <p className="text-xs text-gray-400 mb-1">
                 {isGuardian
-                  ? `${guardianLabel} — agreed & signed on behalf of ${player?.full_name ?? 'the minor player'}`
+                  ? `${guardianLabel} — agreed & signed on behalf of ${player.full_name ?? 'the minor player'}`
                   : 'Agreed & signed by'}
               </p>
               <p

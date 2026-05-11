@@ -14,6 +14,7 @@ interface Props {
   userId: string
   leagueId?: string
   leagueName?: string
+  registrationId?: string | null
   playerName: string
   playerDob: string | null   // ISO date from player_details.date_of_birth
   onComplete: (signatureId: string) => void
@@ -30,7 +31,7 @@ function calculateAge(dob: string): number {
   return age
 }
 
-export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, playerName, playerDob, onComplete, onSkip, onBack }: Props) {
+export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registrationId, playerName, playerDob, onComplete, onSkip, onBack }: Props) {
   // Derive minor status from DOB when available; null = unknown
   const knownMinor: boolean | null = playerDob !== null ? calculateAge(playerDob) < 18 : null
 
@@ -95,6 +96,7 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, playerN
       signatureName: signer,
       leagueId,
       leagueName,
+      registrationId: registrationId ?? undefined,
       guardianRelationship: isMinor ? guardianRelationship : undefined,
     })
     if (result.error) { setError(result.error); setLoading(false); return }

@@ -20,6 +20,7 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
     .select(`
       id, signed_at, signature_name, ip_address, guardian_relationship,
       league_name, team_name,
+      guest_name, guest_email,
       player:profiles!waiver_signatures_user_id_fkey(full_name, email, phone),
       waiver:waivers!waiver_signatures_waiver_id_fkey(id, title, version, content),
       league:leagues!waiver_signatures_league_id_fkey(id, name, slug)
@@ -37,7 +38,7 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
     .single()
   const timezone = branding?.timezone ?? 'America/Toronto'
 
-  const player = Array.isArray(sig.player) ? sig.player[0] : sig.player
+  const playerProfile = Array.isArray(sig.player) ? sig.player[0] : sig.player
   const waiver = Array.isArray(sig.waiver) ? sig.waiver[0] : sig.waiver
   const league = Array.isArray(sig.league) ? sig.league[0] : sig.league
   const isGuardian = !!sig.guardian_relationship
@@ -46,6 +47,13 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
   // Prefer the FK-joined league name; fall back to the denormalized text field (survives deletion)
   const eventName = league?.name ?? sig.league_name ?? null
   const teamName: string | null = sig.team_name ?? null
+  // For guest-signed waivers user_id is null — fall back to guest_name / guest_email
+  const player = {
+    full_name: playerProfile?.full_name ?? sig.guest_name ?? null,
+    email: playerProfile?.email ?? sig.guest_email ?? null,
+    phone: playerProfile?.phone ?? null,
+  }
+  const isGuestSig = !playerProfile && (sig.guest_email || sig.guest_name)
 
   return (
     <div className="max-w-3xl">
@@ -85,10 +93,17 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
         <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-500">Signature Record</h2>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
           <div>
-            <dt className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Player</dt>
-            <dd className="font-medium">{player?.full_name ?? '—'}</dd>
-            {player?.email && <dd className="text-gray-500 text-xs">{player.email}</dd>}
-            {player?.phone && <dd className="text-gray-500 text-xs">{player.phone}</dd>}
+            <dt className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">
+              Player
+              {isGuestSig && (
+                <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 normal-case tracking-normal">
+                  Guest
+                </span>
+              )}
+            </dt>
+            <dd className="font-medium">{player.full_name ?? '—'}</dd>
+            {player.email && <dd className="text-gray-500 text-xs">{player.email}</dd>}
+            {player.phone && <dd className="text-gray-500 text-xs">{player.phone}</dd>}
           </div>
           <div>
             <dt className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Event</dt>

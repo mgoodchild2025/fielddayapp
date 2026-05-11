@@ -194,6 +194,9 @@ const signWaiverSchema = z.object({
   signatureName: z.string().min(2),
   leagueId: z.string().uuid().optional(),
   leagueName: z.string().optional(),
+  // When present, the registration row is linked server-side (avoids client-side
+  // linkWaiverToRegistration call being dropped by a network failure).
+  registrationId: z.string().uuid().optional(),
   // Guardian fields — present only when the player is under 18.
   // signatureName holds the guardian's legal name; guardianRelationship identifies them.
   guardianRelationship: z.enum(['parent', 'legal_guardian']).optional(),
@@ -273,6 +276,17 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
       .eq('user_id', user.id)
       .eq('league_id', parsed.data.leagueId)
       .is('waiver_signature_id', null)
+  }
+
+  // Also link by registration ID when provided — fires even on the dedup path,
+  // re-linking a previously signed waiver to a new registration row.
+  if (parsed.data.registrationId) {
+    await supabase
+      .from('registrations')
+      .update({ waiver_signature_id: signatureId })
+      .eq('id', parsed.data.registrationId)
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
   }
 
   return { data: { signatureId }, error: null }
