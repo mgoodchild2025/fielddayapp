@@ -142,7 +142,7 @@ export async function sendTeamInvite(input: z.infer<typeof sendInviteSchema>) {
       invited_by: user.id,
       role: parsed.data.role,
     })
-    .select('token')
+    .select('id, token, expires_at')
     .single()
 
   if (inviteError) return { error: inviteError.message }
@@ -183,7 +183,16 @@ export async function sendTeamInvite(input: z.infer<typeof sendInviteSchema>) {
   })
 
   revalidatePath(`/teams/${parsed.data.teamId}`)
-  return { error: null }
+  return {
+    error: null,
+    invite: {
+      id: invite.id as string,
+      token: invite.token as string,
+      invitedEmail: parsed.data.email,
+      role: parsed.data.role,
+      expiresAt: invite.expires_at as string,
+    },
+  }
 }
 
 // ─── Accept invitation ────────────────────────────────────────────────────────

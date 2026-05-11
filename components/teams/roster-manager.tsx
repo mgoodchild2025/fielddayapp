@@ -188,15 +188,31 @@ export function RosterManager({
     e.preventDefault()
     setAddError(null)
     setAddSuccess(null)
+    const emailToAdd = addEmail
+    const roleToAdd = addRole
     startAddTransition(async () => {
-      const result = await captainAddPlayerByEmail({ teamId, email: addEmail, role: addRole })
+      const result = await captainAddPlayerByEmail({ teamId, email: emailToAdd, role: roleToAdd })
       if (result.error) {
         setAddError(result.error)
       } else {
-        setAddSuccess(`Invite sent to ${addEmail}`)
+        setAddSuccess(`Invite sent to ${emailToAdd}`)
         setAddEmail('')
         setAddRole('player')
-        router.refresh()
+        // Immediately append the new invite to local state — no page refresh needed
+        if (result.invite) {
+          const now = new Date().toISOString()
+          setInvites((prev) => [
+            {
+              id: result.invite!.id,
+              invitedEmail: result.invite!.invitedEmail,
+              role: result.invite!.role,
+              invitedAt: now,
+              expiresAt: result.invite!.expiresAt,
+              inviterName: null,
+            },
+            ...prev,
+          ])
+        }
       }
     })
   }
@@ -206,8 +222,8 @@ export function RosterManager({
   const totalCount = members.length + invites.length
   const [origin, setOrigin] = useState('')
   useEffect(() => { setOrigin(window.location.origin) }, [])
-  const inviteUrl = teamCode && leagueSlug && origin
-    ? `${origin}/events/${leagueSlug}?code=${teamCode}`
+  const inviteUrl = teamCode && origin
+    ? `${origin}/join/${teamCode}`
     : null
 
   const [copied, setCopied] = useState(false)

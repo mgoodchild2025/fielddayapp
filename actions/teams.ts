@@ -1148,7 +1148,7 @@ const captainAddSchema = z.object({
 
 export async function captainAddPlayerByEmail(input: z.infer<typeof captainAddSchema>) {
   const parsed = captainAddSchema.safeParse(input)
-  if (!parsed.success) return { error: 'Invalid input', invited: false }
+  if (!parsed.success) return { error: 'Invalid input', invite: null }
 
   // Delegate to the invite flow — player must accept before being added
   const { sendTeamInvite } = await import('@/actions/invitations')
@@ -1158,7 +1158,7 @@ export async function captainAddPlayerByEmail(input: z.infer<typeof captainAddSc
     role: parsed.data.role,
   })
 
-  return { error: result.error, invited: true }
+  return { error: result.error, invite: result.invite ?? null }
 }
 
 // ─── Send roster reminder to an active team member ───────────────────────────
