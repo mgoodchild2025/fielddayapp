@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { validateTeamCode, joinTeamByCode } from '@/actions/teams'
 
 export interface TeamOption {
@@ -12,16 +12,34 @@ export interface TeamOption {
 
 interface Props {
   teams: TeamOption[]
+  initialTeamCode?: string | null
   onComplete: () => void
   onBack: () => void
 }
 
-export function StepTeamJoin({ onComplete, onBack }: Props) {
-  const [teamCode, setTeamCode] = useState('')
+export function StepTeamJoin({ initialTeamCode, onComplete, onBack }: Props) {
+  const [teamCode, setTeamCode] = useState(initialTeamCode ?? '')
   const [codeError, setCodeError] = useState<string | null>(null)
   const [codeValid, setCodeValid] = useState<{ id: string; name: string } | null>(null)
   const [validating, setValidating] = useState(false)
   const [joining, setJoining] = useState(false)
+
+  // Auto-validate when a code arrives pre-filled from the invite link
+  useEffect(() => {
+    const code = (initialTeamCode ?? '').trim().toUpperCase()
+    if (!code) return
+    setValidating(true)
+    validateTeamCode(code).then((result) => {
+      setValidating(false)
+      if (result.error) {
+        setCodeError(result.error)
+      } else {
+        setCodeValid(result.data)
+      }
+    })
+  // Only run once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleCodeBlur() {
     const code = teamCode.trim().toUpperCase()

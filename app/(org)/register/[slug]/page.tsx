@@ -14,10 +14,11 @@ export default async function RegisterLeaguePage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ mode?: string }>
+  searchParams: Promise<{ mode?: string; code?: string }>
 }) {
   const { slug } = await params
-  const { mode } = await searchParams
+  const { mode, code: teamCodeParam } = await searchParams
+  const initialTeamCode = teamCodeParam?.trim().toUpperCase() ?? null
   const isDropIn = mode === 'drop_in'
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -254,6 +255,7 @@ export default async function RegisterLeaguePage({
       teamsAtCapacity={teamsAtCapacity}
       leagueTeams={leagueTeams}
       leagueMerch={leagueMerch}
+      initialTeamCode={initialTeamCode}
     />
   )
 }

@@ -4,7 +4,6 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
-import { JoinTeamByCodeClient } from '@/components/teams/join-team-by-code-client'
 import Link from 'next/link'
 
 export default async function JoinTeamPage({
@@ -141,12 +140,13 @@ export default async function JoinTeamPage({
                 </p>
               </div>
             ) : user ? (
-              <JoinTeamByCodeClient
-                teamCode={code}
-                teamId={team.id}
-                teamName={team.name}
-                leagueSlug={leagueSlug}
-              />
+              <Link
+                href={leagueSlug ? `/register/${leagueSlug}?code=${code}` : `/teams/${team.id}`}
+                className="block w-full py-3 rounded-lg font-bold text-white text-sm text-center transition-opacity hover:opacity-90"
+                style={{ backgroundColor: 'var(--brand-primary)' }}
+              >
+                Register &amp; Join {team.name} →
+              </Link>
             ) : (
               <div className="space-y-3">
                 <Link

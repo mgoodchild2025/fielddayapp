@@ -44,6 +44,8 @@ interface Props {
   leagueTeams?: TeamOption[]
   /** Merchandise items available for this league. When empty, the add-ons step is skipped. */
   leagueMerch?: MerchItemForStep[]
+  /** Pre-filled team code from the invite link (?code=XXXXXX) */
+  initialTeamCode?: string | null
 }
 
 // Steps used in the progress bar (step 0 = role select, shown separately; never in bar)
@@ -74,6 +76,7 @@ export function RegistrationFlow({
   teamsAtCapacity = false,
   leagueTeams = [],
   leagueMerch = [],
+  initialTeamCode = null,
 }: Props) {
   const router = useRouter()
 
@@ -351,6 +354,7 @@ export function RegistrationFlow({
         {step === 3 && isPerTeam && isPlayer && !playerTeamId && !completing && (
           <StepTeamJoin
             teams={leagueTeams}
+            initialTeamCode={initialTeamCode}
             onComplete={async () => {
               // Activate registration now that the player has joined (or skipped) team selection
               if (registrationId) await activateRegistration(registrationId)
