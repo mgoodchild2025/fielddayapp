@@ -27,14 +27,16 @@ export default async function RegisterLeaguePage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/login?redirect=/register/${slug}${isDropIn ? '?mode=drop_in' : ''}`)
 
-  // Drop-ins can register for active events; season players need registration_open
+  // Drop-ins can register for active events; season players normally need registration_open,
+  // but active leagues are also allowed when the player was invited to a team (detected
+  // below after team-membership query resolves).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: league } = await (supabase as any)
     .from('leagues')
     .select('*')
     .eq('organization_id', org.id)
     .eq('slug', slug)
-    .in('status', isDropIn ? ['registration_open', 'active'] : ['registration_open'])
+    .in('status', ['registration_open', 'active'])
     .single()
 
   if (!league) notFound()
@@ -97,6 +99,14 @@ export default async function RegisterLeaguePage({
           .order('name')
       : Promise.resolve({ data: [] }),
   ])
+
+  // For active leagues in season mode: only allow access if the player is already on a
+  // team (accepted a mid-season invite) or has an existing registration. This prevents
+  // random players from self-registering for a league that is no longer open.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (!isDropIn && (league as any).status === 'active' && !captainTeam && !existingReg) {
+    notFound()
+  }
 
   const hasOnlinePayments = !!connectAccount?.stripe_secret_key
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

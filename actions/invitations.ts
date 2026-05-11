@@ -328,14 +328,16 @@ export async function acceptTeamInvitation(token: string) {
       const leagueStatus = (league as { status?: string } | null)?.status
       const leagueSlug = (league as { slug?: string } | null)?.slug
 
-      if (leagueStatus === 'registration_open' && leagueSlug) {
-        // League is still open — send player through the proper registration flow.
-        // Pass the team code so they land on the team page after completing registration.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const teamCode = (team as any)?.team_code
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const teamCode = (team as any)?.team_code
+
+      if ((leagueStatus === 'registration_open' || leagueStatus === 'active') && leagueSlug) {
+        // Send player through the registration flow so they complete waiver + payment.
+        // For active leagues the register page allows entry when the player is already
+        // a team member (added above), which is always true at this point.
         redirect(`/register/${leagueSlug}${teamCode ? `?code=${teamCode}` : ''}`)
       } else {
-        // League is active or closed — admin invited mid-season, auto-register silently
+        // League is completed / archived / has no slug — auto-register silently.
         await db.from('registrations').insert({
           organization_id: org.id,
           league_id: team.league_id,
