@@ -28,7 +28,6 @@ const leagueAdminNav = [
   { label: 'Teams', href: '/admin/teams', icon: '👥' },
   { label: 'Players', href: '/admin/players', icon: '🏃' },
   { label: 'Payments', href: '/admin/payments', icon: '💳' },
-  { label: 'Shop', href: '/admin/shop', icon: '🛍️' },
   { label: 'Messages', href: '/admin/messages', icon: '✉️' },
 ]
 

@@ -38,7 +38,7 @@ export default async function AdminShopPage({
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  await requireOrgMember(org, ['org_admin', 'league_admin'])
+  await requireOrgMember(org, ['org_admin'])
 
   const [orders, items] = await Promise.all([
     getAllMerchandiseOrders(org.id),
