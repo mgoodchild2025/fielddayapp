@@ -27,16 +27,14 @@ export default async function RegisterLeaguePage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/login?redirect=/register/${slug}${isDropIn ? '?mode=drop_in' : ''}`)
 
-  // Drop-ins can register for active events; season players normally need registration_open,
-  // but active leagues are also allowed when the player was invited to a team (detected
-  // below after team-membership query resolves).
+  // registration_open: open to all. active/draft: only team-invited players (guard below).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: league } = await (supabase as any)
     .from('leagues')
     .select('*')
     .eq('organization_id', org.id)
     .eq('slug', slug)
-    .in('status', ['registration_open', 'active'])
+    .in('status', ['draft', 'registration_open', 'active'])
     .single()
 
   if (!league) notFound()
@@ -100,11 +98,11 @@ export default async function RegisterLeaguePage({
       : Promise.resolve({ data: [] }),
   ])
 
-  // For active leagues in season mode: only allow access if the player is already on a
-  // team (accepted a mid-season invite) or has an existing registration. This prevents
-  // random players from self-registering for a league that is no longer open.
+  // For draft/active leagues: only allow access if the player is already on a team
+  // (accepted an invite) or has an existing registration. draft = not publicly open yet
+  // but an admin may have invited this player; active = mid-season invite.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (!isDropIn && (league as any).status === 'active' && !captainTeam && !existingReg) {
+  if (!isDropIn && ((league as any).status === 'active' || (league as any).status === 'draft') && !captainTeam && !existingReg) {
     // captainTeam uses the auth client which may be limited by RLS — use service role
     // as an authoritative fallback before blocking the player.
     const svcDb = createServiceRoleClient()

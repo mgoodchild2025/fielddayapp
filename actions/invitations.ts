@@ -321,14 +321,15 @@ export async function acceptTeamInvitation(token: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const teamCode = (team as any)?.team_code
 
-    if (leagueSlug && (leagueStatus === 'registration_open' || leagueStatus === 'active')) {
-      // Always route through the registration flow for open/active leagues.
+    if (leagueSlug && (leagueStatus === 'draft' || leagueStatus === 'registration_open' || leagueStatus === 'active')) {
+      // Always route through the registration flow for any non-archived/completed league.
       // The register page determines whether payment, waiver, or neither is needed and
       // resumes at the correct step — including collecting payment on unpaid registrations.
+      // Draft leagues are allowed because an admin explicitly invited this player, so
+      // registration (and payment) should proceed even before the event is publicly open.
       redirect(`/register/${leagueSlug}${teamCode ? `?code=${teamCode}` : ''}`)
-    } else if (leagueStatus !== 'draft') {
+    } else {
       // Completed / archived league — auto-register if no existing registration.
-      // Draft leagues: player is on the team but registration waits until the event opens.
       const { data: existingReg } = await db
         .from('registrations')
         .select('id')
@@ -346,7 +347,6 @@ export async function acceptTeamInvitation(token: string) {
         })
       }
     }
-    // Draft league: just leave the player on the team with no registration.
   }
 
   redirect(`/teams/${invite.team_id}`)
