@@ -97,12 +97,17 @@ export async function sendTeamInvite(input: z.infer<typeof sendInviteSchema>) {
 
   const email = parsed.data.email.toLowerCase()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: team }, { data: inviterProfile }] = await Promise.all([
-    db.from('teams').select('id, name').eq('id', parsed.data.teamId).eq('organization_id', org.id).single(),
+    (db as any).from('teams').select('id, name, league_id, leagues!teams_league_id_fkey(name)').eq('id', parsed.data.teamId).eq('organization_id', org.id).single(),
     db.from('profiles').select('full_name').eq('id', user.id).single(),
   ])
 
   if (!team) return { error: 'Team not found' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leagueRow = Array.isArray((team as any).leagues) ? (team as any).leagues[0] : (team as any).leagues
+  const leagueName: string | null = (leagueRow as { name?: string } | null)?.name ?? null
 
   // Check if already a member (by email or user_id)
   const { data: inviteeProfile } = await db
@@ -163,7 +168,7 @@ export async function sendTeamInvite(input: z.infer<typeof sendInviteSchema>) {
       user_id: inviteeProfile.id,
       type: 'team_invite',
       title: `You've been invited to join ${team.name}`,
-      body: `${inviterName} invited you as ${parsed.data.role}. Tap to view the invite.`,
+      body: `${inviterName} invited you${leagueName ? ` for ${leagueName}` : ''} as ${parsed.data.role}. Tap to view the invite.`,
       data: { token: invite.token, accept_url: acceptUrl },
     })
   }
@@ -171,9 +176,10 @@ export async function sendTeamInvite(input: z.infer<typeof sendInviteSchema>) {
   // Send email (no-op if RESEND_API_KEY is not set)
   await sendEmail({
     to: email,
-    subject: `You've been invited to join ${team.name}`,
+    subject: `You've been invited to join ${team.name}${leagueName ? ` — ${leagueName}` : ''}`,
     html: buildTeamInviteEmail({
       teamName: team.name,
+      leagueName,
       orgName: org.name,
       invitedBy: inviterName,
       role: parsed.data.role,
@@ -258,9 +264,10 @@ export async function acceptTeamInvitation(token: string) {
     .eq('type', 'team_invite')
 
   // Fetch team + league info for registration check and notification
-  const { data: team } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: team } = await (db as any)
     .from('teams')
-    .select('name, league_id, leagues!teams_league_id_fkey(slug, status)')
+    .select('name, league_id, team_code, leagues!teams_league_id_fkey(slug, status)')
     .eq('id', invite.team_id)
     .single()
 
@@ -295,8 +302,11 @@ export async function acceptTeamInvitation(token: string) {
       const leagueSlug = (league as { slug?: string } | null)?.slug
 
       if (leagueStatus === 'registration_open' && leagueSlug) {
-        // League is still open — send player through the proper registration flow
-        redirect(`/register/${leagueSlug}`)
+        // League is still open — send player through the proper registration flow.
+        // Pass the team code so they land on the team page after completing registration.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const teamCode = (team as any)?.team_code
+        redirect(`/register/${leagueSlug}${teamCode ? `?code=${teamCode}` : ''}`)
       } else {
         // League is active or closed — admin invited mid-season, auto-register silently
         await db.from('registrations').insert({
@@ -378,18 +388,24 @@ export async function resendTeamInvite(inviteId: string) {
   const declineUrl = `${origin}/invite/${token}?action=decline`
 
   // Fetch team + inviter profile
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: team }, { data: inviterProfile }] = await Promise.all([
-    db.from('teams').select('name').eq('id', invite.team_id).single(),
+    (db as any).from('teams').select('name, leagues!teams_league_id_fkey(name)').eq('id', invite.team_id).single(),
     db.from('profiles').select('full_name').eq('id', user.id).single(),
   ])
 
   const inviterName = inviterProfile?.full_name ?? 'A manager'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const resendLeagueRow = Array.isArray((team as any)?.leagues) ? (team as any).leagues[0] : (team as any)?.leagues
+  const resendLeagueName: string | null = (resendLeagueRow as { name?: string } | null)?.name ?? null
+  const teamName = team?.name ?? 'your team'
 
   await sendEmail({
     to: invite.invited_email,
-    subject: `Reminder: You've been invited to join ${team?.name ?? 'a team'}`,
+    subject: `Reminder: You've been invited to join ${teamName}${resendLeagueName ? ` — ${resendLeagueName}` : ''}`,
     html: buildTeamInviteEmail({
-      teamName: team?.name ?? 'your team',
+      teamName,
+      leagueName: resendLeagueName,
       orgName: org.name,
       invitedBy: inviterName,
       role: invite.role,

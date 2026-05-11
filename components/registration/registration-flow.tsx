@@ -141,7 +141,12 @@ export function RegistrationFlow({
       if (isPlayer && playerTeamId) {
         // Player already on a team via invite — activate and skip team-join
         await activateRegistration(registrationId!)
-        router.push(`/register/${league.slug}/success`)
+        // If they arrived via an invite link, land on their team page
+        if (initialTeamCode) {
+          router.push(`/teams/${playerTeamId}`)
+        } else {
+          router.push(`/register/${league.slug}/success`)
+        }
       } else if (isCaptain) {
         // Captain: activate now (team fee already paid), then show team management
         await activateRegistration(registrationId!)

@@ -346,6 +346,7 @@ export function buildOrganizerInviteEmail({
 
 export function buildTeamInviteEmail({
   teamName,
+  leagueName,
   orgName,
   invitedBy,
   role,
@@ -353,6 +354,7 @@ export function buildTeamInviteEmail({
   declineUrl,
 }: {
   teamName: string
+  leagueName?: string | null
   orgName: string
   invitedBy: string
   role: string
@@ -370,7 +372,7 @@ export function buildTeamInviteEmail({
     <div style="padding:32px;">
       <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Team Invitation</h2>
       <p style="color:#6b7280;margin:0 0 24px;font-size:15px;line-height:1.6;">
-        <strong>${invitedBy}</strong> has invited you to join <strong>${teamName}</strong> as a <strong>${role}</strong>.
+        <strong>${invitedBy}</strong> has invited you to join <strong>${teamName}</strong>${leagueName ? ` for <strong>${leagueName}</strong>` : ''} as a <strong>${role}</strong>.
       </p>
       <div style="text-align:center;margin:32px 0 24px;">
         <a href="${acceptUrl}"
