@@ -108,25 +108,6 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
   return { data: { registrationId: data.id }, error: null }
 }
 
-export async function linkWaiverToRegistration(registrationId: string, signatureId: string) {
-  const headersList = await headers()
-  const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
-
-  const { error } = await supabase
-    .from('registrations')
-    .update({ waiver_signature_id: signatureId })
-    .eq('id', registrationId)
-    .eq('organization_id', org.id)
-    .eq('user_id', user.id) // players can only update their own
-
-  if (error) return { error: error.message }
-  return { error: null }
-}
-
 export async function removeRegistration(registrationId: string, leagueId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)

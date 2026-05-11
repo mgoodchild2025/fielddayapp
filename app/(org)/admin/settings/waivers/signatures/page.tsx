@@ -15,50 +15,33 @@ export default async function WaiverSignaturesPage() {
     .single()
   const timezone = branding?.timezone ?? 'America/Toronto'
 
-  // Query from registrations so each registration's waiver appears as a separate row.
-  // A player who registers for two events using the same waiver template shares one
-  // waiver_signatures row (unique constraint), so querying waiver_signatures directly
-  // would under-count. Joining from registrations gives the correct per-event view.
+  // Source from waiver_signatures so orphan rows (signed but never linked to a
+  // registration) are still visible. Player name comes via waiver_signatures.user_id
+  // → profiles directly, not through the registration join.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: regs } = await (db as any)
-    .from('registrations')
+  const { data: sigs } = await (db as any)
+    .from('waiver_signatures')
     .select(`
-      id,
-      waiver_signature_id,
-      player:profiles!registrations_user_id_fkey(full_name, email),
-      league:leagues!registrations_league_id_fkey(name),
-      signature:waiver_signatures!registrations_waiver_signature_id_fkey(
-        id, signed_at, signature_name, ip_address, guardian_relationship,
-        waiver:waivers!waiver_signatures_waiver_id_fkey(title, version)
-      )
+      id, signed_at, signature_name, ip_address, guardian_relationship,
+      player:profiles!waiver_signatures_user_id_fkey(full_name, email),
+      waiver:waivers!waiver_signatures_waiver_id_fkey(title, version),
+      league:leagues!waiver_signatures_league_id_fkey(name)
     `)
     .eq('organization_id', org.id)
-    .not('waiver_signature_id', 'is', null)
-    .order('created_at', { ascending: false })
+    .order('signed_at', { ascending: false })
 
   type Row = {
     id: string
-    waiver_signature_id: string
+    signed_at: string
+    signature_name: string
+    ip_address: string | null
+    guardian_relationship: string | null
     player: { full_name: string; email: string } | { full_name: string; email: string }[] | null
+    waiver: { title: string; version: number } | { title: string; version: number }[] | null
     league: { name: string } | { name: string }[] | null
-    signature: {
-      id: string
-      signed_at: string
-      signature_name: string
-      ip_address: string | null
-      guardian_relationship: string | null
-      waiver: { title: string; version: number } | { title: string; version: number }[] | null
-    } | {
-      id: string
-      signed_at: string
-      signature_name: string
-      ip_address: string | null
-      guardian_relationship: string | null
-      waiver: { title: string; version: number } | { title: string; version: number }[] | null
-    }[] | null
   }
 
-  const rows = (regs ?? []) as Row[]
+  const rows = (sigs ?? []) as Row[]
 
   return (
     <div className="max-w-5xl">
@@ -85,15 +68,14 @@ export default async function WaiverSignaturesPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((reg) => {
-                const player = Array.isArray(reg.player) ? reg.player[0] : reg.player
-                const league = Array.isArray(reg.league) ? reg.league[0] : reg.league
-                const sig = Array.isArray(reg.signature) ? reg.signature[0] : reg.signature
-                const waiver = sig ? (Array.isArray(sig.waiver) ? sig.waiver[0] : sig.waiver) : null
-                const isGuardian = !!sig?.guardian_relationship
-                const guardianLabel = sig?.guardian_relationship === 'legal_guardian' ? 'Legal guardian' : 'Parent'
+              {rows.map((sig) => {
+                const player = Array.isArray(sig.player) ? sig.player[0] : sig.player
+                const league = Array.isArray(sig.league) ? sig.league[0] : sig.league
+                const waiver = Array.isArray(sig.waiver) ? sig.waiver[0] : sig.waiver
+                const isGuardian = !!sig.guardian_relationship
+                const guardianLabel = sig.guardian_relationship === 'legal_guardian' ? 'Legal guardian' : 'Parent'
                 return (
-                  <tr key={reg.id} className="border-b last:border-0 hover:bg-gray-50">
+                  <tr key={sig.id} className="border-b last:border-0 hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-medium">{player?.full_name ?? '—'}</span>
@@ -104,7 +86,7 @@ export default async function WaiverSignaturesPage() {
                         )}
                       </div>
                       <div className="text-xs text-gray-400">{player?.email ?? '—'}</div>
-                      {isGuardian && sig && (
+                      {isGuardian && (
                         <div className="text-xs text-amber-700 mt-0.5">
                           Signed by {sig.signature_name} ({guardianLabel})
                         </div>
@@ -120,33 +102,27 @@ export default async function WaiverSignaturesPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
-                      {sig ? (
-                        <>
-                          {new Date(sig.signed_at).toLocaleDateString('en-CA', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            timeZone: timezone,
-                          })}
-                          <br />
-                          {new Date(sig.signed_at).toLocaleTimeString('en-CA', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            timeZone: timezone,
-                          })}
-                        </>
-                      ) : '—'}
+                      {new Date(sig.signed_at).toLocaleDateString('en-CA', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        timeZone: timezone,
+                      })}
+                      <br />
+                      {new Date(sig.signed_at).toLocaleTimeString('en-CA', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        timeZone: timezone,
+                      })}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {sig && (
-                        <Link
-                          href={`/admin/settings/waivers/signatures/${sig.id}`}
-                          className="text-xs font-medium hover:underline"
-                          style={{ color: 'var(--brand-primary)' }}
-                        >
-                          View →
-                        </Link>
-                      )}
+                      <Link
+                        href={`/admin/settings/waivers/signatures/${sig.id}`}
+                        className="text-xs font-medium hover:underline"
+                        style={{ color: 'var(--brand-primary)' }}
+                      >
+                        View →
+                      </Link>
                     </td>
                   </tr>
                 )

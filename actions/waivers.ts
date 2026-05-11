@@ -129,6 +129,9 @@ const signWaiverSchema = z.object({
   waiverId: z.string().uuid(),
   signatureName: z.string().min(2),
   leagueId: z.string().uuid().optional(),
+  // When present, the registration row is linked server-side (avoids client-side
+  // linkWaiverToRegistration call being dropped by a network failure).
+  registrationId: z.string().uuid().optional(),
   // Guardian fields — present only when the player is under 18.
   // signatureName holds the guardian's legal name; guardianRelationship identifies them.
   guardianRelationship: z.enum(['parent', 'legal_guardian']).optional(),
@@ -160,24 +163,41 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
     .eq('waiver_id', parsed.data.waiverId)
     .maybeSingle()
 
-  if (existing) return { data: { signatureId: existing.id }, error: null }
+  let signatureId: string
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
-    .from('waiver_signatures')
-    .insert({
-      organization_id: org.id,
-      user_id: user.id,
-      waiver_id: parsed.data.waiverId,
-      signature_name: parsed.data.signatureName,
-      ip_address: ipAddress,
-      league_id: parsed.data.leagueId ?? null,
-      guardian_relationship: parsed.data.guardianRelationship ?? null,
-    })
-    .select('id')
-    .single()
+  if (existing) {
+    signatureId = existing.id
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
+      .from('waiver_signatures')
+      .insert({
+        organization_id: org.id,
+        user_id: user.id,
+        waiver_id: parsed.data.waiverId,
+        signature_name: parsed.data.signatureName,
+        ip_address: ipAddress,
+        league_id: parsed.data.leagueId ?? null,
+        guardian_relationship: parsed.data.guardianRelationship ?? null,
+      })
+      .select('id')
+      .single()
 
-  if (error) return { data: null, error: error.message }
+    if (error) return { data: null, error: error.message }
+    signatureId = data.id
+  }
 
-  return { data: { signatureId: data.id }, error: null }
+  // Link the signature to the registration row server-side so the write is atomic
+  // and can't be dropped by a client network failure. Runs even when dedup-guard
+  // short-circuited above (re-links an already-signed waiver to a new registration).
+  if (parsed.data.registrationId) {
+    await supabase
+      .from('registrations')
+      .update({ waiver_signature_id: signatureId })
+      .eq('id', parsed.data.registrationId)
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
+  }
+
+  return { data: { signatureId }, error: null }
 }
