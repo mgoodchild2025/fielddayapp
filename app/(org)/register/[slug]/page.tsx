@@ -27,14 +27,14 @@ export default async function RegisterLeaguePage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/login?redirect=/register/${slug}${isDropIn ? '?mode=drop_in' : ''}`)
 
-  // registration_open: open to all. active/draft: only team-invited players (guard below).
+  // registration_open: open to all. active: only team-invited players (guard below).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: league } = await (supabase as any)
     .from('leagues')
     .select('*')
     .eq('organization_id', org.id)
     .eq('slug', slug)
-    .in('status', ['draft', 'registration_open', 'active'])
+    .in('status', ['registration_open', 'active'])
     .single()
 
   if (!league) notFound()
@@ -74,7 +74,7 @@ export default async function RegisterLeaguePage({
           .maybeSingle(),
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from('org_payment_settings').select('stripe_secret_key').eq('organization_id', org.id).maybeSingle(),
+    (supabase as any).from('org_payment_settings').select('stripe_secret_key, registration_payment_mode').eq('organization_id', org.id).maybeSingle(),
     // Check if the user is already on any team in this league (any role).
     // Query starts from teams so league_id is filtered on the primary table (reliable).
     supabase
@@ -98,11 +98,10 @@ export default async function RegisterLeaguePage({
       : Promise.resolve({ data: [] }),
   ])
 
-  // For draft/active leagues: only allow access if the player is already on a team
-  // (accepted an invite) or has an existing registration. draft = not publicly open yet
-  // but an admin may have invited this player; active = mid-season invite.
+  // For active leagues: only allow access if the player is already on a team
+  // (accepted a mid-season invite) or has an existing registration.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (!isDropIn && ((league as any).status === 'active' || (league as any).status === 'draft') && !captainTeam && !existingReg) {
+  if (!isDropIn && (league as any).status === 'active' && !captainTeam && !existingReg) {
     // captainTeam uses the auth client which may be limited by RLS — use service role
     // as an authoritative fallback before blocking the player.
     const svcDb = createServiceRoleClient()
@@ -125,7 +124,11 @@ export default async function RegisterLeaguePage({
     if (!hasTeamMembership) notFound()
   }
 
-  const hasOnlinePayments = !!connectAccount?.stripe_secret_key
+  // Online payments require both a Stripe secret key AND the registration payment mode
+  // set to 'stripe' (null/undefined defaults to 'stripe' for backwards compatibility).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const registrationPaymentMode = (connectAccount as any)?.registration_payment_mode ?? 'stripe'
+  const hasOnlinePayments = !!connectAccount?.stripe_secret_key && registrationPaymentMode !== 'manual'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dropInPriceCents: number | null = (league as any).drop_in_price_cents ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

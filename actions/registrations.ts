@@ -37,9 +37,8 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
     .eq('organization_id', org.id)
     .single()
 
-  // Registrations are only allowed for draft, open, or active events.
-  // Completed and archived events are closed.
-  if (!leagueCap || leagueCap.status === 'completed' || leagueCap.status === 'archived') {
+  // Registrations are only allowed for open or active events.
+  if (!leagueCap || leagueCap.status === 'draft' || leagueCap.status === 'completed' || leagueCap.status === 'archived') {
     return { data: null, error: 'Registration is not open for this event' }
   }
 
