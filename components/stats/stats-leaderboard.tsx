@@ -113,6 +113,16 @@ export function StatsLeaderboard({ statDefs, players }: Props) {
           })}
         </div>
       )}
+
+      {/* Column definitions legend */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 px-1 pt-1">
+        {statDefs.map(def => (
+          <span key={def.key} className="text-xs text-gray-400">
+            <span className="font-semibold text-gray-500">{def.label}</span>
+            {' '}({def.key})
+          </span>
+        ))}
+      </div>
     </div>
   )
 }

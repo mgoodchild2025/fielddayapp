@@ -69,46 +69,100 @@ interface TeamStat {
   ties: number
   pointsFor: number
   pointsAgainst: number
+  setWins: number
+  setLosses: number
 }
 
-function StandingsTable({ teams }: { teams: TeamStat[] }) {
-  const sorted = [...teams].sort(
-    (a, b) => b.wins - a.wins || (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst)
-  )
+const VOLLEYBALL_SPORTS = new Set(['volleyball', 'beach_volleyball'])
+
+function StandingsTable({ teams, sport }: { teams: TeamStat[]; sport?: string | null }) {
+  const isVolleyball = VOLLEYBALL_SPORTS.has(sport ?? '')
+  const sorted = [...teams].sort((a, b) => {
+    if (b.wins !== a.wins) return b.wins - a.wins
+    if (isVolleyball) {
+      const sdA = a.setWins - a.setLosses
+      const sdB = b.setWins - b.setLosses
+      if (sdB !== sdA) return sdB - sdA
+    }
+    return (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst)
+  })
   if (sorted.length === 0) {
     return <p className="text-gray-400 text-sm text-center py-8">No results yet.</p>
   }
+
+  // Column legend entries
+  const legendItems = isVolleyball
+    ? [
+        { abbr: 'W', label: 'Wins' },
+        { abbr: 'L', label: 'Losses' },
+        { abbr: 'SW', label: 'Set Wins' },
+        { abbr: 'SL', label: 'Set Losses' },
+        { abbr: 'SD', label: 'Set Differential (SW − SL)' },
+        { abbr: 'PF', label: 'Points For' },
+        { abbr: 'PA', label: 'Points Against' },
+        { abbr: 'Diff', label: 'Point Differential (PF − PA)' },
+      ]
+    : [
+        { abbr: 'W', label: 'Wins' },
+        { abbr: 'L', label: 'Losses' },
+        { abbr: 'PF', label: 'Points For' },
+        { abbr: 'PA', label: 'Points Against' },
+        { abbr: 'Diff', label: 'Point Differential (PF − PA)' },
+      ]
+
   return (
-    <div className="bg-white rounded-lg border overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[340px]">
-          <thead>
-            <tr className="border-b bg-gray-50 text-left">
-              <th className="px-4 py-3 font-medium text-gray-500 w-8">#</th>
-              <th className="px-4 py-3 font-medium text-gray-500">Team</th>
-              <th className="px-3 py-3 font-medium text-gray-500 text-center">W</th>
-              <th className="px-3 py-3 font-medium text-gray-500 text-center">L</th>
-              <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">PF</th>
-              <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">PA</th>
-              <th className="px-3 py-3 font-medium text-gray-500 text-center">Diff</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((team, i) => (
-              <tr key={team.id} className="border-b last:border-0">
-                <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
-                <td className="px-4 py-3 font-medium">{team.name}</td>
-                <td className="px-3 py-3 text-center font-semibold" style={{ color: 'var(--brand-primary)' }}>{team.wins}</td>
-                <td className="px-3 py-3 text-center text-gray-500">{team.losses}</td>
-                <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.pointsFor}</td>
-                <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.pointsAgainst}</td>
-                <td className="px-3 py-3 text-center text-gray-500">
-                  {team.pointsFor - team.pointsAgainst > 0 ? '+' : ''}{team.pointsFor - team.pointsAgainst}
-                </td>
+    <div className="space-y-3">
+      <div className="bg-white rounded-lg border overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[340px]">
+            <thead>
+              <tr className="border-b bg-gray-50 text-left">
+                <th className="px-4 py-3 font-medium text-gray-500 w-16 text-xs uppercase tracking-wide">RANK</th>
+                <th className="px-4 py-3 font-medium text-gray-500">Team</th>
+                <th className="px-3 py-3 font-medium text-gray-500 text-center">W</th>
+                <th className="px-3 py-3 font-medium text-gray-500 text-center">L</th>
+                {isVolleyball && <>
+                  <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">SW</th>
+                  <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">SL</th>
+                  <th className="px-3 py-3 font-medium text-gray-500 text-center">SD</th>
+                </>}
+                <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">PF</th>
+                <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">PA</th>
+                <th className="px-3 py-3 font-medium text-gray-500 text-center">Diff</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {sorted.map((team, i) => (
+                <tr key={team.id} className="border-b last:border-0">
+                  <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
+                  <td className="px-4 py-3 font-medium">{team.name}</td>
+                  <td className="px-3 py-3 text-center font-semibold" style={{ color: 'var(--brand-primary)' }}>{team.wins}</td>
+                  <td className="px-3 py-3 text-center text-gray-500">{team.losses}</td>
+                  {isVolleyball && <>
+                    <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.setWins}</td>
+                    <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.setLosses}</td>
+                    <td className="px-3 py-3 text-center text-gray-500">
+                      {team.setWins - team.setLosses > 0 ? '+' : ''}{team.setWins - team.setLosses}
+                    </td>
+                  </>}
+                  <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.pointsFor}</td>
+                  <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.pointsAgainst}</td>
+                  <td className="px-3 py-3 text-center text-gray-500">
+                    {team.pointsFor - team.pointsAgainst > 0 ? '+' : ''}{team.pointsFor - team.pointsAgainst}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {/* Column definitions legend */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 px-1">
+        {legendItems.map(({ abbr, label }) => (
+          <span key={abbr} className="text-xs text-gray-400">
+            <span className="font-semibold text-gray-500">{abbr}</span> = {label}
+          </span>
+        ))}
       </div>
     </div>
   )
@@ -802,18 +856,19 @@ export default async function EventDetailPage({
   let divisions: { id: string; name: string; sort_order: number }[] = []
 
   if (activeTab === 'standings' && isTeamBased) {
+    const leagueSport: string = (league as any).sport ?? '' // eslint-disable-line @typescript-eslint/no-explicit-any
     const [{ data: teamsData }, { data: divsData }, { data: resultsData }] = await Promise.all([
       supabase.from('teams').select('id, name, division_id').eq('league_id', league.id).eq('organization_id', org.id).eq('status', 'active'),
       supabase.from('divisions').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
       supabase.from('game_results')
-        .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status)')
+        .select('home_score, away_score, status, sets, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status)')
         .eq('organization_id', org.id)
         .eq('status', 'confirmed'),
     ])
 
     divisions = divsData ?? []
 
-    const record: Record<string, { wins: number; losses: number; ties: number; pointsFor: number; pointsAgainst: number }> = {}
+    const record: Record<string, { wins: number; losses: number; ties: number; pointsFor: number; pointsAgainst: number; setWins: number; setLosses: number }> = {}
     const leagueTeamIds = new Set((teamsData ?? []).map((t) => t.id))
 
     for (const r of resultsData ?? []) {
@@ -821,8 +876,8 @@ export default async function EventDetailPage({
       if (!game || game.status !== 'completed' || game.league_id !== league.id) continue
       const { home_team_id: ht, away_team_id: at } = game
       if (!ht || !at || !leagueTeamIds.has(ht) || !leagueTeamIds.has(at)) continue
-      if (!record[ht]) record[ht] = { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 }
-      if (!record[at]) record[at] = { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 }
+      if (!record[ht]) record[ht] = { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0 }
+      if (!record[at]) record[at] = { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0 }
       const hs = r.home_score ?? 0
       const as_ = r.away_score ?? 0
       record[ht].pointsFor += hs; record[ht].pointsAgainst += as_
@@ -830,12 +885,19 @@ export default async function EventDetailPage({
       if (hs > as_) { record[ht].wins++; record[at].losses++ }
       else if (as_ > hs) { record[at].wins++; record[ht].losses++ }
       else { record[ht].ties++; record[at].ties++ }
+      // Set wins/losses for volleyball sports
+      if (VOLLEYBALL_SPORTS.has(leagueSport) && Array.isArray(r.sets)) {
+        for (const s of r.sets as { home: number; away: number }[]) {
+          if (s.home > s.away) { record[ht].setWins++; record[at].setLosses++ }
+          else if (s.away > s.home) { record[at].setWins++; record[ht].setLosses++ }
+        }
+      }
     }
 
     standingsTeams = (teamsData ?? []).map((t) => ({
       ...t,
       division_id: t.division_id ?? null,
-      ...(record[t.id] ?? { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 }),
+      ...(record[t.id] ?? { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0 }),
     }))
   }
 
@@ -1590,19 +1652,19 @@ export default async function EventDetailPage({
                   return (
                     <div key={div.id}>
                       <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">{div.name}</p>
-                      <StandingsTable teams={divTeams} />
+                      <StandingsTable teams={divTeams} sport={league.sport ?? null} />
                     </div>
                   )
                 })}
                 {standingsTeams.filter((t) => !t.division_id).length > 0 && (
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Unassigned</p>
-                    <StandingsTable teams={standingsTeams.filter((t) => !t.division_id)} />
+                    <StandingsTable teams={standingsTeams.filter((t) => !t.division_id)} sport={league.sport ?? null} />
                   </div>
                 )}
               </div>
             ) : (
-              <StandingsTable teams={standingsTeams} />
+              <StandingsTable teams={standingsTeams} sport={league.sport ?? null} />
             )}
           </div>
         )}

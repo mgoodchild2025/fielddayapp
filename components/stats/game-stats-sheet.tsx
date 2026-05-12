@@ -230,6 +230,18 @@ export function GameStatsSheet({
                   onChange={updateAway}
                 />
               )}
+              {/* Column definitions legend */}
+              <div className="pt-2 border-t">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Column Definitions</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {statDefs.map(def => (
+                    <span key={def.key} className="text-xs text-gray-400">
+                      <span className="font-semibold text-gray-500">{def.label}</span>
+                      {' '}({def.key})
+                    </span>
+                  ))}
+                </div>
+              </div>
             </>
           )}
         </div>
