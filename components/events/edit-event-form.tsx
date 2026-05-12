@@ -46,6 +46,7 @@ interface League {
   checkin_enabled: boolean
   early_bird_price_cents: number | null
   early_bird_deadline: string | null
+  standings_pts_method: string | null
 }
 
 interface Waiver {
@@ -124,6 +125,10 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
   const [selectedSkill, setSelectedSkill] = useState<string>(league.skill_level ?? '')
   const [selectedOfficiated, setSelectedOfficiated] = useState<string>(league.officiated ?? '')
   const [checkinEnabled, setCheckinEnabled] = useState<boolean>(league.checkin_enabled)
+  const [selectedSport, setSelectedSport] = useState<string>(league.sport ?? '')
+
+  const VOLLEYBALL_SPORTS_SET = new Set(['volleyball', 'beach_volleyball'])
+  const isVolleyballSport = VOLLEYBALL_SPORTS_SET.has(selectedSport)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -170,6 +175,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
       schedule_visibility: (fd.get('schedule_visibility') as 'public' | 'participants') || 'public',
       standings_visibility: (fd.get('standings_visibility') as 'public' | 'participants') || 'public',
       bracket_visibility: (fd.get('bracket_visibility') as 'public' | 'participants') || 'public',
+      standings_pts_method: (fd.get('standings_pts_method') as string) || 'wins',
       days_of_week: selectedDays.length ? selectedDays : undefined,
       skill_level: (selectedSkill as 'recreational' | 'intermediate' | 'competitive') || undefined,
       officiated: (selectedOfficiated as 'self_officiated' | 'referee') || undefined,
@@ -236,7 +242,12 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Sport">
-            <select name="sport" defaultValue={league.sport ?? 'beach_volleyball'} className="input">
+            <select
+              name="sport"
+              defaultValue={league.sport ?? 'beach_volleyball'}
+              className="input"
+              onChange={(e) => setSelectedSport(e.target.value)}
+            >
               {SPORTS.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
@@ -553,6 +564,31 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
             ))}
           </div>
         </div>
+
+        {/* Standings settings — volleyball-specific */}
+        {isVolleyballSport && (
+          <div className="border-t pt-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Standings Settings</p>
+            <p className="text-xs text-gray-400 mb-3">Choose what determines the PTS (standings points) column.</p>
+            <div className="flex items-center justify-between gap-4">
+              <label className="text-sm text-gray-700 w-24 shrink-0">PTS = </label>
+              <select
+                name="standings_pts_method"
+                defaultValue={league.standings_pts_method ?? 'wins'}
+                className="input flex-1"
+              >
+                <option value="wins">Wins (match wins)</option>
+                <option value="set_wins">Set Wins (SW)</option>
+                <option value="set_differential">Set Differential (SW − SL)</option>
+                <option value="points_for">Points For (PF)</option>
+              </select>
+            </div>
+          </div>
+        )}
+        {/* Hidden fallback for non-volleyball sports — preserve existing value */}
+        {!isVolleyballSport && (
+          <input type="hidden" name="standings_pts_method" value={league.standings_pts_method ?? 'wins'} />
+        )}
 
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Event Format</label>

@@ -60,25 +60,40 @@ function TabNav({ slug, activeTab, tabs }: { slug: string; activeTab: string; ta
 
 // ── Standings helpers ─────────────────────────────────────────────────────────
 
+type PtsMethod = 'wins' | 'set_wins' | 'set_differential' | 'points_for'
+
 interface TeamStat {
   id: string
   name: string
   division_id: string | null
+  matchesPlayed: number
   wins: number
   losses: number
   ties: number
-  pointsFor: number
-  pointsAgainst: number
+  pointsFor: number      // for volleyball: total set-level points scored
+  pointsAgainst: number  // for volleyball: total set-level points conceded
   setWins: number
   setLosses: number
 }
 
 const VOLLEYBALL_SPORTS = new Set(['volleyball', 'beach_volleyball'])
 
-function StandingsTable({ teams, sport }: { teams: TeamStat[]; sport?: string | null }) {
+function computePts(team: TeamStat, method: PtsMethod): number {
+  switch (method) {
+    case 'wins':             return team.wins
+    case 'set_wins':         return team.setWins
+    case 'set_differential': return team.setWins - team.setLosses
+    case 'points_for':       return team.pointsFor
+  }
+}
+
+function StandingsTable({ teams, sport, ptsMethod }: { teams: TeamStat[]; sport?: string | null; ptsMethod?: PtsMethod }) {
   const isVolleyball = VOLLEYBALL_SPORTS.has(sport ?? '')
+  const method: PtsMethod = ptsMethod ?? 'wins'
+
   const sorted = [...teams].sort((a, b) => {
-    if (b.wins !== a.wins) return b.wins - a.wins
+    const ptsDiff = computePts(b, method) - computePts(a, method)
+    if (ptsDiff !== 0) return ptsDiff
     if (isVolleyball) {
       const sdA = a.setWins - a.setLosses
       const sdB = b.setWins - b.setLosses
@@ -91,34 +106,31 @@ function StandingsTable({ teams, sport }: { teams: TeamStat[]; sport?: string | 
   }
 
   // Column legend entries
-  const legendItems = isVolleyball
-    ? [
-        { abbr: 'W', label: 'Wins' },
-        { abbr: 'L', label: 'Losses' },
-        { abbr: 'SW', label: 'Set Wins' },
-        { abbr: 'SL', label: 'Set Losses' },
-        { abbr: 'SD', label: 'Set Differential (SW − SL)' },
-        { abbr: 'PF', label: 'Points For' },
-        { abbr: 'PA', label: 'Points Against' },
-        { abbr: 'Diff', label: 'Point Differential (PF − PA)' },
-      ]
-    : [
-        { abbr: 'W', label: 'Wins' },
-        { abbr: 'L', label: 'Losses' },
-        { abbr: 'PF', label: 'Points For' },
-        { abbr: 'PA', label: 'Points Against' },
-        { abbr: 'Diff', label: 'Point Differential (PF − PA)' },
-      ]
+  const legendItems: { abbr: string; label: string }[] = [
+    { abbr: 'MP', label: 'Matches Played' },
+    { abbr: 'W', label: 'Wins' },
+    { abbr: 'L', label: 'Losses' },
+    ...(isVolleyball ? [
+      { abbr: 'SW', label: 'Set Wins' },
+      { abbr: 'SL', label: 'Set Losses' },
+      { abbr: 'SD', label: 'Set Differential (SW − SL)' },
+    ] : []),
+    { abbr: 'PF', label: isVolleyball ? 'Points For (set-level)' : 'Points For' },
+    { abbr: 'PA', label: isVolleyball ? 'Points Against (set-level)' : 'Points Against' },
+    { abbr: 'PD', label: 'Point Differential (PF − PA)' },
+    { abbr: 'PTS', label: 'Points (standings)' },
+  ]
 
   return (
     <div className="space-y-3">
       <div className="bg-white rounded-lg border overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[340px]">
+          <table className="w-full text-sm min-w-[380px]">
             <thead>
               <tr className="border-b bg-gray-50 text-left">
-                <th className="px-4 py-3 font-medium text-gray-500 w-16 text-xs uppercase tracking-wide">RANK</th>
+                <th className="px-4 py-3 font-medium text-gray-500 w-14 text-xs uppercase tracking-wide">RANK</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Team</th>
+                <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">MP</th>
                 <th className="px-3 py-3 font-medium text-gray-500 text-center">W</th>
                 <th className="px-3 py-3 font-medium text-gray-500 text-center">L</th>
                 {isVolleyball && <>
@@ -128,30 +140,39 @@ function StandingsTable({ teams, sport }: { teams: TeamStat[]; sport?: string | 
                 </>}
                 <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">PF</th>
                 <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">PA</th>
-                <th className="px-3 py-3 font-medium text-gray-500 text-center">Diff</th>
+                <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">PD</th>
+                <th className="px-3 py-3 font-medium text-gray-500 text-center">PTS</th>
               </tr>
             </thead>
             <tbody>
-              {sorted.map((team, i) => (
-                <tr key={team.id} className="border-b last:border-0">
-                  <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
-                  <td className="px-4 py-3 font-medium">{team.name}</td>
-                  <td className="px-3 py-3 text-center font-semibold" style={{ color: 'var(--brand-primary)' }}>{team.wins}</td>
-                  <td className="px-3 py-3 text-center text-gray-500">{team.losses}</td>
-                  {isVolleyball && <>
-                    <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.setWins}</td>
-                    <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.setLosses}</td>
-                    <td className="px-3 py-3 text-center text-gray-500">
-                      {team.setWins - team.setLosses > 0 ? '+' : ''}{team.setWins - team.setLosses}
+              {sorted.map((team, i) => {
+                const pd = team.pointsFor - team.pointsAgainst
+                const pts = computePts(team, method)
+                return (
+                  <tr key={team.id} className="border-b last:border-0">
+                    <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
+                    <td className="px-4 py-3 font-medium">{team.name}</td>
+                    <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.matchesPlayed}</td>
+                    <td className="px-3 py-3 text-center text-gray-500">{team.wins}</td>
+                    <td className="px-3 py-3 text-center text-gray-500">{team.losses}</td>
+                    {isVolleyball && <>
+                      <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.setWins}</td>
+                      <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.setLosses}</td>
+                      <td className="px-3 py-3 text-center text-gray-500">
+                        {team.setWins - team.setLosses > 0 ? '+' : ''}{team.setWins - team.setLosses}
+                      </td>
+                    </>}
+                    <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.pointsFor}</td>
+                    <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.pointsAgainst}</td>
+                    <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">
+                      {pd > 0 ? '+' : ''}{pd}
                     </td>
-                  </>}
-                  <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.pointsFor}</td>
-                  <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.pointsAgainst}</td>
-                  <td className="px-3 py-3 text-center text-gray-500">
-                    {team.pointsFor - team.pointsAgainst > 0 ? '+' : ''}{team.pointsFor - team.pointsAgainst}
-                  </td>
-                </tr>
-              ))}
+                    <td className="px-3 py-3 text-center font-semibold" style={{ color: 'var(--brand-primary)' }}>
+                      {pts > 0 ? '+' : ''}{pts}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -854,9 +875,15 @@ export default async function EventDetailPage({
 
   let standingsTeams: TeamStat[] = []
   let divisions: { id: string; name: string; sort_order: number }[] = []
+  let standingsPtsMethod: PtsMethod = 'wins'
 
   if (activeTab === 'standings' && isTeamBased) {
-    const leagueSport: string = (league as any).sport ?? '' // eslint-disable-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const leagueSport: string = (league as any).sport ?? ''
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const leaguePtsMethod: PtsMethod = ((league as any).standings_pts_method ?? 'wins') as PtsMethod
+    const isVolleyballLeague = VOLLEYBALL_SPORTS.has(leagueSport)
+
     const [{ data: teamsData }, { data: divsData }, { data: resultsData }] = await Promise.all([
       supabase.from('teams').select('id, name, division_id').eq('league_id', league.id).eq('organization_id', org.id).eq('status', 'active'),
       supabase.from('divisions').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
@@ -868,7 +895,7 @@ export default async function EventDetailPage({
 
     divisions = divsData ?? []
 
-    const record: Record<string, { wins: number; losses: number; ties: number; pointsFor: number; pointsAgainst: number; setWins: number; setLosses: number }> = {}
+    const record: Record<string, { matchesPlayed: number; wins: number; losses: number; ties: number; pointsFor: number; pointsAgainst: number; setWins: number; setLosses: number }> = {}
     const leagueTeamIds = new Set((teamsData ?? []).map((t) => t.id))
 
     for (const r of resultsData ?? []) {
@@ -876,29 +903,35 @@ export default async function EventDetailPage({
       if (!game || game.status !== 'completed' || game.league_id !== league.id) continue
       const { home_team_id: ht, away_team_id: at } = game
       if (!ht || !at || !leagueTeamIds.has(ht) || !leagueTeamIds.has(at)) continue
-      if (!record[ht]) record[ht] = { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0 }
-      if (!record[at]) record[at] = { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0 }
+      if (!record[ht]) record[ht] = { matchesPlayed: 0, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0 }
+      if (!record[at]) record[at] = { matchesPlayed: 0, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0 }
+      record[ht].matchesPlayed++
+      record[at].matchesPlayed++
       const hs = r.home_score ?? 0
       const as_ = r.away_score ?? 0
-      record[ht].pointsFor += hs; record[ht].pointsAgainst += as_
-      record[at].pointsFor += as_; record[at].pointsAgainst += hs
       if (hs > as_) { record[ht].wins++; record[at].losses++ }
       else if (as_ > hs) { record[at].wins++; record[ht].losses++ }
       else { record[ht].ties++; record[at].ties++ }
-      // Set wins/losses for volleyball sports
-      if (VOLLEYBALL_SPORTS.has(leagueSport) && Array.isArray(r.sets)) {
+      // For volleyball: PF/PA = set-level points; for others: match scores
+      if (isVolleyballLeague && Array.isArray(r.sets)) {
         for (const s of r.sets as { home: number; away: number }[]) {
+          record[ht].pointsFor += s.home; record[ht].pointsAgainst += s.away
+          record[at].pointsFor += s.away; record[at].pointsAgainst += s.home
           if (s.home > s.away) { record[ht].setWins++; record[at].setLosses++ }
           else if (s.away > s.home) { record[at].setWins++; record[ht].setLosses++ }
         }
+      } else {
+        record[ht].pointsFor += hs; record[ht].pointsAgainst += as_
+        record[at].pointsFor += as_; record[at].pointsAgainst += hs
       }
     }
 
     standingsTeams = (teamsData ?? []).map((t) => ({
       ...t,
       division_id: t.division_id ?? null,
-      ...(record[t.id] ?? { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0 }),
+      ...(record[t.id] ?? { matchesPlayed: 0, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0 }),
     }))
+    standingsPtsMethod = leaguePtsMethod
   }
 
   // ── Bracket tab data ─────────────────────────────────────────────────────
@@ -1652,19 +1685,19 @@ export default async function EventDetailPage({
                   return (
                     <div key={div.id}>
                       <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">{div.name}</p>
-                      <StandingsTable teams={divTeams} sport={league.sport ?? null} />
+                      <StandingsTable teams={divTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} />
                     </div>
                   )
                 })}
                 {standingsTeams.filter((t) => !t.division_id).length > 0 && (
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Unassigned</p>
-                    <StandingsTable teams={standingsTeams.filter((t) => !t.division_id)} sport={league.sport ?? null} />
+                    <StandingsTable teams={standingsTeams.filter((t) => !t.division_id)} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} />
                   </div>
                 )}
               </div>
             ) : (
-              <StandingsTable teams={standingsTeams} sport={league.sport ?? null} />
+              <StandingsTable teams={standingsTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} />
             )}
           </div>
         )}
