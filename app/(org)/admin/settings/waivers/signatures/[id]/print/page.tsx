@@ -79,11 +79,25 @@ export default async function WaiverSignaturePrintPage({
       <style>{`
         @media print {
           @page { size: letter portrait; margin: 0.75in; }
+
+          html, body {
+            overflow: visible !important;
+            height: auto !important;
+            width: 100% !important;
+          }
+
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; font-size: 11pt; }
+
+          .print-page-wrapper {
+            min-height: 0 !important;
+            max-width: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
         }
       `}</style>
 
-      <div className="min-h-screen bg-white px-8 py-8 max-w-3xl mx-auto">
+      <div className="print-page-wrapper bg-white px-8 py-8 max-w-3xl mx-auto">
         {/* Controls — hidden when printing */}
         <PrintControls />
 
