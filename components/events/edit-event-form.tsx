@@ -1,9 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { updateLeague, uploadLeaguePdf, removeLeaguePdf } from '@/actions/events'
+import { updateLeague } from '@/actions/events'
 import { RichTextEditor } from '@/components/ui/rich-text-editor'
-import { PdfUploadField } from '@/components/ui/pdf-upload-field'
 
 interface League {
   id: string
@@ -41,6 +40,7 @@ interface League {
   schedule_visibility: string
   standings_visibility: string
   bracket_visibility: string
+  documents_visibility: string
   days_of_week: string[] | null
   skill_level: string | null
   officiated: string | null
@@ -49,8 +49,6 @@ interface League {
   early_bird_deadline: string | null
   standings_pts_method: string | null
   volleyball_standings_mode: string | null
-  rules_pdf_url: string | null
-  format_pdf_url: string | null
 }
 
 interface Waiver {
@@ -131,8 +129,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
   const [checkinEnabled, setCheckinEnabled] = useState<boolean>(league.checkin_enabled)
   const [selectedSport, setSelectedSport] = useState<string>(league.sport ?? '')
   const [volleyballMode, setVolleyballMode] = useState<string>(league.volleyball_standings_mode ?? 'match_based')
-  const [formatPdfUrl, setFormatPdfUrl] = useState<string | null>(league.format_pdf_url ?? null)
-  const [rulesPdfUrl, setRulesPdfUrl] = useState<string | null>(league.rules_pdf_url ?? null)
+
 
   const VOLLEYBALL_SPORTS_SET = new Set(['volleyball', 'beach_volleyball'])
   const isVolleyballSport = VOLLEYBALL_SPORTS_SET.has(selectedSport)
@@ -182,6 +179,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
       schedule_visibility: (fd.get('schedule_visibility') as 'public' | 'participants') || 'public',
       standings_visibility: (fd.get('standings_visibility') as 'public' | 'participants') || 'public',
       bracket_visibility: (fd.get('bracket_visibility') as 'public' | 'participants') || 'public',
+      documents_visibility: (fd.get('documents_visibility') as 'public' | 'participants') || 'public',
       standings_pts_method: (fd.get('standings_pts_method') as string) || 'wins',
       volleyball_standings_mode: volleyballMode,
       days_of_week: selectedDays.length ? selectedDays : undefined,
@@ -561,6 +559,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
               { name: 'schedule_visibility', label: 'Schedule', default: league.schedule_visibility ?? 'public' },
               { name: 'standings_visibility', label: 'Standings', default: league.standings_visibility ?? 'public' },
               { name: 'bracket_visibility', label: 'Bracket', default: league.bracket_visibility ?? 'public' },
+              { name: 'documents_visibility', label: 'Documents', default: league.documents_visibility ?? 'public' },
             ].map((tab) => (
               <div key={tab.name} className="flex items-center justify-between gap-4">
                 <label className="text-sm text-gray-700 w-20 shrink-0">{tab.label}</label>
@@ -650,20 +649,6 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
             onChange={setFormatContent}
             minHeight="160px"
           />
-          <PdfUploadField
-            label="Format"
-            currentUrl={formatPdfUrl}
-            onUpload={async (fd) => {
-              const result = await uploadLeaguePdf(league.id, 'format', fd)
-              if (!result.error) setFormatPdfUrl(result.url)
-              return result
-            }}
-            onRemove={async () => {
-              const result = await removeLeaguePdf(league.id, 'format')
-              if (!result.error) setFormatPdfUrl(null)
-              return result
-            }}
-          />
         </div>
 
         <div>
@@ -688,20 +673,6 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
             content={rulesContent}
             onChange={setRulesContent}
             minHeight="200px"
-          />
-          <PdfUploadField
-            label="Rules"
-            currentUrl={rulesPdfUrl}
-            onUpload={async (fd) => {
-              const result = await uploadLeaguePdf(league.id, 'rules', fd)
-              if (!result.error) setRulesPdfUrl(result.url)
-              return result
-            }}
-            onRemove={async () => {
-              const result = await removeLeaguePdf(league.id, 'rules')
-              if (!result.error) setRulesPdfUrl(null)
-              return result
-            }}
           />
           {ruleTemplates.length === 0 && (
             <p className="text-xs text-amber-600 mt-1">

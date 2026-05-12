@@ -7,12 +7,14 @@ import { updateLeagueStatus } from '@/actions/events'
 import { getLeagueOrganizers } from '@/actions/organizers'
 import { canAccess } from '@/lib/features'
 import { getMerchandiseOrders } from '@/actions/merchandise'
+import { getLeagueDocuments } from '@/actions/league-documents'
 import { EditEventForm } from '@/components/events/edit-event-form'
 import { DeleteEventButton } from '@/components/events/delete-event-button'
 import { OrganizersPanel } from '@/components/events/organizers-panel'
 import { StatsVisibilityToggle } from '@/components/stats/stats-visibility-toggle'
 import { EventLogoUpload } from '@/components/events/event-logo-upload'
 import { MerchSummaryWidget } from '@/components/merchandise/merch-summary-widget'
+import { LeagueDocumentsManager } from '@/components/events/league-documents-manager'
 import type { Database } from '@/types/database'
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
@@ -41,6 +43,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     organizersData,
     hasEarlyBird,
     merchOrders,
+    leagueDocuments,
   ] = await Promise.all([
     supabase.from('leagues').select('*').eq('id', id).eq('organization_id', org.id).single(),
     supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
@@ -57,6 +60,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     getLeagueOrganizers(id),
     canAccess(org.id, 'early_bird_pricing'),
     getMerchandiseOrders(id),
+    getLeagueDocuments(id),
   ])
 
   if (!league) notFound()
@@ -245,6 +249,19 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
           </div>
         )}
       </div>
+
+      {/* Documents — full width below the main grid */}
+      {isOrgAdmin && (
+        <div className="md:col-span-3 bg-white rounded-lg border p-5">
+          <div className="mb-4">
+            <h2 className="font-semibold text-sm">Documents</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              PDF files players can download from the event page. Drag to reorder.
+            </p>
+          </div>
+          <LeagueDocumentsManager leagueId={id} initialDocuments={leagueDocuments} />
+        </div>
+      )}
     </div>
   )
 }
