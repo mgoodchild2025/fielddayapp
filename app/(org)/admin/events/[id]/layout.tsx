@@ -37,7 +37,7 @@ export default async function EventAdminLayout({
 
   return (
     <div>
-      <div className="mb-6">
+      <div className="print:hidden mb-6">
         <Link href="/admin/events" className="text-sm text-gray-400 hover:text-gray-600">
           ← Events
         </Link>
@@ -48,7 +48,9 @@ export default async function EventAdminLayout({
           </span>
         </div>
       </div>
-      <EventAdminTabs leagueId={id} eventType={league.event_type ?? 'league'} pickupJoinPolicy={league.pickup_join_policy ?? 'public'} />
+      <div className="print:hidden">
+        <EventAdminTabs leagueId={id} eventType={league.event_type ?? 'league'} pickupJoinPolicy={league.pickup_join_policy ?? 'public'} />
+      </div>
       {children}
     </div>
   )
