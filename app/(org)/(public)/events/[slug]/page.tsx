@@ -368,6 +368,7 @@ function DateGroup({
           const hasScore = result && result.home_score !== null && result.away_score !== null
           const homeWon = hasScore && result!.home_score! > result!.away_score!
           const awayWon = hasScore && result!.away_score! > result!.home_score!
+          const isTie   = hasScore && !homeWon && !awayWon
 
           return (
             <div key={game.id} className={`bg-white rounded-lg border p-4 ${isPast ? 'opacity-80' : ''}`}>
@@ -387,11 +388,17 @@ function DateGroup({
                     { name: awayTeam?.name ?? game.away_team_label ?? 'TBD', score: result?.away_score ?? null, won: awayWon },
                   ] as const).map((team, idx) => (
                     <div key={idx} className="flex items-center justify-between gap-2">
-                      <span className={`text-sm font-semibold truncate ${!team.won && hasScore ? 'text-gray-400 font-normal' : ''}`}>
+                      <span
+                        className={`text-sm truncate ${team.won ? 'font-bold' : hasScore ? 'font-normal text-gray-400' : 'font-semibold'}`}
+                        style={team.won ? { color: 'var(--brand-primary)' } : undefined}
+                      >
                         {team.name}
                       </span>
                       {hasScore && (
-                        <span className={`text-sm tabular-nums shrink-0 ${team.won ? 'font-bold' : 'text-gray-400'}`}>
+                        <span
+                          className={`text-sm tabular-nums shrink-0 font-semibold ${isTie ? 'text-red-500' : !team.won ? 'text-gray-300 font-normal' : ''}`}
+                          style={(!isTie && team.won) ? { color: 'var(--brand-primary)' } : undefined}
+                        >
                           {team.score}
                         </span>
                       )}
@@ -435,10 +442,22 @@ function DateGroup({
                 <div className="w-14 shrink-0 text-xs text-gray-400 tabular-nums">{gameTime}</div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className={`font-semibold text-sm ${isPast ? 'text-gray-500' : ''} ${game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-400' : ''}`}>
-                      {homeTeam?.name ?? game.home_team_label ?? 'TBD'}
+                    <p className={`text-sm ${game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-400' : ''}`}>
+                      {/* Home team name */}
+                      <span
+                        className={`font-semibold ${hasScore && !homeWon ? (isPast ? 'text-gray-400 font-normal' : 'text-gray-400 font-normal') : isPast ? 'text-gray-500' : ''}`}
+                        style={(homeWon && !(game.status === 'cancelled' || game.status === 'postponed')) ? { color: 'var(--brand-primary)' } : undefined}
+                      >
+                        {homeTeam?.name ?? game.home_team_label ?? 'TBD'}
+                      </span>
                       <span className="mx-2 font-normal text-gray-400">vs</span>
-                      {awayTeam?.name ?? game.away_team_label ?? 'TBD'}
+                      {/* Away team name */}
+                      <span
+                        className={`font-semibold ${hasScore && !awayWon ? (isPast ? 'text-gray-400 font-normal' : 'text-gray-400 font-normal') : isPast ? 'text-gray-500' : ''}`}
+                        style={(awayWon && !(game.status === 'cancelled' || game.status === 'postponed')) ? { color: 'var(--brand-primary)' } : undefined}
+                      >
+                        {awayTeam?.name ?? game.away_team_label ?? 'TBD'}
+                      </span>
                     </p>
                     {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
                     {game.status === 'postponed' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
@@ -454,7 +473,21 @@ function DateGroup({
                 <div className="shrink-0 text-right">
                   {hasScore ? (
                     <div>
-                      <p className="font-bold tabular-nums text-sm">{result!.home_score} – {result!.away_score}</p>
+                      <p className="tabular-nums text-sm font-semibold">
+                        <span
+                          className={`${isTie ? 'text-red-500' : !homeWon ? 'text-gray-400 font-normal' : 'font-bold'}`}
+                          style={(!isTie && homeWon) ? { color: 'var(--brand-primary)' } : undefined}
+                        >
+                          {result!.home_score}
+                        </span>
+                        <span className="mx-1 text-gray-400 font-normal">–</span>
+                        <span
+                          className={`${isTie ? 'text-red-500' : !awayWon ? 'text-gray-400 font-normal' : 'font-bold'}`}
+                          style={(!isTie && awayWon) ? { color: 'var(--brand-primary)' } : undefined}
+                        >
+                          {result!.away_score}
+                        </span>
+                      </p>
                       {result?.sets && result.sets.length > 0 && (
                         <p className="text-[10px] text-gray-400 mt-0.5">
                           {result.sets.map((s: SetScore) => `${s.home}–${s.away}`).join(', ')}
