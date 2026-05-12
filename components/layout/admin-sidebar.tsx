@@ -114,7 +114,7 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
     <>
       {/* Desktop sidebar — sticky so it stays in view on long pages */}
       <aside
-        className="hidden lg:flex w-56 shrink-0 flex-col sticky top-0 h-screen overflow-y-auto"
+        className="hidden lg:flex print:hidden w-56 shrink-0 flex-col sticky top-0 h-screen overflow-y-auto"
         style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
       >
         <SidebarContent org={org} role={role} />
@@ -122,7 +122,7 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
 
       {/* Mobile top bar */}
       <div
-        className="lg:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center justify-between px-4 border-b border-white/10"
+        className="lg:hidden print:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center justify-between px-4 border-b border-white/10"
         style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
       >
         <span className="font-bold text-sm" style={{ fontFamily: 'var(--brand-heading-font)' }}>

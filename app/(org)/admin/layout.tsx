@@ -46,18 +46,20 @@ export default async function AdminLayout({
 
   return (
     <div className={`min-h-screen flex flex-col ${isImpersonating ? 'pt-10' : ''}`} style={{ backgroundColor: '#F8F8F8' }}>
-      {isImpersonating && <ImpersonationBanner orgName={org.name} />}
-      <BillingBanner
-        status={subscription?.status ?? 'trialing'}
-        trialEnd={subscription?.trial_end ?? null}
-        cancelAtPeriodEnd={subscription?.cancel_at_period_end ?? false}
-        currentPeriodEnd={subscription?.current_period_end ?? null}
-      />
-      <div className="flex flex-1 overflow-hidden">
+      {isImpersonating && <div className="print:hidden"><ImpersonationBanner orgName={org.name} /></div>}
+      <div className="print:hidden">
+        <BillingBanner
+          status={subscription?.status ?? 'trialing'}
+          trialEnd={subscription?.trial_end ?? null}
+          cancelAtPeriodEnd={subscription?.cancel_at_period_end ?? false}
+          currentPeriodEnd={subscription?.current_period_end ?? null}
+        />
+      </div>
+      <div className="flex flex-1 overflow-hidden print:block print:overflow-visible">
         <AdminSidebar org={org} role={memberRole} />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto print:overflow-visible">
           {/* pt-14 on mobile accounts for the fixed top bar; removed on lg where sidebar is visible */}
-          <div className="pt-14 lg:pt-0 p-4 lg:p-6 max-w-6xl mx-auto">{children}</div>
+          <div className="pt-14 lg:pt-0 p-4 lg:p-6 max-w-6xl mx-auto print:p-0 print:max-w-none">{children}</div>
         </main>
       </div>
     </div>
