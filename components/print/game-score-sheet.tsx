@@ -144,7 +144,7 @@ export function GameScoreSheet({ game, scoreStructure, leagueName, orgName, time
       {/* Score section */}
       <div className="mb-3">
         {scoreStructure.type === 'sets' && (
-          <div>
+          <div className="w-fit mx-auto">
             <div className="flex items-center gap-2 pb-1 mb-1 border-b border-gray-400">
               <span className="w-20 text-[10px] font-semibold text-gray-400 uppercase text-right shrink-0">Period</span>
               <span className="text-[10px] font-semibold text-gray-400 uppercase">Home — Away</span>
@@ -164,7 +164,7 @@ export function GameScoreSheet({ game, scoreStructure, leagueName, orgName, time
         )}
 
         {(scoreStructure.type === 'periods' || scoreStructure.type === 'halves') && (
-          <div>
+          <div className="w-fit mx-auto">
             <div className="flex items-center gap-2 pb-1 mb-1 border-b border-gray-400">
               <span className="w-20 text-[10px] font-semibold text-gray-400 uppercase text-right shrink-0">Period</span>
               <span className="text-[10px] font-semibold text-gray-400 uppercase">Home — Away</span>
