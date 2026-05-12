@@ -54,11 +54,14 @@ export async function addLeagueDocument(
     .eq('organization_id', org.id)
   if ((count ?? 0) >= MAX_DOCS) return { error: `Maximum of ${MAX_DOCS} documents per event` }
 
-  // Upload to existing org-documents bucket
+  // Upload to existing org-documents bucket.
+  // Convert to Buffer first — passing a File object directly through a server
+  // action boundary can produce an empty body in Supabase Storage.
   const path = `${org.id}/${leagueId}/docs/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.pdf`
+  const buffer = Buffer.from(await file.arrayBuffer())
   const { error: uploadError } = await db.storage
     .from('org-documents')
-    .upload(path, file, { contentType: 'application/pdf', upsert: false })
+    .upload(path, buffer, { contentType: 'application/pdf', upsert: false })
   if (uploadError) return { error: uploadError.message }
 
   const { data: { publicUrl } } = db.storage.from('org-documents').getPublicUrl(path)

@@ -43,12 +43,12 @@ const securityHeaders = [
 ]
 
 const nextConfig = {
-  // Raise the server action body size limit to match the 5 MB avatar upload cap.
+  // Raise the server action body size limit to match the 10 MB document upload cap.
   // Next.js default is 1 MB — files over that are rejected before the action runs,
   // showing "Something went wrong" in production.
   experimental: {
     serverActions: {
-      bodySizeLimit: '6mb',
+      bodySizeLimit: '11mb',
     },
   },
   // Supabase-generated types (types/database.ts) are stale until regenerated
