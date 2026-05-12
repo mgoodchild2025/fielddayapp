@@ -320,3 +320,63 @@ export async function removeEventLogo(
   revalidatePath('/', 'layout')
   return { error: null }
 }
+
+// ─── League PDF upload ────────────────────────────────────────────────────────
+
+type LeagueDocType = 'rules' | 'format'
+
+export async function uploadLeaguePdf(
+  leagueId: string,
+  docType: LeagueDocType,
+  formData: FormData,
+): Promise<{ url: string | null; error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  await requireOrgMember(org, ['org_admin', 'league_admin'])
+
+  const file = formData.get('pdf') as File | null
+  if (!file || file.size === 0) return { url: null, error: 'No file provided' }
+  if (file.size > 10 * 1024 * 1024) return { url: null, error: 'File must be under 10 MB' }
+  if (file.type !== 'application/pdf') return { url: null, error: 'PDF files only' }
+
+  const db = createServiceRoleClient()
+  const path = `${org.id}/leagues/${leagueId}/${docType}.pdf`
+
+  const { error: upErr } = await db.storage
+    .from('org-documents')
+    .upload(path, Buffer.from(await file.arrayBuffer()), {
+      contentType: 'application/pdf',
+      upsert: true,
+    })
+  if (upErr) return { url: null, error: upErr.message }
+
+  const { data: { publicUrl } } = db.storage.from('org-documents').getPublicUrl(path)
+  const url = `${publicUrl}?t=${Date.now()}`
+
+  const col = docType === 'rules' ? 'rules_pdf_url' : 'format_pdf_url'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('leagues').update({ [col]: url }).eq('id', leagueId).eq('organization_id', org.id)
+
+  revalidatePath(`/admin/events/${leagueId}`)
+  return { url, error: null }
+}
+
+export async function removeLeaguePdf(
+  leagueId: string,
+  docType: LeagueDocType,
+): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  await requireOrgMember(org, ['org_admin', 'league_admin'])
+
+  const db = createServiceRoleClient()
+  const path = `${org.id}/leagues/${leagueId}/${docType}.pdf`
+  await db.storage.from('org-documents').remove([path])
+
+  const col = docType === 'rules' ? 'rules_pdf_url' : 'format_pdf_url'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('leagues').update({ [col]: null }).eq('id', leagueId).eq('organization_id', org.id)
+
+  revalidatePath(`/admin/events/${leagueId}`)
+  return { error: null }
+}

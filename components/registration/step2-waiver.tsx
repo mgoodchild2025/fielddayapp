@@ -241,7 +241,23 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registr
       {minorBanner}
 
       <div className="bg-white rounded-lg border p-5">
-        <h2 className="font-semibold mb-1">{waiver.title}</h2>
+        <div className="flex items-start justify-between gap-3 mb-1">
+          <h2 className="font-semibold">{waiver.title}</h2>
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(waiver as any).pdf_url && (
+            <a
+              href={(waiver as any).pdf_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              View PDF
+            </a>
+          )}
+        </div>
         <p className="text-xs text-gray-400 mb-3">Scroll to the bottom to sign</p>
         <div className="h-72 overflow-y-auto border rounded-md p-4 text-gray-700">
           <RichTextContent content={waiver.content} />

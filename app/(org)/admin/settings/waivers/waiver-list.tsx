@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { upsertWaiver, setWaiverActive, deleteWaiver } from '@/actions/waivers'
+import { upsertWaiver, setWaiverActive, deleteWaiver, uploadWaiverPdf, removeWaiverPdf } from '@/actions/waivers'
 import { RichTextEditor } from '@/components/ui/rich-text-editor'
+import { PdfUploadField } from '@/components/ui/pdf-upload-field'
 
 interface Waiver {
   id: string
@@ -12,6 +13,7 @@ interface Waiver {
   is_active: boolean
   created_at: string
   signature_count: number
+  pdf_url: string | null
 }
 
 interface Props {
@@ -179,6 +181,7 @@ function WaiverForm({ waiver, onSaved, onCancel }: FormProps) {
   const [makeActive, setMakeActive] = useState(!waiver) // new waivers default to active
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(waiver?.pdf_url ?? null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -208,6 +211,7 @@ function WaiverForm({ waiver, onSaved, onCancel }: FormProps) {
       is_active: makeActive || (waiver?.is_active ?? false),
       created_at: waiver?.created_at ?? new Date().toISOString(),
       signature_count: waiver?.signature_count ?? 0,
+      pdf_url: pdfUrl,
     })
   }
 
@@ -233,6 +237,29 @@ function WaiverForm({ waiver, onSaved, onCancel }: FormProps) {
           onChange={setContent}
           minHeight="360px"
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Waiver PDF <span className="text-gray-400 font-normal">(optional)</span></label>
+        <p className="text-xs text-gray-400 mb-1">Attach a PDF version that players can view or print. The text box above is still required for signing.</p>
+        {waiver ? (
+          <PdfUploadField
+            label="Waiver"
+            currentUrl={pdfUrl}
+            onUpload={async (fd) => {
+              const result = await uploadWaiverPdf(waiver.id, fd)
+              if (!result.error) setPdfUrl(result.url)
+              return result
+            }}
+            onRemove={async () => {
+              const result = await removeWaiverPdf(waiver.id)
+              if (!result.error) setPdfUrl(null)
+              return result
+            }}
+          />
+        ) : (
+          <p className="text-xs text-gray-400 italic">Save the waiver first, then you can attach a PDF.</p>
+        )}
       </div>
 
       {!waiver?.is_active && (

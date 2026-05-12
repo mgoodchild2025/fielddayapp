@@ -30,6 +30,8 @@ export default async function AdminWaiversPage() {
   const waiversWithCounts = (waivers ?? []).map(w => ({
     ...w,
     signature_count: sigCountMap.get(w.id) ?? 0,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    pdf_url: (w as any).pdf_url ?? null,
   }))
 
   return (

@@ -428,3 +428,56 @@ export async function signWaiverAsGuest(input: z.infer<typeof signWaiverGuestSch
 
   return { data: { signatureId: newSig.id }, alreadySigned: false, error: null }
 }
+
+// ─── Waiver PDF upload ────────────────────────────────────────────────────────
+
+export async function uploadWaiverPdf(
+  waiverId: string,
+  formData: FormData,
+): Promise<{ url: string | null; error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await assertOrgAdmin(org, ['org_admin'])
+  if (auth.error) return { url: null, error: auth.error }
+
+  const file = formData.get('pdf') as File | null
+  if (!file || file.size === 0) return { url: null, error: 'No file provided' }
+  if (file.size > 10 * 1024 * 1024) return { url: null, error: 'File must be under 10 MB' }
+  if (file.type !== 'application/pdf') return { url: null, error: 'PDF files only' }
+
+  const db = createServiceRoleClient()
+  const path = `${org.id}/waivers/${waiverId}/waiver.pdf`
+
+  const { error: upErr } = await db.storage
+    .from('org-documents')
+    .upload(path, Buffer.from(await file.arrayBuffer()), {
+      contentType: 'application/pdf',
+      upsert: true,
+    })
+  if (upErr) return { url: null, error: upErr.message }
+
+  const { data: { publicUrl } } = db.storage.from('org-documents').getPublicUrl(path)
+  const url = `${publicUrl}?t=${Date.now()}`
+
+  await db.from('waivers').update({ pdf_url: url } as never).eq('id', waiverId).eq('organization_id', org.id)
+
+  revalidatePath('/admin/settings/waivers')
+  return { url, error: null }
+}
+
+export async function removeWaiverPdf(
+  waiverId: string,
+): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await assertOrgAdmin(org, ['org_admin'])
+  if (auth.error) return { error: auth.error }
+
+  const db = createServiceRoleClient()
+  const path = `${org.id}/waivers/${waiverId}/waiver.pdf`
+  await db.storage.from('org-documents').remove([path])
+  await db.from('waivers').update({ pdf_url: null } as never).eq('id', waiverId).eq('organization_id', org.id)
+
+  revalidatePath('/admin/settings/waivers')
+  return { error: null }
+}

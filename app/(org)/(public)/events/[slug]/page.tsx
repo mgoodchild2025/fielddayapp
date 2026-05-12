@@ -642,13 +642,13 @@ export default async function EventDetailPage({
         { id: 'standings', label: 'Standings', visibility: 'public' as const },
         ...(hasBracket          ? [{ id: 'bracket', label: 'Playoffs', visibility: 'public' as const }] : []),
         { id: 'stats', label: 'Stats', visibility: statsVisibility },
-        ...((league as any).format_content ? [{ id: 'format', label: 'Format', visibility: 'public' as const }] : []),
-        ...(league.rules_content ? [{ id: 'rules',   label: 'Rules',   visibility: 'public' as const }] : []),
+        ...((league as any).format_content || (league as any).format_pdf_url ? [{ id: 'format', label: 'Format', visibility: 'public' as const }] : []),
+        ...(league.rules_content || (league as any).rules_pdf_url ? [{ id: 'rules',   label: 'Rules',   visibility: 'public' as const }] : []),
       ]
     : [
         { id: 'overview', label: 'Info',  visibility: 'public' as const },
-        ...((league as any).format_content ? [{ id: 'format', label: 'Format', visibility: 'public' as const }] : []),
-        ...(league.rules_content ? [{ id: 'rules', label: 'Rules', visibility: 'public' as const }] : []),
+        ...((league as any).format_content || (league as any).format_pdf_url ? [{ id: 'format', label: 'Format', visibility: 'public' as const }] : []),
+        ...(league.rules_content || (league as any).rules_pdf_url ? [{ id: 'rules', label: 'Rules', visibility: 'public' as const }] : []),
       ]
 
   // Placeholder — refined after participant status is resolved below
@@ -1471,22 +1471,56 @@ export default async function EventDetailPage({
             )}
 
             {/* Format */}
-            {(league as any).format_content && (
+            {((league as any).format_content || (league as any).format_pdf_url) && (
               <div className="bg-white rounded-lg border p-5">
                 <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Event Format</p>
-                <EventRulesModal
-                  content={(league as any).format_content}
-                  title="Event Format"
-                  buttonLabel="View Event Format →"
-                />
+                <div className="flex flex-wrap gap-3 mt-1">
+                  {(league as any).format_content && (
+                    <EventRulesModal
+                      content={(league as any).format_content}
+                      title="Event Format"
+                      buttonLabel="View Event Format →"
+                    />
+                  )}
+                  {(league as any).format_pdf_url && (
+                    <a
+                      href={(league as any).format_pdf_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      View / Print PDF
+                    </a>
+                  )}
+                </div>
               </div>
             )}
 
             {/* Rules */}
-            {league.rules_content && (
+            {(league.rules_content || (league as any).rules_pdf_url) && (
               <div className="bg-white rounded-lg border p-5">
                 <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Event Rules</p>
-                <EventRulesModal content={league.rules_content} />
+                <div className="flex flex-wrap gap-3 mt-1">
+                  {league.rules_content && (
+                    <EventRulesModal content={league.rules_content} />
+                  )}
+                  {(league as any).rules_pdf_url && (
+                    <a
+                      href={(league as any).rules_pdf_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      View / Print PDF
+                    </a>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1828,27 +1862,53 @@ export default async function EventDetailPage({
 
         {/* ──────────────── FORMAT TAB ──────────────── */}
         {activeTab === 'format' && (
-          <div>
+          <div className="space-y-3">
+            {(league as any).format_pdf_url && (
+              <a
+                href={(league as any).format_pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-200 bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                View / Print Format PDF
+              </a>
+            )}
             {(league as any).format_content ? (
               <div className="bg-white rounded-lg border p-5">
                 <RichTextContent content={(league as any).format_content} className="text-gray-700" />
               </div>
-            ) : (
+            ) : !(league as any).format_pdf_url ? (
               <p className="text-gray-500 text-center py-16">No format posted yet.</p>
-            )}
+            ) : null}
           </div>
         )}
 
         {/* ──────────────── RULES TAB ──────────────── */}
         {activeTab === 'rules' && (
-          <div>
+          <div className="space-y-3">
+            {(league as any).rules_pdf_url && (
+              <a
+                href={(league as any).rules_pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-200 bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                View / Print Rules PDF
+              </a>
+            )}
             {league.rules_content ? (
               <div className="bg-white rounded-lg border p-5">
                 <RichTextContent content={league.rules_content} className="text-gray-700 leading-relaxed" />
               </div>
-            ) : (
+            ) : !(league as any).rules_pdf_url ? (
               <p className="text-gray-500 text-center py-16">No rules posted yet.</p>
-            )}
+            ) : null}
           </div>
         )}
 
