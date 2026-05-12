@@ -584,12 +584,12 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
                   {
                     value: 'match_based',
                     label: 'Match-based',
-                    desc: 'GP · W · L · SW · SL · PF · PA · +/- · PTS',
+                    desc: 'MP · W · L · SW · SL · PF · PA · PD · PTS',
                   },
                   {
                     value: 'set_based',
                     label: 'Set-based',
-                    desc: 'GP · SW · SL · SPF · SPA · +/-',
+                    desc: 'MP · SW · SL · SPF · SPA · PD',
                   },
                 ] as const).map((opt) => (
                   <label

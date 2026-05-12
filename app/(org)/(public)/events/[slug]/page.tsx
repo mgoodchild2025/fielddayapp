@@ -158,28 +158,28 @@ function StandingsTable({
   // ── Set-based table ────────────────────────────────────────────────────────
   if (isVolleyball && mode === 'set_based') {
     const legend = [
-      { abbr: 'GP', label: 'Matches Played' },
+      { abbr: 'MP', label: 'Matches Played' },
       { abbr: 'SW', label: 'Sets Won' },
       { abbr: 'SL', label: 'Sets Lost' },
       { abbr: 'SPF', label: 'Set Points For (total points scored)' },
       { abbr: 'SPA', label: 'Set Points Against (total points allowed)' },
-      { abbr: '+/-', label: 'Point Differential (SPF − SPA)' },
+      { abbr: 'PD', label: 'Point Differential (SPF − SPA)' },
     ]
     return (
       <div className="space-y-3">
         <div className="bg-white rounded-lg border overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[340px]">
+            <table className="text-sm" style={{ minWidth: 480 }}>
               <thead>
                 <tr className="border-b bg-gray-50 text-left">
                   <th className="px-4 py-3 font-medium text-gray-500 w-14 text-xs uppercase tracking-wide">RANK</th>
-                  <th className="px-4 py-3 font-medium text-gray-500">Team</th>
-                  <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">GP</th>
+                  <th className="px-4 py-3 font-medium text-gray-500 min-w-[120px]">Team</th>
+                  <th className="px-3 py-3 font-medium text-gray-500 text-center">MP</th>
                   <th className="px-3 py-3 font-medium text-gray-500 text-center">SW</th>
                   <th className="px-3 py-3 font-medium text-gray-500 text-center">SL</th>
-                  <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">SPF</th>
-                  <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">SPA</th>
-                  <th className="px-3 py-3 font-medium text-gray-500 text-center">+/-</th>
+                  <th className="px-3 py-3 font-medium text-gray-500 text-center">SPF</th>
+                  <th className="px-3 py-3 font-medium text-gray-500 text-center">SPA</th>
+                  <th className="px-3 py-3 font-medium text-gray-500 text-center">PD</th>
                 </tr>
               </thead>
               <tbody>
@@ -189,11 +189,11 @@ function StandingsTable({
                     <tr key={team.id} className="border-b last:border-0">
                       <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
                       <td className="px-4 py-3 font-medium">{team.name}</td>
-                      <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.matchesPlayed}</td>
+                      <td className="px-3 py-3 text-center text-gray-500">{team.matchesPlayed}</td>
                       <td className="px-3 py-3 text-center font-semibold" style={{ color: 'var(--brand-primary)' }}>{team.setWins}</td>
                       <td className="px-3 py-3 text-center text-gray-500">{team.setLosses}</td>
-                      <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.pointsFor}</td>
-                      <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.pointsAgainst}</td>
+                      <td className="px-3 py-3 text-center text-gray-500">{team.pointsFor}</td>
+                      <td className="px-3 py-3 text-center text-gray-500">{team.pointsAgainst}</td>
                       <td className="px-3 py-3 text-center text-gray-500">{pd > 0 ? '+' : ''}{pd}</td>
                     </tr>
                   )
@@ -216,7 +216,7 @@ function StandingsTable({
   }[method]
 
   const legend: { abbr: string; label: string }[] = [
-    { abbr: 'GP', label: 'Matches Played' },
+    { abbr: 'MP', label: 'Matches Played' },
     { abbr: 'W', label: 'Match Wins' },
     { abbr: 'L', label: 'Match Losses' },
     ...(isVolleyball ? [
@@ -225,29 +225,32 @@ function StandingsTable({
     ] : []),
     { abbr: 'PF', label: isVolleyball ? 'Points For (set-level)' : 'Points For' },
     { abbr: 'PA', label: isVolleyball ? 'Points Against (set-level)' : 'Points Against' },
-    { abbr: '+/-', label: 'Point Differential (PF − PA)' },
+    { abbr: 'PD', label: 'Point Differential (PF − PA)' },
     ...(isVolleyball ? [{ abbr: 'PTS', label: `Standings Points — ${ptsLabel}` }] : []),
   ]
+
+  // min-width sized to fit all columns without squishing on mobile
+  const tableMinWidth = isVolleyball ? 620 : 420
 
   return (
     <div className="space-y-3">
       <div className="bg-white rounded-lg border overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[340px]">
+          <table className="text-sm" style={{ minWidth: tableMinWidth }}>
             <thead>
               <tr className="border-b bg-gray-50 text-left">
                 <th className="px-4 py-3 font-medium text-gray-500 w-14 text-xs uppercase tracking-wide">RANK</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Team</th>
-                <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">GP</th>
+                <th className="px-4 py-3 font-medium text-gray-500 min-w-[120px]">Team</th>
+                <th className="px-3 py-3 font-medium text-gray-500 text-center">MP</th>
                 <th className="px-3 py-3 font-medium text-gray-500 text-center">W</th>
                 <th className="px-3 py-3 font-medium text-gray-500 text-center">L</th>
                 {isVolleyball && <>
-                  <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">SW</th>
-                  <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">SL</th>
+                  <th className="px-3 py-3 font-medium text-gray-500 text-center">SW</th>
+                  <th className="px-3 py-3 font-medium text-gray-500 text-center">SL</th>
                 </>}
-                <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">PF</th>
-                <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">PA</th>
-                <th className="hidden md:table-cell px-3 py-3 font-medium text-gray-500 text-center">+/-</th>
+                <th className="px-3 py-3 font-medium text-gray-500 text-center">PF</th>
+                <th className="px-3 py-3 font-medium text-gray-500 text-center">PA</th>
+                <th className="px-3 py-3 font-medium text-gray-500 text-center">PD</th>
                 {isVolleyball && <th className="px-3 py-3 font-medium text-gray-500 text-center">PTS</th>}
               </tr>
             </thead>
@@ -259,16 +262,16 @@ function StandingsTable({
                   <tr key={team.id} className="border-b last:border-0">
                     <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
                     <td className="px-4 py-3 font-medium">{team.name}</td>
-                    <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.matchesPlayed}</td>
+                    <td className="px-3 py-3 text-center text-gray-500">{team.matchesPlayed}</td>
                     <td className="px-3 py-3 text-center font-semibold" style={{ color: 'var(--brand-primary)' }}>{team.wins}</td>
                     <td className="px-3 py-3 text-center text-gray-500">{team.losses}</td>
                     {isVolleyball && <>
-                      <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.setWins}</td>
-                      <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.setLosses}</td>
+                      <td className="px-3 py-3 text-center text-gray-500">{team.setWins}</td>
+                      <td className="px-3 py-3 text-center text-gray-500">{team.setLosses}</td>
                     </>}
-                    <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.pointsFor}</td>
-                    <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{team.pointsAgainst}</td>
-                    <td className="hidden md:table-cell px-3 py-3 text-center text-gray-500">{pd > 0 ? '+' : ''}{pd}</td>
+                    <td className="px-3 py-3 text-center text-gray-500">{team.pointsFor}</td>
+                    <td className="px-3 py-3 text-center text-gray-500">{team.pointsAgainst}</td>
+                    <td className="px-3 py-3 text-center tabular-nums text-gray-500">{pd > 0 ? '+' : ''}{pd}</td>
                     {isVolleyball && (
                       <td className="px-3 py-3 text-center font-bold" style={{ color: 'var(--brand-primary)' }}>
                         {pts}
