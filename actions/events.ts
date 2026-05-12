@@ -228,6 +228,8 @@ export async function updateLeague(
     rule_template_id?: string | null
     rules_content?: string | null
     format_content?: string | null
+    standings_pts_method?: string | null
+    volleyball_standings_mode?: string | null
   }
 ) {
   const headersList = await headers()

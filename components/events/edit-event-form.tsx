@@ -47,6 +47,7 @@ interface League {
   early_bird_price_cents: number | null
   early_bird_deadline: string | null
   standings_pts_method: string | null
+  volleyball_standings_mode: string | null
 }
 
 interface Waiver {
@@ -126,6 +127,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
   const [selectedOfficiated, setSelectedOfficiated] = useState<string>(league.officiated ?? '')
   const [checkinEnabled, setCheckinEnabled] = useState<boolean>(league.checkin_enabled)
   const [selectedSport, setSelectedSport] = useState<string>(league.sport ?? '')
+  const [volleyballMode, setVolleyballMode] = useState<string>(league.volleyball_standings_mode ?? 'match_based')
 
   const VOLLEYBALL_SPORTS_SET = new Set(['volleyball', 'beach_volleyball'])
   const isVolleyballSport = VOLLEYBALL_SPORTS_SET.has(selectedSport)
@@ -176,6 +178,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
       standings_visibility: (fd.get('standings_visibility') as 'public' | 'participants') || 'public',
       bracket_visibility: (fd.get('bracket_visibility') as 'public' | 'participants') || 'public',
       standings_pts_method: (fd.get('standings_pts_method') as string) || 'wins',
+      volleyball_standings_mode: volleyballMode,
       days_of_week: selectedDays.length ? selectedDays : undefined,
       skill_level: (selectedSkill as 'recreational' | 'intermediate' | 'competitive') || undefined,
       officiated: (selectedOfficiated as 'self_officiated' | 'referee') || undefined,
@@ -565,28 +568,71 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           </div>
         </div>
 
-        {/* Standings settings — volleyball-specific */}
+        {/* Standings mode — volleyball-specific */}
         {isVolleyballSport && (
-          <div className="border-t pt-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Standings Settings</p>
-            <p className="text-xs text-gray-400 mb-3">Choose what determines the PTS (standings points) column.</p>
-            <div className="flex items-center justify-between gap-4">
-              <label className="text-sm text-gray-700 w-24 shrink-0">PTS = </label>
-              <select
-                name="standings_pts_method"
-                defaultValue={league.standings_pts_method ?? 'wins'}
-                className="input flex-1"
-              >
-                <option value="wins">Wins (match wins)</option>
-                <option value="set_wins">Set Wins (SW)</option>
-                <option value="set_differential">Set Differential (SW − SL)</option>
-                <option value="points_for">Points For (PF)</option>
-              </select>
+          <div className="border-t pt-3 space-y-3">
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Standings Mode</p>
+              <p className="text-xs text-gray-400 mb-3">Choose how standings are ranked and which columns are displayed.</p>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  {
+                    value: 'match_based',
+                    label: 'Match-based',
+                    desc: 'GP · W · L · SW · SL · PF · PA · +/- · PTS',
+                  },
+                  {
+                    value: 'set_based',
+                    label: 'Set-based',
+                    desc: 'GP · SW · SL · SPF · SPA · +/-',
+                  },
+                ] as const).map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`flex flex-col gap-0.5 p-3 rounded-md border cursor-pointer transition-colors ${
+                      volleyballMode === opt.value
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="_vball_mode_ui"
+                      value={opt.value}
+                      checked={volleyballMode === opt.value}
+                      onChange={() => setVolleyballMode(opt.value)}
+                      className="sr-only"
+                    />
+                    <span className="text-sm font-semibold">{opt.label}</span>
+                    <span className="text-xs text-gray-400">{opt.desc}</span>
+                  </label>
+                ))}
+              </div>
             </div>
+
+            {/* PTS method — only relevant for match-based */}
+            {volleyballMode === 'match_based' && (
+              <div>
+                <p className="text-xs text-gray-500 font-medium mb-1">PTS column represents…</p>
+                <select
+                  name="standings_pts_method"
+                  defaultValue={league.standings_pts_method ?? 'wins'}
+                  className="input w-full"
+                >
+                  <option value="wins">Match Wins</option>
+                  <option value="set_wins">Set Wins (SW)</option>
+                  <option value="set_differential">Set Differential (SW − SL)</option>
+                  <option value="points_for">Points For (PF)</option>
+                </select>
+              </div>
+            )}
           </div>
         )}
-        {/* Hidden fallback for non-volleyball sports — preserve existing value */}
+        {/* Hidden fallbacks — preserve values when controls are not rendered */}
         {!isVolleyballSport && (
+          <input type="hidden" name="standings_pts_method" value={league.standings_pts_method ?? 'wins'} />
+        )}
+        {isVolleyballSport && volleyballMode === 'set_based' && (
           <input type="hidden" name="standings_pts_method" value={league.standings_pts_method ?? 'wins'} />
         )}
 
