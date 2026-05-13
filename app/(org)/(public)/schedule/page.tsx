@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { PastGamesToggle } from '@/components/schedule/past-games-toggle'
@@ -12,6 +13,7 @@ export default async function SchedulePage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -25,8 +27,10 @@ export default async function SchedulePage() {
     { data: allGames },
     { data: myTeams },
   ] = await Promise.all([
-    supabase.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
-    supabase.from('games').select(`
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('games').select(`
       id, scheduled_at, court, week_number, status,
       home_team:teams!games_home_team_id_fkey(id, name, color),
       away_team:teams!games_away_team_id_fkey(id, name, color),
@@ -35,7 +39,8 @@ export default async function SchedulePage() {
       .eq('organization_id', org.id)
       .gte('scheduled_at', pastBound)
       .order('scheduled_at', { ascending: true }),
-    supabase.from('team_members').select(`
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('team_members').select(`
       id, role,
       team:teams!team_members_team_id_fkey(id, name)
     `).eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active'),
@@ -53,7 +58,7 @@ export default async function SchedulePage() {
 
   // Pickup sessions the player registered for (past 60 days + future)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: mySessionRegs } = await (supabase as any)
+  const { data: mySessionRegs } = await (db as any)
     .from('session_registrations')
     .select(`
       id, session_id, status,

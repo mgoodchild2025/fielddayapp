@@ -1,22 +1,24 @@
 import { headers } from 'next/headers'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { MarketingPage } from '@/components/marketing/marketing-page'
 import { CommunityHome } from '@/components/site-themes/community/community-home'
 import { ClubHome } from '@/components/site-themes/club/club-home'
 import { ProHome } from '@/components/site-themes/pro/pro-home'
 
 async function OrgHomePage({ orgId }: { orgId: string }) {
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: org }, { data: branding }, { data: leagues }, { data: siteContent }, { data: photos }, { data: sponsors }, { data: staff }, { data: recentResultsRaw }] = await Promise.all([
-    supabase.from('organizations').select('id, slug, name').eq('id', orgId).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from('org_branding')
+    (db as any).from('organizations').select('id, slug, name').eq('id', orgId).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_branding')
       .select('tagline, hero_image_url, logo_url, site_theme, contact_email, social_instagram, social_facebook, social_x, social_tiktok')
       .eq('organization_id', orgId)
       .single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from('leagues')
+    (db as any).from('leagues')
       .select('id, name, slug, event_type, sport, logo_url, status, season_start_date, price_cents, currency, max_teams, payment_mode, skill_level, days_of_week')
       .eq('organization_id', orgId)
       .neq('status', 'draft')
@@ -24,33 +26,33 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
       .order('season_start_date', { ascending: true })
       .limit(50),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+    (db as any)
       .from('org_site_content')
       .select('section_key, content')
       .eq('organization_id', orgId),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+    (db as any)
       .from('org_photos')
       .select('id, url, caption, display_order')
       .eq('organization_id', orgId)
       .eq('featured', true)
       .order('display_order', { ascending: true }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+    (db as any)
       .from('org_sponsors')
       .select('id, name, logo_url, website_url, tier, display_order')
       .eq('organization_id', orgId)
       .order('display_order'),
     // Staff for public "Meet the Team" sections
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+    (db as any)
       .from('org_staff')
       .select('id, name, role, bio, avatar_url, display_order')
       .eq('organization_id', orgId)
       .order('display_order'),
     // Recent confirmed results for Pro theme
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+    (db as any)
       .from('game_results')
       .select(`
         id, home_score, away_score,
@@ -102,7 +104,8 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
 
   const teamCountMap = new Map<string, number>()
   if (perTeamOpenIds.length > 0) {
-    const { data: teamRows } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: teamRows } = await (db as any)
       .from('teams')
       .select('league_id')
       .in('league_id', perTeamOpenIds)

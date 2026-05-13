@@ -1,18 +1,17 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { ComposeMessageForm } from './compose-form'
 import { DeleteAnnouncementButton } from './delete-button'
 
 export default async function AdminMessagesPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
+  const db = createServiceRoleClient()
 
   // Load leagues for audience selection
-  const { data: leagues } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: leagues } = await (db as any)
     .from('leagues')
     .select('id, name')
     .eq('organization_id', org.id)
@@ -31,7 +30,8 @@ export default async function AdminMessagesPage() {
   }
 
   // Load recent announcements
-  const { data: announcements } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: announcements } = await (db as any)
     .from('announcements')
     .select(`
       id, title, body, audience_type, created_at, sent_at,

@@ -1,6 +1,6 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { AddGameForm } from '@/components/schedule/add-game-form'
 import { AssignSlotsCard } from '@/components/schedule/assign-slots-card'
@@ -14,11 +14,12 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
   const { id } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
   const scope = await getAdminScope(org.id)
   const isOrgAdmin = scope.isOrgAdmin
 
-  const { data: branding } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: branding } = await (db as any)
     .from('org_branding')
     .select('timezone')
     .eq('organization_id', org.id)
@@ -29,7 +30,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
   const [{ data: games }, { data: teams }, { data: league }] = await Promise.all([
     // Cast to any — Supabase types may not yet reflect home_team_label/away_team_label columns
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+    (db as any)
       .from('games')
       .select(`
         id, scheduled_at, court, week_number, status, cancellation_reason,
@@ -42,14 +43,15 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
       .eq('league_id', id)
       .eq('organization_id', org.id)
       .order('scheduled_at', { ascending: true }),
-    supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
       .from('teams')
       .select('id, name')
       .eq('league_id', id)
       .eq('organization_id', org.id)
       .order('name'),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+    (db as any)
       .from('leagues')
       .select('sport, max_participants, schedule_published')
       .eq('id', id)

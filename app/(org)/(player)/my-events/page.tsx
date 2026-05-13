@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { QRCodeDisplay } from '@/components/checkin/qr-code-display'
@@ -21,6 +22,7 @@ export default async function MyEventsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -29,9 +31,10 @@ export default async function MyEventsPage() {
   const protocol = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https'
 
   const [{ data: branding }, { data: registrations }] = await Promise.all([
-    supabase.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from('registrations').select(`
+    (db as any).from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('registrations').select(`
       id, status, checkin_token, created_at,
       league:leagues!registrations_league_id_fkey(
         id, name, slug, league_status:status, event_type, sport, logo_url, season_start_date, season_end_date, checkin_enabled

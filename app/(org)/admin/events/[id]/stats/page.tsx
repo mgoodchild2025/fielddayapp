@@ -1,6 +1,5 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
-import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getStatDefinitions, getGameStats } from '@/actions/stats'
 import { StatsEntryTable } from '@/components/stats/stats-entry-table'
@@ -16,18 +15,18 @@ export default async function AdminStatsPage({
   const { id } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
   const service = createServiceRoleClient()
 
   const [{ data: league }, { data: branding }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+    (service as any)
       .from('leagues')
       .select('id, name, sport')
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
-    supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (service as any)
       .from('org_branding')
       .select('timezone')
       .eq('organization_id', org.id)
