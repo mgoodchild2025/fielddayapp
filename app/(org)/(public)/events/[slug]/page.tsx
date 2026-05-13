@@ -1522,7 +1522,7 @@ export default async function EventDetailPage({
             {/* Documents */}
             {hasDocuments && (documentsVisibility === 'public' || isParticipant) && (
               <div className="bg-white rounded-lg border p-5">
-                <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">Documents</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">Event Info</p>
                 <div className="divide-y">
                   {(leagueDocuments as { id: string; title: string; file_url: string }[]).map((doc) => (
                     <a
@@ -1546,55 +1546,25 @@ export default async function EventDetailPage({
             )}
 
             {/* Format */}
-            {((league as any).format_content || (league as any).format_pdf_url) && (
+            {(league as any).format_content && (
               <div className="bg-white rounded-lg border p-5">
                 <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Event Format</p>
-                <div className="flex flex-wrap gap-3 mt-1">
-                  {(league as any).format_content && (
-                    <EventRulesModal
-                      content={(league as any).format_content}
-                      title="Event Format"
-                      buttonLabel="View Event Format →"
-                    />
-                  )}
-                  {(league as any).format_pdf_url && (
-                    <a
-                      href={(league as any).format_pdf_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
-                      View / Print PDF
-                    </a>
-                  )}
+                <div className="mt-1">
+                  <EventRulesModal
+                    content={(league as any).format_content}
+                    title="Event Format"
+                    buttonLabel="View Event Format →"
+                  />
                 </div>
               </div>
             )}
 
             {/* Rules */}
-            {(league.rules_content || (league as any).rules_pdf_url) && (
+            {league.rules_content && (
               <div className="bg-white rounded-lg border p-5">
                 <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Event Rules</p>
-                <div className="flex flex-wrap gap-3 mt-1">
-                  {league.rules_content && (
-                    <EventRulesModal content={league.rules_content} />
-                  )}
-                  {(league as any).rules_pdf_url && (
-                    <a
-                      href={(league as any).rules_pdf_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
-                      View / Print PDF
-                    </a>
-                  )}
+                <div className="mt-1">
+                  <EventRulesModal content={league.rules_content} />
                 </div>
               </div>
             )}

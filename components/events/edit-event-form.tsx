@@ -123,6 +123,8 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
   const [success, setSuccess] = useState(false)
   const [rulesContent, setRulesContent] = useState(league.rules_content ?? '')
   const [formatContent, setFormatContent] = useState(league.format_content ?? '')
+  const [formatExpanded, setFormatExpanded] = useState(!!league.format_content)
+  const [rulesExpanded, setRulesExpanded] = useState(!!league.rules_content)
   const [selectedDays, setSelectedDays] = useState<string[]>(league.days_of_week ?? [])
   const [selectedSkill, setSelectedSkill] = useState<string>(league.skill_level ?? '')
   const [selectedOfficiated, setSelectedOfficiated] = useState<string>(league.officiated ?? '')
@@ -533,23 +535,6 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           </p>
         </div>
 
-        <Field label="Waiver">
-          <select name="waiver_version_id" defaultValue={league.waiver_version_id ?? ''} className="input">
-            <option value="">No waiver required</option>
-            {waivers.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.title} (v{w.version})
-              </option>
-            ))}
-          </select>
-          {waivers.length === 0 && (
-            <p className="text-xs text-amber-600 mt-1">
-              No waivers set up.{' '}
-              <a href="/admin/settings/waivers" className="underline">Create one in Settings → Waivers</a>.
-            </p>
-          )}
-        </Field>
-
         {/* Tab visibility */}
         <div className="border-t pt-3">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Tab Visibility</p>
@@ -559,7 +544,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
               { name: 'schedule_visibility', label: 'Schedule', default: league.schedule_visibility ?? 'public' },
               { name: 'standings_visibility', label: 'Standings', default: league.standings_visibility ?? 'public' },
               { name: 'bracket_visibility', label: 'Bracket', default: league.bracket_visibility ?? 'public' },
-              { name: 'documents_visibility', label: 'Documents', default: league.documents_visibility ?? 'public' },
+              { name: 'documents_visibility', label: 'Event Info', default: league.documents_visibility ?? 'public' },
             ].map((tab) => (
               <div key={tab.name} className="flex items-center justify-between gap-4">
                 <label className="text-sm text-gray-700 w-20 shrink-0">{tab.label}</label>
@@ -640,51 +625,109 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           <input type="hidden" name="standings_pts_method" value={league.standings_pts_method ?? 'wins'} />
         )}
 
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Event Format</label>
-          <p className="text-xs text-gray-400 mb-2">Describe how the event is structured — playoff format, set/period rules, tiebreakers, etc.</p>
-          <input type="hidden" name="format_content" value={formatContent} />
-          <RichTextEditor
-            content={formatContent}
-            onChange={setFormatContent}
-            minHeight="160px"
-          />
-        </div>
+        {/* Waiver, Format, Rules — grouped */}
+        <div className="border-t pt-3 space-y-4">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Registration & Content</p>
 
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Event Rules</label>
-          <select
-            name="rule_template_id"
-            defaultValue={league.rule_template_id ?? ''}
-            className="input mb-2"
-            onChange={(e) => {
-              const tpl = ruleTemplates.find((t) => t.id === e.target.value)
-              if (tpl) setRulesContent(tpl.content)
-            }}
-          >
-            <option value="">No template / custom</option>
-            {ruleTemplates.map((t) => (
-              <option key={t.id} value={t.id}>{t.title}</option>
-            ))}
-          </select>
-          {/* Hidden input keeps rulesContent in FormData without relying on the editor */}
-          <input type="hidden" name="rules_content" value={rulesContent} />
-          <RichTextEditor
-            content={rulesContent}
-            onChange={setRulesContent}
-            minHeight="200px"
-          />
-          {ruleTemplates.length === 0 && (
-            <p className="text-xs text-amber-600 mt-1">
-              No rule templates set up.{' '}
-              <a href="/admin/settings/event-rules" className="underline">Create one in Settings → Event Rules</a>.
-            </p>
-          )}
-          {rulesContent && (
-            <p className="text-xs text-gray-400 mt-1">
-              Editing the content here only affects this event — the template is not modified.
-            </p>
-          )}
+          {/* Waiver */}
+          <Field label="Waiver">
+            <select name="waiver_version_id" defaultValue={league.waiver_version_id ?? ''} className="input">
+              <option value="">No waiver required</option>
+              {waivers.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.title} (v{w.version})
+                </option>
+              ))}
+            </select>
+            {waivers.length === 0 && (
+              <p className="text-xs text-amber-600 mt-1">
+                No waivers set up.{' '}
+                <a href="/admin/settings/waivers" className="underline">Create one in Settings → Waivers</a>.
+              </p>
+            )}
+          </Field>
+
+          {/* Event Format — collapsible */}
+          <div className="border rounded-md overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setFormatExpanded((v) => !v)}
+              className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+            >
+              <span className="text-xs font-medium text-gray-600">Event Format</span>
+              <svg
+                className={`w-4 h-4 text-gray-400 transition-transform ${formatExpanded ? 'rotate-180' : ''}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {formatExpanded && (
+              <div className="p-3 space-y-2">
+                <p className="text-xs text-gray-400">Describe how the event is structured — playoff format, set/period rules, tiebreakers, etc.</p>
+                <input type="hidden" name="format_content" value={formatContent} />
+                <RichTextEditor
+                  content={formatContent}
+                  onChange={setFormatContent}
+                  minHeight="160px"
+                />
+              </div>
+            )}
+            {!formatExpanded && <input type="hidden" name="format_content" value={formatContent} />}
+          </div>
+
+          {/* Event Rules — collapsible */}
+          <div className="border rounded-md overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setRulesExpanded((v) => !v)}
+              className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+            >
+              <span className="text-xs font-medium text-gray-600">Event Rules</span>
+              <svg
+                className={`w-4 h-4 text-gray-400 transition-transform ${rulesExpanded ? 'rotate-180' : ''}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {rulesExpanded && (
+              <div className="p-3 space-y-2">
+                <select
+                  name="rule_template_id"
+                  defaultValue={league.rule_template_id ?? ''}
+                  className="input w-full"
+                  onChange={(e) => {
+                    const tpl = ruleTemplates.find((t) => t.id === e.target.value)
+                    if (tpl) setRulesContent(tpl.content)
+                  }}
+                >
+                  <option value="">No template / custom</option>
+                  {ruleTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.title}</option>
+                  ))}
+                </select>
+                <input type="hidden" name="rules_content" value={rulesContent} />
+                <RichTextEditor
+                  content={rulesContent}
+                  onChange={setRulesContent}
+                  minHeight="200px"
+                />
+                {ruleTemplates.length === 0 && (
+                  <p className="text-xs text-amber-600">
+                    No rule templates set up.{' '}
+                    <a href="/admin/settings/event-rules" className="underline">Create one in Settings → Event Rules</a>.
+                  </p>
+                )}
+                {rulesContent && (
+                  <p className="text-xs text-gray-400">
+                    Editing the content here only affects this event — the template is not modified.
+                  </p>
+                )}
+              </div>
+            )}
+            {!rulesExpanded && <input type="hidden" name="rules_content" value={rulesContent} />}
+          </div>
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
