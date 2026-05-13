@@ -95,8 +95,9 @@ export async function addGame(input: z.infer<typeof addGameSchema>) {
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await (db as any)
     .from('games')
     .insert({
       organization_id: org.id,
@@ -150,8 +151,10 @@ export async function generateRoundRobinSchedule(input: {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
-  const { data: realTeams } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: realTeams } = await (db as any)
     .from('teams')
     .select('id, name')
     .eq('league_id', input.leagueId)
@@ -206,7 +209,7 @@ export async function generateRoundRobinSchedule(input: {
   }))
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any).from('games').insert(games)
+  const { error } = await (db as any).from('games').insert(games)
   if (error) return { error: error.message, count: 0 }
 
   revalidatePath(`/admin/events/${input.leagueId}/schedule`)
@@ -252,7 +255,7 @@ export async function updateGame(input: z.infer<typeof updateGameSchema>) {
   const awayLabel = parsed.data.awayTeamId ? null : (parsed.data.awayTeamLabel ?? null)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await (db as any)
     .from('games')
     .update({
       home_team_id: parsed.data.homeTeamId ?? null,
@@ -292,7 +295,7 @@ export async function deleteGame(gameId: string, leagueId: string) {
 
   if (!adminMember) return { error: 'Admin access required' }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('games')
     .delete()
     .eq('id', gameId)
@@ -327,7 +330,7 @@ export async function deleteGames(gameIds: string[], leagueId: string) {
 
   if (!adminMember) return { error: 'Admin access required' }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('games')
     .delete()
     .in('id', gameIds)
@@ -369,7 +372,7 @@ export async function assignSlotToTeam(input: {
   // Apply each assignment — update both home and away slots in parallel
   const updates = input.assignments.flatMap(({ slotLabel, teamId }) => [
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+    (db as any)
       .from('games')
       .update({ home_team_id: teamId, home_team_label: null })
       .eq('league_id', input.leagueId)
@@ -377,7 +380,7 @@ export async function assignSlotToTeam(input: {
       .is('home_team_id', null)
       .eq('home_team_label', slotLabel),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+    (db as any)
       .from('games')
       .update({ away_team_id: teamId, away_team_label: null })
       .eq('league_id', input.leagueId)
@@ -423,7 +426,7 @@ export async function insertBreak(input: {
 
   // Fetch all games at-or-after the break point
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: gamesAfter, error: fetchError } = await (supabase as any)
+  const { data: gamesAfter, error: fetchError } = await (db as any)
     .from('games')
     .select('id, scheduled_at')
     .eq('league_id', input.leagueId)
@@ -438,7 +441,7 @@ export async function insertBreak(input: {
   const shiftMs = input.durationMinutes * 60 * 1000
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updates = (gamesAfter as any[]).map((g: any) =>
-    (supabase as any)
+    (db as any)
       .from('games')
       .update({ scheduled_at: new Date(new Date(g.scheduled_at).getTime() + shiftMs).toISOString() })
       .eq('id', g.id)
@@ -456,13 +459,13 @@ export async function insertBreak(input: {
 
 // ── Game status actions ─────────────────────────────────────────────────────
 
-/** Shared admin auth check + game fetch. Returns org, game data, or error. */
+/** Shared admin auth check + game fetch. Returns org, db, game data, or error. */
 async function getGameForStatusChange(gameId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { org: null, supabase: null, game: null, error: 'Not authenticated' as string }
+  if (!user) return { org: null, db: null, game: null, error: 'Not authenticated' as string }
 
   const db = createServiceRoleClient()
   const { data: adminMember } = await db
@@ -472,10 +475,10 @@ async function getGameForStatusChange(gameId: string) {
     .eq('user_id', user.id)
     .in('role', ['org_admin', 'league_admin'])
     .single()
-  if (!adminMember) return { org: null, supabase: null, game: null, error: 'Admin access required' as string }
+  if (!adminMember) return { org: null, db: null, game: null, error: 'Admin access required' as string }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: game, error: gameError } = await (supabase as any)
+  const { data: game, error: gameError } = await (db as any)
     .from('games')
     .select(`
       home_team_id, away_team_id, scheduled_at,
@@ -487,8 +490,8 @@ async function getGameForStatusChange(gameId: string) {
     .eq('organization_id', org.id)
     .single()
 
-  if (gameError || !game) return { org: null, supabase: null, game: null, error: 'Game not found' as string }
-  return { org, supabase, game, error: null }
+  if (gameError || !game) return { org: null, db: null, game: null, error: 'Game not found' as string }
+  return { org, db, game, error: null }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -506,11 +509,11 @@ export async function cancelGame(input: {
   reason?: string
   notify: boolean
 }) {
-  const { org, supabase, game, error: authError } = await getGameForStatusChange(input.gameId)
-  if (authError || !org || !supabase || !game) return { error: authError ?? 'Unknown error' }
+  const { org, db, game, error: authError } = await getGameForStatusChange(input.gameId)
+  if (authError || !org || !db || !game) return { error: authError ?? 'Unknown error' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await (db as any)
     .from('games')
     .update({ status: 'cancelled', cancellation_reason: input.reason ?? null })
     .eq('id', input.gameId)
@@ -518,7 +521,8 @@ export async function cancelGame(input: {
   if (error) return { error: error.message }
 
   if (input.notify && (game.home_team_id || game.away_team_id)) {
-    const { data: branding } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: branding } = await (db as any)
       .from('org_branding')
       .select('timezone')
       .eq('organization_id', org.id)
@@ -559,11 +563,11 @@ export async function postponeGame(input: {
   reason?: string
   notify: boolean
 }) {
-  const { org, supabase, game, error: authError } = await getGameForStatusChange(input.gameId)
-  if (authError || !org || !supabase || !game) return { error: authError ?? 'Unknown error' }
+  const { org, db, game, error: authError } = await getGameForStatusChange(input.gameId)
+  if (authError || !org || !db || !game) return { error: authError ?? 'Unknown error' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await (db as any)
     .from('games')
     .update({ status: 'postponed', cancellation_reason: input.reason ?? null })
     .eq('id', input.gameId)
@@ -571,7 +575,8 @@ export async function postponeGame(input: {
   if (error) return { error: error.message }
 
   if (input.notify && (game.home_team_id || game.away_team_id)) {
-    const { data: branding } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: branding } = await (db as any)
       .from('org_branding')
       .select('timezone')
       .eq('organization_id', org.id)
@@ -612,11 +617,11 @@ export async function restoreGame(input: {
   leagueId: string
   notify: boolean
 }) {
-  const { org, supabase, game, error: authError } = await getGameForStatusChange(input.gameId)
-  if (authError || !org || !supabase || !game) return { error: authError ?? 'Unknown error' }
+  const { org, db, game, error: authError } = await getGameForStatusChange(input.gameId)
+  if (authError || !org || !db || !game) return { error: authError ?? 'Unknown error' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await (db as any)
     .from('games')
     .update({ status: 'scheduled', cancellation_reason: null })
     .eq('id', input.gameId)
@@ -624,7 +629,8 @@ export async function restoreGame(input: {
   if (error) return { error: error.message }
 
   if (input.notify && (game.home_team_id || game.away_team_id)) {
-    const { data: branding } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: branding } = await (db as any)
       .from('org_branding')
       .select('timezone')
       .eq('organization_id', org.id)
@@ -678,7 +684,7 @@ export async function setSchedulePublished(leagueId: string, published: boolean)
   if (!adminMember) return { error: 'Admin access required' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await (db as any)
     .from('leagues')
     .update({ schedule_published: published })
     .eq('id', leagueId)
@@ -711,7 +717,7 @@ export async function clearAllGames(leagueId: string) {
 
   if (!adminMember) return { error: 'Admin access required' }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('games')
     .delete()
     .eq('league_id', leagueId)
@@ -729,9 +735,11 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   // Get org timezone for correct UTC conversion
-  const { data: branding } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: branding } = await (db as any)
     .from('org_branding')
     .select('timezone')
     .eq('organization_id', org.id)
@@ -739,7 +747,8 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
   const timezone = branding?.timezone ?? 'America/Toronto'
 
   // Fetch all teams for this league to match by name
-  const { data: teams } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: teams } = await (db as any)
     .from('teams')
     .select('id, name')
     .eq('league_id', leagueId)
@@ -767,7 +776,7 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
   })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any).from('games').insert(games)
+  const { error } = await (db as any).from('games').insert(games)
   if (error) return { data: null, error: error.message }
 
   revalidatePath(`/admin/events/${leagueId}/schedule`)
