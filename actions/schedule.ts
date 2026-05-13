@@ -236,7 +236,8 @@ export async function updateGame(input: z.infer<typeof updateGameSchema>) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: adminMember } = await supabase
+  const db = createServiceRoleClient()
+  const { data: adminMember } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -280,7 +281,8 @@ export async function deleteGame(gameId: string, leagueId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: adminMember } = await supabase
+  const db = createServiceRoleClient()
+  const { data: adminMember } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -314,7 +316,8 @@ export async function deleteGames(gameIds: string[], leagueId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: adminMember } = await supabase
+  const db = createServiceRoleClient()
+  const { data: adminMember } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -353,7 +356,8 @@ export async function assignSlotToTeam(input: {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated', count: 0 }
 
-  const { data: adminMember } = await supabase
+  const db = createServiceRoleClient()
+  const { data: adminMember } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -407,7 +411,8 @@ export async function insertBreak(input: {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated', count: 0 }
 
-  const { data: adminMember } = await supabase
+  const db = createServiceRoleClient()
+  const { data: adminMember } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -459,7 +464,8 @@ async function getGameForStatusChange(gameId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { org: null, supabase: null, game: null, error: 'Not authenticated' as string }
 
-  const { data: adminMember } = await supabase
+  const db = createServiceRoleClient()
+  const { data: adminMember } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -660,7 +666,8 @@ export async function setSchedulePublished(leagueId: string, published: boolean)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: adminMember } = await supabase
+  const db = createServiceRoleClient()
+  const { data: adminMember } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -693,7 +700,8 @@ export async function clearAllGames(leagueId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: adminMember } = await supabase
+  const db = createServiceRoleClient()
+  const { data: adminMember } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)

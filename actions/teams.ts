@@ -459,12 +459,12 @@ export async function deleteTeam(teamId: string, leagueId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: member } = await supabase.from('org_members').select('role')
+  const db = createServiceRoleClient()
+
+  const { data: member } = await db.from('org_members').select('role')
     .eq('organization_id', org.id).eq('user_id', user.id)
     .in('role', ['org_admin', 'league_admin']).single()
   if (!member) return { error: 'Admin access required' }
-
-  const db = createServiceRoleClient()
 
   // Null out team references in bracket_matches (preserves bracket structure)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -923,7 +923,8 @@ export async function sendTeamMessage(input: z.infer<typeof sendTeamMessageSchem
     .eq('organization_id', org.id)
     .single()
 
-  const { data: orgMembership } = await supabase
+  const db = createServiceRoleClient()
+  const { data: orgMembership } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)

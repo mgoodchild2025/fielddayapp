@@ -85,7 +85,7 @@ export async function getLeagueOrganizers(leagueId: string): Promise<LeagueOrgan
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { organizers: [], availableAdmins: [] }
 
-  const { data: member } = await supabase
+  const { data: member } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -200,7 +200,7 @@ export async function inviteCoOrganizer(input: { leagueId: string; email: string
   if (!user) return { error: 'Not authenticated' }
 
   // Only org_admin can invite
-  const { data: member } = await supabase
+  const { data: member } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -343,7 +343,7 @@ export async function addOrgAdminAsOrganizer(input: { leagueId: string; userId: 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: callerMember } = await supabase
+  const { data: callerMember } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -507,7 +507,7 @@ export async function removeCoOrganizer(organizerId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: member } = await supabase
+  const { data: member } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -579,7 +579,7 @@ export async function resendOrganizerInvite(organizerId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: member } = await supabase
+  const { data: member } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -655,7 +655,7 @@ export async function updateOrganizerContactVisibility(organizerId: string, show
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: member } = await supabase
+  const { data: member } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)

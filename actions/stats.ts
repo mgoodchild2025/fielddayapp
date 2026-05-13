@@ -131,9 +131,11 @@ export async function submitGameStats(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
+  const db = createServiceRoleClient()
+
   // Authorisation: must be org/league admin, league organizer, or team captain
   const [{ data: adminMember }, { data: captainship }, { data: organizer }] = await Promise.all([
-    supabase
+    db
       .from('org_members')
       .select('role')
       .eq('organization_id', org.id)
@@ -309,7 +311,8 @@ export async function updateStatsPublic(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: adminMember } = await supabase
+  const db = createServiceRoleClient()
+  const { data: adminMember } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)

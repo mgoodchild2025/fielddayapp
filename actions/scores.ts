@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { advanceBracketFromScore } from '@/actions/brackets'
 
@@ -25,6 +26,8 @@ export async function submitScore(input: z.infer<typeof submitScoreSchema>) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
 
+  const db = createServiceRoleClient()
+
   // Verify user is captain of one of the teams
   const { data: game } = await supabase
     .from('games')
@@ -45,7 +48,7 @@ export async function submitScore(input: z.infer<typeof submitScoreSchema>) {
     .single()
 
   // Also allow org/league admins
-  const { data: adminMember } = await supabase
+  const { data: adminMember } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -98,7 +101,9 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
 
-  const { data: adminMember } = await supabase
+  const db = createServiceRoleClient()
+
+  const { data: adminMember } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -160,6 +165,8 @@ export async function confirmScore(gameId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
 
+  const db = createServiceRoleClient()
+
   const { data: result } = await supabase
     .from('game_results')
     .select('id, submitted_by, game:games!game_results_game_id_fkey(home_team_id, away_team_id)')
@@ -181,7 +188,7 @@ export async function confirmScore(gameId: string) {
     .in('team_id', teamIds)
     .single()
 
-  const { data: adminMember } = await supabase
+  const { data: adminMember } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
