@@ -575,8 +575,8 @@ export default async function EventDetailPage({
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: league }, { data: branding }] = await Promise.all([
-    (supabase as any).from('leagues').select('*').eq('organization_id', org.id).eq('slug', slug).neq('status', 'draft').single(),
-    supabase.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
+    (db as any).from('leagues').select('*').eq('organization_id', org.id).eq('slug', slug).neq('status', 'draft').single(),
+    (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
   ])
 
   if (!league) notFound()
@@ -730,17 +730,18 @@ export default async function EventDetailPage({
     : { data: null }
   const mySessionIds = new Set((mySessionRegs ?? []).map((r: { session_id: string }) => r.session_id))
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: mySeasonRegistration } = ((isPickupEvent || isSeasonPickup) && user)
-    ? await supabase.from('registrations').select('id, status')
+    ? await (db as any).from('registrations').select('id, status')
         .eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id)
-        .eq('registration_type' as never, 'season').maybeSingle()
+        .eq('registration_type', 'season').maybeSingle()
     : { data: null }
 
   // For per-session drop-in events, check if the player has an active event-level registration
   // (completed the waiver + payment flow via /register). Required before joining sessions.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: myDropInRegistration } = (isSessionBased && !isSeasonPickup && user)
-    ? await supabase.from('registrations').select('id, status')
+    ? await (db as any).from('registrations').select('id, status')
         .eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id)
         .in('status', ['active', 'pending'])
         .maybeSingle()
@@ -787,8 +788,9 @@ export default async function EventDetailPage({
 
   // Teams list (for open-registration team events)
   const canJoinTeam = isTeamBased && league.team_join_policy !== 'admin_only'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: teams } = isTeamBased
-    ? await supabase
+    ? await (db as any)
         .from('teams')
         .select('id, name, color, logo_url, team_members(id, status)')
         .eq('league_id', league.id)
@@ -797,24 +799,28 @@ export default async function EventDetailPage({
         .order('name')
     : { data: null }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: myMemberships } = (user && teams)
-    ? await supabase.from('team_members').select('team_id').eq('user_id', user.id).in('team_id', teams.map((t) => t.id))
+    ? await (db as any).from('team_members').select('team_id').eq('user_id', user.id).in('team_id', teams.map((t: { id: string }) => t.id))
     : { data: null }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: myRequests } = (user && teams)
-    ? await supabase.from('team_join_requests').select('team_id, status').eq('user_id', user.id).eq('status', 'pending').in('team_id', teams.map((t) => t.id))
+    ? await (db as any).from('team_join_requests').select('team_id, status').eq('user_id', user.id).eq('status', 'pending').in('team_id', teams.map((t: { id: string }) => t.id))
     : { data: null }
 
-  const myTeamIds = new Set(myMemberships?.map((m) => m.team_id) ?? [])
-  const myRequestTeamIds = new Set(myRequests?.map((r) => r.team_id) ?? [])
+  const myTeamIds = new Set(myMemberships?.map((m: { team_id: string }) => m.team_id) ?? [])
+  const myRequestTeamIds = new Set(myRequests?.map((r: { team_id: string }) => r.team_id) ?? [])
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: myRegistration } = (user && isTeamBased)
-    ? await supabase.from('registrations').select('id, status').eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id).single()
+    ? await (db as any).from('registrations').select('id, status').eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
     : { data: null }
 
   // Also check org admin status for visibility bypass
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: orgMember } = user
-    ? await supabase.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single()
+    ? await (db as any).from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
     : { data: null }
   const isOrgAdmin = ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
 
@@ -922,7 +928,8 @@ export default async function EventDetailPage({
   let captainAttendance = new Map<string, { in: number; out: number; total: number }>()
 
   if (activeTab === 'schedule' && isTeamBased) {
-    const { data: gamesData } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: gamesData } = await (db as any)
       .from('games')
       .select(`
         id, scheduled_at, court, status, cancellation_reason, week_number,
@@ -940,15 +947,16 @@ export default async function EventDetailPage({
 
     if (user && games.length > 0) {
       const gameIds = games.map((g) => g.id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [{ data: captainships }, { data: rsvpData }] = await Promise.all([
-        supabase
+        (db as any)
           .from('team_members')
           .select('team_id')
           .eq('user_id', user.id)
           .eq('role', 'captain')
           .eq('status', 'active'),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase as any)
+        (db as any)
           .from('game_rsvps')
           .select('game_id, status')
           .eq('user_id', user.id)
@@ -962,14 +970,15 @@ export default async function EventDetailPage({
       // Fetch team-wide RSVP counts + roster sizes for all teams the user captains
       if (captainTeamIds.size > 0) {
         const captainTeamIdArray = [...captainTeamIds]
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const [{ data: teamMemberRows }, { data: teamRsvpRows }] = await Promise.all([
-          supabase
+          (db as any)
             .from('team_members')
             .select('team_id')
             .in('team_id', captainTeamIdArray)
             .eq('status', 'active'),
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (supabase as any)
+          (db as any)
             .from('game_rsvps')
             .select('game_id, team_id, status')
             .in('team_id', captainTeamIdArray)
@@ -1007,7 +1016,8 @@ export default async function EventDetailPage({
         }
       }
     } else if (user) {
-      const { data: captainships } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: captainships } = await (db as any)
         .from('team_members')
         .select('team_id')
         .eq('user_id', user.id)
@@ -1033,10 +1043,11 @@ export default async function EventDetailPage({
     const leagueVolleyballMode: VolleyballMode = ((league as any).volleyball_standings_mode ?? 'match_based') as VolleyballMode
     const isVolleyballLeague = VOLLEYBALL_SPORTS.has(leagueSport)
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [{ data: teamsData }, { data: divsData }, { data: resultsData }] = await Promise.all([
-      supabase.from('teams').select('id, name, division_id').eq('league_id', league.id).eq('organization_id', org.id).eq('status', 'active'),
-      supabase.from('divisions').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
-      supabase.from('game_results')
+      (db as any).from('teams').select('id, name, division_id').eq('league_id', league.id).eq('organization_id', org.id).eq('status', 'active'),
+      (db as any).from('divisions').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
+      (db as any).from('game_results')
         .select('home_score, away_score, status, sets, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status)')
         .eq('organization_id', org.id)
         .eq('status', 'confirmed'),
