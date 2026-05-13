@@ -194,12 +194,12 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
 
       {/* Scanner modal */}
       {isActive && (
-        <div className="fixed inset-0 z-[400] flex items-end sm:items-center justify-center">
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/70" onClick={handleClose} aria-hidden="true" />
+        <div className="fixed inset-0 z-[400] sm:flex sm:items-center sm:justify-center">
+          {/* Backdrop — desktop only */}
+          <div className="hidden sm:block absolute inset-0 bg-black/70" onClick={handleClose} aria-hidden="true" />
 
-          {/* Panel — full-width sheet on mobile, centred card on desktop */}
-          <div className="relative w-full sm:max-w-sm bg-black sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+          {/* Panel — full-screen on mobile, centred card on desktop */}
+          <div className="absolute inset-0 sm:relative sm:inset-auto sm:w-full sm:max-w-sm bg-black sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col">
 
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 bg-black/80 shrink-0">
@@ -216,8 +216,8 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
               </button>
             </div>
 
-            {/* Viewfinder */}
-            <div className="relative bg-black" style={{ aspectRatio: '1 / 1' }}>
+            {/* Viewfinder — fills all remaining height on mobile; square aspect ratio on desktop */}
+            <div className="relative bg-black flex-1 sm:flex-none sm:aspect-square" style={{ minHeight: 0 }}>
               <div id="qr-scanner-region" ref={containerRef} style={{ width: '100%', height: '100%' }} />
 
               {/* Corner brackets */}
