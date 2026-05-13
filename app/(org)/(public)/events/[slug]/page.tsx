@@ -28,6 +28,7 @@ import type { LeaderboardPlayer } from '@/components/stats/stats-leaderboard'
 import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
 import type { StatDef } from '@/actions/stats'
 import { RichTextContent } from '@/components/ui/rich-text-content'
+import { PdfViewerButton } from '@/components/ui/pdf-viewer-button'
 
 // ── Tab nav ───────────────────────────────────────────────────────────────────
 
@@ -1920,17 +1921,7 @@ export default async function EventDetailPage({
         {activeTab === 'format' && (
           <div className="space-y-3">
             {(league as any).format_pdf_url && (
-              <a
-                href={(league as any).format_pdf_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-200 bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
-              >
-                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-                View / Print Format PDF
-              </a>
+              <PdfViewerButton url={(league as any).format_pdf_url} label="View / Print Format PDF" />
             )}
             {(league as any).format_content ? (
               <div className="bg-white rounded-lg border p-5">
@@ -1946,17 +1937,7 @@ export default async function EventDetailPage({
         {activeTab === 'rules' && (
           <div className="space-y-3">
             {(league as any).rules_pdf_url && (
-              <a
-                href={(league as any).rules_pdf_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-200 bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
-              >
-                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-                View / Print Rules PDF
-              </a>
+              <PdfViewerButton url={(league as any).rules_pdf_url} label="View / Print Rules PDF" />
             )}
             {league.rules_content ? (
               <div className="bg-white rounded-lg border p-5">

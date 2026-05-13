@@ -8,7 +8,8 @@ import {
   reorderLeagueDocuments,
 } from '@/actions/league-documents'
 import type { LeagueDocument } from '@/actions/league-documents'
-import { FileText, Trash2, ChevronUp, ChevronDown, Plus, ExternalLink, Pencil, Check, X } from 'lucide-react'
+import { FileText, Trash2, ChevronUp, ChevronDown, Plus, Pencil, Check, X } from 'lucide-react'
+import { PdfViewerButton } from '@/components/ui/pdf-viewer-button'
 
 const MAX_DOCS = 10
 
@@ -186,15 +187,7 @@ function DocumentRow({
       {/* Actions */}
       {!editing && !confirmDelete && (
         <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <a
-            href={doc.file_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-            title="Open PDF"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
+          <PdfViewerButton url={doc.file_url} label={doc.title} variant="icon" />
           <button
             type="button"
             onClick={() => setEditing(true)}
