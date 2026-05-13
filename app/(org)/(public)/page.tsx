@@ -14,7 +14,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
     (db as any).from('organizations').select('id, slug, name').eq('id', orgId).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('org_branding')
-      .select('tagline, hero_image_url, logo_url, site_theme, contact_email, social_instagram, social_facebook, social_x, social_tiktok')
+      .select('tagline, hero_image_url, logo_url, site_theme, contact_email, social_instagram, social_facebook, social_x, social_tiktok, social_youtube')
       .eq('organization_id', orgId)
       .single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -147,6 +147,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
         social_facebook: b.social_facebook as string | null,
         social_x: b.social_x as string | null,
         social_tiktok: b.social_tiktok as string | null,
+        social_youtube: b.social_youtube as string | null,
       }
     : null
   const photoList = (photos ?? []) as { id: string; url: string; caption: string | null; display_order: number }[]

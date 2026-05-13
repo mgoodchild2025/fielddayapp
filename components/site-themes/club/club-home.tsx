@@ -25,6 +25,7 @@ interface Branding {
   social_facebook?: string | null
   social_x?: string | null
   social_tiktok?: string | null
+  social_youtube?: string | null
 }
 
 const DEFAULT_SECTION_ORDER = ['events', 'about', 'staff', 'sponsors']
