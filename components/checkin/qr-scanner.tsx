@@ -48,6 +48,16 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [teamModalId, setTeamModalId] = useState<string | null>(null)
 
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    if (isActive) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [isActive])
+
   useEffect(() => {
     if (!isActive) return
 
@@ -122,7 +132,7 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
     }
   }, [isActive, leagueId, sessionId])
 
-  function handleStop() {
+  function handleClose() {
     setIsActive(false)
     setScanState({ type: 'idle' })
     lastTokenRef.current = null
@@ -148,7 +158,8 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
   }
 
   return (
-    <div className="space-y-3">
+    <>
+      {/* Team check-in modal — rendered outside the scanner modal so z-index stacks correctly */}
       {teamModalId && (
         <TeamCheckinModal
           teamId={teamModalId}
@@ -157,146 +168,167 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
           onClose={() => setTeamModalId(null)}
         />
       )}
-      {/* Toggle button */}
-      {!isActive ? (
-        <button
-          onClick={() => { unlockAudio(); setCameraError(null); setIsActive(true) }}
-          className="flex items-center gap-2 px-5 py-3 rounded-lg font-semibold text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: 'var(--brand-primary)' }}
-        >
-          {/* Camera icon */}
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          Start Scanning
-        </button>
-      ) : (
-        <button
-          onClick={handleStop}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-          Stop Scanning
-        </button>
-      )}
 
-      {/* Camera error */}
-      {cameraError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-          <p className="text-sm font-medium text-red-700">{cameraError}</p>
+      {/* Start Scanning button */}
+      {!isActive && (
+        <div className="space-y-3">
+          <button
+            onClick={() => { unlockAudio(); setCameraError(null); setIsActive(true) }}
+            className="flex items-center gap-2 px-5 py-3 rounded-lg font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Start Scanning
+          </button>
+          {cameraError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm font-medium text-red-700">{cameraError}</p>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Viewfinder — always in DOM when active so html5-qrcode can mount into it */}
+      {/* Scanner modal */}
       {isActive && (
-        <div className="relative bg-black rounded-xl overflow-hidden" style={{ maxWidth: 360 }}>
-          <div id="qr-scanner-region" ref={containerRef} style={{ width: '100%' }} />
+        <div className="fixed inset-0 z-[400] flex items-end sm:items-center justify-center">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/70" onClick={handleClose} aria-hidden="true" />
 
-          {/* Corner brackets — hidden when a result is showing */}
-          {(scanState.type === 'idle' || scanState.type === 'scanning') && (
-            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-              <div className="relative w-56 h-56">
-                <span className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white rounded-tl-sm" />
-                <span className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-white rounded-tr-sm" />
-                <span className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-white rounded-bl-sm" />
-                <span className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white rounded-br-sm" />
-              </div>
+          {/* Panel — full-width sheet on mobile, centred card on desktop */}
+          <div className="relative w-full sm:max-w-sm bg-black sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 bg-black/80 shrink-0">
+              <p className="text-sm font-semibold text-white">Scan Player QR Code</p>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                aria-label="Close scanner"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-          )}
 
-          {/* Idle hint */}
-          {scanState.type === 'idle' && (
-            <div className="absolute bottom-0 inset-x-0 pb-4 flex justify-center pointer-events-none">
-              <p className="text-xs text-white/70 bg-black/40 px-3 py-1 rounded-full">Point camera at QR code</p>
-            </div>
-          )}
+            {/* Viewfinder */}
+            <div className="relative bg-black" style={{ aspectRatio: '1 / 1' }}>
+              <div id="qr-scanner-region" ref={containerRef} style={{ width: '100%', height: '100%' }} />
 
-          {/* Scanning spinner */}
-          {(isPending || scanState.type === 'scanning') && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-              <p className="text-white text-sm font-medium animate-pulse">Checking in…</p>
-            </div>
-          )}
+              {/* Corner brackets */}
+              {(scanState.type === 'idle' || scanState.type === 'scanning') && (
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                  <div className="relative w-56 h-56">
+                    <span className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white rounded-tl-sm" />
+                    <span className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-white rounded-tr-sm" />
+                    <span className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-white rounded-bl-sm" />
+                    <span className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white rounded-br-sm" />
+                  </div>
+                </div>
+              )}
 
-          {/* Result overlay — shown on top of camera so it's always visible on mobile */}
-          {scanState.type === 'success' && (
-            <div className="absolute inset-0 bg-green-900/90 flex flex-col items-center justify-center px-5 text-center">
-              <p className="text-4xl mb-2">✓</p>
-              <p className="font-bold text-white text-lg leading-tight">{scanState.playerName}</p>
-              {scanState.teamName && <p className="text-sm text-green-300 mt-1">{scanState.teamName}</p>}
-              <p className="text-xs text-green-300 mt-1">Checked in</p>
-              {scanState.teamId && !sessionId && (
-                <button
-                  type="button"
-                  onClick={() => setTeamModalId(scanState.teamId)}
-                  className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-white text-green-900 hover:bg-green-50 transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  Check In Team →
-                </button>
+              {/* Idle hint */}
+              {scanState.type === 'idle' && (
+                <div className="absolute bottom-0 inset-x-0 pb-4 flex justify-center pointer-events-none">
+                  <p className="text-xs text-white/70 bg-black/40 px-3 py-1 rounded-full">
+                    Point camera at a player&apos;s QR code
+                  </p>
+                </div>
+              )}
+
+              {/* Scanning */}
+              {(isPending || scanState.type === 'scanning') && (
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                  <p className="text-white text-sm font-medium animate-pulse">Checking in…</p>
+                </div>
+              )}
+
+              {/* Success */}
+              {scanState.type === 'success' && (
+                <div className="absolute inset-0 bg-green-900/95 flex flex-col items-center justify-center px-6 text-center">
+                  <p className="text-5xl mb-3">✓</p>
+                  <p className="font-bold text-white text-xl leading-tight">{scanState.playerName}</p>
+                  {scanState.teamName && <p className="text-sm text-green-300 mt-1">{scanState.teamName}</p>}
+                  <p className="text-xs text-green-400 mt-2">Checked in</p>
+                  {scanState.teamId && !sessionId && (
+                    <button
+                      type="button"
+                      onClick={() => setTeamModalId(scanState.teamId)}
+                      className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-white text-green-900 hover:bg-green-50 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      Check In Team →
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Walk-in success */}
+              {scanState.type === 'walk_in_success' && (
+                <div className="absolute inset-0 bg-green-900/95 flex flex-col items-center justify-center px-6 text-center">
+                  <p className="text-5xl mb-3">✓</p>
+                  <p className="font-bold text-white text-xl">{scanState.playerName}</p>
+                  <p className="text-xs text-green-400 mt-2">Added as walk-in &amp; checked in</p>
+                </div>
+              )}
+
+              {/* Not in session */}
+              {scanState.type === 'not_in_session' && (
+                <div className="absolute inset-0 bg-amber-900/95 flex flex-col items-center justify-center px-6 text-center">
+                  <p className="text-4xl mb-3">⚠</p>
+                  <p className="font-bold text-white text-lg">{scanState.playerName}</p>
+                  <p className="text-xs text-amber-200 mt-1">Not registered for this session</p>
+                  <div className="flex gap-3 mt-5">
+                    <button
+                      onClick={() => handleWalkIn(scanState.registrationId, scanState.playerName)}
+                      disabled={isWalkInPending}
+                      className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white text-amber-900 hover:bg-amber-50 disabled:opacity-60 transition-colors"
+                    >
+                      {isWalkInPending ? 'Adding…' : 'Add as Walk-in'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        lastTokenRef.current = null
+                        cooldownRef.current = false
+                        setScanState({ type: 'idle' })
+                      }}
+                      className="px-4 py-2.5 rounded-xl text-sm font-medium border border-amber-400/50 text-white hover:bg-amber-800/60 transition-colors"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Already checked in */}
+              {scanState.type === 'already_in' && (
+                <div className="absolute inset-0 bg-amber-900/95 flex flex-col items-center justify-center px-6 text-center">
+                  <p className="text-4xl mb-3">⚠</p>
+                  <p className="font-bold text-white text-lg">{scanState.playerName}</p>
+                  <p className="text-xs text-amber-200 mt-2">
+                    Already checked in at {new Date(scanState.checkedInAt).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone: timezone })}
+                  </p>
+                </div>
+              )}
+
+              {/* Error */}
+              {scanState.type === 'error' && (
+                <div className="absolute inset-0 bg-red-900/95 flex flex-col items-center justify-center px-6 text-center">
+                  <p className="text-4xl mb-3">✗</p>
+                  <p className="text-sm text-white">{scanState.message}</p>
+                </div>
               )}
             </div>
-          )}
-
-          {scanState.type === 'walk_in_success' && (
-            <div className="absolute inset-0 bg-green-900/90 flex flex-col items-center justify-center px-5 text-center">
-              <p className="text-4xl mb-2">✓</p>
-              <p className="font-bold text-white text-lg">{scanState.playerName}</p>
-              <p className="text-xs text-green-300 mt-1">Added as walk-in &amp; checked in</p>
-            </div>
-          )}
-
-          {scanState.type === 'not_in_session' && (
-            <div className="absolute inset-0 bg-amber-900/90 flex flex-col items-center justify-center px-5 text-center">
-              <p className="text-3xl mb-2">⚠</p>
-              <p className="font-bold text-white text-base">{scanState.playerName}</p>
-              <p className="text-xs text-amber-200 mt-1">Not registered for this session</p>
-              <div className="flex gap-2 mt-4">
-                <button
-                  onClick={() => handleWalkIn(scanState.registrationId, scanState.playerName)}
-                  disabled={isWalkInPending}
-                  className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold bg-white text-amber-900 hover:bg-amber-50 disabled:opacity-60 transition-colors"
-                >
-                  {isWalkInPending ? 'Adding…' : 'Add as Walk-in'}
-                </button>
-                <button
-                  onClick={() => {
-                    lastTokenRef.current = null
-                    cooldownRef.current = false
-                    setScanState({ type: 'idle' })
-                  }}
-                  className="px-4 py-2 rounded-lg text-sm font-medium border border-amber-300 text-white hover:bg-amber-800/60 transition-colors"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          )}
-
-          {scanState.type === 'already_in' && (
-            <div className="absolute inset-0 bg-amber-900/90 flex flex-col items-center justify-center px-5 text-center">
-              <p className="text-3xl mb-2">⚠</p>
-              <p className="font-bold text-white text-base">{scanState.playerName}</p>
-              <p className="text-xs text-amber-200 mt-2">
-                Already checked in at {new Date(scanState.checkedInAt).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone: timezone })}
-              </p>
-            </div>
-          )}
-
-          {scanState.type === 'error' && (
-            <div className="absolute inset-0 bg-red-900/90 flex flex-col items-center justify-center px-5 text-center">
-              <p className="text-3xl mb-2">✗</p>
-              <p className="text-sm text-white">{scanState.message}</p>
-            </div>
-          )}
+          </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
