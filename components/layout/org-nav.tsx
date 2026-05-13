@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { NavUserMenu } from './nav-user-menu'
 import { MobileNav } from './mobile-nav'
 import { NotificationBell } from './notification-bell'
@@ -15,6 +16,8 @@ interface OrgNavProps {
 export async function OrgNav({ org, logoUrl }: OrgNavProps) {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = createServiceRoleClient() as any
 
   let userName: string | null = null
   let isAdmin = false
@@ -23,9 +26,9 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
 
   if (user) {
     const [{ data: profile }, { data: member }, { data: notifs }] = await Promise.all([
-      supabase.from('profiles').select('full_name').eq('id', user.id).single(),
-      supabase.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single(),
-      supabase.from('notifications').select('id, type, title, body, created_at, data')
+      db.from('profiles').select('full_name').eq('id', user.id).single(),
+      db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single(),
+      db.from('notifications').select('id, type, title, body, created_at, data')
         .eq('organization_id', org.id)
         .eq('user_id', user.id)
         .eq('read', false)
