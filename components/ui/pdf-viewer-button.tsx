@@ -27,8 +27,6 @@ export function PdfViewerButton({ url, label = 'View PDF', variant = 'pill', cla
     return () => { document.body.style.overflow = '' }
   }, [open])
 
-  // Google Docs Viewer renders the PDF inline regardless of Content-Disposition headers
-  const viewerSrc = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
 
   return (
     <>
@@ -117,9 +115,9 @@ export function PdfViewerButton({ url, label = 'View PDF', variant = 'pill', cla
               </div>
             </div>
 
-            {/* PDF viewer — Google Docs Viewer for reliable inline rendering */}
+            {/* PDF viewer */}
             <iframe
-              src={viewerSrc}
+              src={url}
               title={label}
               className="flex-1 w-full border-0 bg-gray-100"
             />
