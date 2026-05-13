@@ -16,6 +16,17 @@ interface Props {
 
 export function PdfViewerButton({ url, label = 'View PDF', variant = 'pill', className }: Props) {
   const [open, setOpen] = useState(false)
+
+  // On mobile, iframe PDF scrolling is broken across all mobile browsers —
+  // they render only the first page. Open the URL directly so the device's
+  // native PDF viewer handles it (full scroll, zoom, all pages).
+  function handleOpen() {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } else {
+      setOpen(true)
+    }
+  }
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [fetchError, setFetchError] = useState(false)
@@ -65,7 +76,7 @@ export function PdfViewerButton({ url, label = 'View PDF', variant = 'pill', cla
       {variant === 'row' ? (
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={handleOpen}
           className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 w-full text-left hover:text-blue-700 transition-colors group"
         >
           <svg className="w-4 h-4 shrink-0 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -80,7 +91,7 @@ export function PdfViewerButton({ url, label = 'View PDF', variant = 'pill', cla
       ) : variant === 'pill' ? (
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={handleOpen}
           className={
             className ??
             'inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-200 bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors'
@@ -95,7 +106,7 @@ export function PdfViewerButton({ url, label = 'View PDF', variant = 'pill', cla
       ) : (
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={handleOpen}
           className={className ?? 'p-1 text-gray-400 hover:text-blue-600 transition-colors'}
           title={label}
         >
