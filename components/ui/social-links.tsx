@@ -3,6 +3,7 @@ interface SocialProps {
   social_facebook?: string | null
   social_x?: string | null
   social_tiktok?: string | null
+  social_youtube?: string | null
 }
 
 function InstagramIcon() {
@@ -37,6 +38,14 @@ function TikTokIcon() {
   )
 }
 
+function YouTubeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+      <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+    </svg>
+  )
+}
+
 /**
  * "Follow us" social icon row for hero sections.
  * Renders nothing if no social links are set.
@@ -56,6 +65,7 @@ export function HeroSocialLinks({
   if (social.social_facebook)  links.push({ href: social.social_facebook,  icon: <FacebookIcon />,  label: 'Facebook'  })
   if (social.social_x)         links.push({ href: social.social_x,         icon: <XIcon />,         label: 'X'         })
   if (social.social_tiktok)    links.push({ href: social.social_tiktok,    icon: <TikTokIcon />,    label: 'TikTok'    })
+  if (social.social_youtube)   links.push({ href: social.social_youtube,   icon: <YouTubeIcon />,   label: 'YouTube'   })
 
   if (links.length === 0) return null
 

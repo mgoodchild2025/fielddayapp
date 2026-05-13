@@ -29,6 +29,8 @@ export default async function AdminBrandingPage() {
         social_instagram: string | null
         social_facebook: string | null
         social_x: string | null
+        social_tiktok: string | null
+        social_youtube: string | null
         timezone: string | null
         logo_url: string | null
         railway_domain_id: string | null

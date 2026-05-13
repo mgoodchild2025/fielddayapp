@@ -25,6 +25,8 @@ type OrgBranding = {
   social_instagram?: string | null
   social_facebook?: string | null
   social_x?: string | null
+  social_tiktok?: string | null
+  social_youtube?: string | null
   timezone?: string | null
   logo_url?: string | null
 }
@@ -59,6 +61,8 @@ const schema = z.object({
   social_instagram: z.string().optional(),
   social_facebook: z.string().optional(),
   social_x: z.string().optional(),
+  social_tiktok: z.string().optional(),
+  social_youtube: z.string().optional(),
   timezone: z.string(),
 })
 
@@ -150,6 +154,8 @@ export function BrandingForm({
       social_instagram: branding?.social_instagram ?? '',
       social_facebook: branding?.social_facebook ?? '',
       social_x: branding?.social_x ?? '',
+      social_tiktok: branding?.social_tiktok ?? '',
+      social_youtube: branding?.social_youtube ?? '',
       timezone: branding?.timezone ?? 'America/Toronto',
     },
   })
@@ -368,6 +374,8 @@ export function BrandingForm({
             { label: 'Instagram', name: 'social_instagram' as keyof FormData },
             { label: 'Facebook', name: 'social_facebook' as keyof FormData },
             { label: 'X (Twitter)', name: 'social_x' as keyof FormData },
+            { label: 'TikTok', name: 'social_tiktok' as keyof FormData },
+            { label: 'YouTube', name: 'social_youtube' as keyof FormData },
           ].map(({ label, name }) => (
             <div key={name}>
               <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
