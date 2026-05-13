@@ -193,10 +193,11 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
 
       {/* Viewfinder — always in DOM when active so html5-qrcode can mount into it */}
       {isActive && (
-        <div className="space-y-3">
-          <div className="relative bg-black rounded-xl overflow-hidden" style={{ maxWidth: 360 }}>
-            <div id="qr-scanner-region" ref={containerRef} style={{ width: '100%' }} />
-            {/* Corner overlay */}
+        <div className="relative bg-black rounded-xl overflow-hidden" style={{ maxWidth: 360 }}>
+          <div id="qr-scanner-region" ref={containerRef} style={{ width: '100%' }} />
+
+          {/* Corner brackets — hidden when a result is showing */}
+          {(scanState.type === 'idle' || scanState.type === 'scanning') && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
               <div className="relative w-56 h-56">
                 <span className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white rounded-tl-sm" />
@@ -205,92 +206,95 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
                 <span className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white rounded-br-sm" />
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Result feedback */}
-          <div className="min-h-[80px] flex items-center justify-center">
-            {(isPending || scanState.type === 'scanning') && (
-              <div className="text-center text-gray-500 text-sm animate-pulse">Checking in…</div>
-            )}
+          {/* Idle hint */}
+          {scanState.type === 'idle' && (
+            <div className="absolute bottom-0 inset-x-0 pb-4 flex justify-center pointer-events-none">
+              <p className="text-xs text-white/70 bg-black/40 px-3 py-1 rounded-full">Point camera at QR code</p>
+            </div>
+          )}
 
-            {scanState.type === 'success' && (
-              <div className="w-full bg-green-50 border border-green-200 rounded-lg px-5 py-4 text-center">
-                <p className="text-2xl mb-1">✓</p>
-                <p className="font-semibold text-green-800">{scanState.playerName}</p>
-                {scanState.teamName && <p className="text-sm text-green-600">{scanState.teamName}</p>}
-                <p className="text-xs text-green-600 mt-1">Checked in</p>
-                {scanState.teamId && !sessionId && (
-                  <button
-                    type="button"
-                    onClick={() => setTeamModalId(scanState.teamId)}
-                    className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-700 text-white hover:bg-green-800 transition-colors"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    Check In Team →
-                  </button>
-                )}
+          {/* Scanning spinner */}
+          {(isPending || scanState.type === 'scanning') && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <p className="text-white text-sm font-medium animate-pulse">Checking in…</p>
+            </div>
+          )}
+
+          {/* Result overlay — shown on top of camera so it's always visible on mobile */}
+          {scanState.type === 'success' && (
+            <div className="absolute inset-0 bg-green-900/90 flex flex-col items-center justify-center px-5 text-center">
+              <p className="text-4xl mb-2">✓</p>
+              <p className="font-bold text-white text-lg leading-tight">{scanState.playerName}</p>
+              {scanState.teamName && <p className="text-sm text-green-300 mt-1">{scanState.teamName}</p>}
+              <p className="text-xs text-green-300 mt-1">Checked in</p>
+              {scanState.teamId && !sessionId && (
+                <button
+                  type="button"
+                  onClick={() => setTeamModalId(scanState.teamId)}
+                  className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-white text-green-900 hover:bg-green-50 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Check In Team →
+                </button>
+              )}
+            </div>
+          )}
+
+          {scanState.type === 'walk_in_success' && (
+            <div className="absolute inset-0 bg-green-900/90 flex flex-col items-center justify-center px-5 text-center">
+              <p className="text-4xl mb-2">✓</p>
+              <p className="font-bold text-white text-lg">{scanState.playerName}</p>
+              <p className="text-xs text-green-300 mt-1">Added as walk-in &amp; checked in</p>
+            </div>
+          )}
+
+          {scanState.type === 'not_in_session' && (
+            <div className="absolute inset-0 bg-amber-900/90 flex flex-col items-center justify-center px-5 text-center">
+              <p className="text-3xl mb-2">⚠</p>
+              <p className="font-bold text-white text-base">{scanState.playerName}</p>
+              <p className="text-xs text-amber-200 mt-1">Not registered for this session</p>
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => handleWalkIn(scanState.registrationId, scanState.playerName)}
+                  disabled={isWalkInPending}
+                  className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold bg-white text-amber-900 hover:bg-amber-50 disabled:opacity-60 transition-colors"
+                >
+                  {isWalkInPending ? 'Adding…' : 'Add as Walk-in'}
+                </button>
+                <button
+                  onClick={() => {
+                    lastTokenRef.current = null
+                    cooldownRef.current = false
+                    setScanState({ type: 'idle' })
+                  }}
+                  className="px-4 py-2 rounded-lg text-sm font-medium border border-amber-300 text-white hover:bg-amber-800/60 transition-colors"
+                >
+                  Dismiss
+                </button>
               </div>
-            )}
+            </div>
+          )}
 
-            {scanState.type === 'walk_in_success' && (
-              <div className="w-full bg-green-50 border border-green-200 rounded-lg px-5 py-4 text-center">
-                <p className="text-2xl mb-1">✓</p>
-                <p className="font-semibold text-green-800">{scanState.playerName}</p>
-                <p className="text-xs text-green-600 mt-1">Added as walk-in & checked in</p>
-              </div>
-            )}
+          {scanState.type === 'already_in' && (
+            <div className="absolute inset-0 bg-amber-900/90 flex flex-col items-center justify-center px-5 text-center">
+              <p className="text-3xl mb-2">⚠</p>
+              <p className="font-bold text-white text-base">{scanState.playerName}</p>
+              <p className="text-xs text-amber-200 mt-2">
+                Already checked in at {new Date(scanState.checkedInAt).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone: timezone })}
+              </p>
+            </div>
+          )}
 
-            {scanState.type === 'not_in_session' && (
-              <div className="w-full bg-amber-50 border border-amber-200 rounded-lg px-5 py-4">
-                <p className="text-2xl mb-1 text-center">⚠</p>
-                <p className="font-semibold text-amber-800 text-center">{scanState.playerName}</p>
-                <p className="text-xs text-amber-700 text-center mt-1">Not registered for this session</p>
-                <div className="flex gap-2 mt-3">
-                  <button
-                    onClick={() => handleWalkIn(scanState.registrationId, scanState.playerName)}
-                    disabled={isWalkInPending}
-                    className="flex-1 px-3 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60"
-                    style={{ backgroundColor: 'var(--brand-primary)' }}
-                  >
-                    {isWalkInPending ? 'Adding…' : 'Add as Walk-in'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      lastTokenRef.current = null
-                      cooldownRef.current = false
-                      setScanState({ type: 'idle' })
-                    }}
-                    className="px-3 py-2 rounded-md text-sm font-medium border border-amber-300 text-amber-700 hover:bg-amber-100"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {scanState.type === 'already_in' && (
-              <div className="w-full bg-amber-50 border border-amber-200 rounded-lg px-5 py-4 text-center">
-                <p className="text-2xl mb-1">⚠</p>
-                <p className="font-semibold text-amber-800">{scanState.playerName}</p>
-                <p className="text-xs text-amber-600 mt-1">
-                  Already checked in at {new Date(scanState.checkedInAt).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone: timezone })}
-                </p>
-              </div>
-            )}
-
-            {scanState.type === 'error' && (
-              <div className="w-full bg-red-50 border border-red-200 rounded-lg px-5 py-4 text-center">
-                <p className="text-2xl mb-1">✗</p>
-                <p className="text-sm text-red-700">{scanState.message}</p>
-              </div>
-            )}
-
-            {scanState.type === 'idle' && (
-              <p className="text-sm text-gray-400 text-center">Point the camera at a player&apos;s QR code</p>
-            )}
-          </div>
+          {scanState.type === 'error' && (
+            <div className="absolute inset-0 bg-red-900/90 flex flex-col items-center justify-center px-5 text-center">
+              <p className="text-3xl mb-2">✗</p>
+              <p className="text-sm text-white">{scanState.message}</p>
+            </div>
+          )}
         </div>
       )}
     </div>

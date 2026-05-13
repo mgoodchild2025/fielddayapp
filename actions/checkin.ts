@@ -240,6 +240,7 @@ export async function selfCheckIn(token: string): Promise<CheckInResult> {
     status: 'success',
     playerName: profileData?.full_name ?? 'Unknown',
     teamName: null,
+    teamId: null,
   }
 }
 
