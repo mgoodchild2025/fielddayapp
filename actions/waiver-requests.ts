@@ -22,8 +22,21 @@ export async function sendWaiverReminders(leagueId: string): Promise<{ sent: num
     .eq('organization_id', org.id)
     .single()
 
-  if (!league || !league.waiver_version_id) {
-    return { sent: 0, error: 'No waiver is configured for this event.' }
+  if (!league) {
+    return { sent: 0, error: 'Event not found.' }
+  }
+
+  // Fall back to the org's active waiver if the league doesn't have one assigned
+  if (!league.waiver_version_id) {
+    const { data: activeWaiver } = await db
+      .from('waivers')
+      .select('id')
+      .eq('organization_id', org.id)
+      .eq('is_active', true)
+      .maybeSingle()
+    if (!activeWaiver) {
+      return { sent: 0, error: 'No waiver is configured for this event.' }
+    }
   }
 
   // Fetch active registrations that have not yet signed the waiver

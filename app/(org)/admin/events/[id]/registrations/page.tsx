@@ -54,7 +54,8 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
 
   const rows = registrations ?? []
   const unsignedCount = rows.filter((r: { status: string; waiver_signature_id: string | null }) => r.status === 'active' && !r.waiver_signature_id).length
-  const hasWaiver = !!(league as { waiver_version_id: string | null } | null)?.waiver_version_id
+  // Show reminders button whenever the org has ANY waiver configured (league-level or org-level active waiver)
+  const hasWaiver = hasWaiverConfigured
 
   // Build the public waiver signing URL from request headers
   const host = headersList.get('host') ?? ''
@@ -76,15 +77,13 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
         </div>
       )}
 
-      {isOrgAdmin && (
-        <div className="mb-4">
-          <SendWaiverRemindersButton
-            leagueId={id}
-            unsignedCount={unsignedCount}
-            hasWaiver={hasWaiver}
-          />
-        </div>
-      )}
+      <div className="mb-4">
+        <SendWaiverRemindersButton
+          leagueId={id}
+          unsignedCount={unsignedCount}
+          hasWaiver={hasWaiver}
+        />
+      </div>
 
       <div className="bg-white rounded-lg border overflow-hidden">
         <div className="overflow-x-auto">
