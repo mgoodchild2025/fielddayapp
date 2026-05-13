@@ -230,8 +230,9 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
   // Each event now gets its own signature row (UNIQUE(user_id, waiver_id, league_id))
   // so signing the same waiver for a different event always creates a fresh record
   // with an accurate timestamp for that event.
+  // NOTE: Supabase query builder is immutable — must reassign, not mutate in place.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const existingQuery = (db as any)
+  let existingQuery: any = (db as any)
     .from('waiver_signatures')
     .select('id')
     .eq('organization_id', org.id)
@@ -239,7 +240,7 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
     .eq('waiver_id', parsed.data.waiverId)
 
   if (parsed.data.leagueId) {
-    existingQuery.eq('league_id', parsed.data.leagueId)
+    existingQuery = existingQuery.eq('league_id', parsed.data.leagueId)
   }
 
   const { data: existing } = await existingQuery.maybeSingle()
