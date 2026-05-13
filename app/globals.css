@@ -18,6 +18,14 @@
     @apply w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white;
   }
 
+  /* Prevent date/datetime inputs from overflowing their containers on mobile */
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="time"] {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   /* Hide scrollbar while keeping scroll functionality */
   .scrollbar-none {
     scrollbar-width: none;

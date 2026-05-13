@@ -747,7 +747,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
       {children}
     </div>
