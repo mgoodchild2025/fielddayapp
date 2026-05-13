@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
-import { checkInByToken, undoCheckIn, manualSessionCheckIn, undoSessionCheckIn } from '@/actions/checkin'
+import { useState, useMemo, useEffect, useTransition } from 'react'
+import { undoCheckIn, manualSessionCheckIn, undoSessionCheckIn, checkInByToken } from '@/actions/checkin'
 
 interface Registration {
   id: string                      // registration.id (event-level)
@@ -20,250 +20,143 @@ interface Props {
   sessionId?: string              // if provided, use per-session check-in actions
 }
 
-// ─── Individual row / card ────────────────────────────────────────────────────
-
-function useCheckInRow(reg: Registration, leagueId: string, sessionId?: string) {
-  const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
-
-  const isSessionMode = !!sessionId && !!reg.sessionRegistrationId
-
-  function handleCheckIn() {
-    setError(null)
-    startTransition(async () => {
-      if (isSessionMode) {
-        const result = await manualSessionCheckIn(reg.sessionRegistrationId!, leagueId)
-        if (result?.error) setError(result.error)
-      } else {
-        const result = await checkInByToken(reg.checkinToken, leagueId)
-        if (result.status === 'not_found') setError('Token not found')
-        else if (result.status === 'unauthorized') setError('Not authorised')
-      }
-    })
-  }
-
-  function handleUndo() {
-    setError(null)
-    startTransition(async () => {
-      if (isSessionMode) {
-        const result = await undoSessionCheckIn(reg.sessionRegistrationId!, leagueId)
-        if (result?.error) setError(result.error)
-      } else {
-        const result = await undoCheckIn(reg.id, leagueId)
-        if (result?.error) setError(result.error)
-      }
-    })
-  }
-
-  return { isPending, error, handleCheckIn, handleUndo }
-}
-
-// ─── Desktop table row ────────────────────────────────────────────────────────
-
-function TableRow({
-  reg,
-  leagueId,
-  timezone,
-  sessionId,
-}: {
-  reg: Registration
-  leagueId: string
-  timezone: string
-  sessionId?: string
-}) {
-  const { isPending, error, handleCheckIn, handleUndo } = useCheckInRow(reg, leagueId, sessionId)
-
-  return (
-    <tr
-      className={`border-b last:border-0 ${isPending ? 'opacity-50' : ''}`}
-      title={error ?? undefined}
-    >
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{reg.playerName}</span>
-          {reg.isWalkIn && (
-            <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">Walk-in</span>
-          )}
-        </div>
-        {reg.teamName && <div className="text-xs text-gray-400">{reg.teamName}</div>}
-      </td>
-      <td className="px-4 py-3">
-        {reg.checkedInAt ? (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-            ✓ Checked in
-          </span>
-        ) : (
-          <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
-            Not checked in
-          </span>
-        )}
-      </td>
-      <td className="px-4 py-3 text-xs text-gray-400">
-        {reg.checkedInAt
-          ? new Date(reg.checkedInAt).toLocaleTimeString('en-CA', {
-              hour: 'numeric',
-              minute: '2-digit',
-              timeZone: timezone,
-            })
-          : '—'}
-      </td>
-      <td className="px-4 py-3 text-right">
-        {reg.checkedInAt ? (
-          <button
-            onClick={handleUndo}
-            disabled={isPending}
-            className="text-xs text-gray-400 hover:text-red-600 transition-colors"
-          >
-            Undo
-          </button>
-        ) : (
-          <button
-            onClick={handleCheckIn}
-            disabled={isPending}
-            className="text-xs font-medium hover:underline"
-            style={{ color: 'var(--brand-primary)' }}
-          >
-            Check in
-          </button>
-        )}
-      </td>
-    </tr>
-  )
-}
-
-// ─── Mobile card ──────────────────────────────────────────────────────────────
-
-function MobileCard({
-  reg,
-  leagueId,
-  timezone,
-  sessionId,
-}: {
-  reg: Registration
-  leagueId: string
-  timezone: string
-  sessionId?: string
-}) {
-  const { isPending, error, handleCheckIn, handleUndo } = useCheckInRow(reg, leagueId, sessionId)
-  const checkedIn = !!reg.checkedInAt
-
-  return (
-    <div className={`bg-white rounded-lg border p-4 ${isPending ? 'opacity-50' : ''}`}>
-      {/* Top row: name + status badge */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="font-semibold truncate">{reg.playerName}</p>
-            {reg.isWalkIn && (
-              <span className="shrink-0 text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">Walk-in</span>
-            )}
-          </div>
-          {reg.teamName && (
-            <p className="text-xs text-gray-500 truncate">{reg.teamName}</p>
-          )}
-        </div>
-        <span
-          className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
-            checkedIn ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-          }`}
-        >
-          {checkedIn ? '✓ Checked in' : 'Not checked in'}
-        </span>
-      </div>
-
-      {/* Bottom row: time + action button */}
-      <div className="flex items-center justify-between mt-3 pt-3 border-t gap-3">
-        <span className="text-xs text-gray-400">
-          {reg.checkedInAt
-            ? new Date(reg.checkedInAt).toLocaleTimeString('en-CA', {
-                hour: 'numeric',
-                minute: '2-digit',
-                timeZone: timezone,
-              })
-            : '—'}
-        </span>
-        <div className="flex items-center gap-2">
-          {error && <span className="text-xs text-red-500">{error}</span>}
-          {checkedIn ? (
-            <button
-              onClick={handleUndo}
-              disabled={isPending}
-              className="text-sm text-gray-400 hover:text-red-600 transition-colors px-3 py-1.5 rounded border border-gray-200 hover:border-red-200"
-            >
-              Undo
-            </button>
-          ) : (
-            <button
-              onClick={handleCheckIn}
-              disabled={isPending}
-              className="text-sm font-semibold text-white px-4 py-1.5 rounded-md disabled:opacity-50"
-              style={{ backgroundColor: 'var(--brand-primary)' }}
-            >
-              {isPending ? 'Checking in…' : 'Check In'}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Main list component ──────────────────────────────────────────────────────
-
 export function CheckInList({ registrations, leagueId, timezone, sessionId }: Props) {
   const [search, setSearch] = useState('')
   const [teamFilter, setTeamFilter] = useState('all')
 
+  // Local copy for optimistic updates
+  const [localRegs, setLocalRegs] = useState(registrations)
+  useEffect(() => { setLocalRegs(registrations) }, [registrations])
+
+  const [isPendingAll, startAllTransition] = useTransition()
+
   const teams = useMemo(() => {
     const seen = new Set<string>()
-    for (const r of registrations) {
+    for (const r of localRegs) {
       if (r.teamName) seen.add(r.teamName)
     }
     return Array.from(seen).sort()
-  }, [registrations])
+  }, [localRegs])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return registrations.filter((r) => {
+    return localRegs.filter((r) => {
       if (q && !r.playerName.toLowerCase().includes(q)) return false
       if (teamFilter !== 'all' && r.teamName !== teamFilter) return false
       return true
     })
-  }, [registrations, search, teamFilter])
+  }, [localRegs, search, teamFilter])
 
   const hasFilters = search || teamFilter !== 'all'
-  const checkedInCount = registrations.filter((r) => r.checkedInAt).length
-  const filteredCheckedIn = filtered.filter((r) => r.checkedInAt).length
+  const checkedInCount = localRegs.filter((r) => r.checkedInAt).length
+  const unchecked = localRegs.filter((r) => !r.checkedInAt)
+
+  function optimisticToggle(key: string, checkIn: boolean) {
+    setLocalRegs((prev) =>
+      prev.map((r) => {
+        const matches = sessionId ? r.sessionRegistrationId === key : r.id === key
+        return matches ? { ...r, checkedInAt: checkIn ? new Date().toISOString() : null } : r
+      })
+    )
+  }
+
+  function revertToggle(key: string, original: string | null) {
+    setLocalRegs((prev) =>
+      prev.map((r) => {
+        const matches = sessionId ? r.sessionRegistrationId === key : r.id === key
+        return matches ? { ...r, checkedInAt: original } : r
+      })
+    )
+  }
+
+  async function handleToggle(reg: Registration, currentlyCheckedIn: boolean) {
+    const key = sessionId ? (reg.sessionRegistrationId ?? reg.id) : reg.id
+    const original = reg.checkedInAt
+    optimisticToggle(key, !currentlyCheckedIn)
+
+    if (currentlyCheckedIn) {
+      // Undo
+      const result = sessionId && reg.sessionRegistrationId
+        ? await undoSessionCheckIn(reg.sessionRegistrationId, leagueId)
+        : await undoCheckIn(reg.id, leagueId)
+      if (result?.error) revertToggle(key, original)
+    } else {
+      // Check in
+      if (sessionId && reg.sessionRegistrationId) {
+        const result = await manualSessionCheckIn(reg.sessionRegistrationId, leagueId)
+        if (result?.error) revertToggle(key, original)
+      } else {
+        const result = await checkInByToken(reg.checkinToken, leagueId)
+        if (result.status !== 'success' && result.status !== 'already_checked_in') {
+          revertToggle(key, original)
+        }
+      }
+    }
+  }
+
+  function handleCheckInAll() {
+    if (unchecked.length === 0) return
+    const now = new Date().toISOString()
+    // Optimistic: mark all unchecked as checked in
+    setLocalRegs((prev) => prev.map((r) => ({ ...r, checkedInAt: r.checkedInAt ?? now })))
+    startAllTransition(async () => {
+      await Promise.all(
+        unchecked.map((reg) => {
+          if (sessionId && reg.sessionRegistrationId) {
+            return manualSessionCheckIn(reg.sessionRegistrationId, leagueId)
+          }
+          return checkInByToken(reg.checkinToken, leagueId)
+        })
+      )
+    })
+  }
 
   return (
     <div>
-      {/* Counter */}
-      <div className="flex items-center gap-3 mb-4">
-        <p className="text-sm font-medium">
+      {/* Counter + Check In All */}
+      <div className="flex items-center justify-between mb-4 gap-3">
+        <p className="text-sm font-medium shrink-0">
           <span style={{ color: 'var(--brand-primary)' }}>{checkedInCount}</span>
-          <span className="text-gray-400"> / {registrations.length} checked in</span>
+          <span className="text-gray-400"> / {localRegs.length} checked in</span>
+          {hasFilters && (
+            <span className="text-gray-400 ml-1">
+              ({filtered.filter((r) => r.checkedInAt).length} / {filtered.length} shown)
+            </span>
+          )}
         </p>
-        {hasFilters && (
-          <p className="text-xs text-gray-400">
-            ({filteredCheckedIn} / {filtered.length} shown)
-          </p>
-        )}
+        <button
+          type="button"
+          onClick={handleCheckInAll}
+          disabled={unchecked.length === 0 || isPendingAll}
+          className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+          style={
+            unchecked.length > 0
+              ? { backgroundColor: 'var(--brand-primary)', color: 'white' }
+              : { backgroundColor: '#f0fdf4', color: '#15803d' }
+          }
+        >
+          {unchecked.length === 0
+            ? '✓ All Checked In'
+            : isPendingAll
+              ? 'Checking in…'
+              : `Check In All (${unchecked.length})`}
+        </button>
       </div>
 
       {/* Search + filter bar */}
-      <div className="flex flex-col sm:flex-row gap-2 mb-4">
+      <div className="flex flex-col sm:flex-row gap-2 mb-3">
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search player name…"
-          className="flex-1 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0"
+          className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0"
         />
         {teams.length > 0 && (
           <select
             value={teamFilter}
             onChange={(e) => setTeamFilter(e.target.value)}
-            className="border rounded-md px-3 py-2 text-sm"
+            className="border rounded-lg px-3 py-2 text-sm"
           >
             <option value="all">All teams</option>
             {teams.map((t) => (
@@ -274,51 +167,70 @@ export function CheckInList({ registrations, leagueId, timezone, sessionId }: Pr
         {hasFilters && (
           <button
             onClick={() => { setSearch(''); setTeamFilter('all') }}
-            className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border rounded-md bg-white"
+            className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border rounded-lg bg-white"
           >
             Clear
           </button>
         )}
       </div>
 
-      {/* ── Desktop table (md+) ── */}
-      <div className="hidden md:block bg-white rounded-lg border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[480px]">
-            <thead>
-              <tr className="border-b bg-gray-50 text-left">
-                <th className="px-4 py-3 font-medium text-gray-500">Player</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Status</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Time</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((reg) => (
-                <TableRow key={reg.sessionRegistrationId ?? reg.id} reg={reg} leagueId={leagueId} timezone={timezone} sessionId={sessionId} />
-              ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-12 text-center text-gray-400">
-                    {hasFilters ? 'No players match your search.' : 'No registrations yet.'}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ── Mobile cards (below md) ── */}
-      <div className="md:hidden space-y-2">
+      {/* Roster list */}
+      <div className="bg-white rounded-xl border overflow-hidden">
         {filtered.length === 0 ? (
-          <div className="bg-white rounded-lg border p-10 text-center text-gray-400 text-sm">
+          <div className="px-5 py-12 text-center text-sm text-gray-400">
             {hasFilters ? 'No players match your search.' : 'No registrations yet.'}
           </div>
         ) : (
-          filtered.map((reg) => (
-            <MobileCard key={reg.sessionRegistrationId ?? reg.id} reg={reg} leagueId={leagueId} timezone={timezone} sessionId={sessionId} />
-          ))
+          filtered.map((reg) => {
+            const key = reg.sessionRegistrationId ?? reg.id
+            const checkedIn = !!reg.checkedInAt
+            return (
+              <div
+                key={key}
+                className="flex items-center gap-3 px-4 py-3.5 border-b last:border-0"
+              >
+                {/* Player info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-gray-900 truncate">{reg.playerName}</p>
+                    {reg.isWalkIn && (
+                      <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-amber-100 text-amber-700">
+                        Walk-in
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {reg.teamName && (
+                      <span className="text-xs text-gray-400 truncate">{reg.teamName}</span>
+                    )}
+                    {checkedIn && reg.checkedInAt && (
+                      <span className={`text-xs text-gray-400 ${reg.teamName ? 'before:content-["·"] before:mr-2' : ''}`}>
+                        {new Date(reg.checkedInAt).toLocaleTimeString('en-CA', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          timeZone: timezone,
+                        })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Toggle button */}
+                <button
+                  type="button"
+                  onClick={() => handleToggle(reg, checkedIn)}
+                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                    checkedIn
+                      ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${checkedIn ? 'bg-green-500' : 'bg-gray-400'}`} />
+                  {checkedIn ? 'Checked In' : 'Check In'}
+                </button>
+              </div>
+            )
+          })
         )}
       </div>
     </div>
