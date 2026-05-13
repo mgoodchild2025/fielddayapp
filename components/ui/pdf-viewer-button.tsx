@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface Props {
   url: string
@@ -16,6 +16,10 @@ interface Props {
 
 export function PdfViewerButton({ url, label = 'View PDF', variant = 'pill', className }: Props) {
   const [open, setOpen] = useState(false)
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [fetchError, setFetchError] = useState(false)
+  const blobRef = useRef<string | null>(null)
 
   // Lock body scroll while modal is open
   useEffect(() => {
@@ -26,6 +30,33 @@ export function PdfViewerButton({ url, label = 'View PDF', variant = 'pill', cla
     }
     return () => { document.body.style.overflow = '' }
   }, [open])
+
+  // Fetch PDF as blob when modal opens — bypasses X-Frame-Options/CSP restrictions
+  // that Supabase Storage sets on direct URLs.
+  useEffect(() => {
+    if (!open || blobUrl) return
+    setLoading(true)
+    setFetchError(false)
+    fetch(url)
+      .then((r) => {
+        if (!r.ok) throw new Error('fetch failed')
+        return r.blob()
+      })
+      .then((blob) => {
+        const objectUrl = URL.createObjectURL(blob)
+        blobRef.current = objectUrl
+        setBlobUrl(objectUrl)
+      })
+      .catch(() => setFetchError(true))
+      .finally(() => setLoading(false))
+  }, [open, url, blobUrl])
+
+  // Revoke blob URL on unmount to free memory
+  useEffect(() => {
+    return () => {
+      if (blobRef.current) URL.revokeObjectURL(blobRef.current)
+    }
+  }, [])
 
 
   return (
@@ -115,12 +146,32 @@ export function PdfViewerButton({ url, label = 'View PDF', variant = 'pill', cla
               </div>
             </div>
 
-            {/* PDF viewer */}
-            <iframe
-              src={url}
-              title={label}
-              className="flex-1 w-full border-0 bg-gray-100"
-            />
+            {/* PDF viewer — uses blob URL to bypass X-Frame-Options on storage */}
+            {loading && (
+              <div className="flex-1 flex items-center justify-center bg-gray-100 text-sm text-gray-400">
+                Loading…
+              </div>
+            )}
+            {fetchError && (
+              <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-gray-100 text-sm text-gray-500">
+                <p>Could not load the PDF inline.</p>
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 rounded-lg bg-gray-800 text-white text-sm font-medium hover:bg-gray-700 transition-colors"
+                >
+                  Open PDF in new tab ↗
+                </a>
+              </div>
+            )}
+            {blobUrl && !loading && !fetchError && (
+              <iframe
+                src={blobUrl}
+                title={label}
+                className="flex-1 w-full border-0 bg-gray-100"
+              />
+            )}
           </div>
         </div>
       )}
