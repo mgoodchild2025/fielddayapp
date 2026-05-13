@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { Printer, Trash2 } from 'lucide-react'
 import { savePlayoffConfig, generateAllTierBrackets, deletePlayoffConfig } from '@/actions/playoff-config'
 import { publishBracket, deleteBracket } from '@/actions/brackets'
 import { BracketView, type BracketData, type TeamRef } from './bracket-view'
@@ -235,9 +236,9 @@ function TierBracketCard({
   return (
     <div className="bg-white rounded-xl border overflow-hidden">
       {/* Tier header */}
-      <div className="px-5 py-3.5 flex flex-wrap items-center gap-x-3 gap-y-2">
-        {/* Left: expand toggle + badges */}
-        <div className="flex items-center gap-2 min-w-0 flex-1">
+      <div className="px-5 py-3.5 space-y-1">
+        {/* Row 1: toggle + tier name + action buttons */}
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setExpanded((v) => !v)}
             className="text-gray-400 hover:text-gray-600 shrink-0"
@@ -247,62 +248,66 @@ function TierBracketCard({
           <span className={`text-xs font-bold px-2 py-0.5 rounded-full border shrink-0 ${colorClass}`}>
             {tier.name}
           </span>
-          <span className="text-xs text-gray-400 truncate">
+          <div className="flex-1" />
+          {isOrgAdmin && tier.bracket && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              {tier.bracketId && (
+                <a
+                  href={`/admin/events/${leagueId}/bracket/print?bracketId=${tier.bracketId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 rounded-lg border text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                  title="Print bracket"
+                  aria-label="Print bracket"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                </a>
+              )}
+              {tier.bracket.status !== 'active' ? (
+                <button
+                  onClick={handlePublish}
+                  disabled={isPending}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60"
+                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                >
+                  {isPending ? '…' : 'Publish'}
+                </button>
+              ) : (
+                <button
+                  onClick={handlePublish}
+                  disabled={isPending}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium border text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+                >
+                  {isPending ? '…' : 'Republish'}
+                </button>
+              )}
+              <button
+                onClick={handleDelete}
+                disabled={isPending}
+                className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors disabled:opacity-60"
+                title="Delete bracket"
+                aria-label="Delete bracket"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+        {/* Row 2: seeds range + status badge */}
+        <div className="flex items-center gap-2 pl-6">
+          <span className="text-xs text-gray-400">
             Seeds {tier.seedFrom}–{tier.seedTo} · {tierCount} team{tierCount !== 1 ? 's' : ''}
           </span>
           {tier.bracket ? (
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
               tier.bracket.status === 'active' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
             }`}>
               {tier.bracket.status === 'active' ? '✓ Published' : 'Draft'}
             </span>
           ) : (
-            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full shrink-0">No bracket yet</span>
+            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">No bracket yet</span>
           )}
         </div>
-
-        {/* Right: action buttons */}
-        {isOrgAdmin && tier.bracket && (
-          <div className="flex items-center gap-2 shrink-0">
-            {tier.bracketId && (
-              <a
-                href={`/admin/events/${leagueId}/bracket/print?bracketId=${tier.bracketId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded-lg text-xs font-medium border text-gray-600 hover:bg-gray-50 flex items-center gap-1"
-                title="Print bracket"
-              >
-                🖨 Print
-              </a>
-            )}
-            {tier.bracket.status !== 'active' && (
-              <button
-                onClick={handlePublish}
-                disabled={isPending}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60"
-                style={{ backgroundColor: 'var(--brand-primary)' }}
-              >
-                {isPending ? '…' : 'Publish'}
-              </button>
-            )}
-            {tier.bracket.status === 'active' && (
-              <button
-                onClick={handlePublish}
-                disabled={isPending}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium border text-gray-600 hover:bg-gray-50 disabled:opacity-60"
-              >
-                {isPending ? '…' : 'Republish'}
-              </button>
-            )}
-            <button
-              onClick={handleDelete}
-              disabled={isPending}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-60"
-            >
-              Delete
-            </button>
-          </div>
-        )}
       </div>
 
       {err && <p className="px-5 pb-3 text-xs text-red-500">{err}</p>}
