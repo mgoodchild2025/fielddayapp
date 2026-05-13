@@ -5,6 +5,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { QRScanner } from '@/components/checkin/qr-scanner'
 import { CheckInList } from '@/components/checkin/checkin-list'
+import { TeamCheckinSelector } from '@/components/checkin/team-checkin-selector'
 
 const SESSION_EVENT_TYPES = ['drop_in', 'pickup']
 
@@ -230,6 +231,18 @@ export default async function AdminCheckInPage({
   }
 
   // ── Event-level check-in (league / tournament) ─────────────────────────────
+  // Fetch teams for the "Check In by Team" selector
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: teamsData } = await (db as any)
+    .from('teams')
+    .select('id, name')
+    .eq('league_id', id)
+    .eq('organization_id', org.id)
+    .eq('status', 'active')
+    .order('name')
+
+  const teams: { id: string; name: string }[] = teamsData ?? []
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: registrations } = await (db as any)
     .from('registrations')
@@ -289,6 +302,11 @@ export default async function AdminCheckInPage({
           <QRScanner leagueId={id} timezone={timezone} checkinSound={checkinSound} />
         </div>
       </div>
+
+      {/* Team check-in selector */}
+      {teams.length > 0 && (
+        <TeamCheckinSelector teams={teams} leagueId={id} timezone={timezone} />
+      )}
 
       {/* Roster list */}
       <div>

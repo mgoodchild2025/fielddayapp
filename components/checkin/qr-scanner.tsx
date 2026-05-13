@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { checkInByToken, checkInWalkIn } from '@/actions/checkin'
 import type { CheckInResult } from '@/actions/checkin'
 import { unlockAudio, playCheckinSound } from '@/lib/audio'
+import { TeamCheckinModal } from '@/components/checkin/team-checkin-modal'
 
 interface Props {
   leagueId: string
@@ -15,14 +16,14 @@ interface Props {
 type ScanState =
   | { type: 'idle' }
   | { type: 'scanning' }
-  | { type: 'success'; playerName: string; teamName: string | null }
+  | { type: 'success'; playerName: string; teamName: string | null; teamId: string | null }
   | { type: 'already_in'; playerName: string; checkedInAt: string }
   | { type: 'not_in_session'; playerName: string; registrationId: string }
   | { type: 'walk_in_success'; playerName: string }
   | { type: 'error'; message: string }
 
 function resultFromAction(r: CheckInResult): ScanState {
-  if (r.status === 'success') return { type: 'success', playerName: r.playerName, teamName: r.teamName }
+  if (r.status === 'success') return { type: 'success', playerName: r.playerName, teamName: r.teamName, teamId: r.teamId }
   if (r.status === 'already_checked_in') return { type: 'already_in', playerName: r.playerName, checkedInAt: r.checkedInAt }
   if (r.status === 'not_registered_for_session') return { type: 'not_in_session', playerName: r.playerName, registrationId: r.registrationId }
   if (r.status === 'wrong_event') return { type: 'error', message: 'This QR is for a different event.' }
@@ -45,6 +46,7 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
   const [isPending, startTransition] = useTransition()
   const [isWalkInPending, startWalkInTransition] = useTransition()
   const [cameraError, setCameraError] = useState<string | null>(null)
+  const [teamModalId, setTeamModalId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isActive) return
@@ -147,6 +149,14 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
 
   return (
     <div className="space-y-3">
+      {teamModalId && (
+        <TeamCheckinModal
+          teamId={teamModalId}
+          leagueId={leagueId}
+          timezone={timezone}
+          onClose={() => setTeamModalId(null)}
+        />
+      )}
       {/* Toggle button */}
       {!isActive ? (
         <button
@@ -209,6 +219,18 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
                 <p className="font-semibold text-green-800">{scanState.playerName}</p>
                 {scanState.teamName && <p className="text-sm text-green-600">{scanState.teamName}</p>}
                 <p className="text-xs text-green-600 mt-1">Checked in</p>
+                {scanState.teamId && !sessionId && (
+                  <button
+                    type="button"
+                    onClick={() => setTeamModalId(scanState.teamId)}
+                    className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-700 text-white hover:bg-green-800 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Check In Team →
+                  </button>
+                )}
               </div>
             )}
 

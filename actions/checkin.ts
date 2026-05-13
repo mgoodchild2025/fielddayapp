@@ -7,7 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentOrg } from '@/lib/tenant'
 
 export type CheckInResult =
-  | { status: 'success'; playerName: string; teamName: string | null }
+  | { status: 'success'; playerName: string; teamName: string | null; teamId: string | null }
   | { status: 'already_checked_in'; playerName: string; checkedInAt: string }
   | { status: 'not_registered_for_session'; playerName: string; registrationId: string }
   | { status: 'wrong_event' }
@@ -72,7 +72,7 @@ export async function checkInByToken(
 
     if (error) return { status: 'not_found' }
     if (leagueId) revalidatePath(`/admin/events/${leagueId}/checkin`)
-    return { status: 'success', playerName, teamName: null }
+    return { status: 'success', playerName, teamName: null, teamId: null }
   }
 
   // ── Event-level check-in path (original behaviour) ────────────────────────
@@ -92,11 +92,11 @@ export async function checkInByToken(
 
   if (error) return { status: 'not_found' }
 
-  // Look up the player's team for this league separately
+  // Look up the player's team for this league
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: teamMember } = await (db as any)
     .from('team_members')
-    .select('team:teams!team_members_team_id_fkey(name, league_id)')
+    .select('team_id, team:teams!team_members_team_id_fkey(id, name, league_id)')
     .eq('user_id', reg.user_id)
     .eq('status', 'active')
     .maybeSingle()
@@ -104,10 +104,12 @@ export async function checkInByToken(
   const teamData = teamMember
     ? (Array.isArray(teamMember.team) ? teamMember.team[0] : teamMember.team)
     : null
-  const teamName = teamData?.league_id === reg.league_id ? (teamData?.name ?? null) : null
+  const isThisLeague = teamData?.league_id === reg.league_id
+  const teamName = isThisLeague ? (teamData?.name ?? null) : null
+  const teamId   = isThisLeague ? (teamData?.id   ?? null) : null
 
   if (leagueId) revalidatePath(`/admin/events/${leagueId}/checkin`)
-  return { status: 'success', playerName, teamName }
+  return { status: 'success', playerName, teamName, teamId }
 }
 
 // Admin adds a player as a walk-in for a session they didn't pre-register for.
