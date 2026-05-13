@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { EventAvatar } from '@/components/ui/event-avatar'
+import { HeroSocialLinks } from '@/components/ui/social-links'
 import type { OrgContext } from '@/lib/tenant'
 
 type Photo = { id: string; url: string; caption: string | null; display_order: number }
@@ -363,6 +364,7 @@ export function CommunityHome({
           >
             {ctaLabel}
           </Link>
+          <HeroSocialLinks social={branding} align="center" />
         </div>
       </section>
 

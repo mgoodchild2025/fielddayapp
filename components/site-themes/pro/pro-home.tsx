@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { EventAvatar } from '@/components/ui/event-avatar'
+import { HeroSocialLinks } from '@/components/ui/social-links'
 import type { OrgContext } from '@/lib/tenant'
 
 type League = {
@@ -271,6 +272,7 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
                 Standings
               </Link>
             </div>
+            <HeroSocialLinks social={branding} />
           </div>
         </div>
       </section>
