@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import type { Metadata } from 'next'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { BrandProvider } from '@/components/branding/brand-provider'
 import { CartProvider } from '@/components/shop/cart-provider'
 import { CartButton } from '@/components/shop/cart-button'
@@ -17,10 +18,12 @@ export async function generateMetadata(): Promise<Metadata> {
     return { title: 'Fieldday', description: 'Sports league management platform' }
   }
 
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
   const [{ data: org }, { data: branding }] = await Promise.all([
-    supabase.from('organizations').select('name').eq('id', orgId).single(),
-    supabase.from('org_branding')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('organizations').select('name').eq('id', orgId).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_branding')
       .select('logo_url, tagline, hero_image_url')
       .eq('organization_id', orgId)
       .single(),
@@ -82,8 +85,10 @@ export default async function OrgLayout({
   }
 
   const supabase = await createServerClient()
+  const db2 = createServiceRoleClient()
   const [{ data: branding }, { data: { user } }] = await Promise.all([
-    supabase.from('org_branding').select('*').eq('organization_id', orgId).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db2 as any).from('org_branding').select('*').eq('organization_id', orgId).single(),
     supabase.auth.getUser(),
   ])
 

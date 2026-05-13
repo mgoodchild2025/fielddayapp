@@ -23,13 +23,14 @@ export default async function RegisterLeaguePage({
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/login?redirect=/register/${slug}${isDropIn ? '?mode=drop_in' : ''}`)
 
   // registration_open: open to all. active: only team-invited players (guard below).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (supabase as any)
+  const { data: league } = await (db as any)
     .from('leagues')
     .select('*')
     .eq('organization_id', org.id)
@@ -45,8 +46,6 @@ export default async function RegisterLeaguePage({
   const isOpenDropIn = (league as any).league_type === 'dropin' || (league as any).event_type === 'drop_in'
   if (isDropIn && !isOpenDropIn) {
     if (!user.email) notFound()
-    const { createServiceRoleClient } = await import('@/lib/supabase/service')
-    const db = createServiceRoleClient()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: invite } = await (db as any)
       .from('pickup_invites')
@@ -60,24 +59,28 @@ export default async function RegisterLeaguePage({
   }
 
   const [{ data: playerDetails }, { data: existingReg }, { data: profile }, { data: connectAccount }, { data: captainTeam }, { data: rawTeams }] = await Promise.all([
-    supabase.from('player_details').select('*').eq('organization_id', org.id).eq('user_id', user.id).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('player_details').select('*').eq('organization_id', org.id).eq('user_id', user.id).single(),
     // For invite-based drop-ins, don't resume (each invite = fresh registration).
     // For open dropin-type events, resume existing registration like a normal event.
     isDropIn && !isOpenDropIn
       ? Promise.resolve({ data: null })
-      : supabase.from('registrations')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      : (db as any).from('registrations')
           .select('id, status, waiver_signature_id')
           .eq('organization_id', org.id)
           .eq('league_id', league.id)
           .eq('user_id', user.id)
-          .eq('registration_type' as never, 'season')
+          .eq('registration_type', 'season')
           .maybeSingle(),
-    supabase.from('profiles').select('*').eq('id', user.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', org.id).maybeSingle(),
+    (db as any).from('profiles').select('*').eq('id', user.id).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', org.id).maybeSingle(),
     // Check if the user is already on any team in this league (any role).
     // Query starts from teams so league_id is filtered on the primary table (reliable).
-    supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
       .from('teams')
       .select('id, name, team_members!inner(role)')
       .eq('league_id', league.id)
@@ -88,7 +91,8 @@ export default async function RegisterLeaguePage({
     // Fetch teams for per-team events (player browse/join step)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (league as any).payment_mode === 'per_team'
-      ? supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (db as any)
           .from('teams')
           .select('id, name, max_team_size, team_members!team_members_team_id_fkey(id)')
           .eq('league_id', league.id)
@@ -144,7 +148,7 @@ export default async function RegisterLeaguePage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isPerTeamLeague = (league as any).payment_mode === 'per_team'
   const { count: currentTeamCount } = isPerTeamLeague && leagueMaxTeams !== null
-    ? await supabase
+    ? await db
         .from('teams')
         .select('*', { count: 'exact', head: true })
         .eq('league_id', league.id)
@@ -179,10 +183,12 @@ export default async function RegisterLeaguePage({
   // Use the league's specific waiver if set, otherwise fall back to the org-wide active waiver
   let waiver = null
   if (league.waiver_version_id) {
-    const { data } = await supabase.from('waivers').select('*').eq('id', league.waiver_version_id).single()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (db as any).from('waivers').select('*').eq('id', league.waiver_version_id).single()
     waiver = data
   } else {
-    const { data } = await supabase.from('waivers').select('*').eq('organization_id', org.id).eq('is_active', true).single()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (db as any).from('waivers').select('*').eq('organization_id', org.id).eq('is_active', true).single()
     waiver = data
   }
 
@@ -219,7 +225,7 @@ export default async function RegisterLeaguePage({
     const waiverSigned = !!existingReg.waiver_signature_id
 
     // Check if they have a completed payment
-    const { data: payment } = await supabase
+    const { data: payment } = await db
       .from('payments')
       .select('status')
       .eq('registration_id', existingReg.id)
@@ -247,8 +253,7 @@ export default async function RegisterLeaguePage({
       initialStep = 2 // jump to waiver
     } else if (!needsPayment && !needsManualPayment && waiverSigned) {
       // Truly free event: waiver signed, no payment of any kind needed — auto-activate
-      const service = createServiceRoleClient()
-      await service.from('registrations').update({ status: 'active' }).eq('id', existingReg.id)
+      await db.from('registrations').update({ status: 'active' }).eq('id', existingReg.id)
       redirect(`/register/${slug}/success`)
     } else if (!needsPayment && !needsManualPayment) {
       // No payment needed and no waiver signed yet (or no waiver required) —

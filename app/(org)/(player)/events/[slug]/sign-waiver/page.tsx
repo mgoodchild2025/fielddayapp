@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireAuth } from '@/lib/auth'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { StandaloneWaiverSigner } from '@/components/waivers/standalone-waiver-signer'
@@ -19,9 +20,11 @@ export default async function SignWaiverPage({
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   // Fetch branding for logo
-  const { data: branding } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: branding } = await (db as any)
     .from('org_branding')
     .select('logo_url')
     .eq('organization_id', org.id)
@@ -29,7 +32,7 @@ export default async function SignWaiverPage({
 
   // Fetch league by slug
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (supabase as any)
+  const { data: league } = await (db as any)
     .from('leagues')
     .select('id, name, slug, waiver_version_id')
     .eq('organization_id', org.id)
@@ -41,7 +44,8 @@ export default async function SignWaiverPage({
   }
 
   // Fetch the waiver
-  const { data: waiver } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: waiver } = await (db as any)
     .from('waivers')
     .select('id, title, content')
     .eq('id', league.waiver_version_id)
@@ -53,9 +57,8 @@ export default async function SignWaiverPage({
 
   // Check if the player has already signed the waiver for this specific event.
   // Scoped to league_id so signing for a different event doesn't block this one.
-  // Cast to any because league_id is not yet in the generated Supabase types.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (supabase as any)
+  const { data: existing } = await (db as any)
     .from('waiver_signatures')
     .select('id, signed_at')
     .eq('waiver_id', waiver.id)
@@ -65,7 +68,7 @@ export default async function SignWaiverPage({
 
   // If already signed for this event, make sure the registration row is linked.
   if (existing) {
-    await supabase
+    await db
       .from('registrations')
       .update({ waiver_signature_id: existing.id })
       .eq('organization_id', org.id)
@@ -75,13 +78,15 @@ export default async function SignWaiverPage({
   }
 
   // Fetch player profile for name and DOB
-  const { data: profile } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile } = await (db as any)
     .from('profiles')
     .select('full_name')
     .eq('id', user.id)
     .single()
 
-  const { data: playerDetails } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: playerDetails } = await (db as any)
     .from('player_details')
     .select('date_of_birth')
     .eq('organization_id', org.id)

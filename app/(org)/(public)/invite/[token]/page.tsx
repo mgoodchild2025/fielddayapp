@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { InviteActions } from '@/components/teams/invite-actions'
@@ -19,11 +20,11 @@ export default async function InvitePage({
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
+  const db = createServiceRoleClient()
   const [invite, { data: branding }, supabase] = await Promise.all([
     getInviteDetails(token),
-    (await import('@/lib/supabase/server')).createServerClient().then((s) =>
-      s.from('org_branding').select('logo_url').eq('organization_id', org.id).single()
-    ),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
     createServerClient(),
   ])
 

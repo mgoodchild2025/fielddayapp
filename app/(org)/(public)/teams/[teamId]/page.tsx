@@ -40,7 +40,8 @@ export default async function TeamDetailPage({
   const db = createServiceRoleClient()
 
   const [{ data: branding }, { data: team }, { data: myMembership }, { data: orgMember }, { data: joinRequests }, { data: orgBranding }, pendingInvitesResult] = await Promise.all([
-    supabase.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)
       .from('teams')

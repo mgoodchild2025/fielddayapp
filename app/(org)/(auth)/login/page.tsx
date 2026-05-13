@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import Image from 'next/image'
 import Link from 'next/link'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { LoginForm } from './login-form'
 
 export default async function LoginPage({
@@ -19,10 +20,12 @@ export default async function LoginPage({
   let tagline: string | null = null
 
   if (orgId) {
-    const supabase = await createServerClient()
+    const db = createServiceRoleClient()
     const [orgRes, brandingRes] = await Promise.all([
-      supabase.from('organizations').select('name').eq('id', orgId).single(),
-      supabase.from('org_branding').select('logo_url, tagline').eq('organization_id', orgId).single(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('organizations').select('name').eq('id', orgId).single(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('org_branding').select('logo_url, tagline').eq('organization_id', orgId).single(),
     ])
     orgName = orgRes.data?.name ?? null
     logoUrl = brandingRes.data?.logo_url ?? null

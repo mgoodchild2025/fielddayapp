@@ -1,15 +1,16 @@
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { WaiverList } from './waiver-list'
 
 export default async function AdminWaiversPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
-  const { data: waivers } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: waivers } = await (db as any)
     .from('waivers')
     .select('*')
     .eq('organization_id', org.id)
@@ -17,10 +18,11 @@ export default async function AdminWaiversPage() {
     .order('created_at', { ascending: false })
 
   // Fetch signature counts for all waivers in one query
-  const { data: sigCounts } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: sigCounts } = await (db as any)
     .from('waiver_signatures')
     .select('waiver_id')
-    .in('waiver_id', (waivers ?? []).map(w => w.id))
+    .in('waiver_id', (waivers ?? []).map((w: { id: string }) => w.id))
 
   const sigCountMap = new Map<string, number>()
   for (const row of sigCounts ?? []) {

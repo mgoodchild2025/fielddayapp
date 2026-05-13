@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { getScoreStructure } from '@/lib/print-config'
 import { PrintControls } from '@/components/print/print-controls'
@@ -25,18 +26,21 @@ export default async function BracketPrintPage({
   if (!scope.isOrgAdmin) notFound()
 
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   // Org name + timezone
   const [{ data: branding }, { data: orgRow }] = await Promise.all([
-    supabase.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
-    supabase.from('organizations').select('name').eq('id', org.id).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_branding').select('timezone').eq('organization_id', org.id).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('organizations').select('name').eq('id', org.id).single(),
   ])
   const timezone = branding?.timezone ?? 'America/Toronto'
   const orgName = orgRow?.name ?? 'Fieldday'
 
   // League info
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (supabase as any)
+  const { data: league } = await (db as any)
     .from('leagues')
     .select('name, sport')
     .eq('id', id)
@@ -49,7 +53,7 @@ export default async function BracketPrintPage({
 
   // Bracket + matches
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawBracket } = await (supabase as any)
+  const { data: rawBracket } = await (db as any)
     .from('brackets')
     .select(`
       id, name, bracket_size, bracket_type, status,
@@ -68,7 +72,7 @@ export default async function BracketPrintPage({
   if (!rawBracket) notFound()
 
   // Team name map
-  const { data: teams } = await supabase
+  const { data: teams } = await db
     .from('teams')
     .select('id, name')
     .eq('league_id', id)

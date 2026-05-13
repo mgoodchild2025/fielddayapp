@@ -1,6 +1,5 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
-import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { NewEventForm } from './new-event-form'
@@ -8,11 +7,10 @@ import { NewEventForm } from './new-event-form'
 export default async function NewEventPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
   const db = createServiceRoleClient()
 
   const [{ data: waivers }, { data: ruleTemplates }, hasEarlyBird] = await Promise.all([
-    supabase
+    db
       .from('waivers')
       .select('id, title, version')
       .eq('organization_id', org.id)

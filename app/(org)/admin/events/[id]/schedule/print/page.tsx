@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { parseLocalToUtc, formatGameTime } from '@/lib/format-time'
 import { getScoreStructure } from '@/lib/print-config'
@@ -27,18 +28,21 @@ export default async function SchedulePrintPage({
   if (!scope.isOrgAdmin) notFound()
 
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   // Org branding (timezone + org name)
   const [{ data: branding }, { data: orgRow }] = await Promise.all([
-    supabase.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
-    supabase.from('organizations').select('name').eq('id', org.id).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_branding').select('timezone').eq('organization_id', org.id).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('organizations').select('name').eq('id', org.id).single(),
   ])
   const timezone = branding?.timezone ?? 'America/Toronto'
   const orgName = orgRow?.name ?? 'Fieldday'
 
   // League info
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (supabase as any)
+  const { data: league } = await (db as any)
     .from('leagues')
     .select('name, sport')
     .eq('id', id)
@@ -55,7 +59,7 @@ export default async function SchedulePrintPage({
     const dayEnd   = parseLocalToUtc(date, '23:59', timezone)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rawGames } = await (supabase as any)
+    const { data: rawGames } = await (db as any)
       .from('games')
       .select(`
         id, scheduled_at, court, week_number,
@@ -101,7 +105,7 @@ export default async function SchedulePrintPage({
   // ─── Score Sheet or Stat Sheet ─────────────────────────────────────────────
   if ((type === 'scoresheet' || type === 'statsheet') && gameId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rawGame } = await (supabase as any)
+    const { data: rawGame } = await (db as any)
       .from('games')
       .select(`
         id, scheduled_at, court, week_number,
@@ -135,7 +139,7 @@ export default async function SchedulePrintPage({
     // Fetch rosters in parallel (only if real teams are assigned)
     async function fetchRoster(teamId: string | null) {
       if (!teamId) return []
-      const { data } = await supabase
+      const { data } = await db
         .from('team_members')
         .select('position, profile:profiles!team_members_user_id_fkey(full_name)')
         .eq('team_id', teamId)
