@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useTransition } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { undoCheckIn, manualSessionCheckIn, undoSessionCheckIn, checkInByToken } from '@/actions/checkin'
 
 interface Registration {
@@ -28,7 +28,6 @@ export function CheckInList({ registrations, leagueId, timezone, sessionId }: Pr
   const [localRegs, setLocalRegs] = useState(registrations)
   useEffect(() => { setLocalRegs(registrations) }, [registrations])
 
-  const [isPendingAll, startAllTransition] = useTransition()
 
   const teams = useMemo(() => {
     const seen = new Set<string>()
@@ -49,8 +48,6 @@ export function CheckInList({ registrations, leagueId, timezone, sessionId }: Pr
 
   const hasFilters = search || teamFilter !== 'all'
   const checkedInCount = localRegs.filter((r) => r.checkedInAt).length
-  const unchecked = localRegs.filter((r) => !r.checkedInAt)
-
   function optimisticToggle(key: string, checkIn: boolean) {
     setLocalRegs((prev) =>
       prev.map((r) => {
@@ -94,28 +91,11 @@ export function CheckInList({ registrations, leagueId, timezone, sessionId }: Pr
     }
   }
 
-  function handleCheckInAll() {
-    if (unchecked.length === 0) return
-    const now = new Date().toISOString()
-    // Optimistic: mark all unchecked as checked in
-    setLocalRegs((prev) => prev.map((r) => ({ ...r, checkedInAt: r.checkedInAt ?? now })))
-    startAllTransition(async () => {
-      await Promise.all(
-        unchecked.map((reg) => {
-          if (sessionId && reg.sessionRegistrationId) {
-            return manualSessionCheckIn(reg.sessionRegistrationId, leagueId)
-          }
-          return checkInByToken(reg.checkinToken, leagueId)
-        })
-      )
-    })
-  }
-
   return (
     <div>
-      {/* Counter + Check In All */}
-      <div className="flex items-center justify-between mb-4 gap-3">
-        <p className="text-sm font-medium shrink-0">
+      {/* Counter */}
+      <div className="mb-4">
+        <p className="text-sm font-medium">
           <span style={{ color: 'var(--brand-primary)' }}>{checkedInCount}</span>
           <span className="text-gray-400"> / {localRegs.length} checked in</span>
           {hasFilters && (
@@ -124,23 +104,6 @@ export function CheckInList({ registrations, leagueId, timezone, sessionId }: Pr
             </span>
           )}
         </p>
-        <button
-          type="button"
-          onClick={handleCheckInAll}
-          disabled={unchecked.length === 0 || isPendingAll}
-          className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
-          style={
-            unchecked.length > 0
-              ? { backgroundColor: 'var(--brand-primary)', color: 'white' }
-              : { backgroundColor: '#f0fdf4', color: '#15803d' }
-          }
-        >
-          {unchecked.length === 0
-            ? '✓ All Checked In'
-            : isPendingAll
-              ? 'Checking in…'
-              : `Check In All (${unchecked.length})`}
-        </button>
       </div>
 
       {/* Search + filter bar */}
