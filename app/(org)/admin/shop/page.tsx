@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAllMerchandiseOrders, getMerchandiseItems } from '@/actions/merchandise'
 import type { MerchItem } from '@/actions/merchandise'
 import { MerchandiseOrdersTable } from '@/components/merchandise/merch-orders-table'
@@ -40,10 +41,19 @@ export default async function AdminShopPage({
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin'])
 
-  const [orders, items] = await Promise.all([
+  const supabase = createServiceRoleClient()
+  const [orders, items, paymentSettingsResult] = await Promise.all([
     getAllMerchandiseOrders(org.id),
     getMerchandiseItems(org.id),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('org_payment_settings')
+      .select('shop_payment_mode')
+      .eq('organization_id', org.id)
+      .maybeSingle() as Promise<{ data: { shop_payment_mode: string | null } | null }>,
   ])
+
+  const isManualPayment = paymentSettingsResult.data?.shop_payment_mode === 'manual'
 
   const { out, low } = getLowStockAlerts(items)
   const hasAlerts = out.length > 0 || low.length > 0
@@ -111,6 +121,7 @@ export default async function AdminShopPage({
           fulfillAllTarget={{ type: 'all', orgId: org.id }}
           orders={orders}
           showSource
+          isManualPayment={isManualPayment}
         />
       )}
     </div>

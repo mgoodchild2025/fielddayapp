@@ -579,6 +579,35 @@ export async function createMerchandiseOrders(
   return { error: null, orderIds }
 }
 
+/** Mark a single pending order as paid (manual/offline payment orgs). */
+export async function markMerchandiseOrderPaid(
+  orderId: string,
+  { method, notes }: { method?: string; notes?: string } = {}
+): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const role = await getCallerRole(org.id)
+  if (!role || !['org_admin', 'league_admin'].includes(role)) {
+    return { error: 'Unauthorized' }
+  }
+
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
+    .from('merchandise_orders')
+    .update({
+      status: 'paid',
+      notes: [notes?.trim(), method ? `Payment method: ${method}` : null].filter(Boolean).join(' · ') || null,
+    })
+    .eq('id', orderId)
+    .eq('organization_id', org.id)
+    .eq('status', 'pending')
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin/shop')
+  return { error: null }
+}
+
 /** Mark a single order as fulfilled. */
 export async function fulfillMerchandiseOrder(orderId: string): Promise<{ error: string | null }> {
   const headersList = await headers()

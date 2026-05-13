@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { fulfillMerchandiseOrder, fulfillAllMerchandiseOrders, fulfillAllShopOrders, fulfillAllOrgOrders } from '@/actions/merchandise'
+import { fulfillMerchandiseOrder, fulfillAllMerchandiseOrders, fulfillAllShopOrders, fulfillAllOrgOrders, markMerchandiseOrderPaid } from '@/actions/merchandise'
 import type { MerchOrder } from '@/actions/merchandise'
 
 type FulfillAllTarget =
@@ -13,6 +13,7 @@ interface Props {
   fulfillAllTarget: FulfillAllTarget
   orders: MerchOrder[]
   showSource?: boolean
+  isManualPayment?: boolean
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -45,11 +46,15 @@ function SourceBadge({ leagueName }: { leagueName?: string | null }) {
   )
 }
 
-export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders, showSource = false }: Props) {
+export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders, showSource = false, isManualPayment = false }: Props) {
   const [orders, setOrders] = useState<MerchOrder[]>(initialOrders)
   const [error, setError] = useState<string | null>(null)
   const [fulfillPendingId, setFulfillPendingId] = useState<string | null>(null)
   const [fulfillAllPending, setFulfillAllPending] = useState(false)
+  const [markPaidOpenId, setMarkPaidOpenId] = useState<string | null>(null)
+  const [markPaidMethod, setMarkPaidMethod] = useState<'etransfer' | 'cash'>('etransfer')
+  const [markPaidNotes, setMarkPaidNotes] = useState('')
+  const [markPaidPendingId, setMarkPaidPendingId] = useState<string | null>(null)
   const [, startTransition] = useTransition()
 
   const paidOrders = orders.filter((o) => o.status === 'paid')
@@ -89,6 +94,28 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
         setOrders((prev) =>
           prev.map((o) => o.status === 'paid' ? { ...o, status: 'fulfilled', fulfilled_at: new Date().toISOString() } : o)
         )
+      }
+    })
+  }
+
+  function handleMarkPaid(orderId: string) {
+    setError(null)
+    setMarkPaidPendingId(orderId)
+    startTransition(async () => {
+      const result = await markMerchandiseOrderPaid(orderId, {
+        method: markPaidMethod,
+        notes: markPaidNotes || undefined,
+      })
+      setMarkPaidPendingId(null)
+      if (result.error) {
+        setError(result.error)
+      } else {
+        setOrders((prev) =>
+          prev.map((o) => o.id === orderId ? { ...o, status: 'paid' } : o)
+        )
+        setMarkPaidOpenId(null)
+        setMarkPaidNotes('')
+        setMarkPaidMethod('etransfer')
       }
     })
   }
@@ -253,6 +280,55 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                     <StatusBadge status={order.status} />
                   </td>
                   <td className="px-4 py-3 text-right">
+                    {order.status === 'pending' && isManualPayment && (
+                      markPaidOpenId === order.id ? (
+                        <div className="flex flex-col gap-1.5 items-end min-w-[180px]">
+                          <div className="flex gap-1.5">
+                            <select
+                              value={markPaidMethod}
+                              onChange={e => setMarkPaidMethod(e.target.value as 'etransfer' | 'cash')}
+                              className="border rounded px-1.5 py-1 text-xs"
+                            >
+                              <option value="etransfer">e-Transfer</option>
+                              <option value="cash">Cash</option>
+                            </select>
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Notes (optional)"
+                            value={markPaidNotes}
+                            onChange={e => setMarkPaidNotes(e.target.value)}
+                            className="border rounded px-1.5 py-1 text-xs w-full"
+                          />
+                          <div className="flex gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleMarkPaid(order.id)}
+                              disabled={markPaidPendingId === order.id}
+                              className="text-xs px-2.5 py-1 rounded-md font-semibold text-white disabled:opacity-60"
+                              style={{ backgroundColor: 'var(--brand-primary)' }}
+                            >
+                              {markPaidPendingId === order.id ? 'Saving…' : 'Confirm'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setMarkPaidOpenId(null); setMarkPaidNotes('') }}
+                              className="text-xs px-2.5 py-1 rounded-md border text-gray-600 hover:bg-gray-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setMarkPaidOpenId(order.id)}
+                          className="text-xs px-2.5 py-1 rounded-md border font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap"
+                        >
+                          Mark as Paid
+                        </button>
+                      )
+                    )}
                     {order.status === 'paid' && (
                       <button
                         type="button"
