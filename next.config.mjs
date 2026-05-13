@@ -33,7 +33,7 @@ const securityHeaders = [
       "img-src 'self' data: blob: https://*.supabase.co",
       "font-src 'self' data: https://fonts.gstatic.com",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://cloudflareinsights.com",
-      "frame-src https://js.stripe.com https://hooks.stripe.com",
+      "frame-src 'self' blob: https://js.stripe.com https://hooks.stripe.com https://*.supabase.co",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
