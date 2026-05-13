@@ -166,11 +166,18 @@ export function PdfViewerButton({ url, label = 'View PDF', variant = 'pill', cla
               </div>
             )}
             {blobUrl && !loading && !fetchError && (
-              <iframe
-                src={blobUrl}
-                title={label}
-                className="flex-1 w-full border-0 bg-gray-100"
-              />
+              // Overflow wrapper enables touch-scroll on mobile so all pages are reachable
+              <div
+                className="flex-1 overflow-auto"
+                style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+              >
+                <iframe
+                  src={blobUrl}
+                  title={label}
+                  className="w-full h-full border-0 bg-gray-100"
+                  style={{ minHeight: '100%' }}
+                />
+              </div>
             )}
           </div>
         </div>
