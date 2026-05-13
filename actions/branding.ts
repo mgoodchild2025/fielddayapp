@@ -37,7 +37,9 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
 
-  const { data: member } = await supabase
+  const service = createServiceRoleClient()
+
+  const { data: member } = await service
     .from('org_members')
     .select('role')
     .eq('organization_id', orgId)
@@ -47,9 +49,6 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
   if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
     return { data: null, error: 'Unauthorized' }
   }
-
-  // Use service role to bypass RLS (membership already verified above)
-  const service = createServiceRoleClient()
 
   // ── Custom domain: sync with Railway ──────────────────────────────────────
   // Read the current branding row so we know what domain (if any) is already registered.
@@ -143,7 +142,9 @@ export async function refreshDnsStatus(orgId: string): Promise<{ records: Railwa
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { records: null, error: 'Not authenticated' }
 
-  const { data: member } = await supabase
+  const service = createServiceRoleClient()
+
+  const { data: member } = await service
     .from('org_members')
     .select('role')
     .eq('organization_id', orgId)
@@ -153,8 +154,6 @@ export async function refreshDnsStatus(orgId: string): Promise<{ records: Railwa
   if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
     return { records: null, error: 'Unauthorized' }
   }
-
-  const service = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: branding } = await (service as any)
     .from('org_branding')
@@ -231,7 +230,9 @@ export async function updateCheckinSound(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: member } = await supabase
+  const service = createServiceRoleClient()
+
+  const { data: member } = await service
     .from('org_members')
     .select('role')
     .eq('organization_id', orgId)
@@ -242,7 +243,6 @@ export async function updateCheckinSound(
     return { error: 'Unauthorized' }
   }
 
-  const service = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (service as any)
     .from('org_branding')

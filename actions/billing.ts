@@ -36,7 +36,8 @@ async function requireOrgAdmin() {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
-  const { data: member } = await supabase
+  const db = createServiceRoleClient()
+  const { data: member } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -50,8 +51,8 @@ async function requireOrgAdmin() {
 export async function getSubscription(): Promise<SubscriptionRow | null> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
-  const { data } = await supabase
+  const db = createServiceRoleClient()
+  const { data } = await db
     .from('subscriptions')
     .select('*')
     .eq('organization_id', org.id)

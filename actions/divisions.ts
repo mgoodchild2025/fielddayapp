@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 
@@ -13,9 +13,9 @@ export async function createDivision(leagueId: string, name: string) {
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from('divisions')
     .select('sort_order')
     .eq('league_id', leagueId)
@@ -26,7 +26,7 @@ export async function createDivision(leagueId: string, name: string) {
 
   const nextOrder = (existing?.sort_order ?? -1) + 1
 
-  const { error } = await supabase.from('divisions').insert({
+  const { error } = await db.from('divisions').insert({
     league_id: leagueId,
     organization_id: org.id,
     name: name.trim(),
@@ -44,16 +44,16 @@ export async function deleteDivision(divisionId: string, leagueId: string) {
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   // Unassign all teams first
-  await supabase
+  await db
     .from('teams')
     .update({ division_id: null })
     .eq('division_id', divisionId)
     .eq('organization_id', org.id)
 
-  const { error } = await supabase
+  const { error } = await db
     .from('divisions')
     .delete()
     .eq('id', divisionId)
@@ -74,8 +74,8 @@ export async function setTeamDivision(
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
-  const supabase = await createServerClient()
-  const { error } = await supabase
+  const db = createServiceRoleClient()
+  const { error } = await db
     .from('teams')
     .update({ division_id: divisionId })
     .eq('id', teamId)

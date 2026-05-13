@@ -3,6 +3,7 @@
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 
 /**
@@ -20,8 +21,9 @@ export async function upsertRsvp(gameId: string, teamId: string, status: 'in' | 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
+  const db = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await (db as any)
     .from('game_rsvps')
     .upsert(
       {
@@ -64,8 +66,10 @@ export async function getGameAttendanceDetails(gameId: string, teamId: string): 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { players: [], error: 'Not authenticated' }
 
+  const db = createServiceRoleClient()
+
   // Verify caller is an active captain of this team
-  const { data: captainship } = await supabase
+  const { data: captainship } = await db
     .from('team_members')
     .select('role')
     .eq('team_id', teamId)
@@ -78,14 +82,14 @@ export async function getGameAttendanceDetails(gameId: string, teamId: string): 
   // Fetch all active roster members + all RSVPs for this game in parallel
   const [{ data: members }, { data: rsvps }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+    (db as any)
       .from('team_members')
       .select('user_id, role, profile:profiles!team_members_user_id_fkey(full_name)')
       .eq('team_id', teamId)
       .eq('organization_id', org.id)
       .eq('status', 'active'),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+    (db as any)
       .from('game_rsvps')
       .select('user_id, status')
       .eq('game_id', gameId)

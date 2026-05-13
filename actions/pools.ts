@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 
@@ -13,10 +13,10 @@ export async function createPool(leagueId: string, name: string) {
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (supabase as any)
+  const { data: existing } = await (db as any)
     .from('pools')
     .select('sort_order')
     .eq('league_id', leagueId)
@@ -28,7 +28,7 @@ export async function createPool(leagueId: string, name: string) {
   const nextOrder = (existing?.sort_order ?? -1) + 1
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any).from('pools').insert({
+  const { error } = await (db as any).from('pools').insert({
     league_id: leagueId,
     organization_id: org.id,
     name: name.trim(),
@@ -46,24 +46,24 @@ export async function deletePool(poolId: string, leagueId: string) {
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   // Unassign all teams and games first
-  await supabase
+  await db
     .from('teams')
     .update({ pool_id: null } as never)
     .eq('pool_id' as never, poolId)
     .eq('organization_id', org.id)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any)
+  await (db as any)
     .from('games')
     .update({ pool_id: null })
     .eq('pool_id', poolId)
     .eq('organization_id', org.id)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await (db as any)
     .from('pools')
     .delete()
     .eq('id', poolId)
@@ -84,8 +84,8 @@ export async function setTeamPool(
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
-  const supabase = await createServerClient()
-  const { error } = await supabase
+  const db = createServiceRoleClient()
+  const { error } = await db
     .from('teams')
     .update({ pool_id: poolId } as never)
     .eq('id', teamId)
@@ -109,10 +109,10 @@ export async function generatePoolSchedule(input: {
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   // Fetch teams in this pool
-  const { data: teams } = await supabase
+  const { data: teams } = await db
     .from('teams')
     .select('id, name')
     .eq('pool_id' as never, input.poolId)
@@ -143,7 +143,7 @@ export async function generatePoolSchedule(input: {
   }))
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any).from('games').insert(games)
+  const { error } = await (db as any).from('games').insert(games)
   if (error) return { error: error.message, count: 0 }
 
   revalidatePath(`/admin/events/${input.leagueId}/pools`)

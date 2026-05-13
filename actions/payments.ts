@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { z } from 'zod'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 
 const recordManualPaymentSchema = z.object({
@@ -23,9 +23,9 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
-  const { error } = await supabase.from('payments').insert({
+  const { error } = await db.from('payments').insert({
     organization_id: org.id,
     registration_id: parsed.data.registrationId,
     user_id: parsed.data.userId,
@@ -41,7 +41,7 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
   if (error) return { data: null, error: error.message }
 
   // Activate the registration
-  await supabase.from('registrations').update({ status: 'active' }).eq('id', parsed.data.registrationId)
+  await db.from('registrations').update({ status: 'active' }).eq('id', parsed.data.registrationId)
 
   revalidatePath('/admin/payments')
   return { data: null, error: null }
@@ -57,13 +57,13 @@ export async function updatePaymentStatus(input: z.infer<typeof updatePaymentSta
   const parsed = updatePaymentStatusSchema.safeParse(input)
   if (!parsed.success) return { error: 'Invalid input' }
 
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   const updates: Record<string, unknown> = { status: parsed.data.status }
   if (parsed.data.notes !== undefined) updates.notes = parsed.data.notes
   if (parsed.data.status === 'paid') updates.paid_at = new Date().toISOString()
 
-  const { error } = await supabase
+  const { error } = await db
     .from('payments')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .update(updates as any)

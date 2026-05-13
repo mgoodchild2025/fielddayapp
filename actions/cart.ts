@@ -1,6 +1,7 @@
 'use server'
 
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import type { CartItem } from '@/components/shop/cart-provider'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -21,7 +22,9 @@ export async function loadCart(orgId: string): Promise<StoredCartItem[]> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
-  const { data, error } = await supabase
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (db as any)
     .from('cart_items')
     .select(`
       id,
@@ -30,6 +33,7 @@ export async function loadCart(orgId: string): Promise<StoredCartItem[]> {
       variant:merchandise_variants!variant_id(id, label)
     `)
     .eq('organization_id', orgId)
+    .eq('user_id', user.id)
     .order('created_at')
 
   if (error) {
@@ -65,12 +69,15 @@ export async function saveCartItem(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
+  const db = createServiceRoleClient()
+
   // Check for existing row (NULL-safe variant match)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase as any)
+  let query = (db as any)
     .from('cart_items')
     .select('id')
     .eq('organization_id', orgId)
+    .eq('user_id', user.id)
     .eq('item_id', itemId)
 
   query = variantId ? query.eq('variant_id', variantId) : query.is('variant_id', null)
@@ -79,7 +86,7 @@ export async function saveCartItem(
 
   if (existing?.id) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+    await (db as any)
       .from('cart_items')
       .update({ quantity, updated_at: new Date().toISOString() })
       .eq('id', existing.id)
@@ -87,10 +94,11 @@ export async function saveCartItem(
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: inserted, error: insertError } = await (supabase as any)
+  const { data: inserted, error: insertError } = await (db as any)
     .from('cart_items')
     .insert({
       organization_id: orgId,
+      user_id:         user.id,
       item_id:         itemId,
       variant_id:      variantId ?? null,
       quantity,
@@ -109,11 +117,13 @@ export async function deleteCartItem(cartItemId: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
+  const db = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any)
+  await (db as any)
     .from('cart_items')
     .delete()
     .eq('id', cartItemId)
+    .eq('user_id', user.id)
 }
 
 // ── Clear all ─────────────────────────────────────────────────────────────────
@@ -123,9 +133,11 @@ export async function clearCartItems(orgId: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
+  const db = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any)
+  await (db as any)
     .from('cart_items')
     .delete()
     .eq('organization_id', orgId)
+    .eq('user_id', user.id)
 }

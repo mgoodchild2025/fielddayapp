@@ -19,7 +19,9 @@ export async function changeMemberRole(memberId: string, newRole: OrgRole) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
-  const { data: caller } = await supabase
+  const db = createServiceRoleClient()
+
+  const { data: caller } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -27,9 +29,6 @@ export async function changeMemberRole(memberId: string, newRole: OrgRole) {
     .single()
 
   if (!caller || caller.role !== 'org_admin') return { error: 'Unauthorized' }
-
-  // Use service role for the write — RLS blocks cross-row updates via user auth
-  const db = createServiceRoleClient()
   const { error } = await db
     .from('org_members')
     .update({ role: newRole })
@@ -51,7 +50,9 @@ export async function suspendMember(memberId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
-  const { data: caller } = await supabase
+  const db = createServiceRoleClient()
+
+  const { data: caller } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -59,8 +60,6 @@ export async function suspendMember(memberId: string) {
     .single()
 
   if (!caller || caller.role !== 'org_admin') return { error: 'Unauthorized' }
-
-  const db = createServiceRoleClient()
   const { error } = await db
     .from('org_members')
     .update({ status: 'suspended' })
@@ -82,7 +81,9 @@ export async function reinstateMember(memberId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
-  const { data: caller } = await supabase
+  const db = createServiceRoleClient()
+
+  const { data: caller } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -90,8 +91,6 @@ export async function reinstateMember(memberId: string) {
     .single()
 
   if (!caller || caller.role !== 'org_admin') return { error: 'Unauthorized' }
-
-  const db = createServiceRoleClient()
   const { error } = await db
     .from('org_members')
     .update({ status: 'active' })
@@ -119,7 +118,9 @@ export async function deleteMember(memberId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
-  const { data: caller } = await supabase
+  const serviceClient = createServiceRoleClient()
+
+  const { data: caller } = await serviceClient
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -129,7 +130,7 @@ export async function deleteMember(memberId: string) {
   if (!caller || caller.role !== 'org_admin') return { error: 'Unauthorized' }
 
   // Look up the member's user_id so we can clean up team_members
-  const { data: member } = await supabase
+  const { data: member } = await serviceClient
     .from('org_members')
     .select('user_id')
     .eq('id', memberId)
@@ -139,9 +140,6 @@ export async function deleteMember(memberId: string) {
   if (!member) return { error: 'Member not found' }
 
   const targetUserId = member.user_id
-
-  // Use service role for all writes — RLS blocks cross-row deletes via user auth
-  const serviceClient = createServiceRoleClient()
 
   // Remove from all teams in this org
   await serviceClient
@@ -204,7 +202,9 @@ export async function inviteMember(input: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
-  const { data: caller } = await supabase
+  const service = createServiceRoleClient()
+
+  const { data: caller } = await service
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -217,7 +217,6 @@ export async function inviteMember(input: FormData) {
 
   // Find existing profile by email — must use service role to bypass RLS,
   // since the anon client can't read other users' profile rows.
-  const service = createServiceRoleClient()
   const { data: existingProfile } = await service
     .from('profiles')
     .select('id')

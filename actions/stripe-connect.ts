@@ -15,7 +15,8 @@ async function requireOrgAdmin() {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
-  const { data: member } = await supabase
+  const db = createServiceRoleClient()
+  const { data: member } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)

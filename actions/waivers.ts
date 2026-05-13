@@ -29,18 +29,18 @@ export async function upsertWaiver(input: z.infer<typeof upsertWaiverSchema>) {
   const org = await getCurrentOrg(headersList)
   const auth = await assertOrgAdmin(org, ['org_admin', 'league_admin'])
   if (auth.error) return { data: null, error: auth.error }
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   if (parsed.data.id) {
     // Update existing — bump version
-    const { data: current } = await supabase
+    const { data: current } = await db
       .from('waivers')
       .select('version')
       .eq('id', parsed.data.id)
       .eq('organization_id', org.id)
       .single()
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('waivers')
       .update({
         title: parsed.data.title,
@@ -58,14 +58,14 @@ export async function upsertWaiver(input: z.infer<typeof upsertWaiverSchema>) {
   }
 
   // Deactivate any existing active waivers first
-  await supabase
+  await db
     .from('waivers')
     .update({ is_active: false })
     .eq('organization_id', org.id)
     .eq('is_active', true)
 
   // Insert new
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('waivers')
     .insert({
       organization_id: org.id,
@@ -87,17 +87,17 @@ export async function setWaiverActive(waiverId: string, active: boolean) {
   const org = await getCurrentOrg(headersList)
   const auth = await assertOrgAdmin(org, ['org_admin', 'league_admin'])
   if (auth.error) return { error: auth.error }
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   if (active) {
     // Deactivate others first
-    await supabase
+    await db
       .from('waivers')
       .update({ is_active: false })
       .eq('organization_id', org.id)
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('waivers')
     .update({ is_active: active })
     .eq('id', waiverId)
@@ -111,8 +111,8 @@ export async function setWaiverActive(waiverId: string, active: boolean) {
 // ─── Admin: delete waiver ─────────────────────────────────────────────────────
 
 export async function getWaiverSignatureCount(waiverId: string): Promise<number> {
-  const supabase = await createServerClient()
-  const { count } = await supabase
+  const db = createServiceRoleClient()
+  const { count } = await db
     .from('waiver_signatures')
     .select('id', { count: 'exact', head: true })
     .eq('waiver_id', waiverId)
@@ -125,10 +125,10 @@ export async function deleteWaiver(waiverId: string, force = false) {
   // Only org_admin can delete waivers (not league_admin — too destructive)
   const auth = await assertOrgAdmin(org, ['org_admin'])
   if (auth.error) return { error: auth.error }
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   // Block deletion if any player has already signed this waiver (unless force=true)
-  const { count } = await supabase
+  const { count } = await db
     .from('waiver_signatures')
     .select('id', { count: 'exact', head: true })
     .eq('waiver_id', waiverId)
@@ -141,7 +141,7 @@ export async function deleteWaiver(waiverId: string, force = false) {
 
   // If force=true, sever FK references then delete signatures
   if (force && (count ?? 0) > 0) {
-    const serviceClient = createServiceRoleClient()
+    const serviceClient = db
 
     // 1. Fetch the signature IDs for this waiver so we can null out registrations
     const { data: sigs } = await serviceClient
@@ -169,13 +169,13 @@ export async function deleteWaiver(waiverId: string, force = false) {
   }
 
   // Clear this waiver from any leagues that reference it (revert to "No waiver required")
-  await supabase
+  await db
     .from('leagues')
     .update({ waiver_version_id: null })
     .eq('organization_id', org.id)
     .eq('waiver_version_id', waiverId)
 
-  const { error } = await supabase
+  const { error } = await db
     .from('waivers')
     .delete()
     .eq('id', waiverId)
@@ -224,12 +224,14 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
 
+  const db = createServiceRoleClient()
+
   // Check for an existing signature scoped to this specific event.
   // Each event now gets its own signature row (UNIQUE(user_id, waiver_id, league_id))
   // so signing the same waiver for a different event always creates a fresh record
   // with an accurate timestamp for that event.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const existingQuery = (supabase as any)
+  const existingQuery = (db as any)
     .from('waiver_signatures')
     .select('id')
     .eq('organization_id', org.id)
@@ -248,7 +250,7 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
     signatureId = existing.id
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
+    const { data, error } = await (db as any)
       .from('waiver_signatures')
       .insert({
         organization_id: org.id,
@@ -269,7 +271,7 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
 
   // Link the signature to the player's registration for this event.
   if (parsed.data.leagueId) {
-    await supabase
+    await db
       .from('registrations')
       .update({ waiver_signature_id: signatureId })
       .eq('organization_id', org.id)
@@ -281,7 +283,7 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
   // Also link by registration ID when provided — fires even on the dedup path,
   // re-linking a previously signed waiver to a new registration row.
   if (parsed.data.registrationId) {
-    await supabase
+    await db
       .from('registrations')
       .update({ waiver_signature_id: signatureId })
       .eq('id', parsed.data.registrationId)

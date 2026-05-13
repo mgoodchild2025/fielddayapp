@@ -71,8 +71,8 @@ export async function createSession(
   const d = parsed.data
 
   // Resolve org timezone so we correctly convert the naive local datetime input to UTC
-  const supabaseForTz = await createServerClient()
-  const { data: branding } = await supabaseForTz
+  const dbForTz = createServiceRoleClient()
+  const { data: branding } = await dbForTz
     .from('org_branding')
     .select('timezone')
     .eq('organization_id', org.id)
@@ -104,9 +104,9 @@ export async function createSession(
 
   const rows = scheduledIsos.map((iso) => ({ ...base, scheduled_at: iso }))
 
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any).from('event_sessions').insert(rows)
+  const { error } = await (db as any).from('event_sessions').insert(rows)
 
   if (error) return { error: error.message }
 
@@ -128,10 +128,10 @@ export async function updateSession(
   if (!parsed.success) return { error: 'Invalid input' }
 
   const d = parsed.data
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   // Resolve org timezone so the naive local datetime input is stored as correct UTC
-  const { data: branding } = await supabase
+  const { data: branding } = await db
     .from('org_branding')
     .select('timezone')
     .eq('organization_id', org.id)
@@ -144,7 +144,7 @@ export async function updateSession(
     : d.scheduled_at
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await (db as any)
     .from('event_sessions')
     .update({
       scheduled_at: scheduledAtUtc,
@@ -168,9 +168,9 @@ export async function cancelSession(sessionId: string, leagueId: string) {
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await (db as any)
     .from('event_sessions')
     .update({ status: 'cancelled' })
     .eq('id', sessionId)
@@ -188,9 +188,9 @@ export async function deleteSession(sessionId: string, leagueId: string) {
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await (db as any)
     .from('event_sessions')
     .delete()
     .eq('id', sessionId)
@@ -210,8 +210,10 @@ export async function joinSession(sessionId: string, leagueId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
+  const db = createServiceRoleClient()
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (supabase as any)
+  const { data: league } = await (db as any)
     .from('leagues')
     .select('pickup_join_policy')
     .eq('id', leagueId)
@@ -219,7 +221,6 @@ export async function joinSession(sessionId: string, leagueId: string) {
     .single()
 
   if (league?.pickup_join_policy === 'private') {
-    const db = createServiceRoleClient()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: invite } = await (db as any)
       .from('pickup_invites')
@@ -232,7 +233,7 @@ export async function joinSession(sessionId: string, leagueId: string) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: session } = await (supabase as any)
+  const { data: session } = await (db as any)
     .from('event_sessions')
     .select('id, capacity, status')
     .eq('id', sessionId)
@@ -244,7 +245,7 @@ export async function joinSession(sessionId: string, leagueId: string) {
 
   if (session.capacity !== null) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { count } = await (supabase as any)
+    const { count } = await (db as any)
       .from('session_registrations')
       .select('*', { count: 'exact', head: true })
       .eq('session_id', sessionId)
@@ -255,7 +256,7 @@ export async function joinSession(sessionId: string, leagueId: string) {
 
   // Upsert: handles re-joining after cancelling
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await (db as any)
     .from('session_registrations')
     .upsert(
       {
@@ -272,7 +273,6 @@ export async function joinSession(sessionId: string, leagueId: string) {
 
   // Mark invite as accepted on first join
   if (league?.pickup_join_policy === 'private') {
-    const db = createServiceRoleClient()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (db as any)
       .from('pickup_invites')
@@ -294,8 +294,9 @@ export async function leaveSession(sessionId: string, leagueId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
+  const db = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await (db as any)
     .from('session_registrations')
     .update({ status: 'cancelled' })
     .eq('session_id', sessionId)

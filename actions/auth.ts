@@ -127,13 +127,12 @@ export async function signUp(input: { email: string; password: string; fullName:
   const email = parsed.data.email
 
   // Create profile record
-  await supabase.from('profiles').upsert({
+  const service = createServiceRoleClient()
+  await service.from('profiles').upsert({
     id: userId,
     full_name: parsed.data.fullName,
     email,
   })
-
-  const service = createServiceRoleClient()
 
   // If the player signed up on an org subdomain, add them to that org immediately
   // so they appear in Admin → Players without needing to complete a league registration.
@@ -214,15 +213,16 @@ export async function updateProfile(input: z.infer<typeof updateProfileSchema>) 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
 
+  const db = createServiceRoleClient()
   const [profileRes, detailsRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from('profiles').update({
+    (db as any).from('profiles').update({
       full_name: parsed.data.full_name,
       phone: parsed.data.phone ? toE164(parsed.data.phone) : null,
       sms_opted_in: parsed.data.sms_opted_in ?? false,
       sms_game_day_enabled: parsed.data.sms_game_day_enabled ?? true,
     }).eq('id', user.id),
-    supabase.from('player_details').upsert({
+    db.from('player_details').upsert({
       organization_id: parsed.data.orgId,
       user_id: user.id,
       skill_level: parsed.data.skill_level ?? null,

@@ -3,6 +3,7 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 
 export async function markAllNotificationsRead() {
   const headersList = await headers()
@@ -11,7 +12,8 @@ export async function markAllNotificationsRead() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
-  await supabase
+  const db = createServiceRoleClient()
+  await db
     .from('notifications')
     .update({ read: true })
     .eq('organization_id', org.id)
@@ -28,7 +30,8 @@ export async function markNotificationRead(notificationId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
-  await supabase
+  const db = createServiceRoleClient()
+  await db
     .from('notifications')
     .update({ read: true })
     .eq('id', notificationId)

@@ -3,7 +3,6 @@
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { z } from 'zod'
-import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { getLimit, getActiveLeagueCount } from '@/lib/features'
@@ -86,9 +85,9 @@ export async function createLeague(
   }
   const league_type = leagueTypeMap[parsed.data.event_type] ?? 'team'
 
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await (db as any)
     .from('leagues')
     .insert({
       organization_id: org.id,
@@ -132,7 +131,6 @@ export async function createLeague(
   if (error) return { data: null, error: error.message }
 
   // Auto-add the creator as the first event organizer
-  const db = createServiceRoleClient()
   const { data: creatorProfile } = await db
     .from('profiles')
     .select('email')
@@ -162,8 +160,8 @@ export async function updateLeagueStatus(leagueId: string, status: LeagueStatus)
   const auth = await assertOrgAdmin(org)
   if (auth.error) return { data: null, error: auth.error }
 
-  const supabase = await createServerClient()
-  const { error } = await supabase
+  const db = createServiceRoleClient()
+  const { error } = await db
     .from('leagues')
     .update({ status })
     .eq('id', leagueId)
@@ -180,38 +178,38 @@ export async function deleteLeague(leagueId: string) {
   const org = await getCurrentOrg(headersList)
   const auth = await assertOrgAdmin(org, ['org_admin'])
   if (auth.error) return { error: auth.error }
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   // Delete child records in safe order (cascade may not cover everything)
-  await supabase.from('team_members').delete().eq('organization_id', org.id)
+  await db.from('team_members').delete().eq('organization_id', org.id)
     // only members belonging to teams in this league
     .in('team_id',
-      (await supabase.from('teams').select('id').eq('league_id', leagueId).eq('organization_id', org.id))
+      (await db.from('teams').select('id').eq('league_id', leagueId).eq('organization_id', org.id))
         .data?.map((t) => t.id) ?? []
     )
 
   // bracket_matches reference teams — must go before teams
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: brackets } = await (supabase as any).from('brackets').select('id').eq('league_id', leagueId).eq('organization_id', org.id)
+  const { data: brackets } = await (db as any).from('brackets').select('id').eq('league_id', leagueId).eq('organization_id', org.id)
   if (brackets && brackets.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from('bracket_matches').delete().in('bracket_id', brackets.map((b: { id: string }) => b.id))
+    await (db as any).from('bracket_matches').delete().in('bracket_id', brackets.map((b: { id: string }) => b.id))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from('brackets').delete().eq('league_id', leagueId).eq('organization_id', org.id)
+    await (db as any).from('brackets').delete().eq('league_id', leagueId).eq('organization_id', org.id)
   }
 
-  await supabase.from('game_results').delete().eq('organization_id', org.id)
+  await db.from('game_results').delete().eq('organization_id', org.id)
     .in('game_id',
-      (await supabase.from('games').select('id').eq('league_id', leagueId).eq('organization_id', org.id))
+      (await db.from('games').select('id').eq('league_id', leagueId).eq('organization_id', org.id))
         .data?.map((g) => g.id) ?? []
     )
-  await supabase.from('teams').delete().eq('league_id', leagueId).eq('organization_id', org.id)
-  await supabase.from('registrations').delete().eq('league_id', leagueId).eq('organization_id', org.id)
-  await supabase.from('games').delete().eq('league_id', leagueId).eq('organization_id', org.id)
-  await supabase.from('payments').delete().eq('league_id', leagueId).eq('organization_id', org.id)
-  await supabase.from('announcements').delete().eq('league_id', leagueId).eq('organization_id', org.id)
+  await db.from('teams').delete().eq('league_id', leagueId).eq('organization_id', org.id)
+  await db.from('registrations').delete().eq('league_id', leagueId).eq('organization_id', org.id)
+  await db.from('games').delete().eq('league_id', leagueId).eq('organization_id', org.id)
+  await db.from('payments').delete().eq('league_id', leagueId).eq('organization_id', org.id)
+  await db.from('announcements').delete().eq('league_id', leagueId).eq('organization_id', org.id)
 
-  const { error } = await supabase
+  const { error } = await db
     .from('leagues')
     .delete()
     .eq('id', leagueId)
@@ -239,9 +237,9 @@ export async function updateLeague(
   const auth = await assertOrgAdmin(org)
   if (auth.error) return { error: auth.error }
 
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await (db as any)
     .from('leagues')
     .update(updates)
     .eq('id', leagueId)

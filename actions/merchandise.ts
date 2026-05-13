@@ -108,7 +108,8 @@ async function getCallerRole(orgId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data: member } = await supabase
+  const db = createServiceRoleClient()
+  const { data: member } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', orgId)

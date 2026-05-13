@@ -37,7 +37,9 @@ export async function sendAnnouncement(input: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
-  const { data: member } = await supabase
+  const db = createServiceRoleClient()
+
+  const { data: member } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -51,7 +53,7 @@ export async function sendAnnouncement(input: FormData) {
   const scheduledFor = parsed.data.scheduled_for ? new Date(parsed.data.scheduled_for) : null
   const isImmediate = !scheduledFor || scheduledFor <= new Date()
 
-  const { data: announcement, error } = await supabase
+  const { data: announcement, error } = await db
     .from('announcements')
     .insert({
       organization_id: org.id,
@@ -143,7 +145,8 @@ export async function deleteAnnouncement(id: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
-  const { error } = await supabase
+  const db = createServiceRoleClient()
+  const { error } = await db
     .from('announcements')
     .delete()
     .eq('id', id)
