@@ -104,7 +104,7 @@ export default async function MyEventsPage() {
               {currentEvents.map(({ registrationId, registrationStatus, checkinUrl, league }: any) => {
                 const statusInfo = STATUS_LABEL[league.league_status] ?? { label: league.league_status, className: 'bg-gray-100 text-gray-500' }
                 const isActive = registrationStatus === 'active'
-                const showQR = isActive && !!checkinUrl && league.league_status === 'active' && league.checkin_enabled === true
+                const showQR = isActive && !!checkinUrl && ['active', 'registration_open'].includes(league.league_status) && league.checkin_enabled === true
 
                 return (
                   <div
