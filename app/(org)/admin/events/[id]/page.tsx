@@ -179,6 +179,19 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
           name={league.name}
         />
 
+        {/* Event Info (documents) */}
+        {isOrgAdmin && (
+          <div className="bg-white rounded-lg border p-5">
+            <div className="mb-4">
+              <h2 className="font-semibold text-sm">Event Info</h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                PDF files players can download from the event page. Drag to reorder.
+              </p>
+            </div>
+            <LeagueDocumentsManager leagueId={id} initialDocuments={leagueDocuments} />
+          </div>
+        )}
+
         {/* Organizers */}
         <OrganizersPanel
           leagueId={id}
@@ -254,18 +267,6 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
           </div>
         )}
 
-        {/* Event Info (documents) */}
-        {isOrgAdmin && (
-          <div className="bg-white rounded-lg border p-5">
-            <div className="mb-4">
-              <h2 className="font-semibold text-sm">Event Info</h2>
-              <p className="text-xs text-gray-400 mt-0.5">
-                PDF files players can download from the event page. Drag to reorder.
-              </p>
-            </div>
-            <LeagueDocumentsManager leagueId={id} initialDocuments={leagueDocuments} />
-          </div>
-        )}
       </div>
     </div>
   )
