@@ -30,6 +30,7 @@ export async function convertToWebP(
   const buf = Buffer.isBuffer(input) ? input : Buffer.from(input)
 
   const webpBuffer = await sharp(buf)
+    .rotate()  // auto-orient from EXIF before stripping metadata
     .resize(maxWidth, maxHeight, { fit: 'inside', withoutEnlargement: true })
     .webp({ quality })
     .toBuffer()
