@@ -327,7 +327,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
               <p className="text-sm font-semibold text-amber-800">Early Bird Pricing</p>
               <p className="text-xs text-amber-600 mt-0.5">Offer a discounted price until the deadline. Leave blank to disable.</p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Early bird price">
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">$</span>
@@ -338,7 +338,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
                     step="0.01"
                     placeholder="Leave blank to disable"
                     defaultValue={league.early_bird_price_cents != null ? (league.early_bird_price_cents / 100).toFixed(2) : ''}
-                    className="input"
+                    className="input w-full"
                     style={{ paddingLeft: '1.75rem' }}
                   />
                 </div>
@@ -348,7 +348,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
                   name="early_bird_deadline"
                   type="datetime-local"
                   defaultValue={toDateTimeInput(league.early_bird_deadline)}
-                  className="input"
+                  className="input w-full"
                 />
               </Field>
             </div>
@@ -502,21 +502,21 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Season Start">
-            <input name="season_start_date" type="date" defaultValue={toDateInput(league.season_start_date)} className="input" />
+            <input name="season_start_date" type="date" defaultValue={toDateInput(league.season_start_date)} className="input w-full" />
           </Field>
           <Field label="Season End">
-            <input name="season_end_date" type="date" defaultValue={toDateInput(league.season_end_date)} className="input" />
+            <input name="season_end_date" type="date" defaultValue={toDateInput(league.season_end_date)} className="input w-full" />
           </Field>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Reg Opens">
-            <input name="registration_opens_at" type="datetime-local" defaultValue={toDateTimeInput(league.registration_opens_at)} className="input" />
+            <input name="registration_opens_at" type="datetime-local" defaultValue={toDateTimeInput(league.registration_opens_at)} className="input w-full" />
           </Field>
           <Field label="Reg Closes">
-            <input name="registration_closes_at" type="datetime-local" defaultValue={toDateTimeInput(league.registration_closes_at)} className="input" />
+            <input name="registration_closes_at" type="datetime-local" defaultValue={toDateTimeInput(league.registration_closes_at)} className="input w-full" />
           </Field>
         </div>
 
