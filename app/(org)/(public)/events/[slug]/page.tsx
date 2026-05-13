@@ -1537,21 +1537,7 @@ export default async function EventDetailPage({
                 <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">Event Info</p>
                 <div className="divide-y">
                   {(leagueDocuments as { id: string; title: string; file_url: string }[]).map((doc) => (
-                    <a
-                      key={doc.id}
-                      href={doc.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 hover:text-blue-700 transition-colors group"
-                    >
-                      <svg className="w-4 h-4 shrink-0 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
-                      <span className="flex-1 text-sm font-medium text-gray-800 group-hover:text-blue-700 transition-colors">{doc.title}</span>
-                      <svg className="w-3.5 h-3.5 shrink-0 text-gray-300 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </a>
+                    <PdfViewerButton key={doc.id} url={doc.file_url} label={doc.title} variant="row" />
                   ))}
                 </div>
               </div>

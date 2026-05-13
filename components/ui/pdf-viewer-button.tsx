@@ -5,8 +5,12 @@ import { useState, useEffect, useRef } from 'react'
 interface Props {
   url: string
   label?: string
-  /** Render as a small icon button (for document lists) vs a full pill button */
-  variant?: 'pill' | 'icon'
+  /**
+   * pill  — full-width pill button (Format/Rules tabs)
+   * icon  — small icon-only button (admin document list hover actions)
+   * row   — full-width list row with PDF icon + title + chevron (Overview documents list)
+   */
+  variant?: 'pill' | 'icon' | 'row'
   className?: string
 }
 
@@ -40,7 +44,24 @@ export function PdfViewerButton({ url, label = 'View PDF', variant = 'pill', cla
 
   return (
     <>
-      {variant === 'pill' ? (
+      {variant === 'row' ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 w-full text-left hover:text-blue-700 transition-colors group"
+        >
+          {/* PDF file icon */}
+          <svg className="w-4 h-4 shrink-0 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+          <span className="flex-1 text-sm font-medium text-gray-800 group-hover:text-blue-700 transition-colors">{label}</span>
+          {/* Open chevron */}
+          <svg className="w-3.5 h-3.5 shrink-0 text-gray-300 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      ) : variant === 'pill' ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
