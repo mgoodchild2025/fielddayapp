@@ -341,12 +341,14 @@ export async function joinTeamByCode(teamCode: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
 
   // Look up team by code within this org
-  const { data: team } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: team } = await (db as any)
     .from('teams')
     .select('id, name, league_id, organization_id')
     .eq('team_code', code)
@@ -357,14 +359,15 @@ export async function joinTeamByCode(teamCode: string) {
   if (!team) return { data: null, error: 'Team code not found. Check the code and try again.' }
 
   // ── Team size capacity check ──────────────────────────────────────────────
-  const { data: leagueForSize } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: leagueForSize } = await (db as any)
     .from('leagues')
     .select('max_team_size')
     .eq('id', team.league_id)
     .single()
 
   if (leagueForSize?.max_team_size) {
-    const { count: memberCount } = await supabase
+    const { count: memberCount } = await db
       .from('team_members')
       .select('*', { count: 'exact', head: true })
       .eq('team_id', team.id)
@@ -375,7 +378,7 @@ export async function joinTeamByCode(teamCode: string) {
   }
 
   // Ensure org membership
-  await supabase.from('org_members').upsert({
+  await db.from('org_members').upsert({
     organization_id: org.id,
     user_id: user.id,
     role: 'player',
@@ -383,24 +386,25 @@ export async function joinTeamByCode(teamCode: string) {
   }, { onConflict: 'organization_id,user_id', ignoreDuplicates: true })
 
   // Add to team — upsert so re-entering the code is harmless
-  const { error } = await supabase.from('team_members').upsert({
+  const { error } = await db.from('team_members').upsert({
     organization_id: org.id,
     team_id: team.id,
     user_id: user.id,
     role: 'player',
     status: 'active',
-  }, { onConflict: 'team_id,user_id' })
+  } as never, { onConflict: 'team_id,user_id' } as never)
 
-  if (error) return { data: null, error: error.message }
+  if (error) return { data: null, error: (error as { message: string }).message }
 
   // Also link any pending invite for this user's email
-  const { data: profile } = await supabase.from('profiles').select('email').eq('id', user.id).single()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile } = await (db as any).from('profiles').select('email').eq('id', user.id).single()
   if (profile?.email) {
-    await supabase
+    await db
       .from('team_members')
-      .update({ user_id: user.id, status: 'active' })
+      .update({ user_id: user.id, status: 'active' } as never)
       .eq('team_id', team.id)
-      .eq('invited_email', profile.email)
+      .eq('invited_email' as never, profile.email)
       .is('user_id', null)
   }
 
@@ -416,9 +420,10 @@ export async function validateTeamCode(teamCode: string) {
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
-  const { data: team } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: team } = await (db as any)
     .from('teams')
     .select('id, name')
     .eq('team_code', code)
