@@ -28,9 +28,11 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
 
+  const db = createServiceRoleClient()
+
   // ── League status + capacity check ──────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: leagueCap } = await (supabase as any)
+  const { data: leagueCap } = await (db as any)
     .from('leagues')
     .select('status, payment_mode, max_participants')
     .eq('id', parsed.data.leagueId)
@@ -43,7 +45,7 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
   }
 
   if (leagueCap?.payment_mode !== 'per_team' && leagueCap?.max_participants) {
-    const { count } = await supabase
+    const { count } = await db
       .from('registrations')
       .select('*', { count: 'exact', head: true })
       .eq('league_id', parsed.data.leagueId)
@@ -56,20 +58,20 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
 
   // Check for existing registration (skip dedup for drop-in — each invite creates a fresh reg)
   if (parsed.data.registration_type === 'season') {
-    const { data: existing } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existing } = await (db as any)
       .from('registrations')
       .select('id, status')
       .eq('organization_id', org.id)
       .eq('league_id', parsed.data.leagueId)
       .eq('user_id', user.id)
-      .eq('registration_type' as never, 'season')
+      .eq('registration_type', 'season')
       .single()
 
     if (existing) return { data: { registrationId: existing.id }, error: null }
   }
 
-  // Ensure org membership — must use service role since players have no write RLS on org_members
-  const db = createServiceRoleClient()
+  // Ensure org membership
   await db.from('org_members').upsert({
     organization_id: org.id,
     user_id: user.id,
@@ -82,7 +84,7 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
     ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
     : null
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('registrations')
     .insert({
       organization_id: org.id,
@@ -164,9 +166,10 @@ export async function activateRegistration(registrationId: string) {
   const org = await getCurrentOrg(headersList)
 
   const supabase = await createServerClient()
+  const db2 = createServiceRoleClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reg, error: fetchError } = await (supabase as any)
+  const { data: reg, error: fetchError } = await (db2 as any)
     .from('registrations')
     .select('*, checkin_token, profiles!registrations_user_id_fkey(full_name, email), leagues!registrations_league_id_fkey(name, sport, event_type, checkin_enabled)')
     .eq('id', registrationId)
@@ -175,9 +178,9 @@ export async function activateRegistration(registrationId: string) {
 
   if (fetchError || !reg) return { data: null, error: 'Registration not found' }
 
-  const { error } = await supabase
+  const { error } = await db2
     .from('registrations')
-    .update({ status: 'active' })
+    .update({ status: 'active' } as never)
     .eq('id', registrationId)
 
   if (error) return { data: null, error: error.message }
