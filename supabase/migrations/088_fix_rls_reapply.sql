@@ -910,29 +910,53 @@ DO $$ BEGIN
 EXCEPTION WHEN undefined_table THEN NULL; END; $$;
 
 
--- public.merchandise_items + variants + orders (056 + 060)
+-- public.merchandise_items (056 + 060)
 DO $$ BEGIN
-  DROP POLICY IF EXISTS "merch_items_admin_manage"         ON public.merchandise_items;
-  DROP POLICY IF EXISTS "merch_items_participant_read"     ON public.merchandise_items;
-  DROP POLICY IF EXISTS "org_member_read_shop_merchandise" ON public.merchandise_items;
-  CREATE POLICY "merch_items_admin_manage" ON public.merchandise_items
-    FOR ALL USING (
+  -- Drop both the correct original names and any wrong names 087 may have created
+  DROP POLICY IF EXISTS "service_role_all_merchandise_items" ON public.merchandise_items;
+  DROP POLICY IF EXISTS "org_admin_merchandise_items"        ON public.merchandise_items;
+  DROP POLICY IF EXISTS "player_read_merchandise_items"      ON public.merchandise_items;
+  DROP POLICY IF EXISTS "org_member_read_shop_merchandise"   ON public.merchandise_items;
+  DROP POLICY IF EXISTS "merch_items_admin_manage"           ON public.merchandise_items;
+  DROP POLICY IF EXISTS "merch_items_participant_read"       ON public.merchandise_items;
+
+  CREATE POLICY "service_role_all_merchandise_items" ON public.merchandise_items
+    FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+  CREATE POLICY "org_admin_merchandise_items" ON public.merchandise_items
+    FOR ALL TO authenticated
+    USING (
       EXISTS (
         SELECT 1 FROM public.org_members om
         WHERE om.organization_id = merchandise_items.organization_id
           AND om.user_id = (SELECT auth.uid())
           AND om.role IN ('org_admin', 'league_admin')
+          AND om.status = 'active'
+      )
+    )
+    WITH CHECK (
+      EXISTS (
+        SELECT 1 FROM public.org_members om
+        WHERE om.organization_id = merchandise_items.organization_id
+          AND om.user_id = (SELECT auth.uid())
+          AND om.role IN ('org_admin', 'league_admin')
+          AND om.status = 'active'
       )
     );
-  CREATE POLICY "merch_items_participant_read" ON public.merchandise_items
-    FOR SELECT USING (
+
+  CREATE POLICY "player_read_merchandise_items" ON public.merchandise_items
+    FOR SELECT TO authenticated
+    USING (
       is_active = true
       AND EXISTS (
-        SELECT 1 FROM public.registrations r
-        WHERE r.organization_id = merchandise_items.organization_id
+        SELECT 1 FROM public.league_merchandise lm
+          JOIN public.registrations r ON r.league_id = lm.league_id
+        WHERE lm.item_id = merchandise_items.id
           AND r.user_id = (SELECT auth.uid())
+          AND r.organization_id = merchandise_items.organization_id
       )
     );
+
   CREATE POLICY "org_member_read_shop_merchandise" ON public.merchandise_items
     FOR SELECT USING (
       shop_enabled = true
@@ -944,45 +968,137 @@ DO $$ BEGIN
     );
 EXCEPTION WHEN undefined_table THEN NULL; END; $$;
 
+
+-- public.merchandise_variants (056)
 DO $$ BEGIN
-  DROP POLICY IF EXISTS "merch_variants_admin_manage"     ON public.merchandise_variants;
-  DROP POLICY IF EXISTS "merch_variants_participant_read" ON public.merchandise_variants;
-  CREATE POLICY "merch_variants_admin_manage" ON public.merchandise_variants
-    FOR ALL USING (
+  DROP POLICY IF EXISTS "service_role_all_merchandise_variants" ON public.merchandise_variants;
+  DROP POLICY IF EXISTS "org_admin_merchandise_variants"        ON public.merchandise_variants;
+  DROP POLICY IF EXISTS "player_read_merchandise_variants"      ON public.merchandise_variants;
+  DROP POLICY IF EXISTS "merch_variants_admin_manage"           ON public.merchandise_variants;
+  DROP POLICY IF EXISTS "merch_variants_participant_read"       ON public.merchandise_variants;
+
+  CREATE POLICY "service_role_all_merchandise_variants" ON public.merchandise_variants
+    FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+  -- variants have no organization_id — join through merchandise_items
+  CREATE POLICY "org_admin_merchandise_variants" ON public.merchandise_variants
+    FOR ALL TO authenticated
+    USING (
       EXISTS (
-        SELECT 1 FROM public.org_members om
-        WHERE om.organization_id = merchandise_variants.organization_id
+        SELECT 1 FROM public.merchandise_items mi
+          JOIN public.org_members om ON om.organization_id = mi.organization_id
+        WHERE mi.id = merchandise_variants.item_id
           AND om.user_id = (SELECT auth.uid())
           AND om.role IN ('org_admin', 'league_admin')
+          AND om.status = 'active'
+      )
+    )
+    WITH CHECK (
+      EXISTS (
+        SELECT 1 FROM public.merchandise_items mi
+          JOIN public.org_members om ON om.organization_id = mi.organization_id
+        WHERE mi.id = merchandise_variants.item_id
+          AND om.user_id = (SELECT auth.uid())
+          AND om.role IN ('org_admin', 'league_admin')
+          AND om.status = 'active'
       )
     );
-  CREATE POLICY "merch_variants_participant_read" ON public.merchandise_variants
-    FOR SELECT USING (
+
+  CREATE POLICY "player_read_merchandise_variants" ON public.merchandise_variants
+    FOR SELECT TO authenticated
+    USING (
+      EXISTS (
+        SELECT 1 FROM public.merchandise_items mi
+          JOIN public.league_merchandise lm ON lm.item_id = mi.id
+          JOIN public.registrations r ON r.league_id = lm.league_id
+        WHERE mi.id = merchandise_variants.item_id
+          AND r.user_id = (SELECT auth.uid())
+          AND mi.is_active = true
+      )
+    );
+EXCEPTION WHEN undefined_table THEN NULL; END; $$;
+
+
+-- public.league_merchandise (056)
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "service_role_all_league_merchandise" ON public.league_merchandise;
+  DROP POLICY IF EXISTS "org_admin_league_merchandise"        ON public.league_merchandise;
+  DROP POLICY IF EXISTS "player_read_league_merchandise"      ON public.league_merchandise;
+
+  CREATE POLICY "service_role_all_league_merchandise" ON public.league_merchandise
+    FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+  CREATE POLICY "org_admin_league_merchandise" ON public.league_merchandise
+    FOR ALL TO authenticated
+    USING (
+      EXISTS (
+        SELECT 1 FROM public.leagues l
+          JOIN public.org_members om ON om.organization_id = l.organization_id
+        WHERE l.id = league_merchandise.league_id
+          AND om.user_id = (SELECT auth.uid())
+          AND om.role IN ('org_admin', 'league_admin')
+          AND om.status = 'active'
+      )
+    )
+    WITH CHECK (
+      EXISTS (
+        SELECT 1 FROM public.leagues l
+          JOIN public.org_members om ON om.organization_id = l.organization_id
+        WHERE l.id = league_merchandise.league_id
+          AND om.user_id = (SELECT auth.uid())
+          AND om.role IN ('org_admin', 'league_admin')
+          AND om.status = 'active'
+      )
+    );
+
+  CREATE POLICY "player_read_league_merchandise" ON public.league_merchandise
+    FOR SELECT TO authenticated
+    USING (
       EXISTS (
         SELECT 1 FROM public.registrations r
-        WHERE r.organization_id = merchandise_variants.organization_id
+        WHERE r.league_id = league_merchandise.league_id
           AND r.user_id = (SELECT auth.uid())
       )
     );
 EXCEPTION WHEN undefined_table THEN NULL; END; $$;
 
+
+-- public.merchandise_orders (056)
 DO $$ BEGIN
-  DROP POLICY IF EXISTS "merch_orders_admin_manage" ON public.merchandise_orders;
-  DROP POLICY IF EXISTS "merch_orders_self_read"    ON public.merchandise_orders;
-  DROP POLICY IF EXISTS "merch_orders_service_all"  ON public.merchandise_orders;
-  CREATE POLICY "merch_orders_admin_manage" ON public.merchandise_orders
-    FOR ALL USING (
+  DROP POLICY IF EXISTS "service_role_all_merchandise_orders" ON public.merchandise_orders;
+  DROP POLICY IF EXISTS "org_admin_merchandise_orders"        ON public.merchandise_orders;
+  DROP POLICY IF EXISTS "player_read_own_merchandise_orders"  ON public.merchandise_orders;
+  DROP POLICY IF EXISTS "merch_orders_admin_manage"           ON public.merchandise_orders;
+  DROP POLICY IF EXISTS "merch_orders_self_read"              ON public.merchandise_orders;
+  DROP POLICY IF EXISTS "merch_orders_service_all"            ON public.merchandise_orders;
+
+  CREATE POLICY "service_role_all_merchandise_orders" ON public.merchandise_orders
+    FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+  CREATE POLICY "org_admin_merchandise_orders" ON public.merchandise_orders
+    FOR ALL TO authenticated
+    USING (
       EXISTS (
         SELECT 1 FROM public.org_members om
         WHERE om.organization_id = merchandise_orders.organization_id
           AND om.user_id = (SELECT auth.uid())
           AND om.role IN ('org_admin', 'league_admin')
+          AND om.status = 'active'
+      )
+    )
+    WITH CHECK (
+      EXISTS (
+        SELECT 1 FROM public.org_members om
+        WHERE om.organization_id = merchandise_orders.organization_id
+          AND om.user_id = (SELECT auth.uid())
+          AND om.role IN ('org_admin', 'league_admin')
+          AND om.status = 'active'
       )
     );
-  CREATE POLICY "merch_orders_self_read" ON public.merchandise_orders
-    FOR SELECT USING (user_id = (SELECT auth.uid()));
-  CREATE POLICY "merch_orders_service_all" ON public.merchandise_orders
-    FOR ALL USING ((SELECT auth.role()) = 'service_role');
+
+  CREATE POLICY "player_read_own_merchandise_orders" ON public.merchandise_orders
+    FOR SELECT TO authenticated
+    USING (user_id = (SELECT auth.uid()));
 EXCEPTION WHEN undefined_table THEN NULL; END; $$;
 
 
@@ -992,32 +1108,38 @@ DROP POLICY IF EXISTS "merchandise_images_admin_update" ON storage.objects;
 DROP POLICY IF EXISTS "merchandise_images_admin_delete" ON storage.objects;
 
 CREATE POLICY "merchandise_images_admin_insert" ON storage.objects
-  FOR INSERT WITH CHECK (
+  FOR INSERT TO authenticated
+  WITH CHECK (
     bucket_id = 'merchandise-images'
     AND EXISTS (
-      SELECT 1 FROM public.org_members om
-      WHERE om.user_id = (SELECT auth.uid())
-        AND om.role IN ('org_admin', 'league_admin')
+      SELECT 1 FROM public.org_members
+      WHERE user_id = (SELECT auth.uid())
+        AND role IN ('org_admin', 'league_admin')
+        AND status = 'active'
     )
   );
 
 CREATE POLICY "merchandise_images_admin_update" ON storage.objects
-  FOR UPDATE USING (
+  FOR UPDATE TO authenticated
+  USING (
     bucket_id = 'merchandise-images'
     AND EXISTS (
-      SELECT 1 FROM public.org_members om
-      WHERE om.user_id = (SELECT auth.uid())
-        AND om.role IN ('org_admin', 'league_admin')
+      SELECT 1 FROM public.org_members
+      WHERE user_id = (SELECT auth.uid())
+        AND role IN ('org_admin', 'league_admin')
+        AND status = 'active'
     )
   );
 
 CREATE POLICY "merchandise_images_admin_delete" ON storage.objects
-  FOR DELETE USING (
+  FOR DELETE TO authenticated
+  USING (
     bucket_id = 'merchandise-images'
     AND EXISTS (
-      SELECT 1 FROM public.org_members om
-      WHERE om.user_id = (SELECT auth.uid())
-        AND om.role IN ('org_admin', 'league_admin')
+      SELECT 1 FROM public.org_members
+      WHERE user_id = (SELECT auth.uid())
+        AND role IN ('org_admin', 'league_admin')
+        AND status = 'active'
     )
   );
 
