@@ -383,25 +383,39 @@ function DateGroup({
                   {game.week_number && <><span>·</span><span>Wk {game.week_number}</span></>}
                 </div>
                 {/* Teams + scores */}
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   {([
                     { name: homeTeam?.name ?? game.home_team_label ?? 'TBD', score: result?.home_score ?? null, won: homeWon },
                     { name: awayTeam?.name ?? game.away_team_label ?? 'TBD', score: result?.away_score ?? null, won: awayWon },
                   ] as const).map((team, idx) => (
                     <div key={idx} className="flex items-center justify-between gap-2">
-                      <span
-                        className={`text-sm truncate ${team.won ? 'font-bold' : hasScore ? 'font-normal text-gray-400' : 'font-semibold'}`}
-                        style={team.won ? { color: 'var(--brand-primary)' } : undefined}
-                      >
-                        {team.name}
-                      </span>
-                      {hasScore && (
+                      {/* Team name */}
+                      {(team.won || isTie) && hasScore ? (
                         <span
-                          className={`text-sm tabular-nums shrink-0 font-semibold ${isTie ? 'text-red-500' : !team.won ? 'text-gray-300 font-normal' : ''}`}
-                          style={(!isTie && team.won) ? { color: 'var(--brand-primary)' } : undefined}
+                          className="text-sm font-bold px-2.5 py-0.5 rounded-md text-white truncate"
+                          style={{ backgroundColor: isTie ? '#ef4444' : 'var(--brand-primary)' }}
                         >
-                          {team.score}
+                          {team.name}
                         </span>
+                      ) : (
+                        <span className={`text-sm truncate ${hasScore ? 'text-gray-400 font-normal' : 'font-semibold'}`}>
+                          {team.name}
+                        </span>
+                      )}
+                      {/* Score */}
+                      {hasScore && (
+                        (team.won || isTie) ? (
+                          <span
+                            className="text-sm tabular-nums shrink-0 font-bold px-2.5 py-0.5 rounded-md text-white"
+                            style={{ backgroundColor: isTie ? '#ef4444' : 'var(--brand-primary)' }}
+                          >
+                            {team.score}
+                          </span>
+                        ) : (
+                          <span className="text-sm tabular-nums shrink-0 text-gray-400 font-normal">
+                            {team.score}
+                          </span>
+                        )
                       )}
                     </div>
                   ))}
@@ -443,23 +457,33 @@ function DateGroup({
                 <div className="w-14 shrink-0 text-xs text-gray-400 tabular-nums">{gameTime}</div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className={`text-sm ${game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-400' : ''}`}>
-                      {/* Home team name */}
+                    {/* Home team name */}
+                    {(homeWon || isTie) && hasScore && !(game.status === 'cancelled' || game.status === 'postponed') ? (
                       <span
-                        className={`font-semibold ${hasScore && !homeWon ? (isPast ? 'text-gray-400 font-normal' : 'text-gray-400 font-normal') : isPast ? 'text-gray-500' : ''}`}
-                        style={(homeWon && !(game.status === 'cancelled' || game.status === 'postponed')) ? { color: 'var(--brand-primary)' } : undefined}
+                        className="text-sm font-bold px-2 py-0.5 rounded-md text-white"
+                        style={{ backgroundColor: isTie ? '#ef4444' : 'var(--brand-primary)' }}
                       >
                         {homeTeam?.name ?? game.home_team_label ?? 'TBD'}
                       </span>
-                      <span className="mx-2 font-normal text-gray-400">vs</span>
-                      {/* Away team name */}
+                    ) : (
+                      <span className={`text-sm font-semibold ${hasScore ? 'text-gray-400 font-normal' : isPast ? 'text-gray-500' : ''} ${game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-400' : ''}`}>
+                        {homeTeam?.name ?? game.home_team_label ?? 'TBD'}
+                      </span>
+                    )}
+                    <span className="text-sm font-normal text-gray-400">vs</span>
+                    {/* Away team name */}
+                    {(awayWon || isTie) && hasScore && !(game.status === 'cancelled' || game.status === 'postponed') ? (
                       <span
-                        className={`font-semibold ${hasScore && !awayWon ? (isPast ? 'text-gray-400 font-normal' : 'text-gray-400 font-normal') : isPast ? 'text-gray-500' : ''}`}
-                        style={(awayWon && !(game.status === 'cancelled' || game.status === 'postponed')) ? { color: 'var(--brand-primary)' } : undefined}
+                        className="text-sm font-bold px-2 py-0.5 rounded-md text-white"
+                        style={{ backgroundColor: isTie ? '#ef4444' : 'var(--brand-primary)' }}
                       >
                         {awayTeam?.name ?? game.away_team_label ?? 'TBD'}
                       </span>
-                    </p>
+                    ) : (
+                      <span className={`text-sm font-semibold ${hasScore ? 'text-gray-400 font-normal' : isPast ? 'text-gray-500' : ''} ${game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-400' : ''}`}>
+                        {awayTeam?.name ?? game.away_team_label ?? 'TBD'}
+                      </span>
+                    )}
                     {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
                     {game.status === 'postponed' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
                   </div>
@@ -474,20 +498,28 @@ function DateGroup({
                 <div className="shrink-0 text-right">
                   {hasScore ? (
                     <div>
-                      <p className="tabular-nums text-sm font-semibold">
-                        <span
-                          className={`${isTie ? 'text-red-500' : !homeWon ? 'text-gray-400 font-normal' : 'font-bold'}`}
-                          style={(!isTie && homeWon) ? { color: 'var(--brand-primary)' } : undefined}
-                        >
-                          {result!.home_score}
-                        </span>
-                        <span className="mx-1 text-gray-400 font-normal">–</span>
-                        <span
-                          className={`${isTie ? 'text-red-500' : !awayWon ? 'text-gray-400 font-normal' : 'font-bold'}`}
-                          style={(!isTie && awayWon) ? { color: 'var(--brand-primary)' } : undefined}
-                        >
-                          {result!.away_score}
-                        </span>
+                      <p className="tabular-nums text-sm font-semibold flex items-center justify-end gap-1">
+                        {(homeWon || isTie) ? (
+                          <span
+                            className="font-bold px-1.5 py-0.5 rounded text-white"
+                            style={{ backgroundColor: isTie ? '#ef4444' : 'var(--brand-primary)' }}
+                          >
+                            {result!.home_score}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 font-normal">{result!.home_score}</span>
+                        )}
+                        <span className="text-gray-400 font-normal">–</span>
+                        {(awayWon || isTie) ? (
+                          <span
+                            className="font-bold px-1.5 py-0.5 rounded text-white"
+                            style={{ backgroundColor: isTie ? '#ef4444' : 'var(--brand-primary)' }}
+                          >
+                            {result!.away_score}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 font-normal">{result!.away_score}</span>
+                        )}
                       </p>
                       {result?.sets && result.sets.length > 0 && (
                         <p className="text-[10px] text-gray-400 mt-0.5">
