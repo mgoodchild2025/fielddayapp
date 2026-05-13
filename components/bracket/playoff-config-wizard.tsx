@@ -235,31 +235,33 @@ function TierBracketCard({
   return (
     <div className="bg-white rounded-xl border overflow-hidden">
       {/* Tier header */}
-      <div className="px-5 py-3.5 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="px-5 py-3.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+        {/* Left: expand toggle + badges */}
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <button
             onClick={() => setExpanded((v) => !v)}
             className="text-gray-400 hover:text-gray-600 shrink-0"
           >
             {expanded ? '▼' : '▶'}
           </button>
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${colorClass}`}>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full border shrink-0 ${colorClass}`}>
             {tier.name}
           </span>
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-gray-400 truncate">
             Seeds {tier.seedFrom}–{tier.seedTo} · {tierCount} team{tierCount !== 1 ? 's' : ''}
           </span>
           {tier.bracket ? (
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${
               tier.bracket.status === 'active' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
             }`}>
               {tier.bracket.status === 'active' ? '✓ Published' : 'Draft'}
             </span>
           ) : (
-            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">No bracket yet</span>
+            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full shrink-0">No bracket yet</span>
           )}
         </div>
 
+        {/* Right: action buttons */}
         {isOrgAdmin && tier.bracket && (
           <div className="flex items-center gap-2 shrink-0">
             {tier.bracketId && (
