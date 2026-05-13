@@ -6,6 +6,7 @@ const CATEGORIES = [
   { href: '/admin/settings/billing',       label: 'Billing',         description: 'Manage your Fieldday subscription and payment method.' },
   { href: '/admin/settings/branding',      label: 'Branding',        description: 'Colours, fonts, logo, and custom domain.' },
   { href: '/admin/settings/website',       label: 'Website',         description: 'Site theme, homepage hero, and public site layout.' },
+  { href: '/admin/settings/nav',           label: 'Navigation',      description: 'Add custom links to your public navigation bar.' },
   { href: '/admin/settings/checkin',       label: 'Check-In',        description: 'Check-in sound and kiosk settings for game day.' },
   { href: '/admin/settings/notifications', label: 'Notifications',   description: 'SMS game reminders and automated player messages.' },
   { href: '/admin/settings/payments',      label: 'Payments',        description: 'Connect your Stripe account to accept online payments.' },

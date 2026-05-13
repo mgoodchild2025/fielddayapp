@@ -7,6 +7,7 @@ import { MobileNav } from './mobile-nav'
 import { NotificationBell } from './notification-bell'
 import { CartNavIcon } from '@/components/shop/cart-nav-icon'
 import type { OrgContext } from '@/lib/tenant'
+import type { NavLink } from '@/actions/nav-links'
 
 interface OrgNavProps {
   org: OrgContext
@@ -24,8 +25,12 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let unreadNotifications: { id: string; type: string | null; title: string; body: string | null; created_at: string; data: any }[] = []
 
-  if (user) {
-    const [{ data: profile }, { data: member }, { data: notifs }] = await Promise.all([
+  const [navLinksResult, ...userResults] = await Promise.all([
+    db.from('org_nav_links')
+      .select('id, label, link_type, url, open_in_new_tab, sort_order')
+      .eq('organization_id', org.id)
+      .order('sort_order', { ascending: true }),
+    ...(user ? [
       db.from('profiles').select('full_name').eq('id', user.id).single(),
       db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single(),
       db.from('notifications').select('id, type, title, body, created_at, data')
@@ -34,7 +39,18 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
         .eq('read', false)
         .order('created_at', { ascending: false })
         .limit(20),
-    ])
+    ] : []),
+  ])
+
+  const customLinks: NavLink[] = (navLinksResult.data ?? []) as NavLink[]
+
+  if (user && userResults.length === 3) {
+    const [{ data: profile }, { data: member }, { data: notifs }] = userResults as [
+      { data: { full_name: string } | null },
+      { data: { role: string } | null },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { data: any[] | null },
+    ]
     userName = profile?.full_name ?? user.email ?? null
     isAdmin = ['org_admin', 'league_admin'].includes(member?.role ?? '')
     unreadNotifications = notifs ?? []
@@ -71,11 +87,22 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
 
         {/* Right: desktop nav + notifications + user menu + hamburger */}
         <div className="flex items-center gap-2 shrink-0">
-          <div className="hidden md:flex items-center gap-6 text-sm font-medium">
+          <div className="hidden md:flex items-center gap-4 text-sm font-medium flex-wrap">
             <Link href="/gallery" className="opacity-80 hover:opacity-100 transition-opacity">Gallery</Link>
             {user && (
               <Link href="/events" className="opacity-80 hover:opacity-100 transition-opacity">Events</Link>
             )}
+            {customLinks.map((link) => (
+              <a
+                key={link.id}
+                href={link.url}
+                target={link.open_in_new_tab || link.link_type === 'document' ? '_blank' : undefined}
+                rel={link.open_in_new_tab || link.link_type === 'document' ? 'noopener noreferrer' : undefined}
+                className="opacity-80 hover:opacity-100 transition-opacity"
+              >
+                {link.label}
+              </a>
+            ))}
           </div>
 
           {user ? (
@@ -106,7 +133,7 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
               <NotificationBell initialNotifications={unreadNotifications} />
             </div>
           )}
-          <MobileNav userName={userName} userEmail={user?.email ?? null} isAdmin={isAdmin} />
+          <MobileNav userName={userName} userEmail={user?.email ?? null} isAdmin={isAdmin} customLinks={customLinks} />
         </div>
       </div>
     </nav>

@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronRight, CalendarDays, Trophy, Users, CircleUser, ShoppingBag, CalendarRange, LayoutDashboard, LogOut, Images } from 'lucide-react'
+import { ChevronRight, CalendarDays, Trophy, Users, CircleUser, ShoppingBag, CalendarRange, LayoutDashboard, LogOut, Images, FileText, ExternalLink } from 'lucide-react'
 import { logout } from '@/actions/auth'
+import type { NavLink } from '@/actions/nav-links'
 
 interface Props {
   userName: string | null
   userEmail: string | null
   isAdmin: boolean
+  customLinks?: NavLink[]
 }
 
 function getInitials(name: string): string {
@@ -18,7 +20,7 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase()
 }
 
-export function MobileNav({ userName, userEmail, isAdmin }: Props) {
+export function MobileNav({ userName, userEmail, isAdmin, customLinks = [] }: Props) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
 
@@ -134,6 +136,28 @@ export function MobileNav({ userName, userEmail, isAdmin }: Props) {
             <Images className="w-4 h-4 shrink-0" />
             Gallery
           </Link>
+
+          {customLinks.length > 0 && (
+            <>
+              <div className="border-t border-white/10 my-2" />
+              {customLinks.map((link) => (
+                <a
+                  key={link.id}
+                  href={link.url}
+                  onClick={() => setOpen(false)}
+                  target={link.open_in_new_tab || link.link_type === 'document' ? '_blank' : undefined}
+                  rel={link.open_in_new_tab || link.link_type === 'document' ? 'noopener noreferrer' : undefined}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors"
+                >
+                  {link.link_type === 'document'
+                    ? <FileText className="w-4 h-4 shrink-0" />
+                    : <ExternalLink className="w-4 h-4 shrink-0" />
+                  }
+                  {link.label}
+                </a>
+              ))}
+            </>
+          )}
 
           {userName && (
             <Link href="/shop" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
