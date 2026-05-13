@@ -22,6 +22,7 @@ const schema = z.object({
   t_shirt_size: z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']).optional(),
   emergency_contact_name: z.string().optional(),
   emergency_contact_phone: optionalPhone,
+  show_contact_info: z.boolean().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -60,6 +61,8 @@ export function ProfileForm({
       t_shirt_size: (playerDetails?.t_shirt_size as FormData['t_shirt_size']) ?? undefined,
       emergency_contact_name: playerDetails?.emergency_contact_name ?? '',
       emergency_contact_phone: playerDetails?.emergency_contact_phone ?? '',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      show_contact_info: (profile as any)?.show_contact_info ?? false,
     },
   })
 
@@ -245,6 +248,21 @@ export function ProfileForm({
             )}
           </div>
         </div>
+      </div>
+
+      {/* ── Privacy ── */}
+      <div className="bg-white rounded-lg border p-5 space-y-3">
+        <h2 className="font-semibold">Privacy</h2>
+        <label className="flex items-start gap-3 cursor-pointer select-none">
+          <input {...register('show_contact_info')} type="checkbox" className="rounded mt-0.5" />
+          <div>
+            <span className="text-sm font-medium text-gray-700">Show my contact info to teammates</span>
+            <p className="text-xs text-gray-400 mt-0.5">
+              When enabled, your email and phone number are visible to players on the same team.
+              Org admins can always see your contact info.
+            </p>
+          </div>
+        </label>
       </div>
 
       <button

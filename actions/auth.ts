@@ -202,6 +202,7 @@ const updateProfileSchema = z.object({
   t_shirt_size: z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']).optional(),
   emergency_contact_name: z.string().optional(),
   emergency_contact_phone: optionalPhone,
+  show_contact_info: z.boolean().optional(),
   orgId: z.string().uuid(),
 })
 
@@ -221,6 +222,7 @@ export async function updateProfile(input: z.infer<typeof updateProfileSchema>) 
       phone: parsed.data.phone ? toE164(parsed.data.phone) : null,
       sms_opted_in: parsed.data.sms_opted_in ?? false,
       sms_game_day_enabled: parsed.data.sms_game_day_enabled ?? true,
+      show_contact_info: parsed.data.show_contact_info ?? false,
     }).eq('id', user.id),
     db.from('player_details').upsert({
       organization_id: parsed.data.orgId,

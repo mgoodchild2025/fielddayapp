@@ -51,7 +51,7 @@ export default async function TeamDetailPage({
         league:leagues!teams_league_id_fkey(id, name, slug, sport, payment_mode, price_cents, currency),
         team_members(
           id, role, status, user_id, position,
-          profile:profiles!team_members_user_id_fkey(full_name, email, phone, avatar_url)
+          profile:profiles!team_members_user_id_fkey(full_name, email, phone, avatar_url, show_contact_info)
         )
       `)
       .eq('id', teamId)
@@ -490,15 +490,20 @@ export default async function TeamDetailPage({
           <div className="mt-4 bg-white rounded-lg border p-4">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Team Captain</p>
             <p className="font-medium">{captainProfile.full_name}</p>
-            {captainProfile.email && (
-              <a href={`mailto:${captainProfile.email}`} className="text-sm text-blue-600 hover:underline mt-0.5 block">
-                {captainProfile.email}
-              </a>
-            )}
-            {captainProfile.phone && (
-              <a href={`tel:${captainProfile.phone}`} className="text-sm text-gray-500 hover:underline mt-0.5 block">
-                {captainProfile.phone}
-              </a>
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {((captainProfile as any).show_contact_info || isOrgAdmin) && (
+              <>
+                {captainProfile.email && (
+                  <a href={`mailto:${captainProfile.email}`} className="text-sm text-blue-600 hover:underline mt-0.5 block">
+                    {captainProfile.email}
+                  </a>
+                )}
+                {captainProfile.phone && (
+                  <a href={`tel:${captainProfile.phone}`} className="text-sm text-gray-500 hover:underline mt-0.5 block">
+                    {captainProfile.phone}
+                  </a>
+                )}
+              </>
             )}
           </div>
         )}
