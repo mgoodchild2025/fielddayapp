@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import type { OrgContext } from '@/lib/tenant'
 
 export type OrgRole = 'org_admin' | 'league_admin' | 'captain' | 'player'
@@ -18,7 +19,11 @@ export async function requireOrgMember(org: OrgContext, allowedRoles?: OrgRole[]
 
   if (!user) redirect('/login')
 
-  const { data: member } = await supabase
+  // Use service role for the org_members lookup — RLS on org_members requires
+  // app.current_org_id to be set in the Postgres session, which the session
+  // client does not provide.  Org scoping is enforced by the explicit filters.
+  const db = createServiceRoleClient()
+  const { data: member } = await db
     .from('org_members')
     .select('id, role')
     .eq('organization_id', org.id)
@@ -80,7 +85,9 @@ export async function assertOrgAdmin(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: member } = await supabase
+  // Use service role — same reason as requireOrgMember above.
+  const db = createServiceRoleClient()
+  const { data: member } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)

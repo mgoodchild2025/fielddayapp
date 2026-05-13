@@ -33,6 +33,10 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
 
+  // All data fetches use the service role client — RLS on these tables requires
+  // app.current_org_id to be set in the Postgres session, which the session
+  // client does not provide. The service role bypasses RLS, and org scoping is
+  // enforced by the explicit .eq('organization_id', org.id) filters below.
   const [
     { data: league },
     { count: regCount },
@@ -45,14 +49,14 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     merchOrders,
     leagueDocuments,
   ] = await Promise.all([
-    supabase.from('leagues').select('*').eq('id', id).eq('organization_id', org.id).single(),
-    supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
-    supabase.from('teams').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
-    supabase.from('games').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
-    // Use service role for these admin-only lookups — RLS on these tables requires
-    // app.current_org_id to be set in the Postgres session, which the session client
-    // does not provide. The service role bypasses RLS, and org scoping is enforced
-    // by the explicit .eq('organization_id', org.id) filter.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('leagues').select('*').eq('id', id).eq('organization_id', org.id).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('registrations').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('teams').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('games').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('waivers').select('id, title, version').eq('organization_id', org.id).order('created_at', { ascending: false }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,8 +71,9 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
 
   // Determine if current user is an org_admin (controls edit access on organizers panel)
   const { data: { user: currentUser } } = await supabase.auth.getUser()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: currentMember } = currentUser
-    ? await supabase.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', currentUser.id).single()
+    ? await (db as any).from('org_members').select('role').eq('organization_id', org.id).eq('user_id', currentUser.id).single()
     : { data: null }
   const isOrgAdmin = currentMember?.role === 'org_admin'
 

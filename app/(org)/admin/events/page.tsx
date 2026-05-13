@@ -1,6 +1,6 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import Link from 'next/link'
 import { EventsTable } from '@/components/admin/events-table'
@@ -8,11 +8,11 @@ import { EventsTable } from '@/components/admin/events-table'
 export default async function AdminEventsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
+  const db = createServiceRoleClient()
   const scope = await getAdminScope(org.id)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase as any)
+  let query = (db as any)
     .from('leagues')
     .select('id, name, slug, status, event_type, sport, logo_url, price_cents, currency, season_start_date, venue_name, created_at')
     .eq('organization_id', org.id)

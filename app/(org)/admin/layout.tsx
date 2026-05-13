@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { AdminSidebar } from '@/components/layout/admin-sidebar'
 import { ImpersonationBanner } from '@/components/layout/impersonation-banner'
 import { BillingBanner } from '@/components/layout/billing-banner'
@@ -23,7 +24,11 @@ export default async function AdminLayout({
   let memberRole: string = 'org_admin'
 
   if (!isImpersonating) {
-    const { data: member } = await supabase
+    // Use service role for this membership check — RLS on org_members requires
+    // app.current_org_id to be set in the Postgres session, which the session
+    // client does not provide.  The explicit eq() filters enforce org scoping.
+    const db = createServiceRoleClient()
+    const { data: member } = await db
       .from('org_members')
       .select('role')
       .eq('organization_id', org.id)
@@ -37,8 +42,9 @@ export default async function AdminLayout({
     memberRole = member.role
   }
 
-  // Fetch subscription for billing banner
-  const { data: subscription } = await supabase
+  // Fetch subscription for billing banner (service role — same reason)
+  const db = createServiceRoleClient()
+  const { data: subscription } = await db
     .from('subscriptions')
     .select('status, trial_end, cancel_at_period_end, current_period_end')
     .eq('organization_id', org.id)

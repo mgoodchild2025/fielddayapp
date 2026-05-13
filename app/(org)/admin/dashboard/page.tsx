@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import Link from 'next/link'
 import { OnboardingChecklist } from '@/components/admin/onboarding-checklist'
 
@@ -9,11 +10,16 @@ export default async function AdminDashboardPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  // Service role client for queries that require bypassing RLS (org_members,
+  // subscriptions, payments — tables where RLS requires app.current_org_id to
+  // be set in the Postgres session, which the session client does not provide).
+  const db = createServiceRoleClient()
 
   // League admins don't have access to the dashboard — send them to events
   const { data: { user } } = await supabase.auth.getUser()
   if (user) {
-    const { data: m } = await supabase.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: m } = await (db as any).from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single()
     if (m?.role === 'league_admin') redirect('/admin/events')
   }
 
@@ -24,11 +30,16 @@ export default async function AdminDashboardPage() {
     { data: activeLeagues },
     { data: branding },
   ] = await Promise.all([
-    supabase.from('leagues').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).neq('status', 'archived'),
-    supabase.from('org_members').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).eq('status', 'active'),
-    supabase.from('payments').select('amount_cents, currency, status, created_at, user_id').eq('organization_id', org.id).order('created_at', { ascending: false }).limit(5),
-    supabase.from('leagues').select('id, name, slug, status').eq('organization_id', org.id).in('status', ['registration_open', 'active']).limit(5),
-    supabase.from('org_branding').select('logo_url, onboarding_dismissed_at, website_configured_at').eq('organization_id', org.id).maybeSingle(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('leagues').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).neq('status', 'archived'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_members').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).eq('status', 'active'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('payments').select('amount_cents, currency, status, created_at, user_id').eq('organization_id', org.id).order('created_at', { ascending: false }).limit(5),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('leagues').select('id, name, slug, status').eq('organization_id', org.id).in('status', ['registration_open', 'active']).limit(5),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_branding').select('logo_url, onboarding_dismissed_at, website_configured_at').eq('organization_id', org.id).maybeSingle(),
   ])
 
   const totalRevenue = recentPayments?.filter((p) => p.status === 'paid').reduce((acc, p) => acc + p.amount_cents, 0) ?? 0

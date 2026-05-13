@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 const planColors: Record<string, string> = {
   starter:      'bg-gray-100 text-gray-600',
   pro:          'bg-purple-100 text-purple-700',
@@ -12,14 +13,17 @@ export default async function AdminSettingsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
+  const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (user) {
-    const { data: m } = await supabase.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: m } = await (db as any).from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single()
     if (m?.role === 'league_admin') redirect('/admin/events')
   }
 
-  const { data: subscription } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: subscription } = await (db as any)
     .from('subscriptions')
     .select('plan_tier, status')
     .eq('organization_id', org.id)

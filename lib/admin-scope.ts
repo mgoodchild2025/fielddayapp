@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 
 export type AdminScope = {
   isOrgAdmin: boolean
@@ -20,7 +21,14 @@ export async function getAdminScope(orgId: string): Promise<AdminScope> {
   } = await supabase.auth.getUser()
   if (!user) return { isOrgAdmin: false, assignedLeagueIds: [] }
 
-  const { data: member } = await supabase
+  // Use service role for org_members and league_organizers lookups — RLS on
+  // these tables requires app.current_org_id to be set in the Postgres session,
+  // which the session client does not provide.  Org scoping is enforced by the
+  // explicit eq() filters below.
+  const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: member } = await (db as any)
     .from('org_members')
     .select('role')
     .eq('organization_id', orgId)
@@ -36,7 +44,7 @@ export async function getAdminScope(orgId: string): Promise<AdminScope> {
 
   // league_admin — fetch their specific event assignments
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: assignments } = await (supabase as any)
+  const { data: assignments } = await (db as any)
     .from('league_organizers')
     .select('league_id')
     .eq('organization_id', orgId)
