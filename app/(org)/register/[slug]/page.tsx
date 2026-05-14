@@ -14,12 +14,14 @@ export default async function RegisterLeaguePage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ mode?: string; code?: string }>
+  searchParams: Promise<{ mode?: string; code?: string; session?: string }>
 }) {
   const { slug } = await params
-  const { mode, code: teamCodeParam } = await searchParams
+  const { mode, code: teamCodeParam, session: sessionParam } = await searchParams
   const initialTeamCode = teamCodeParam?.trim().toUpperCase() ?? null
   const isDropIn = mode === 'drop_in'
+  // Pre-selected session from the event page "Register to join" button
+  const preselectedSessionId = isDropIn && sessionParam ? sessionParam : null
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
@@ -329,6 +331,7 @@ export default async function RegisterLeaguePage({
       initialTeamCode={initialTeamCode}
       manualPaymentInstructions={manualPaymentInstructions}
       dropInSessions={dropInSessions}
+      preselectedSessionId={preselectedSessionId}
     />
   )
 }

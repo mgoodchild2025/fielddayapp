@@ -295,15 +295,28 @@ export async function leaveSession(sessionId: string, leagueId: string) {
   if (!user) return { error: 'Not authenticated' }
 
   const db = createServiceRoleClient()
+
+  // Cancel in session_registrations (legacy join-button flow)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { error: srError } = await (db as any)
     .from('session_registrations')
     .update({ status: 'cancelled' })
     .eq('session_id', sessionId)
     .eq('user_id', user.id)
     .eq('organization_id', org.id)
 
-  if (error) return { error: error.message }
+  if (srError) return { error: srError.message }
+
+  // Also cancel any drop-in registration created via the registration flow
+  // (registrations table rows with registration_type='drop_in' and session_id set)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any)
+    .from('registrations')
+    .update({ status: 'cancelled' })
+    .eq('session_id', sessionId)
+    .eq('user_id', user.id)
+    .eq('organization_id', org.id)
+    .eq('registration_type', 'drop_in')
 
   revalidatePath('/events/[slug]', 'page')
   return { error: null }

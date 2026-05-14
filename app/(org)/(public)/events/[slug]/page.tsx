@@ -1712,7 +1712,7 @@ export default async function EventDetailPage({
                                     isCancelled={isCancelled}
                                     isLoggedIn={!!user}
                                     isRegistered={playerIsSessionRegistered}
-                                    registerUrl={`/register/${league.slug}?mode=drop_in`}
+                                    registerUrl={`/register/${league.slug}?mode=drop_in&session=${s.id}`}
                                   />
                                 ) : !user ? (
                                   <a
@@ -1732,7 +1732,7 @@ export default async function EventDetailPage({
                                   isCancelled={isCancelled}
                                   isLoggedIn={!!user}
                                   isRegistered={playerIsSessionRegistered}
-                                  registerUrl={`/register/${league.slug}?mode=drop_in`}
+                                  registerUrl={`/register/${league.slug}?mode=drop_in&session=${s.id}`}
                                 />
                               )}
                             </div>

@@ -54,6 +54,8 @@ interface Props {
   manualPaymentInstructions?: string | null
   /** Upcoming sessions for drop-in registration — player picks one before step 1 */
   dropInSessions?: { id: string; scheduled_at: string; capacity: number | null; registered_count: number }[]
+  /** Session pre-selected from the event page "Register to join" button — skips the picker */
+  preselectedSessionId?: string | null
 }
 
 // Steps used in the progress bar (step 0 = role select, shown separately; never in bar)
@@ -88,6 +90,7 @@ export function RegistrationFlow({
   initialTeamCode = null,
   manualPaymentInstructions = null,
   dropInSessions = [],
+  preselectedSessionId = null,
 }: Props) {
   const router = useRouter()
 
@@ -113,9 +116,10 @@ export function RegistrationFlow({
   const [showRoleSelect, setShowRoleSelect] = useState(
     isPerTeam && initialStep === 1 && !captainTeamId && !playerTeamId && !teamsAtCapacity
   )
-  // Session picker: shown before step 1 for fresh drop-in registrations with sessions available
-  const showSessionPicker = isDropIn && dropInSessions.length > 0 && !initialRegistrationId
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
+  // Session picker: shown before step 1 for fresh drop-in registrations with sessions available.
+  // Skipped when a session was already chosen on the event page (preselectedSessionId).
+  const showSessionPicker = isDropIn && dropInSessions.length > 0 && !initialRegistrationId && !preselectedSessionId
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(preselectedSessionId ?? null)
   const [step, setStep] = useState(initialStep)
   const [registrationId, setRegistrationId] = useState<string | null>(initialRegistrationId)
   const [completing, setCompleting] = useState(false)
