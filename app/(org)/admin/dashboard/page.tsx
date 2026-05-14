@@ -58,7 +58,7 @@ export default async function AdminDashboardPage() {
 
   const stats = [
     { label: 'Active Events', shortLabel: 'Events', value: leagueCount ?? 0, href: '/admin/events' },
-    { label: 'Members', shortLabel: 'Members', value: memberCount ?? 0, href: '/admin/users' },
+    { label: 'Members', shortLabel: 'Members', value: memberCount ?? 0, href: '/admin/players' },
     { label: 'Recent Revenue', shortLabel: 'Revenue', value: `$${(totalRevenue / 100).toFixed(0)}`, href: '/admin/payments' },
   ]
 
