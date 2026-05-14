@@ -594,22 +594,20 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
               </div>
             </div>
 
-            {/* PTS method — only relevant for match-based */}
-            {volleyballMode === 'match_based' && (
-              <div>
-                <p className="text-xs text-gray-500 font-medium mb-1">PTS column represents…</p>
-                <select
-                  value={ptsMethod}
-                  onChange={e => setPtsMethod(e.target.value)}
-                  className="input"
-                >
-                  <option value="wins">Match Wins (W)</option>
-                  <option value="set_wins">Set Wins (SW)</option>
-                  <option value="set_differential">Set Differential (SW − SL)</option>
-                  <option value="points_for">Points For (PF)</option>
-                </select>
-              </div>
-            )}
+            {/* PTS method — available for both match-based and set-based */}
+            <div>
+              <p className="text-xs text-gray-500 font-medium mb-1">PTS column represents…</p>
+              <select
+                value={ptsMethod}
+                onChange={e => setPtsMethod(e.target.value)}
+                className="input"
+              >
+                <option value="wins">Match Wins (W)</option>
+                <option value="set_wins">Set Wins (SW)</option>
+                <option value="set_differential">Set Differential (SW − SL)</option>
+                <option value="points_for">Points For (PF)</option>
+              </select>
+            </div>
           </div>
         )}
         {/* Hidden input always carries the pts method value for FormData */}
