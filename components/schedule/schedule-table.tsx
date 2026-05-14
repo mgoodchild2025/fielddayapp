@@ -237,7 +237,7 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
         </div>
       )}
 
-      {/* Filter pills */}
+      {/* Filter pills + Print Full Schedule */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <button
           onClick={() => setFilter('all')}
@@ -284,6 +284,18 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
               {cancelledCount}
             </span>
           </button>
+        )}
+        {isAdmin && allVisible.length > 0 && (
+          <a
+            href={`${printBase}?type=full`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+            title="Print full schedule"
+          >
+            <PrintIcon />
+            Print full schedule
+          </a>
         )}
       </div>
 
