@@ -39,9 +39,17 @@ const statusColors: Record<string, string> = {
   free: 'bg-gray-100 text-gray-400',
 }
 
+function effectivePriceCents(r: Row): number {
+  if (r.payment?.amount_cents != null) return r.payment.amount_cents
+  if (!r.league) return 0
+  return r.registration_type === 'drop_in'
+    ? (r.league.drop_in_price_cents ?? r.league.price_cents)
+    : r.league.price_cents
+}
+
 function amountLabel(r: Row) {
   if (r.isFree) return 'Free'
-  const cents = r.payment?.amount_cents ?? r.league?.price_cents ?? 0
+  const cents = effectivePriceCents(r)
   const currency = (r.payment?.currency ?? r.league?.currency ?? 'cad').toUpperCase()
   return `$${(cents / 100).toFixed(2)} ${currency}`
 }
@@ -276,7 +284,7 @@ export function PaymentsTable({ rows, stats, isOrgAdmin = true }: { rows: Row[];
                     registrationId={r.id}
                     userId={r.player!.id}
                     leagueId={r.league!.id}
-                    amountCents={r.league!.price_cents}
+                    amountCents={effectivePriceCents(r)}
                     currency={r.league!.currency}
                   />
                 </div>
