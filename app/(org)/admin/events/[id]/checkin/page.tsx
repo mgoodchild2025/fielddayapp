@@ -105,32 +105,52 @@ export default async function AdminCheckInPage({
 
     if (selectedSession) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: sessionRegs } = await (db as any)
-        .from('session_registrations')
-        .select(`
-          id, user_id, checked_in_at, is_walk_in, status,
-          profile:profiles!session_registrations_user_id_fkey(full_name)
-        `)
-        .eq('session_id', selectedSession.id)
-        .eq('organization_id', org.id)
-        .eq('status', 'registered')
+      const [{ data: sessionRegs }, { data: dropInRegs }] = await Promise.all([
+        // Old flow: session_registrations (join-button)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any)
+          .from('session_registrations')
+          .select(`
+            id, user_id, checked_in_at, is_walk_in, status,
+            profile:profiles!session_registrations_user_id_fkey(full_name)
+          `)
+          .eq('session_id', selectedSession.id)
+          .eq('organization_id', org.id)
+          .eq('status', 'registered'),
+        // New flow: registrations with session_id (registration + payment flow)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any)
+          .from('registrations')
+          .select(`
+            id, user_id, checked_in_at, checkin_token, status,
+            profile:profiles!registrations_user_id_fkey(full_name)
+          `)
+          .eq('session_id', selectedSession.id)
+          .eq('organization_id', org.id)
+          .eq('registration_type', 'drop_in')
+          .neq('status', 'cancelled'),
+      ])
 
-      // Fetch event-level registrations for checkin_tokens
-      const userIds = (sessionRegs ?? []).map((r: { user_id: string }) => r.user_id)
+      // Build a set of user IDs already covered by session_registrations to avoid duplicates
+      const sessionRegUserIds = new Set((sessionRegs ?? []).map((r: { user_id: string }) => r.user_id))
+
+      // Fetch checkin_tokens for session_registrations users (stored on the event registration)
+      const srUserIds = (sessionRegs ?? []).map((r: { user_id: string }) => r.user_id)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: eventRegs } = userIds.length > 0 ? await (db as any)
+      const { data: eventRegsForSr } = srUserIds.length > 0 ? await (db as any)
         .from('registrations')
         .select('id, user_id, checkin_token')
         .eq('league_id', id)
         .eq('organization_id', org.id)
-        .in('user_id', userIds) : { data: [] }
+        .in('user_id', srUserIds) : { data: [] }
 
       const eventRegByUserId = new Map<string, { id: string; checkin_token: string }>()
-      for (const er of (eventRegs ?? [])) {
+      for (const er of (eventRegsForSr ?? [])) {
         eventRegByUserId.set(er.user_id, { id: er.id, checkin_token: er.checkin_token })
       }
 
-      rows = (sessionRegs ?? []).map((sr: {
+      // Rows from session_registrations (old join-button flow)
+      const srRows = (sessionRegs ?? []).map((sr: {
         id: string
         user_id: string
         checked_in_at: string | null
@@ -140,7 +160,7 @@ export default async function AdminCheckInPage({
         const profile = Array.isArray(sr.profile) ? sr.profile[0] : sr.profile
         const eventReg = eventRegByUserId.get(sr.user_id)
         return {
-          id: eventReg?.id ?? sr.user_id,  // event registration id for undo fallback
+          id: eventReg?.id ?? sr.user_id,
           playerName: profile?.full_name ?? 'Unknown',
           teamName: null,
           checkinToken: eventReg?.checkin_token ?? '',
@@ -149,6 +169,30 @@ export default async function AdminCheckInPage({
           sessionRegistrationId: sr.id,
         }
       })
+
+      // Rows from registrations table (new registration-flow drop-ins), deduped
+      const drRows = (dropInRegs ?? [])
+        .filter((r: { user_id: string }) => !sessionRegUserIds.has(r.user_id))
+        .map((r: {
+          id: string
+          user_id: string
+          checked_in_at: string | null
+          checkin_token: string
+          profile: { full_name: string } | { full_name: string }[] | null
+        }) => {
+          const profile = Array.isArray(r.profile) ? r.profile[0] : r.profile
+          return {
+            id: r.id,
+            playerName: profile?.full_name ?? 'Unknown',
+            teamName: null,
+            checkinToken: r.checkin_token ?? '',
+            checkedInAt: r.checked_in_at,
+            isWalkIn: false,
+            sessionRegistrationId: null,  // check-in will update registrations row directly
+          }
+        })
+
+      rows = [...srRows, ...drRows]
 
       // Sort: not-checked-in first, then checked-in; alpha within each group
       rows.sort((a, b) => {

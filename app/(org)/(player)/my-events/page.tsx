@@ -35,7 +35,7 @@ export default async function MyEventsPage() {
     (db as any).from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('registrations').select(`
-      id, status, checkin_token, created_at,
+      id, status, checkin_token, created_at, session_id, registration_type,
       league:leagues!registrations_league_id_fkey(
         id, name, slug, league_status:status, event_type, sport, logo_url, season_start_date, season_end_date, checkin_enabled
       )
@@ -46,13 +46,39 @@ export default async function MyEventsPage() {
       .order('created_at', { ascending: false }),
   ])
 
+  // Fetch session dates for any drop-in registrations that have a session_id
+  const sessionIds = (registrations ?? [])
+    .map((r: { session_id: string | null }) => r.session_id)
+    .filter(Boolean) as string[]
+
+  const sessionDateMap = new Map<string, string>()
+  if (sessionIds.length > 0) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: sessionRows } = await (db as any)
+        .from('event_sessions')
+        .select('id, scheduled_at')
+        .in('id', sessionIds)
+      for (const s of (sessionRows ?? [])) {
+        sessionDateMap.set(s.id, s.scheduled_at)
+      }
+    } catch { /* session_id column not yet applied */ }
+  }
+
+  // Fetch branding timezone for session date formatting
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: brandingTz } = await (db as any)
+    .from('org_branding').select('timezone').eq('organization_id', org.id).single()
+  const timezone = brandingTz?.timezone ?? 'America/Toronto'
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const events = (registrations ?? []).map((r: any) => {
     const league = Array.isArray(r.league) ? r.league[0] : r.league
     const checkinUrl = r.checkin_token
       ? `${protocol}://${host}/checkin/${r.checkin_token}`
       : null
-    return { registrationId: r.id, registrationStatus: r.status, checkinUrl, league }
+    const sessionScheduledAt = r.session_id ? sessionDateMap.get(r.session_id) ?? null : null
+    return { registrationId: r.id, registrationStatus: r.status, checkinUrl, league, sessionScheduledAt, registrationType: r.registration_type }
   }).filter((r: { league: unknown }) => r.league)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -101,10 +127,17 @@ export default async function MyEventsPage() {
             {/* Current events */}
             <div className="space-y-3">
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {currentEvents.map(({ registrationId, registrationStatus, checkinUrl, league }: any) => {
+              {currentEvents.map(({ registrationId, registrationStatus, checkinUrl, league, sessionScheduledAt, registrationType }: any) => {
                 const statusInfo = STATUS_LABEL[league.league_status] ?? { label: league.league_status, className: 'bg-gray-100 text-gray-500' }
                 const isActive = registrationStatus === 'active'
                 const showQR = isActive && !!checkinUrl && ['active', 'registration_open'].includes(league.league_status) && league.checkin_enabled === true
+                const isDropIn = registrationType === 'drop_in'
+                const sessionLabel = sessionScheduledAt
+                  ? new Date(sessionScheduledAt).toLocaleString('en-CA', {
+                      weekday: 'short', month: 'short', day: 'numeric',
+                      hour: 'numeric', minute: '2-digit', timeZone: timezone,
+                    })
+                  : null
 
                 return (
                   <div
@@ -119,14 +152,21 @@ export default async function MyEventsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-gray-900 truncate">{league.name}</p>
+                          {isDropIn && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 bg-purple-50 text-purple-700">
+                              Drop-in
+                            </span>
+                          )}
                           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${statusInfo.className}`}>
                             {statusInfo.label}
                           </span>
                         </div>
                         <p className="text-xs text-gray-400 mt-0.5">
                           {league.sport ? formatSport(league.sport) : ''}
-                          {league.sport && league.season_start_date ? ' · ' : ''}
-                          {formatDate(league.season_start_date) ?? ''}
+                          {sessionLabel
+                            ? <>{league.sport ? ' · ' : ''}<span className="font-medium text-gray-500">{sessionLabel}</span></>
+                            : <>{league.sport && league.season_start_date ? ' · ' : ''}{formatDate(league.season_start_date) ?? ''}</>
+                          }
                         </p>
                       </div>
                       <svg className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

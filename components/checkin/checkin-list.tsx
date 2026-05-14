@@ -48,44 +48,52 @@ export function CheckInList({ registrations, leagueId, timezone, sessionId }: Pr
 
   const hasFilters = search || teamFilter !== 'all'
   const checkedInCount = localRegs.filter((r) => r.checkedInAt).length
-  function optimisticToggle(key: string, checkIn: boolean) {
+  function optimisticToggle(key: string, checkIn: boolean, useId = false) {
     setLocalRegs((prev) =>
       prev.map((r) => {
-        const matches = sessionId ? r.sessionRegistrationId === key : r.id === key
+        // session mode: prefer sessionRegistrationId match, fall back to id for registration-flow drop-ins
+        const matches = sessionId
+          ? (useId ? r.id === key : (r.sessionRegistrationId ?? r.id) === key)
+          : r.id === key
         return matches ? { ...r, checkedInAt: checkIn ? new Date().toISOString() : null } : r
       })
     )
   }
 
-  function revertToggle(key: string, original: string | null) {
+  function revertToggle(key: string, original: string | null, useId = false) {
     setLocalRegs((prev) =>
       prev.map((r) => {
-        const matches = sessionId ? r.sessionRegistrationId === key : r.id === key
+        const matches = sessionId
+          ? (useId ? r.id === key : (r.sessionRegistrationId ?? r.id) === key)
+          : r.id === key
         return matches ? { ...r, checkedInAt: original } : r
       })
     )
   }
 
   async function handleToggle(reg: Registration, currentlyCheckedIn: boolean) {
-    const key = sessionId ? (reg.sessionRegistrationId ?? reg.id) : reg.id
+    // Registration-flow drop-ins have no sessionRegistrationId — use reg.id as key
+    const useId = sessionId ? !reg.sessionRegistrationId : false
+    const key = useId ? reg.id : (sessionId ? (reg.sessionRegistrationId ?? reg.id) : reg.id)
     const original = reg.checkedInAt
-    optimisticToggle(key, !currentlyCheckedIn)
+    optimisticToggle(key, !currentlyCheckedIn, useId)
 
     if (currentlyCheckedIn) {
       // Undo
       const result = sessionId && reg.sessionRegistrationId
         ? await undoSessionCheckIn(reg.sessionRegistrationId, leagueId)
         : await undoCheckIn(reg.id, leagueId)
-      if (result?.error) revertToggle(key, original)
+      if (result?.error) revertToggle(key, original, useId)
     } else {
       // Check in
       if (sessionId && reg.sessionRegistrationId) {
         const result = await manualSessionCheckIn(reg.sessionRegistrationId, leagueId)
-        if (result?.error) revertToggle(key, original)
+        if (result?.error) revertToggle(key, original, useId)
       } else {
+        // Registration-flow drop-in or event-level: use checkin token (updates registrations table)
         const result = await checkInByToken(reg.checkinToken, leagueId)
         if (result.status !== 'success' && result.status !== 'already_checked_in') {
-          revertToggle(key, original)
+          revertToggle(key, original, useId)
         }
       }
     }
