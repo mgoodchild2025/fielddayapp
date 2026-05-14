@@ -738,15 +738,23 @@ export default async function EventDetailPage({
         .eq('registration_type', 'season').maybeSingle()
     : { data: null }
 
-  // For per-session drop-in events, check if the player has an active event-level registration
-  // (completed the waiver + payment flow via /register). Required before joining sessions.
+  // For per-session drop-in events, fetch all of the player's paid registrations so we can
+  // check per-session whether they've already been through the waiver + payment flow.
+  // Each drop-in registration covers exactly one session (session_id is set on the row).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: myDropInRegistration } = (isSessionBased && !isSeasonPickup && user)
-    ? await (db as any).from('registrations').select('id, status')
+  const { data: myDropInRegistrations } = (isSessionBased && !isSeasonPickup && user)
+    ? await (db as any).from('registrations').select('id, session_id, status')
         .eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id)
+        .eq('registration_type', 'drop_in')
         .in('status', ['active', 'pending'])
-        .maybeSingle()
     : { data: null }
+
+  // Build a Set of session IDs the player has already registered (and paid) for.
+  const myPaidSessionIds = new Set(
+    (myDropInRegistrations ?? [])
+      .map((r: { session_id: string | null }) => r.session_id)
+      .filter(Boolean)
+  )
 
   // An event-level registration is required before joining sessions when the event
   // has a waiver or a drop-in fee (so waiver/payment are collected at registration time).
@@ -755,7 +763,6 @@ export default async function EventDetailPage({
     !!(league as any).waiver_version_id ||
     !!(league as any).drop_in_price_cents
   )
-  const playerIsSessionRegistered = !sessionRegistrationRequired || !!myDropInRegistration
 
   // ── Live capacity counts ──────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1666,6 +1673,8 @@ export default async function EventDetailPage({
                       const isJoined = mySessionIds.has(s.id)
                       const isCancelled = s.status === 'cancelled'
                       const remaining = s.capacity !== null ? s.capacity - registeredCount : null
+                      // Per-session: player is "registered" only if they've paid for THIS session
+                      const playerIsSessionRegistered = !sessionRegistrationRequired || myPaidSessionIds.has(s.id)
                       return (
                         <div key={s.id} className={`bg-white border rounded-lg p-4 flex items-center justify-between gap-4 ${isCancelled ? 'opacity-50' : ''}`}>
                           <div className="flex-1 min-w-0">
