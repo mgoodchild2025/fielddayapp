@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { checkInByToken, checkInWalkIn } from '@/actions/checkin'
 import type { CheckInResult } from '@/actions/checkin'
 import { unlockAudio, playCheckinSound } from '@/lib/audio'
@@ -38,6 +39,7 @@ function extractToken(raw: string): string | null {
 }
 
 export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props) {
+  const router = useRouter()
   const containerRef = useRef<HTMLDivElement>(null)
   const lastTokenRef = useRef<string | null>(null)
   const cooldownRef = useRef(false)
@@ -88,6 +90,7 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
 
               if (nextState.type === 'success') {
                 playCheckinSound(checkinSound)
+                router.refresh()
                 setTimeout(() => {
                   lastTokenRef.current = null
                   cooldownRef.current = false
@@ -148,6 +151,7 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
       } else {
         setScanState({ type: 'walk_in_success', playerName })
         playCheckinSound(checkinSound)
+        router.refresh()
       }
       setTimeout(() => {
         lastTokenRef.current = null
