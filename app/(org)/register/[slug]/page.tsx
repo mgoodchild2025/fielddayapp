@@ -40,10 +40,12 @@ export default async function RegisterLeaguePage({
 
   if (!league) notFound()
 
-  // Verify drop-in invite — only required for non-dropin event types that use
-  // the pickup_invites system. For dropin-type leagues, registration is open.
+  // Verify drop-in invite — only required for private pickup events.
+  // Public pickup events and drop_in event types allow open drop-in registration.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const isOpenDropIn = (league as any).league_type === 'dropin' || (league as any).event_type === 'drop_in'
+  const isOpenDropIn = (league as any).league_type === 'dropin'
+    || (league as any).event_type === 'drop_in'
+    || ((league as any).event_type === 'pickup' && (league as any).pickup_join_policy !== 'private')
   if (isDropIn && !isOpenDropIn) {
     if (!user.email) notFound()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
