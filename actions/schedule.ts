@@ -730,6 +730,184 @@ export async function clearAllGames(leagueId: string) {
   return { error: null }
 }
 
+// ── Weekly league schedule generator ──────────────────────────────────────────
+
+export async function generateWeeklyLeagueSchedule(input: {
+  leagueId: string
+  daysOfWeek: number[]        // 0=Sun … 6=Sat
+  startDate: string           // YYYY-MM-DD
+  endDate: string             // YYYY-MM-DD
+  timeSlots: string[]         // HH:MM local
+  courts: number
+  gameDurationMinutes: number
+  repeatRotations: boolean
+  expectedTeamCount?: number  // slot mode
+}): Promise<{ error: string | null; count: number; isTemplate?: boolean }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated', count: 0 }
+
+  const db = createServiceRoleClient()
+  const { data: adminMember } = await db
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+  if (!adminMember) return { error: 'Admin access required', count: 0 }
+
+  // Fetch org timezone
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: branding } = await (db as any)
+    .from('org_branding')
+    .select('timezone')
+    .eq('organization_id', org.id)
+    .single()
+  const timezone: string = branding?.timezone ?? 'America/Toronto'
+
+  // Fetch active teams for this league
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: realTeams } = await (db as any)
+    .from('teams')
+    .select('id, name')
+    .eq('league_id', input.leagueId)
+    .eq('organization_id', org.id)
+    .eq('status', 'active')
+
+  const { generateRoundRobin, getGameDays, assignWeeklySlots } = await import('@/lib/scheduler')
+
+  // Slot mode: fewer than 2 real teams but expectedTeamCount provided
+  const useSlotMode = (!realTeams || realTeams.length < 2) && !!(input.expectedTeamCount && input.expectedTeamCount >= 2)
+  if (!useSlotMode && (!realTeams || realTeams.length < 2)) {
+    return { error: 'Need at least 2 active teams, or enter an expected team count to generate a template.', count: 0 }
+  }
+
+  const teams = useSlotMode
+    ? Array.from({ length: input.expectedTeamCount! }, (_, i) => ({ id: `slot_${i + 1}`, name: `Team ${i + 1}` }))
+    : realTeams!
+
+  const fixtures = generateRoundRobin(teams)
+  const gameDays = getGameDays(input.startDate, input.endDate, input.daysOfWeek)
+
+  if (!gameDays.length) {
+    return { error: 'No game days found in the selected date range for the chosen days of the week.', count: 0 }
+  }
+
+  const scheduled = assignWeeklySlots(fixtures, gameDays, {
+    timezone,
+    timeSlots:          input.timeSlots,
+    courts:             Math.max(1, input.courts),
+    gameDurationMinutes: input.gameDurationMinutes,
+    repeatRotations:    input.repeatRotations,
+    slotMode:           useSlotMode,
+  })
+
+  if (!scheduled.length) {
+    return { error: 'No games could be generated. Check your dates and time slots.', count: 0 }
+  }
+
+  const games = scheduled.map(g => ({
+    organization_id: org.id,
+    league_id:       input.leagueId,
+    home_team_id:    g.homeTeamId,
+    away_team_id:    g.awayTeamId,
+    home_team_label: g.homeTeamLabel ?? null,
+    away_team_label: g.awayTeamLabel ?? null,
+    scheduled_at:    g.scheduledAt,
+    week_number:     g.weekNumber,
+    court:           g.court,
+  }))
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any).from('games').insert(games)
+  if (error) return { error: error.message, count: 0 }
+
+  revalidatePath(`/admin/events/${input.leagueId}/schedule`)
+  return { error: null, count: games.length, isTemplate: useSlotMode }
+}
+
+// ── Pickup / drop-in schedule generator ──────────────────────────────────────
+
+export async function generatePickupSchedule(input: {
+  leagueId: string
+  daysOfWeek: number[]
+  startDate: string
+  endDate: string
+  timeSlots: string[]
+  courts: number
+  gameDurationMinutes: number
+}): Promise<{ error: string | null; count: number }> {
+  const SLOT_CAP = 500
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated', count: 0 }
+
+  const db = createServiceRoleClient()
+  const { data: adminMember } = await db
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+  if (!adminMember) return { error: 'Admin access required', count: 0 }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: branding } = await (db as any)
+    .from('org_branding')
+    .select('timezone')
+    .eq('organization_id', org.id)
+    .single()
+  const timezone: string = branding?.timezone ?? 'America/Toronto'
+
+  const { getGameDays, generatePickupSlotList } = await import('@/lib/scheduler')
+
+  const gameDays = getGameDays(input.startDate, input.endDate, input.daysOfWeek)
+  if (!gameDays.length) {
+    return { error: 'No game days found in the selected date range for the chosen days of the week.', count: 0 }
+  }
+
+  const scheduled = generatePickupSlotList(gameDays, input.timeSlots, Math.max(1, input.courts), timezone)
+
+  if (scheduled.length > SLOT_CAP) {
+    return {
+      error: `This would generate ${scheduled.length} slots, which exceeds the ${SLOT_CAP}-slot limit. Shorten the date range, reduce time slots, or reduce courts.`,
+      count: scheduled.length,
+    }
+  }
+
+  if (!scheduled.length) {
+    return { error: 'No slots could be generated. Check your dates and time slots.', count: 0 }
+  }
+
+  const games = scheduled.map(g => ({
+    organization_id: org.id,
+    league_id:       input.leagueId,
+    home_team_id:    null,
+    away_team_id:    null,
+    home_team_label: null,
+    away_team_label: null,
+    scheduled_at:    g.scheduledAt,
+    week_number:     g.weekNumber,
+    court:           g.court,
+  }))
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any).from('games').insert(games)
+  if (error) return { error: error.message, count: 0 }
+
+  revalidatePath(`/admin/events/${input.leagueId}/schedule`)
+  return { error: null, count: games.length }
+}
+
 export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)

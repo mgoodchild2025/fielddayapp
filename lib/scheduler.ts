@@ -1,3 +1,5 @@
+import { parseLocalToUtc } from '@/lib/format-time'
+
 /**
  * Round-robin tournament scheduler.
  * Uses the "circle method" (polygon algorithm) to generate fixtures.
@@ -242,5 +244,116 @@ export function assignTimeSlots(fixtures: Fixture[], opts: DayScheduleOptions): 
     currentTime = advancePastBreaks(rawNext, opts.specialBreaks ?? [])
   }
 
+  return games
+}
+
+// ── Weekly league / pickup scheduler ─────────────────────────────────────────
+
+/**
+ * Return every calendar date between startDate and endDate (inclusive)
+ * whose day-of-week is in daysOfWeek (0=Sun … 6=Sat).
+ * Dates are constructed at local noon to avoid DST-midnight edge cases.
+ */
+export function getGameDays(
+  startDate: string,    // YYYY-MM-DD
+  endDate: string,      // YYYY-MM-DD
+  daysOfWeek: number[], // 0=Sun … 6=Sat
+): Date[] {
+  const result: Date[] = []
+  if (!daysOfWeek.length) return result
+  const dowSet = new Set(daysOfWeek)
+  const [sy, sm, sd] = startDate.split('-').map(Number)
+  const [ey, em, ed] = endDate.split('-').map(Number)
+  const cursor = new Date(sy, sm - 1, sd, 12, 0, 0)
+  const end    = new Date(ey, em - 1, ed, 12, 0, 0)
+  while (cursor <= end) {
+    if (dowSet.has(cursor.getDay())) {
+      result.push(new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate()))
+    }
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return result
+}
+
+export interface WeeklySlotsOptions {
+  timezone: string           // IANA
+  timeSlots: string[]        // HH:MM local, e.g. ['19:00', '20:15']
+  courts: number             // simultaneous courts per time slot
+  gameDurationMinutes: number
+  repeatRotations: boolean
+  slotMode?: boolean
+}
+
+/**
+ * Assign fixtures to game days using a weekly schedule format.
+ * Iterates gameDays × timeSlots × courts sequentially, drawing one fixture per slot.
+ * When repeatRotations=true, wraps back to fixture 0 after the last fixture.
+ */
+export function assignWeeklySlots(
+  fixtures: Fixture[],
+  gameDays: Date[],
+  opts: WeeklySlotsOptions,
+): ScheduledGame[] {
+  const { timezone, timeSlots, courts, repeatRotations, slotMode } = opts
+  const games: ScheduledGame[] = []
+  if (!fixtures.length || !gameDays.length || !timeSlots.length || courts < 1) return games
+
+  const slotLabel = (id: string) => `Team ${id.replace('slot_', '')}`
+  let fixtureIndex = 0
+
+  outer: for (const day of gameDays) {
+    const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
+    for (const slot of timeSlots) {
+      for (let c = 0; c < courts; c++) {
+        if (fixtureIndex >= fixtures.length) {
+          if (!repeatRotations) break outer
+          fixtureIndex = 0
+        }
+        const f = fixtures[fixtureIndex++]
+        const rawHome = f.homeTeamId ?? ''
+        const rawAway = f.awayTeamId ?? ''
+        const homeIsSlot = !!slotMode && rawHome.startsWith('slot_')
+        const awayIsSlot = !!slotMode && rawAway.startsWith('slot_')
+        games.push({
+          homeTeamId:    homeIsSlot ? null : (rawHome || null),
+          awayTeamId:    awayIsSlot ? null : (rawAway || null),
+          homeTeamLabel: homeIsSlot ? slotLabel(rawHome) : null,
+          awayTeamLabel: awayIsSlot ? slotLabel(rawAway) : null,
+          scheduledAt:   parseLocalToUtc(dateStr, slot, timezone),
+          weekNumber:    f.round,
+          court:         courts > 1 ? `Court ${c + 1}` : null,
+        })
+      }
+    }
+  }
+  return games
+}
+
+/**
+ * Generate blank pickup/drop-in time slots with no team assignments.
+ */
+export function generatePickupSlotList(
+  gameDays: Date[],
+  timeSlots: string[],
+  courts: number,
+  timezone: string,
+): ScheduledGame[] {
+  const games: ScheduledGame[] = []
+  for (const day of gameDays) {
+    const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
+    for (const slot of timeSlots) {
+      for (let c = 0; c < courts; c++) {
+        games.push({
+          homeTeamId:    null,
+          awayTeamId:    null,
+          homeTeamLabel: null,
+          awayTeamLabel: null,
+          scheduledAt:   parseLocalToUtc(dateStr, slot, timezone),
+          weekNumber:    1,
+          court:         courts > 1 ? `Court ${c + 1}` : null,
+        })
+      }
+    }
+  }
   return games
 }
