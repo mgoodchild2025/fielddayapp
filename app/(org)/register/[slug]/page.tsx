@@ -160,6 +160,34 @@ export default async function RegisterLeaguePage({
 
   const teamsAtCapacity = isPerTeamLeague && leagueMaxTeams !== null && (currentTeamCount ?? 0) >= leagueMaxTeams
 
+  // Fetch upcoming sessions for drop-in registration (session picker step)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawSessions } = isDropIn
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? await (db as any)
+        .from('event_sessions')
+        .select('id, scheduled_at, capacity, registered:session_registrations(count)')
+        .eq('league_id', league.id)
+        .eq('organization_id', org.id)
+        .eq('status', 'open')
+        .gte('scheduled_at', new Date().toISOString())
+        .order('scheduled_at', { ascending: true })
+        .limit(20)
+    : { data: [] }
+
+  const dropInSessions = (rawSessions ?? []).map((s: {
+    id: string
+    scheduled_at: string
+    capacity: number | null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    registered: any[]
+  }) => ({
+    id: s.id,
+    scheduled_at: s.scheduled_at,
+    capacity: s.capacity,
+    registered_count: s.registered?.[0]?.count ?? 0,
+  }))
+
   const [positions, leagueMerchRaw] = await Promise.all([
     getPositionsForSport(org.id, league.sport ?? ''),
     getLeagueMerchandise(league.id),
@@ -300,6 +328,7 @@ export default async function RegisterLeaguePage({
       leagueMerch={leagueMerch}
       initialTeamCode={initialTeamCode}
       manualPaymentInstructions={manualPaymentInstructions}
+      dropInSessions={dropInSessions}
     />
   )
 }

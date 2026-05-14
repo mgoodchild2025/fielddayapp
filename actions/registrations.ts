@@ -15,6 +15,7 @@ const createRegistrationSchema = z.object({
   formData: z.record(z.string(), z.unknown()).optional(),
   position: z.string().optional(),
   registration_type: z.enum(['season', 'drop_in']).default('season'),
+  session_id: z.string().uuid().optional().nullable(),
 })
 
 export async function createRegistration(input: z.infer<typeof createRegistrationSchema>) {
@@ -97,6 +98,7 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
       form_data: (parsed.data.formData ?? null) as any,
       registration_type: parsed.data.registration_type,
       expires_at: expiresAt,
+      session_id: parsed.data.session_id ?? null,
     } as never)
     .select('id')
     .single()

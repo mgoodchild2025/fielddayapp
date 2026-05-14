@@ -16,8 +16,9 @@ type PaymentRecord = {
 type Row = {
   id: string
   created_at: string
+  registration_type?: string | null
   player: { id: string; full_name: string; email: string } | null
-  league: { id: string; name: string; price_cents: number; currency: string } | null
+  league: { id: string; name: string; price_cents: number; drop_in_price_cents?: number | null; currency: string } | null
   payment: PaymentRecord | null
   paymentStatus: string
   isFree: boolean
@@ -176,6 +177,11 @@ export function PaymentsTable({ rows, stats, isOrgAdmin = true }: { rows: Row[];
                   <td className="px-4 py-3">
                     <p className="font-medium">{r.player?.full_name ?? '—'}</p>
                     <p className="text-xs text-gray-500">{r.player?.email ?? '—'}</p>
+                    {r.registration_type === 'drop_in' && (
+                      <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                        Drop-in
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-gray-600">{r.league?.name ?? '—'}</td>
                   <td className="px-4 py-3 font-semibold">
@@ -199,7 +205,11 @@ export function PaymentsTable({ rows, stats, isOrgAdmin = true }: { rows: Row[];
                         registrationId={r.id}
                         userId={r.player!.id}
                         leagueId={r.league!.id}
-                        amountCents={r.league!.price_cents}
+                        amountCents={
+                          r.registration_type === 'drop_in'
+                            ? (r.league!.drop_in_price_cents ?? r.league!.price_cents)
+                            : r.league!.price_cents
+                        }
                         currency={r.league!.currency}
                       />
                     )}
@@ -232,6 +242,11 @@ export function PaymentsTable({ rows, stats, isOrgAdmin = true }: { rows: Row[];
                 <div className="min-w-0">
                   <p className="font-semibold truncate">{r.player?.full_name ?? '—'}</p>
                   <p className="text-xs text-gray-500 truncate">{r.player?.email ?? '—'}</p>
+                  {r.registration_type === 'drop_in' && (
+                    <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                      Drop-in
+                    </span>
+                  )}
                 </div>
                 <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium capitalize ${statusColors[r.paymentStatus] ?? 'bg-gray-100 text-gray-600'}`}>
                   {r.paymentStatus}

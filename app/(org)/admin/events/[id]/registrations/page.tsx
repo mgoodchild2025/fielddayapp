@@ -45,8 +45,10 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
     .from('registrations')
     .select(`
       id, status, created_at, user_id, waiver_signature_id, checked_in_at,
+      registration_type, session_id,
       user_profile:profiles!registrations_user_id_fkey(full_name, email),
-      payments(status, amount_cents, currency, payment_method)
+      payments(status, amount_cents, currency, payment_method),
+      session:event_sessions(scheduled_at)
     `)
     .eq('league_id', id)
     .eq('organization_id', org.id)
@@ -112,11 +114,31 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                 await activateRegistration(reg.id)
               }
 
+              const isDropIn = reg.registration_type === 'drop_in'
+              const sessionRaw = Array.isArray(reg.session) ? reg.session[0] : reg.session
+              const sessionDate = sessionRaw?.scheduled_at
+                ? new Date(sessionRaw.scheduled_at).toLocaleDateString('en-CA', {
+                    month: 'short', day: 'numeric', year: 'numeric',
+                    hour: 'numeric', minute: '2-digit', hour12: true,
+                    timeZone: timezone,
+                  })
+                : null
+
               return (
                 <tr key={reg.id} className="border-b last:border-0 hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div className="font-medium">{profile?.full_name ?? '—'}</div>
                     <div className="text-xs text-gray-400">{profile?.email ?? '—'}</div>
+                    {isDropIn && (
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                          Drop-in
+                        </span>
+                        {sessionDate && (
+                          <span className="text-[10px] text-gray-400">{sessionDate}</span>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span

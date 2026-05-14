@@ -34,6 +34,8 @@ interface Props {
   userId: string
   positions?: string[]
   registrationType?: 'season' | 'drop_in'
+  /** Session ID selected during drop-in registration flow */
+  sessionId?: string | null
   /** Show the team-code field (hidden for per-team events where joining happens in a dedicated step) */
   showTeamCode?: boolean
   /** Pre-filled team code from the invite link — auto-validates on mount */
@@ -42,7 +44,7 @@ interface Props {
   onComplete: (registrationId: string, joinedTeamId?: string) => void
 }
 
-export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, positions = [], registrationType = 'season', showTeamCode = true, initialTeamCode = null, onComplete }: Props) {
+export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, positions = [], registrationType = 'season', sessionId = null, showTeamCode = true, initialTeamCode = null, onComplete }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedPosition, setSelectedPosition] = useState('')
@@ -109,7 +111,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
 
     await updateProfile({ ...data, orgId: org.id })
 
-    const result = await createRegistration({ leagueId: league.id, position: selectedPosition || undefined, registration_type: registrationType })
+    const result = await createRegistration({ leagueId: league.id, position: selectedPosition || undefined, registration_type: registrationType, session_id: sessionId ?? undefined })
     if (result.error) {
       setError(result.error === 'EVENT_FULL'
         ? 'Sorry, this event is full — no more spots are available.'

@@ -17,8 +17,9 @@ type PaymentRecord = {
 type RegistrationRow = {
   id: string
   created_at: string
+  registration_type: string | null
   player: { id: string; full_name: string; email: string } | { id: string; full_name: string; email: string }[] | null
-  league: { id: string; name: string; price_cents: number; currency: string } | { id: string; name: string; price_cents: number; currency: string }[] | null
+  league: { id: string; name: string; price_cents: number; drop_in_price_cents: number | null; currency: string } | { id: string; name: string; price_cents: number; drop_in_price_cents: number | null; currency: string }[] | null
   payment: PaymentRecord | PaymentRecord[] | null
 }
 
@@ -31,9 +32,9 @@ export default async function AdminPaymentsPage() {
   let query = supabase
     .from('registrations')
     .select(`
-      id, created_at,
+      id, created_at, registration_type,
       player:profiles!registrations_user_id_fkey(id, full_name, email),
-      league:leagues!registrations_league_id_fkey(id, name, price_cents, currency),
+      league:leagues!registrations_league_id_fkey(id, name, price_cents, drop_in_price_cents, currency),
       payment:payments!payments_registration_id_fkey(id, amount_cents, currency, status, payment_method, paid_at, notes)
     `)
     .eq('organization_id', org.id)
@@ -55,7 +56,11 @@ export default async function AdminPaymentsPage() {
     const league = Array.isArray(r.league) ? r.league[0] : r.league
     const payment = Array.isArray(r.payment) ? r.payment[0] : r.payment
 
-    const isFree = !league || league.price_cents === 0
+    const isDropIn = r.registration_type === 'drop_in'
+    const effectivePrice = isDropIn
+      ? (league?.drop_in_price_cents ?? league?.price_cents ?? 0)
+      : (league?.price_cents ?? 0)
+    const isFree = effectivePrice === 0
     let paymentStatus: string
     if (isFree) paymentStatus = 'free'
     else if (payment?.status === 'paid') paymentStatus = 'paid'

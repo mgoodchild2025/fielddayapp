@@ -52,6 +52,8 @@ interface Props {
    * step with these instructions before completing the registration.
    */
   manualPaymentInstructions?: string | null
+  /** Upcoming sessions for drop-in registration — player picks one before step 1 */
+  dropInSessions?: { id: string; scheduled_at: string; capacity: number | null; registered_count: number }[]
 }
 
 // Steps used in the progress bar (step 0 = role select, shown separately; never in bar)
@@ -85,6 +87,7 @@ export function RegistrationFlow({
   leagueMerch = [],
   initialTeamCode = null,
   manualPaymentInstructions = null,
+  dropInSessions = [],
 }: Props) {
   const router = useRouter()
 
@@ -110,6 +113,9 @@ export function RegistrationFlow({
   const [showRoleSelect, setShowRoleSelect] = useState(
     isPerTeam && initialStep === 1 && !captainTeamId && !playerTeamId && !teamsAtCapacity
   )
+  // Session picker: shown before step 1 for fresh drop-in registrations with sessions available
+  const showSessionPicker = isDropIn && dropInSessions.length > 0 && !initialRegistrationId
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [step, setStep] = useState(initialStep)
   const [registrationId, setRegistrationId] = useState<string | null>(initialRegistrationId)
   const [completing, setCompleting] = useState(false)
@@ -182,6 +188,52 @@ export function RegistrationFlow({
     } else {
       await completeRegistration(registrationId)
     }
+  }
+
+  // ── Session picker (step 0 for drop-in registrations with sessions) ─────────
+  if (showSessionPicker && !selectedSessionId) {
+    return (
+      <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+        <div className="max-w-xl mx-auto px-4 py-8">
+          <h1 className="text-2xl font-bold uppercase mb-2" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+            Drop-in — {league.name}
+          </h1>
+          <p className="text-sm text-gray-500 mb-6">Choose the session you&apos;re registering for.</p>
+          <div className="space-y-3">
+            {dropInSessions.map(session => {
+              const date = new Date(session.scheduled_at)
+              const isFull = session.capacity !== null && session.registered_count >= session.capacity
+              const spotsLeft = session.capacity !== null ? session.capacity - session.registered_count : null
+              return (
+                <button
+                  key={session.id}
+                  type="button"
+                  disabled={isFull}
+                  onClick={() => setSelectedSessionId(session.id)}
+                  className={`w-full text-left bg-white border rounded-lg px-5 py-4 transition-colors ${
+                    isFull
+                      ? 'opacity-50 cursor-not-allowed border-gray-200'
+                      : 'hover:border-gray-400 hover:shadow-sm border-gray-200'
+                  }`}
+                >
+                  <p className="font-semibold text-gray-900">
+                    {date.toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                  </p>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    {date.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                    {spotsLeft !== null && (
+                      <span className={`ml-2 ${spotsLeft <= 3 ? 'text-amber-600 font-medium' : ''}`}>
+                        · {isFull ? 'Full' : `${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''} left`}
+                      </span>
+                    )}
+                  </p>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   // ── Role select screen (step 0 for per-team events) ───────────────────────
@@ -281,6 +333,7 @@ export function RegistrationFlow({
             userId={userId}
             positions={positions}
             registrationType={isDropIn ? 'drop_in' : 'season'}
+            sessionId={selectedSessionId}
             showTeamCode={!isPerTeam}
             initialTeamCode={!isPerTeam ? initialTeamCode : null}
             onComplete={(regId, teamId) => {
