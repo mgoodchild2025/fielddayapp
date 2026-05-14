@@ -21,7 +21,6 @@ const orgAdminNav = [
   { label: 'Gallery', href: '/admin/gallery', icon: '🖼️' },
   { label: 'Messages', href: '/admin/messages', icon: '✉️' },
   { label: 'Settings', href: '/admin/settings', icon: '⚙️' },
-  { label: 'Navigation', href: '/admin/settings/nav', icon: '🔗' },
 ]
 
 const leagueAdminNav = [

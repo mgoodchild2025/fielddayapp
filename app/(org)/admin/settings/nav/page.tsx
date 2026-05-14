@@ -21,7 +21,7 @@ export default async function NavLinksPage() {
       </div>
       <h1 className="text-2xl font-bold text-gray-900 mb-1">Navigation Links</h1>
       <p className="text-sm text-gray-500 mb-6">
-        Add up to 5 custom links to your public navigation bar. Links can point to a URL or an uploaded PDF document.
+        Add up to 5 custom links to your public navigation bar. Links can point to a URL or an uploaded PDF document (eg. Social media site, Policy statement, Game video archive, etc.).
       </p>
       <NavLinkManager initialLinks={links} />
     </div>
