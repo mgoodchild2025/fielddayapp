@@ -1670,7 +1670,9 @@ export default async function EventDetailPage({
                     {(sessions as any[]).map((s) => {
                       const registeredCount = s.session_registrations?.[0]?.count ?? 0
                       const isFull = s.capacity !== null && registeredCount >= s.capacity
-                      const isJoined = mySessionIds.has(s.id)
+                      // isJoined covers both join-button flow (session_registrations) and
+                      // registration-flow drop-ins (registrations.session_id via myPaidSessionIds)
+                      const isJoined = mySessionIds.has(s.id) || myPaidSessionIds.has(s.id)
                       const isCancelled = s.status === 'cancelled'
                       const remaining = s.capacity !== null ? s.capacity - registeredCount : null
                       // Per-session: player is "registered" only if they've paid for THIS session
