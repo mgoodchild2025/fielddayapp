@@ -1610,11 +1610,11 @@ export default async function EventDetailPage({
             )}
 
             {/* Drop-in CTA */}
-            {isPickupEvent && hasDropIn && !mySeasonRegistration && (hasDropInInvite || dropInInviteInUrl) && (
+            {isPickupEvent && hasDropIn && !mySeasonRegistration && (!isPrivatePickup || hasDropInInvite || dropInInviteInUrl) && (
               <div className="bg-white border rounded-lg p-5">
                 <p className="text-sm font-semibold mb-1">Drop-in Available</p>
                 <p className="text-sm text-gray-600 mb-3">
-                  You&apos;ve been invited to join as a drop-in.
+                  {isPrivatePickup ? 'You\'ve been invited to join as a drop-in.' : 'Join a single session without a full season registration.'}
                   {dropInPriceCents ? ` Fee: $${(dropInPriceCents / 100).toFixed(0)}` : ' Free'}
                 </p>
                 {user ? (
