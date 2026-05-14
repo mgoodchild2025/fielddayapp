@@ -45,16 +45,33 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
     .from('registrations')
     .select(`
       id, status, created_at, user_id, waiver_signature_id, checked_in_at,
-      registration_type, session_id,
+      registration_type,
       user_profile:profiles!registrations_user_id_fkey(full_name, email),
-      payments(status, amount_cents, currency, payment_method),
-      session:event_sessions(scheduled_at)
+      payments(status, amount_cents, currency, payment_method)
     `)
     .eq('league_id', id)
     .eq('organization_id', org.id)
     .order('created_at', { ascending: false })
 
   const rows = registrations ?? []
+
+  // Fetch session dates separately — only works after migration 095 has been applied.
+  // Gracefully degrades: if session_id column doesn't exist yet, sessionMap is empty.
+  let sessionMap = new Map<string, string>()
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: sessionRows } = await (db as any)
+      .from('registrations')
+      .select('id, session_id, session:event_sessions(scheduled_at)')
+      .in('id', rows.map((r: { id: string }) => r.id))
+      .not('session_id', 'is', null)
+    for (const r of (sessionRows ?? [])) {
+      const s = Array.isArray(r.session) ? r.session[0] : r.session
+      if (s?.scheduled_at) sessionMap.set(r.id, s.scheduled_at)
+    }
+  } catch {
+    // migration not yet applied — session info simply won't show
+  }
   const unsignedCount = rows.filter((r: { status: string; waiver_signature_id: string | null }) => r.status === 'active' && !r.waiver_signature_id).length
   // Show reminders button whenever the org has ANY waiver configured (league-level or org-level active waiver)
   const hasWaiver = hasWaiverConfigured
@@ -115,9 +132,9 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
               }
 
               const isDropIn = reg.registration_type === 'drop_in'
-              const sessionRaw = Array.isArray(reg.session) ? reg.session[0] : reg.session
-              const sessionDate = sessionRaw?.scheduled_at
-                ? new Date(sessionRaw.scheduled_at).toLocaleDateString('en-CA', {
+              const sessionAt = sessionMap.get(reg.id) ?? null
+              const sessionDate = sessionAt
+                ? new Date(sessionAt).toLocaleString('en-CA', {
                     month: 'short', day: 'numeric', year: 'numeric',
                     hour: 'numeric', minute: '2-digit', hour12: true,
                     timeZone: timezone,
