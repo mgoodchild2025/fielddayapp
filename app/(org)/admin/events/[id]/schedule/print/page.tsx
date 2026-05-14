@@ -246,7 +246,7 @@ function PrintPage({ children }: { children: React.ReactNode }) {
     <>
       <style>{`
         @media print {
-          @page { size: letter portrait; margin: 0.75in; }
+          @page { size: letter portrait; margin: 0.5in; }
 
           /* Allow content to flow across multiple pages and remove scrollbars */
           html, body {

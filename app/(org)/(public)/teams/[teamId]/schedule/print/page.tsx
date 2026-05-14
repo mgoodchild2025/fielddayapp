@@ -100,7 +100,7 @@ export default async function TeamSchedulePrintPage({
     <>
       <style>{`
         @media print {
-          @page { size: letter portrait; margin: 0.75in; }
+          @page { size: letter portrait; margin: 0.5in; }
           html, body { overflow: visible !important; height: auto !important; width: 100% !important; }
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
           .print-page-wrapper { max-width: none !important; padding: 0 !important; margin: 0 !important; }

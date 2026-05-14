@@ -78,7 +78,7 @@ export default async function WaiverSignaturePrintPage({
       {/* Print CSS */}
       <style>{`
         @media print {
-          @page { size: letter portrait; margin: 0.75in; }
+          @page { size: letter portrait; margin: 0.5in; }
 
           html, body {
             overflow: visible !important;

@@ -15,7 +15,7 @@ export function WaiverQrPoster({ waiverUrl, leagueName, orgName, waiverTitle }: 
       {/* Print CSS */}
       <style>{`
         @media print {
-          @page { size: letter portrait; margin: 0.75in; }
+          @page { size: letter portrait; margin: 0.5in; }
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
           .print-hidden { display: none !important; }
         }
