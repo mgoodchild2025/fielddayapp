@@ -447,7 +447,7 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
                   <th className="px-4 py-3 font-medium text-gray-500">Wk</th>
                   <th className="px-4 py-3 font-medium text-gray-500">Time</th>
                   <th className="px-4 py-3 font-medium text-gray-500">Matchup</th>
-                  <th className="px-4 py-3 font-medium text-gray-500">Court</th>
+                  <th className="px-4 py-3 font-medium text-gray-500">{venueLabel(sport)}</th>
                   <th className="px-4 py-3 font-medium text-gray-500">Score</th>
                   <th className="px-4 py-3 font-medium text-gray-500"></th>
                 </tr>

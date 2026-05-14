@@ -692,7 +692,7 @@ export function RoundRobinGenerator({
               <div>
                 <label className="block text-xs text-gray-500 mb-0.5">Simultaneous {venueLbl.toLowerCase()}s</label>
                 <input type="number" min={1} max={10} value={dsCourts} onChange={e => setDsCourts(e.target.value)} className={inputCls} />
-                <p className="text-xs text-gray-400 mt-0.5">Games in a round fill all courts; overflow spills to the next time slot.</p>
+                <p className="text-xs text-gray-400 mt-0.5">Games in a round fill all {venueLbl.toLowerCase()}s; overflow spills to the next time slot.</p>
               </div>
 
               {/* Special breaks */}
