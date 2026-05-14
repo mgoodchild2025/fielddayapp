@@ -39,7 +39,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   const eventCapacity: number | null = leagueAny?.max_participants ?? null
 
   // For season-pass events, all sessions are attended by every registered player.
-  // Show the event-level active registration count rather than per-session sign-ups.
+  // Count only season-type registrations (not drop-in rows which are per-session).
   let seasonRegistrantCount = 0
   if (registrationMode === 'season') {
     const { count } = await db
@@ -48,7 +48,33 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
       .eq('league_id', id)
       .eq('organization_id', org.id)
       .eq('status', 'active')
+      .or('registration_type.eq.season,registration_type.is.null')
     seasonRegistrantCount = count ?? 0
+  }
+
+  // Fetch per-session drop-in counts from the registrations table.
+  // Drop-in players who registered through the registration flow have a session_id
+  // on their registrations row — count them per session separately.
+  const sessionIds = (sessions ?? []).map((s: { id: string }) => s.id)
+  const dropInBySession = new Map<string, number>()
+  if (sessionIds.length > 0) {
+    try {
+      const { data: dropInRegs } = await db
+        .from('registrations')
+        .select('session_id')
+        .eq('league_id', id)
+        .eq('organization_id', org.id)
+        .eq('registration_type', 'drop_in')
+        .eq('status', 'active')
+        .in('session_id', sessionIds)
+      for (const r of (dropInRegs ?? [])) {
+        if (r.session_id) {
+          dropInBySession.set(r.session_id, (dropInBySession.get(r.session_id) ?? 0) + 1)
+        }
+      }
+    } catch {
+      // session_id column not yet present — gracefully degrade
+    }
   }
 
   if (!league) notFound()
@@ -81,6 +107,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
     notes: s.notes,
     status: s.status,
     registered_count: s.registered?.[0]?.count ?? 0,
+    dropin_count: dropInBySession.get(s.id) ?? 0,
   }))
 
   return (

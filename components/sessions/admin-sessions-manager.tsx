@@ -13,6 +13,8 @@ interface Session {
   notes: string | null
   status: string
   registered_count: number
+  /** Drop-in registrations for this session from the registrations table (new flow) */
+  dropin_count?: number
 }
 
 interface Props {
@@ -353,7 +355,10 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
                   </div>
 
                   <SpotsLabel
-                    count={registrationMode === 'season' ? seasonRegistrantCount : s.registered_count}
+                    count={
+                      (registrationMode === 'season' ? seasonRegistrantCount : s.registered_count)
+                      + (s.dropin_count ?? 0)
+                    }
                     capacity={s.capacity ?? (registrationMode === 'season' ? eventCapacity : null)}
                   />
 
