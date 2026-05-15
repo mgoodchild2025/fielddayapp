@@ -61,6 +61,7 @@ interface Props {
 // Steps used in the progress bar (step 0 = role select, shown separately; never in bar)
 const PLAYER_STEPS = ['Player Details', 'Waiver', 'Join a Team']
 const CAPTAIN_STEPS = ['Player Details', 'Waiver', 'Create Team']
+const CAPTAIN_PAYMENT_STEPS = ['Player Details', 'Waiver', 'Payment']
 const PAYMENT_STEPS = ['Player Details', 'Waiver', 'Payment']
 const PAYMENT_STEPS_WITH_MERCH = ['Player Details', 'Waiver', 'Add-ons', 'Payment']
 const MANUAL_PAYMENT_STEPS = ['Player Details', 'Waiver', 'Payment Info']
@@ -105,6 +106,12 @@ export function RegistrationFlow({
   // independent of whether the base registration fee is non-zero.
   const showAddOnsStep = leagueMerch.length > 0 && hasOnlinePayments && !isPerTeam
 
+  // When an admin pre-assigns a captain to a team (captainTeamId is already set),
+  // the team fee hasn't been paid yet. Route through an inline payment step so the
+  // Stripe webhook can activate the registration after payment — same as per-player.
+  const showCaptainPaymentStep =
+    isPerTeam && captainTeamId !== null && effectivePriceCents > 0 && hasOnlinePayments
+
   // For per-team events, we show a role-select screen before step 1.
   // Skip it if: resuming (initialStep > 1), user is already on a team, or teams are full (force player).
   const inferredRole: 'captain' | 'player' | null =
@@ -139,11 +146,13 @@ export function RegistrationFlow({
     ? (showAddOnsStep ? PAYMENT_STEPS_WITH_MERCH : PAYMENT_STEPS)
     : showManualPaymentStep
       ? MANUAL_PAYMENT_STEPS
-      : isPerTeam && isCaptain
-        ? CAPTAIN_STEPS
-        : isPerTeam && isPlayer
-          ? PLAYER_STEPS
-          : PAYMENT_STEPS.filter((s) => s !== 'Payment')
+      : showCaptainPaymentStep
+        ? CAPTAIN_PAYMENT_STEPS
+        : isPerTeam && isCaptain
+          ? CAPTAIN_STEPS
+          : isPerTeam && isPlayer
+            ? PLAYER_STEPS
+            : PAYMENT_STEPS.filter((s) => s !== 'Payment')
 
   function advanceStep(n: number) {
     setStep(n)
@@ -181,9 +190,17 @@ export function RegistrationFlow({
           router.push(`/register/${league.slug}/success`)
         }
       } else if (isCaptain) {
-        // Captain: activate now (team fee already paid), then show team management
-        await activateRegistration(registrationId!)
-        advanceStep(3)
+        if (showCaptainPaymentStep) {
+          // Admin-invited captain: team exists but fee hasn't been paid yet.
+          // Route through the inline payment step — Stripe webhook activates
+          // the registration after payment, same as per-player flow.
+          advanceStep(3)
+        } else {
+          // New captain creating their own team (no pre-assigned team), or free league.
+          // Activate now; team page handles team creation / any team-level payment.
+          await activateRegistration(registrationId!)
+          advanceStep(3)
+        }
       } else {
         // Player not yet on a team: go to team-join step first.
         // Registration is activated inside StepTeamJoin's onComplete, after they join.
@@ -437,7 +454,8 @@ export function RegistrationFlow({
         )}
 
         {/* Step 3 (no merch) or Step 4 (with merch) — Per-player payment */}
-        {((step === 3 && showPaymentStep && !showAddOnsStep) || (step === 4 && showAddOnsStep && (showPaymentStep || merchSelections.length > 0))) && !completing && (
+        {/* Also step 3 for admin-invited captains on per-team paid leagues */}
+        {((step === 3 && showPaymentStep && !showAddOnsStep) || (step === 4 && showAddOnsStep && (showPaymentStep || merchSelections.length > 0)) || (step === 3 && showCaptainPaymentStep)) && !completing && (
           <Step3Payment
             org={org}
             league={league}
@@ -450,8 +468,8 @@ export function RegistrationFlow({
           />
         )}
 
-        {/* Step 3 — Captain: create/name team */}
-        {step === 3 && isPerTeam && isCaptain && !completing && (
+        {/* Step 3 — Captain: create/name team (only when no inline payment step) */}
+        {step === 3 && isPerTeam && isCaptain && !showCaptainPaymentStep && !completing && (
           <StepCaptainTeam
             leagueId={league.id}
             captainTeamId={newCaptainTeamId}
