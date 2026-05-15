@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [{ data: profile }, { data: league }, { data: org }, { data: reg }] = await Promise.all([
         supabase.from('profiles').select('full_name, email').eq('id', userId).single(),
-        (supabase as any).from('leagues').select('name, sport, event_type, checkin_enabled').eq('id', leagueId ?? '').single(),
+        (supabase as any).from('leagues').select('name, sport, event_type, checkin_enabled, payment_mode, price_cents, currency').eq('id', leagueId ?? '').single(),
         supabase.from('organizations').select('name').eq('id', orgId).single(),
         (supabase as any).from('registrations').select('user_id, checkin_token').eq('id', registrationId).single(),
       ])
@@ -202,6 +202,90 @@ export async function POST(request: NextRequest) {
           eventType: (league as { event_type?: string } | null)?.event_type ?? null,
           checkinUrl,
         })
+      }
+
+      // ── Per-team captain paying via registration flow ──────────────────────
+      // When an admin pre-assigns a captain and they pay via the registration
+      // flow (per-player path), create a team payment record and activate all
+      // team members' registrations — identical to what the team payment webhook
+      // branch does, so the team page correctly shows payment as complete.
+      const leaguePaymentMode = (league as { payment_mode?: string } | null)?.payment_mode
+      if (leaguePaymentMode === 'per_team' && leagueId) {
+        // Find the captain's team in this league
+        const { data: leagueTeams } = await supabase
+          .from('teams')
+          .select('id')
+          .eq('league_id', leagueId)
+          .eq('organization_id', orgId)
+
+        const leagueTeamIds = (leagueTeams ?? []).map((t) => t.id)
+
+        if (leagueTeamIds.length > 0) {
+          const { data: captainMembership } = await supabase
+            .from('team_members')
+            .select('team_id')
+            .eq('user_id', userId ?? '')
+            .eq('role', 'captain')
+            .eq('status', 'active')
+            .in('team_id', leagueTeamIds)
+            .maybeSingle()
+
+          if (captainMembership?.team_id) {
+            const captainTeamId = captainMembership.team_id
+            const leaguePriceCents = (league as { price_cents?: number } | null)?.price_cents ?? 0
+            const leagueCurrency = (league as { currency?: string } | null)?.currency ?? 'cad'
+
+            // Upsert team payment record so the team page shows payment as complete
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: existingTeamPay } = await (supabase as any)
+              .from('payments')
+              .select('id, status')
+              .eq('team_id', captainTeamId)
+              .eq('league_id', leagueId)
+              .eq('payment_type', 'team')
+              .maybeSingle()
+
+            if (existingTeamPay && existingTeamPay.status !== 'paid') {
+              await supabase.from('payments').update({
+                status: 'paid',
+                paid_at: new Date().toISOString(),
+                stripe_payment_intent_id: session.payment_intent as string,
+              }).eq('id', existingTeamPay.id)
+            } else if (!existingTeamPay) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              await (supabase as any).from('payments').insert({
+                organization_id: orgId,
+                team_id: captainTeamId,
+                league_id: leagueId,
+                user_id: userId,
+                stripe_checkout_session_id: session.id,
+                stripe_payment_intent_id: session.payment_intent as string,
+                amount_cents: leaguePriceCents,
+                currency: leagueCurrency,
+                status: 'paid',
+                paid_at: new Date().toISOString(),
+                payment_type: 'team',
+              })
+            }
+
+            // Activate all active team members' registrations in this league
+            const { data: teamMembers } = await supabase
+              .from('team_members')
+              .select('user_id')
+              .eq('team_id', captainTeamId)
+              .eq('status', 'active')
+
+            const memberIds = (teamMembers ?? []).map((m) => m.user_id).filter(Boolean) as string[]
+            if (memberIds.length > 0) {
+              await supabase
+                .from('registrations')
+                .update({ status: 'active' })
+                .eq('league_id', leagueId)
+                .in('user_id', memberIds)
+                .in('status', ['pending', 'waitlisted'])
+            }
+          }
+        }
       }
     }
   }

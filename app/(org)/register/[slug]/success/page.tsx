@@ -15,7 +15,7 @@ export default async function RegistrationSuccessPage({
   searchParams: Promise<{ session_id?: string }>
 }) {
   const { slug } = await params
-  await searchParams // resolve but unused
+  const { session_id: sessionId } = await searchParams
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
@@ -64,8 +64,10 @@ export default async function RegistrationSuccessPage({
   const checkinToken = registration?.checkin_token as string | null
   const checkinUrl = (checkinToken && league?.checkin_enabled === true) ? `${protocol}://${host}/checkin/${checkinToken}` : null
 
-  // Per-team registrations stay pending until the captain pays — tweak wording
-  const isPending = registration?.status === 'pending'
+  // When arriving from Stripe (session_id present), the webhook may not have
+  // fired yet. Treat registration as confirmed so "You're Registered!" is shown
+  // instead of the misleading "Almost There!" holding message.
+  const isPending = !sessionId && registration?.status === 'pending'
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
