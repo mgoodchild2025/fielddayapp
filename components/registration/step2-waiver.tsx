@@ -258,10 +258,28 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registr
             </a>
           )}
         </div>
-        <p className="text-xs text-gray-400 mb-3">Scroll to the bottom to sign</p>
-        <div className="h-72 overflow-y-auto border rounded-md p-4 text-gray-700">
-          <RichTextContent content={waiver.content} />
-          <div ref={sentinelRef} className="h-1" />
+        <div className="relative mt-3">
+          <div className="h-72 overflow-y-auto border rounded-md p-4 text-gray-700">
+            <RichTextContent content={waiver.content} />
+            <div ref={sentinelRef} className="h-1" />
+          </div>
+          {/* Scroll-to-bottom prompt — hidden once the sentinel is visible */}
+          {!scrolledToBottom && (
+            <div className="absolute bottom-0 left-0 right-0 pointer-events-none rounded-b-md overflow-hidden">
+              {/* gradient fade */}
+              <div className="h-16 bg-gradient-to-t from-white to-transparent" />
+              {/* label */}
+              <div className="bg-white pb-2 flex flex-col items-center gap-0.5">
+                <svg
+                  className="w-4 h-4 text-gray-400 animate-bounce"
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                <span className="text-xs font-medium text-gray-500">Scroll to the bottom to sign</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
