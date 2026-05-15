@@ -108,9 +108,10 @@ export function RegistrationFlow({
 
   // When an admin pre-assigns a captain to a team (captainTeamId is already set),
   // the team fee hasn't been paid yet. Route through an inline payment step so the
-  // Stripe webhook can activate the registration after payment — same as per-player.
+  // captain can pay — Stripe or manual payment depending on org settings.
+  // Step3Payment handles both: Stripe redirects to checkout; manual returns instructions inline.
   const showCaptainPaymentStep =
-    isPerTeam && captainTeamId !== null && effectivePriceCents > 0 && hasOnlinePayments
+    isPerTeam && captainTeamId !== null && effectivePriceCents > 0
 
   // For per-team events, we show a role-select screen before step 1.
   // Skip it if: resuming (initialStep > 1), user is already on a team, or teams are full (force player).
