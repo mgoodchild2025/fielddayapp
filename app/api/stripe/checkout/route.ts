@@ -177,8 +177,36 @@ export async function POST(request: NextRequest) {
     paymentSettings?.registration_payment_mode === 'manual' || !paymentSettings?.stripe_secret_key
   if (isManualRegistration) {
     const instructions = paymentSettings?.registration_manual_instructions ?? null
-    // Mark registration as active (payment collected offline)
-    await db.from('registrations').update({ status: 'active' }).eq('id', registrationId)
+    // Mark registration as active and record that payment instructions were shown.
+    // The 'manual' payment record lets the resume logic detect the captain/player
+    // already acknowledged payment — preventing the payment step from re-appearing.
+    // Only insert if no completed payment record exists yet.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existingCompletedPayment } = await (db as any)
+      .from('payments')
+      .select('id')
+      .eq('registration_id', registrationId)
+      .in('status', ['paid', 'manual'])
+      .limit(1)
+      .maybeSingle()
+
+    await Promise.all([
+      db.from('registrations').update({ status: 'active' }).eq('id', registrationId),
+      ...(!existingCompletedPayment ? [
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any).from('payments').insert({
+          organization_id: orgId,
+          registration_id: registrationId,
+          user_id: userId,
+          league_id: leagueId,
+          amount_cents: priceCents,
+          currency: league.currency,
+          status: 'manual',
+          payment_method: 'cash',
+          payment_type: 'player',
+        }),
+      ] : []),
+    ])
     return NextResponse.json({ manual: true, instructions })
   }
 

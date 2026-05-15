@@ -256,14 +256,20 @@ export default async function RegisterLeaguePage({
 
     const waiverSigned = !!existingReg.waiver_signature_id
 
-    // Check if they have a completed payment
-    const { data: payment } = await db
+    // Check if they have a completed payment.
+    // Query for any paid/manual record directly — avoids maybeSingle() issues when
+    // multiple 'pending' Stripe sessions exist for the same registration.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: completedPayment } = await (db as any)
       .from('payments')
       .select('status')
       .eq('registration_id', existingReg.id)
+      .in('status', ['paid', 'manual'])
+      .limit(1)
       .maybeSingle()
 
-    const paymentComplete = payment?.status === 'paid'
+    // 'paid' = Stripe payment confirmed; 'manual' = offline payment acknowledged in-flow
+    const paymentComplete = !!completedPayment
     const now = new Date()
     const earlyBirdActive = !isDropIn && earlyBirdPriceCents != null && earlyBirdDeadline != null && now < new Date(earlyBirdDeadline)
     const effectivePrice = isDropIn ? (dropInPriceCents ?? 0) : (earlyBirdActive ? earlyBirdPriceCents! : league.price_cents)
@@ -271,15 +277,21 @@ export default async function RegisterLeaguePage({
     // Manual payment: price set but no Stripe — player must see payment instructions
     // before we activate them. There's no DB record for offline payments, so we
     // always show the step until the player explicitly clicks "Complete Registration".
-    const needsManualPayment = effectivePrice > 0 && !hasOnlinePayments
+    const needsManualPayment = effectivePrice > 0 && !hasOnlinePayments && !paymentComplete
 
-    if (existingReg.status === 'active' && !needsPayment && !perTeamPlayerNeedsTeam) {
+    // Per-team captain: if registration is active but no payment record exists,
+    // the captain was activated before payment was collected (old bug or fresh invite).
+    // Route them back through the payment step regardless of registration status.
+    const captainNeedsToPayViaFlow =
+      isPerTeamLeague && captainTeamId !== null && effectivePrice > 0 && !paymentComplete
+
+    if (existingReg.status === 'active' && !needsPayment && !captainNeedsToPayViaFlow && !perTeamPlayerNeedsTeam) {
       redirect(`/register/${slug}/success`)
-    } else if ((existingReg.status === 'active' || waiverSigned) && !needsPayment && perTeamPlayerNeedsTeam) {
+    } else if ((existingReg.status === 'active' || waiverSigned) && !needsPayment && !captainNeedsToPayViaFlow && perTeamPlayerNeedsTeam) {
       // Per-team player: registration may be active/waiver signed but they haven't
       // joined a team yet — send them to the team code step.
       initialStep = 3
-    } else if ((needsPayment || needsManualPayment) && (waiverSigned || !waiver)) {
+    } else if ((needsPayment || needsManualPayment || captainNeedsToPayViaFlow) && (waiverSigned || !waiver)) {
       initialStep = 3 // jump to payment (Stripe or manual instructions)
     } else if (waiver && !waiverSigned) {
       initialStep = 2 // jump to waiver
