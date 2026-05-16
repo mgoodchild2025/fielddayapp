@@ -5,8 +5,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
-import { PastGamesToggle } from '@/components/schedule/past-games-toggle'
-import { formatGameTime } from '@/lib/format-time'
+import { MyGamesClient } from './_client'
 import Link from 'next/link'
 
 export default async function SchedulePage() {
@@ -96,12 +95,8 @@ export default async function SchedulePage() {
     .filter((s: any) => s && s.scheduled_at >= pastBound)
 
   // ── Merge and split upcoming vs past ──────────────────────────────────────
-  type GameItem    = { _type: 'game';    scheduled_at: string; data: typeof relevantGames[number] }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  type SessionItem = { _type: 'session'; scheduled_at: string; data: any }
-  type ScheduleItem = GameItem | SessionItem
-
-  const allItems: ScheduleItem[] = [
+  const allItems: { _type: 'game' | 'session'; scheduled_at: string; data: any }[] = [
     ...relevantGames.map((g) => ({ _type: 'game' as const, scheduled_at: g.scheduled_at, data: g })),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...allSessions.map((s: any) => ({ _type: 'session' as const, scheduled_at: s.scheduled_at, data: s })),
@@ -109,93 +104,6 @@ export default async function SchedulePage() {
 
   const upcomingItems = allItems.filter((i) => i.scheduled_at >= nowIso)
   const pastItems     = allItems.filter((i) => i.scheduled_at <  nowIso).reverse() // most-recent-first
-
-  // ── Card renderer ─────────────────────────────────────────────────────────
-  function renderItem(item: ScheduleItem) {
-    if (item._type === 'game') {
-      const g = item.data
-      const homeTeam = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
-      const awayTeam = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
-      const league   = Array.isArray(g.league)    ? g.league[0]    : g.league
-      const { date: gameDate, time: gameTime } = formatGameTime(g.scheduled_at, timezone)
-      const homeColor    = (homeTeam as { color?: string | null } | null)?.color
-      const awayColor    = (awayTeam as { color?: string | null } | null)?.color
-      const isHomeMyTeam = myTeamIds.has(homeTeam?.id)
-      const isAwayMyTeam = myTeamIds.has(awayTeam?.id)
-      const isCancelled  = g.status === 'cancelled' || g.status === 'postponed'
-
-      return (
-        <div
-          key={`game-${g.id}`}
-          className={`relative border rounded-md p-3 transition-shadow hover:shadow-md bg-white${isCancelled ? ' opacity-60' : ''}`}
-        >
-          {(league as { slug?: string } | null)?.slug && (
-            <Link
-              href={`/events/${(league as { slug?: string }).slug}`}
-              className="absolute inset-0 rounded-md"
-              aria-label={`View ${(league as { name?: string }).name ?? 'event'}`}
-            />
-          )}
-          <div className="flex items-start justify-between gap-2">
-            <p className="text-sm text-gray-500">
-              {gameDate} · {gameTime}
-              {g.court ? ` · Court ${g.court}` : ''}
-            </p>
-            <div className="flex items-center gap-1.5 shrink-0">
-              {isCancelled ? (
-                <span className="text-xs font-medium text-red-500 bg-red-50 rounded px-1.5 py-0.5 leading-tight">
-                  {g.status === 'postponed' ? 'Postponed' : 'Cancelled'}
-                </span>
-              ) : g.week_number != null ? (
-                <span className="text-xs font-medium text-gray-500 bg-gray-100 rounded px-1.5 py-0.5 leading-tight">
-                  Wk {g.week_number}
-                </span>
-              ) : null}
-            </div>
-          </div>
-          <div className="flex items-center gap-1 flex-wrap mt-0.5">
-            {homeColor && (
-              <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: homeColor }} />
-            )}
-            <span className={isHomeMyTeam ? 'font-semibold' : 'font-medium'}>
-              {homeTeam?.name ?? 'TBD'}
-            </span>
-            <span className="text-gray-400 text-sm mx-0.5">vs</span>
-            {awayColor && (
-              <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: awayColor }} />
-            )}
-            <span className={isAwayMyTeam ? 'font-semibold' : 'font-medium'}>
-              {awayTeam?.name ?? 'TBD'}
-            </span>
-          </div>
-          <p className="text-xs text-gray-400 mt-0.5">{(league as { name?: string } | null)?.name}</p>
-        </div>
-      )
-    }
-
-    // Pickup session
-    const s      = item.data
-    const league = Array.isArray(s.league) ? s.league[0] : s.league
-    const { date: sessionDate, time: sessionTime } = formatGameTime(s.scheduled_at, timezone)
-    const location = s.location_override as string | null
-    return (
-      <div key={`session-${s.id}`} className="relative border rounded-md p-3 transition-shadow hover:shadow-md bg-white">
-        {(league as { slug?: string } | null)?.slug && (
-          <Link
-            href={`/events/${(league as { slug?: string }).slug}`}
-            className="absolute inset-0 rounded-md"
-            aria-label={`View ${(league as { name?: string }).name ?? 'event'}`}
-          />
-        )}
-        <p className="text-sm text-gray-500">
-          {sessionDate} · {sessionTime}
-          {location ? ` · ${location}` : ''}
-        </p>
-        <p className="font-medium mt-0.5">Pickup Session</p>
-        <p className="text-xs text-gray-400">{(league as { name?: string } | null)?.name}</p>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
@@ -219,24 +127,12 @@ export default async function SchedulePage() {
           </div>
         )}
 
-        {/* Upcoming */}
-        <div className="space-y-2">
-          {upcomingItems.length > 0
-            ? upcomingItems.map(renderItem)
-            : (
-              <div className="border rounded-md p-6 text-center text-sm text-gray-400 bg-white">
-                No upcoming games — check back when your league publishes the schedule.
-              </div>
-            )
-          }
-        </div>
-
-        {/* Past games — collapsed by default */}
-        {pastItems.length > 0 && (
-          <PastGamesToggle count={pastItems.length}>
-            {pastItems.map(renderItem)}
-          </PastGamesToggle>
-        )}
+        <MyGamesClient
+          upcomingItems={upcomingItems}
+          pastItems={pastItems}
+          myTeamIds={Array.from(myTeamIds)}
+          timezone={timezone}
+        />
 
       </div>
       <Footer org={org} />
