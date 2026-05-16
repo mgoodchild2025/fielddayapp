@@ -96,46 +96,55 @@ export async function signUp(input: { email: string; password: string; fullName:
   const parsed = signUpSchema.safeParse(input)
   if (!parsed.success) return { data: null, error: 'Invalid input' }
 
-  const supabase = await createServerClient()
-  // Derive origin from the `referer` header — the browser always sets this to the
-  // URL of the page that triggered the server action, giving us the real public
-  // domain (org subdomain or platform domain) regardless of internal proxy addresses.
   const headersList = await headers()
-  const origin = getPublicOrigin(headersList)
+  const origin = getPublicOrigin(headersList) // real public domain (org subdomain, etc.)
 
-  // Thread the post-confirmation destination through the email link so the
-  // auth callback can redirect back to it (e.g. /invite/[token]).
   const safeRedirect = input.redirectTo?.startsWith('/') ? input.redirectTo : ''
 
-  // Always use app.PLATFORM_DOMAIN as the callback host so Supabase's allowed
-  // redirect URL list only needs one entry ("https://app.fielddayapp.ca/**")
-  // instead of a wildcard for every org subdomain. In dev we stay on localhost.
+  // Use app.PLATFORM_DOMAIN as the stable callback host. We construct the
+  // confirmation URL ourselves using a token_hash (see below), so Supabase's
+  // redirect-URL allowlist and PKCE cookie domain are no longer relevant.
   const isDev = process.env.NODE_ENV === 'development'
   const callbackBase = isDev
     ? `${origin}/auth/callback`
     : `https://app.${PLATFORM_DOMAIN}/auth/callback`
 
-  // Encode the full absolute destination (including org subdomain) so the
-  // callback can redirect back to the correct subdomain after verification.
+  // Full absolute destination the user should land on after confirming
+  // (e.g. https://acme.fielddayapp.ca/invite/[token]).
   const destination = safeRedirect ? `${origin}${safeRedirect}` : null
-  const callbackUrl = destination
-    ? `${callbackBase}?next=${encodeURIComponent(destination)}`
-    : callbackBase
 
-  const { data, error } = await supabase.auth.signUp({
+  // Use the service-role admin API to create the user and get a stateless
+  // hashed_token. verifyOtp({ token_hash }) in the callback requires no
+  // PKCE code_verifier cookie, so it works regardless of which domain the
+  // callback runs on. We send the confirmation email ourselves via Resend.
+  const service = createServiceRoleClient()
+  const { data: linkData, error: linkError } = await service.auth.admin.generateLink({
+    type: 'signup',
     email: parsed.data.email,
     password: parsed.data.password,
-    options: {
-      data: { full_name: parsed.data.fullName },
-      emailRedirectTo: callbackUrl,
-    },
+    options: { data: { full_name: parsed.data.fullName } },
   })
 
-  if (error) return { data: null, error: error.message }
+  if (linkError) return { data: null, error: linkError.message }
+  if (!linkData?.user) return { data: null, error: 'Sign-up failed' }
 
-  if (!data.user) return { data: null, error: 'Sign-up failed' }
+  // Build our own confirmation URL with the token_hash
+  const params = new URLSearchParams({
+    token_hash: linkData.properties.hashed_token,
+    type: 'signup',
+  })
+  if (destination) params.set('next', destination)
+  const confirmUrl = `${callbackBase}?${params.toString()}`
 
-  const userId = data.user.id
+  // Send the confirmation email via Resend
+  const { sendSignupConfirmation } = await import('@/actions/emails')
+  await sendSignupConfirmation({
+    email: parsed.data.email,
+    fullName: parsed.data.fullName,
+    confirmUrl,
+  })
+
+  const userId = linkData.user.id
   const email = parsed.data.email
 
   // Create profile record

@@ -200,3 +200,39 @@ export async function sendPaymentFailedEmail({
     `,
   })
 }
+
+export async function sendSignupConfirmation({
+  email,
+  fullName,
+  confirmUrl,
+}: {
+  email: string
+  fullName: string
+  confirmUrl: string
+}) {
+  await getResend().emails.send({
+    from: FROM_EMAIL,
+    to: email,
+    subject: 'Confirm your email to get started',
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+        <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 8px;">Almost there!</h1>
+        <p style="color: #444; font-size: 16px;">Hi ${esc(fullName)},</p>
+        <p style="color: #444; font-size: 16px;">
+          Click the button below to confirm your email address and activate your account.
+        </p>
+        <div style="margin-top: 28px; margin-bottom: 28px; text-align: center;">
+          <a
+            href="${esc(confirmUrl)}"
+            style="display: inline-block; background-color: #1f2937; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; padding: 14px 28px; border-radius: 8px;"
+          >
+            Confirm my email →
+          </a>
+        </div>
+        <p style="color: #999; font-size: 13px; text-align: center;">
+          This link expires in 24 hours. If you didn't create an account, you can safely ignore this email.
+        </p>
+      </div>
+    `,
+  })
+}
