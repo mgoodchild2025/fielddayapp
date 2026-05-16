@@ -794,6 +794,12 @@ export default async function EventDetailPage({
     maxTeams !== null &&
     (registeredTeamCount ?? 0) >= maxTeams
 
+  // Urgency: ≤30% of spots remaining
+  const teamSpotsLeft   = maxTeams        !== null ? maxTeams        - (registeredTeamCount  ?? 0) : null
+  const playerSpotsLeft = maxParticipants !== null ? maxParticipants - (registeredPlayerCount ?? 0) : null
+  const teamUrgent   = !teamsAtCapacity  && teamSpotsLeft   !== null && maxTeams        !== null && teamSpotsLeft   <= Math.ceil(maxTeams        * 0.30)
+  const playerUrgent = !isFull           && playerSpotsLeft !== null && maxParticipants !== null && playerSpotsLeft <= Math.ceil(maxParticipants * 0.30)
+
   // Teams list (for open-registration team events)
   const canJoinTeam = isTeamBased && league.team_join_policy !== 'admin_only'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1388,32 +1394,36 @@ export default async function EventDetailPage({
               )}
               {/* Live capacity card — per-team */}
               {isTeamBased && paymentMode === 'per_team' && maxTeams !== null && (
-                <div className={`rounded-lg border p-4 ${teamsAtCapacity ? 'bg-amber-50 border-amber-200' : 'bg-white'}`}>
+                <div className={`rounded-lg border p-4 ${teamsAtCapacity ? 'bg-amber-50 border-amber-200' : teamUrgent ? 'bg-amber-50 border-amber-200' : 'bg-white'}`}>
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Teams</p>
                   {teamsAtCapacity ? (
                     <>
                       <p className="font-semibold mt-1 text-amber-700">{registeredTeamCount ?? 0} / {maxTeams} 🔒</p>
                       <p className="text-xs text-amber-600 mt-0.5">Players can still join existing teams</p>
                     </>
-                  ) : (
+                  ) : teamUrgent ? (
                     <>
-                      <p className="font-semibold mt-1">{registeredTeamCount ?? 0} / {maxTeams}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{maxTeams - (registeredTeamCount ?? 0)} spots left</p>
+                      <p className="font-semibold mt-1 text-amber-700">Only {teamSpotsLeft} team spot{teamSpotsLeft === 1 ? '' : 's'} left!</p>
+                      <p className="text-xs text-amber-600 mt-0.5">out of {maxTeams} total</p>
                     </>
+                  ) : (
+                    <p className="font-semibold mt-1">{maxTeams} team spots available</p>
                   )}
                 </div>
               )}
               {/* Live capacity card — per-player */}
               {paymentMode !== 'per_team' && maxParticipants !== null && (
-                <div className={`rounded-lg border p-4 ${isFull ? 'bg-red-50 border-red-200' : 'bg-white'}`}>
+                <div className={`rounded-lg border p-4 ${isFull ? 'bg-red-50 border-red-200' : playerUrgent ? 'bg-amber-50 border-amber-200' : 'bg-white'}`}>
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Players</p>
                   {isFull ? (
                     <p className="font-semibold mt-1 text-red-600">🔒 Event Full</p>
-                  ) : (
+                  ) : playerUrgent ? (
                     <>
-                      <p className="font-semibold mt-1">{registeredPlayerCount ?? 0} / {maxParticipants}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{maxParticipants - (registeredPlayerCount ?? 0)} spots left</p>
+                      <p className="font-semibold mt-1 text-amber-700">Only {playerSpotsLeft} spot{playerSpotsLeft === 1 ? '' : 's'} left!</p>
+                      <p className="text-xs text-amber-600 mt-0.5">out of {maxParticipants} total</p>
                     </>
+                  ) : (
+                    <p className="font-semibold mt-1">{maxParticipants} spots available</p>
                   )}
                 </div>
               )}
