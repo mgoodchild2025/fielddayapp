@@ -63,10 +63,10 @@ export function OrganizersPanel({
       if (result.error) {
         setAddAdminError(result.error)
       } else {
-        // Optimistically move admin to the organizers list
-        if (admin) {
+        // Use the real DB row ID so subsequent remove/toggle actions work correctly
+        if (admin && result.id) {
           setOrganizers(prev => [...prev, {
-            id: crypto.randomUUID(),
+            id: result.id!,
             invited_email: admin.email ?? '',
             status: 'active',
             user_id: admin.user_id,

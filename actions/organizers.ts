@@ -373,7 +373,7 @@ export async function addOrgAdminAsOrganizer(input: { leagueId: string; userId: 
 
   if (!targetProfile?.email) return { error: 'Could not find email for that user' }
 
-  const { error: upsertError } = await anyDb
+  const { data: upserted, error: upsertError } = await anyDb
     .from('league_organizers')
     .upsert({
       organization_id: org.id,
@@ -385,11 +385,13 @@ export async function addOrgAdminAsOrganizer(input: { leagueId: string; userId: 
       token: crypto.randomUUID(),
       expires_at: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString(),
     }, { onConflict: 'league_id,invited_email', ignoreDuplicates: false })
+    .select('id')
+    .single()
 
   if (upsertError) return { error: upsertError.message }
 
   revalidatePath(`/admin/events/${input.leagueId}`)
-  return { error: null }
+  return { error: null, id: upserted?.id as string | undefined }
 }
 
 // ─── Accept invitation ────────────────────────────────────────────────────────
