@@ -89,7 +89,7 @@ export async function login(input: { email: string; password: string; redirectTo
 const signUpSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
-  fullName: z.string().min(2),
+  fullName: z.string().trim().min(2, 'Name must be at least 2 characters').max(100, 'Name must be 100 characters or fewer'),
 })
 
 export async function signUp(input: { email: string; password: string; fullName: string; redirectTo?: string }) {
@@ -194,13 +194,13 @@ export async function updatePassword(newPassword: string): Promise<{ error: stri
 }
 
 const updateProfileSchema = z.object({
-  full_name: z.string().min(2),
+  full_name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100, 'Name must be 100 characters or fewer'),
   phone: optionalPhone,
   sms_opted_in: z.boolean().optional(),
   sms_game_day_enabled: z.boolean().optional(),
   skill_level: z.enum(['beginner', 'intermediate', 'competitive']).optional(),
   t_shirt_size: z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']).optional(),
-  emergency_contact_name: z.string().optional(),
+  emergency_contact_name: z.string().trim().max(100).optional(),
   emergency_contact_phone: optionalPhone,
   show_contact_info: z.boolean().optional(),
   orgId: z.string().uuid(),

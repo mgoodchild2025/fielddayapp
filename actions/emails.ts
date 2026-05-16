@@ -2,6 +2,16 @@
 
 import { getResend, FROM_EMAIL } from '@/lib/resend'
 
+/** Escape user-supplied strings before interpolating into HTML email bodies. */
+function esc(str: string | null | undefined): string {
+  return (str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+}
+
 const SPORT_EMOJI: Record<string, string> = {
   volleyball:      '🏐',
   beach_volleyball:'🏐',
@@ -58,9 +68,9 @@ export async function sendRegistrationConfirmation({
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
         <h1 style="font-size: 28px; font-weight: bold; margin-bottom: 8px;">You're in! ${sportEmoji}</h1>
-        <p style="color: #444; font-size: 16px;">Hi ${name},</p>
+        <p style="color: #444; font-size: 16px;">Hi ${esc(name)},</p>
         <p style="color: #444; font-size: 16px;">
-          You're officially registered for <strong>${leagueName}</strong> with ${orgName}.
+          You're officially registered for <strong>${esc(leagueName)}</strong> with ${esc(orgName)}.
         </p>
         <p style="color: #444; font-size: 16px;">
           Log in to view your schedule, team info, and more.
@@ -94,9 +104,9 @@ export async function sendWaiverSigningRequest({
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
         <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 8px;">Waiver Signature Required</h1>
-        <p style="color: #444; font-size: 16px;">Hi ${name},</p>
+        <p style="color: #444; font-size: 16px;">Hi ${esc(name)},</p>
         <p style="color: #444; font-size: 16px;">
-          You need to sign the waiver for <strong>${leagueName}</strong> with ${orgName} before your first game.
+          You need to sign the waiver for <strong>${esc(leagueName)}</strong> with ${esc(orgName)} before your first game.
         </p>
         <div style="margin-top: 28px; margin-bottom: 28px; text-align: center;">
           <a
@@ -144,9 +154,9 @@ export async function sendRegistrationAdminNotification({
         <p style="color:#555;font-size:15px;margin-top:0;">Someone just registered for one of your events on ${orgName}.</p>
 
         <div style="margin:24px 0;padding:16px 20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
-          <p style="color:#444;font-size:15px;margin:4px 0;"><strong>Player:</strong> ${displayName}</p>
+          <p style="color:#444;font-size:15px;margin:4px 0;"><strong>Player:</strong> ${esc(displayName)}</p>
           ${emailLine}
-          <p style="color:#444;font-size:15px;margin:4px 0;"><strong>Event:</strong> ${leagueName}</p>
+          <p style="color:#444;font-size:15px;margin:4px 0;"><strong>Event:</strong> ${esc(leagueName)}</p>
         </div>
 
         <a href="${adminUrl}"
@@ -155,7 +165,7 @@ export async function sendRegistrationAdminNotification({
         </a>
 
         <p style="color:#aaa;font-size:12px;margin-top:32px;">
-          You're receiving this because registration notifications are enabled for ${orgName}.
+          You're receiving this because registration notifications are enabled for ${esc(orgName)}.
           Turn them off in Admin → Settings → Notifications.
         </p>
       </div>
@@ -179,9 +189,9 @@ export async function sendPaymentFailedEmail({
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
         <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 8px;">Payment failed</h1>
-        <p style="color: #444; font-size: 16px;">Hi ${name},</p>
+        <p style="color: #444; font-size: 16px;">Hi ${esc(name)},</p>
         <p style="color: #444; font-size: 16px;">
-          Unfortunately your payment for <strong>${leagueName}</strong> didn't go through.
+          Unfortunately your payment for <strong>${esc(leagueName)}</strong> didn't go through.
         </p>
         <p style="color: #444; font-size: 16px;">
           Please log in and retry your registration to secure your spot.

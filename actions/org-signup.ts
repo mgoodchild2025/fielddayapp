@@ -8,6 +8,16 @@ import { getNewOrgNotificationEmail } from './platform-settings'
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 const LOGO_URL = `https://${PLATFORM_DOMAIN}/Fieldday-Icon.png`
 
+/** Escape user-supplied strings before interpolating into HTML email bodies. */
+function esc(str: string | null | undefined): string {
+  return (str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+}
+
 function platformEmailHeader(): string {
   return `
     <div style="background:#111827;padding:20px 32px;">
@@ -24,13 +34,13 @@ function platformEmailHeader(): string {
 }
 
 const signupSchema = z.object({
-  orgName: z.string().min(2, 'Organization name must be at least 2 characters').max(60),
+  orgName: z.string().trim().min(2, 'Organization name must be at least 2 characters').max(60, 'Organization name must be 60 characters or fewer'),
   slug: z
     .string()
     .min(2, 'Subdomain must be at least 2 characters')
     .max(30, 'Subdomain must be 30 characters or fewer')
     .regex(/^[a-z0-9-]+$/, 'Only lowercase letters, numbers, and hyphens allowed'),
-  fullName: z.string().min(2, 'Name must be at least 2 characters'),
+  fullName: z.string().trim().min(2, 'Name must be at least 2 characters').max(100, 'Name must be 100 characters or fewer'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   plan: z.enum(['starter', 'pro', 'club']).default('pro'),
@@ -209,9 +219,9 @@ function buildWelcomeEmail({
     ${platformEmailHeader()}
     <div style="padding:32px;">
       <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Your organization is ready</h2>
-      <p style="color:#6b7280;margin:0 0 8px;font-size:15px;line-height:1.6;">Hi ${fullName},</p>
+      <p style="color:#6b7280;margin:0 0 8px;font-size:15px;line-height:1.6;">Hi ${esc(fullName)},</p>
       <p style="color:#6b7280;margin:0 0 28px;font-size:15px;line-height:1.6;">
-        <strong>${orgName}</strong> has been created on Fieldday. Your 15-day free trial starts now — head to your dashboard to get set up.
+        <strong>${esc(orgName)}</strong> has been created on Fieldday. Your 15-day free trial starts now — head to your dashboard to get set up.
       </p>
       <div style="text-align:center;margin:0 0 28px;">
         <a href="${orgDashboard}"
@@ -246,9 +256,9 @@ function buildVerificationEmail({
     ${platformEmailHeader()}
     <div style="padding:32px;">
       <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Confirm your email</h2>
-      <p style="color:#6b7280;margin:0 0 8px;font-size:15px;line-height:1.6;">Hi ${fullName},</p>
+      <p style="color:#6b7280;margin:0 0 8px;font-size:15px;line-height:1.6;">Hi ${esc(fullName)},</p>
       <p style="color:#6b7280;margin:0 0 28px;font-size:15px;line-height:1.6;">
-        Thanks for signing up <strong>${orgName}</strong> on Fieldday. Click the button below to verify your email address and activate your 15-day free trial.
+        Thanks for signing up <strong>${esc(orgName)}</strong> on Fieldday. Click the button below to verify your email address and activate your 15-day free trial.
       </p>
       <div style="text-align:center;margin:0 0 28px;">
         <a href="${confirmationUrl}"
@@ -295,19 +305,19 @@ function buildNewOrgEmail({
       <table style="width:100%;border-collapse:collapse;font-size:14px;">
         <tr style="border-bottom:1px solid #f3f4f6;">
           <td style="padding:10px 0;color:#6b7280;width:40%;">Organization</td>
-          <td style="padding:10px 0;color:#111827;font-weight:600;">${orgName}</td>
+          <td style="padding:10px 0;color:#111827;font-weight:600;">${esc(orgName)}</td>
         </tr>
         <tr style="border-bottom:1px solid #f3f4f6;">
           <td style="padding:10px 0;color:#6b7280;">Subdomain</td>
-          <td style="padding:10px 0;color:#111827;">${slug}.${platformDomain}</td>
+          <td style="padding:10px 0;color:#111827;">${esc(slug)}.${esc(platformDomain)}</td>
         </tr>
         <tr style="border-bottom:1px solid #f3f4f6;">
           <td style="padding:10px 0;color:#6b7280;">Owner</td>
-          <td style="padding:10px 0;color:#111827;">${fullName}</td>
+          <td style="padding:10px 0;color:#111827;">${esc(fullName)}</td>
         </tr>
         <tr style="border-bottom:1px solid #f3f4f6;">
           <td style="padding:10px 0;color:#6b7280;">Email</td>
-          <td style="padding:10px 0;color:#111827;">${email}</td>
+          <td style="padding:10px 0;color:#111827;">${esc(email)}</td>
         </tr>
         <tr>
           <td style="padding:10px 0;color:#6b7280;">Plan</td>
