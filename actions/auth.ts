@@ -110,15 +110,12 @@ export async function signUp(input: { email: string; password: string; fullName:
     ? `${origin}/auth/callback`
     : `https://app.${PLATFORM_DOMAIN}/auth/callback`
 
-  // Full absolute destination the user should land on after confirming
-  // (e.g. https://acme.fielddayapp.ca/invite/[token]).
-  const destination = safeRedirect ? `${origin}${safeRedirect}` : null
+  // Full absolute destination the user should land on after confirming.
+  // Always encode the org origin so the callback redirects to the right
+  // subdomain — without this, the callback's own origin (app.*) is used.
+  const destination = `${origin}${safeRedirect || '/my-events'}`
 
-  // Encode the final destination into the callback URL so our /auth/callback
-  // route can redirect the user there after confirming the token.
-  const callbackWithNext = destination
-    ? `${callbackBase}?next=${encodeURIComponent(destination)}`
-    : callbackBase
+  const callbackWithNext = `${callbackBase}?next=${encodeURIComponent(destination)}`
 
   // Use the service-role admin API to create the user and get action_link.
   // Passing redirectTo tells Supabase's verify endpoint where to redirect
