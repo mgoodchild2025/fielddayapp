@@ -106,9 +106,21 @@ export async function signUp(input: { email: string; password: string; fullName:
   // Thread the post-confirmation destination through the email link so the
   // auth callback can redirect back to it (e.g. /invite/[token]).
   const safeRedirect = input.redirectTo?.startsWith('/') ? input.redirectTo : ''
-  const callbackUrl = safeRedirect
-    ? `${origin}/auth/callback?next=${encodeURIComponent(safeRedirect)}`
-    : `${origin}/auth/callback`
+
+  // Always use app.PLATFORM_DOMAIN as the callback host so Supabase's allowed
+  // redirect URL list only needs one entry ("https://app.fielddayapp.ca/**")
+  // instead of a wildcard for every org subdomain. In dev we stay on localhost.
+  const isDev = process.env.NODE_ENV === 'development'
+  const callbackBase = isDev
+    ? `${origin}/auth/callback`
+    : `https://app.${PLATFORM_DOMAIN}/auth/callback`
+
+  // Encode the full absolute destination (including org subdomain) so the
+  // callback can redirect back to the correct subdomain after verification.
+  const destination = safeRedirect ? `${origin}${safeRedirect}` : null
+  const callbackUrl = destination
+    ? `${callbackBase}?next=${encodeURIComponent(destination)}`
+    : callbackBase
 
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,

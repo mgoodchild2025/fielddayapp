@@ -40,10 +40,22 @@ export async function GET(request: NextRequest) {
   // Use headers — NOT new URL(request.url) — to get the real public origin
   const origin = getOriginFromRequest(request)
 
-  const redirectTo =
-    next.startsWith('https://') || next.startsWith('http://')
-      ? next
-      : `${origin}${next}`
+  // Build the redirect target. Absolute URLs are allowed only when they
+  // point to our own domain (prevents open redirect abuse).
+  let redirectTo: string
+  if (next.startsWith('/')) {
+    redirectTo = `${origin}${next}`
+  } else {
+    try {
+      const u = new URL(next)
+      const allowed =
+        u.hostname === PLATFORM_DOMAIN ||
+        u.hostname.endsWith(`.${PLATFORM_DOMAIN}`)
+      redirectTo = allowed ? next : `${origin}/my-events`
+    } catch {
+      redirectTo = `${origin}/my-events`
+    }
+  }
 
   const errorRedirect = `${origin}/login?error=confirmation_failed`
 
