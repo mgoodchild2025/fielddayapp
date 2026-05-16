@@ -37,6 +37,16 @@ export default function RegisterPage() {
   async function onSubmit(data: FormData) {
     setLoading(true)
     setServerError(null)
+
+    // Set a cross-subdomain cookie so the auth callback can redirect correctly
+    // after email confirmation, even if Supabase strips query params from redirectTo.
+    if (redirectTo) {
+      const destination = `${window.location.origin}${redirectTo}`
+      const parts = window.location.hostname.split('.')
+      const domainAttr = parts.length > 2 ? `; domain=.${parts.slice(-2).join('.')}` : ''
+      document.cookie = `auth_redirect=${encodeURIComponent(destination)}; path=/; max-age=3600; samesite=lax${domainAttr}`
+    }
+
     const result = await signUp({ email: data.email, password: data.password, fullName: data.full_name, redirectTo })
     if (result?.error) {
       setServerError(result.error)
