@@ -54,8 +54,11 @@ export default function RegisterPage() {
           <div className="text-5xl mb-4">✓</div>
           <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--brand-heading-font)' }}>Check your email</h1>
           <p className="text-gray-600">
-            We sent a confirmation link to your email address. Click it to activate your account
-            {redirectTo ? ' and continue to your destination.' : '.'}
+            We sent a confirmation link to your email address. Click it to activate your account.
+          </p>
+          {/* Temporary debug — remove after confirming redirect works */}
+          <p className="mt-2 text-xs text-gray-400 font-mono">
+            redirect: {redirectTo || '(none)'}
           </p>
         </div>
       </div>
