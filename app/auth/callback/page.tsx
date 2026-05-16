@@ -21,51 +21,52 @@ function getOriginFromHeaders(headersList: Awaited<ReturnType<typeof headers>>):
   return isDev ? 'http://localhost:3000' : `https://${PLATFORM_DOMAIN}`
 }
 
-function buildRedirectTo(next: string, origin: string): string {
-  if (next.startsWith('/')) return `${origin}${next}`
+function isSafeDestination(url: string): boolean {
+  if (!url) return false
+  if (url.startsWith('/')) return true
   try {
-    const u = new URL(next)
-    const allowed = u.hostname === PLATFORM_DOMAIN || u.hostname.endsWith(`.${PLATFORM_DOMAIN}`)
-    return allowed ? next : `${origin}/my-events`
+    const u = new URL(url)
+    return u.hostname === PLATFORM_DOMAIN || u.hostname.endsWith(`.${PLATFORM_DOMAIN}`)
   } catch {
-    return `${origin}/my-events`
+    return false
   }
 }
 
 export default async function CallbackPage({
   searchParams,
 }: {
-  searchParams: Promise<{ code?: string; token_hash?: string; type?: string; next?: string }>
+  searchParams: Promise<{ code?: string; token_hash?: string; type?: string }>
 }) {
   const params = await searchParams
   const headersList = await headers()
   const origin = getOriginFromHeaders(headersList)
-  const next = params.next ?? '/my-events'
-  const redirectTo = buildRedirectTo(next, origin)
   const errorRedirect = `${origin}/login?error=confirmation_failed`
 
-  // ── token_hash flow (stateless — sent as query param) ────────────────────
+  // ── token_hash flow ──────────────────────────────────────────────────────
   if (params.token_hash && params.type) {
     const supabase = await createServerClient()
     const { error } = await supabase.auth.verifyOtp({
       token_hash: params.token_hash,
       type: params.type as EmailOtpType,
     })
-    if (!error) redirect(redirectTo)
-    redirect(errorRedirect)
+    if (error) redirect(errorRedirect)
+    const { data: { user } } = await supabase.auth.getUser()
+    const meta = user?.user_metadata?.redirect_destination as string | undefined
+    redirect(isSafeDestination(meta ?? '') ? meta! : `${origin}/my-events`)
   }
 
   // ── PKCE code flow ───────────────────────────────────────────────────────
   if (params.code) {
     const supabase = await createServerClient()
     const { error } = await supabase.auth.exchangeCodeForSession(params.code)
-    if (!error) redirect(redirectTo)
-    redirect(errorRedirect)
+    if (error) redirect(errorRedirect)
+    const { data: { user } } = await supabase.auth.getUser()
+    const meta = user?.user_metadata?.redirect_destination as string | undefined
+    redirect(isSafeDestination(meta ?? '') ? meta! : `${origin}/my-events`)
   }
 
-  // ── Implicit / hash flow ─────────────────────────────────────────────────
-  // Supabase returned tokens in the URL fragment (#access_token=...).
-  // The fragment never reaches the server, so we render a client component
-  // that reads it and establishes the session via the browser Supabase client.
-  return <AuthCallbackClient next={next} origin={origin} />
+  // ── Implicit / hash flow — tokens are in the URL fragment ────────────────
+  // The fragment never reaches the server; the client component reads it and
+  // calls setSession(), then uses redirect_destination from user_metadata.
+  return <AuthCallbackClient origin={origin} />
 }

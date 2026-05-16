@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
 function isSafeDestination(url: string): boolean {
+  if (!url) return false
   if (url.startsWith('/')) return true
   try {
     const u = new URL(url)
@@ -15,41 +16,12 @@ function isSafeDestination(url: string): boolean {
   }
 }
 
-function readAuthRedirectCookie(): string | null {
-  const match = document.cookie.match(/(?:^|;\s*)auth_redirect=([^;]*)/)
-  return match ? decodeURIComponent(match[1]) : null
-}
-
-function clearAuthRedirectCookie() {
-  const isProduction = !window.location.hostname.includes('localhost')
-  const domainAttr = isProduction ? `; domain=.${PLATFORM_DOMAIN}` : ''
-  document.cookie = `auth_redirect=; Max-Age=0; path=/${domainAttr}`
-}
-
-export default function AuthCallbackClient({
-  next,
-  origin,
-}: {
-  next: string
-  origin: string
-}) {
+export default function AuthCallbackClient({ origin }: { origin: string }) {
   useEffect(() => {
-    // Prefer the cookie set at signup time — it survives Supabase stripping
-    // query params from the redirectTo URL during the implicit-flow redirect.
-    const cookieRedirect = readAuthRedirectCookie()
-    clearAuthRedirectCookie()
-
-    const rawDestination = (cookieRedirect && isSafeDestination(cookieRedirect))
-      ? cookieRedirect
-      : isSafeDestination(next)
-        ? next.startsWith('/') ? `${origin}${next}` : next
-        : `${origin}/my-events`
-
     const hash = window.location.hash.substring(1)
     const params = new URLSearchParams(hash)
     const accessToken = params.get('access_token')
     const refreshToken = params.get('refresh_token')
-
     const errorDestination = `${origin}/login?error=confirmation_failed`
 
     if (!accessToken || !refreshToken) {
@@ -60,10 +32,20 @@ export default function AuthCallbackClient({
     const supabase = createClient()
     supabase.auth
       .setSession({ access_token: accessToken, refresh_token: refreshToken })
-      .then(({ error }) => {
-        window.location.replace(error ? errorDestination : rawDestination)
+      .then(({ data: { session }, error }) => {
+        if (error || !session) {
+          window.location.replace(errorDestination)
+          return
+        }
+        // redirect_destination is stored in user_metadata at signup time —
+        // it travels inside the JWT so no cookies or query params are needed.
+        const meta = session.user?.user_metadata?.redirect_destination as string | undefined
+        const destination = isSafeDestination(meta ?? '')
+          ? meta!
+          : `${origin}/my-events`
+        window.location.replace(destination)
       })
-  }, [next, origin])
+  }, [origin])
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', fontFamily: 'sans-serif' }}>

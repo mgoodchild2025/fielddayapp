@@ -111,24 +111,22 @@ export async function signUp(input: { email: string; password: string; fullName:
     : `https://app.${PLATFORM_DOMAIN}/auth/callback`
 
   // Full absolute destination the user should land on after confirming.
-  // Always encode the org origin so the callback redirects to the right
-  // subdomain — without this, the callback's own origin (app.*) is used.
+  // Stored in user_metadata so it survives the Supabase redirect without
+  // relying on query params (which Supabase strips) or cross-subdomain cookies.
   const destination = `${origin}${safeRedirect || '/my-events'}`
 
-  const callbackWithNext = `${callbackBase}?next=${encodeURIComponent(destination)}`
-
   // Use the service-role admin API to create the user and get action_link.
-  // Passing redirectTo tells Supabase's verify endpoint where to redirect
-  // after it validates the token — it appends token_hash to that URL.
-  // We send action_link directly to the user; our callback handles the rest.
   const service = createServiceRoleClient()
   const { data: linkData, error: linkError } = await service.auth.admin.generateLink({
     type: 'signup',
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      data: { full_name: parsed.data.fullName },
-      redirectTo: callbackWithNext,
+      data: {
+        full_name: parsed.data.fullName,
+        redirect_destination: destination,
+      },
+      redirectTo: callbackBase,
     },
   })
 
