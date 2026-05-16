@@ -101,9 +101,10 @@ export async function signUp(input: { email: string; password: string; fullName:
 
   const safeRedirect = input.redirectTo?.startsWith('/') ? input.redirectTo : ''
 
-  // Use app.PLATFORM_DOMAIN as the stable callback host. We construct the
-  // confirmation URL ourselves using a token_hash (see below), so Supabase's
-  // redirect-URL allowlist and PKCE cookie domain are no longer relevant.
+  // Use app.PLATFORM_DOMAIN as the stable callback host for the redirectTo
+  // option. admin.generateLink() stores no PKCE code_challenge, so Supabase's
+  // verify endpoint does a stateless token_hash redirect to our callback —
+  // no PKCE cookie is needed, so cross-domain confirmation works correctly.
   const isDev = process.env.NODE_ENV === 'development'
   const callbackBase = isDev
     ? `${origin}/auth/callback`
@@ -113,30 +114,34 @@ export async function signUp(input: { email: string; password: string; fullName:
   // (e.g. https://acme.fielddayapp.ca/invite/[token]).
   const destination = safeRedirect ? `${origin}${safeRedirect}` : null
 
-  // Use the service-role admin API to create the user and get a stateless
-  // hashed_token. verifyOtp({ token_hash }) in the callback requires no
-  // PKCE code_verifier cookie, so it works regardless of which domain the
-  // callback runs on. We send the confirmation email ourselves via Resend.
+  // Encode the final destination into the callback URL so our /auth/callback
+  // route can redirect the user there after confirming the token.
+  const callbackWithNext = destination
+    ? `${callbackBase}?next=${encodeURIComponent(destination)}`
+    : callbackBase
+
+  // Use the service-role admin API to create the user and get action_link.
+  // Passing redirectTo tells Supabase's verify endpoint where to redirect
+  // after it validates the token — it appends token_hash to that URL.
+  // We send action_link directly to the user; our callback handles the rest.
   const service = createServiceRoleClient()
   const { data: linkData, error: linkError } = await service.auth.admin.generateLink({
     type: 'signup',
     email: parsed.data.email,
     password: parsed.data.password,
-    options: { data: { full_name: parsed.data.fullName } },
+    options: {
+      data: { full_name: parsed.data.fullName },
+      redirectTo: callbackWithNext,
+    },
   })
 
   if (linkError) return { data: null, error: linkError.message }
   if (!linkData?.user) return { data: null, error: 'Sign-up failed' }
 
-  // Build our own confirmation URL with the token_hash
-  const params = new URLSearchParams({
-    token_hash: linkData.properties.hashed_token,
-    type: 'signup',
-  })
-  if (destination) params.set('next', destination)
-  const confirmUrl = `${callbackBase}?${params.toString()}`
-
-  // Send the confirmation email via Resend
+  // Send the confirmation email via Resend using action_link — this goes
+  // through Supabase's own verify endpoint which computes the correct
+  // token_hash for the redirect, not the raw hashed_token we tried before.
+  const confirmUrl = linkData.properties.action_link
   const { sendSignupConfirmation } = await import('@/actions/emails')
   await sendSignupConfirmation({
     email: parsed.data.email,
@@ -148,7 +153,6 @@ export async function signUp(input: { email: string; password: string; fullName:
   const email = parsed.data.email
 
   // Create profile record
-  const service = createServiceRoleClient()
   await service.from('profiles').upsert({
     id: userId,
     full_name: parsed.data.fullName,
