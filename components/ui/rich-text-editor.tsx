@@ -34,6 +34,15 @@ function cleanPastedHtml(html: string): string {
     // Strip <style> and <meta> blocks Word includes in the fragment
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<meta[^>]*>/gi, '')
+    // Strip contenteditable attributes — WhatsApp web sets these on internal
+    // elements, and ProseMirror honours them, making pasted text non-editable
+    .replace(/\s*contenteditable="[^"]*"/gi, '')
+    // Strip data-* attributes (WhatsApp, Slack, etc. embed internal keys)
+    .replace(/\s*data-[\w-]+=(?:"[^"]*"|'[^']*')/gi, '')
+    // Convert <div> → <p> so WhatsApp/Slack block-level content maps to
+    // paragraph nodes that StarterKit understands
+    .replace(/<div(\s[^>]*)?>/gi, '<p>')
+    .replace(/<\/div>/gi, '</p>')
     // H1 → H2 (we only expose H2/H3 in the toolbar)
     .replace(/<h1(\s[^>]*)?>/gi, '<h2$1>')
     .replace(/<\/h1>/gi, '</h2>')
@@ -42,8 +51,8 @@ function cleanPastedHtml(html: string): string {
     .replace(/<\/h[4-6]>/gi, '</h3>')
     // Word wraps everything in <p class="MsoNormal"> — keep the <p>, drop the class
     .replace(/<p\s+class="Mso[^"]*"([^>]*)>/gi, '<p$1>')
-    // Strip class/style on spans that Word injects (they carry no semantic value)
-    .replace(/<span\s+(?:class|style)="[^"]*">/gi, '<span>')
+    // Strip class/style/id on spans (Word, WhatsApp inject these with no semantic value)
+    .replace(/<span\s[^>]*>/gi, '<span>')
     // Collapse runs of empty paragraphs that Word pads between real content
     .replace(/(<p[^>]*>\s*(?:<br\s*\/?>\s*)*<\/p>\s*){3,}/gi, '<p></p>')
 }
