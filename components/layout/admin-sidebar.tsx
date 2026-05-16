@@ -18,6 +18,7 @@ const orgAdminNav = [
   { label: 'Shop', href: '/admin/shop', icon: '🛍️' },
   { label: 'Teams', href: '/admin/teams', icon: '👥' },
   { label: 'Players', href: '/admin/players', icon: '🏃' },
+  { label: 'Waivers', href: '/admin/settings/waivers/signatures', icon: '📋' },
   { label: 'Gallery', href: '/admin/gallery', icon: '🖼️' },
   { label: 'Messages', href: '/admin/messages', icon: '✉️' },
   { label: 'Settings', href: '/admin/settings', icon: '⚙️' },
@@ -27,6 +28,7 @@ const leagueAdminNav = [
   { label: 'Events', href: '/admin/events', icon: '🏆' },
   { label: 'Teams', href: '/admin/teams', icon: '👥' },
   { label: 'Players', href: '/admin/players', icon: '🏃' },
+  { label: 'Waivers', href: '/admin/settings/waivers/signatures', icon: '📋' },
   { label: 'Payments', href: '/admin/payments', icon: '💳' },
   { label: 'Messages', href: '/admin/messages', icon: '✉️' },
 ]
