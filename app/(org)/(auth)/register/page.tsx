@@ -56,10 +56,6 @@ export default function RegisterPage() {
           <p className="text-gray-600">
             We sent a confirmation link to your email address. Click it to activate your account.
           </p>
-          {/* Temporary debug — remove after confirming redirect works */}
-          <p className="mt-2 text-xs text-gray-400 font-mono">
-            redirect: {redirectTo || '(none)'}
-          </p>
         </div>
       </div>
     )

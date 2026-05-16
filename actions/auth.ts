@@ -100,7 +100,6 @@ export async function signUp(input: { email: string; password: string; fullName:
   const origin = getPublicOrigin(headersList) // real public domain (org subdomain, etc.)
 
   const safeRedirect = input.redirectTo?.startsWith('/') ? input.redirectTo : ''
-  console.log('[signUp] input.redirectTo:', input.redirectTo, '| safeRedirect:', safeRedirect)
 
   // Use app.PLATFORM_DOMAIN as the stable callback host for the redirectTo
   // option. admin.generateLink() stores no PKCE code_challenge, so Supabase's

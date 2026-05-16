@@ -72,7 +72,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
       </button>
       <div className="flex items-center justify-between text-sm text-gray-500 pt-2">
         <Link href="/reset-password" className="hover:underline">Forgot password?</Link>
-        <Link href="/register" className="hover:underline">Create account</Link>
+        <Link href={redirectTo ? `/register?redirect=${encodeURIComponent(redirectTo)}` : '/register'} className="hover:underline">Create account</Link>
       </div>
     </form>
   )
