@@ -62,7 +62,7 @@ export default async function AdminLayout({
         />
       </div>
       <div className="flex flex-1 overflow-hidden print:block print:overflow-visible">
-        <AdminSidebar org={org} role={memberRole} />
+        <div className="print:hidden"><AdminSidebar org={org} role={memberRole} /></div>
         <main className="flex-1 overflow-auto print:overflow-visible">
           {/* pt-14 on mobile accounts for the fixed top bar; removed on lg where sidebar is visible */}
           <div className="pt-14 lg:pt-0 p-4 lg:p-6 max-w-6xl mx-auto print:p-0 print:max-w-none">{children}</div>

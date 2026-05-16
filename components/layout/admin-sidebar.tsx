@@ -144,7 +144,7 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
       {/* Mobile backdrop */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden print:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -152,7 +152,7 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
       {/* Mobile drawer — slides from right */}
       <aside
         className={cn(
-          'fixed top-0 right-0 h-full w-64 z-50 lg:hidden transition-transform duration-200',
+          'fixed top-0 right-0 h-full w-64 z-50 lg:hidden print:hidden transition-transform duration-200',
           mobileOpen ? 'translate-x-0' : 'translate-x-full'
         )}
         style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
