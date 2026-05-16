@@ -15,6 +15,17 @@ function isSafeDestination(url: string): boolean {
   }
 }
 
+function readAuthRedirectCookie(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)auth_redirect=([^;]*)/)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+function clearAuthRedirectCookie() {
+  const isProduction = !window.location.hostname.includes('localhost')
+  const domainAttr = isProduction ? `; domain=.${PLATFORM_DOMAIN}` : ''
+  document.cookie = `auth_redirect=; Max-Age=0; path=/${domainAttr}`
+}
+
 export default function AuthCallbackClient({
   next,
   origin,
@@ -23,16 +34,22 @@ export default function AuthCallbackClient({
   origin: string
 }) {
   useEffect(() => {
-    // Parse the URL hash fragment manually — the Supabase client's automatic
-    // hash detection is async and may not complete before getSession() is called.
+    // Prefer the cookie set at signup time — it survives Supabase stripping
+    // query params from the redirectTo URL during the implicit-flow redirect.
+    const cookieRedirect = readAuthRedirectCookie()
+    clearAuthRedirectCookie()
+
+    const rawDestination = (cookieRedirect && isSafeDestination(cookieRedirect))
+      ? cookieRedirect
+      : isSafeDestination(next)
+        ? next.startsWith('/') ? `${origin}${next}` : next
+        : `${origin}/my-events`
+
     const hash = window.location.hash.substring(1)
     const params = new URLSearchParams(hash)
     const accessToken = params.get('access_token')
     const refreshToken = params.get('refresh_token')
 
-    const destination = isSafeDestination(next)
-      ? next.startsWith('/') ? `${origin}${next}` : next
-      : `${origin}/my-events`
     const errorDestination = `${origin}/login?error=confirmation_failed`
 
     if (!accessToken || !refreshToken) {
@@ -44,7 +61,7 @@ export default function AuthCallbackClient({
     supabase.auth
       .setSession({ access_token: accessToken, refresh_token: refreshToken })
       .then(({ error }) => {
-        window.location.replace(error ? errorDestination : destination)
+        window.location.replace(error ? errorDestination : rawDestination)
       })
   }, [next, origin])
 

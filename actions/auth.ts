@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
+import { headers, cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { toE164 } from '@/lib/twilio'
@@ -116,6 +116,18 @@ export async function signUp(input: { email: string; password: string; fullName:
   const destination = `${origin}${safeRedirect || '/my-events'}`
 
   const callbackWithNext = `${callbackBase}?next=${encodeURIComponent(destination)}`
+
+  // Store the destination in a cross-subdomain cookie so the callback page
+  // can redirect correctly even if Supabase strips query params from redirectTo.
+  const cookieStore = await cookies()
+  cookieStore.set('auth_redirect', destination, {
+    httpOnly: false, // must be readable by client JS in the callback
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 60 * 60, // 1 hour
+    path: '/',
+    ...(process.env.NODE_ENV === 'production' && { domain: `.${PLATFORM_DOMAIN}` }),
+  })
 
   // Use the service-role admin API to create the user and get action_link.
   // Passing redirectTo tells Supabase's verify endpoint where to redirect
