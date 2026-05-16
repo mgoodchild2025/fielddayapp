@@ -121,6 +121,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [descriptionContent, setDescriptionContent] = useState(league.description ?? '')
   const [rulesContent, setRulesContent] = useState(league.rules_content ?? '')
   const [formatContent, setFormatContent] = useState(league.format_content ?? '')
   const [formatExpanded, setFormatExpanded] = useState(!!league.format_content)
@@ -149,7 +150,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
 
     const result = await updateLeague(league.id, {
       name: fd.get('name') as string,
-      description: (fd.get('description') as string) || undefined,
+      description: descriptionContent || undefined,
       sport: fd.get('sport') as string,
 
       price_cents: Math.round(Number(fd.get('price_cents') || 0) * 100),
@@ -246,7 +247,12 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
         </Field>
 
         <Field label="Description">
-          <textarea name="description" defaultValue={league.description ?? ''} rows={3} className="input" />
+          <RichTextEditor
+            content={descriptionContent}
+            onChange={setDescriptionContent}
+            placeholder="Describe this event…"
+            minHeight="96px"
+          />
         </Field>
 
         <div className="grid grid-cols-2 gap-3">

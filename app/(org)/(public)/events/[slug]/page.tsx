@@ -1293,7 +1293,7 @@ export default async function EventDetailPage({
         <div className="bg-white border-b">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 space-y-2">
             {league.description && (
-              <p className="text-sm text-gray-600 leading-relaxed">{league.description}</p>
+              <RichTextContent content={league.description} className="text-sm text-gray-600" />
             )}
             {(league.season_start_date || league.age_group || league.venue_name ||
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1349,7 +1349,7 @@ export default async function EventDetailPage({
         {activeTab === 'overview' && (
           <div className="space-y-5">
             {league.description && (
-              <p className="text-gray-700 leading-relaxed">{league.description}</p>
+              <RichTextContent content={league.description} className="text-gray-700" />
             )}
 
             {/* Info grid */}

@@ -232,6 +232,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [descriptionContent, setDescriptionContent] = useState('')
   const [rulesContent, setRulesContent] = useState('')
   const [formatContent, setFormatContent] = useState('')
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
@@ -302,6 +303,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
     setError(null)
     const result = await createLeague({
       ...(data as Parameters<typeof createLeague>[0]),
+      description: descriptionContent || undefined,
       rule_template_id: selectedTemplateId || undefined,
       rules_content: rulesContent || undefined,
       format_content: formatContent || undefined,
@@ -509,7 +511,12 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
           </div>
 
           <Field label="Description" error={errors.description?.message}>
-            <textarea {...register('description')} rows={3} className={INPUT} />
+            <RichTextEditor
+              content={descriptionContent}
+              onChange={setDescriptionContent}
+              placeholder="Describe this event…"
+              minHeight="96px"
+            />
           </Field>
 
           <div className="grid grid-cols-2 gap-4">
