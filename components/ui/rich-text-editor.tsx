@@ -45,8 +45,12 @@ function cleanPastedHtml(html: string): string {
     .replace(/<\/div>/gi, '</p>')
     // Convert bare \n in text content to <br> — WhatsApp sometimes uses actual
     // newline characters rather than <br> tags; HTML collapses them to spaces
-    // without this step. The replace only touches text between > and <.
-    .replace(/>([^<]+)</g, (_, text: string) => `>${text.replace(/\n/g, '<br>')}<`)
+    // without this step. Only applies to text nodes that contain non-whitespace
+    // content; pure-whitespace nodes between tags (HTML source formatting) are
+    // left alone so they don't produce extra breaks between paragraphs.
+    .replace(/>([^<]+)</g, (_, text: string) =>
+      /\S/.test(text) ? `>${text.replace(/\n/g, '<br>')}<` : `>${text}<`
+    )
     // H1 → H2 (we only expose H2/H3 in the toolbar)
     .replace(/<h1(\s[^>]*)?>/gi, '<h2$1>')
     .replace(/<\/h1>/gi, '</h2>')
