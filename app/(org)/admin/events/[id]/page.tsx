@@ -15,6 +15,7 @@ import { StatsVisibilityToggle } from '@/components/stats/stats-visibility-toggl
 import { EventLogoUpload } from '@/components/events/event-logo-upload'
 import { MerchSummaryWidget } from '@/components/merchandise/merch-summary-widget'
 import { LeagueDocumentsManager } from '@/components/events/league-documents-manager'
+import { RichTextContent } from '@/components/ui/rich-text-content'
 import type { Database } from '@/types/database'
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
@@ -163,7 +164,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
         {league.description && (
           <div className="mt-4 pt-4 border-t">
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">Description</p>
-            <p className="text-sm text-gray-700">{league.description}</p>
+            <RichTextContent content={league.description} className="text-sm text-gray-700" />
           </div>
         )}
       </div>
