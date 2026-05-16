@@ -1,12 +1,11 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
-function isSafeDestination(url: string, origin: string): boolean {
+function isSafeDestination(url: string): boolean {
   if (url.startsWith('/')) return true
   try {
     const u = new URL(url)
@@ -23,24 +22,30 @@ export default function AuthCallbackClient({
   next: string
   origin: string
 }) {
-  const router = useRouter()
-
   useEffect(() => {
-    const supabase = createClient()
+    // Parse the URL hash fragment manually — the Supabase client's automatic
+    // hash detection is async and may not complete before getSession() is called.
+    const hash = window.location.hash.substring(1)
+    const params = new URLSearchParams(hash)
+    const accessToken = params.get('access_token')
+    const refreshToken = params.get('refresh_token')
 
-    // The Supabase browser client automatically reads the URL hash fragment
-    // and exchanges the implicit-flow tokens into a session.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        const destination = isSafeDestination(next, origin)
-          ? next.startsWith('/') ? `${origin}${next}` : next
-          : `${origin}/my-events`
-        // Use replace so the callback URL doesn't remain in history
-        window.location.replace(destination)
-      } else {
-        window.location.replace(`${origin}/login?error=confirmation_failed`)
-      }
-    })
+    const destination = isSafeDestination(next)
+      ? next.startsWith('/') ? `${origin}${next}` : next
+      : `${origin}/my-events`
+    const errorDestination = `${origin}/login?error=confirmation_failed`
+
+    if (!accessToken || !refreshToken) {
+      window.location.replace(errorDestination)
+      return
+    }
+
+    const supabase = createClient()
+    supabase.auth
+      .setSession({ access_token: accessToken, refresh_token: refreshToken })
+      .then(({ error }) => {
+        window.location.replace(error ? errorDestination : destination)
+      })
   }, [next, origin])
 
   return (
