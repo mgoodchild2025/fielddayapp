@@ -43,6 +43,10 @@ function cleanPastedHtml(html: string): string {
     // paragraph nodes that StarterKit understands
     .replace(/<div(\s[^>]*)?>/gi, '<p>')
     .replace(/<\/div>/gi, '</p>')
+    // Convert bare \n in text content to <br> — WhatsApp sometimes uses actual
+    // newline characters rather than <br> tags; HTML collapses them to spaces
+    // without this step. The replace only touches text between > and <.
+    .replace(/>([^<]+)</g, (_, text: string) => `>${text.replace(/\n/g, '<br>')}<`)
     // H1 → H2 (we only expose H2/H3 in the toolbar)
     .replace(/<h1(\s[^>]*)?>/gi, '<h2$1>')
     .replace(/<\/h1>/gi, '</h2>')
@@ -178,14 +182,42 @@ export function RichTextEditor({ content, onChange, minHeight = '220px', disable
       // Clean up Word/Google Docs HTML before Tiptap parses it
       transformPastedHTML: cleanPastedHtml,
       handlePaste(_, event) {
-        const items = Array.from(event.clipboardData?.items ?? [])
-        // Word and WhatsApp put a rendered image alongside their text/HTML —
-        // if any text is on the clipboard, let Tiptap handle it normally so
-        // the text path wins instead of inserting a PNG screenshot.
-        const hasText = items.some(
-          (i) => i.kind === 'string' && (i.type === 'text/plain' || i.type === 'text/html')
-        )
-        if (hasText) return false
+        const clipData = event.clipboardData
+        if (!clipData) return false
+        const items = Array.from(clipData.items)
+
+        const hasHtml = items.some((i) => i.kind === 'string' && i.type === 'text/html')
+
+        // HTML on the clipboard — let transformPastedHTML handle it.
+        // This covers Word, WhatsApp web, Google Docs, etc. which all put a
+        // rendered image alongside their HTML; returning false means the image
+        // is ignored and the richer HTML representation is used instead.
+        if (hasHtml) return false
+
+        const plainText = clipData.getData('text/plain')
+
+        // Plain text only (e.g. WhatsApp mobile) with newlines — convert each
+        // line to a paragraph so line breaks aren't collapsed by the browser.
+        if (plainText && plainText.includes('\n')) {
+          event.preventDefault()
+          const html = plainText
+            .split('\n')
+            .map((line) => {
+              const escaped = line
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+              return `<p>${escaped || '<br>'}</p>`
+            })
+            .join('')
+          editorRef.current?.commands.insertContent(html)
+          return true
+        }
+
+        // Single-line plain text — let Tiptap handle it normally.
+        if (plainText) return false
+
+        // No text at all — handle pure image paste (screenshots, file drag).
         const imageItem = items.find((i) => i.kind === 'file' && i.type.startsWith('image/'))
         if (!imageItem) return false
         const file = imageItem.getAsFile()
