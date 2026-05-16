@@ -269,7 +269,12 @@ export async function uploadEventLogo(
 
   const bytes = await file.arrayBuffer()
   // SVGs kept as-is (vector); raster images converted to WebP
-  const converted = await convertToWebP(bytes, file.type, { maxWidth: 800, maxHeight: 800 })
+  let converted: Awaited<ReturnType<typeof convertToWebP>> = null
+  try {
+    converted = await convertToWebP(bytes, file.type, { maxWidth: 800, maxHeight: 800 })
+  } catch (err) {
+    console.error('[uploadEventLogo] convertToWebP failed, falling back to original:', err)
+  }
   const uploadBytes = converted?.buffer ?? Buffer.from(bytes)
   const uploadType = converted?.contentType ?? file.type
   const ext = converted ? 'webp' : (file.name.split('.').pop()?.toLowerCase() ?? 'png')

@@ -270,7 +270,12 @@ export async function uploadOrgLogo(formData: FormData): Promise<{ url: string |
   }
 
   const bytes = await file.arrayBuffer()
-  const converted = await convertToWebP(bytes, file.type, { maxWidth: 800, maxHeight: 800 })
+  let converted: Awaited<ReturnType<typeof convertToWebP>> = null
+  try {
+    converted = await convertToWebP(bytes, file.type, { maxWidth: 800, maxHeight: 800 })
+  } catch (err) {
+    console.error('[uploadOrgLogo] convertToWebP failed, falling back to original:', err)
+  }
   const uploadBytes = converted?.buffer ?? Buffer.from(bytes)
   const uploadType = converted?.contentType ?? file.type
   const ext = converted ? 'webp' : (file.name.split('.').pop() ?? 'png')
