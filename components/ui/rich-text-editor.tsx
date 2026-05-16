@@ -179,6 +179,13 @@ export function RichTextEditor({ content, onChange, minHeight = '220px', disable
       transformPastedHTML: cleanPastedHtml,
       handlePaste(_, event) {
         const items = Array.from(event.clipboardData?.items ?? [])
+        // Word and WhatsApp put a rendered image alongside their text/HTML —
+        // if any text is on the clipboard, let Tiptap handle it normally so
+        // the text path wins instead of inserting a PNG screenshot.
+        const hasText = items.some(
+          (i) => i.kind === 'string' && (i.type === 'text/plain' || i.type === 'text/html')
+        )
+        if (hasText) return false
         const imageItem = items.find((i) => i.kind === 'file' && i.type.startsWith('image/'))
         if (!imageItem) return false
         const file = imageItem.getAsFile()
