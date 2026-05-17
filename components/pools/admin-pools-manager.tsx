@@ -31,6 +31,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
   const [courts, setCourts] = useState('1')
   const [gamesPerDay, setGamesPerDay] = useState('1')
   const [gameDuration, setGameDuration] = useState('60')
+  const [maxRounds, setMaxRounds] = useState('')
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -45,6 +46,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
         courts: parseInt(courts),
         gamesPerDay: parseInt(gamesPerDay),
         gameDurationMinutes: parseInt(gameDuration),
+        maxRounds: maxRounds ? parseInt(maxRounds) : undefined,
       })
       setResult(res)
       if (!res.error) setOpen(false)
@@ -57,6 +59,8 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
 
   const rounds = teamCount % 2 === 0 ? teamCount - 1 : teamCount
   const gamesPerRound = Math.floor(teamCount / 2)
+  const effectiveRounds = maxRounds ? Math.min(parseInt(maxRounds) || rounds, rounds) : rounds
+  const totalGames = effectiveRounds * gamesPerRound
 
   return (
     <div className="px-5 pb-4">
@@ -70,7 +74,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
       {open && (
         <form onSubmit={handleSubmit} className="mt-3 space-y-2 bg-gray-50 rounded-lg p-4 border">
           <p className="text-xs text-gray-500">
-            {teamCount} teams → {rounds} rounds, {gamesPerRound} game{gamesPerRound !== 1 ? 's' : ''}/round
+            {teamCount} teams · {effectiveRounds}/{rounds} rounds · {gamesPerRound} game{gamesPerRound !== 1 ? 's' : ''}/round · {totalGames} total games
           </p>
           {result?.error && <p className="text-xs text-red-600">{result.error}</p>}
           {result?.count != null && !result.error && (
@@ -122,6 +126,17 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
               <input
                 type="number" min={10} max={240} step={5} value={gameDuration}
                 onChange={(e) => setGameDuration(e.target.value)}
+                className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-gray-500 mb-0.5">
+                Max Rounds <span className="text-gray-400 font-normal">(optional — leave blank for full round-robin)</span>
+              </label>
+              <input
+                type="number" min={1} max={rounds} value={maxRounds}
+                placeholder={`1–${rounds}`}
+                onChange={(e) => setMaxRounds(e.target.value)}
                 className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
               />
             </div>

@@ -106,6 +106,7 @@ export async function generatePoolSchedule(input: {
   courts: number
   gamesPerDay?: number
   gameDurationMinutes?: number
+  maxRounds?: number
 }) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -125,7 +126,10 @@ export async function generatePoolSchedule(input: {
     return { error: 'Need at least 2 teams in the pool', count: 0 }
 
   const { generateRoundRobin, assignDates } = await import('@/lib/scheduler')
-  const fixtures = generateRoundRobin(teams)
+  let fixtures = generateRoundRobin(teams)
+  if (input.maxRounds && input.maxRounds > 0) {
+    fixtures = fixtures.filter((f) => f.round <= input.maxRounds!)
+  }
   const scheduled = assignDates(fixtures, {
     startDate: input.startDate,
     gameTime: input.gameTime,
