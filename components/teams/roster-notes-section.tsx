@@ -266,13 +266,13 @@ export function RosterNotesSection({ teamId, initialNotes }: Props) {
   }
 
   return (
-    <div className="mt-4 bg-white rounded-lg border">
-      <div className="px-5 pt-4 pb-2">
+    <div>
+      <div className="px-4 pt-4 pb-2">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="font-semibold text-sm text-gray-700">Planning</h2>
+            <h2 className="font-semibold text-sm text-gray-700">Roster Plan</h2>
             <p className="text-xs text-gray-400 mt-0.5">
-              Track who you expect to join — not registered members.
+              Track who you expect — people not yet registered.
             </p>
           </div>
           {!adding && notes.length < 50 && (
@@ -287,7 +287,7 @@ export function RosterNotesSection({ teamId, initialNotes }: Props) {
         </div>
       </div>
 
-      <div className="px-5 pb-4">
+      <div className="px-4 pb-4">
         {notes.length === 0 && !adding && (
           <button
             type="button"

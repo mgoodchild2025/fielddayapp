@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { captainSetMemberRole, captainRemoveTeamMember, captainAddPlayerByEmail, sendRosterReminder } from '@/actions/teams'
+import { captainSetMemberRole, captainRemoveTeamMember, sendRosterReminder } from '@/actions/teams'
 import { resendTeamInvite, cancelTeamInvitation } from '@/actions/invitations'
 import { setTeamMemberPosition } from '@/actions/positions'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
@@ -42,7 +42,6 @@ interface Props {
   teamId: string
   leagueId: string
   leagueSlug: string
-  teamCode: string | null
   leagueHasWaiver: boolean
   initialMembers: ActiveMember[]
   initialInvites: PendingInvite[]
@@ -65,7 +64,6 @@ export function RosterManager({
   teamId,
   leagueId,
   leagueSlug,
-  teamCode,
   leagueHasWaiver,
   initialMembers,
   initialInvites,
@@ -74,12 +72,6 @@ export function RosterManager({
   const router = useRouter()
   const [members, setMembers] = useState(initialMembers)
   const [invites, setInvites] = useState(initialInvites)
-
-  const [addEmail, setAddEmail] = useState('')
-  const [addRole, setAddRole] = useState<Role>('player')
-  const [addPending, startAddTransition] = useTransition()
-  const [addError, setAddError] = useState<string | null>(null)
-  const [addSuccess, setAddSuccess] = useState<string | null>(null)
 
   const [actionPending, startActionTransition] = useTransition()
   const [actionError, setActionError] = useState<string | null>(null)
@@ -182,94 +174,16 @@ export function RosterManager({
     })
   }
 
-  // ── Add player ─────────────────────────────────────────────────────────────
-
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault()
-    setAddError(null)
-    setAddSuccess(null)
-    const emailToAdd = addEmail
-    const roleToAdd = addRole
-    startAddTransition(async () => {
-      const result = await captainAddPlayerByEmail({ teamId, email: emailToAdd, role: roleToAdd })
-      if (result.error) {
-        setAddError(result.error)
-      } else {
-        setAddSuccess(`Invite sent to ${emailToAdd}`)
-        setAddEmail('')
-        setAddRole('player')
-        // Immediately append the new invite to local state — no page refresh needed
-        if (result.invite) {
-          const now = new Date().toISOString()
-          setInvites((prev) => [
-            {
-              id: result.invite!.id,
-              invitedEmail: result.invite!.invitedEmail,
-              role: result.invite!.role,
-              invitedAt: now,
-              expiresAt: result.invite!.expiresAt,
-              inviterName: null,
-            },
-            ...prev,
-          ])
-        }
-      }
-    })
-  }
-
   // ── Render ─────────────────────────────────────────────────────────────────
 
   const totalCount = members.length + invites.length
-  const [origin, setOrigin] = useState('')
-  useEffect(() => { setOrigin(window.location.origin) }, [])
-  const inviteUrl = teamCode && origin
-    ? `${origin}/join/${teamCode}`
-    : null
-
-  const [copied, setCopied] = useState(false)
-  function copyInviteLink() {
-    if (!inviteUrl) return
-    navigator.clipboard.writeText(inviteUrl).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }
 
   return (
     <>
-      <div className="mt-6 bg-white rounded-lg border overflow-hidden">
-        <div className="px-5 py-4 border-b flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            <h2 className="font-semibold">Manage Roster</h2>
-            <span className="text-xs text-gray-400">{totalCount} player{totalCount !== 1 ? 's' : ''}</span>
-          </div>
-          {inviteUrl && (
-            <button
-              type="button"
-              onClick={copyInviteLink}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors"
-              style={copied
-                ? { borderColor: '#10b981', color: '#059669', backgroundColor: '#f0fdf4' }
-                : { borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)', backgroundColor: 'transparent' }
-              }
-            >
-              {copied ? (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                  Copy invite link
-                </>
-              )}
-            </button>
-          )}
+      <div className="bg-white rounded-lg border overflow-hidden">
+        <div className="px-5 py-4 border-b flex items-center gap-3">
+          <h2 className="font-semibold">Active Roster</h2>
+          <span className="text-xs text-gray-400">{totalCount} player{totalCount !== 1 ? 's' : ''}</span>
         </div>
 
         {/* ── Pending invites section ── */}
@@ -432,40 +346,6 @@ export function RosterManager({
             {actionError ?? actionSuccess}
           </div>
         )}
-
-        {/* Add player */}
-        <div className="px-5 py-4 border-t bg-gray-50">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Add Player</p>
-          <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="email"
-              value={addEmail}
-              onChange={(e) => setAddEmail(e.target.value)}
-              placeholder="player@example.com"
-              required
-              className="flex-1 border rounded-md px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <select
-              value={addRole}
-              onChange={(e) => setAddRole(e.target.value as Role)}
-              className="border rounded-md px-3 py-2 text-base"
-            >
-              {ROLES.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              disabled={addPending}
-              className="px-4 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-50 shrink-0"
-              style={{ backgroundColor: 'var(--brand-primary)' }}
-            >
-              {addPending ? '…' : 'Add'}
-            </button>
-          </form>
-          {addError && <p className="text-xs text-red-600 mt-2">{addError}</p>}
-          {addSuccess && <p className="text-xs text-green-600 mt-2">{addSuccess}</p>}
-        </div>
       </div>
 
       {/* ── Reminder modal ── */}

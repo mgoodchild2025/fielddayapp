@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { AdminEditTeamForm } from '@/components/teams/admin-edit-team-form'
 import { DeleteTeamButton } from '@/components/teams/delete-team-button'
-import { TeamCodeBadge } from '@/components/teams/team-code-badge'
+import { InvitePlayersZone } from '@/components/teams/invite-players-zone'
 import { RosterManager } from '@/components/teams/roster-manager'
 import type { ActiveMember, PendingInvite } from '@/components/teams/roster-manager'
 import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
@@ -154,40 +154,35 @@ export function AdminTeamCard({
       {/* ── Expanded body ── */}
       {expanded && (
         <div className="border-t">
-          {/* Team code */}
-          {team.team_code && (
-            <div className="px-4 py-3 border-b bg-gray-50">
-              <TeamCodeBadge teamId={team.id} code={team.team_code} />
-            </div>
-          )}
+          {/* 1. Invite players — join link + email invite */}
+          <InvitePlayersZone teamId={team.id} teamCode={team.team_code ?? null} />
 
-          {/* Pending join requests */}
+          {/* 2. Pending join requests */}
           {joinRequests.length > 0 && (
             <div className="px-4 py-3 border-b">
               <PendingJoinRequests teamId={team.id} initialRequests={joinRequests} />
             </div>
           )}
 
-          {/* Full roster manager */}
+          {/* 3. Roster plan — who you expect to join (unregistered) */}
+          <div className="border-b">
+            <RosterNotesSection
+              teamId={team.id}
+              initialNotes={rosterNotes}
+              leagueSlug={leagueSlug}
+            />
+          </div>
+
+          {/* 4. Active roster + pending invites */}
           <div className="px-4 py-4">
             <RosterManager
               teamId={team.id}
               leagueId={leagueId}
               leagueSlug={leagueSlug}
-              teamCode={team.team_code ?? null}
               leagueHasWaiver={leagueHasWaiver}
               positions={positions}
               initialMembers={initialMembers}
               initialInvites={initialInvites}
-            />
-          </div>
-
-          {/* Roster planning notes */}
-          <div className="px-4 pb-4">
-            <RosterNotesSection
-              teamId={team.id}
-              initialNotes={rosterNotes}
-              leagueSlug={leagueSlug}
             />
           </div>
         </div>
