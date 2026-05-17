@@ -97,10 +97,10 @@ export default async function JoinTeamPage({
     if (leagueRegistrationOpen && leagueSlug) {
       // League is open for registration: send through the full flow (payment, waiver, etc.)
       redirect(`/register/${leagueSlug}?code=${code}`)
-    } else if (leagueStatus === 'active') {
-      // League is active (mid-season addition): add the player directly,
-      // matching the behaviour of acceptTeamInvitation for non-open leagues.
-      // Draft and other non-open statuses fall through without joining.
+    } else if (leagueStatus) {
+      // active, draft, completed, archived — add directly, matching the behaviour of
+      // acceptTeamInvitation. The register page only accepts registration_open/active
+      // leagues so routing there for any other status would 404.
       await db.from('team_members' as never).upsert({
         organization_id: org.id,
         team_id: team.id,
