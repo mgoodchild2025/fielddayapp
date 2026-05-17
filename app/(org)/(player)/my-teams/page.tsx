@@ -128,7 +128,7 @@ export default async function MyTeamsPage() {
             )}
 
             {past.length > 0 && (
-              <PastGamesToggle count={past.length}>
+              <PastGamesToggle count={past.length} label="teams">
                 <div className="space-y-3">
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {past.map((m: any) => (
