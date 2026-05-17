@@ -22,6 +22,7 @@ interface Game {
   awayTeamLabel: string | null
   homeTeamName: string
   awayTeamName: string
+  poolName: string | null
   dateLabel: string
   timeLabel: string
   /** YYYY-MM-DD in org timezone — used for Print Day URL */
@@ -365,6 +366,7 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
                           {game.timeLabel}
                           {game.court ? ` · ${venueLabel(sport)} ${game.court}` : ''}
                           {game.weekNumber ? ` · Wk ${game.weekNumber}` : ''}
+                          {game.poolName ? ` · ${game.poolName}` : ''}
                         </p>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <p className={`font-semibold text-sm ${game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-400' : ''}`}>
@@ -460,6 +462,7 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
                   <th className="px-4 py-3 font-medium text-gray-500">Time</th>
                   <th className="px-4 py-3 font-medium text-gray-500">Matchup</th>
                   <th className="px-4 py-3 font-medium text-gray-500">{venueLabel(sport)}</th>
+                  <th className="px-4 py-3 font-medium text-gray-500">Pool</th>
                   <th className="px-4 py-3 font-medium text-gray-500">Score</th>
                   <th className="px-4 py-3 font-medium text-gray-500"></th>
                 </tr>
@@ -469,7 +472,7 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
                   <>
                     {/* Date group header */}
                     <tr key={`header-${dateKey}`} className="bg-gray-50 border-b border-t">
-                      <td colSpan={isAdmin ? 7 : 6} className="px-4 py-2">
+                      <td colSpan={isAdmin ? 8 : 7} className="px-4 py-2">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
                             {dateLabel}
@@ -523,6 +526,7 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
                           )}
                         </td>
                         <td className="px-4 py-3 text-gray-500">{game.court ?? '—'}</td>
+                        <td className="px-4 py-3 text-gray-500 text-xs">{game.poolName ?? '—'}</td>
                         <td className="px-4 py-3">
                           <AdminScoreEntry
                             gameId={game.id}

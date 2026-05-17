@@ -31,20 +31,28 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
   const [courts, setCourts] = useState('1')
   const [gameDuration, setGameDuration] = useState('60')
   const [maxRounds, setMaxRounds] = useState('')
+  const [courtNamesRaw, setCourtNamesRaw] = useState('')
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setResult(null)
     startTransition(async () => {
+      const parsedCourts = parseInt(courts) || 1
+      const courtNames = courtNamesRaw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, parsedCourts)
       const res = await generatePoolSchedule({
         poolId: pool.id,
         leagueId,
         startDate,
         gameTime,
         daysBetweenRounds: parseInt(daysBetween),
-        courts: parseInt(courts),
+        courts: parsedCourts,
         gameDurationMinutes: parseInt(gameDuration),
         maxRounds: maxRounds ? parseInt(maxRounds) : undefined,
+        courtNames: courtNames.length > 0 ? courtNames : undefined,
       })
       setResult(res)
       if (!res.error) setOpen(false)
@@ -118,6 +126,17 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
               <input
                 type="number" min={10} max={240} step={5} value={gameDuration}
                 onChange={(e) => setGameDuration(e.target.value)}
+                className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-gray-500 mb-0.5">
+                Court Names <span className="text-gray-400 font-normal">(optional — comma-separated, e.g. "Court A, Court B")</span>
+              </label>
+              <input
+                type="text" value={courtNamesRaw}
+                placeholder={`Court 1, Court 2${parseInt(courts) > 2 ? ', …' : ''}`}
+                onChange={(e) => setCourtNamesRaw(e.target.value)}
                 className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
               />
             </div>

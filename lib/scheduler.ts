@@ -73,6 +73,8 @@ export interface ScheduleOptions {
   gameDurationMinutes?: number
   /** IANA timezone used to interpret startDate + gameTime correctly */
   timezone?: string
+  /** Explicit court names; falls back to "Court 1", "Court 2", … when omitted */
+  courtNames?: string[]
   /**
    * When true, team IDs beginning with "slot_" are treated as positional
    * placeholders — homeTeamId/awayTeamId are set to null and labels are
@@ -162,6 +164,9 @@ export function assignDates(fixtures: Fixture[], opts: ScheduleOptions): Schedul
     byRound.get(f.round)!.push(f)
   }
 
+  const courtName = (i: number) =>
+    opts.courtNames?.[i] ?? (courts > 1 ? `Court ${i + 1}` : null)
+
   if (opts.daysBetweenRounds === 0) {
     // Same-day mode: all rounds on the start date, each slot advances by gameDuration.
     // Courts caps how many games are scheduled per round — extras are skipped.
@@ -171,8 +176,7 @@ export function assignDates(fixtures: Fixture[], opts: ScheduleOptions): Schedul
       const toPlay = roundFixtures.slice(0, courts)
       const scheduledAt = new Date(baseMs + offsetMs).toISOString()
       toPlay.forEach((f, courtIdx) => {
-        const court = courts > 1 ? `Court ${courtIdx + 1}` : null
-        pushGame(f, scheduledAt, court)
+        pushGame(f, scheduledAt, courtName(courtIdx))
       })
       offsetMs += gameDurationMs
     }
@@ -183,8 +187,7 @@ export function assignDates(fixtures: Fixture[], opts: ScheduleOptions): Schedul
       const dateStr = offsetDate((round - 1) * opts.daysBetweenRounds)
       const scheduledAt = parseLocalToUtc(dateStr, opts.gameTime, tz)
       roundFixtures.slice(0, courts).forEach((f, i) => {
-        const court = courts > 1 ? `Court ${i + 1}` : null
-        pushGame(f, scheduledAt, court)
+        pushGame(f, scheduledAt, courtName(i))
       })
     }
   }

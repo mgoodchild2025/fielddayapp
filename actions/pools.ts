@@ -106,6 +106,7 @@ export async function generatePoolSchedule(input: {
   courts: number
   gameDurationMinutes?: number
   maxRounds?: number
+  courtNames?: string[]
 }) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -143,6 +144,7 @@ export async function generatePoolSchedule(input: {
     courts: input.courts,
     gameDurationMinutes: input.gameDurationMinutes,
     timezone,
+    courtNames: input.courtNames,
   })
 
   const games = scheduled.map((g) => ({

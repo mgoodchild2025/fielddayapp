@@ -38,6 +38,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
         home_team_label, away_team_label,
         home_team:teams!games_home_team_id_fkey(name),
         away_team:teams!games_away_team_id_fkey(name),
+        pool:pools!games_pool_id_fkey(name),
         game_results(home_score, away_score, status, sets)
       `)
       .eq('league_id', id)
@@ -69,6 +70,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
   const mappedGames = (games ?? []).map((game: any) => {
     const home = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team
     const away = Array.isArray(game.away_team) ? game.away_team[0] : game.away_team
+    const pool = Array.isArray(game.pool) ? game.pool[0] : game.pool
     const result = Array.isArray(game.game_results) ? game.game_results[0] : game.game_results
     const { date: dateLabel, time: timeLabel } = formatGameTime(game.scheduled_at, timezone)
 
@@ -83,6 +85,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
       awayTeamLabel: game.away_team_label ?? null,
       homeTeamName: home?.name ?? game.home_team_label ?? 'TBD',
       awayTeamName: away?.name ?? game.away_team_label ?? 'TBD',
+      poolName: pool?.name ?? null,
       dateLabel,
       timeLabel,
       // YYYY-MM-DD in org timezone — used for "Print Day" URL param
