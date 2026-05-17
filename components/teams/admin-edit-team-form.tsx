@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { updateTeam, uploadTeamLogo } from '@/actions/teams'
 
 interface Props {
@@ -20,6 +21,7 @@ const PRESET_COLORS = [
 ]
 
 export function AdminEditTeamForm({ team, leagueId }: Props) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(team.name)
   const [color, setColor] = useState(team.color ?? '#3b82f6')
@@ -72,6 +74,7 @@ export function AdminEditTeamForm({ team, leagueId }: Props) {
       if (result.error) { setError(result.error); return }
       setLogoFile(null)
       setOpen(false)
+      router.refresh()
     })
   }
 
