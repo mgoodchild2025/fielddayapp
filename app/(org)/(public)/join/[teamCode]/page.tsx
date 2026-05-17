@@ -94,13 +94,12 @@ export default async function JoinTeamPage({
   // This handles the post-email-confirmation case where Supabase redirects back
   // here with a simple /join/XXXXXX next param (no nested query params to mangle).
   if (user && !alreadyMember && !isFull) {
-    if (leagueRegistrationOpen && leagueSlug) {
-      // League is open for registration: send through the full flow (payment, waiver, etc.)
+    if (leagueSlug && (leagueRegistrationOpen || leagueStatus === 'active')) {
+      // registration_open or active: send through the full flow (payment, waiver, etc.)
+      // The register page accepts both of these statuses.
       redirect(`/register/${leagueSlug}?code=${code}`)
     } else if (leagueStatus) {
-      // active, draft, completed, archived — add directly, matching the behaviour of
-      // acceptTeamInvitation. The register page only accepts registration_open/active
-      // leagues so routing there for any other status would 404.
+      // draft, completed, archived — add directly; the register page would 404 for these.
       await db.from('team_members' as never).upsert({
         organization_id: org.id,
         team_id: team.id,
@@ -170,7 +169,7 @@ export default async function JoinTeamPage({
               </p>
             ) : user ? (
               <Link
-                href={leagueSlug ? `/register/${leagueSlug}?code=${code}` : `/teams/${team.id}`}
+                href={(leagueRegistrationOpen || leagueStatus === 'active') && leagueSlug ? `/register/${leagueSlug}?code=${code}` : `/teams/${team.id}`}
                 className="block w-full py-3 rounded-lg font-bold text-white text-sm text-center transition-opacity hover:opacity-90"
                 style={{ backgroundColor: 'var(--brand-primary)' }}
               >
