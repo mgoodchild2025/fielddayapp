@@ -94,12 +94,28 @@ export default async function JoinTeamPage({
   // This handles the post-email-confirmation case where Supabase redirects back
   // here with a simple /join/XXXXXX next param (no nested query params to mangle).
   if (user && !alreadyMember && !isFull) {
-    if (leagueSlug && (leagueRegistrationOpen || leagueStatus === 'active')) {
-      // registration_open or active: send through the full flow (payment, waiver, etc.)
-      // The register page accepts both of these statuses.
+    if (leagueRegistrationOpen && leagueSlug) {
+      // registration_open: send through the full flow — register page handles team assignment.
+      redirect(`/register/${leagueSlug}?code=${code}`)
+    } else if (leagueStatus === 'active' && leagueSlug) {
+      // active: the register page gates entry on existing team membership, so add to the
+      // team first, then redirect so they complete the waiver/payment flow.
+      await db.from('team_members' as never).upsert({
+        organization_id: org.id,
+        team_id: team.id,
+        user_id: user.id,
+        role: 'player',
+        status: 'active',
+      } as never, { onConflict: 'team_id,user_id' } as never)
+      await db.from('org_members').upsert({
+        organization_id: org.id,
+        user_id: user.id,
+        role: 'player',
+        status: 'active',
+      }, { onConflict: 'organization_id,user_id', ignoreDuplicates: true })
       redirect(`/register/${leagueSlug}?code=${code}`)
     } else if (leagueStatus) {
-      // draft, completed, archived — add directly; the register page would 404 for these.
+      // draft, completed, archived — add directly; no registration flow applies.
       await db.from('team_members' as never).upsert({
         organization_id: org.id,
         team_id: team.id,
