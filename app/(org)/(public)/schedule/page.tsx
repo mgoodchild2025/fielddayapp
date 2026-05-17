@@ -56,19 +56,36 @@ export default async function SchedulePage() {
   })
 
   // Pickup sessions the player registered for (past 60 days + future)
+  // Two paths: explicit session_registrations rows, and registrations.session_id (drop-in events)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: mySessionRegs } = await (db as any)
-    .from('session_registrations')
-    .select(`
-      id, session_id, status,
-      session:event_sessions!session_registrations_session_id_fkey(
-        id, scheduled_at, duration_minutes, location_override,
-        league:leagues!event_sessions_league_id_fkey(id, name, slug)
-      )
-    `)
-    .eq('organization_id', org.id)
-    .eq('user_id', user.id)
-    .eq('status', 'registered')
+  const [{ data: mySessionRegs }, { data: myRegWithSession }] = await Promise.all([
+    (db as any)
+      .from('session_registrations')
+      .select(`
+        id, session_id, status,
+        session:event_sessions!session_registrations_session_id_fkey(
+          id, scheduled_at, duration_minutes, location_override,
+          league:leagues!event_sessions_league_id_fkey(id, name, slug)
+        )
+      `)
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
+      .eq('status', 'registered'),
+    // Sessions linked via registrations.session_id (drop-in events registered through normal flow)
+    (db as any)
+      .from('registrations')
+      .select(`
+        id, session_id,
+        session:event_sessions!registrations_session_id_fkey(
+          id, scheduled_at, duration_minutes, location_override,
+          league:leagues!event_sessions_league_id_fkey(id, name, slug)
+        )
+      `)
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
+      .not('session_id', 'is', null)
+      .in('status', ['active', 'pending']),
+  ])
 
   // ── Derived sets ──────────────────────────────────────────────────────────
   const myTeamIds = new Set(
@@ -86,13 +103,23 @@ export default async function SchedulePage() {
     return myTeamIds.has(homeTeam?.id) || myTeamIds.has(awayTeam?.id)
   })
 
-  // All registered pickup sessions from the lookback window onward
+  // Merge sessions from both sources, deduplicate by session id, apply lookback filter
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const allSessions: any[] = (mySessionRegs ?? [])
+  const seenSessionIds = new Set<string>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allSessions: any[] = [
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((sr: any) => Array.isArray(sr.session) ? sr.session[0] : sr.session)
+    ...(mySessionRegs ?? []).map((sr: any) => Array.isArray(sr.session) ? sr.session[0] : sr.session),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .filter((s: any) => s && s.scheduled_at >= pastBound)
+    ...(myRegWithSession ?? []).map((r: any) => Array.isArray(r.session) ? r.session[0] : r.session),
+  ]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((s: any) => {
+      if (!s || s.scheduled_at < pastBound) return false
+      if (seenSessionIds.has(s.id)) return false
+      seenSessionIds.add(s.id)
+      return true
+    })
 
   // ── Merge and split upcoming vs past ──────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
