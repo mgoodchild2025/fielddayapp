@@ -69,6 +69,10 @@ export interface ScheduleOptions {
   venue?: string
   /** Number of courts/fields; games per round are spread across courts */
   courts?: number
+  /** How many time slots to schedule per day (enables intra-day stacking) */
+  gamesPerDay?: number
+  /** Minutes per game — used to offset consecutive time slots within the same day */
+  gameDurationMinutes?: number
   /**
    * When true, team IDs beginning with "slot_" are treated as positional
    * placeholders — homeTeamId/awayTeamId are set to null and labels are
@@ -123,37 +127,62 @@ export function assignDates(fixtures: Fixture[], opts: ScheduleOptions): Schedul
   const courts = Math.max(1, opts.courts ?? 1)
   const start = new Date(opts.startDate)
   const [hh, mm] = opts.gameTime.split(':').map(Number)
+  const isSlot = opts.slotMode
+  const slotLabel = (id: string) => `Team ${id.replace('slot_', '')}`
 
-  // Group by round
+  function pushGame(f: Fixture, scheduledAt: string, court: string | null) {
+    const rawHome = f.homeTeamId ?? ''
+    const rawAway = f.awayTeamId ?? ''
+    const homeIsSlot = isSlot && rawHome.startsWith('slot_')
+    const awayIsSlot = isSlot && rawAway.startsWith('slot_')
+    games.push({
+      homeTeamId: homeIsSlot ? null : (rawHome || null),
+      awayTeamId: awayIsSlot ? null : (rawAway || null),
+      homeTeamLabel: homeIsSlot ? slotLabel(rawHome) : null,
+      awayTeamLabel: awayIsSlot ? slotLabel(rawAway) : null,
+      scheduledAt,
+      weekNumber: f.round,
+      court,
+    })
+  }
+
+  // Slot-based mode: pack `courts` games per time slot, `gamesPerDay` slots per day.
+  if (opts.gamesPerDay && opts.gamesPerDay > 0) {
+    const gameDurationMs = Math.max(1, opts.gameDurationMinutes ?? 60) * 60_000
+    const sorted = [...fixtures].sort((a, b) => a.round - b.round || 0)
+    // Split into batches of `courts` (each batch = one time slot)
+    const batches: Fixture[][] = []
+    for (let i = 0; i < sorted.length; i += courts) {
+      batches.push(sorted.slice(i, i + courts))
+    }
+    batches.forEach((batch, slotIndex) => {
+      const dayIndex = Math.floor(slotIndex / opts.gamesPerDay!)
+      const slotWithinDay = slotIndex % opts.gamesPerDay!
+      const date = new Date(start)
+      date.setDate(date.getDate() + dayIndex * opts.daysBetweenRounds)
+      date.setHours(hh, mm, 0, 0)
+      const slotTime = new Date(date.getTime() + slotWithinDay * gameDurationMs)
+      batch.forEach((f, courtIdx) => {
+        const court = courts > 1 ? `Court ${courtIdx + 1}` : null
+        pushGame(f, slotTime.toISOString(), court)
+      })
+    })
+    return games
+  }
+
+  // Default: one round per day interval, all games in a round at the same time.
   const byRound = new Map<number, Fixture[]>()
   for (const f of fixtures) {
     if (!byRound.has(f.round)) byRound.set(f.round, [])
     byRound.get(f.round)!.push(f)
   }
-
   for (const [round, roundFixtures] of byRound) {
     const roundDate = new Date(start)
     roundDate.setDate(roundDate.getDate() + (round - 1) * opts.daysBetweenRounds)
     roundDate.setHours(hh, mm, 0, 0)
-
     roundFixtures.forEach((f, i) => {
       const court = courts > 1 ? `Court ${(i % courts) + 1}` : null
-      const isSlot = opts.slotMode
-      const rawHome = f.homeTeamId ?? ''
-      const rawAway = f.awayTeamId ?? ''
-      const homeIsSlot = isSlot && rawHome.startsWith('slot_')
-      const awayIsSlot = isSlot && rawAway.startsWith('slot_')
-      // Derive label from slot id: "slot_3" → "Team 3"
-      const slotLabel = (id: string) => `Team ${id.replace('slot_', '')}`
-      games.push({
-        homeTeamId: homeIsSlot ? null : (rawHome || null),
-        awayTeamId: awayIsSlot ? null : (rawAway || null),
-        homeTeamLabel: homeIsSlot ? slotLabel(rawHome) : null,
-        awayTeamLabel: awayIsSlot ? slotLabel(rawAway) : null,
-        scheduledAt: roundDate.toISOString(),
-        weekNumber: round,
-        court,
-      })
+      pushGame(f, roundDate.toISOString(), court)
     })
   }
 

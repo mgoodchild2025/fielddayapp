@@ -29,6 +29,8 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
   const [gameTime, setGameTime] = useState('10:00')
   const [daysBetween, setDaysBetween] = useState('1')
   const [courts, setCourts] = useState('1')
+  const [gamesPerDay, setGamesPerDay] = useState('1')
+  const [gameDuration, setGameDuration] = useState('60')
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -41,6 +43,8 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
         gameTime,
         daysBetweenRounds: parseInt(daysBetween),
         courts: parseInt(courts),
+        gamesPerDay: parseInt(gamesPerDay),
+        gameDurationMinutes: parseInt(gameDuration),
       })
       setResult(res)
       if (!res.error) setOpen(false)
@@ -102,6 +106,22 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
               <input
                 type="number" min={1} max={20} value={courts}
                 onChange={(e) => setCourts(e.target.value)}
+                className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-0.5">Games Per Day</label>
+              <input
+                type="number" min={1} max={20} value={gamesPerDay}
+                onChange={(e) => setGamesPerDay(e.target.value)}
+                className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-0.5">Game Duration (min)</label>
+              <input
+                type="number" min={10} max={240} step={5} value={gameDuration}
+                onChange={(e) => setGameDuration(e.target.value)}
                 className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
               />
             </div>
