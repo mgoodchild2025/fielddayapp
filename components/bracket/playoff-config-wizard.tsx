@@ -4,7 +4,7 @@ import { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Printer, Trash2 } from 'lucide-react'
 import { savePlayoffConfig, generateAllTierBrackets, deletePlayoffConfig } from '@/actions/playoff-config'
-import { publishBracket, deleteBracket } from '@/actions/brackets'
+import { publishBracket, deleteBracket, seedBracket } from '@/actions/brackets'
 import { BracketView, type BracketData, type TeamRef } from './bracket-view'
 import type { TeamStanding, BracketRecommendation } from '@/lib/bracket'
 import type { TierInput } from '@/actions/playoff-config'
@@ -57,6 +57,8 @@ interface Props {
   allTeams: TeamRef[]
   recommendation: BracketRecommendation
   existingConfig: ExistingConfig | null
+  /** Count of regular season games still missing confirmed scores */
+  unsettledCount?: number
 }
 
 // ── Tier seed split helper ────────────────────────────────────────────────────
@@ -191,6 +193,7 @@ function TierBracketCard({
   allTeams,
   isOrgAdmin,
   onDeleted,
+  unsettledCount,
 }: {
   tier: ExistingTier
   leagueId: string
@@ -198,6 +201,7 @@ function TierBracketCard({
   allTeams: TeamRef[]
   isOrgAdmin: boolean
   onDeleted: () => void
+  unsettledCount?: number
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -212,6 +216,18 @@ function TierBracketCard({
     'Championship': 'text-blue-600 bg-blue-50 border-blue-200',
   }
   const colorClass = tierColors[tier.name] ?? 'text-purple-600 bg-purple-50 border-purple-200'
+
+  const isScaffold = tier.bracket?.status === 'scaffold'
+
+  function handleSeed() {
+    if (!tier.bracketId) return
+    setErr(null)
+    startTransition(async () => {
+      const r = await seedBracket(tier.bracketId!, leagueId)
+      if (r?.error) { setErr(r.error); return }
+      router.refresh()
+    })
+  }
 
   function handlePublish() {
     if (!tier.bracketId) return
@@ -251,7 +267,7 @@ function TierBracketCard({
           <div className="flex-1" />
           {isOrgAdmin && tier.bracket && (
             <div className="flex items-center gap-1.5 shrink-0">
-              {tier.bracketId && (
+              {tier.bracketId && !isScaffold && (
                 <a
                   href={`/admin/events/${leagueId}/bracket/print?bracketId=${tier.bracketId}`}
                   target="_blank"
@@ -263,7 +279,17 @@ function TierBracketCard({
                   <Printer className="w-3.5 h-3.5" />
                 </a>
               )}
-              {tier.bracket.status !== 'active' ? (
+              {isScaffold ? (
+                <button
+                  onClick={handleSeed}
+                  disabled={isPending}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60"
+                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                  title="Assign real teams based on current standings"
+                >
+                  {isPending ? 'Seeding…' : 'Seed Bracket →'}
+                </button>
+              ) : tier.bracket.status !== 'active' ? (
                 <button
                   onClick={handlePublish}
                   disabled={isPending}
@@ -311,6 +337,18 @@ function TierBracketCard({
       </div>
 
       {err && <p className="px-5 pb-3 text-xs text-red-500">{err}</p>}
+
+      {/* Scaffold notice */}
+      {isScaffold && (
+        <div className="mx-5 mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+          <p className="font-semibold mb-0.5">Bracket positions are reserved — teams not yet assigned</p>
+          {unsettledCount && unsettledCount > 0 ? (
+            <p>{unsettledCount} regular season game{unsettledCount !== 1 ? 's' : ''} still need{unsettledCount === 1 ? 's' : ''} scores. Click <strong>Seed Bracket</strong> when all scores are final.</p>
+          ) : (
+            <p>All regular season scores are in. Click <strong>Seed Bracket</strong> to assign real teams.</p>
+          )}
+        </div>
+      )}
 
       {/* Bracket diagram */}
       {expanded && tier.bracket && (
@@ -442,6 +480,7 @@ export function PlayoffConfigWizard({
   allTeams,
   recommendation,
   existingConfig,
+  unsettledCount,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -601,6 +640,7 @@ export function PlayoffConfigWizard({
             allTeams={allTeams}
             isOrgAdmin={isOrgAdmin}
             onDeleted={() => setRefreshKey((k) => k + 1)}
+            unsettledCount={unsettledCount}
           />
         ))}
       </div>

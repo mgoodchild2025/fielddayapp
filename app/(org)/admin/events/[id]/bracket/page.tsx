@@ -18,7 +18,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
   const scope = await getAdminScope(org.id)
 
   // ── Load context ────────────────────────────────────────────────────────────
-  const [{ data: league }, { data: divisions }, { data: teams }, { data: results }] = await Promise.all([
+  const [{ data: league }, { data: divisions }, { data: teams }, { data: results }, { count: unsettledCount }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues').select('id, name, event_type, status, sport').eq('id', leagueId).eq('organization_id', org.id).single(),
     db.from('divisions').select('id, name').eq('league_id', leagueId).eq('organization_id', org.id),
@@ -27,6 +27,14 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
       .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status)')
       .eq('organization_id', org.id)
       .eq('status', 'confirmed'),
+    // Count regular season games that still need scores (status=scheduled = not yet completed/scored)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
+      .from('games')
+      .select('id', { count: 'exact', head: true })
+      .eq('league_id', leagueId)
+      .eq('organization_id', org.id)
+      .eq('status', 'scheduled'),
   ])
 
   // ── Build standings ─────────────────────────────────────────────────────────
@@ -209,6 +217,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
         allTeams={allTeams}
         recommendation={recommendation}
         existingConfig={existingConfig}
+        unsettledCount={unsettledCount ?? 0}
       />
     </div>
   )

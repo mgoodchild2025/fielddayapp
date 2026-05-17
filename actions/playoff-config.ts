@@ -8,8 +8,6 @@ import { requireOrgMember } from '@/lib/auth'
 import {
   generateSingleEliminationSpec,
   generateDoubleEliminationSpec,
-  seedFromStandings,
-  seedFromDivisionStandings,
   nextPowerOf2,
   type TeamStanding,
   type BracketMatchSpec,
@@ -32,7 +30,8 @@ async function computeStandings(
   orgId: string
 ): Promise<TeamStanding[]> {
   const [{ data: teams }, { data: results }] = await Promise.all([
-    db.from('teams').select('id, name, division_id').eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('teams').select('id, name, division_id, pool_id').eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
     db.from('game_results')
       .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status)')
       .eq('organization_id', orgId)
@@ -41,7 +40,8 @@ async function computeStandings(
 
   const record: Record<string, TeamStanding> = {}
   for (const t of teams ?? []) {
-    record[t.id] = { teamId: t.id, teamName: t.name, divisionId: t.division_id, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    record[t.id] = { teamId: t.id, teamName: t.name, divisionId: t.division_id, poolId: (t as any).pool_id ?? null, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 }
   }
   for (const r of results ?? []) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -61,6 +61,18 @@ async function computeStandings(
 
 // ── Bracket creation + wiring (internal — bypasses duplicate-per-league check) ─
 
+// Ordinal labels for pool-position scaffold labels
+const ORDINALS = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th']
+
+function seedLabel(seed: number, poolNames: string[]): string {
+  if (poolNames.length > 0) {
+    const poolIndex = (seed - 1) % poolNames.length
+    const rank = Math.floor((seed - 1) / poolNames.length)
+    return `${ORDINALS[rank] ?? `${rank + 1}th`} - ${poolNames[poolIndex]}`
+  }
+  return `Seed ${seed}`
+}
+
 async function insertBracketWithMatches(
   db: ReturnType<typeof createServiceRoleClient>,
   orgId: string,
@@ -70,25 +82,26 @@ async function insertBracketWithMatches(
     bracketType: 'single_elimination' | 'double_elimination'
     teamsAdvancing: number
     thirdPlaceGame: boolean
-    seededTeams: TeamStanding[]  // pre-sliced + ordered for this tier
+    poolNames: string[]  // empty = standings-based labels ("Seed N"); non-empty = pool-position labels ("1st - Pool A")
   }
 ): Promise<{ bracketId: string | null; error: string | null }> {
-  const { name, bracketType, teamsAdvancing, thirdPlaceGame, seededTeams } = opts
+  const { name, bracketType, teamsAdvancing, thirdPlaceGame, poolNames } = opts
   const bracketSize = nextPowerOf2(teamsAdvancing)
   const actualThirdPlace = bracketType === 'double_elimination' ? false : thirdPlaceGame
+  const seedingMethod = poolNames.length > 0 ? 'pool_results' : 'standings'
 
-  // Insert bracket row
+  // Insert bracket row in scaffold state — teams are assigned later via "Seed Bracket"
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: bracket, error: bracketError } = await (db as any).from('brackets').insert({
     organization_id: orgId,
     league_id: leagueId,
     name,
     bracket_type: bracketType,
-    seeding_method: 'standings',
+    seeding_method: seedingMethod,
     bracket_size: bracketSize,
     teams_advancing: teamsAdvancing,
     third_place_game: actualThirdPlace,
-    status: 'seeding',
+    status: 'scaffold',
   }).select('id').single()
 
   if (bracketError || !bracket) return { bracketId: null, error: bracketError?.message ?? 'Failed to create bracket' }
@@ -105,30 +118,23 @@ async function insertBracketWithMatches(
     ...(spec.thirdPlaceMatch ? [spec.thirdPlaceMatch] : []),
   ]
 
-  const seedMap = new Map(seededTeams.map((t, i) => [i + 1, t.teamId]))
-
-  // Insert matches
+  // Insert scaffold matches with null team IDs and pool/seed position labels
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: insertedMatches, error: matchError } = await (db as any).from('bracket_matches').insert(
-    allMatchSpecs.map((m: BracketMatchSpec) => {
-      const isWbFirstRound = m.team1Seed !== null || m.team2Seed !== null
-      const team1Id = m.team1Seed ? (seedMap.get(m.team1Seed) ?? null) : null
-      const team2Id = m.isBye ? null : (m.team2Seed ? (seedMap.get(m.team2Seed) ?? null) : null)
-      return {
-        organization_id: orgId,
-        bracket_id: bracketId,
-        round_number: m.roundNumber,
-        match_number: m.matchNumber,
-        team1_id: team1Id,
-        team2_id: team2Id,
-        team1_label: null,
-        team2_label: null,
-        team1_seed: m.team1Seed,
-        team2_seed: m.isBye ? null : m.team2Seed,
-        is_bye: m.isBye,
-        status: m.isBye ? 'bye' : (isWbFirstRound && m.team1Seed && (m.team2Seed || m.isBye) ? 'ready' : 'pending'),
-      }
-    })
+    allMatchSpecs.map((m: BracketMatchSpec) => ({
+      organization_id: orgId,
+      bracket_id: bracketId,
+      round_number: m.roundNumber,
+      match_number: m.matchNumber,
+      team1_id: null,
+      team2_id: null,
+      team1_label: m.team1Seed ? seedLabel(m.team1Seed, poolNames) : null,
+      team2_label: m.isBye ? 'Bye' : (m.team2Seed ? seedLabel(m.team2Seed, poolNames) : null),
+      team1_seed: m.team1Seed,
+      team2_seed: m.isBye ? null : m.team2Seed,
+      is_bye: m.isBye,
+      status: 'pending',
+    }))
   ).select('id, round_number, match_number')
 
   if (matchError) return { bracketId: null, error: matchError.message }
@@ -161,30 +167,6 @@ async function insertBracketWithMatches(
     await (db as any).from('bracket_matches')
       .update({ loser_to_match_id: toId, loser_to_slot: m.loserToSlot })
       .eq('id', thisId)
-  }
-
-  // Auto-advance byes
-  for (const m of allMatchSpecs.filter((m) => m.isBye)) {
-    const matchId = matchIdLookup.get(`${m.roundNumber}:${m.matchNumber}`)
-    if (!matchId || !m.team1Seed) continue
-    const winnerId = seedMap.get(m.team1Seed)
-    if (!winnerId) continue
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: match } = await (db as any).from('bracket_matches').select('winner_to_match_id, winner_to_slot').eq('id', matchId).single()
-    if (!match?.winner_to_match_id) continue
-    const updateField = match.winner_to_slot === 1 ? 'team1_id' : 'team2_id'
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: nextMatch } = await (db as any).from('bracket_matches').select('id, team1_id, team2_id').eq('id', match.winner_to_match_id).single()
-    if (!nextMatch) continue
-    const otherField = match.winner_to_slot === 1 ? 'team2_id' : 'team1_id'
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('bracket_matches')
-      .update({ [updateField]: winnerId, winner_team_id: winnerId, status: nextMatch[otherField] ? 'ready' : 'pending' })
-      .eq('id', match.winner_to_match_id)
-    // Mark bye match completed
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('bracket_matches').update({ winner_team_id: winnerId, status: 'bye' }).eq('id', matchId)
   }
 
   return { bracketId, error: null }
@@ -328,41 +310,15 @@ export async function generateAllTierBrackets(
 
   if (tiers.length === 0) return { error: 'No tiers defined.', generated: 0, skipped: 0 }
 
-  // Compute overall seeded standings
-  const rawStandings = await computeStandings(db, leagueId, org.id)
+  // Fetch pools — used for scaffold label generation ("1st - Pool A" vs generic "Seed 1")
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: divisions } = await (db as any).from('divisions').select('id, name').eq('league_id', leagueId).eq('organization_id', org.id)
-
-  let seededTeams: TeamStanding[]
-  if (divisions && divisions.length >= 2) {
-    seededTeams = seedFromDivisionStandings(
-      divisions.map((div: { id: string; name: string }) => ({
-        divisionId: div.id,
-        divisionName: div.name,
-        teams: rawStandings.filter((t) => t.divisionId === div.id),
-      })),
-      rawStandings.length
-    )
-  } else {
-    seededTeams = seedFromStandings(rawStandings, rawStandings.length)
-  }
-
-  // Apply manual seed overrides
-  if (seedOverrides && Object.keys(seedOverrides).length > 0) {
-    const overrideMap = new Map(Object.entries(seedOverrides).map(([s, id]) => [Number(s), id]))
-    const result: TeamStanding[] = []
-    const used = new Set<string>()
-    for (let i = 1; i <= seededTeams.length; i++) {
-      const override = overrideMap.get(i)
-      if (override) {
-        const team = seededTeams.find((t) => t.teamId === override)
-        if (team) { result.push({ ...team, seed: i }); used.add(override); continue }
-      }
-      const next = seededTeams.find((t) => !used.has(t.teamId))
-      if (next) { result.push({ ...next, seed: i }); used.add(next.teamId) }
-    }
-    seededTeams = result
-  }
+  const { data: poolsData } = await (db as any)
+    .from('pools')
+    .select('id, name, sort_order')
+    .eq('league_id', leagueId)
+    .eq('organization_id', org.id)
+    .order('sort_order', { ascending: true })
+  const poolNames: string[] = (poolsData ?? []).map((p: { name: string }) => p.name)
 
   let generated = 0
   let skipped = 0
@@ -391,23 +347,20 @@ export async function generateAllTierBrackets(
       await (db as any).from('playoff_tiers').update({ bracket_id: null }).eq('id', tier.id)
     }
 
-    // Use the tier's configured seed range as the bracket size.
-    // seededTeams may be empty or partial when no teams have registered yet —
-    // insertBracketWithMatches handles this by creating TBD-slotted matches that
-    // get populated when teams are assigned later via the seeding step.
     const teamsAdvancing = tier.seed_to - tier.seed_from + 1
     if (teamsAdvancing < 2) {
       skipped++
       continue
     }
-    const tierTeams = seededTeams.slice(tier.seed_from - 1, tier.seed_to)
 
+    // Brackets are scaffolded with position labels (e.g. "1st - Pool A").
+    // Admins seed with real teams via "Seed Bracket" once all regular season scores are final.
     const { bracketId, error } = await insertBracketWithMatches(db, org.id, leagueId, {
       name: tier.name,
       bracketType: tier.bracket_type as 'single_elimination' | 'double_elimination',
       teamsAdvancing,
       thirdPlaceGame: tier.third_place_game,
-      seededTeams: tierTeams,  // may be empty/partial — slots left TBD
+      poolNames,
     })
 
     if (error || !bracketId) { skipped++; continue }

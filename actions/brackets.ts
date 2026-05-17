@@ -33,7 +33,8 @@ async function computeStandings(
   orgId: string
 ): Promise<TeamStanding[]> {
   const [{ data: teams }, { data: results }] = await Promise.all([
-    db.from('teams').select('id, name, division_id').eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('teams').select('id, name, division_id, pool_id').eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
     db.from('game_results')
       .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
       .eq('organization_id', orgId)
@@ -46,6 +47,8 @@ async function computeStandings(
       teamId: t.id,
       teamName: t.name,
       divisionId: t.division_id,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      poolId: (t as any).pool_id ?? null,
       wins: 0, losses: 0, ties: 0,
       pointsFor: 0, pointsAgainst: 0,
     }
