@@ -29,7 +29,6 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
   const [gameTime, setGameTime] = useState('10:00')
   const [daysBetween, setDaysBetween] = useState('0')
   const [courts, setCourts] = useState('1')
-  const [gamesPerDay, setGamesPerDay] = useState('1')
   const [gameDuration, setGameDuration] = useState('60')
   const [maxRounds, setMaxRounds] = useState('')
 
@@ -44,7 +43,6 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
         gameTime,
         daysBetweenRounds: parseInt(daysBetween),
         courts: parseInt(courts),
-        gamesPerDay: parseInt(gamesPerDay),
         gameDurationMinutes: parseInt(gameDuration),
         maxRounds: maxRounds ? parseInt(maxRounds) : undefined,
       })
@@ -107,21 +105,13 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
               <p className="text-[10px] text-gray-400 mt-0.5">0 = same day</p>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-0.5">Games per Round</label>
+              <label className="block text-xs text-gray-500 mb-0.5">Courts</label>
               <input
                 type="number" min={1} max={20} value={courts}
                 onChange={(e) => setCourts(e.target.value)}
                 className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
               />
-              <p className="text-[10px] text-gray-400 mt-0.5">concurrent games per slot</p>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-0.5">Games Per Day</label>
-              <input
-                type="number" min={1} max={20} value={gamesPerDay}
-                onChange={(e) => setGamesPerDay(e.target.value)}
-                className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
-              />
+              <p className="text-[10px] text-gray-400 mt-0.5">games running simultaneously</p>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-0.5">Game Duration (min)</label>

@@ -104,7 +104,6 @@ export async function generatePoolSchedule(input: {
   gameTime: string
   daysBetweenRounds: number
   courts: number
-  gamesPerDay?: number
   gameDurationMinutes?: number
   maxRounds?: number
 }) {
@@ -142,7 +141,6 @@ export async function generatePoolSchedule(input: {
     gameTime: input.gameTime,
     daysBetweenRounds: input.daysBetweenRounds,
     courts: input.courts,
-    gamesPerDay: input.gamesPerDay,
     gameDurationMinutes: input.gameDurationMinutes,
     timezone,
   })

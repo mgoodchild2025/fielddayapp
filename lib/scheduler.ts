@@ -69,9 +69,7 @@ export interface ScheduleOptions {
   venue?: string
   /** Number of courts/fields; games per round are spread across courts */
   courts?: number
-  /** How many time slots to schedule per day (enables intra-day stacking) */
-  gamesPerDay?: number
-  /** Minutes per game — used to offset consecutive time slots within the same day */
+  /** Minutes per game — used to offset consecutive time slots within the same day when daysBetweenRounds = 0 */
   gameDurationMinutes?: number
   /** IANA timezone used to interpret startDate + gameTime correctly */
   timezone?: string
@@ -151,52 +149,44 @@ export function assignDates(fixtures: Fixture[], opts: ScheduleOptions): Schedul
   const tz = opts.timezone ?? 'UTC'
   const gameDurationMs = Math.max(1, opts.gameDurationMinutes ?? 60) * 60_000
 
-  /** Return a YYYY-MM-DD string for startDate offset by `days` days. */
   function offsetDate(days: number): string {
     const d = new Date(opts.startDate)
     d.setUTCDate(d.getUTCDate() + days)
     return d.toISOString().slice(0, 10)
   }
 
-  /** UTC ISO string for a given date + time-slot offset within the day. */
-  function slotUtc(dateStr: string, slotWithinDay: number): string {
-    const base = parseLocalToUtc(dateStr, opts.gameTime, tz)
-    return new Date(new Date(base).getTime() + slotWithinDay * gameDurationMs).toISOString()
-  }
-
-  // Slot-based mode: pack `courts` games per time slot, `gamesPerDay` slots per day.
-  if (opts.gamesPerDay && opts.gamesPerDay > 0) {
-    const sorted = [...fixtures].sort((a, b) => a.round - b.round || 0)
-    const batches: Fixture[][] = []
-    for (let i = 0; i < sorted.length; i += courts) {
-      batches.push(sorted.slice(i, i + courts))
-    }
-    batches.forEach((batch, slotIndex) => {
-      const dayIndex = Math.floor(slotIndex / opts.gamesPerDay!)
-      const slotWithinDay = slotIndex % opts.gamesPerDay!
-      const dateStr = offsetDate(dayIndex * opts.daysBetweenRounds)
-      const scheduledAt = slotUtc(dateStr, slotWithinDay)
-      batch.forEach((f, courtIdx) => {
-        const court = courts > 1 ? `Court ${courtIdx + 1}` : null
-        pushGame(f, scheduledAt, court)
-      })
-    })
-    return games
-  }
-
-  // Default: one round per day interval, all games in a round at the same time.
+  // Group by round, preserving round structure.
   const byRound = new Map<number, Fixture[]>()
   for (const f of fixtures) {
     if (!byRound.has(f.round)) byRound.set(f.round, [])
     byRound.get(f.round)!.push(f)
   }
-  for (const [round, roundFixtures] of byRound) {
-    const dateStr = offsetDate((round - 1) * opts.daysBetweenRounds)
-    const scheduledAt = slotUtc(dateStr, 0)
-    roundFixtures.forEach((f, i) => {
-      const court = courts > 1 ? `Court ${(i % courts) + 1}` : null
-      pushGame(f, scheduledAt, court)
-    })
+
+  if (opts.daysBetweenRounds === 0) {
+    // Same-day mode: all rounds on the start date, each slot advances by gameDuration.
+    const baseMs = new Date(parseLocalToUtc(opts.startDate, opts.gameTime, tz)).getTime()
+    let offsetMs = 0
+    for (const [, roundFixtures] of byRound) {
+      for (let i = 0; i < roundFixtures.length; i += courts) {
+        const batch = roundFixtures.slice(i, i + courts)
+        const scheduledAt = new Date(baseMs + offsetMs).toISOString()
+        batch.forEach((f, courtIdx) => {
+          const court = courts > 1 ? `Court ${courtIdx + 1}` : null
+          pushGame(f, scheduledAt, court)
+        })
+        offsetMs += gameDurationMs
+      }
+    }
+  } else {
+    // Multi-day mode: round r starts on day (r-1) * daysBetweenRounds.
+    for (const [round, roundFixtures] of byRound) {
+      const dateStr = offsetDate((round - 1) * opts.daysBetweenRounds)
+      const scheduledAt = parseLocalToUtc(dateStr, opts.gameTime, tz)
+      roundFixtures.forEach((f, i) => {
+        const court = courts > 1 ? `Court ${(i % courts) + 1}` : null
+        pushGame(f, scheduledAt, court)
+      })
+    }
   }
 
   return games
