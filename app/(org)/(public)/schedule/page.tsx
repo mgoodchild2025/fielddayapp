@@ -55,10 +55,12 @@ export default async function SchedulePage() {
     return league?.schedule_published !== false
   })
 
-  // Pickup sessions the player registered for (past 60 days + future)
-  // Two paths: explicit session_registrations rows, and registrations.session_id (drop-in events)
+  // Sessions the player should see — three paths:
+  // 1. session_registrations rows (explicit per-session pickup signup)
+  // 2. registrations.session_id (drop-in registered through normal event flow)
+  // 3. All sessions for leagues where they hold a season-pass registration
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [{ data: mySessionRegs }, { data: myRegWithSession }] = await Promise.all([
+  const [{ data: mySessionRegs }, { data: myRegWithSession }, { data: mySeasonRegs }] = await Promise.all([
     (db as any)
       .from('session_registrations')
       .select(`
@@ -71,7 +73,7 @@ export default async function SchedulePage() {
       .eq('organization_id', org.id)
       .eq('user_id', user.id)
       .eq('status', 'registered'),
-    // Sessions linked via registrations.session_id (drop-in events registered through normal flow)
+    // Drop-in registrations with a specific session_id
     (db as any)
       .from('registrations')
       .select(`
@@ -85,6 +87,15 @@ export default async function SchedulePage() {
       .eq('user_id', user.id)
       .not('session_id', 'is', null)
       .in('status', ['active', 'pending']),
+    // Season-pass registrations — player attends all sessions for the league
+    (db as any)
+      .from('registrations')
+      .select('league_id')
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
+      .is('session_id', null)
+      .in('status', ['active', 'pending'])
+      .or('registration_type.eq.season,registration_type.is.null'),
   ])
 
   // ── Derived sets ──────────────────────────────────────────────────────────
@@ -103,7 +114,28 @@ export default async function SchedulePage() {
     return myTeamIds.has(homeTeam?.id) || myTeamIds.has(awayTeam?.id)
   })
 
-  // Merge sessions from both sources, deduplicate by session id, apply lookback filter
+  // Fetch all sessions for season-pass leagues (player attends every session)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const seasonLeagueIds = (mySeasonRegs ?? []).map((r: any) => r.league_id).filter(Boolean) as string[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let seasonSessions: any[] = []
+  if (seasonLeagueIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rows } = await (db as any)
+      .from('event_sessions')
+      .select(`
+        id, scheduled_at, duration_minutes, location_override,
+        league:leagues!event_sessions_league_id_fkey(id, name, slug)
+      `)
+      .in('league_id', seasonLeagueIds)
+      .eq('organization_id', org.id)
+      .eq('status', 'open')
+      .gte('scheduled_at', pastBound)
+      .order('scheduled_at', { ascending: true })
+    seasonSessions = rows ?? []
+  }
+
+  // Merge sessions from all three sources, deduplicate by session id
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const seenSessionIds = new Set<string>()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -112,6 +144,7 @@ export default async function SchedulePage() {
     ...(mySessionRegs ?? []).map((sr: any) => Array.isArray(sr.session) ? sr.session[0] : sr.session),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...(myRegWithSession ?? []).map((r: any) => Array.isArray(r.session) ? r.session[0] : r.session),
+    ...seasonSessions,
   ]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((s: any) => {
