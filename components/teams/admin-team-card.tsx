@@ -67,30 +67,44 @@ export function AdminTeamCard({
     <div className="bg-white rounded-lg border overflow-hidden">
       {/* ── Collapsed header — always visible ── */}
       <div
-        className="px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-gray-50 transition-colors select-none"
+        className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none"
         onClick={() => setExpanded((v) => !v)}
         role="button"
         aria-expanded={expanded}
       >
-        {/* Chevron */}
-        <svg
-          className={`w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-        </svg>
+        {/* Row 1: Chevron + Avatar + Name + Edit/Delete */}
+        <div className="flex items-center gap-3">
+          {/* Chevron */}
+          <svg
+            className={`w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
 
-        <TeamAvatar logoUrl={team.logo_url ?? null} color={team.color} name={team.name} size="sm" />
+          <TeamAvatar logoUrl={team.logo_url ?? null} color={team.color} name={team.name} size="sm" />
 
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-900 text-sm leading-tight truncate">{team.name}</p>
-          {captainName && (
-            <p className="text-xs text-gray-400 truncate">Captain: {captainName}</p>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-900 text-sm leading-tight truncate">{team.name}</p>
+            {captainName && (
+              <p className="text-xs text-gray-400 truncate">Captain: {captainName}</p>
+            )}
+          </div>
+
+          {/* Edit / Delete — always visible, stop propagation so they don't toggle card */}
+          {isOrgAdmin && (
+            <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <AdminEditTeamForm
+                team={{ id: team.id, name: team.name, color: team.color, logo_url: team.logo_url ?? null }}
+                leagueId={leagueId}
+              />
+              <DeleteTeamButton teamId={team.id} teamName={team.name} leagueId={leagueId} />
+            </div>
           )}
         </div>
 
-        {/* Summary pills */}
-        <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
+        {/* Row 2: Summary pills — wraps freely, indented to align with team name */}
+        <div className="flex items-center gap-1.5 flex-wrap mt-2 pl-7" onClick={(e) => e.stopPropagation()}>
           {/* Players */}
           <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -133,17 +147,6 @@ export function AdminTeamCard({
               </svg>
               {waiverCount}/{playerCount} waivers
             </span>
-          )}
-
-          {/* Edit / Delete — stop propagation so they don't toggle card */}
-          {isOrgAdmin && (
-            <div className="flex items-center gap-1 ml-1" onClick={(e) => e.stopPropagation()}>
-              <AdminEditTeamForm
-                team={{ id: team.id, name: team.name, color: team.color, logo_url: team.logo_url ?? null }}
-                leagueId={leagueId}
-              />
-              <DeleteTeamButton teamId={team.id} teamName={team.name} leagueId={leagueId} />
-            </div>
           )}
         </div>
       </div>
