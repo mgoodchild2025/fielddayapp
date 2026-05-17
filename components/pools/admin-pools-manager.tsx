@@ -56,7 +56,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
   }
 
   const rounds = teamCount % 2 === 0 ? teamCount - 1 : teamCount
-  const gamesPerRound = Math.floor(teamCount / 2)
+  const gamesPerRound = Math.min(Math.floor(teamCount / 2), parseInt(courts) || 1)
   const effectiveRounds = maxRounds ? Math.min(parseInt(maxRounds) || rounds, rounds) : rounds
   const totalGames = effectiveRounds * gamesPerRound
 

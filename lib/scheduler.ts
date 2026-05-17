@@ -164,26 +164,26 @@ export function assignDates(fixtures: Fixture[], opts: ScheduleOptions): Schedul
 
   if (opts.daysBetweenRounds === 0) {
     // Same-day mode: all rounds on the start date, each slot advances by gameDuration.
+    // Courts caps how many games are scheduled per round — extras are skipped.
     const baseMs = new Date(parseLocalToUtc(opts.startDate, opts.gameTime, tz)).getTime()
     let offsetMs = 0
     for (const [, roundFixtures] of byRound) {
-      for (let i = 0; i < roundFixtures.length; i += courts) {
-        const batch = roundFixtures.slice(i, i + courts)
-        const scheduledAt = new Date(baseMs + offsetMs).toISOString()
-        batch.forEach((f, courtIdx) => {
-          const court = courts > 1 ? `Court ${courtIdx + 1}` : null
-          pushGame(f, scheduledAt, court)
-        })
-        offsetMs += gameDurationMs
-      }
+      const toPlay = roundFixtures.slice(0, courts)
+      const scheduledAt = new Date(baseMs + offsetMs).toISOString()
+      toPlay.forEach((f, courtIdx) => {
+        const court = courts > 1 ? `Court ${courtIdx + 1}` : null
+        pushGame(f, scheduledAt, court)
+      })
+      offsetMs += gameDurationMs
     }
   } else {
     // Multi-day mode: round r starts on day (r-1) * daysBetweenRounds.
+    // Courts caps games per round here too.
     for (const [round, roundFixtures] of byRound) {
       const dateStr = offsetDate((round - 1) * opts.daysBetweenRounds)
       const scheduledAt = parseLocalToUtc(dateStr, opts.gameTime, tz)
-      roundFixtures.forEach((f, i) => {
-        const court = courts > 1 ? `Court ${(i % courts) + 1}` : null
+      roundFixtures.slice(0, courts).forEach((f, i) => {
+        const court = courts > 1 ? `Court ${i + 1}` : null
         pushGame(f, scheduledAt, court)
       })
     }
