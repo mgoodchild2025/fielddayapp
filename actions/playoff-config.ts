@@ -64,13 +64,14 @@ async function computeStandings(
 // Ordinal labels for pool-position scaffold labels
 const ORDINALS = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th']
 
-function seedLabel(seed: number, poolNames: string[]): string {
+function seedLabel(seed: number, poolNames: string[], seedOffset: number): string {
+  const globalSeed = seed + seedOffset
   if (poolNames.length > 0) {
-    const poolIndex = (seed - 1) % poolNames.length
-    const rank = Math.floor((seed - 1) / poolNames.length)
+    const poolIndex = (globalSeed - 1) % poolNames.length
+    const rank = Math.floor((globalSeed - 1) / poolNames.length)
     return `${ORDINALS[rank] ?? `${rank + 1}th`} - ${poolNames[poolIndex]}`
   }
-  return `Seed ${seed}`
+  return `Seed ${globalSeed}`
 }
 
 async function insertBracketWithMatches(
@@ -83,9 +84,10 @@ async function insertBracketWithMatches(
     teamsAdvancing: number
     thirdPlaceGame: boolean
     poolNames: string[]  // empty = standings-based labels ("Seed N"); non-empty = pool-position labels ("1st - Pool A")
+    seedOffset: number   // tier.seed_from - 1; 0 for the top tier, non-zero for lower tiers
   }
 ): Promise<{ bracketId: string | null; error: string | null }> {
-  const { name, bracketType, teamsAdvancing, thirdPlaceGame, poolNames } = opts
+  const { name, bracketType, teamsAdvancing, thirdPlaceGame, poolNames, seedOffset } = opts
   const bracketSize = nextPowerOf2(teamsAdvancing)
   const actualThirdPlace = bracketType === 'double_elimination' ? false : thirdPlaceGame
   const seedingMethod = poolNames.length > 0 ? 'pool_results' : 'standings'
@@ -128,8 +130,8 @@ async function insertBracketWithMatches(
       match_number: m.matchNumber,
       team1_id: null,
       team2_id: null,
-      team1_label: m.team1Seed ? seedLabel(m.team1Seed, poolNames) : null,
-      team2_label: m.isBye ? 'Bye' : (m.team2Seed ? seedLabel(m.team2Seed, poolNames) : null),
+      team1_label: m.team1Seed ? seedLabel(m.team1Seed, poolNames, seedOffset) : null,
+      team2_label: m.isBye ? 'Bye' : (m.team2Seed ? seedLabel(m.team2Seed, poolNames, seedOffset) : null),
       team1_seed: m.team1Seed,
       team2_seed: m.isBye ? null : m.team2Seed,
       is_bye: m.isBye,
@@ -361,6 +363,7 @@ export async function generateAllTierBrackets(
       teamsAdvancing,
       thirdPlaceGame: tier.third_place_game,
       poolNames,
+      seedOffset: tier.seed_from - 1,
     })
 
     if (error || !bracketId) { skipped++; continue }
