@@ -1085,7 +1085,7 @@ export async function uploadTeamLogo(teamId: string, formData: FormData) {
   if (uploadError) return { url: null, error: uploadError.message }
 
   const { data: { publicUrl } } = db.storage.from('team-logos').getPublicUrl(path)
-  return { url: publicUrl, error: null }
+  return { url: `${publicUrl}?t=${Date.now()}`, error: null }
 }
 
 // ─── Captain / coach: manage roster ──────────────────────────────────────────
