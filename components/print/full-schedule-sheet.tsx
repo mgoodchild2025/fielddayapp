@@ -94,12 +94,16 @@ export function FullScheduleSheet({ games, leagueName, orgName, timezone, sport,
                 <th className="text-left py-1 pr-3 font-semibold w-16">Time</th>
                 <th className="text-left py-1 pr-3 font-semibold w-14">{venueLbl}</th>
                 {!isTeamView && <th className="text-center py-1 px-2 font-semibold w-6">Wk</th>}
-                <th className="text-left py-1 pr-3 font-semibold">Home</th>
+                {isTeamView
+                  ? <th className="text-left py-1 font-semibold">Opponent</th>
+                  : <th className="text-left py-1 pr-3 font-semibold">Home</th>
+                }
                 {!isTeamView && (
                   <th className="text-center py-1 px-3 font-semibold w-24">Score</th>
                 )}
-                <th className={`py-1 font-semibold ${isTeamView ? 'text-left pl-3' : 'text-right pl-3'}`}>Away</th>
-                {isTeamView && <th className="text-left py-1 pl-4 font-semibold text-xs">Opponent</th>}
+                {!isTeamView && (
+                  <th className="text-right py-1 pl-3 font-semibold">Away</th>
+                )}
               </tr>
             </thead>
             <tbody>
