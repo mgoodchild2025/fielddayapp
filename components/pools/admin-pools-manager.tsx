@@ -27,7 +27,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
   const [result, setResult] = useState<{ error?: string; count?: number } | null>(null)
   const [startDate, setStartDate] = useState('')
   const [gameTime, setGameTime] = useState('10:00')
-  const [daysBetween, setDaysBetween] = useState('1')
+  const [daysBetween, setDaysBetween] = useState('0')
   const [courts, setCourts] = useState('1')
   const [gamesPerDay, setGamesPerDay] = useState('1')
   const [gameDuration, setGameDuration] = useState('60')
@@ -100,18 +100,20 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
             <div>
               <label className="block text-xs text-gray-500 mb-0.5">Days Between Rounds</label>
               <input
-                type="number" min={1} max={30} value={daysBetween}
+                type="number" min={0} max={30} value={daysBetween}
                 onChange={(e) => setDaysBetween(e.target.value)}
                 className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
               />
+              <p className="text-[10px] text-gray-400 mt-0.5">0 = same day</p>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-0.5">Courts</label>
+              <label className="block text-xs text-gray-500 mb-0.5">Games per Round</label>
               <input
                 type="number" min={1} max={20} value={courts}
                 onChange={(e) => setCourts(e.target.value)}
                 className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
               />
+              <p className="text-[10px] text-gray-400 mt-0.5">concurrent games per slot</p>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-0.5">Games Per Day</label>

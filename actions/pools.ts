@@ -114,6 +114,13 @@ export async function generatePoolSchedule(input: {
 
   const db = createServiceRoleClient()
 
+  const { data: branding } = await db
+    .from('org_branding')
+    .select('timezone')
+    .eq('organization_id', org.id)
+    .single()
+  const timezone: string = (branding as { timezone?: string | null } | null)?.timezone ?? 'America/Toronto'
+
   // Fetch teams in this pool
   const { data: teams } = await db
     .from('teams')
@@ -137,6 +144,7 @@ export async function generatePoolSchedule(input: {
     courts: input.courts,
     gamesPerDay: input.gamesPerDay,
     gameDurationMinutes: input.gameDurationMinutes,
+    timezone,
   })
 
   const games = scheduled.map((g) => ({
