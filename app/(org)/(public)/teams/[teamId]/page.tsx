@@ -285,15 +285,6 @@ export default async function TeamDetailPage({
             )}
           </div>
           <div className="shrink-0 flex items-center gap-1">
-            {/* Schedule — all team members */}
-            <Link
-              href={`/teams/${teamId}/schedule`}
-              className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-              aria-label="View team schedule"
-              title="Team schedule"
-            >
-              <CalendarDays className="w-5 h-5" />
-            </Link>
             {/* Edit team details — managers and org admins only */}
             {isManager && (
               <AdminEditTeamForm
@@ -315,7 +306,14 @@ export default async function TeamDetailPage({
           </div>
         )}
 
-        {/* Calendar subscription — all team members */}
+        {/* Team schedule + calendar subscription — all team members */}
+        <Link
+          href={`/teams/${teamId}/schedule`}
+          className="mt-4 w-full py-2 rounded-md text-sm font-medium border hover:bg-gray-50 transition-colors text-gray-600 flex items-center justify-center gap-2"
+        >
+          <CalendarDays className="w-4 h-4" />
+          Team Schedule
+        </Link>
         {calendarToken && (
           <CalendarSubscribeButton
             teamId={teamId}
