@@ -734,6 +734,73 @@ export async function swapBracketTeams(input: {
   return { error: null }
 }
 
+// ── reverseBracketAdvancement (called by adminClearScore) ────────────────────
+// Undoes what advanceBracketFromScore did: clears winner/loser from downstream
+// matches and resets the current match back to 'ready'.
+// Returns an error string if a downstream match has already been played.
+
+export async function reverseBracketAdvancement(gameId: string, orgId: string): Promise<{ error: string | null }> {
+  const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: match } = await (db as any)
+    .from('bracket_matches')
+    .select('id, winner_to_match_id, winner_to_slot, loser_to_match_id, loser_to_slot, brackets!bracket_matches_bracket_id_fkey(league_id)')
+    .eq('game_id', gameId)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+
+  if (!match) return { error: null } // not a bracket game
+
+  // Block if any downstream match is already completed
+  const downstreamIds = [match.winner_to_match_id, match.loser_to_match_id].filter(Boolean)
+  if (downstreamIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: downstream } = await (db as any)
+      .from('bracket_matches')
+      .select('status')
+      .in('id', downstreamIds)
+
+    const hasCompleted = (downstream ?? []).some((m: { status: string }) => m.status === 'completed')
+    if (hasCompleted) {
+      return { error: 'A later bracket match has already been played. Clear that match first.' }
+    }
+  }
+
+  // Clear winner slot in next match
+  if (match.winner_to_match_id) {
+    const field = match.winner_to_slot === 1 ? 'team1_id' : 'team2_id'
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any).from('bracket_matches')
+      .update({ [field]: null, status: 'pending', winner_team_id: null })
+      .eq('id', match.winner_to_match_id)
+  }
+
+  // Clear loser slot in loser-bracket match (double elimination)
+  if (match.loser_to_match_id) {
+    const field = match.loser_to_slot === 1 ? 'team1_id' : 'team2_id'
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any).from('bracket_matches')
+      .update({ [field]: null, status: 'pending' })
+      .eq('id', match.loser_to_match_id)
+  }
+
+  // Reset this match back to ready (teams still present, score/winner cleared)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('bracket_matches')
+    .update({ score1: null, score2: null, winner_team_id: null, status: 'ready' })
+    .eq('id', match.id)
+
+  const league = Array.isArray(match.brackets) ? match.brackets[0] : match.brackets
+  const leagueId = (league as { league_id: string } | null)?.league_id
+  if (leagueId) {
+    revalidatePath(`/admin/events/${leagueId}/bracket`)
+    revalidatePath('/events/[slug]', 'page')
+  }
+
+  return { error: null }
+}
+
 // ── advanceBracketFromScore (called by scores.ts after confirm) ───────────────
 // Public hook: checks if a confirmed game is linked to a bracket match and auto-advances.
 

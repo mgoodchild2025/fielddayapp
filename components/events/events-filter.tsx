@@ -62,11 +62,11 @@ function formatPrice(cents: number, currency: string) {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 }
 
 function formatYear(iso: string) {
-  return new Date(iso).getFullYear()
+  return new Date(iso).getUTCFullYear()
 }
 
 // ── Featured registration card ────────────────────────────────────────────────

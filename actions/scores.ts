@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
-import { advanceBracketFromScore } from '@/actions/brackets'
+import { advanceBracketFromScore, reverseBracketAdvancement } from '@/actions/brackets'
 
 const submitScoreSchema = z.object({
   gameId: z.string().uuid(),
@@ -155,6 +155,52 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
   }
 
   return { data: null, error: null }
+}
+
+export async function adminClearScore(gameId: string): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const db = createServiceRoleClient()
+
+  const { data: adminMember } = await db
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+
+  if (!adminMember) return { error: 'Admin access required' }
+
+  const { data: game } = await db
+    .from('games')
+    .select('id, league_id')
+    .eq('id', gameId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (!game) return { error: 'Game not found' }
+
+  // Reverse bracket advancement first — blocks if a downstream match is completed
+  const { error: bracketError } = await reverseBracketAdvancement(gameId, org.id)
+  if (bracketError) return { error: bracketError }
+
+  // Delete the game result and reset game status
+  await db.from('game_results').delete().eq('game_id', gameId)
+  await db.from('games').update({ status: 'scheduled' }).eq('id', gameId)
+
+  if (game.league_id) {
+    revalidatePath(`/admin/events/${game.league_id}/schedule`)
+    revalidatePath(`/admin/events/${game.league_id}/bracket`)
+  }
+  revalidatePath('/events/[slug]', 'page')
+
+  return { error: null }
 }
 
 export async function confirmScore(gameId: string) {

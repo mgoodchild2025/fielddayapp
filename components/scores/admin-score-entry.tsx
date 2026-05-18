@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { adminSetScore } from '@/actions/scores'
+import { adminSetScore, adminClearScore } from '@/actions/scores'
 
 const SET_SPORTS    = new Set(['volleyball', 'beach_volleyball'])
 const PERIOD_SPORTS = new Set(['hockey'])
@@ -116,6 +116,7 @@ function ScoreEntrySheet({
   })
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [confirmClear, setConfirmClear] = useState(false)
 
   // Lock body scroll while sheet is open
   useEffect(() => {
@@ -137,6 +138,22 @@ function ScoreEntrySheet({
   // Adds an empty set to the list (called from the "+ Add set" button)
   function addSet() {
     setSets((p) => [...p, { home: '', away: '' }])
+  }
+
+  const hasExistingScore =
+    existingResult?.homeScore != null && existingResult?.awayScore != null
+
+  function clearScore() {
+    setError(null)
+    startTransition(async () => {
+      const result = await adminClearScore(gameId)
+      if (result.error) {
+        setError(result.error)
+        setConfirmClear(false)
+      } else {
+        onClose()
+      }
+    })
   }
 
   function submit() {
@@ -318,6 +335,29 @@ function ScoreEntrySheet({
               Cancel
             </button>
           </div>
+
+          {hasExistingScore && (
+            <div className="border-t pt-3">
+              {confirmClear ? (
+                <div className="flex items-center gap-3">
+                  <p className="text-xs text-gray-500 flex-1">Reset game to no score?</p>
+                  <button type="button" onClick={clearScore} disabled={isPending}
+                    className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50">
+                    {isPending ? 'Clearing…' : 'Confirm'}
+                  </button>
+                  <button type="button" onClick={() => setConfirmClear(false)}
+                    className="text-xs text-gray-400 hover:text-gray-600">
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setConfirmClear(true)}
+                  className="text-xs text-gray-400 hover:text-red-500 transition-colors">
+                  Clear score
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>,
