@@ -43,47 +43,149 @@ export async function GET(req: NextRequest) {
     results.push(`delivered announcement ${ann.id}`)
   }
 
-  // 2. Game reminders — email players 24h before game
+  // 2. Game reminders — one email per player per day listing all their games tomorrow
+  //    Groups multiple games on the same day into a single digest email.
   const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000)
-  const { data: games } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: reminderGames } = await (supabase as any)
     .from('games')
-    .select('id, organization_id, scheduled_at, home_team_id, away_team_id, court, leagues(name)')
+    .select(`
+      id, organization_id, scheduled_at, court,
+      home_team:teams!games_home_team_id_fkey(id, name),
+      away_team:teams!games_away_team_id_fkey(id, name),
+      leagues(name)
+    `)
+    .eq('status', 'scheduled')
     .gte('scheduled_at', now.toISOString())
     .lte('scheduled_at', in24h.toISOString())
-    .is('reminder_sent', null)
 
-  for (const game of games ?? []) {
-    const league = Array.isArray(game.leagues) ? game.leagues[0] : game.leagues
-    const teamIds = [game.home_team_id, game.away_team_id].filter((id): id is string => Boolean(id))
-    if (teamIds.length === 0) continue
+  if ((reminderGames ?? []).length > 0) {
+    // Fetch org branding (timezone) and org names
+    type RGGame = {
+      id: string; organization_id: string; scheduled_at: string; court: string | null
+      home_team: { id: string; name: string } | null
+      away_team: { id: string; name: string } | null
+      leagues: { name: string } | { name: string }[] | null
+    }
+    const rgOrgIds = [...new Set((reminderGames as RGGame[]).map(g => g.organization_id))]
+    const [{ data: rgBranding }, { data: rgOrgs }] = await Promise.all([
+      supabase.from('org_branding').select('organization_id, timezone').in('organization_id', rgOrgIds),
+      supabase.from('organizations').select('id, name').in('id', rgOrgIds),
+    ])
+    const rgTimezoneByOrg = new Map((rgBranding ?? []).map(b => [b.organization_id, b.timezone ?? 'America/Toronto']))
+    const rgOrgNameById = new Map((rgOrgs ?? []).map(o => [o.id, o.name]))
 
-    const { data: members } = await supabase
-      .from('team_members')
-      .select('profiles!team_members_user_id_fkey(email, full_name)')
-      .in('team_id', teamIds)
-    const profiles = (members ?? [])
-      .flatMap(m => (Array.isArray(m.profiles) ? m.profiles : [m.profiles]))
-      .filter(p => p?.email)
-
-    if (profiles.length) {
-      const gameTime = new Date(game.scheduled_at).toLocaleString('en-CA', {
-        weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-      })
-      await resend.emails.send({
-        from: FROM_EMAIL,
-        to: profiles.map(p => p!.email!),
-        subject: `Game reminder: ${league?.name ?? 'Your game'} tomorrow`,
-        html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-          <h2>You have a game tomorrow!</h2>
-          <p><strong>League:</strong> ${league?.name ?? 'Your league'}</p>
-          <p><strong>Time:</strong> ${gameTime}</p>
-          ${game.court ? `<p><strong>Venue:</strong> ${game.court}</p>` : ''}
-        </div>`,
-      }).catch(() => {})
+    // Group games by org
+    const rgGamesByOrg = new Map<string, RGGame[]>()
+    for (const g of (reminderGames as RGGame[]) ?? []) {
+      if (!rgGamesByOrg.has(g.organization_id)) rgGamesByOrg.set(g.organization_id, [])
+      rgGamesByOrg.get(g.organization_id)!.push(g)
     }
 
-    await supabase.from('games').update({ reminder_sent: now.toISOString() }).eq('id', game.id)
-    results.push(`game reminder ${game.id}`)
+    for (const [orgId, orgGames] of rgGamesByOrg) {
+      const timezone = rgTimezoneByOrg.get(orgId) ?? 'America/Toronto'
+      const orgName = rgOrgNameById.get(orgId) ?? 'Fieldday'
+
+      // "Tomorrow" date in org timezone (the date the games are on)
+      const tomorrowLocal = new Intl.DateTimeFormat('en-CA', { timeZone: timezone })
+        .format(new Date(now.getTime() + 24 * 60 * 60 * 1000))
+
+      const teamIds = [...new Set(
+        orgGames.flatMap(g => [g.home_team?.id, g.away_team?.id]).filter(Boolean) as string[]
+      )]
+      if (teamIds.length === 0) continue
+
+      const { data: rgMembers } = await supabase
+        .from('team_members')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .select('user_id, team_id, profiles!team_members_user_id_fkey(email, full_name, email_reminders_enabled)')
+        .in('team_id', teamIds)
+
+      // Build map: user_id → { email, name, teamIds }
+      type RGPlayer = { email: string; name: string; teamIds: Set<string> }
+      const rgPlayerMap = new Map<string, RGPlayer>()
+      for (const m of rgMembers ?? []) {
+        const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles as { email?: string; full_name?: string; email_reminders_enabled?: boolean } | null
+        // Skip if no email or opted out (null = not yet set, treat as opted in)
+        if (!p?.email || p?.email_reminders_enabled === false) continue
+        if (!m.user_id || !m.team_id) continue
+        if (!rgPlayerMap.has(m.user_id)) {
+          rgPlayerMap.set(m.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set() })
+        }
+        rgPlayerMap.get(m.user_id)!.teamIds.add(m.team_id)
+      }
+
+      if (rgPlayerMap.size === 0) continue
+
+      // Check already-sent logs for tomorrow's date
+      const rgUserIds = [...rgPlayerMap.keys()]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: rgSentToday } = await (supabase as any)
+        .from('player_email_reminder_logs')
+        .select('user_id')
+        .eq('organization_id', orgId)
+        .eq('log_date', tomorrowLocal)
+        .in('user_id', rgUserIds)
+      const rgAlreadySent = new Set((rgSentToday ?? []).map((r: { user_id: string }) => r.user_id))
+
+      for (const [userId, player] of rgPlayerMap) {
+        if (rgAlreadySent.has(userId)) continue
+
+        const myGames = orgGames.filter(g =>
+          (g.home_team?.id && player.teamIds.has(g.home_team.id)) ||
+          (g.away_team?.id && player.teamIds.has(g.away_team.id))
+        ).sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+
+        if (myGames.length === 0) continue
+
+        // Claim send slot atomically — PK conflict on UNIQUE(user_id, organization_id, log_date) prevents duplicates
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: rgClaimErr } = await (supabase as any)
+          .from('player_email_reminder_logs')
+          .insert({ user_id: userId, organization_id: orgId, log_date: tomorrowLocal })
+        if (rgClaimErr) {
+          if (rgClaimErr.code === '23505') continue // concurrent run already claimed
+          results.push(`email reminder log error for ${userId}: ${rgClaimErr.message}`)
+          continue
+        }
+
+        const firstName = player.name.split(' ')[0] || 'there'
+        const dateLabel = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' })
+          .format(new Date(now.getTime() + 24 * 60 * 60 * 1000))
+
+        const gameRows = myGames.map(g => {
+          const league = Array.isArray(g.leagues) ? g.leagues[0] : g.leagues
+          const myTeamIsHome = g.home_team?.id && player.teamIds.has(g.home_team.id)
+          const opponent = myTeamIsHome ? g.away_team?.name : g.home_team?.name
+          const time = new Date(g.scheduled_at).toLocaleTimeString('en-CA', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })
+          const venue = g.court ? `<br><span style="color:#666;font-size:13px">${g.court}</span>` : ''
+          const leagueLabel = league?.name ? `<span style="color:#666;font-size:13px">${league.name}</span><br>` : ''
+          const vsLabel = opponent ? ` vs ${opponent}` : ''
+          return `<tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0">${leagueLabel}<strong>${time}${vsLabel}</strong>${venue}</td></tr>`
+        }).join('')
+
+        const subject = myGames.length === 1
+          ? `Game reminder: you have a game tomorrow`
+          : `Game reminder: you have ${myGames.length} games tomorrow`
+
+        await resend.emails.send({
+          from: FROM_EMAIL,
+          to: player.email,
+          subject,
+          html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+            <h2 style="margin-top:0">Hi ${firstName}, you have ${myGames.length === 1 ? 'a game' : `${myGames.length} games`} tomorrow!</h2>
+            <p style="color:#555;margin-bottom:16px">${dateLabel}</p>
+            <table style="width:100%;border-collapse:collapse">${gameRows}</table>
+            <p style="margin-top:24px;font-size:12px;color:#999">
+              You're receiving this because you're registered with ${orgName}.<br>
+              To stop receiving game reminders, update your <a href="#" style="color:#999">notification preferences</a> in your profile.
+            </p>
+          </div>`,
+        }).catch(() => {})
+
+        results.push(`email reminder sent to ${userId} (${myGames.length} game${myGames.length !== 1 ? 's' : ''})`)
+      }
+    }
   }
 
   // 3. Payment reminders — overdue installments

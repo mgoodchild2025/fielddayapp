@@ -216,6 +216,7 @@ export async function updatePassword(newPassword: string): Promise<{ error: stri
 const updateProfileSchema = z.object({
   full_name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100, 'Name must be 100 characters or fewer'),
   phone: optionalPhone,
+  email_reminders_enabled: z.boolean().optional(),
   sms_opted_in: z.boolean().optional(),
   sms_game_day_enabled: z.boolean().optional(),
   skill_level: z.enum(['beginner', 'intermediate', 'competitive']).optional(),
@@ -240,6 +241,7 @@ export async function updateProfile(input: z.infer<typeof updateProfileSchema>) 
     (db as any).from('profiles').update({
       full_name: parsed.data.full_name,
       phone: parsed.data.phone ? toE164(parsed.data.phone) : null,
+      email_reminders_enabled: parsed.data.email_reminders_enabled ?? true,
       sms_opted_in: parsed.data.sms_opted_in ?? false,
       sms_game_day_enabled: parsed.data.sms_game_day_enabled ?? true,
       show_contact_info: parsed.data.show_contact_info ?? false,

@@ -16,6 +16,7 @@ type PlayerDetails = Database['public']['Tables']['player_details']['Row']
 const schema = z.object({
   full_name: z.string().min(2),
   phone: optionalPhone,
+  email_reminders_enabled: z.boolean().optional(),
   sms_opted_in: z.boolean().optional(),
   sms_game_day_enabled: z.boolean().optional(),
   skill_level: z.enum(['beginner', 'intermediate', 'competitive']).optional(),
@@ -54,6 +55,7 @@ export function ProfileForm({
     defaultValues: {
       full_name: profile?.full_name ?? '',
       phone: profile?.phone ?? '',
+      email_reminders_enabled: (profile as any)?.email_reminders_enabled ?? true,
       sms_opted_in: profile?.sms_opted_in ?? false,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sms_game_day_enabled: (profile as any)?.sms_game_day_enabled ?? true,
@@ -189,6 +191,10 @@ export function ProfileForm({
             <input {...register('phone')} type="tel" className="w-full border rounded-md px-3 py-2 text-base" />
             {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
             <div className="mt-2 space-y-1.5">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input {...register('email_reminders_enabled')} type="checkbox" className="rounded" />
+                <span className="text-xs text-gray-600">Receive game reminder emails</span>
+              </label>
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input {...register('sms_opted_in')} type="checkbox" className="rounded" />
                 <span className="text-xs text-gray-600">Receive SMS notifications</span>
