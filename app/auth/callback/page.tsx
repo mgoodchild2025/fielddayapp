@@ -42,7 +42,7 @@ export default async function CallbackPage({
   const origin = getOriginFromHeaders(headersList)
   const errorRedirect = `${origin}/login?error=confirmation_failed`
 
-  // `next` is a safe relative path to redirect to after auth (e.g. /reset-password/confirm)
+  // `next` is a safe relative path to redirect to after auth
   const next = params.next && isSafeDestination(params.next) ? params.next : null
 
   // ── token_hash flow ──────────────────────────────────────────────────────

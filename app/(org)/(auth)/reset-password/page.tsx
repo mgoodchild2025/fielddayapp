@@ -25,10 +25,7 @@ export default function ResetPasswordPage() {
     setLoading(true)
     const supabase = createClient()
     await supabase.auth.resetPasswordForEmail(data.email, {
-      // Route through /auth/callback so the PKCE code exchange happens there
-      // (establishing the session), then the user is forwarded to the confirm
-      // page already authenticated so updateUser works without a second verifyOtp.
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password/confirm`,
+      redirectTo: `${window.location.origin}/reset-password/confirm`,
     })
     setSent(true)
     setLoading(false)
