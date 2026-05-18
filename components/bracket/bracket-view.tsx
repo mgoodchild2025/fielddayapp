@@ -429,13 +429,13 @@ function BracketDiagram({
   }
 
   return (
-    <div className="overflow-x-auto pb-4 -mx-4 px-4">
+    <div className="overflow-x-auto pb-2 -mx-4 px-4">
       <div style={{ minWidth: roundNumbers.length * ROUND_WIDTH + 32 }}>
         {/* Round labels */}
         <div className="flex mb-3">
           {roundNumbers.map((rn) => (
             <div key={rn} style={{ width: ROUND_WIDTH, flexShrink: 0 }}>
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 px-2">
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 px-2">
                 {getRoundName(rn, bracketSize)}
               </p>
             </div>
@@ -461,7 +461,7 @@ function BracketDiagram({
                       {!isLastCol && (
                         <div style={{
                           position: 'absolute', right: -8, top: MATCH_HEIGHT / 2,
-                          width: 8, height: 1, backgroundColor: '#d1d5db',
+                          width: 8, height: 1, backgroundColor: '#4b5563',
                         }} />
                       )}
                       {/* Left vertical connector */}
@@ -470,9 +470,9 @@ function BracketDiagram({
                           position: 'absolute', left: -8,
                           top: MATCH_HEIGHT / 2 - slotHeight / 4,
                           width: 8, height: slotHeight / 2,
-                          borderLeft: '1px solid #d1d5db',
-                          borderTop: '1px solid #d1d5db',
-                          borderBottom: '1px solid #d1d5db',
+                          borderLeft: '1px solid #4b5563',
+                          borderTop: '1px solid #4b5563',
+                          borderBottom: '1px solid #4b5563',
                         }} />
                       )}
                       <MatchCard
@@ -697,14 +697,14 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
 
       {/* Bracket diagram */}
       {view === 'bracket' && (
-        <>
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-6">
           {isDE ? (
             /* ── Double elimination layout ─────────────────────────────── */
             <div className="space-y-8">
               {/* Winners Bracket */}
               {wbMatches.length > 0 && (
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-3">
+                  <p className="text-xs font-bold uppercase tracking-widest text-blue-400 mb-3">
                     Winners Bracket
                   </p>
                   <BracketDiagram
@@ -722,8 +722,8 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
 
               {/* Losers Bracket */}
               {lbMatches.length > 0 && (
-                <div className="pt-2 border-t">
-                  <p className="text-xs font-bold uppercase tracking-widest text-amber-600 mb-3 mt-4">
+                <div className="pt-2 border-t border-gray-700">
+                  <p className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-3 mt-4">
                     Losers Bracket
                   </p>
                   <BracketDiagram
@@ -742,8 +742,8 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
 
               {/* Grand Final */}
               {gfMatch && (
-                <div className="pt-2 border-t">
-                  <p className="text-xs font-bold uppercase tracking-widest text-purple-600 mb-3 mt-4">
+                <div className="pt-2 border-t border-gray-700">
+                  <p className="text-xs font-bold uppercase tracking-widest text-purple-400 mb-3 mt-4">
                     Grand Final
                   </p>
                   <MatchCard
@@ -773,8 +773,8 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
 
               {/* 3rd place match */}
               {thirdPlaceMatch && (
-                <div className="mt-8 pt-6 border-t">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">Third Place</p>
+                <div className="mt-8 pt-6 border-t border-gray-700">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Third Place</p>
                   <MatchCard
                     match={thirdPlaceMatch}
                     bracketId={bracket.id}
@@ -791,13 +791,13 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
           {/* Champion callout */}
           {champion && (
             <div className="mt-6 text-center">
-              <p className="text-xs uppercase tracking-widest text-gray-400 mb-1">Champion</p>
+              <p className="text-xs uppercase tracking-widest text-gray-500 mb-1">Champion</p>
               <p className="text-2xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-primary)' }}>
                 🏆 {champion}
               </p>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   )
