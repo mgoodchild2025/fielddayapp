@@ -35,12 +35,15 @@ function isSafeDestination(url: string): boolean {
 export default async function CallbackPage({
   searchParams,
 }: {
-  searchParams: Promise<{ code?: string; token_hash?: string; type?: string }>
+  searchParams: Promise<{ code?: string; token_hash?: string; type?: string; next?: string }>
 }) {
   const params = await searchParams
   const headersList = await headers()
   const origin = getOriginFromHeaders(headersList)
   const errorRedirect = `${origin}/login?error=confirmation_failed`
+
+  // `next` is a safe relative path to redirect to after auth (e.g. /reset-password/confirm)
+  const next = params.next && isSafeDestination(params.next) ? params.next : null
 
   // ── token_hash flow ──────────────────────────────────────────────────────
   if (params.token_hash && params.type) {
@@ -52,7 +55,7 @@ export default async function CallbackPage({
     if (error) redirect(errorRedirect)
     const { data: { user } } = await supabase.auth.getUser()
     const meta = user?.user_metadata?.redirect_destination as string | undefined
-    redirect(isSafeDestination(meta ?? '') ? meta! : `${origin}/my-events`)
+    redirect(next ?? (isSafeDestination(meta ?? '') ? meta! : `${origin}/my-events`))
   }
 
   // ── PKCE code flow ───────────────────────────────────────────────────────
@@ -62,7 +65,7 @@ export default async function CallbackPage({
     if (error) redirect(errorRedirect)
     const { data: { user } } = await supabase.auth.getUser()
     const meta = user?.user_metadata?.redirect_destination as string | undefined
-    redirect(isSafeDestination(meta ?? '') ? meta! : `${origin}/my-events`)
+    redirect(next ?? (isSafeDestination(meta ?? '') ? meta! : `${origin}/my-events`))
   }
 
   // ── Implicit / hash flow — tokens are in the URL fragment ────────────────

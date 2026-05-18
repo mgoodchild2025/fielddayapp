@@ -24,13 +24,11 @@ export default function ResetPasswordPage() {
   async function onSubmit(data: FormData) {
     setLoading(true)
     const supabase = createClient()
-    // Called from the browser so the PKCE code_verifier cookie is set in this
-    // browser session. Email scanners fetching the link won't have the cookie
-    // and cannot complete the exchange, so the token stays valid for the user.
     await supabase.auth.resetPasswordForEmail(data.email, {
-      // Point directly at the confirm page on this subdomain so the email
-      // link preserves the org domain — no auth/callback hop needed.
-      redirectTo: `${window.location.origin}/reset-password/confirm`,
+      // Route through /auth/callback so the PKCE code exchange happens there
+      // (establishing the session), then the user is forwarded to the confirm
+      // page already authenticated so updateUser works without a second verifyOtp.
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password/confirm`,
     })
     setSent(true)
     setLoading(false)

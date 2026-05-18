@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useState } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -19,11 +19,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 function ResetForm() {
-  const searchParams = useSearchParams()
   const router = useRouter()
-  // Present when the email link uses the token_hash template (new flow).
-  // Absent when the user arrived via the PKCE code callback (already authenticated).
-  const tokenHash = searchParams.get('token_hash')
 
   const [serverError, setServerError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -37,20 +33,7 @@ function ResetForm() {
     setServerError(null)
     const supabase = createClient()
 
-    if (tokenHash) {
-      // Verify the token only on explicit form submit — never on page load.
-      // This means email scanners that fetch the URL do NOT consume the token.
-      const { error } = await supabase.auth.verifyOtp({
-        token_hash: tokenHash,
-        type: 'recovery',
-      })
-      if (error) {
-        setServerError(error.message)
-        setLoading(false)
-        return
-      }
-    }
-
+    // Session is already established by /auth/callback — just update the password.
     const { error } = await supabase.auth.updateUser({ password: data.password })
     if (error) {
       setServerError(error.message)
@@ -58,7 +41,6 @@ function ResetForm() {
       return
     }
 
-    // Platform admin domain → super panel; org subdomain → player dashboard
     const isAppDomain = window.location.hostname.startsWith('app.')
     router.push(isAppDomain ? '/super' : '/my-events')
   }
