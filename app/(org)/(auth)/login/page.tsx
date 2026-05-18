@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import Image from 'next/image'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { LoginForm } from './login-form'
@@ -8,9 +9,15 @@ import { LoginForm } from './login-form'
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect?: string }>
+  searchParams: Promise<{ redirect?: string; token_hash?: string; type?: string }>
 }) {
-  const { redirect: redirectTo } = await searchParams
+  const { redirect: redirectTo, token_hash, type } = await searchParams
+
+  // Supabase email templates sometimes point password-reset links at /login.
+  // Forward recovery tokens to the confirm page so the user can set their password.
+  if (token_hash && type === 'recovery') {
+    redirect(`/reset-password/confirm?token_hash=${token_hash}&type=recovery`)
+  }
 
   const headersList = await headers()
   const orgId = headersList.get('x-org-id')
