@@ -98,7 +98,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
         <button
           type="button"
           onClick={() => setModalOpen(true)}
-          className="relative w-full aspect-square bg-gray-50 overflow-hidden focus:outline-none"
+          className="relative block w-full aspect-square bg-gray-50 overflow-hidden focus:outline-none"
           aria-label={`View details for ${item.name}`}
         >
           {item.image_url ? (
