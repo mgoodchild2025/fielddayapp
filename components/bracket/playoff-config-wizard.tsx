@@ -7,7 +7,7 @@ import { savePlayoffConfig, generateAllTierBrackets, deletePlayoffConfig } from 
 import { publishBracket, deleteBracket, seedBracket } from '@/actions/brackets'
 import { BracketView, type BracketData, type TeamRef } from './bracket-view'
 import type { TeamStanding, BracketRecommendation } from '@/lib/bracket'
-import type { TierInput } from '@/actions/playoff-config'
+import type { TierInput, PoolSeedingMethod } from '@/actions/playoff-config'
 
 // ── Tier name suggestions ─────────────────────────────────────────────────────
 
@@ -45,7 +45,8 @@ export interface ExistingTier {
 
 export interface ExistingConfig {
   id: string
-  seedingMethod: 'standings' | 'pool_results' | 'manual'
+  seedingMethod: PoolSeedingMethod
+  advancePerPool?: number[]
   tiers: ExistingTier[]
 }
 
@@ -419,7 +420,13 @@ function ManageHeader({
           {existingConfig.tiers.length} playoff tier{existingConfig.tiers.length !== 1 ? 's' : ''}
           {' · '}
           <span className="font-normal text-gray-500">
-            Seeding: {existingConfig.seedingMethod === 'manual' ? 'Manual' : existingConfig.seedingMethod === 'pool_results' ? 'Pool play results' : 'Auto (standings)'}
+            Seeding: {
+              existingConfig.seedingMethod === 'manual' ? 'Manual' :
+              existingConfig.seedingMethod === 'pool_results' ? 'Pool play — block' :
+              existingConfig.seedingMethod === 'pool_results_alternating' ? 'Pool play — alternating' :
+              existingConfig.seedingMethod === 'pool_tiers' ? 'Pool play — split tiers' :
+              'Auto (standings)'
+            }
           </span>
         </p>
         <p className="text-xs text-gray-400 mt-0.5">
@@ -499,7 +506,10 @@ export function PlayoffConfigWizard({
       : defaultTotal
   )
   const [tierCount, setTierCount] = useState(existingConfig ? existingConfig.tiers.length : 1)
-  const [seedingMethod, setSeedingMethod] = useState<'standings' | 'pool_results' | 'manual'>(existingConfig?.seedingMethod ?? 'standings')
+  const [seedingMethod, setSeedingMethod] = useState<PoolSeedingMethod>(existingConfig?.seedingMethod ?? 'standings')
+  const defaultAdvancePerPool = existingConfig?.advancePerPool ??
+    (pools.length >= 2 ? pools.map(() => Math.floor((existingConfig ? Math.max(...existingConfig.tiers.map(t => t.seedTo), 2) : defaultTotal) / pools.length)) : [])
+  const [advancePerPool, setAdvancePerPool] = useState<number[]>(defaultAdvancePerPool)
 
   // Step: 'setup' → 'tiers' → 'seed' (manual only) → manage
   const [step, setStep] = useState<'setup' | 'tiers' | 'seed'>('setup')
@@ -557,6 +567,24 @@ export function PlayoffConfigWizard({
     setStep('tiers')
   }
 
+  function buildTiersFromPools(): TierConfig[] {
+    const names = TIER_PRESETS[pools.length] ?? pools.map((_, i) => `Division ${i + 1}`)
+    let seedCursor = 1
+    return pools.map((pool, i) => {
+      const advance = advancePerPool[i] ?? Math.max(2, Math.floor(totalTeams / pools.length))
+      const seedFrom = seedCursor
+      const seedTo = seedCursor + advance - 1
+      seedCursor = seedTo + 1
+      return {
+        name: names[i] ?? pool.name,
+        seedFrom,
+        seedTo,
+        bracketType: 'single_elimination' as const,
+        thirdPlaceGame: false,
+      }
+    })
+  }
+
   // ── Save config (tier definitions) ────────────────────────────────────────
 
   function handleSaveConfig(thenGenerate = false) {
@@ -571,7 +599,13 @@ export function PlayoffConfigWizard({
         thirdPlaceGame: t.thirdPlaceGame,
       }))
 
-      const r = await savePlayoffConfig({ leagueId, seedingMethod, tiers: tierInputs })
+      const usesPoolAdvance = seedingMethod === 'pool_results' || seedingMethod === 'pool_results_alternating'
+      const r = await savePlayoffConfig({
+        leagueId,
+        seedingMethod,
+        advancePerPool: usesPoolAdvance && advancePerPool.length > 0 ? advancePerPool : undefined,
+        tiers: tierInputs,
+      })
       if (r.error) { setErr(r.error); return }
 
       if (thenGenerate) {
@@ -731,33 +765,119 @@ export function PlayoffConfigWizard({
         )}
 
         {/* Seeding method */}
-        <div className="bg-white rounded-xl border p-4 space-y-2">
+        <div className="bg-white rounded-xl border p-4 space-y-3">
           <p className="text-sm font-semibold text-gray-700">Seeding Method</p>
+
+          {/* Top-level method buttons */}
           <div className="flex gap-3 flex-wrap">
-            {(['standings', ...(pools.length >= 2 ? ['pool_results'] : []), 'manual'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setSeedingMethod(m as 'standings' | 'pool_results' | 'manual')}
-                className={`flex-1 min-w-[140px] px-3 py-2.5 rounded-lg border text-sm font-medium text-left transition-colors ${
-                  seedingMethod === m
-                    ? 'border-blue-500 bg-blue-50 text-blue-800'
-                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <p className="font-semibold">
-                  {m === 'standings' ? 'Auto (standings)' : m === 'pool_results' ? 'Pool play results' : 'Manual'}
-                </p>
-                <p className="text-xs font-normal mt-0.5 text-gray-500">
-                  {m === 'standings'
-                    ? 'Seeds assigned by W-L record + point differential'
-                    : m === 'pool_results'
-                      ? `Block seeding: ${pools.map((p) => p.name).join(' → ')} — top teams from each pool fill seeds in order`
-                      : 'You choose which team gets each seed'}
-                </p>
-              </button>
-            ))}
+            {(['standings', ...(pools.length >= 2 ? ['pool_results'] : []), 'manual'] as const).map((m) => {
+              const isPoolMethod = ['pool_results', 'pool_results_alternating', 'pool_tiers'].includes(seedingMethod)
+              const isActive = m === 'standings' ? seedingMethod === 'standings'
+                : m === 'pool_results' ? isPoolMethod
+                : seedingMethod === 'manual'
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    if (m === 'pool_results') setSeedingMethod('pool_results')
+                    else setSeedingMethod(m as PoolSeedingMethod)
+                  }}
+                  className={`flex-1 min-w-[140px] px-3 py-2.5 rounded-lg border text-sm font-medium text-left transition-colors ${
+                    isActive
+                      ? 'border-blue-500 bg-blue-50 text-blue-800'
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <p className="font-semibold">
+                    {m === 'standings' ? 'Auto (standings)' : m === 'pool_results' ? 'Pool play results' : 'Manual'}
+                  </p>
+                  <p className="text-xs font-normal mt-0.5 text-gray-500">
+                    {m === 'standings'
+                      ? 'Seeds assigned by W-L record + point differential'
+                      : m === 'pool_results'
+                        ? `Seed from pool play standings — choose order below`
+                        : 'You choose which team gets each seed'}
+                  </p>
+                </button>
+              )
+            })}
           </div>
+
+          {/* Pool play sub-options */}
+          {['pool_results', 'pool_results_alternating', 'pool_tiers'].includes(seedingMethod) && pools.length >= 2 && (
+            <div className="border rounded-lg p-3 bg-gray-50 space-y-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Pool seeding order</p>
+              <div className="flex gap-2 flex-wrap">
+                {([
+                  { value: 'pool_results', label: 'Block', desc: `${pools.map(p => p.name).join(', ')} fill seeds in order` },
+                  { value: 'pool_results_alternating', label: 'Alternating', desc: `A1, B1, A2, B2 — pools interleaved by rank` },
+                  { value: 'pool_tiers', label: 'Split tiers', desc: `Each pool gets its own playoff bracket` },
+                ] as { value: PoolSeedingMethod; label: string; desc: string }[]).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      setSeedingMethod(opt.value)
+                      if (opt.value === 'pool_tiers') {
+                        setTiers(buildTiersFromPools())
+                      }
+                    }}
+                    className={`flex-1 min-w-[120px] px-3 py-2 rounded-lg border text-sm text-left transition-colors ${
+                      seedingMethod === opt.value
+                        ? 'border-blue-500 bg-white text-blue-800'
+                        : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <p className="font-semibold text-xs">{opt.label}</p>
+                    <p className="text-xs font-normal text-gray-400 mt-0.5 leading-snug">{opt.desc}</p>
+                  </button>
+                ))}
+              </div>
+
+              {/* Per-pool advance counts (Block + Alternating only) */}
+              {(seedingMethod === 'pool_results' || seedingMethod === 'pool_results_alternating') && (
+                <div className="space-y-1.5 pt-1 border-t border-gray-200">
+                  <p className="text-xs text-gray-500 font-medium">Teams advancing from each pool</p>
+                  <div className="flex flex-wrap gap-3">
+                    {pools.map((pool, i) => (
+                      <label key={pool.id} className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-600 font-medium">{pool.name}</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={16}
+                          value={advancePerPool[i] ?? ''}
+                          onChange={(e) => {
+                            const v = parseInt(e.target.value) || 1
+                            setAdvancePerPool((prev) => {
+                              const next = [...prev]
+                              next[i] = v
+                              return next
+                            })
+                          }}
+                          className="w-14 border rounded px-2 py-1 text-sm text-center"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Total advancing: {advancePerPool.reduce((a, b) => a + (b || 0), 0)} teams
+                  </p>
+                </div>
+              )}
+
+              {/* Split tiers explanation */}
+              {seedingMethod === 'pool_tiers' && (
+                <div className="pt-1 border-t border-gray-200 text-xs text-gray-500 space-y-1">
+                  <p>Tiers have been auto-configured — one per pool. Adjust advance counts in the tier table below.</p>
+                  <p className="font-medium text-gray-700">
+                    {pools.map((p, i) => `${p.name} → ${tiers[i]?.name ?? TIER_PRESETS[pools.length]?.[i] ?? `Tier ${i+1}`}`).join(' · ')}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {err && <p className="text-sm text-red-500">{err}</p>}

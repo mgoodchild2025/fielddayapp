@@ -7,6 +7,7 @@ import { PlayoffConfigWizard } from '@/components/bracket/playoff-config-wizard'
 import { recommendBracket, seedFromStandings, seedFromDivisionStandings, seedFromPoolStandings, type TeamStanding } from '@/lib/bracket'
 import type { BracketData, BracketMatchData, TeamRef } from '@/components/bracket/bracket-view'
 import type { ExistingConfig } from '@/components/bracket/playoff-config-wizard'
+import type { PoolSeedingMethod } from '@/actions/playoff-config'
 
 export default async function AdminBracketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: leagueId } = await params
@@ -159,7 +160,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: configRow } = await (db as any)
     .from('playoff_configs')
-    .select('id, seeding_method')
+    .select('id, seeding_method, advance_per_pool')
     .eq('league_id', leagueId)
     .eq('organization_id', org.id)
     .maybeSingle()
@@ -209,7 +210,8 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
 
     existingConfig = {
       id: configRow.id,
-      seedingMethod: configRow.seeding_method as 'standings' | 'pool_results' | 'manual',
+      seedingMethod: configRow.seeding_method as PoolSeedingMethod,
+      advancePerPool: configRow.advance_per_pool as number[] | null ?? undefined,
       tiers: sortedTiers.map((t) => ({
         id: t.id,
         name: t.name,

@@ -26,11 +26,13 @@ async function getOrgAndRequireAdmin() {
   return org
 }
 
-// Compute standings for a league from confirmed game results
+// Compute standings for a league from confirmed game results.
+// gameFilter: 'all' = all games; 'pool_only' = only games with pool_id set
 async function computeStandings(
   db: ReturnType<typeof createServiceRoleClient>,
   leagueId: string,
-  orgId: string
+  orgId: string,
+  gameFilter: 'all' | 'pool_only' = 'all'
 ): Promise<TeamStanding[]> {
   const [{ data: teams }, { data: results }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,6 +60,7 @@ async function computeStandings(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const game = Array.isArray(r.game) ? r.game[0] : r.game as any
     if (!game || game.status !== 'completed' || game.league_id !== leagueId) continue
+    if (gameFilter === 'pool_only' && !game.pool_id) continue
     const ht = game.home_team_id as string
     const at = game.away_team_id as string
     if (!record[ht] || !record[at]) continue
@@ -258,17 +261,79 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
         seededTeams = seedFromStandings(standings, bracket.teams_advancing)
       }
     }
-  } else if (bracket.seeding_method === 'pool_results') {
-    const standings = await computeStandings(db, leagueId, org.id)
+  } else if (
+    bracket.seeding_method === 'pool_results' ||
+    bracket.seeding_method === 'pool_results_alternating' ||
+    bracket.seeding_method === 'pool_tiers'
+  ) {
+    // Use pool-play game results for standings (not regular season games)
+    const standings = await computeStandings(db, leagueId, org.id, 'pool_only')
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: pools } = await (db as any).from('pools').select('id, name').eq('league_id', leagueId).eq('organization_id', org.id)
+    const { data: pools } = await (db as any)
+      .from('pools')
+      .select('id, name, sort_order')
+      .eq('league_id', leagueId)
+      .eq('organization_id', org.id)
+      .order('sort_order', { ascending: true })
+
     if (pools && pools.length > 0) {
-      const poolStandings = pools.map((pool: { id: string; name: string }) => ({
-        poolId: pool.id,
-        poolName: pool.name,
-        teams: standings.filter((t) => t.poolId === pool.id),
-      }))
-      seededTeams = seedFromPoolStandings(poolStandings, bracket.teams_advancing)
+      if (bracket.seeding_method === 'pool_tiers') {
+        // Each tier maps to one pool by index.
+        // Look up which index this bracket's tier has among all tiers for this league.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: tierRow } = await (db as any)
+          .from('playoff_tiers')
+          .select('config_id')
+          .eq('bracket_id', bracketId)
+          .maybeSingle()
+
+        let tierIndex = 0
+        if (tierRow?.config_id) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: allTiers } = await (db as any)
+            .from('playoff_tiers')
+            .select('id, bracket_id')
+            .eq('config_id', tierRow.config_id)
+            .order('sort_order', { ascending: true })
+          tierIndex = (allTiers ?? []).findIndex((t: { bracket_id: string | null }) => t.bracket_id === bracketId)
+          if (tierIndex < 0) tierIndex = 0
+        }
+
+        const pool = pools[tierIndex]
+        if (pool) {
+          seededTeams = seedFromStandings(
+            standings.filter((t) => t.poolId === pool.id),
+            bracket.teams_advancing
+          )
+        }
+      } else {
+        // Shared: fetch advance_per_pool from the config if available
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: tierRow } = await (db as any)
+          .from('playoff_tiers')
+          .select('config_id')
+          .eq('bracket_id', bracketId)
+          .maybeSingle()
+        let advancePerPool: number[] | undefined
+        if (tierRow?.config_id) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: cfgRow } = await (db as any)
+            .from('playoff_configs')
+            .select('advance_per_pool')
+            .eq('id', tierRow.config_id)
+            .maybeSingle()
+          advancePerPool = cfgRow?.advance_per_pool ?? undefined
+        }
+
+        const poolStandings = pools.map((pool: { id: string; name: string }) => ({
+          poolId: pool.id,
+          poolName: pool.name,
+          teams: standings.filter((t) => t.poolId === pool.id),
+        }))
+        const order = bracket.seeding_method === 'pool_results_alternating' ? 'alternating' : 'block'
+        seededTeams = seedFromPoolStandings(poolStandings, bracket.teams_advancing, order, advancePerPool)
+      }
     }
   }
 

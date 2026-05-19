@@ -64,14 +64,36 @@ async function computeStandings(
 // Ordinal labels for pool-position scaffold labels
 const ORDINALS = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th']
 
-function seedLabel(seed: number, poolNames: string[], seedOffset: number): string {
+// labelMode: 'block' — Pool A fills first N seeds, then Pool B, etc.
+//            'alternating' — A1, B1, A2, B2, …
+//            'single' — one pool name, just rank within pool
+// perPool: used for block mode; defaults to equal split
+function seedLabel(
+  seed: number,
+  poolNames: string[],
+  seedOffset: number,
+  labelMode: 'block' | 'alternating' | 'single' = 'alternating',
+  perPool?: number
+): string {
   const globalSeed = seed + seedOffset
-  if (poolNames.length > 0) {
-    const poolIndex = (globalSeed - 1) % poolNames.length
-    const rank = Math.floor((globalSeed - 1) / poolNames.length)
+  if (poolNames.length === 0) return `Seed ${globalSeed}`
+
+  if (labelMode === 'single' || poolNames.length === 1) {
+    const rank = globalSeed - 1
+    return `${ORDINALS[rank] ?? `${rank + 1}th`} - ${poolNames[0]}`
+  }
+
+  if (labelMode === 'block') {
+    const pp = perPool ?? Math.ceil(16 / poolNames.length)
+    const poolIndex = Math.min(Math.floor((globalSeed - 1) / pp), poolNames.length - 1)
+    const rank = (globalSeed - 1) % pp
     return `${ORDINALS[rank] ?? `${rank + 1}th`} - ${poolNames[poolIndex]}`
   }
-  return `Seed ${globalSeed}`
+
+  // alternating
+  const poolIndex = (globalSeed - 1) % poolNames.length
+  const rank = Math.floor((globalSeed - 1) / poolNames.length)
+  return `${ORDINALS[rank] ?? `${rank + 1}th`} - ${poolNames[poolIndex]}`
 }
 
 async function insertBracketWithMatches(
@@ -83,14 +105,17 @@ async function insertBracketWithMatches(
     bracketType: 'single_elimination' | 'double_elimination'
     teamsAdvancing: number
     thirdPlaceGame: boolean
-    poolNames: string[]  // empty = standings-based labels ("Seed N"); non-empty = pool-position labels ("1st - Pool A")
-    seedOffset: number   // tier.seed_from - 1; 0 for the top tier, non-zero for lower tiers
+    poolNames: string[]  // empty = "Seed N" labels; single = pool_tiers per-pool; multiple = block/alternating
+    seedOffset: number   // tier.seed_from - 1; 0 for the top tier
+    seedingMethod?: string  // if provided, stored on the bracket row
+    labelMode?: 'block' | 'alternating' | 'single'
+    perPool?: number  // for block label calculation
   }
 ): Promise<{ bracketId: string | null; error: string | null }> {
   const { name, bracketType, teamsAdvancing, thirdPlaceGame, poolNames, seedOffset } = opts
   const bracketSize = nextPowerOf2(teamsAdvancing)
   const actualThirdPlace = bracketType === 'double_elimination' ? false : thirdPlaceGame
-  const seedingMethod = poolNames.length > 0 ? 'pool_results' : 'standings'
+  const seedingMethod = opts.seedingMethod ?? (poolNames.length > 0 ? 'pool_results' : 'standings')
 
   // Insert bracket row in scaffold state — teams are assigned later via "Seed Bracket"
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -130,8 +155,8 @@ async function insertBracketWithMatches(
       match_number: m.matchNumber,
       team1_id: null,
       team2_id: null,
-      team1_label: m.team1Seed ? seedLabel(m.team1Seed, poolNames, seedOffset) : null,
-      team2_label: m.isBye ? 'Bye' : (m.team2Seed ? seedLabel(m.team2Seed, poolNames, seedOffset) : null),
+      team1_label: m.team1Seed ? seedLabel(m.team1Seed, poolNames, seedOffset, opts.labelMode, opts.perPool) : null,
+      team2_label: m.isBye ? 'Bye' : (m.team2Seed ? seedLabel(m.team2Seed, poolNames, seedOffset, opts.labelMode, opts.perPool) : null),
       team1_seed: m.team1Seed,
       team2_seed: m.isBye ? null : m.team2Seed,
       is_bye: m.isBye,
@@ -185,9 +210,12 @@ export interface TierInput {
   thirdPlaceGame: boolean
 }
 
+export type PoolSeedingMethod = 'standings' | 'pool_results' | 'pool_results_alternating' | 'pool_tiers' | 'manual'
+
 export async function savePlayoffConfig(input: {
   leagueId: string
-  seedingMethod: 'standings' | 'pool_results' | 'manual'
+  seedingMethod: PoolSeedingMethod
+  advancePerPool?: number[]
   tiers: TierInput[]
 }): Promise<{ error: string | null; configId: string | null }> {
   const org = await getOrgAndRequireAdmin()
@@ -216,7 +244,10 @@ export async function savePlayoffConfig(input: {
     configId = existing.id
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (db as any).from('playoff_configs')
-      .update({ seeding_method: input.seedingMethod })
+      .update({
+        seeding_method: input.seedingMethod,
+        advance_per_pool: input.advancePerPool ?? null,
+      })
       .eq('id', configId)
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -224,6 +255,7 @@ export async function savePlayoffConfig(input: {
       organization_id: org.id,
       league_id: input.leagueId,
       seeding_method: input.seedingMethod,
+      advance_per_pool: input.advancePerPool ?? null,
     }).select('id').single()
     if (createErr || !created) return { error: createErr?.message ?? 'Failed to create config', configId: null }
     configId = created.id
@@ -291,12 +323,15 @@ export async function generateAllTierBrackets(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: config } = await (db as any)
     .from('playoff_configs')
-    .select('id, seeding_method')
+    .select('id, seeding_method, advance_per_pool')
     .eq('league_id', leagueId)
     .eq('organization_id', org.id)
     .maybeSingle()
 
   if (!config) return { error: 'No playoff config found. Save the config first.', generated: 0, skipped: 0 }
+
+  const seedingMethod: PoolSeedingMethod = config.seeding_method as PoolSeedingMethod
+  const advancePerPool: number[] | null = config.advance_per_pool ?? null
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: tiersData } = await (db as any)
@@ -312,7 +347,7 @@ export async function generateAllTierBrackets(
 
   if (tiers.length === 0) return { error: 'No tiers defined.', generated: 0, skipped: 0 }
 
-  // Fetch pools — used for scaffold label generation ("1st - Pool A" vs generic "Seed 1")
+  // Fetch pools — used for scaffold label generation
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: poolsData } = await (db as any)
     .from('pools')
@@ -320,12 +355,15 @@ export async function generateAllTierBrackets(
     .eq('league_id', leagueId)
     .eq('organization_id', org.id)
     .order('sort_order', { ascending: true })
-  const poolNames: string[] = (poolsData ?? []).map((p: { name: string }) => p.name)
+  const pools: { id: string; name: string }[] = (poolsData ?? [])
+  const allPoolNames: string[] = pools.map((p) => p.name)
 
   let generated = 0
   let skipped = 0
 
-  for (const tier of tiers) {
+  for (let tierIdx = 0; tierIdx < tiers.length; tierIdx++) {
+    const tier = tiers[tierIdx]
+
     // Check if this tier's bracket already has scores recorded → skip regeneration
     if (tier.bracket_id) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -355,15 +393,48 @@ export async function generateAllTierBrackets(
       continue
     }
 
+    // Determine scaffold label config based on seeding method
+    let tierPoolNames: string[]
+    let labelMode: 'block' | 'alternating' | 'single'
+    let tierSeedOffset: number
+    let perPool: number | undefined
+
+    if (seedingMethod === 'pool_tiers') {
+      // Each tier maps to one pool by index; seeds start at 1 within the tier
+      tierPoolNames = allPoolNames[tierIdx] ? [allPoolNames[tierIdx]] : []
+      labelMode = 'single'
+      tierSeedOffset = 0
+    } else if (seedingMethod === 'pool_results_alternating') {
+      tierPoolNames = allPoolNames
+      labelMode = 'alternating'
+      tierSeedOffset = tier.seed_from - 1
+    } else if (seedingMethod === 'pool_results') {
+      tierPoolNames = allPoolNames
+      labelMode = 'block'
+      tierSeedOffset = tier.seed_from - 1
+      if (advancePerPool && allPoolNames.length > 0) {
+        perPool = advancePerPool[0]
+      } else {
+        perPool = allPoolNames.length > 0 ? Math.ceil(teamsAdvancing / allPoolNames.length) : undefined
+      }
+    } else {
+      tierPoolNames = allPoolNames.length > 0 ? allPoolNames : []
+      labelMode = 'alternating'
+      tierSeedOffset = tier.seed_from - 1
+    }
+
     // Brackets are scaffolded with position labels (e.g. "1st - Pool A").
-    // Admins seed with real teams via "Seed Bracket" once all regular season scores are final.
+    // Admins seed with real teams via "Seed Bracket" once all pool scores are final.
     const { bracketId, error } = await insertBracketWithMatches(db, org.id, leagueId, {
       name: tier.name,
       bracketType: tier.bracket_type as 'single_elimination' | 'double_elimination',
       teamsAdvancing,
       thirdPlaceGame: tier.third_place_game,
-      poolNames,
-      seedOffset: tier.seed_from - 1,
+      poolNames: tierPoolNames,
+      seedOffset: tierSeedOffset,
+      seedingMethod,
+      labelMode,
+      perPool,
     })
 
     if (error || !bracketId) { skipped++; continue }

@@ -463,21 +463,40 @@ export function seedFromDivisionStandings(
     .map((t, i) => ({ ...t, seed: i + 1 }))
 }
 
-// Seeding from pool play — block order:
-// All Pool A teams first, then all Pool B teams, etc.
-// E.g. 2 pools advancing 3 each: A1, A2, A3, B1, B2, B3 → seeds 1–6
+// Seeding from pool play standings.
+// order === 'block'       (default): A1, A2, A3, B1, B2, B3  → seeds 1–6
+// order === 'alternating':           A1, B1, A2, B2, A3, B3  → seeds 1–6
+// advancePerPool: how many teams to take from each pool; defaults to equal split
 export function seedFromPoolStandings(
   poolStandings: { poolId: string; poolName: string; teams: TeamStanding[] }[],
-  bracketSize: number
+  bracketSize: number,
+  order: 'block' | 'alternating' = 'block',
+  advancePerPool?: number[]
 ): TeamStanding[] {
-  const seeded: TeamStanding[] = []
-  const perPool = poolStandings.length > 0 ? Math.ceil(bracketSize / poolStandings.length) : bracketSize
+  if (poolStandings.length === 0) return []
 
-  for (const pool of poolStandings) {
+  const defaultPerPool = Math.ceil(bracketSize / poolStandings.length)
+  const sortedPools = poolStandings.map((pool, i) => {
     const sorted = seedFromStandings(pool.teams, pool.teams.length)
-    const take = Math.min(perPool, sorted.length)
-    for (let i = 0; i < take && seeded.length < bracketSize; i++) {
-      seeded.push(sorted[i])
+    const take = advancePerPool?.[i] ?? defaultPerPool
+    return sorted.slice(0, take)
+  })
+
+  const seeded: TeamStanding[] = []
+
+  if (order === 'alternating') {
+    const maxLen = Math.max(...sortedPools.map((p) => p.length))
+    for (let rank = 0; rank < maxLen && seeded.length < bracketSize; rank++) {
+      for (const pool of sortedPools) {
+        if (rank < pool.length && seeded.length < bracketSize) seeded.push(pool[rank])
+      }
+    }
+  } else {
+    for (const pool of sortedPools) {
+      for (const team of pool) {
+        if (seeded.length >= bracketSize) break
+        seeded.push(team)
+      }
     }
   }
 
