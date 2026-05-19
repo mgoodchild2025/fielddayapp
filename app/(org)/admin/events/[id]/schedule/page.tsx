@@ -54,7 +54,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)
       .from('leagues')
-      .select('sport, max_participants, schedule_published')
+      .select('sport, max_participants, schedule_published, event_type')
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
@@ -68,6 +68,8 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
   ])
 
   const sport = league?.sport ?? ''
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const eventType: string = (league as any)?.event_type ?? 'league'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const maxParticipants: number | null = (league as any)?.max_participants ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -135,6 +137,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
           pools={pools ?? []}
           leagueId={id}
           sport={sport}
+          eventType={eventType}
           timezone={timezone}
           schedulePublished={schedulePublished}
           isAdmin={isOrgAdmin}

@@ -54,6 +54,7 @@ interface Props {
   pools?: Pool[]
   leagueId: string
   sport: string
+  eventType?: string
   timezone: string
   schedulePublished?: boolean
   isAdmin?: boolean
@@ -104,7 +105,8 @@ function IndeterminateCheckbox({ checked, indeterminate, onChange, className }: 
   )
 }
 
-export function ScheduleTable({ games, teams, pools = [], leagueId, sport, timezone, schedulePublished = true, isAdmin = false }: Props) {
+export function ScheduleTable({ games, teams, pools = [], leagueId, sport, eventType, timezone, schedulePublished = true, isAdmin = false }: Props) {
+  const showWeek = eventType !== 'tournament'
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [editingGame, setEditingGame] = useState<Game | null>(null)
@@ -372,7 +374,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, timez
                         <p className="text-xs text-gray-400 mb-1">
                           {game.timeLabel}
                           {game.court ? ` · ${venueLabel(sport)} ${game.court}` : ''}
-                          {game.weekNumber ? ` · Wk ${game.weekNumber}` : ''}
+                          {showWeek && game.weekNumber ? ` · Wk ${game.weekNumber}` : ''}
                           {game.poolName ? ` · ${game.poolName}` : ''}
                         </p>
                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -465,7 +467,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, timez
                       />
                     </th>
                   )}
-                  <th className="px-4 py-3 font-medium text-gray-500">Wk</th>
+                  {showWeek && <th className="px-4 py-3 font-medium text-gray-500">Wk</th>}
                   <th className="px-4 py-3 font-medium text-gray-500">Time</th>
                   <th className="px-4 py-3 font-medium text-gray-500">Matchup</th>
                   <th className="px-4 py-3 font-medium text-gray-500">{venueLabel(sport)}</th>
@@ -479,7 +481,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, timez
                   <>
                     {/* Date group header */}
                     <tr key={`header-${dateKey}`} className="bg-gray-50 border-b border-t">
-                      <td colSpan={isAdmin ? 8 : 7} className="px-4 py-2">
+                      <td colSpan={isAdmin ? (showWeek ? 8 : 7) : (showWeek ? 7 : 6)} className="px-4 py-2">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
                             {dateLabel}
@@ -514,7 +516,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, timez
                             />
                           </td>
                         )}
-                        <td className="px-4 py-3 text-gray-400 text-xs">{game.weekNumber ?? '—'}</td>
+                        {showWeek && <td className="px-4 py-3 text-gray-400 text-xs">{game.weekNumber ?? '—'}</td>}
                         <td className="px-4 py-3">
                           <div className="text-xs text-gray-500">{game.timeLabel}</div>
                         </td>
