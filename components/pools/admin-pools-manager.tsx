@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useMemo } from 'react'
-import { createPool, deletePool, setTeamPool, generatePoolSchedule, seedPoolsFromStandings } from '@/actions/pools'
+import { createPool, deletePool, setTeamPool, generatePoolSchedule, seedPoolsFromStandings, reorderTeamInPool } from '@/actions/pools'
 
 interface Pool {
   id: string
@@ -13,6 +13,7 @@ interface Team {
   id: string
   name: string
   pool_id: string | null
+  pool_sort_order: number
 }
 
 interface StandingTeam {
@@ -330,6 +331,35 @@ export function AdminPoolsManager({ leagueId, initialPools, initialTeams, standi
     })
   }
 
+  function handleMoveInPool(poolId: string, teamId: string, direction: 'up' | 'down') {
+    setTeams((prev) => {
+      const poolTeams = prev
+        .filter((t) => t.pool_id === poolId)
+        .sort((a, b) => a.pool_sort_order - b.pool_sort_order)
+      const idx = poolTeams.findIndex((t) => t.id === teamId)
+      if (idx < 0) return prev
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+      if (swapIdx < 0 || swapIdx >= poolTeams.length) return prev
+
+      // Swap sort orders
+      const updated = poolTeams.map((t, i) => {
+        if (i === idx) return { ...t, pool_sort_order: poolTeams[swapIdx].pool_sort_order }
+        if (i === swapIdx) return { ...t, pool_sort_order: poolTeams[idx].pool_sort_order }
+        return t
+      })
+      const orderedIds = [...updated].sort((a, b) => a.pool_sort_order - b.pool_sort_order).map((t) => t.id)
+
+      startTransition(async () => {
+        await reorderTeamInPool(leagueId, orderedIds)
+      })
+
+      return prev.map((t) => {
+        const u = updated.find((u) => u.id === t.id)
+        return u ?? t
+      })
+    })
+  }
+
   const unassigned = teams.filter((t) => !t.pool_id)
 
   return (
@@ -369,7 +399,8 @@ export function AdminPoolsManager({ leagueId, initialPools, initialTeams, standi
       )}
 
       {pools.map((pool) => {
-        const poolTeams = teams.filter((t) => t.pool_id === pool.id)
+        const poolTeams = [...teams.filter((t) => t.pool_id === pool.id)]
+          .sort((a, b) => a.pool_sort_order - b.pool_sort_order)
         return (
           <div key={pool.id} className="bg-white border rounded-lg overflow-hidden">
             <div className="flex items-center justify-between px-5 py-3 border-b bg-gray-50">
@@ -386,6 +417,24 @@ export function AdminPoolsManager({ leagueId, initialPools, initialTeams, standi
               {poolTeams.map((t, i) => (
                 <li key={t.id} className="flex items-center justify-between px-5 py-2.5">
                   <div className="flex items-center gap-3">
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        onClick={() => handleMoveInPool(pool.id, t.id, 'up')}
+                        disabled={isPending || i === 0}
+                        className="text-gray-300 hover:text-gray-600 disabled:opacity-20 leading-none"
+                        title="Move up"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={() => handleMoveInPool(pool.id, t.id, 'down')}
+                        disabled={isPending || i === poolTeams.length - 1}
+                        className="text-gray-300 hover:text-gray-600 disabled:opacity-20 leading-none"
+                        title="Move down"
+                      >
+                        ▼
+                      </button>
+                    </div>
                     <span className="text-xs font-medium text-gray-400 w-4">{i + 1}</span>
                     <span className="text-sm font-medium">{t.name}</span>
                   </div>

@@ -27,10 +27,11 @@ export default async function AdminPoolsPage({ params }: { params: Promise<{ id:
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)
       .from('teams')
-      .select('id, name, pool_id')
+      .select('id, name, pool_id, pool_sort_order')
       .eq('league_id', id)
       .eq('organization_id', org.id)
       .eq('status', 'active')
+      .order('pool_sort_order', { ascending: true })
       .order('name'),
     // For "seed from standings" — confirmed regular-season game results
     db.from('game_results')
@@ -42,11 +43,12 @@ export default async function AdminPoolsPage({ params }: { params: Promise<{ id:
   if (!league) notFound()
 
   // Compute regular-season standings (exclude pool play games which have pool_id set)
-  const teamList: { id: string; name: string; pool_id: string | null }[] = (teams ?? []).map(
-    (t: { id: string; name: string; pool_id?: string | null }) => ({
+  const teamList: { id: string; name: string; pool_id: string | null; pool_sort_order: number }[] = (teams ?? []).map(
+    (t: { id: string; name: string; pool_id?: string | null; pool_sort_order?: number }) => ({
       id: t.id,
       name: t.name,
       pool_id: t.pool_id ?? null,
+      pool_sort_order: t.pool_sort_order ?? 0,
     })
   )
   const teamIdSet = new Set(teamList.map((t) => t.id))

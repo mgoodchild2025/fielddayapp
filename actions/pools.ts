@@ -85,13 +85,48 @@ export async function setTeamPool(
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
   const db = createServiceRoleClient()
+
+  // When assigning to a pool, place the team at the end
+  let poolSortOrder = 0
+  if (poolId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existing } = await (db as any)
+      .from('teams')
+      .select('id')
+      .eq('pool_id', poolId)
+      .eq('organization_id', org.id)
+    poolSortOrder = (existing?.length ?? 0)
+  }
+
   const { error } = await db
     .from('teams')
-    .update({ pool_id: poolId } as never)
+    .update({ pool_id: poolId, pool_sort_order: poolId ? poolSortOrder : 0 } as never)
     .eq('id', teamId)
     .eq('organization_id', org.id)
 
   if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${leagueId}/pools`)
+  return { error: null }
+}
+
+export async function reorderTeamInPool(
+  leagueId: string,
+  orderedTeamIds: string[]
+): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  await requireOrgMember(org, ['org_admin', 'league_admin'])
+
+  const db = createServiceRoleClient()
+  await Promise.all(
+    orderedTeamIds.map((id, index) =>
+      db.from('teams')
+        .update({ pool_sort_order: index } as never)
+        .eq('id', id)
+        .eq('organization_id', org.id)
+    )
+  )
 
   revalidatePath(`/admin/events/${leagueId}/pools`)
   return { error: null }
@@ -138,12 +173,12 @@ export async function seedPoolsFromStandings(
 
     if (insertError) return { error: insertError.message }
 
-    // Assign teams to this pool
-    if (pool.teamIds.length > 0) {
+    // Assign teams to this pool with sort order based on standings position
+    for (let j = 0; j < pool.teamIds.length; j++) {
       const { error: teamError } = await db
         .from('teams')
-        .update({ pool_id: newPool.id } as never)
-        .in('id', pool.teamIds)
+        .update({ pool_id: newPool.id, pool_sort_order: j } as never)
+        .eq('id', pool.teamIds[j])
         .eq('league_id', leagueId)
         .eq('organization_id', org.id)
       if (teamError) return { error: teamError.message }
