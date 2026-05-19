@@ -12,6 +12,7 @@ interface Props {
   userEmail: string | null
   isAdmin: boolean
   customLinks?: NavLink[]
+  showGallery?: boolean
 }
 
 function getInitials(name: string): string {
@@ -20,7 +21,7 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase()
 }
 
-export function MobileNav({ userName, userEmail, isAdmin, customLinks = [] }: Props) {
+export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], showGallery = true }: Props) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
 
@@ -132,10 +133,12 @@ export function MobileNav({ userName, userEmail, isAdmin, customLinks = [] }: Pr
 
           <div className="border-t border-white/10 my-4" />
 
-          <Link href="/gallery" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
-            <Images className="w-4 h-4 shrink-0" />
-            Gallery
-          </Link>
+          {showGallery && (
+            <Link href="/gallery" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
+              <Images className="w-4 h-4 shrink-0" />
+              Gallery
+            </Link>
+          )}
 
           {customLinks.length > 0 && (
             <>
