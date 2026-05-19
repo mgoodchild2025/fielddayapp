@@ -43,6 +43,7 @@ export type ShopItem = {
   price_cents: number
   currency: string
   image_url: string | null
+  additional_images: string[]
   variants: MerchVariant[]
 }
 
@@ -343,6 +344,100 @@ export async function uploadMerchandiseImage(
 
   revalidatePath('/admin/settings/merchandise')
   return { error: null, url }
+}
+
+/** Upload an additional gallery image for a merchandise item (appended to additional_images). */
+export async function uploadMerchandiseGalleryImage(
+  itemId: string,
+  formData: FormData
+): Promise<{ error: string | null; url: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const role = await getCallerRole(org.id)
+  if (!role || !['org_admin', 'league_admin'].includes(role)) {
+    return { error: 'Unauthorized', url: null }
+  }
+
+  const file = formData.get('image') as File | null
+  if (!file || file.size === 0) return { error: 'No file provided', url: null }
+  if (file.size > 5 * 1024 * 1024) return { error: 'File must be under 5 MB', url: null }
+
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+  if (!allowedTypes.includes(file.type)) {
+    return { error: 'File must be JPEG, PNG, GIF, or WebP', url: null }
+  }
+
+  const db = createServiceRoleClient()
+  const arrayBuffer = await file.arrayBuffer()
+
+  const converted = await convertToWebP(arrayBuffer, file.type, { maxWidth: 1200, maxHeight: 1200 })
+  const uploadBytes = converted?.buffer ?? Buffer.from(arrayBuffer)
+  const uploadType = converted?.contentType ?? file.type
+  const ext = converted ? 'webp' : (file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg')
+  const path = `${org.id}/${itemId}-gallery-${Date.now()}.${ext}`
+
+  const { error: uploadError } = await db.storage
+    .from('merchandise-images')
+    .upload(path, uploadBytes, { contentType: uploadType, upsert: false })
+
+  if (uploadError) return { error: uploadError.message, url: null }
+
+  const { data: { publicUrl } } = db.storage.from('merchandise-images').getPublicUrl(path)
+  const url = `${publicUrl}?t=${Date.now()}`
+
+  // Append to additional_images array
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: item } = await (db as any)
+    .from('merchandise_items')
+    .select('additional_images')
+    .eq('id', itemId)
+    .eq('organization_id', org.id)
+    .single()
+
+  const existing: string[] = item?.additional_images ?? []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any)
+    .from('merchandise_items')
+    .update({ additional_images: [...existing, url] })
+    .eq('id', itemId)
+    .eq('organization_id', org.id)
+
+  revalidatePath('/admin/settings/merchandise')
+  return { error: null, url }
+}
+
+/** Remove a gallery image from a merchandise item. */
+export async function removeMerchandiseGalleryImage(
+  itemId: string,
+  imageUrl: string
+): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const role = await getCallerRole(org.id)
+  if (!role || !['org_admin', 'league_admin'].includes(role)) {
+    return { error: 'Unauthorized' }
+  }
+
+  const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: item } = await (db as any)
+    .from('merchandise_items')
+    .select('additional_images')
+    .eq('id', itemId)
+    .eq('organization_id', org.id)
+    .single()
+
+  const existing: string[] = item?.additional_images ?? []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any)
+    .from('merchandise_items')
+    .update({ additional_images: existing.filter((u: string) => u !== imageUrl) })
+    .eq('id', itemId)
+    .eq('organization_id', org.id)
+
+  revalidatePath('/admin/settings/merchandise')
+  return { error: null }
 }
 
 /** Create or update a merchandise item. Org admin only. */
@@ -675,7 +770,7 @@ export async function getShopItems(orgId: string): Promise<ShopItem[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: items, error } = await (db as any)
     .from('merchandise_items')
-    .select('id, name, description, price_cents, currency, image_url')
+    .select('id, name, description, price_cents, currency, image_url, additional_images')
     .eq('organization_id', orgId)
     .eq('shop_enabled', true)
     .eq('is_active', true)
@@ -701,6 +796,8 @@ export async function getShopItems(orgId: string): Promise<ShopItem[]> {
 
   return (items as ShopItem[]).map((item) => ({
     ...item,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    additional_images: (item as any).additional_images ?? [],
     variants: variantsByItem.get(item.id) ?? [],
   }))
 }

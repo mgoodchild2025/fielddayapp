@@ -17,7 +17,11 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
   )
   const [quantity, setQuantity] = useState(1)
   const [modalOpen, setModalOpen] = useState(false)
+  const [selectedImageIdx, setSelectedImageIdx] = useState(0)
   const modalRef = useRef<HTMLDivElement>(null)
+
+  // All images: primary + gallery
+  const allImages = [item.image_url, ...(item.additional_images ?? [])].filter(Boolean) as string[]
 
   const hasVariants = item.variants.length > 0
   const needsVariantSelection = hasVariants && !selectedVariantId
@@ -51,6 +55,11 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
   const cardKey = `${item.id}:${selectedVariantId ?? 'none'}`
   const justAdded = addedKey === cardKey
   const selectedSoldOut = selectedVariant !== null && selectedVariant.stock_quantity === 0
+
+  function openModal() {
+    setSelectedImageIdx(0)
+    setModalOpen(true)
+  }
 
   function handleAdd() {
     if (needsVariantSelection || selectedSoldOut || maxQty === 0) return
@@ -97,7 +106,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
         {/* Image — clickable to open modal */}
         <button
           type="button"
-          onClick={() => setModalOpen(true)}
+          onClick={() => openModal()}
           className="relative block w-full aspect-square bg-gray-50 overflow-hidden focus:outline-none"
           aria-label={`View details for ${item.name}`}
         >
@@ -125,7 +134,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
           <div>
             <button
               type="button"
-              onClick={() => setModalOpen(true)}
+              onClick={() => openModal()}
               className="text-left focus:outline-none w-full"
             >
               <h3 className="font-semibold text-gray-900 text-sm leading-snug hover:underline">{item.name}</h3>
@@ -213,17 +222,62 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
               ✕
             </button>
 
-            {/* Image */}
-            {item.image_url && (
-              <div className="relative w-full aspect-video sm:aspect-square bg-gray-50 rounded-t-2xl overflow-hidden">
-                <Image
-                  src={item.image_url}
-                  alt={item.name}
-                  fill
-                  sizes="(max-width: 640px) 100vw, 448px"
-                  className="object-cover"
-                  unoptimized
-                />
+            {/* Image / carousel */}
+            {allImages.length > 0 && (
+              <div className="relative bg-gray-50 rounded-t-2xl overflow-hidden">
+                {/* Main image */}
+                <div className="relative w-full aspect-video sm:aspect-square">
+                  <Image
+                    key={allImages[selectedImageIdx]}
+                    src={allImages[selectedImageIdx]}
+                    alt={item.name}
+                    fill
+                    sizes="(max-width: 640px) 100vw, 448px"
+                    className="object-cover"
+                    unoptimized
+                  />
+
+                  {/* Prev/Next arrows — only when multiple images */}
+                  {allImages.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedImageIdx((i) => (i - 1 + allImages.length) % allImages.length)}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
+                        aria-label="Previous image"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedImageIdx((i) => (i + 1) % allImages.length)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
+                        aria-label="Next image"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Thumbnail dots / strip — only when multiple images */}
+                {allImages.length > 1 && (
+                  <div className="flex items-center justify-center gap-1.5 py-2">
+                    {allImages.map((src, idx) => (
+                      <button
+                        key={src}
+                        type="button"
+                        onClick={() => setSelectedImageIdx(idx)}
+                        className={`w-2 h-2 rounded-full transition-colors ${idx === selectedImageIdx ? 'bg-gray-700' : 'bg-gray-300 hover:bg-gray-500'}`}
+                        aria-label={`View image ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

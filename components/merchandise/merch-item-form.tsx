@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef } from 'react'
 import Image from 'next/image'
-import { upsertMerchandiseItem, upsertMerchandiseVariants, uploadMerchandiseImage } from '@/actions/merchandise'
+import { upsertMerchandiseItem, upsertMerchandiseVariants, uploadMerchandiseImage, uploadMerchandiseGalleryImage, removeMerchandiseGalleryImage } from '@/actions/merchandise'
 import type { MerchItem } from '@/actions/merchandise'
 
 type VariantDraft = {
@@ -44,7 +44,13 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
   const [saved, setSaved] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const [galleryImages, setGalleryImages] = useState<string[]>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (item as any)?.additional_images ?? []
+  )
+  const [isUploadingGallery, setIsUploadingGallery] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
 
   function addVariant() {
     setVariants((prev) => [...prev, { key: nextKey++, label: '', stock_quantity: '' }])
@@ -95,6 +101,29 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
     }
     // reset file input
     if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  async function handleGalleryImageAdd(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !item?.id) return
+    setIsUploadingGallery(true)
+    setError(null)
+    const fd = new FormData()
+    fd.append('image', file)
+    const result = await uploadMerchandiseGalleryImage(item.id, fd)
+    setIsUploadingGallery(false)
+    if (result.error) {
+      setError(result.error)
+    } else if (result.url) {
+      setGalleryImages((prev) => [...prev, result.url!])
+    }
+    if (galleryInputRef.current) galleryInputRef.current.value = ''
+  }
+
+  async function handleGalleryImageRemove(url: string) {
+    if (!item?.id) return
+    setGalleryImages((prev) => prev.filter((u) => u !== url))
+    await removeMerchandiseGalleryImage(item.id, url)
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -316,6 +345,69 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
             <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${shopEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
           </button>
         </div>
+
+        {/* Gallery images */}
+        {item?.id && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Additional photos <span className="text-gray-400 font-normal">(optional — shown in shop carousel)</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {galleryImages.map((url) => (
+                <div key={url} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 group shrink-0">
+                  <Image
+                    src={url}
+                    alt="Gallery image"
+                    fill
+                    sizes="64px"
+                    className="object-cover"
+                    unoptimized
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleGalleryImageRemove(url)}
+                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    aria-label="Remove image"
+                  >
+                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+
+              {/* Add photo button */}
+              <button
+                type="button"
+                onClick={() => galleryInputRef.current?.click()}
+                disabled={isUploadingGallery}
+                className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center hover:border-gray-400 transition-colors shrink-0 disabled:opacity-50"
+                aria-label="Add gallery image"
+              >
+                {isUploadingGallery ? (
+                  <svg className="w-4 h-4 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span className="text-[10px] text-gray-400 mt-0.5">Add</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              className="hidden"
+              onChange={handleGalleryImageAdd}
+            />
+          </div>
+        )}
 
         {/* Variants */}
         <div>
