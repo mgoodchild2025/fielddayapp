@@ -45,7 +45,7 @@ export interface ExistingTier {
 
 export interface ExistingConfig {
   id: string
-  seedingMethod: 'standings' | 'manual'
+  seedingMethod: 'standings' | 'pool_results' | 'manual'
   tiers: ExistingTier[]
 }
 
@@ -59,6 +59,8 @@ interface Props {
   existingConfig: ExistingConfig | null
   /** Count of regular season games still missing confirmed scores */
   unsettledCount?: number
+  /** Pools for this league — enables pool_results seeding option */
+  pools?: { id: string; name: string; sort_order: number }[]
 }
 
 // ── Tier seed split helper ────────────────────────────────────────────────────
@@ -417,7 +419,7 @@ function ManageHeader({
           {existingConfig.tiers.length} playoff tier{existingConfig.tiers.length !== 1 ? 's' : ''}
           {' · '}
           <span className="font-normal text-gray-500">
-            Seeding: {existingConfig.seedingMethod === 'manual' ? 'Manual' : 'Auto (standings)'}
+            Seeding: {existingConfig.seedingMethod === 'manual' ? 'Manual' : existingConfig.seedingMethod === 'pool_results' ? 'Pool play results' : 'Auto (standings)'}
           </span>
         </p>
         <p className="text-xs text-gray-400 mt-0.5">
@@ -481,6 +483,7 @@ export function PlayoffConfigWizard({
   recommendation,
   existingConfig,
   unsettledCount,
+  pools = [],
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -496,7 +499,7 @@ export function PlayoffConfigWizard({
       : defaultTotal
   )
   const [tierCount, setTierCount] = useState(existingConfig ? existingConfig.tiers.length : 1)
-  const [seedingMethod, setSeedingMethod] = useState<'standings' | 'manual'>(existingConfig?.seedingMethod ?? 'standings')
+  const [seedingMethod, setSeedingMethod] = useState<'standings' | 'pool_results' | 'manual'>(existingConfig?.seedingMethod ?? 'standings')
 
   // Step: 'setup' → 'tiers' → 'seed' (manual only) → manage
   const [step, setStep] = useState<'setup' | 'tiers' | 'seed'>('setup')
@@ -730,23 +733,27 @@ export function PlayoffConfigWizard({
         {/* Seeding method */}
         <div className="bg-white rounded-xl border p-4 space-y-2">
           <p className="text-sm font-semibold text-gray-700">Seeding Method</p>
-          <div className="flex gap-3">
-            {(['standings', 'manual'] as const).map((m) => (
+          <div className="flex gap-3 flex-wrap">
+            {(['standings', ...(pools.length >= 2 ? ['pool_results'] : []), 'manual'] as const).map((m) => (
               <button
                 key={m}
                 type="button"
-                onClick={() => setSeedingMethod(m)}
-                className={`flex-1 px-3 py-2.5 rounded-lg border text-sm font-medium text-left transition-colors ${
+                onClick={() => setSeedingMethod(m as 'standings' | 'pool_results' | 'manual')}
+                className={`flex-1 min-w-[140px] px-3 py-2.5 rounded-lg border text-sm font-medium text-left transition-colors ${
                   seedingMethod === m
                     ? 'border-blue-500 bg-blue-50 text-blue-800'
                     : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                 }`}
               >
-                <p className="font-semibold capitalize">{m === 'standings' ? 'Auto (standings)' : 'Manual'}</p>
+                <p className="font-semibold">
+                  {m === 'standings' ? 'Auto (standings)' : m === 'pool_results' ? 'Pool play results' : 'Manual'}
+                </p>
                 <p className="text-xs font-normal mt-0.5 text-gray-500">
                   {m === 'standings'
                     ? 'Seeds assigned by W-L record + point differential'
-                    : 'You choose which team gets each seed'}
+                    : m === 'pool_results'
+                      ? `Block seeding: ${pools.map((p) => p.name).join(' → ')} — top teams from each pool fill seeds in order`
+                      : 'You choose which team gets each seed'}
                 </p>
               </button>
             ))}

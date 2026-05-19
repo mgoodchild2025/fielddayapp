@@ -33,6 +33,7 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
     return [
       ...base,
       { label: 'Divisions', href: `/admin/events/${id}/divisions` },
+      { label: 'Pools', href: `/admin/events/${id}/pools` },
       { label: 'Teams', href: `/admin/events/${id}/teams` },
       { label: 'Schedule', href: `/admin/events/${id}/schedule` },
       { label: 'Stats', href: `/admin/events/${id}/stats` },

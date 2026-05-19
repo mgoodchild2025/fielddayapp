@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { createPool, deletePool, setTeamPool, generatePoolSchedule } from '@/actions/pools'
+import { useState, useTransition, useMemo } from 'react'
+import { createPool, deletePool, setTeamPool, generatePoolSchedule, seedPoolsFromStandings } from '@/actions/pools'
 
 interface Pool {
   id: string
@@ -15,10 +15,19 @@ interface Team {
   pool_id: string | null
 }
 
+interface StandingTeam {
+  id: string
+  name: string
+  wins: number
+  losses: number
+  ties: number
+}
+
 interface Props {
   leagueId: string
   initialPools: Pool[]
   initialTeams: Team[]
+  standingsOrder?: StandingTeam[]
 }
 
 function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId: string; teamCount: number }) {
@@ -165,7 +174,122 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
   )
 }
 
-export function AdminPoolsManager({ leagueId, initialPools, initialTeams }: Props) {
+function SeedFromStandings({
+  leagueId,
+  standings,
+  onSeeded,
+}: {
+  leagueId: string
+  standings: StandingTeam[]
+  onSeeded: (pools: { name: string; poolId: string }[], teams: Team[]) => void
+}) {
+  const [poolCount, setPoolCount] = useState(2)
+  const [open, setOpen] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  const preview = useMemo(() => {
+    const result: { name: string; teams: StandingTeam[] }[] = []
+    const perPool = Math.ceil(standings.length / poolCount)
+    const letters = 'ABCDEFGHIJ'
+    for (let i = 0; i < poolCount; i++) {
+      result.push({
+        name: `Pool ${letters[i] ?? i + 1}`,
+        teams: standings.slice(i * perPool, (i + 1) * perPool),
+      })
+    }
+    return result.filter((p) => p.teams.length > 0)
+  }, [standings, poolCount])
+
+  function handleConfirm() {
+    setError(null)
+    startTransition(async () => {
+      const r = await seedPoolsFromStandings(
+        leagueId,
+        preview.map((p) => ({ name: p.name, teamIds: p.teams.map((t) => t.id) }))
+      )
+      if (r.error) { setError(r.error); return }
+      // Signal parent to refresh — router.refresh() would lose optimistic state,
+      // so we reload the page instead.
+      window.location.reload()
+    })
+  }
+
+  if (standings.length === 0) return null
+
+  return (
+    <div className="bg-white border rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-gray-50 transition-colors"
+      >
+        <div>
+          <p className="text-sm font-semibold">Seed pools from standings</p>
+          <p className="text-xs text-gray-400 mt-0.5">Auto-assign teams based on current regular-season record</p>
+        </div>
+        <span className="text-gray-400 text-lg leading-none">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="border-t px-5 pb-5 pt-4 space-y-4">
+          {/* Pool count picker */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Number of pools</label>
+            <div className="flex gap-2">
+              {[2, 3, 4].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPoolCount(n)}
+                  className={`px-4 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
+                    poolCount === n
+                      ? 'border-blue-500 bg-blue-50 text-blue-800'
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div className="bg-gray-50 rounded-lg border divide-y text-sm">
+            {preview.map((pool, pi) => (
+              <div key={pi} className="px-4 py-3">
+                <p className="font-semibold text-xs text-gray-500 uppercase tracking-wide mb-1">{pool.name}</p>
+                <div className="space-y-0.5">
+                  {pool.teams.map((t, ti) => (
+                    <p key={t.id} className="text-sm text-gray-700">
+                      <span className="text-gray-400 text-xs w-5 inline-block">{pi * Math.ceil(standings.length / poolCount) + ti + 1}.</span>
+                      {t.name}
+                      <span className="text-xs text-gray-400 ml-2">{t.wins}W–{t.losses}L{t.ties > 0 ? `–${t.ties}T` : ''}</span>
+                    </p>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {error && <p className="text-xs text-red-600">{error}</p>}
+
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={isPending}
+            className="px-5 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
+          >
+            {isPending ? 'Saving…' : 'Confirm & assign pools'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function AdminPoolsManager({ leagueId, initialPools, initialTeams, standingsOrder }: Props) {
   const [pools, setPools] = useState(initialPools)
   const [teams, setTeams] = useState(initialTeams)
   const [newName, setNewName] = useState('')
@@ -210,6 +334,15 @@ export function AdminPoolsManager({ leagueId, initialPools, initialTeams }: Prop
 
   return (
     <div className="space-y-6">
+      {/* Seed from standings (shown when teams exist and no pools are assigned yet, or always) */}
+      {standingsOrder && standingsOrder.length >= 2 && (
+        <SeedFromStandings
+          leagueId={leagueId}
+          standings={standingsOrder}
+          onSeeded={() => {}}
+        />
+      )}
+
       {/* Create pool */}
       <form onSubmit={handleCreate} className="flex gap-2">
         <input

@@ -187,7 +187,7 @@ export interface TierInput {
 
 export async function savePlayoffConfig(input: {
   leagueId: string
-  seedingMethod: 'standings' | 'manual'
+  seedingMethod: 'standings' | 'pool_results' | 'manual'
   tiers: TierInput[]
 }): Promise<{ error: string | null; configId: string | null }> {
   const org = await getOrgAndRequireAdmin()

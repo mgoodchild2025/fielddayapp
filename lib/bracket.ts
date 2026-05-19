@@ -463,21 +463,21 @@ export function seedFromDivisionStandings(
     .map((t, i) => ({ ...t, seed: i + 1 }))
 }
 
-// Seeding from pool play:
-// Pool 1st, Pool 2nd, etc. interleaved so pools don't rematch immediately.
-// E.g. 2 pools of 4: A1, B1, A2, B2, A3, B3, A4, B4
+// Seeding from pool play — block order:
+// All Pool A teams first, then all Pool B teams, etc.
+// E.g. 2 pools advancing 3 each: A1, A2, A3, B1, B2, B3 → seeds 1–6
 export function seedFromPoolStandings(
   poolStandings: { poolId: string; poolName: string; teams: TeamStanding[] }[],
   bracketSize: number
 ): TeamStanding[] {
-  const maxRank = Math.max(...poolStandings.map((p) => p.teams.length))
   const seeded: TeamStanding[] = []
+  const perPool = poolStandings.length > 0 ? Math.ceil(bracketSize / poolStandings.length) : bracketSize
 
-  for (let rank = 0; rank < maxRank && seeded.length < bracketSize; rank++) {
-    for (const pool of poolStandings) {
-      const sorted = seedFromStandings(pool.teams, pool.teams.length)
-      if (sorted[rank]) seeded.push(sorted[rank])
-      if (seeded.length >= bracketSize) break
+  for (const pool of poolStandings) {
+    const sorted = seedFromStandings(pool.teams, pool.teams.length)
+    const take = Math.min(perPool, sorted.length)
+    for (let i = 0; i < take && seeded.length < bracketSize; i++) {
+      seeded.push(sorted[i])
     }
   }
 

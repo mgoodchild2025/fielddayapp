@@ -4,7 +4,7 @@ import { requireOrgMember } from '@/lib/auth'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { PlayoffConfigWizard } from '@/components/bracket/playoff-config-wizard'
-import { recommendBracket, seedFromStandings, seedFromDivisionStandings, type TeamStanding } from '@/lib/bracket'
+import { recommendBracket, seedFromStandings, seedFromDivisionStandings, seedFromPoolStandings, type TeamStanding } from '@/lib/bracket'
 import type { BracketData, BracketMatchData, TeamRef } from '@/components/bracket/bracket-view'
 import type { ExistingConfig } from '@/components/bracket/playoff-config-wizard'
 
@@ -18,13 +18,16 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
   const scope = await getAdminScope(org.id)
 
   // ── Load context ────────────────────────────────────────────────────────────
-  const [{ data: league }, { data: divisions }, { data: teams }, { data: results }, { count: unsettledCount }] = await Promise.all([
+  const [{ data: league }, { data: divisions }, { data: poolsData }, { data: teams }, { data: results }, { count: unsettledCount }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues').select('id, name, event_type, status, sport').eq('id', leagueId).eq('organization_id', org.id).single(),
     db.from('divisions').select('id, name').eq('league_id', leagueId).eq('organization_id', org.id),
-    db.from('teams').select('id, name, division_id').eq('league_id', leagueId).eq('organization_id', org.id).eq('status', 'active'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('pools').select('id, name, sort_order').eq('league_id', leagueId).eq('organization_id', org.id).order('sort_order'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('teams').select('id, name, division_id, pool_id').eq('league_id', leagueId).eq('organization_id', org.id).eq('status', 'active'),
     db.from('game_results')
-      .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status)')
+      .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
       .eq('organization_id', org.id)
       .eq('status', 'confirmed'),
     // Count regular season games that still need scores (status=scheduled = not yet completed/scored)
@@ -39,48 +42,69 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
 
   // ── Build standings ─────────────────────────────────────────────────────────
   const record: Record<string, TeamStanding> = {}
+  const poolRecord: Record<string, TeamStanding> = {}
   for (const t of teams ?? []) {
-    record[t.id] = { teamId: t.id, teamName: t.name, divisionId: t.division_id, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const poolId = (t as any).pool_id ?? null
+    record[t.id] = { teamId: t.id, teamName: t.name, divisionId: t.division_id, poolId, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 }
+    if (poolId) poolRecord[t.id] = { teamId: t.id, teamName: t.name, divisionId: t.division_id, poolId, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 }
   }
   for (const r of results ?? []) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const game = Array.isArray(r.game) ? r.game[0] : r.game as any
     if (!game || game.status !== 'completed' || game.league_id !== leagueId) continue
     const ht = game.home_team_id as string; const at = game.away_team_id as string
-    if (!record[ht] || !record[at]) continue
+    const isPoolGame = !!game.pool_id
+    const target = isPoolGame ? poolRecord : record
+    if (!target[ht] || !target[at]) continue
     const hs = r.home_score ?? 0; const as_ = r.away_score ?? 0
-    record[ht].pointsFor += hs; record[ht].pointsAgainst += as_
-    record[at].pointsFor += as_; record[at].pointsAgainst += hs
-    if (hs > as_) { record[ht].wins++; record[at].losses++ }
-    else if (as_ > hs) { record[at].wins++; record[ht].losses++ }
-    else { record[ht].ties++; record[at].ties++ }
+    target[ht].pointsFor += hs; target[ht].pointsAgainst += as_
+    target[at].pointsFor += as_; target[at].pointsAgainst += hs
+    if (hs > as_) { target[ht].wins++; target[at].losses++ }
+    else if (as_ > hs) { target[at].wins++; target[ht].losses++ }
+    else { target[ht].ties++; target[at].ties++ }
   }
   const allStandings = Object.values(record)
+  const allPoolStandings = Object.values(poolRecord)
 
   const divisionCount = (divisions ?? []).length
-  const seededTeams = divisionCount >= 2
-    ? seedFromDivisionStandings(
-        (divisions ?? []).map((div) => ({
-          divisionId: div.id,
-          divisionName: div.name,
-          teams: allStandings.filter((t) => t.divisionId === div.id),
+  const poolList = (poolsData ?? []) as { id: string; name: string; sort_order: number }[]
+  const poolCount = poolList.length
+
+  const seededTeams = poolCount >= 2
+    ? seedFromPoolStandings(
+        poolList.map((pool) => ({
+          poolId: pool.id,
+          poolName: pool.name,
+          teams: allPoolStandings.filter((t) => t.poolId === pool.id),
         })),
         (teams ?? []).length
       )
-    : seedFromStandings(allStandings, (teams ?? []).length)
+    : divisionCount >= 2
+      ? seedFromDivisionStandings(
+          (divisions ?? []).map((div) => ({
+            divisionId: div.id,
+            divisionName: div.name,
+            teams: allStandings.filter((t) => t.divisionId === div.id),
+          })),
+          (teams ?? []).length
+        )
+      : seedFromStandings(allStandings, (teams ?? []).length)
 
   const recommendation = recommendBracket({
     teamCount: (teams ?? []).length,
     divisionCount,
-    poolCount: 0,
+    poolCount,
     eventType: league?.event_type ?? 'league',
   })
 
   // ── All teams ref (for match-edit override dropdowns) ───────────────────────
-  const allTeams: TeamRef[] = (teams ?? []).map((t) => ({ id: t.id, name: t.name }))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allTeams: TeamRef[] = (teams ?? []).map((t: any) => ({ id: t.id, name: t.name }))
 
   // ── Load playoff config + tiers + bracket data ──────────────────────────────
-  const teamNameMap = new Map((teams ?? []).map((t) => [t.id, t.name]))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const teamNameMap = new Map<string, string>((teams ?? []).map((t: any) => [t.id, t.name]))
 
   function buildBracketData(raw: {
     id: string; name: string; bracket_size: number; bracket_type?: string;
@@ -185,7 +209,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
 
     existingConfig = {
       id: configRow.id,
-      seedingMethod: configRow.seeding_method as 'standings' | 'manual',
+      seedingMethod: configRow.seeding_method as 'standings' | 'pool_results' | 'manual',
       tiers: sortedTiers.map((t) => ({
         id: t.id,
         name: t.name,
@@ -218,6 +242,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
         recommendation={recommendation}
         existingConfig={existingConfig}
         unsettledCount={unsettledCount ?? 0}
+        pools={poolList}
       />
     </div>
   )

@@ -68,6 +68,7 @@ interface TeamStat {
   id: string
   name: string
   division_id: string | null
+  pool_id: string | null
   matchesPlayed: number
   wins: number
   losses: number
@@ -563,10 +564,10 @@ export default async function EventDetailPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ tab?: string; invite?: string; mode?: string }>
+  searchParams: Promise<{ tab?: string; invite?: string; mode?: string; standingsView?: string }>
 }) {
   const { slug } = await params
-  const { tab: rawTab, invite: inviteToken, mode: urlMode } = await searchParams
+  const { tab: rawTab, invite: inviteToken, mode: urlMode, standingsView } = await searchParams
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
@@ -1045,6 +1046,8 @@ export default async function EventDetailPage({
 
   let standingsTeams: TeamStat[] = []
   let divisions: { id: string; name: string; sort_order: number }[] = []
+  let pools: { id: string; name: string; sort_order: number }[] = []
+  let poolStandingsTeams: TeamStat[] = []
   let standingsPtsMethod: PtsMethod = 'wins'
   let standingsVolleyballMode: VolleyballMode = 'match_based'
 
@@ -1058,53 +1061,73 @@ export default async function EventDetailPage({
     const isVolleyballLeague = VOLLEYBALL_SPORTS.has(leagueSport)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [{ data: teamsData }, { data: divsData }, { data: resultsData }] = await Promise.all([
-      (db as any).from('teams').select('id, name, division_id').eq('league_id', league.id).eq('organization_id', org.id).eq('status', 'active'),
+    const [{ data: teamsData }, { data: divsData }, { data: poolsData }, { data: resultsData }] = await Promise.all([
+      (db as any).from('teams').select('id, name, division_id, pool_id').eq('league_id', league.id).eq('organization_id', org.id).eq('status', 'active'),
       (db as any).from('divisions').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
+      (db as any).from('pools').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
       (db as any).from('game_results')
-        .select('home_score, away_score, status, sets, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status)')
+        .select('home_score, away_score, status, sets, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
         .eq('organization_id', org.id)
         .eq('status', 'confirmed'),
     ])
 
     divisions = divsData ?? []
+    pools = poolsData ?? []
 
-    const record: Record<string, { matchesPlayed: number; wins: number; losses: number; ties: number; pointsFor: number; pointsAgainst: number; setWins: number; setLosses: number }> = {}
-    const leagueTeamIds = new Set((teamsData ?? []).map((t) => t.id))
+    const blankStat = () => ({ matchesPlayed: 0, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0 })
+    const record: Record<string, ReturnType<typeof blankStat>> = {}
+    const poolRecord: Record<string, ReturnType<typeof blankStat>> = {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const leagueTeamIds = new Set<string>((teamsData ?? []).map((t: any) => t.id as string))
 
     for (const r of resultsData ?? []) {
       const game = Array.isArray(r.game) ? r.game[0] : r.game
       if (!game || game.status !== 'completed' || game.league_id !== league.id) continue
-      const { home_team_id: ht, away_team_id: at } = game
+      const { home_team_id: ht, away_team_id: at, pool_id: gamePool } = game
       if (!ht || !at || !leagueTeamIds.has(ht) || !leagueTeamIds.has(at)) continue
-      if (!record[ht]) record[ht] = { matchesPlayed: 0, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0 }
-      if (!record[at]) record[at] = { matchesPlayed: 0, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0 }
-      record[ht].matchesPlayed++
-      record[at].matchesPlayed++
+
+      const isPoolGame = !!gamePool
+      const target = isPoolGame ? poolRecord : record
+
+      if (!target[ht]) target[ht] = blankStat()
+      if (!target[at]) target[at] = blankStat()
+      target[ht].matchesPlayed++
+      target[at].matchesPlayed++
       const hs = r.home_score ?? 0
       const as_ = r.away_score ?? 0
-      if (hs > as_) { record[ht].wins++; record[at].losses++ }
-      else if (as_ > hs) { record[at].wins++; record[ht].losses++ }
-      else { record[ht].ties++; record[at].ties++ }
-      // For volleyball: PF/PA = set-level points; for others: match scores
+      if (hs > as_) { target[ht].wins++; target[at].losses++ }
+      else if (as_ > hs) { target[at].wins++; target[ht].losses++ }
+      else { target[ht].ties++; target[at].ties++ }
       if (isVolleyballLeague && Array.isArray(r.sets)) {
         for (const s of r.sets as { home: number; away: number }[]) {
-          record[ht].pointsFor += s.home; record[ht].pointsAgainst += s.away
-          record[at].pointsFor += s.away; record[at].pointsAgainst += s.home
-          if (s.home > s.away) { record[ht].setWins++; record[at].setLosses++ }
-          else if (s.away > s.home) { record[at].setWins++; record[ht].setLosses++ }
+          target[ht].pointsFor += s.home; target[ht].pointsAgainst += s.away
+          target[at].pointsFor += s.away; target[at].pointsAgainst += s.home
+          if (s.home > s.away) { target[ht].setWins++; target[at].setLosses++ }
+          else if (s.away > s.home) { target[at].setWins++; target[ht].setLosses++ }
         }
       } else {
-        record[ht].pointsFor += hs; record[ht].pointsAgainst += as_
-        record[at].pointsFor += as_; record[at].pointsAgainst += hs
+        target[ht].pointsFor += hs; target[ht].pointsAgainst += as_
+        target[at].pointsFor += as_; target[at].pointsAgainst += hs
       }
     }
 
-    standingsTeams = (teamsData ?? []).map((t) => ({
-      ...t,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    standingsTeams = (teamsData ?? []).map((t: any) => ({
+      id: t.id, name: t.name,
       division_id: t.division_id ?? null,
-      ...(record[t.id] ?? { matchesPlayed: 0, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0 }),
+      pool_id: t.pool_id ?? null,
+      ...(record[t.id] ?? blankStat()),
     }))
+    poolStandingsTeams = (teamsData ?? [])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((t: any) => t.pool_id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((t: any) => ({
+        id: t.id, name: t.name,
+        division_id: t.division_id ?? null,
+        pool_id: t.pool_id ?? null,
+        ...(poolRecord[t.id] ?? blankStat()),
+      }))
     standingsPtsMethod = leaguePtsMethod
     standingsVolleyballMode = leagueVolleyballMode
   }
@@ -1875,28 +1898,72 @@ export default async function EventDetailPage({
         {/* ──────────────── STANDINGS TAB ──────────────── */}
         {activeTab === 'standings' && (
           <div>
-            {standingsTeams.length === 0 ? (
-              <p className="text-gray-500 text-center py-16">No teams yet.</p>
-            ) : divisions.length > 0 ? (
-              <div className="space-y-8">
-                {divisions.map((div) => {
-                  const divTeams = standingsTeams.filter((t) => t.division_id === div.id)
+            {/* Pool play sub-tabs — shown only when pools exist */}
+            {pools.length > 0 && (
+              <div className="flex gap-1 mb-5 border-b">
+                {(['regular', 'pool'] as const).map((view) => {
+                  const label = view === 'regular' ? 'Regular Season' : 'Pool Play'
+                  const href = `?tab=standings&standingsView=${view}`
+                  const active = (standingsView ?? 'regular') === view
                   return (
-                    <div key={div.id}>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">{div.name}</p>
-                      <StandingsTable teams={divTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
-                    </div>
+                    <a
+                      key={view}
+                      href={href}
+                      className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                        active
+                          ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]'
+                          : 'border-transparent text-gray-500 hover:text-gray-800'
+                      }`}
+                    >
+                      {label}
+                    </a>
                   )
                 })}
-                {standingsTeams.filter((t) => !t.division_id).length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Unassigned</p>
-                    <StandingsTable teams={standingsTeams.filter((t) => !t.division_id)} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
-                  </div>
-                )}
               </div>
+            )}
+
+            {/* Pool play standings */}
+            {pools.length > 0 && (standingsView ?? 'regular') === 'pool' ? (
+              poolStandingsTeams.length === 0 ? (
+                <p className="text-gray-500 text-center py-16">No pool play games recorded yet.</p>
+              ) : (
+                <div className="space-y-8">
+                  {pools.map((pool) => {
+                    const poolTeams = poolStandingsTeams.filter((t) => t.pool_id === pool.id)
+                    return (
+                      <div key={pool.id}>
+                        <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">{pool.name}</p>
+                        <StandingsTable teams={poolTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
+                      </div>
+                    )
+                  })}
+                </div>
+              )
             ) : (
-              <StandingsTable teams={standingsTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
+              /* Regular season standings */
+              standingsTeams.length === 0 ? (
+                <p className="text-gray-500 text-center py-16">No teams yet.</p>
+              ) : divisions.length > 0 ? (
+                <div className="space-y-8">
+                  {divisions.map((div) => {
+                    const divTeams = standingsTeams.filter((t) => t.division_id === div.id)
+                    return (
+                      <div key={div.id}>
+                        <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">{div.name}</p>
+                        <StandingsTable teams={divTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
+                      </div>
+                    )
+                  })}
+                  {standingsTeams.filter((t) => !t.division_id).length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Unassigned</p>
+                      <StandingsTable teams={standingsTeams.filter((t) => !t.division_id)} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <StandingsTable teams={standingsTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
+              )
             )}
           </div>
         )}

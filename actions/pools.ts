@@ -97,6 +97,63 @@ export async function setTeamPool(
   return { error: null }
 }
 
+export async function seedPoolsFromStandings(
+  leagueId: string,
+  pools: { name: string; teamIds: string[] }[]
+): Promise<{ error: string | null }> {
+  if (!pools.length) return { error: 'At least one pool required' }
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  await requireOrgMember(org, ['org_admin', 'league_admin'])
+
+  const db = createServiceRoleClient()
+
+  // Delete all existing pools for this league (cascades team/game pool_id nullification)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existingPools } = await (db as any)
+    .from('pools')
+    .select('id')
+    .eq('league_id', leagueId)
+    .eq('organization_id', org.id)
+
+  for (const p of (existingPools ?? [])) {
+    // Unassign teams and games first
+    await db.from('teams').update({ pool_id: null } as never).eq('pool_id' as never, p.id).eq('organization_id', org.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any).from('games').update({ pool_id: null }).eq('pool_id', p.id).eq('organization_id', org.id)
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('pools').delete().eq('league_id', leagueId).eq('organization_id', org.id)
+
+  // Insert new pools in order
+  for (let i = 0; i < pools.length; i++) {
+    const pool = pools[i]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: newPool, error: insertError } = await (db as any)
+      .from('pools')
+      .insert({ league_id: leagueId, organization_id: org.id, name: pool.name.trim(), sort_order: i })
+      .select('id')
+      .single()
+
+    if (insertError) return { error: insertError.message }
+
+    // Assign teams to this pool
+    if (pool.teamIds.length > 0) {
+      const { error: teamError } = await db
+        .from('teams')
+        .update({ pool_id: newPool.id } as never)
+        .in('id', pool.teamIds)
+        .eq('league_id', leagueId)
+        .eq('organization_id', org.id)
+      if (teamError) return { error: teamError.message }
+    }
+  }
+
+  revalidatePath(`/admin/events/${leagueId}/pools`)
+  return { error: null }
+}
+
 export async function generatePoolSchedule(input: {
   poolId: string
   leagueId: string
