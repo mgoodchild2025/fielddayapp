@@ -389,13 +389,17 @@ export function AdminPoolsManager({ leagueId, initialPools, initialTeams, standi
                     <span className="text-xs font-medium text-gray-400 w-4">{i + 1}</span>
                     <span className="text-sm font-medium">{t.name}</span>
                   </div>
-                  <button
-                    onClick={() => handleAssign(t.id, null)}
+                  <select
+                    value={pool.id}
                     disabled={isPending}
-                    className="text-xs text-gray-400 hover:text-red-500 disabled:opacity-40"
+                    onChange={(e) => handleAssign(t.id, e.target.value === '' ? null : e.target.value)}
+                    className="border rounded-md px-2 py-1 text-xs focus:outline-none disabled:opacity-40"
                   >
-                    Remove
-                  </button>
+                    {pools.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                    <option value="">Unassign</option>
+                  </select>
                 </li>
               ))}
               {poolTeams.length === 0 && (
