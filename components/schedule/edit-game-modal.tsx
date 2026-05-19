@@ -9,6 +9,11 @@ interface Team {
   name: string
 }
 
+interface Pool {
+  id: string
+  name: string
+}
+
 interface Props {
   game: {
     id: string
@@ -20,10 +25,12 @@ interface Props {
     scheduledAt: string
     court: string | null
     weekNumber: number | null
+    poolId: string | null | undefined
     status: string
     cancellationReason: string | null
   }
   teams: Team[]
+  pools?: Pool[]
   sport?: string
   onClose: () => void
   onDeleted: () => void
@@ -37,7 +44,7 @@ function toLocalDatetimeValue(utcIso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-export function EditGameModal({ game, teams, sport, onClose, onDeleted, onStatusChanged }: Props) {
+export function EditGameModal({ game, teams, pools = [], sport, onClose, onDeleted, onStatusChanged }: Props) {
   const [homeTeamId, setHomeTeamId] = useState(game.homeTeamId ?? '')
   const [awayTeamId, setAwayTeamId] = useState(game.awayTeamId ?? '')
   const [homeTeamLabel, setHomeTeamLabel] = useState(game.homeTeamLabel ?? '')
@@ -45,6 +52,7 @@ export function EditGameModal({ game, teams, sport, onClose, onDeleted, onStatus
   const [scheduledAt, setScheduledAt] = useState(toLocalDatetimeValue(game.scheduledAt))
   const [court, setCourt] = useState(game.court ?? '')
   const [weekNumber, setWeekNumber] = useState(game.weekNumber?.toString() ?? '')
+  const [poolId, setPoolId] = useState(game.poolId ?? '')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -69,6 +77,7 @@ export function EditGameModal({ game, teams, sport, onClose, onDeleted, onStatus
         scheduledAt: new Date(scheduledAt).toISOString(),
         court: court || undefined,
         weekNumber: weekNumber ? Number(weekNumber) : undefined,
+        poolId: poolId || null,
       })
       if (result.error) {
         setError(result.error)
@@ -202,6 +211,20 @@ export function EditGameModal({ game, teams, sport, onClose, onDeleted, onStatus
               />
             </div>
           </div>
+
+          {pools.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Pool</label>
+              <select
+                value={poolId}
+                onChange={(e) => setPoolId(e.target.value)}
+                className="w-full border rounded px-2 py-1.5 text-sm"
+              >
+                <option value="">— None —</option>
+                {pools.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+          )}
 
           {error && <p className="text-xs text-red-600">{error}</p>}
 

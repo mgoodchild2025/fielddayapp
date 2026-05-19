@@ -15,6 +15,7 @@ const schema = z.object({
   scheduledAt: z.string().min(1, 'Date and time required'),
   court: z.string().optional(),
   weekNumber: z.number().optional(),
+  poolId: z.string().optional(),
 }).refine(
   (d) => {
     const hId = d.homeTeamId || ''
@@ -31,9 +32,10 @@ interface Props {
   leagueId: string
   sport?: string
   teams: { id: string; name: string }[]
+  pools?: { id: string; name: string }[]
 }
 
-export function AddGameForm({ leagueId, sport, teams }: Props) {
+export function AddGameForm({ leagueId, sport, teams, pools = [] }: Props) {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -64,6 +66,7 @@ export function AddGameForm({ leagueId, sport, teams }: Props) {
       scheduledAt: scheduledAtUtc,
       court: data.court,
       weekNumber: data.weekNumber,
+      poolId: data.poolId || undefined,
     })
     if (result.error) {
       setServerError(result.error)
@@ -157,6 +160,16 @@ export function AddGameForm({ leagueId, sport, teams }: Props) {
             />
           </div>
         </div>
+
+        {pools.length > 0 && (
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Pool</label>
+            <select {...register('poolId')} className="w-full border rounded px-2 py-1.5 text-sm">
+              <option value="">— None —</option>
+              {pools.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+        )}
 
         <button
           type="submit"

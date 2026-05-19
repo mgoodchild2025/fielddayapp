@@ -22,6 +22,7 @@ interface Game {
   awayTeamLabel: string | null
   homeTeamName: string
   awayTeamName: string
+  poolId: string | null
   poolName: string | null
   dateLabel: string
   timeLabel: string
@@ -42,9 +43,15 @@ interface Team {
   name: string
 }
 
+interface Pool {
+  id: string
+  name: string
+}
+
 interface Props {
   games: Game[]
   teams: Team[]
+  pools?: Pool[]
   leagueId: string
   sport: string
   timezone: string
@@ -97,7 +104,7 @@ function IndeterminateCheckbox({ checked, indeterminate, onChange, className }: 
   )
 }
 
-export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedulePublished = true, isAdmin = false }: Props) {
+export function ScheduleTable({ games, teams, pools = [], leagueId, sport, timezone, schedulePublished = true, isAdmin = false }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [editingGame, setEditingGame] = useState<Game | null>(null)
@@ -607,10 +614,12 @@ export function ScheduleTable({ games, teams, leagueId, sport, timezone, schedul
             scheduledAt: editingGame.scheduledAt,
             court: editingGame.court,
             weekNumber: editingGame.weekNumber,
+            poolId: editingGame.poolId,
             status: editingGame.status,
             cancellationReason: editingGame.cancellationReason,
           }}
           teams={teams}
+          pools={pools}
           sport={sport}
           onClose={() => setEditingGame(null)}
           onDeleted={() => {

@@ -27,14 +27,14 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
   const timezone = branding?.timezone ?? 'America/Toronto'
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [{ data: games }, { data: teams }, { data: league }] = await Promise.all([
+  const [{ data: games }, { data: teams }, { data: league }, { data: pools }] = await Promise.all([
     // Cast to any — Supabase types may not yet reflect home_team_label/away_team_label columns
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)
       .from('games')
       .select(`
         id, scheduled_at, court, week_number, status, cancellation_reason,
-        home_team_id, away_team_id,
+        home_team_id, away_team_id, pool_id,
         home_team_label, away_team_label,
         home_team:teams!games_home_team_id_fkey(name),
         away_team:teams!games_away_team_id_fkey(name),
@@ -58,6 +58,13 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
+      .from('pools')
+      .select('id, name')
+      .eq('league_id', id)
+      .eq('organization_id', org.id)
+      .order('sort_order', { ascending: true }),
   ])
 
   const sport = league?.sport ?? ''
@@ -85,6 +92,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
       awayTeamLabel: game.away_team_label ?? null,
       homeTeamName: home?.name ?? game.home_team_label ?? 'TBD',
       awayTeamName: away?.name ?? game.away_team_label ?? 'TBD',
+      poolId: game.pool_id ?? null,
       poolName: pool?.name ?? null,
       dateLabel,
       timeLabel,
@@ -124,6 +132,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
         <ScheduleTable
           games={mappedGames}
           teams={teams ?? []}
+          pools={pools ?? []}
           leagueId={id}
           sport={sport}
           timezone={timezone}
@@ -138,10 +147,10 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
           {/* Slot assignment — shown when template games exist and real teams are available */}
           <AssignSlotsCard leagueId={id} slotLabels={slotLabels} teams={teams ?? []} />
           <RoundRobinGenerator leagueId={id} teamCount={(teams ?? []).length} maxTeams={maxParticipants} sport={sport} />
-          <AddGameForm leagueId={id} sport={sport} teams={teams ?? []} />
+          <AddGameForm leagueId={id} sport={sport} teams={teams ?? []} pools={pools ?? []} />
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <InsertBreakForm leagueId={id} gameTimes={(mappedGames as any[]).map((g: any) => g.scheduledAt as string).filter(Boolean)} />
-          <ScheduleImport leagueId={id} sport={sport} />
+          <ScheduleImport leagueId={id} sport={sport} pools={pools ?? []} />
         </div>
       )}
     </div>

@@ -85,6 +85,7 @@ const addGameSchema = z.object({
   court: z.string().optional(),
   weekNumber: z.coerce.number().optional(),
   divisionId: z.string().uuid().optional(),
+  poolId: z.string().uuid().optional(),
 })
 
 export async function addGame(input: z.infer<typeof addGameSchema>) {
@@ -110,6 +111,7 @@ export async function addGame(input: z.infer<typeof addGameSchema>) {
       court: parsed.data.court ?? null,
       week_number: parsed.data.weekNumber ?? null,
       division_id: parsed.data.divisionId ?? null,
+      pool_id: parsed.data.poolId ?? null,
     })
     .select('id')
     .single()
@@ -127,6 +129,7 @@ export type CsvGameRow = {
   away_team: string
   court?: string
   week?: string
+  pool?: string
 }
 
 export async function generateRoundRobinSchedule(input: {
@@ -226,6 +229,7 @@ const updateGameSchema = z.object({
   scheduledAt: z.string().min(1),
   court: z.string().optional(),
   weekNumber: z.coerce.number().optional(),
+  poolId: z.string().uuid().optional().nullable(),
 })
 
 export async function updateGame(input: z.infer<typeof updateGameSchema>) {
@@ -265,6 +269,7 @@ export async function updateGame(input: z.infer<typeof updateGameSchema>) {
       scheduled_at: parsed.data.scheduledAt,
       court: parsed.data.court ?? null,
       week_number: parsed.data.weekNumber ?? null,
+      pool_id: parsed.data.poolId ?? null,
     })
     .eq('id', parsed.data.gameId)
     .eq('organization_id', org.id)
@@ -924,19 +929,30 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
     .single()
   const timezone = branding?.timezone ?? 'America/Toronto'
 
-  // Fetch all teams for this league to match by name
+  // Fetch all teams and pools for this league to match by name
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: teams } = await (db as any)
-    .from('teams')
-    .select('id, name')
-    .eq('league_id', leagueId)
-    .eq('organization_id', org.id)
+  const [{ data: teams }, { data: pools }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
+      .from('teams')
+      .select('id, name')
+      .eq('league_id', leagueId)
+      .eq('organization_id', org.id),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
+      .from('pools')
+      .select('id, name')
+      .eq('league_id', leagueId)
+      .eq('organization_id', org.id),
+  ])
 
-  const teamMap = new Map(teams?.map((t) => [t.name.toLowerCase(), t.id]))
+  const teamMap = new Map(teams?.map((t: { name: string; id: string }) => [t.name.toLowerCase(), t.id]))
+  const poolMap = new Map(pools?.map((p: { name: string; id: string }) => [p.name.toLowerCase(), p.id]))
 
   const games = rows.map((row) => {
     const homeId = teamMap.get(row.home_team?.toLowerCase()) ?? null
     const awayId = teamMap.get(row.away_team?.toLowerCase()) ?? null
+    const poolId = row.pool?.trim() ? (poolMap.get(row.pool.trim().toLowerCase()) ?? null) : null
     return {
       organization_id: org.id,
       league_id: leagueId,
@@ -950,6 +966,7 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
       away_team_label: awayId ? null : (row.away_team?.trim() || null),
       court: row.court ?? null,
       week_number: row.week ? parseInt(row.week, 10) : null,
+      pool_id: poolId,
     }
   })
 
