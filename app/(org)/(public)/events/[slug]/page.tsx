@@ -1050,6 +1050,8 @@ export default async function EventDetailPage({
   let poolStandingsTeams: TeamStat[] = []
   let standingsPtsMethod: PtsMethod = 'wins'
   let standingsVolleyballMode: VolleyballMode = 'match_based'
+  let hasRegularSeasonGames = false
+  let hasPoolGames = false
 
   if (activeTab === 'standings' && isTeamBased) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1110,6 +1112,9 @@ export default async function EventDetailPage({
         target[at].pointsFor += as_; target[at].pointsAgainst += hs
       }
     }
+
+    hasRegularSeasonGames = Object.keys(record).length > 0
+    hasPoolGames = Object.keys(poolRecord).length > 0
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     standingsTeams = (teamsData ?? []).map((t: any) => ({
@@ -1898,8 +1903,8 @@ export default async function EventDetailPage({
         {/* ──────────────── STANDINGS TAB ──────────────── */}
         {activeTab === 'standings' && (
           <div>
-            {/* Pool play sub-tabs — shown only when pools exist */}
-            {pools.length > 0 && (
+            {/* Sub-tabs — only when BOTH regular season and pool play have recorded results */}
+            {hasRegularSeasonGames && hasPoolGames && (
               <div className="flex gap-1 mb-5 border-b">
                 {(['regular', 'pool'] as const).map((view) => {
                   const label = view === 'regular' ? 'Regular Season' : 'Pool Play'
@@ -1922,27 +1927,28 @@ export default async function EventDetailPage({
               </div>
             )}
 
-            {/* Pool play standings */}
-            {pools.length > 0 && (standingsView ?? 'regular') === 'pool' ? (
-              poolStandingsTeams.length === 0 ? (
-                <p className="text-gray-500 text-center py-16">No pool play games recorded yet.</p>
-              ) : (
-                <div className="space-y-8">
-                  {pools.map((pool) => {
-                    const poolTeams = poolStandingsTeams.filter((t) => t.pool_id === pool.id)
-                    return (
-                      <div key={pool.id}>
-                        <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">{pool.name}</p>
-                        <StandingsTable teams={poolTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
-                      </div>
-                    )
-                  })}
-                </div>
-              )
+            {/* Determine which view to render:
+                - If only pool games exist → always show pool standings
+                - If both exist → respect standingsView param (default 'regular')
+                - Otherwise → show regular season */}
+            {(hasPoolGames && !hasRegularSeasonGames) || (hasPoolGames && hasRegularSeasonGames && (standingsView ?? 'regular') === 'pool') ? (
+              /* Pool play standings */
+              <div className="space-y-8">
+                {pools.map((pool) => {
+                  const poolTeams = poolStandingsTeams.filter((t) => t.pool_id === pool.id)
+                  if (poolTeams.length === 0) return null
+                  return (
+                    <div key={pool.id}>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">{pool.name}</p>
+                      <StandingsTable teams={poolTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
+                    </div>
+                  )
+                })}
+              </div>
             ) : (
-              /* Regular season standings */
-              standingsTeams.length === 0 ? (
-                <p className="text-gray-500 text-center py-16">No teams yet.</p>
+              /* Regular season standings (or empty state) */
+              !hasRegularSeasonGames ? (
+                <p className="text-gray-500 text-center py-16">No games recorded yet.</p>
               ) : divisions.length > 0 ? (
                 <div className="space-y-8">
                   {divisions.map((div) => {
