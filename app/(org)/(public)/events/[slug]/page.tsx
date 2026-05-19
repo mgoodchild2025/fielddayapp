@@ -324,7 +324,7 @@ type GameRow = {
 }
 
 function DateGroup({
-  date, games, timezone, isPast, captainTeamIds, userId, sport, myTeamIds, myRsvps, captainAttendance,
+  date, games, timezone, isPast, captainTeamIds, userId, sport, myTeamIds, myRsvps, captainAttendance, showWeek,
 }: {
   date: string
   games: GameRow[]
@@ -336,6 +336,7 @@ function DateGroup({
   myTeamIds?: Set<string>
   myRsvps?: Map<string, 'in' | 'out'>
   captainAttendance?: Map<string, { in: number; out: number; total: number }>
+  showWeek?: boolean
 }) {
   return (
     <div>
@@ -381,7 +382,7 @@ function DateGroup({
                 <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-2.5 tabular-nums">
                   <span className="font-medium text-gray-500">{gameTime}</span>
                   {game.court && <><span>·</span><span>Court {game.court}</span></>}
-                  {game.week_number && <><span>·</span><span>Wk {game.week_number}</span></>}
+                  {game.week_number && showWeek && <><span>·</span><span>Wk {game.week_number}</span></>}
                 </div>
                 {/* Teams + scores */}
                 <div className="space-y-1">
@@ -466,7 +467,7 @@ function DateGroup({
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
                     {game.court && <span>Court {game.court}</span>}
-                    {game.week_number && <><span>·</span><span>Wk {game.week_number}</span></>}
+                    {game.week_number && showWeek && <><span>·</span><span>Wk {game.week_number}</span></>}
                     {game.cancellation_reason && (game.status === 'cancelled' || game.status === 'postponed') && (
                       <span className="italic">{game.cancellation_reason}</span>
                     )}
@@ -1880,7 +1881,7 @@ export default async function EventDetailPage({
                     <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-4">Upcoming</p>
                     <div className="space-y-6">
                       {upcomingGroups.map(([date, dayGames]) => (
-                        <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast={false} captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} myTeamIds={myTeamIds} myRsvps={myRsvps} captainAttendance={captainAttendance} />
+                        <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast={false} captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} myTeamIds={myTeamIds} myRsvps={myRsvps} captainAttendance={captainAttendance} showWeek={league.event_type !== 'tournament'} />
                       ))}
                     </div>
                   </section>
@@ -1890,7 +1891,7 @@ export default async function EventDetailPage({
                     <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-4">Results</p>
                     <div className="space-y-6">
                       {[...pastGroups].reverse().map(([date, dayGames]) => (
-                        <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} myTeamIds={myTeamIds} myRsvps={myRsvps} captainAttendance={captainAttendance} />
+                        <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} myTeamIds={myTeamIds} myRsvps={myRsvps} captainAttendance={captainAttendance} showWeek={league.event_type !== 'tournament'} />
                       ))}
                     </div>
                   </section>

@@ -66,7 +66,7 @@ export default async function TeamSchedulePage({
       id, scheduled_at, court, week_number, status,
       home_team:teams!games_home_team_id_fkey(id, name, color),
       away_team:teams!games_away_team_id_fkey(id, name, color),
-      league:leagues!games_league_id_fkey(name, slug, schedule_published)
+      league:leagues!games_league_id_fkey(name, slug, schedule_published, event_type)
     `)
     .eq('organization_id', org.id)
     .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
@@ -121,7 +121,7 @@ export default async function TeamSchedulePage({
               <span className="text-xs font-medium text-red-500 bg-red-50 rounded px-1.5 py-0.5 leading-tight">
                 {g.status === 'postponed' ? 'Postponed' : 'Cancelled'}
               </span>
-            ) : g.week_number != null ? (
+            ) : g.week_number != null && league?.event_type !== 'tournament' ? (
               <span className="text-xs font-medium text-gray-500 bg-gray-100 rounded px-1.5 py-0.5 leading-tight">
                 Wk {g.week_number}
               </span>

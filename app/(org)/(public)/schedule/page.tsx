@@ -33,7 +33,7 @@ export default async function SchedulePage() {
       id, scheduled_at, court, week_number, status,
       home_team:teams!games_home_team_id_fkey(id, name, color),
       away_team:teams!games_away_team_id_fkey(id, name, color),
-      league:leagues!games_league_id_fkey(name, slug, schedule_published)
+      league:leagues!games_league_id_fkey(name, slug, schedule_published, event_type)
     `)
       .eq('organization_id', org.id)
       .gte('scheduled_at', pastBound)

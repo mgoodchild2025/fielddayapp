@@ -9,7 +9,7 @@ import { formatGameTime } from '@/lib/format-time'
 type ScheduleItem = { _type: 'game' | 'session'; scheduled_at: string; data: any }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getLeague(item: ScheduleItem): { name: string; slug: string } | null {
+function getLeague(item: ScheduleItem): { name: string; slug: string; event_type?: string } | null {
   const raw = item.data.league
   return (Array.isArray(raw) ? raw[0] : raw) ?? null
 }
@@ -79,7 +79,7 @@ export function MyGamesClient({ upcomingItems, pastItems, myTeamIds, timezone }:
                 <span className="text-xs font-medium text-red-500 bg-red-50 rounded px-1.5 py-0.5 leading-tight">
                   {g.status === 'postponed' ? 'Postponed' : 'Cancelled'}
                 </span>
-              ) : g.week_number != null ? (
+              ) : g.week_number != null && league?.event_type !== 'tournament' ? (
                 <span className="text-xs font-medium text-gray-500 bg-gray-100 rounded px-1.5 py-0.5 leading-tight">
                   Wk {g.week_number}
                 </span>
