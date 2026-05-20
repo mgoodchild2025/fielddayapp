@@ -876,7 +876,9 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
               <div key={c.teamId} className={`flex items-center gap-2 text-xs rounded px-2 py-1 ${i === 0 ? 'bg-green-100 text-green-900 font-semibold' : 'text-green-800'}`}>
                 <span className="w-4 shrink-0 text-center">{i + 1}.</span>
                 <span className="flex-1">{c.teamName}</span>
-                <span className="tabular-nums text-green-700">{c.wins}W · {c.setWins} sets · {c.pointDiff > 0 ? '+' : ''}{c.pointDiff} diff</span>
+                <span className="tabular-nums text-green-700">
+                  {c.qfSetWins} QF sets · {c.qfPointDiff > 0 ? '+' : ''}{c.qfPointDiff} QF diff · {c.wins}W season
+                </span>
               </div>
             ))}
           </div>

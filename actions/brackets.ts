@@ -924,6 +924,11 @@ export async function clearBracketSeeding(bracketId: string, leagueId: string) {
 export type BestLoserCandidate = {
   teamId: string
   teamName: string
+  // Bracket first-round (quarterfinal) stats — primary tiebreaker
+  qfSetWins: number
+  qfPointDiff: number
+  qfPointsFor: number
+  // League / pool-play stats — secondary tiebreaker
   wins: number
   setWins: number
   pointDiff: number
@@ -956,11 +961,12 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: allMatches } = await (db as any)
     .from('bracket_matches')
-    .select('id, round_number, match_number, team1_id, team2_id, winner_team_id, status, team1_id, team2_id')
+    .select('id, round_number, match_number, team1_id, team2_id, winner_team_id, status, score1, score2, sets')
     .eq('bracket_id', bracketId)
     .eq('organization_id', org.id)
 
-  type MatchRow = { id: string; round_number: number; match_number: number; team1_id: string | null; team2_id: string | null; winner_team_id: string | null; status: string }
+  type SetScore = { s1: number; s2: number }
+  type MatchRow = { id: string; round_number: number; match_number: number; team1_id: string | null; team2_id: string | null; winner_team_id: string | null; status: string; score1: number | null; score2: number | null; sets: SetScore[] | null }
   const matches = (allMatches ?? []) as MatchRow[]
 
   // All 3 first-round matches must be completed
@@ -992,7 +998,7 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
   type TeamRow = { id: string; name: string }
   const teamMap = new Map<string, string>(((teamRows ?? []) as TeamRow[]).map((t) => [t.id, t.name]))
 
-  // Fetch all completed regular-season and pool-play game results for the league
+  // Fetch all confirmed regular-season and pool-play game results for the league
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: resultRows } = await (db as any)
     .from('game_results')
@@ -1000,7 +1006,6 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
     .eq('organization_id', org.id)
     .eq('status', 'confirmed')
 
-  type SetScore = { s1: number; s2: number }
   type ResultRow = {
     home_score: number | null
     away_score: number | null
@@ -1010,14 +1015,33 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
   }
   const results = (resultRows ?? []) as ResultRow[]
 
-  // Compute per-loser stats from league games
-  const stats: Record<string, BestLoserCandidate> = {}
-  for (const id of loserIds) {
-    stats[id] = { teamId: id, teamName: teamMap.get(id) ?? id, wins: 0, setWins: 0, pointDiff: 0, pointsFor: 0, h2hWins: 0 }
-  }
-
   const loserSet = new Set(loserIds)
 
+  // Initialise stats record
+  const stats: Record<string, BestLoserCandidate> = {}
+  for (const id of loserIds) {
+    stats[id] = { teamId: id, teamName: teamMap.get(id) ?? id, qfSetWins: 0, qfPointDiff: 0, qfPointsFor: 0, wins: 0, setWins: 0, pointDiff: 0, pointsFor: 0, h2hWins: 0 }
+  }
+
+  // ── Primary: quarterfinal (bracket first-round) stats ───────────────────────
+  for (const m of r1Matches) {
+    const s1 = m.score1 ?? 0
+    const s2 = m.score2 ?? 0
+    const loserId = m.winner_team_id === m.team1_id ? m.team2_id! : m.team1_id!
+    if (!stats[loserId]) continue
+    const isTeam1 = loserId === m.team1_id
+    const myScore = isTeam1 ? s1 : s2
+    const theirScore = isTeam1 ? s2 : s1
+    stats[loserId].qfPointsFor += myScore
+    stats[loserId].qfPointDiff += myScore - theirScore
+    if (m.sets && Array.isArray(m.sets)) {
+      for (const set of m.sets as SetScore[]) {
+        stats[loserId].qfSetWins += isTeam1 ? (set.s1 > set.s2 ? 1 : 0) : (set.s2 > set.s1 ? 1 : 0)
+      }
+    }
+  }
+
+  // ── Secondary: league / pool-play game stats ────────────────────────────────
   for (const r of results) {
     const game = Array.isArray(r.game) ? r.game[0] : r.game
     if (!game || game.status !== 'completed') continue
@@ -1026,7 +1050,6 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
     const hScore = r.home_score ?? 0
     const aScore = r.away_score ?? 0
 
-    // Match wins
     for (const id of [ht, at]) {
       if (!loserSet.has(id)) continue
       const isHome = id === ht
@@ -1037,7 +1060,6 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
       if (myScore > theirScore) stats[id].wins++
     }
 
-    // Set wins from JSONB sets array (if present)
     if (r.sets && Array.isArray(r.sets)) {
       for (const set of r.sets as SetScore[]) {
         if (loserSet.has(ht)) stats[ht].setWins += set.s1 > set.s2 ? 1 : 0
@@ -1052,8 +1074,11 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
     }
   }
 
-  // Rank by tiebreaker sequence
+  // Rank: QF stats first, then league/pool-play stats
   const ranked = Object.values(stats).sort((a, b) => {
+    if (b.qfSetWins !== a.qfSetWins) return b.qfSetWins - a.qfSetWins
+    if (b.qfPointDiff !== a.qfPointDiff) return b.qfPointDiff - a.qfPointDiff
+    if (b.qfPointsFor !== a.qfPointsFor) return b.qfPointsFor - a.qfPointsFor
     if (b.wins !== a.wins) return b.wins - a.wins
     if (b.setWins !== a.setWins) return b.setWins - a.setWins
     if (b.pointDiff !== a.pointDiff) return b.pointDiff - a.pointDiff
