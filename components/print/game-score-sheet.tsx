@@ -127,15 +127,17 @@ export function GameScoreSheet({ game, scoreStructure, leagueName, orgName, time
       <hr className="border-black mb-3" />
 
       {/* Teams */}
-      <div className="flex justify-between items-center mb-3">
-        <div className="text-center flex-1">
-          <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">Home</p>
-          <p className="text-xl font-bold leading-tight">{game.homeTeamName}</p>
+      <div className="flex justify-between items-start mb-3 gap-4">
+        <div className="flex-1">
+          <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Home</p>
+          <p className="text-xs text-gray-400 mb-1">{game.homeTeamName}</p>
+          <div className="border-b-2 border-black h-7" />
         </div>
-        <div className="text-2xl font-bold text-gray-300 px-4">vs</div>
-        <div className="text-center flex-1">
-          <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">Away</p>
-          <p className="text-xl font-bold leading-tight">{game.awayTeamName}</p>
+        <div className="text-xl font-bold text-gray-300 px-2 pt-5 shrink-0">vs</div>
+        <div className="flex-1">
+          <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Away</p>
+          <p className="text-xs text-gray-400 mb-1">{game.awayTeamName}</p>
+          <div className="border-b-2 border-black h-7" />
         </div>
       </div>
 

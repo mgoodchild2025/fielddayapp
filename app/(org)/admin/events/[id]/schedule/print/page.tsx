@@ -298,9 +298,8 @@ function PrintPage({ children }: { children: React.ReactNode }) {
     <>
       <style>{`
         @media print {
-          @page { size: letter portrait; margin: 0.5in; }
+          @page { size: letter portrait; margin: 0; }
 
-          /* Allow content to flow across multiple pages and remove scrollbars */
           html, body {
             overflow: visible !important;
             height: auto !important;
@@ -309,11 +308,9 @@ function PrintPage({ children }: { children: React.ReactNode }) {
 
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 
-          /* Strip the screen-only wrapper padding/max-width so the @page margins
-             are the sole source of whitespace — no double-indenting. */
           .print-page-wrapper {
             max-width: none !important;
-            padding: 0 !important;
+            padding: 0.5in !important;
             margin: 0 !important;
           }
 

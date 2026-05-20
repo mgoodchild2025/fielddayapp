@@ -183,7 +183,7 @@ function PrintPage({ children }: { children: React.ReactNode }) {
     <>
       <style>{`
         @media print {
-          @page { size: letter portrait; margin: 0.5in; }
+          @page { size: letter portrait; margin: 0; }
 
           html, body {
             overflow: visible !important;
@@ -195,7 +195,7 @@ function PrintPage({ children }: { children: React.ReactNode }) {
 
           .print-page-wrapper {
             max-width: none !important;
-            padding: 0 !important;
+            padding: 0.5in !important;
             margin: 0 !important;
           }
 
