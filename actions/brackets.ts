@@ -10,6 +10,7 @@ import { requireOrgMember } from '@/lib/auth'
 import {
   generateSingleEliminationSpec,
   generateDoubleEliminationSpec,
+  generate6TeamBracketSpec,
   seedFromStandings,
   seedFromDivisionStandings,
   seedFromPoolStandings,
@@ -164,7 +165,9 @@ export async function scaffoldBracket(bracketId: string, leagueId: string) {
 
   const spec = bracket.bracket_type === 'double_elimination'
     ? generateDoubleEliminationSpec(bracket.teams_advancing)
-    : generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
+    : bracket.teams_advancing === 6
+      ? generate6TeamBracketSpec()
+      : generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
 
   const allMatchSpecs = [
     ...spec.matches,
@@ -863,6 +866,52 @@ export async function reverseBracketAdvancement(gameId: string, orgId: string): 
     revalidatePath('/events/[slug]', 'page')
   }
 
+  return { error: null }
+}
+
+// ── clearBracketSeeding ───────────────────────────────────────────────────────
+// Nulls all team slots across every match in a bracket and resets all matches
+// to 'pending'. Court/time/notes are preserved. Blocked if any match has a
+// score (admin must clear scores first).
+
+export async function clearBracketSeeding(bracketId: string, leagueId: string) {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: matches } = await (db as any)
+    .from('bracket_matches')
+    .select('id, status, is_bye')
+    .eq('bracket_id', bracketId)
+    .eq('organization_id', org.id)
+
+  if (!matches) return { error: 'Bracket not found' }
+
+  const hasScores = (matches as { status: string }[]).some((m) => m.status === 'completed')
+  if (hasScores) return { error: 'Cannot clear seeding while matches have scores recorded. Clear all scores first.' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
+    .from('bracket_matches')
+    .update({
+      team1_id: null,
+      team2_id: null,
+      team1_seed: null,
+      team2_seed: null,
+      team1_label: null,
+      team2_label: null,
+      winner_team_id: null,
+      score1: null,
+      score2: null,
+      status: 'pending',
+    })
+    .eq('bracket_id', bracketId)
+    .eq('organization_id', org.id)
+    .eq('is_bye', false)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${leagueId}/bracket`)
   return { error: null }
 }
 

@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { overrideBracketSlot, updateMatchSchedule } from '@/actions/brackets'
+import { adminClearScore } from '@/actions/scores'
 import type { BracketMatchData } from './bracket-view'
 
 interface Team {
@@ -24,9 +25,21 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
   const [isPending, startTransition] = useTransition()
   const [err, setErr] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [confirmClear, setConfirmClear] = useState(false)
 
   // Team overrides — only editable if match has no score
   const canEditTeams = match.status !== 'completed'
+
+  function handleClearScore() {
+    if (!match.gameId) return
+    setErr(null)
+    startTransition(async () => {
+      const r = await adminClearScore(match.gameId!)
+      if (r?.error) { setErr(r.error); return }
+      router.refresh()
+      onClose()
+    })
+  }
   const [team1Id, setTeam1Id] = useState<string>(match.team1Id ?? '')
   const [team2Id, setTeam2Id] = useState<string>(match.team2Id ?? '')
 
@@ -201,6 +214,43 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
               />
             </div>
           </div>
+
+          {/* Danger zone — clear score */}
+          {match.status === 'completed' && match.gameId && (
+            <div className="space-y-2 pt-2 border-t border-red-100">
+              <p className="text-xs font-semibold uppercase tracking-wide text-red-400">Danger zone</p>
+              {!confirmClear ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmClear(true)}
+                  className="w-full py-2 rounded-lg text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  Clear score…
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-red-700 bg-red-50 border border-red-100 rounded px-3 py-2">
+                    This will remove the score and un-advance the winner from downstream matches.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleClearScore}
+                      disabled={isPending}
+                      className="flex-1 py-2 rounded-lg text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {isPending ? 'Clearing…' : 'Yes, clear score'}
+                    </button>
+                    <button
+                      onClick={() => setConfirmClear(false)}
+                      className="flex-1 py-2 rounded-lg text-xs font-medium border text-gray-600 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {err && <p className="text-sm text-red-500">{err}</p>}
           {saved && <p className="text-sm text-green-600">✓ Saved</p>}

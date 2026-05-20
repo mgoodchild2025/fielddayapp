@@ -8,6 +8,7 @@ import { requireOrgMember } from '@/lib/auth'
 import {
   generateSingleEliminationSpec,
   generateDoubleEliminationSpec,
+  generate6TeamBracketSpec,
   nextPowerOf2,
   type TeamStanding,
   type BracketMatchSpec,
@@ -113,7 +114,8 @@ async function insertBracketWithMatches(
   }
 ): Promise<{ bracketId: string | null; error: string | null }> {
   const { name, bracketType, teamsAdvancing, thirdPlaceGame, poolNames, seedOffset } = opts
-  const bracketSize = nextPowerOf2(teamsAdvancing)
+  const is6Team = teamsAdvancing === 6 && bracketType === 'single_elimination'
+  const bracketSize = is6Team ? 6 : nextPowerOf2(teamsAdvancing)
   const actualThirdPlace = bracketType === 'double_elimination' ? false : thirdPlaceGame
   const seedingMethod = opts.seedingMethod ?? (poolNames.length > 0 ? 'pool_results' : 'standings')
 
@@ -138,7 +140,9 @@ async function insertBracketWithMatches(
   // Generate match spec
   const spec = bracketType === 'double_elimination'
     ? generateDoubleEliminationSpec(teamsAdvancing)
-    : generateSingleEliminationSpec(teamsAdvancing, actualThirdPlace)
+    : is6Team
+      ? generate6TeamBracketSpec()
+      : generateSingleEliminationSpec(teamsAdvancing, actualThirdPlace)
 
   const allMatchSpecs: BracketMatchSpec[] = [
     ...spec.matches,

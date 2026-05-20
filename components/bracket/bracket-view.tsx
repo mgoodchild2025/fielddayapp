@@ -1,7 +1,7 @@
 'use client'
 
 import { getRoundName, LB_ROUND_BASE, GF_ROUND } from '@/lib/bracket'
-import { recordBracketScore } from '@/actions/brackets'
+import { recordBracketScore, swapBracketTeams } from '@/actions/brackets'
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
@@ -31,6 +31,9 @@ export interface BracketMatchData {
   court: string | null
   notes: string | null
   winnerToMatchId: string | null
+  /** Set on the seeds-3v4 match in a 6-team bracket — loser also advances to the other semifinal */
+  loserToMatchId: string | null
+  gameId: string | null
 }
 
 export interface BracketData {
@@ -265,6 +268,9 @@ function ScoreModal({
   )
 }
 
+// ── Swap slot type ────────────────────────────────────────────────────────────
+type SwapSlot = { matchId: string; slot: 1 | 2 }
+
 // ── Match card ────────────────────────────────────────────────────────────────
 
 function MatchCard({
@@ -274,6 +280,9 @@ function MatchCard({
   isAdmin,
   sport,
   allTeams,
+  swapMode = false,
+  swapSlotA,
+  onSwapSlotClick,
 }: {
   match: BracketMatchData
   bracketId: string
@@ -281,6 +290,9 @@ function MatchCard({
   isAdmin: boolean
   sport?: string
   allTeams?: TeamRef[]
+  swapMode?: boolean
+  swapSlotA?: SwapSlot | null
+  onSwapSlotClick?: (matchId: string, slot: 1 | 2) => void
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -318,37 +330,81 @@ function MatchCard({
           </div>
         )}
 
-        <div className={`flex items-center justify-between px-3 py-2 border-b ${
-          isCompleted && match.winnerTeamId === match.team1Id ? 'bg-green-50' : ''
-        }`}>
-          <div className="flex items-center gap-1.5 min-w-0">
-            {match.team1Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team1Seed}</span>}
-            <span className={`truncate font-medium ${isCompleted && match.winnerTeamId === match.team1Id ? 'text-green-700' : isTbd ? 'text-gray-400' : ''}`}>
-              {match.team1Name ?? match.team1Label ?? 'TBD'}
+        {/* Slot 1 */}
+        {swapMode && !isCompleted && !isBye ? (
+          <button
+            type="button"
+            onClick={() => onSwapSlotClick?.(match.id, 1)}
+            className={`w-full flex items-center justify-between px-3 py-2 border-b text-left transition-colors ${
+              swapSlotA?.matchId === match.id && swapSlotA?.slot === 1
+                ? 'bg-blue-100 ring-2 ring-inset ring-blue-400'
+                : swapSlotA
+                ? 'hover:bg-blue-50 ring-1 ring-inset ring-blue-200'
+                : 'hover:bg-blue-50 ring-1 ring-inset ring-blue-200'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 min-w-0">
+              {match.team1Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team1Seed}</span>}
+              <span className="truncate font-medium">{match.team1Name ?? match.team1Label ?? 'TBD'}</span>
+            </div>
+          </button>
+        ) : (
+          <div className={`flex items-center justify-between px-3 py-2 border-b ${
+            isCompleted && match.winnerTeamId === match.team1Id ? 'bg-green-50' : ''
+          }`}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              {match.team1Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team1Seed}</span>}
+              <span className={`truncate font-medium ${isCompleted && match.winnerTeamId === match.team1Id ? 'text-green-700' : isTbd ? 'text-gray-400' : ''}`}>
+                {match.team1Name ?? match.team1Label ?? 'TBD'}
+              </span>
+            </div>
+            <span className="font-bold tabular-nums text-sm ml-2">
+              {isCompleted && match.score1 !== null ? match.score1 : ''}
             </span>
           </div>
-          <span className="font-bold tabular-nums text-sm ml-2">
-            {isCompleted && match.score1 !== null ? match.score1 : ''}
-          </span>
-        </div>
+        )}
 
-        <div className={`flex items-center justify-between px-3 py-2 ${
-          isCompleted && match.winnerTeamId === match.team2Id ? 'bg-green-50' : ''
-        }`}>
-          <div className="flex items-center gap-1.5 min-w-0">
-            {match.team2Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team2Seed}</span>}
-            <span className={`truncate font-medium ${
-              isBye ? 'text-gray-300 italic' :
-              isCompleted && match.winnerTeamId === match.team2Id ? 'text-green-700' :
-              isTbd ? 'text-gray-400' : ''
-            }`}>
-              {isBye ? 'Bye' : (match.team2Name ?? match.team2Label ?? 'TBD')}
+        {/* Slot 2 */}
+        {swapMode && !isCompleted && !isBye ? (
+          <button
+            type="button"
+            onClick={() => onSwapSlotClick?.(match.id, 2)}
+            className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors ${
+              swapSlotA?.matchId === match.id && swapSlotA?.slot === 2
+                ? 'bg-blue-100 ring-2 ring-inset ring-blue-400'
+                : 'hover:bg-blue-50 ring-1 ring-inset ring-blue-200'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 min-w-0">
+              {match.team2Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team2Seed}</span>}
+              <span className="truncate font-medium">{match.team2Name ?? match.team2Label ?? 'TBD'}</span>
+            </div>
+          </button>
+        ) : (
+          <div className={`flex items-center justify-between px-3 py-2 ${
+            isCompleted && match.winnerTeamId === match.team2Id ? 'bg-green-50' : ''
+          }`}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              {match.team2Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team2Seed}</span>}
+              <span className={`truncate font-medium ${
+                isBye ? 'text-gray-300 italic' :
+                isCompleted && match.winnerTeamId === match.team2Id ? 'text-green-700' :
+                isTbd ? 'text-gray-400' : ''
+              }`}>
+                {isBye ? 'Bye' : (match.team2Name ?? match.team2Label ?? 'TBD')}
+              </span>
+            </div>
+            <span className="font-bold tabular-nums text-sm ml-2">
+              {isCompleted && match.score2 !== null ? match.score2 : ''}
             </span>
           </div>
-          <span className="font-bold tabular-nums text-sm ml-2">
-            {isCompleted && match.score2 !== null ? match.score2 : ''}
-          </span>
-        </div>
+        )}
+
+        {match.loserToMatchId && !isCompleted && !isBye && (
+          <div className="px-3 py-1 border-t bg-amber-50">
+            <p className="text-[10px] text-amber-600 font-medium">↕ Both teams advance</p>
+          </div>
+        )}
 
         {isCompleted && match.sets && match.sets.length > 0 && (
           <div className="px-3 py-1.5 border-t bg-gray-50 flex gap-2 flex-wrap">
@@ -360,7 +416,7 @@ function MatchCard({
           </div>
         )}
 
-        {isAdmin && (isReady || isCompleted) && (
+        {!swapMode && isAdmin && (isReady || isCompleted) && (
           <div className="border-t">
             <button
               onClick={() => setModalOpen(true)}
@@ -371,7 +427,7 @@ function MatchCard({
             </button>
           </div>
         )}
-        {isAdmin && allTeams && !isBye && (
+        {!swapMode && isAdmin && allTeams && !isBye && (
           <div className={isReady || isCompleted ? '' : 'border-t'}>
             <button
               onClick={() => setEditOpen(true)}
@@ -405,6 +461,9 @@ function BracketDiagram({
   firstRoundMatchCount,
   roundSortAscending = false,
   allTeams,
+  swapMode,
+  swapSlotA,
+  onSwapSlotClick,
 }: {
   matches: BracketMatchData[]
   bracketId: string
@@ -416,6 +475,9 @@ function BracketDiagram({
   /** LB rounds use ascending order (LBR1 left → LBR4 right); WB uses descending */
   roundSortAscending?: boolean
   allTeams?: TeamRef[]
+  swapMode?: boolean
+  swapSlotA?: SwapSlot | null
+  onSwapSlotClick?: (matchId: string, slot: 1 | 2) => void
 }) {
   const roundNumbers = Array.from(new Set(matches.map((m) => m.roundNumber)))
     .sort((a, b) => roundSortAscending ? a - b : b - a)
@@ -478,6 +540,7 @@ function BracketDiagram({
                       <MatchCard
                         match={match} bracketId={bracketId} leagueId={leagueId}
                         isAdmin={isAdmin} sport={sport} allTeams={allTeams}
+                        swapMode={swapMode} swapSlotA={swapSlotA} onSwapSlotClick={onSwapSlotClick}
                       />
                     </div>
                   )
@@ -613,6 +676,11 @@ function BracketScoreList({
 
 export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeams }: Props) {
   const [view, setView] = useState<'bracket' | 'list'>('bracket')
+  const [swapMode, setSwapMode] = useState(false)
+  const [swapSlotA, setSwapSlotA] = useState<SwapSlot | null>(null)
+  const [swapErr, setSwapErr] = useState<string | null>(null)
+  const [isSwapping, startSwapTransition] = useTransition()
+  const router = useRouter()
   const bracketSize = bracket.bracketSize
   const isDE = bracket.bracketType === 'double_elimination'
 
@@ -657,11 +725,41 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
     return final.winnerTeamId === final.team1Id ? final.team1Name : final.team2Name
   })()
 
+  function onSwapSlotClick(matchId: string, slot: 1 | 2) {
+    setSwapErr(null)
+    if (!swapSlotA) {
+      setSwapSlotA({ matchId, slot })
+      return
+    }
+    // Clicking the same slot deselects
+    if (swapSlotA.matchId === matchId && swapSlotA.slot === slot) {
+      setSwapSlotA(null)
+      return
+    }
+    // Execute swap
+    const slotA = swapSlotA
+    setSwapSlotA(null)
+    setSwapMode(false)
+    startSwapTransition(async () => {
+      const r = await swapBracketTeams({
+        bracketId: bracket.id,
+        leagueId,
+        slotA,
+        slotB: { matchId, slot },
+      })
+      if (r?.error) {
+        setSwapErr(r.error)
+        return
+      }
+      router.refresh()
+    })
+  }
+
   return (
     <div>
       {/* View toggle */}
       {isAdmin && (
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
           <button
             onClick={() => setView('bracket')}
             className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
@@ -687,7 +785,41 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
               </span>
             )}
           </button>
+          {view === 'bracket' && (
+            <button
+              onClick={() => {
+                setSwapMode((m) => !m)
+                setSwapSlotA(null)
+                setSwapErr(null)
+              }}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                swapMode ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              ⇄ Swap teams
+            </button>
+          )}
         </div>
+      )}
+
+      {/* Swap mode banner */}
+      {isAdmin && swapMode && (
+        <div className="mb-3 px-4 py-2.5 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-800 flex items-center justify-between gap-3">
+          <span>
+            {swapSlotA
+              ? '✓ First slot selected — now click the second team slot to swap.'
+              : 'Click a team slot to select it, then click another to swap them.'}
+          </span>
+          <button
+            onClick={() => { setSwapMode(false); setSwapSlotA(null); setSwapErr(null) }}
+            className="shrink-0 text-blue-600 hover:text-blue-800 font-medium text-xs"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+      {swapErr && (
+        <p className="mb-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{swapErr}</p>
       )}
 
       {/* Score list */}
@@ -716,6 +848,9 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
                     bracketSize={bracketSize}
                     firstRoundMatchCount={wbFirstRoundCount}
                     allTeams={allTeams}
+                    swapMode={swapMode}
+                    swapSlotA={swapSlotA}
+                    onSwapSlotClick={onSwapSlotClick}
                   />
                 </div>
               )}
@@ -736,6 +871,9 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
                     firstRoundMatchCount={lbFirstRoundCount}
                     roundSortAscending
                     allTeams={allTeams}
+                    swapMode={swapMode}
+                    swapSlotA={swapSlotA}
+                    onSwapSlotClick={onSwapSlotClick}
                   />
                 </div>
               )}
@@ -753,6 +891,9 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
                     isAdmin={isAdmin}
                     sport={sport}
                     allTeams={allTeams}
+                    swapMode={swapMode}
+                    swapSlotA={swapSlotA}
+                    onSwapSlotClick={onSwapSlotClick}
                   />
                 </div>
               )}
@@ -769,6 +910,9 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
                 bracketSize={bracketSize}
                 firstRoundMatchCount={seFirstRoundCount}
                 allTeams={allTeams}
+                swapMode={swapMode}
+                swapSlotA={swapSlotA}
+                onSwapSlotClick={onSwapSlotClick}
               />
 
               {/* 3rd place match */}
@@ -782,6 +926,9 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
                     isAdmin={isAdmin}
                     sport={sport}
                     allTeams={allTeams}
+                    swapMode={swapMode}
+                    swapSlotA={swapSlotA}
+                    onSwapSlotClick={onSwapSlotClick}
                   />
                 </div>
               )}

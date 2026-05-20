@@ -1256,6 +1256,8 @@ export default async function EventDetailPage({
           court: m.court,
           notes: m.notes,
           winnerToMatchId: m.winner_to_match_id,
+          loserToMatchId: null,
+          gameId: null,
         })),
       }))
     }

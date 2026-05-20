@@ -71,6 +71,12 @@ export function getRoundName(roundNumber: number, bracketSize: number): string {
     if (lbIndex === totalLbRounds - 1) return 'LB Semi-Finals'
     return `LB Round ${lbIndex}`
   }
+  // 6-team bracket has non-power-of-2 rounds
+  if (bracketSize === 6) {
+    if (roundNumber === 3) return 'First Round'
+    if (roundNumber === 2) return 'Semi-Finals'
+    if (roundNumber === 1) return 'Final'
+  }
   // Winners bracket (standard)
   if (roundNumber === 1) return 'Final'
   if (roundNumber === 2) return 'Semi-Finals'
@@ -93,6 +99,44 @@ function generateFirstRoundPairings(bracketSize: number): [number, number][] {
     [a, bracketSize + 1 - a] as [number, number],
     [bracketSize + 1 - b, b] as [number, number],
   ])
+}
+
+// ── 6-team bracket generator ──────────────────────────────────────────────────
+// All 6 teams play in the first round (no byes). Seeds 1v6 and 2v5 are
+// straight elimination — loser is out. Seeds 3v4 both advance: winner to
+// Semi-Final A, loser to Semi-Final B. This guarantees exactly 4 semifinalists.
+//
+//  Round 3 (First Round):  M1: 1v6  M2: 2v5  M3: 3v4 (loser also advances)
+//  Round 2 (Semi-Finals):  SF-A: W(M1) vs W(M3)   SF-B: W(M2) vs L(M3)
+//  Round 1 (Final):        W(SF-A) vs W(SF-B)
+
+export function generate6TeamBracketSpec(): BracketSpec {
+  const matches: BracketMatchSpec[] = [
+    // First Round — elimination matches
+    { roundNumber: 3, matchNumber: 1, team1Seed: 1, team2Seed: 6, isBye: false,
+      winnerToRoundNumber: 2, winnerToMatchNumber: 1, winnerToSlot: 1,
+      loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+    { roundNumber: 3, matchNumber: 2, team1Seed: 2, team2Seed: 5, isBye: false,
+      winnerToRoundNumber: 2, winnerToMatchNumber: 2, winnerToSlot: 1,
+      loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+    // First Round — seeds 3 and 4 BOTH advance; this match determines seeding
+    { roundNumber: 3, matchNumber: 3, team1Seed: 3, team2Seed: 4, isBye: false,
+      winnerToRoundNumber: 2, winnerToMatchNumber: 1, winnerToSlot: 2,
+      loserToRoundNumber: 2, loserToMatchNumber: 2, loserToSlot: 2 },
+    // Semi-Finals
+    { roundNumber: 2, matchNumber: 1, team1Seed: null, team2Seed: null, isBye: false,
+      winnerToRoundNumber: 1, winnerToMatchNumber: 1, winnerToSlot: 1,
+      loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+    { roundNumber: 2, matchNumber: 2, team1Seed: null, team2Seed: null, isBye: false,
+      winnerToRoundNumber: 1, winnerToMatchNumber: 1, winnerToSlot: 2,
+      loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+    // Final
+    { roundNumber: 1, matchNumber: 1, team1Seed: null, team2Seed: null, isBye: false,
+      winnerToRoundNumber: null, winnerToMatchNumber: null, winnerToSlot: null,
+      loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+  ]
+
+  return { bracketSize: 6, rounds: [3, 2, 1], matches, thirdPlaceMatch: null }
 }
 
 // ── Single elimination generator ──────────────────────────────────────────────
@@ -582,6 +626,19 @@ export function recommendBracket(opts: {
       bracketType: 'single_elimination',
       reason: `Clean ${teamCount}-team single elimination${teamCount < 4 ? ' with ' + (4 - teamCount) + ' bye(s)' : ''}.`,
       alternatives: [],
+    }
+  }
+
+  if (teamCount === 6) {
+    return {
+      bracketSize: 6,
+      teamsAdvancing: 6,
+      bracketType: 'single_elimination',
+      reason: 'All 6 teams play in round 1 — no byes. Seeds 1v6 and 2v5 are elimination matches; seeds 3v4 both advance (winner gets the favorable semifinal draw). Top 4 move on to semis.',
+      alternatives: [
+        { bracketSize: 4, teamsAdvancing: 4, label: 'Top 4 teams (8-team bracket with byes)' },
+        { bracketSize: 8, teamsAdvancing: 6, label: '8-team bracket (top 2 seeds get first-round byes)' },
+      ],
     }
   }
 

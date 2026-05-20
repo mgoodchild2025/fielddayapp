@@ -4,7 +4,7 @@ import { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Printer, Trash2 } from 'lucide-react'
 import { savePlayoffConfig, generateAllTierBrackets, deletePlayoffConfig } from '@/actions/playoff-config'
-import { publishBracket, deleteBracket, seedBracket } from '@/actions/brackets'
+import { publishBracket, deleteBracket, seedBracket, clearBracketSeeding } from '@/actions/brackets'
 import { BracketView, type BracketData, type TeamRef } from './bracket-view'
 import type { TeamStanding, BracketRecommendation } from '@/lib/bracket'
 import type { TierInput, PoolSeedingMethod } from '@/actions/playoff-config'
@@ -210,6 +210,7 @@ function TierBracketCard({
   const [isPending, startTransition] = useTransition()
   const [expanded, setExpanded] = useState(true)
   const [err, setErr] = useState<string | null>(null)
+  const [confirmClearSeed, setConfirmClearSeed] = useState(false)
 
   const tierCount = tier.seedTo - tier.seedFrom + 1
   const tierColors: Record<string, string> = {
@@ -227,6 +228,17 @@ function TierBracketCard({
     setErr(null)
     startTransition(async () => {
       const r = await seedBracket(tier.bracketId!, leagueId)
+      if (r?.error) { setErr(r.error); return }
+      router.refresh()
+    })
+  }
+
+  function handleClearSeeding() {
+    if (!tier.bracketId) return
+    setConfirmClearSeed(false)
+    setErr(null)
+    startTransition(async () => {
+      const r = await clearBracketSeeding(tier.bracketId!, leagueId)
       if (r?.error) { setErr(r.error); return }
       router.refresh()
     })
@@ -309,6 +321,37 @@ function TierBracketCard({
                 >
                   {isPending ? '…' : 'Republish'}
                 </button>
+              )}
+              {!isScaffold && !confirmClearSeed && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmClearSeed(true)}
+                  disabled={isPending}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-amber-200 text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-60"
+                  title="Remove seeding — clear all team assignments from bracket slots"
+                >
+                  Clear seeding
+                </button>
+              )}
+              {!isScaffold && confirmClearSeed && (
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-amber-700">Reset teams?</span>
+                  <button
+                    type="button"
+                    onClick={handleClearSeeding}
+                    disabled={isPending}
+                    className="px-2 py-1 rounded text-xs font-semibold text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-60"
+                  >
+                    {isPending ? '…' : 'Confirm'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClearSeed(false)}
+                    className="px-2 py-1 rounded text-xs border text-gray-600 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
               )}
               <button
                 onClick={handleDelete}
