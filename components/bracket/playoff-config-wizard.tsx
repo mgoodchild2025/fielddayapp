@@ -283,16 +283,28 @@ function TierBracketCard({
           {isOrgAdmin && tier.bracket && (
             <div className="flex items-center gap-1.5 shrink-0">
               {tier.bracketId && !isScaffold && (
-                <a
-                  href={`/admin/events/${leagueId}/bracket/print?bracketId=${tier.bracketId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1.5 rounded-lg border text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
-                  title="Print bracket"
-                  aria-label="Print bracket"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                </a>
+                <>
+                  <a
+                    href={`/admin/events/${leagueId}/bracket/print?bracketId=${tier.bracketId}&type=scoresheets`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 px-2 py-1.5 rounded-lg border text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors text-[11px] font-medium"
+                    title="Print individual score sheets for each match"
+                  >
+                    <Printer className="w-3 h-3" />
+                    Score sheets
+                  </a>
+                  <a
+                    href={`/admin/events/${leagueId}/bracket/print?bracketId=${tier.bracketId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1.5 rounded-lg border text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                    title="Print bracket overview"
+                    aria-label="Print bracket overview"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                  </a>
+                </>
               )}
               {isScaffold ? (
                 <button

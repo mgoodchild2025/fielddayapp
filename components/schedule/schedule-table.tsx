@@ -311,8 +311,8 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
 
       {/* Bulk action bar — appears when any games are selected */}
       {isAdmin && selectedIds.size > 0 && (
-        <div className="flex items-center justify-between gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 mb-3 text-sm">
-          <span className="text-red-700 font-medium">
+        <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 mb-3 text-sm">
+          <span className="text-gray-700 font-medium">
             {selectedIds.size} game{selectedIds.size !== 1 ? 's' : ''} selected
           </span>
           <div className="flex items-center gap-3">
@@ -320,14 +320,23 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
               onClick={() => setSelectedIds(new Set())}
               className="text-xs text-gray-500 hover:text-gray-700"
             >
-              Cancel
+              Clear
             </button>
+            <a
+              href={`${printBase}?gameIds=${Array.from(selectedIds).join(',')}&type=scoresheet`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-gray-800 text-white hover:bg-gray-700 transition-colors"
+            >
+              <PrintIcon />
+              Print score sheets
+            </a>
             <button
               onClick={handleBulkDelete}
               disabled={isPending}
               className="px-3 py-1 rounded-md text-xs font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
             >
-              {isPending ? 'Deleting…' : `Delete ${selectedIds.size} game${selectedIds.size !== 1 ? 's' : ''}`}
+              {isPending ? 'Deleting…' : `Delete ${selectedIds.size}`}
             </button>
           </div>
         </div>

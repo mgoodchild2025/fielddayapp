@@ -5,18 +5,20 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { getScoreStructure } from '@/lib/print-config'
+import { getRoundName } from '@/lib/bracket'
 import { PrintControls } from '@/components/print/print-controls'
 import { BracketSheet, type BracketMatch } from '@/components/print/bracket-sheet'
+import { GameScoreSheet } from '@/components/print/game-score-sheet'
 
 export default async function BracketPrintPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ bracketId?: string }>
+  searchParams: Promise<{ bracketId?: string; type?: string }>
 }) {
   const { id } = await params
-  const { bracketId } = await searchParams
+  const { bracketId, type } = await searchParams
 
   if (!bracketId) notFound()
 
@@ -102,12 +104,68 @@ export default async function BracketPrintPage({
     }))
 
   const scoreStructure = getScoreStructure(sport)
+  const bracketName: string = rawBracket.name ?? 'Bracket'
+  const bracketSize: number = rawBracket.bracket_size ?? 0
 
+  // ─── Individual score sheets (one per match) ────────────────────────────────
+  if (type === 'scoresheets') {
+    const sheetMatches = matches.filter((m) => !m.isBye)
+
+    function teamLabel(
+      name: string | null,
+      label: string | null,
+      seed: number | null,
+      roundNumber: number,
+      matchNumber: number,
+      position: 1 | 2,
+    ): string {
+      const display = name ?? label
+      if (!display) {
+        // No team assigned yet — show seed placeholder or generic TBD
+        if (seed !== null) return `Seed ${seed}`
+        return `TBD (${getRoundName(roundNumber, bracketSize)} M${matchNumber} ${position === 1 ? 'Home' : 'Away'})`
+      }
+      return seed !== null ? `(${seed}) ${display}` : display
+    }
+
+    return (
+      <PrintPage>
+        <PrintControls />
+        {sheetMatches.map((m, i) => {
+          const game = {
+            id: m.id,
+            scheduledAt: m.scheduledAt ?? new Date().toISOString(),
+            court: m.court,
+            weekNumber: null,
+            homeTeamName: teamLabel(m.team1Name, m.team1Label, m.team1Seed, m.roundNumber, m.matchNumber, 1),
+            awayTeamName: teamLabel(m.team2Name, m.team2Label, m.team2Seed, m.roundNumber, m.matchNumber, 2),
+          }
+          return (
+            <div key={m.id} style={i < sheetMatches.length - 1 ? { breakAfter: 'page' } : {}}>
+              {/* Round / match label above each sheet */}
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">
+                {bracketName} · {getRoundName(m.roundNumber, bracketSize)} · Match {m.matchNumber}
+              </p>
+              <GameScoreSheet
+                game={game}
+                scoreStructure={scoreStructure}
+                leagueName={leagueName}
+                orgName={orgName}
+                timezone={timezone ?? 'America/Toronto'}
+              />
+            </div>
+          )
+        })}
+      </PrintPage>
+    )
+  }
+
+  // ─── Bracket overview sheet ─────────────────────────────────────────────────
   return (
     <PrintPage>
       <PrintControls />
       <BracketSheet
-        bracketName={rawBracket.name ?? 'Bracket'}
+        bracketName={bracketName}
         leagueName={leagueName}
         orgName={orgName}
         sport={sport}

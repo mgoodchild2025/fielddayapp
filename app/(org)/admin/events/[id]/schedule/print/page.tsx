@@ -18,10 +18,10 @@ export default async function SchedulePrintPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ type?: string; date?: string; gameId?: string }>
+  searchParams: Promise<{ type?: string; date?: string; gameId?: string; gameIds?: string }>
 }) {
   const { id } = await params
-  const { type, date, gameId } = await searchParams
+  const { type, date, gameId, gameIds } = await searchParams
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -143,6 +143,58 @@ export default async function SchedulePrintPage({
           timezone={timezone}
           sport={sport}
         />
+      </PrintPage>
+    )
+  }
+
+  // ─── Bulk Score Sheets ────────────────────────────────────────────────────
+  if (type === 'scoresheet' && gameIds) {
+    const ids = gameIds.split(',').filter(Boolean).slice(0, 60)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rawGames } = await (db as any)
+      .from('games')
+      .select(`
+        id, scheduled_at, court, week_number,
+        home_team_label, away_team_label,
+        home_team:teams!games_home_team_id_fkey(id, name),
+        away_team:teams!games_away_team_id_fkey(id, name)
+      `)
+      .in('id', ids)
+      .eq('organization_id', org.id)
+      .order('scheduled_at', { ascending: true })
+
+    type BulkGame = { id: string; scheduledAt: string; court: string | null; weekNumber: number | null; homeTeamName: string; awayTeamName: string }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const bulkGames: BulkGame[] = (rawGames ?? []).map((g: any) => {
+      const home = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
+      const away = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
+      return {
+        id: g.id,
+        scheduledAt: g.scheduled_at,
+        court: g.court ?? null,
+        weekNumber: g.week_number ?? null,
+        homeTeamName: home?.name ?? g.home_team_label ?? 'TBD',
+        awayTeamName: away?.name ?? g.away_team_label ?? 'TBD',
+      }
+    })
+
+    const scoreStructure = getScoreStructure(sport)
+
+    return (
+      <PrintPage>
+        <PrintControls />
+        {bulkGames.map((game, i) => (
+          <div key={game.id} style={i < bulkGames.length - 1 ? { breakAfter: 'page' } : {}}>
+            <GameScoreSheet
+              game={game}
+              scoreStructure={scoreStructure}
+              leagueName={leagueName}
+              orgName={orgName}
+              timezone={timezone}
+            />
+          </div>
+        ))}
       </PrintPage>
     )
   }
