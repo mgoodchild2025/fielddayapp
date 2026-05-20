@@ -1,7 +1,7 @@
 'use client'
 
 import { getRoundName, LB_ROUND_BASE, GF_ROUND } from '@/lib/bracket'
-import { recordBracketScore, swapBracketTeams } from '@/actions/brackets'
+import { recordBracketScore, swapBracketTeams, advanceBestLoser, type BestLoserCandidate } from '@/actions/brackets'
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
@@ -400,12 +400,6 @@ function MatchCard({
           </div>
         )}
 
-        {match.loserToMatchId && !isCompleted && !isBye && (
-          <div className="px-3 py-1 border-t bg-amber-50">
-            <p className="text-[10px] text-amber-600 font-medium">↕ Both teams advance</p>
-          </div>
-        )}
-
         {isCompleted && match.sets && match.sets.length > 0 && (
           <div className="px-3 py-1.5 border-t bg-gray-50 flex gap-2 flex-wrap">
             {match.sets.map((s, i) => (
@@ -680,6 +674,9 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
   const [swapSlotA, setSwapSlotA] = useState<SwapSlot | null>(null)
   const [swapErr, setSwapErr] = useState<string | null>(null)
   const [isSwapping, startSwapTransition] = useTransition()
+  const [bestLoserResult, setBestLoserResult] = useState<{ candidates: BestLoserCandidate[]; advancedTeamName: string } | null>(null)
+  const [bestLoserErr, setBestLoserErr] = useState<string | null>(null)
+  const [isBestLoserPending, startBestLoserTransition] = useTransition()
   const router = useRouter()
   const bracketSize = bracket.bracketSize
   const isDE = bracket.bracketType === 'double_elimination'
@@ -724,6 +721,28 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
     if (!final?.winnerTeamId) return null
     return final.winnerTeamId === final.team1Id ? final.team1Name : final.team2Name
   })()
+
+  // 6-team best loser panel
+  const is6TeamBracket = bracketSize === 6 && !isDE
+  const r1Matches = bracket.matches.filter((m) => m.roundNumber === 3)
+  const allR1Complete = r1Matches.length === 3 && r1Matches.every((m) => m.status === 'completed')
+  const sfB = bracket.matches.find((m) => m.roundNumber === 2 && m.matchNumber === 2)
+  const showBestLoserPanel = is6TeamBracket && isAdmin && allR1Complete && sfB && !sfB.team2Id
+
+  function onAdvanceBestLoser() {
+    setBestLoserErr(null)
+    startBestLoserTransition(async () => {
+      const r = await advanceBestLoser(bracket.id, leagueId)
+      if (r.error) {
+        setBestLoserErr(r.error)
+        return
+      }
+      if (r.advanced && r.candidates) {
+        setBestLoserResult({ candidates: r.candidates, advancedTeamName: r.advanced.teamName })
+      }
+      router.refresh()
+    })
+  }
 
   function onSwapSlotClick(matchId: string, slot: 1 | 2) {
     setSwapErr(null)
@@ -820,6 +839,54 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
       )}
       {swapErr && (
         <p className="mb-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{swapErr}</p>
+      )}
+
+      {/* 6-team best loser panel */}
+      {showBestLoserPanel && !bestLoserResult && (
+        <div className="mb-4 p-4 rounded-xl border border-amber-200 bg-amber-50 space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-amber-900">Determine best loser</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              All first-round matches are complete. Rank the three losing teams by match wins → set wins → point differential → total points → head-to-head wins to advance one to Semi-Final B.
+            </p>
+          </div>
+          {bestLoserErr && (
+            <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-1.5">{bestLoserErr}</p>
+          )}
+          <button
+            onClick={onAdvanceBestLoser}
+            disabled={isBestLoserPending}
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50 transition-colors"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
+          >
+            {isBestLoserPending ? 'Calculating…' : 'Advance best loser →'}
+          </button>
+        </div>
+      )}
+
+      {/* 6-team best loser result */}
+      {bestLoserResult && (
+        <div className="mb-4 p-4 rounded-xl border border-green-200 bg-green-50 space-y-3">
+          <p className="text-sm font-semibold text-green-900">
+            ✓ {bestLoserResult.advancedTeamName} advanced to Semi-Final B
+          </p>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-green-800 uppercase tracking-wide">Loser rankings</p>
+            {bestLoserResult.candidates.map((c, i) => (
+              <div key={c.teamId} className={`flex items-center gap-2 text-xs rounded px-2 py-1 ${i === 0 ? 'bg-green-100 text-green-900 font-semibold' : 'text-green-800'}`}>
+                <span className="w-4 shrink-0 text-center">{i + 1}.</span>
+                <span className="flex-1">{c.teamName}</span>
+                <span className="tabular-nums text-green-700">{c.wins}W · {c.setWins} sets · {c.pointDiff > 0 ? '+' : ''}{c.pointDiff} diff</span>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => setBestLoserResult(null)}
+            className="text-xs text-green-700 hover:text-green-900 underline"
+          >
+            Dismiss
+          </button>
+        </div>
       )}
 
       {/* Score list */}

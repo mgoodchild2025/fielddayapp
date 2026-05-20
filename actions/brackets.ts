@@ -915,6 +915,169 @@ export async function clearBracketSeeding(bracketId: string, leagueId: string) {
   return { error: null }
 }
 
+// ── advanceBestLoser ─────────────────────────────────────────────────────────
+// Used in 6-team brackets after all 3 first-round matches are complete.
+// Ranks the 3 losers by: match wins → set wins → point differential →
+// total points scored → head-to-head wins among the 3 losers.
+// Places the top-ranked loser into SF-B (round 2, match 2, slot 2).
+
+export type BestLoserCandidate = {
+  teamId: string
+  teamName: string
+  wins: number
+  setWins: number
+  pointDiff: number
+  pointsFor: number
+  h2hWins: number
+}
+
+export async function advanceBestLoser(bracketId: string, leagueId: string): Promise<{
+  error: string | null
+  advanced?: { teamId: string; teamName: string }
+  candidates?: BestLoserCandidate[]
+}> {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  // Load bracket + all matches
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: bracket } = await (db as any)
+    .from('brackets')
+    .select('id, teams_advancing, bracket_type')
+    .eq('id', bracketId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (!bracket) return { error: 'Bracket not found' }
+  if (bracket.teams_advancing !== 6 || bracket.bracket_type !== 'single_elimination') {
+    return { error: 'Best loser advancement only applies to 6-team single elimination brackets' }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: allMatches } = await (db as any)
+    .from('bracket_matches')
+    .select('id, round_number, match_number, team1_id, team2_id, winner_team_id, status, team1_id, team2_id')
+    .eq('bracket_id', bracketId)
+    .eq('organization_id', org.id)
+
+  type MatchRow = { id: string; round_number: number; match_number: number; team1_id: string | null; team2_id: string | null; winner_team_id: string | null; status: string }
+  const matches = (allMatches ?? []) as MatchRow[]
+
+  // All 3 first-round matches must be completed
+  const r1Matches = matches.filter((m) => m.round_number === 3)
+  if (r1Matches.length !== 3) return { error: 'First round matches not found' }
+  if (r1Matches.some((m) => m.status !== 'completed')) return { error: 'All first-round matches must be completed before determining the best loser' }
+
+  // SF-B (round 2, match 2) slot 2 must be empty
+  const sfB = matches.find((m) => m.round_number === 2 && m.match_number === 2)
+  if (!sfB) return { error: 'Semifinal B match not found' }
+  if (sfB.team2_id) return { error: 'Best loser has already been determined' }
+
+  // Collect the 3 losers
+  const loserIds: string[] = []
+  for (const m of r1Matches) {
+    if (!m.winner_team_id || !m.team1_id || !m.team2_id) return { error: 'Match result incomplete' }
+    const loserId = m.winner_team_id === m.team1_id ? m.team2_id : m.team1_id
+    loserIds.push(loserId)
+  }
+
+  // Load team names
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: teamRows } = await (db as any)
+    .from('teams')
+    .select('id, name')
+    .in('id', loserIds)
+    .eq('organization_id', org.id)
+
+  type TeamRow = { id: string; name: string }
+  const teamMap = new Map<string, string>(((teamRows ?? []) as TeamRow[]).map((t) => [t.id, t.name]))
+
+  // Fetch all completed regular-season and pool-play game results for the league
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: resultRows } = await (db as any)
+    .from('game_results')
+    .select('home_score, away_score, sets, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, status)')
+    .eq('organization_id', org.id)
+    .eq('status', 'confirmed')
+
+  type SetScore = { s1: number; s2: number }
+  type ResultRow = {
+    home_score: number | null
+    away_score: number | null
+    sets: SetScore[] | null
+    status: string
+    game: { home_team_id: string; away_team_id: string; status: string } | { home_team_id: string; away_team_id: string; status: string }[] | null
+  }
+  const results = (resultRows ?? []) as ResultRow[]
+
+  // Compute per-loser stats from league games
+  const stats: Record<string, BestLoserCandidate> = {}
+  for (const id of loserIds) {
+    stats[id] = { teamId: id, teamName: teamMap.get(id) ?? id, wins: 0, setWins: 0, pointDiff: 0, pointsFor: 0, h2hWins: 0 }
+  }
+
+  const loserSet = new Set(loserIds)
+
+  for (const r of results) {
+    const game = Array.isArray(r.game) ? r.game[0] : r.game
+    if (!game || game.status !== 'completed') continue
+    const ht = game.home_team_id
+    const at = game.away_team_id
+    const hScore = r.home_score ?? 0
+    const aScore = r.away_score ?? 0
+
+    // Match wins
+    for (const id of [ht, at]) {
+      if (!loserSet.has(id)) continue
+      const isHome = id === ht
+      const myScore = isHome ? hScore : aScore
+      const theirScore = isHome ? aScore : hScore
+      stats[id].pointsFor += myScore
+      stats[id].pointDiff += myScore - theirScore
+      if (myScore > theirScore) stats[id].wins++
+    }
+
+    // Set wins from JSONB sets array (if present)
+    if (r.sets && Array.isArray(r.sets)) {
+      for (const set of r.sets as SetScore[]) {
+        if (loserSet.has(ht)) stats[ht].setWins += set.s1 > set.s2 ? 1 : 0
+        if (loserSet.has(at)) stats[at].setWins += set.s2 > set.s1 ? 1 : 0
+      }
+    }
+
+    // Head-to-head: only games between the 3 losers
+    if (loserSet.has(ht) && loserSet.has(at)) {
+      if (hScore > aScore) stats[ht].h2hWins++
+      else if (aScore > hScore) stats[at].h2hWins++
+    }
+  }
+
+  // Rank by tiebreaker sequence
+  const ranked = Object.values(stats).sort((a, b) => {
+    if (b.wins !== a.wins) return b.wins - a.wins
+    if (b.setWins !== a.setWins) return b.setWins - a.setWins
+    if (b.pointDiff !== a.pointDiff) return b.pointDiff - a.pointDiff
+    if (b.pointsFor !== a.pointsFor) return b.pointsFor - a.pointsFor
+    return b.h2hWins - a.h2hWins
+  })
+
+  const best = ranked[0]
+
+  // Place the best loser in SF-B slot 2, update status
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any)
+    .from('bracket_matches')
+    .update({
+      team2_id: best.teamId,
+      team2_label: null,
+      status: sfB.team1_id ? 'ready' : 'pending',
+    })
+    .eq('id', sfB.id)
+
+  revalidatePath(`/admin/events/${leagueId}/bracket`)
+  return { error: null, advanced: { teamId: best.teamId, teamName: best.teamName }, candidates: ranked }
+}
+
 // ── advanceBracketFromScore (called by scores.ts after confirm) ───────────────
 // Public hook: checks if a confirmed game is linked to a bracket match and auto-advances.
 

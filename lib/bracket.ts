@@ -102,27 +102,27 @@ function generateFirstRoundPairings(bracketSize: number): [number, number][] {
 }
 
 // ── 6-team bracket generator ──────────────────────────────────────────────────
-// All 6 teams play in the first round (no byes). Seeds 1v6 and 2v5 are
-// straight elimination — loser is out. Seeds 3v4 both advance: winner to
-// Semi-Final A, loser to Semi-Final B. This guarantees exactly 4 semifinalists.
+// All 6 teams play in the first round (no byes). All 3 winners advance.
+// The 4th semifinalist is the "best loser" — determined after all R1 matches
+// complete by tiebreaker: match wins → set wins → point diff → points for →
+// head-to-head. Admin confirms via the bracket UI once R1 is done.
 //
-//  Round 3 (First Round):  M1: 1v6  M2: 2v5  M3: 3v4 (loser also advances)
-//  Round 2 (Semi-Finals):  SF-A: W(M1) vs W(M3)   SF-B: W(M2) vs L(M3)
+//  Round 3 (First Round):  M1: 1v6  M2: 2v5  M3: 3v4
+//  Round 2 (Semi-Finals):  SF-A: W(M1) vs W(M3)   SF-B: W(M2) vs Best Loser
 //  Round 1 (Final):        W(SF-A) vs W(SF-B)
 
 export function generate6TeamBracketSpec(): BracketSpec {
   const matches: BracketMatchSpec[] = [
-    // First Round — elimination matches
+    // First Round — all elimination; best loser is determined separately after R1
     { roundNumber: 3, matchNumber: 1, team1Seed: 1, team2Seed: 6, isBye: false,
       winnerToRoundNumber: 2, winnerToMatchNumber: 1, winnerToSlot: 1,
       loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
     { roundNumber: 3, matchNumber: 2, team1Seed: 2, team2Seed: 5, isBye: false,
       winnerToRoundNumber: 2, winnerToMatchNumber: 2, winnerToSlot: 1,
       loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
-    // First Round — seeds 3 and 4 BOTH advance; this match determines seeding
     { roundNumber: 3, matchNumber: 3, team1Seed: 3, team2Seed: 4, isBye: false,
       winnerToRoundNumber: 2, winnerToMatchNumber: 1, winnerToSlot: 2,
-      loserToRoundNumber: 2, loserToMatchNumber: 2, loserToSlot: 2 },
+      loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
     // Semi-Finals
     { roundNumber: 2, matchNumber: 1, team1Seed: null, team2Seed: null, isBye: false,
       winnerToRoundNumber: 1, winnerToMatchNumber: 1, winnerToSlot: 1,
