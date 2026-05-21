@@ -122,13 +122,13 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? (db as any)
           .from('team_invitations')
-          .select('id, team_id, invited_email, role, created_at, expires_at, invited_by')
+          .select('id, token, team_id, invited_email, role, created_at, expires_at, invited_by')
           .eq('organization_id', org.id)
           .eq('status', 'pending')
           .in('team_id', leagueTeamIds)
           .order('created_at', { ascending: false })
       : Promise.resolve({ data: [] as Array<{
-          id: string; team_id: string; invited_email: string; role: string;
+          id: string; token: string; team_id: string; invited_email: string; role: string;
           created_at: string; expires_at: string; invited_by: string
         }>, error: null }),
   ])
@@ -261,6 +261,7 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
             const teamInvites = invitesByTeam.get(team.id) ?? []
             const initialInvites: PendingInvite[] = teamInvites.map((inv) => ({
               id: inv.id,
+              token: inv.token,
               invitedEmail: inv.invited_email,
               role: inv.role,
               invitedAt: inv.created_at,
