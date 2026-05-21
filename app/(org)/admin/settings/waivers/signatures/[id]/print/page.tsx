@@ -78,7 +78,12 @@ export default async function WaiverSignaturePrintPage({
       {/* Print CSS */}
       <style>{`
         @media print {
-          @page { size: letter portrait; margin: 0.5in; }
+          @page { size: letter portrait; margin: 0; }
+
+          html, body, div, main, section, article {
+            background: white !important;
+            background-color: white !important;
+          }
 
           html, body {
             overflow: visible !important;
@@ -91,7 +96,7 @@ export default async function WaiverSignaturePrintPage({
           .print-page-wrapper {
             min-height: 0 !important;
             max-width: none !important;
-            padding: 0 !important;
+            padding: 0.5in !important;
             margin: 0 !important;
           }
         }
