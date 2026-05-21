@@ -18,19 +18,17 @@ interface Props {
   sport?: string
 }
 
-/** Compact home–away score box pair for one set/period */
+/** Single score entry box for one team in one period */
 function ScoreBox() {
-  return (
-    <div className="flex items-center justify-center gap-1">
-      <span className="inline-block w-8 h-7 border-2 border-black rounded" />
-      <span className="font-bold text-xs">–</span>
-      <span className="inline-block w-8 h-7 border-2 border-black rounded" />
-    </div>
-  )
+  return <span className="inline-block w-10 h-7 border-2 border-black rounded" />
 }
 
 export function DailyScheduleSheet({ games, date, leagueName, orgName, timezone, sport }: Props) {
   const isVolleyball = sport === 'volleyball' || sport === 'beach_volleyball'
+  const setCount = sport === 'beach_volleyball' ? 3 : isVolleyball ? 5 : 0
+  // Show up to 3 set columns on the daily sheet (enough for match result; extra sets rare)
+  const sheetSets = Math.min(setCount, 3)
+  const showSets = sheetSets > 0
 
   // Format the date as a long readable string for the header
   const dateDisplay = new Intl.DateTimeFormat('en-US', {
@@ -38,8 +36,7 @@ export function DailyScheduleSheet({ games, date, leagueName, orgName, timezone,
     timeZone: timezone,
   }).format(new Date(`${date}T12:00:00`))  // noon to avoid DST edge
 
-  // Total column count: Time, Court, Home, [score cols], Away
-  const totalCols = isVolleyball ? 7 : 5
+  const colSpanTotal = 3 + (showSets ? sheetSets : 1)
 
   return (
     <div className="font-sans text-black">
@@ -61,52 +58,75 @@ export function DailyScheduleSheet({ games, date, leagueName, orgName, timezone,
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="border-b-2 border-black">
-            <th className="text-left py-1.5 pr-4 font-semibold w-16">Time</th>
-            <th className="text-left py-1.5 pr-4 font-semibold w-12">Court</th>
-            <th className="text-left py-1.5 pr-4 font-semibold">Home Team</th>
-            {isVolleyball ? (
-              <>
-                <th className="text-center py-1.5 px-2 font-semibold w-24">Set 1</th>
-                <th className="text-center py-1.5 px-2 font-semibold w-24">Set 2</th>
-                <th className="text-center py-1.5 px-2 font-semibold w-24">Set 3</th>
-              </>
+            <th className="text-left py-1.5 pr-3 font-semibold w-14">Time</th>
+            <th className="text-left py-1.5 pr-3 font-semibold w-12">Court</th>
+            <th className="text-left py-1.5 pr-4 font-semibold">Team</th>
+            {showSets ? (
+              Array.from({ length: sheetSets }, (_, i) => (
+                <th key={i} className="text-center py-1.5 px-2 font-semibold w-14">
+                  Set {i + 1}
+                </th>
+              ))
             ) : (
-              <th className="text-center py-1.5 px-4 font-semibold w-36">Score</th>
+              <th className="text-center py-1.5 px-3 font-semibold w-16">Score</th>
             )}
-            <th className="text-right py-1.5 pl-4 font-semibold">Away Team</th>
           </tr>
         </thead>
         <tbody>
-          {games.map((game) => {
-            const { time } = formatGameTime(game.scheduledAt, timezone)
-            return (
-              <tr key={game.id} className="border-b border-gray-300">
-                <td className="py-2.5 pr-4 font-medium tabular-nums">{time}</td>
-                <td className="py-2.5 pr-4 text-gray-600">{game.court ?? '—'}</td>
-                <td className="py-2.5 pr-4 font-medium">{game.homeTeamName}</td>
-                {isVolleyball ? (
-                  <>
-                    <td className="py-2.5 px-2"><ScoreBox /></td>
-                    <td className="py-2.5 px-2"><ScoreBox /></td>
-                    <td className="py-2.5 px-2"><ScoreBox /></td>
-                  </>
-                ) : (
-                  <td className="py-2.5 px-4">
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="inline-block w-10 h-8 border-2 border-black rounded" />
-                      <span className="font-bold text-base">—</span>
-                      <span className="inline-block w-10 h-8 border-2 border-black rounded" />
-                    </div>
-                  </td>
-                )}
-                <td className="py-2.5 pl-4 text-right font-medium">{game.awayTeamName}</td>
-              </tr>
-            )
-          })}
-          {games.length === 0 && (
+          {games.length === 0 ? (
             <tr>
-              <td colSpan={totalCols} className="py-8 text-center text-gray-400 italic">No games scheduled for this day.</td>
+              <td colSpan={colSpanTotal} className="py-8 text-center text-gray-400 italic">
+                No games scheduled for this day.
+              </td>
             </tr>
+          ) : (
+            games.map((game) => {
+              const { time } = formatGameTime(game.scheduledAt, timezone)
+              return (
+                <>
+                  {/* Home team row */}
+                  <tr key={`${game.id}-home`} className="border-t-2 border-black">
+                    <td
+                      rowSpan={2}
+                      className="pr-3 font-medium tabular-nums align-middle text-sm"
+                      style={{ verticalAlign: 'middle' }}
+                    >
+                      {time}
+                    </td>
+                    <td
+                      rowSpan={2}
+                      className="pr-3 text-gray-600 align-middle"
+                      style={{ verticalAlign: 'middle' }}
+                    >
+                      {game.court ?? '—'}
+                    </td>
+                    <td className="pt-2 pb-1 pr-4 font-medium">{game.homeTeamName}</td>
+                    {showSets ? (
+                      Array.from({ length: sheetSets }, (_, i) => (
+                        <td key={i} className="pt-2 pb-1 px-2 text-center">
+                          <ScoreBox />
+                        </td>
+                      ))
+                    ) : (
+                      <td className="pt-2 pb-1 px-3 text-center"><ScoreBox /></td>
+                    )}
+                  </tr>
+                  {/* Away team row */}
+                  <tr key={`${game.id}-away`}>
+                    <td className="pt-1 pb-2.5 pr-4 font-medium text-gray-600">{game.awayTeamName}</td>
+                    {showSets ? (
+                      Array.from({ length: sheetSets }, (_, i) => (
+                        <td key={i} className="pt-1 pb-2.5 px-2 text-center">
+                          <ScoreBox />
+                        </td>
+                      ))
+                    ) : (
+                      <td className="pt-1 pb-2.5 px-3 text-center"><ScoreBox /></td>
+                    )}
+                  </tr>
+                </>
+              )
+            })
           )}
         </tbody>
       </table>
