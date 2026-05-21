@@ -185,11 +185,15 @@ function PrintPage({ children }: { children: React.ReactNode }) {
         @media print {
           @page { size: letter portrait; margin: 0; }
 
+          html, body, div, main, section, article {
+            background: white !important;
+            background-color: white !important;
+          }
+
           html, body {
             overflow: visible !important;
             height: auto !important;
             width: 100% !important;
-            background: white !important;
           }
 
           body  { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
