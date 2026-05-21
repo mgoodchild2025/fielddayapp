@@ -18,6 +18,7 @@ const ROLES: { value: Role; label: string }[] = [
 
 export interface PendingInvite {
   id: string
+  token: string
   invitedEmail: string
   role: string
   invitedAt: string
@@ -72,6 +73,7 @@ export function RosterManager({
   const router = useRouter()
   const [members, setMembers] = useState(initialMembers)
   const [invites, setInvites] = useState(initialInvites)
+  const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null)
 
   const [actionPending, startActionTransition] = useTransition()
   const [actionError, setActionError] = useState<string | null>(null)
@@ -217,6 +219,19 @@ export function RosterManager({
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => {
+                          const url = `${window.location.origin}/invite/${inv.token}`
+                          navigator.clipboard.writeText(url).then(() => {
+                            setCopiedInviteId(inv.id)
+                            setTimeout(() => setCopiedInviteId(null), 2000)
+                          })
+                        }}
+                        className="text-xs px-2 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+                        title="Copy invite link"
+                      >
+                        {copiedInviteId === inv.id ? 'Copied!' : 'Copy link'}
+                      </button>
                       <button
                         onClick={() => openReminder(inv.id, inv.invitedEmail, 'invite')}
                         disabled={actionPending}

@@ -83,7 +83,7 @@ export default async function TeamDetailPage({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)
       .from('team_invitations')
-      .select('id, invited_email, role, created_at, expires_at, invited_by')
+      .select('id, token, invited_email, role, created_at, expires_at, invited_by')
       .eq('team_id', teamId)
       .eq('organization_id', org.id)
       .eq('status', 'pending')
@@ -331,8 +331,9 @@ export default async function TeamDetailPage({
             teamCode={(team as { team_code?: string | null }).team_code ?? null}
             leagueHasWaiver={leagueHasWaiver}
             positions={positions}
-            initialInvites={(((pendingInvitesResult as { data: Array<{ id: string; invited_email: string; role: string; created_at: string; expires_at: string; invited_by: string }> | null }).data) ?? []).map((inv) => ({
+            initialInvites={(((pendingInvitesResult as { data: Array<{ id: string; token: string; invited_email: string; role: string; created_at: string; expires_at: string; invited_by: string }> | null }).data) ?? []).map((inv) => ({
               id: inv.id,
+              token: inv.token,
               invitedEmail: inv.invited_email,
               role: inv.role,
               invitedAt: inv.created_at,
