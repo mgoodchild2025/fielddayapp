@@ -1,15 +1,17 @@
-import { getSignupsEnabled, getNewOrgNotificationEmail } from '@/actions/platform-settings'
+import { getSignupsEnabled, getNewOrgNotificationEmail, getGlobalMaintenance } from '@/actions/platform-settings'
 import { ToggleSignups } from './toggle-signups'
 import { NewOrgNotificationForm } from './new-org-notification-form'
+import { GlobalMaintenanceForm } from '@/components/platform/global-maintenance-form'
 
 export const metadata = { title: 'Platform Settings — Fieldday' }
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
 export default async function PlatformSettingsPage() {
-  const [signupsEnabled, newOrgNotificationEmail] = await Promise.all([
+  const [signupsEnabled, newOrgNotificationEmail, globalMaintenance] = await Promise.all([
     getSignupsEnabled(),
     getNewOrgNotificationEmail(),
+    getGlobalMaintenance(),
   ])
   const signupUrl = `https://app.${PLATFORM_DOMAIN}/signup`
 
@@ -17,7 +19,32 @@ export default async function PlatformSettingsPage() {
     <div className="max-w-2xl">
       <h1 className="text-2xl font-bold text-white mb-8">Platform Settings</h1>
 
+      {/* Global maintenance active banner */}
+      {globalMaintenance.enabled && (
+        <div className="mb-6 flex items-center gap-3 rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-3">
+          <span className="text-amber-400 text-lg">⚠</span>
+          <p className="text-sm text-amber-300 font-medium">
+            Global maintenance mode is <strong>ACTIVE</strong> — all org sites are showing the maintenance page.
+          </p>
+        </div>
+      )}
+
       <div className="space-y-4">
+        {/* Global maintenance */}
+        <div className={`bg-gray-800 rounded-xl p-6 ${globalMaintenance.enabled ? 'border-2 border-amber-500/50' : 'border border-gray-700'}`}>
+          <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-widest mb-1">
+            ⚠ Maintenance Mode
+          </h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Use during deployments or migrations. Disables all org sites at once.
+          </p>
+          <GlobalMaintenanceForm
+            initialEnabled={globalMaintenance.enabled}
+            initialMessage={globalMaintenance.message}
+            initialUntil={globalMaintenance.until}
+          />
+        </div>
+
         {/* Sign-up toggle */}
         <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
           <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-widest mb-4">

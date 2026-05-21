@@ -218,6 +218,33 @@ export async function deleteOrganization(orgId: string): Promise<{ error: string
   return { error: null }
 }
 
+// ─── Org Maintenance Mode ─────────────────────────────────────────────────────
+
+export async function setOrgMaintenance(
+  orgId: string,
+  enabled: boolean,
+  message: string | null,
+  until: string | null,  // ISO 8601 or null
+): Promise<{ error: string | null }> {
+  const supabase = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from('organizations')
+    .update({
+      maintenance_mode: enabled,
+      maintenance_message: message?.trim() || null,
+      maintenance_until: until || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', orgId)
+
+  if (error) return { error: (error as { message: string }).message }
+
+  revalidatePath(`/super/orgs/${orgId}`)
+  revalidatePath('/', 'layout')
+  return { error: null }
+}
+
 // ─── Suspend / Activate Organisation ─────────────────────────────────────────
 
 export async function setOrgStatus(orgId: string, status: 'active' | 'suspended' | 'trial') {

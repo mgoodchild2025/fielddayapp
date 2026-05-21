@@ -6,6 +6,7 @@ import { ImpersonateButton } from './impersonate-button'
 
 export const dynamic = 'force-dynamic'
 import { SetOrgAdminForm } from './set-org-admin-form'
+import { OrgMaintenanceForm } from '@/components/platform/org-maintenance-form'
 
 const STATUS_STYLES: Record<string, string> = {
   active: 'bg-green-100 text-green-800',
@@ -34,7 +35,8 @@ export default async function PlatformOrgDetailPage({
   const supabase = createServiceRoleClient()
 
   const [orgRes, membersRes, leaguesRes, paymentsRes] = await Promise.all([
-    supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
       .from('organizations')
       .select('*, subscriptions(*), org_branding(custom_domain, logo_url)')
       .eq('id', id)
@@ -191,6 +193,27 @@ export default async function PlatformOrgDetailPage({
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Maintenance mode */}
+          <div className={`bg-white rounded-lg border p-5 ${org.maintenance_mode ? 'border-amber-300' : 'border-gray-200'}`}>
+            <h2 className="font-semibold mb-1 flex items-center gap-2">
+              Maintenance Mode
+              {org.maintenance_mode && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                  Active
+                </span>
+              )}
+            </h2>
+            <p className="text-xs text-gray-500 mb-4">
+              Visitors see a &ldquo;temporarily unavailable&rdquo; page. Platform admins bypass silently.
+            </p>
+            <OrgMaintenanceForm
+              orgId={org.id}
+              initialEnabled={org.maintenance_mode ?? false}
+              initialMessage={org.maintenance_message ?? null}
+              initialUntil={org.maintenance_until ?? null}
+            />
           </div>
 
           {/* Danger zone */}

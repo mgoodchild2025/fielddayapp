@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { BrandProvider } from '@/components/branding/brand-provider'
 import { CartProvider } from '@/components/shop/cart-provider'
 import { CartButton } from '@/components/shop/cart-button'
+import { MaintenancePage } from '@/components/maintenance-page'
 import type { OrgBranding } from '@/types/database'
 
 // ── Dynamic metadata per org ─────────────────────────────────────────────────
@@ -86,11 +87,71 @@ export default async function OrgLayout({
 
   const supabase = await createServerClient()
   const db2 = createServiceRoleClient()
-  const [{ data: branding }, { data: { user } }] = await Promise.all([
+  const [
+    { data: branding },
+    { data: { user } },
+    { data: orgRow },
+    { data: platformSettings },
+  ] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db2 as any).from('org_branding').select('*').eq('organization_id', orgId).single(),
     supabase.auth.getUser(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db2 as any)
+      .from('organizations')
+      .select('maintenance_mode, maintenance_message, maintenance_until')
+      .eq('id', orgId)
+      .single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db2 as any)
+      .from('platform_settings')
+      .select('key, value')
+      .in('key', ['maintenance_mode_all', 'maintenance_mode_message', 'maintenance_mode_until']),
   ])
+
+  // ── Maintenance gate ────────────────────────────────────────────────────────
+  const settingsMap = new Map(
+    ((platformSettings ?? []) as { key: string; value: string }[]).map(r => [r.key, r.value])
+  )
+  const globalOn = settingsMap.get('maintenance_mode_all') === 'true'
+  const orgOn = orgRow?.maintenance_mode === true
+
+  // Check platform_role for bypass — only needed when in maintenance
+  let isPlatformAdmin = false
+  if ((globalOn || orgOn) && user) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: profile } = await (db2 as any)
+      .from('profiles')
+      .select('platform_role')
+      .eq('id', user.id)
+      .single()
+    isPlatformAdmin = profile?.platform_role === 'platform_admin'
+  }
+
+  if ((globalOn || orgOn) && !isPlatformAdmin) {
+    const message = globalOn
+      ? (settingsMap.get('maintenance_mode_message') ?? null)
+      : (orgRow?.maintenance_message ?? null)
+    const until = globalOn
+      ? (settingsMap.get('maintenance_mode_until') ?? null)
+      : (orgRow?.maintenance_until ?? null)
+    const timezone = (branding as OrgBranding | null)?.timezone ?? 'America/Toronto'
+
+    return (
+      <>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <BrandProvider branding={branding as OrgBranding | null}>
+          <MaintenancePage
+            message={message}
+            until={until}
+            branding={branding as OrgBranding | null}
+            timezone={timezone}
+          />
+        </BrandProvider>
+      </>
+    )
+  }
 
   const headingFont = branding?.heading_font ?? 'Barlow Condensed'
   const bodyFont = branding?.body_font ?? 'DM Sans'
