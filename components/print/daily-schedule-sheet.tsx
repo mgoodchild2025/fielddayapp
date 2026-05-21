@@ -20,7 +20,7 @@ interface Props {
 
 /** Single score entry box for one team in one period */
 function ScoreBox() {
-  return <span className="inline-block w-10 h-7 border-2 border-black rounded" />
+  return <span className="inline-block w-16 h-8 border-2 border-black rounded" />
 }
 
 export function DailyScheduleSheet({ games, date, leagueName, orgName, timezone, sport }: Props) {

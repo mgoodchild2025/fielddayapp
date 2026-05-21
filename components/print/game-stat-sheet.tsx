@@ -74,7 +74,7 @@ function RosterTable({
         </thead>
         <tbody>
           {players.map((p, i) => (
-            <tr key={i} className={i % 2 === 0 ? '' : 'bg-gray-50'}>
+            <tr key={i} className="border-b border-gray-100">
               <td className="border-b border-gray-200 px-1 py-1.5">
                 <span className="inline-block w-5 h-5 border border-gray-400 rounded-sm" />
               </td>

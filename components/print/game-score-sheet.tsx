@@ -157,9 +157,9 @@ export function GameScoreSheet({ game, scoreStructure, leagueName, orgName, time
             <div className="flex items-center gap-2 pt-2 mt-1 border-t-2 border-black">
               <span className="w-20 text-xs font-bold text-right shrink-0">TOTAL</span>
               <div className="flex items-center gap-2">
-                <span className="inline-block w-12 h-7 border-2 border-black rounded bg-gray-50" />
+                <span className="inline-block w-12 h-7 border-2 border-black rounded" />
                 <span className="font-bold text-sm">—</span>
-                <span className="inline-block w-12 h-7 border-2 border-black rounded bg-gray-50" />
+                <span className="inline-block w-12 h-7 border-2 border-black rounded" />
               </div>
             </div>
           </div>
@@ -177,9 +177,9 @@ export function GameScoreSheet({ game, scoreStructure, leagueName, orgName, time
             <div className="flex items-center gap-2 pt-2 mt-1 border-t-2 border-black">
               <span className="w-20 text-xs font-bold text-right shrink-0">TOTAL</span>
               <div className="flex items-center gap-2">
-                <span className="inline-block w-12 h-7 border-2 border-black rounded bg-gray-50" />
+                <span className="inline-block w-12 h-7 border-2 border-black rounded" />
                 <span className="font-bold text-sm">—</span>
-                <span className="inline-block w-12 h-7 border-2 border-black rounded bg-gray-50" />
+                <span className="inline-block w-12 h-7 border-2 border-black rounded" />
               </div>
             </div>
           </div>

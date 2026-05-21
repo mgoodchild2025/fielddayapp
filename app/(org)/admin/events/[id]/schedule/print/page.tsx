@@ -304,6 +304,7 @@ function PrintPage({ children }: { children: React.ReactNode }) {
             overflow: visible !important;
             height: auto !important;
             width: 100% !important;
+            background: white !important;
           }
 
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
