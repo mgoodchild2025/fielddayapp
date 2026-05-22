@@ -762,14 +762,19 @@ export async function generateWeeklyLeagueSchedule(input: {
     .single()
   if (!adminMember) return { error: 'Admin access required', count: 0 }
 
-  // Fetch org timezone
+  // Fetch org timezone + league sport in parallel
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: branding } = await (db as any)
-    .from('org_branding')
-    .select('timezone')
-    .eq('organization_id', org.id)
-    .single()
+  const [{ data: branding }, { data: leagueRow }] = await Promise.all([
+    (db as any)
+      .from('org_branding')
+      .select('timezone')
+      .eq('organization_id', org.id)
+      .single() as Promise<{ data: { timezone: string | null } | null }>,
+    db.from('leagues').select('sport').eq('id', input.leagueId).single(),
+  ])
   const timezone: string = branding?.timezone ?? 'America/Toronto'
+  const { venueLabel: getVenueLabel } = await import('@/lib/venue-label')
+  const vLabel = getVenueLabel((leagueRow as { sport?: string | null } | null)?.sport)
 
   // Fetch active teams for this league
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -806,6 +811,7 @@ export async function generateWeeklyLeagueSchedule(input: {
     gameDurationMinutes: input.gameDurationMinutes,
     repeatRotations:    input.repeatRotations,
     slotMode:           useSlotMode,
+    venueLabel:         vLabel,
   })
 
   if (!scheduled.length) {
@@ -863,12 +869,17 @@ export async function generatePickupSchedule(input: {
   if (!adminMember) return { error: 'Admin access required', count: 0 }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: branding } = await (db as any)
-    .from('org_branding')
-    .select('timezone')
-    .eq('organization_id', org.id)
-    .single()
+  const [{ data: branding }, { data: puLeagueRow }] = await Promise.all([
+    (db as any)
+      .from('org_branding')
+      .select('timezone')
+      .eq('organization_id', org.id)
+      .single() as Promise<{ data: { timezone: string | null } | null }>,
+    db.from('leagues').select('sport').eq('id', input.leagueId).single(),
+  ])
   const timezone: string = branding?.timezone ?? 'America/Toronto'
+  const { venueLabel: getVenueLabelPu } = await import('@/lib/venue-label')
+  const puVLabel = getVenueLabelPu((puLeagueRow as { sport?: string | null } | null)?.sport)
 
   const { getGameDays, generatePickupSlotList } = await import('@/lib/scheduler')
 
@@ -877,7 +888,7 @@ export async function generatePickupSchedule(input: {
     return { error: 'No game days found in the selected date range for the chosen days of the week.', count: 0 }
   }
 
-  const scheduled = generatePickupSlotList(gameDays, input.timeSlots, Math.max(1, input.courts), timezone)
+  const scheduled = generatePickupSlotList(gameDays, input.timeSlots, Math.max(1, input.courts), timezone, puVLabel)
 
   if (scheduled.length > SLOT_CAP) {
     return {

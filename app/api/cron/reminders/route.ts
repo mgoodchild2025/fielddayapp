@@ -3,6 +3,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getResend, FROM_EMAIL } from '@/lib/resend'
 import { sendSms } from '@/lib/twilio'
 import { deliverAnnouncementEmails } from '@/actions/messages'
+import { formatCourtLabel } from '@/lib/venue-label'
 
 function authorized(req: NextRequest) {
   const secret = process.env.CRON_SECRET
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
       id, organization_id, scheduled_at, court,
       home_team:teams!games_home_team_id_fkey(id, name),
       away_team:teams!games_away_team_id_fkey(id, name),
-      leagues(name)
+      leagues(name, sport)
     `)
     .eq('status', 'scheduled')
     .gte('scheduled_at', now.toISOString())
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest) {
       id: string; organization_id: string; scheduled_at: string; court: string | null
       home_team: { id: string; name: string } | null
       away_team: { id: string; name: string } | null
-      leagues: { name: string } | { name: string }[] | null
+      leagues: { name: string; sport?: string | null } | { name: string; sport?: string | null }[] | null
     }
     const rgOrgIds = [...new Set((reminderGames as RGGame[]).map(g => g.organization_id))]
     const [{ data: rgBranding }, { data: rgOrgs }] = await Promise.all([
@@ -158,7 +159,8 @@ export async function GET(req: NextRequest) {
           const myTeamIsHome = g.home_team?.id && player.teamIds.has(g.home_team.id)
           const opponent = myTeamIsHome ? g.away_team?.name : g.home_team?.name
           const time = new Date(g.scheduled_at).toLocaleTimeString('en-CA', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })
-          const venue = g.court ? `<br><span style="color:#666;font-size:13px">${g.court}</span>` : ''
+          const courtLabel = formatCourtLabel(g.court, league?.sport)
+          const venue = courtLabel ? `<br><span style="color:#666;font-size:13px">${courtLabel}</span>` : ''
           const leagueLabel = league?.name ? `<span style="color:#666;font-size:13px">${league.name}</span><br>` : ''
           const vsLabel = opponent ? ` vs ${opponent}` : ''
           return `<tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0">${leagueLabel}<strong>${time}${vsLabel}</strong>${venue}</td></tr>`
@@ -239,7 +241,7 @@ export async function GET(req: NextRequest) {
   type GameRow = {
     id: string; organization_id: string; scheduled_at: string
     home_team_id: string | null; away_team_id: string | null; court: string | null
-    leagues: { name: string } | null
+    leagues: { name: string; sport?: string | null } | null
   }
   type LogRow = { game_id: string; minutes_before: number }
 
@@ -293,7 +295,7 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: smsGames, error: gamesErr } = await (supabase as any)
       .from('games')
-      .select('id, organization_id, scheduled_at, home_team_id, away_team_id, court, leagues(name)')
+      .select('id, organization_id, scheduled_at, home_team_id, away_team_id, court, leagues(name, sport)')
       .gte('scheduled_at', now.toISOString())
       .lte('scheduled_at', in24h.toISOString()) as { data: GameRow[] | null; error: unknown }
 
@@ -339,7 +341,8 @@ export async function GET(req: NextRequest) {
       const orgName = orgNameById.get(orgId) ?? 'Fieldday'
       const leagueName = league?.name ?? 'Game'
       const gameTime = new Date(game.scheduled_at).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
-      const venue = game.court ? ` · ${game.court}` : ''
+      const courtLabel = formatCourtLabel(game.court, league?.sport)
+      const venue = courtLabel ? ` · ${courtLabel}` : ''
 
       for (const reminder of orgReminders) {
         const logKey = `${game.id}:${reminder.minutes_before}`
@@ -446,7 +449,7 @@ export async function GET(req: NextRequest) {
       id, organization_id, scheduled_at, court,
       home_team:teams!games_home_team_id_fkey(id, name),
       away_team:teams!games_away_team_id_fkey(id, name),
-      leagues(name)
+      leagues(name, sport)
     `)
     .eq('status', 'scheduled')
     .gte('scheduled_at', now.toISOString())
@@ -472,7 +475,7 @@ export async function GET(req: NextRequest) {
       id: string; organization_id: string; scheduled_at: string; court: string | null
       home_team: { id: string; name: string } | null
       away_team: { id: string; name: string } | null
-      leagues: { name: string } | { name: string }[] | null
+      leagues: { name: string; sport?: string | null } | { name: string; sport?: string | null }[] | null
     }
     const gamesByOrg = new Map<string, GDGame[]>()
     for (const g of (gameDayGames as GDGame[]) ?? []) {
@@ -568,7 +571,8 @@ export async function GET(req: NextRequest) {
           const myTeamIsHome = g.home_team?.id && player.teamIds.has(g.home_team.id)
           const opponent = myTeamIsHome ? g.away_team?.name : g.home_team?.name
           const time = new Date(g.scheduled_at).toLocaleTimeString('en-CA', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })
-          const venue = g.court ? ` · ${g.court}` : ''
+          const courtLabel = formatCourtLabel(g.court, league?.sport)
+          const venue = courtLabel ? ` · ${courtLabel}` : ''
           const leagueName = league?.name ? `[${league.name}] ` : ''
           return opponent
             ? `${leagueName}${time}${venue} vs ${opponent}`

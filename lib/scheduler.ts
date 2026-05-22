@@ -317,6 +317,8 @@ export interface WeeklySlotsOptions {
   gameDurationMinutes: number
   repeatRotations: boolean
   slotMode?: boolean
+  /** Sport-appropriate venue label (e.g. "Diamond", "Rink"). Defaults to "Court". */
+  venueLabel?: string
 }
 
 /**
@@ -330,6 +332,7 @@ export function assignWeeklySlots(
   opts: WeeklySlotsOptions,
 ): ScheduledGame[] {
   const { timezone, timeSlots, courts, repeatRotations, slotMode } = opts
+  const vLabel = opts.venueLabel ?? 'Court'
   const games: ScheduledGame[] = []
   if (!fixtures.length || !gameDays.length || !timeSlots.length || courts < 1) return games
 
@@ -356,7 +359,7 @@ export function assignWeeklySlots(
           awayTeamLabel: awayIsSlot ? slotLabel(rawAway) : null,
           scheduledAt:   parseLocalToUtc(dateStr, slot, timezone),
           weekNumber:    f.round,
-          court:         courts > 1 ? `Court ${c + 1}` : null,
+          court:         courts > 1 ? `${vLabel} ${c + 1}` : null,
         })
       }
     }
@@ -372,6 +375,7 @@ export function generatePickupSlotList(
   timeSlots: string[],
   courts: number,
   timezone: string,
+  venueLabelStr = 'Court',
 ): ScheduledGame[] {
   const games: ScheduledGame[] = []
   for (const day of gameDays) {
@@ -385,7 +389,7 @@ export function generatePickupSlotList(
           awayTeamLabel: null,
           scheduledAt:   parseLocalToUtc(dateStr, slot, timezone),
           weekNumber:    1,
-          court:         courts > 1 ? `Court ${c + 1}` : null,
+          court:         courts > 1 ? `${venueLabelStr} ${c + 1}` : null,
         })
       }
     }
