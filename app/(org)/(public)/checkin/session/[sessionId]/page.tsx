@@ -6,6 +6,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
+import { CheckinSoundPlayer } from '@/components/checkin/checkin-sound-player'
 
 function formatSessionTime(scheduledAt: string, timezone: string): string {
   return new Date(scheduledAt).toLocaleString('en-CA', {
@@ -38,7 +39,7 @@ export default async function SelfCheckInSessionPage({
 
   const [{ data: branding }, { data: session }, { data: profile }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
+    (db as any).from('org_branding').select('logo_url, timezone, checkin_sound').eq('organization_id', org.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)
       .from('event_sessions')
@@ -51,6 +52,7 @@ export default async function SelfCheckInSessionPage({
   ])
 
   const timezone = branding?.timezone ?? 'America/Toronto'
+  const checkinSound: string | null = branding?.checkin_sound ?? null
   const playerName: string = profile?.full_name ?? 'You'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leagueData = session ? (Array.isArray(session.league) ? session.league[0] : session.league) as any : null
@@ -105,6 +107,7 @@ export default async function SelfCheckInSessionPage({
   let heading: string
   let body: string
   let headingColor = 'text-gray-800'
+  let playSound = false
 
   if (!reg) {
     icon = '🚫'
@@ -138,6 +141,7 @@ export default async function SelfCheckInSessionPage({
       heading = "You're checked in!"
       body = `Welcome, ${playerName}. See you out there!`
       headingColor = 'text-green-700'
+      playSound = true
     }
   }
 
@@ -148,6 +152,7 @@ export default async function SelfCheckInSessionPage({
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-sm">
           <div className="bg-white rounded-2xl border shadow-sm p-8 text-center space-y-4">
+            {playSound && <CheckinSoundPlayer sound={checkinSound} />}
             <div className="text-5xl">{icon}</div>
             <div>
               <h1 className={`text-xl font-bold ${headingColor}`}>{heading}</h1>

@@ -7,6 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { CaptainCheckinButton } from '@/components/checkin/captain-checkin-button'
+import { CheckinSoundPlayer } from '@/components/checkin/checkin-sound-player'
 
 export default async function SelfCheckInEventPage({
   params,
@@ -28,7 +29,7 @@ export default async function SelfCheckInEventPage({
 
   const [{ data: branding }, { data: league }, { data: profile }, { data: captainRows }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
+    (db as any).from('org_branding').select('logo_url, timezone, checkin_sound').eq('organization_id', org.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues').select('id, name').eq('id', leagueId).eq('organization_id', org.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,6 +47,7 @@ export default async function SelfCheckInEventPage({
 
   const playerName: string = profile?.full_name ?? 'You'
   const timezone = branding?.timezone ?? 'America/Toronto'
+  const checkinSound: string | null = branding?.checkin_sound ?? null
 
   // Find the captain's team for this specific league
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -106,6 +108,7 @@ export default async function SelfCheckInEventPage({
   let heading: string
   let body: string
   let headingColor = 'text-gray-800'
+  let playSound = false
 
   if (!reg) {
     icon = '🚫'
@@ -139,6 +142,7 @@ export default async function SelfCheckInEventPage({
       heading = "You're checked in!"
       body = `Welcome, ${playerName}. Enjoy ${league.name}!`
       headingColor = 'text-green-700'
+      playSound = true
     }
   }
 
@@ -151,6 +155,7 @@ export default async function SelfCheckInEventPage({
 
           {/* Status card */}
           <div className="bg-white rounded-2xl border shadow-sm p-8 text-center space-y-4">
+            {playSound && <CheckinSoundPlayer sound={checkinSound} />}
             <div className="text-5xl">{icon}</div>
             <div>
               <h1 className={`text-xl font-bold ${headingColor}`}>{heading}</h1>
