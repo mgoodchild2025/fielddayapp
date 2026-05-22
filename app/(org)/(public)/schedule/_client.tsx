@@ -120,13 +120,11 @@ export function MyGamesClient({
           key={`game-${g.id}`}
           className={`relative border rounded-md p-3 transition-shadow hover:shadow-md bg-white${isCancelled ? ' opacity-60' : ''}`}
         >
-          {league?.slug && (
-            <Link
-              href={`/events/${league.slug}`}
-              className="absolute inset-0 rounded-md"
-              aria-label={`View ${league.name ?? 'event'}`}
-            />
-          )}
+          <Link
+            href={`/games/${g.id}`}
+            className="absolute inset-0 rounded-md"
+            aria-label="View game details"
+          />
           <div className="flex items-start justify-between gap-2">
             <p className="text-sm text-gray-500">
               {gameDate} · {gameTime}
