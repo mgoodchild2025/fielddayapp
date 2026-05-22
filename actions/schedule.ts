@@ -7,7 +7,8 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { parseLocalToUtc, formatGameTime } from '@/lib/format-time'
-import { getResend, FROM_EMAIL } from '@/lib/resend'
+import { FROM_EMAIL } from '@/lib/resend'
+import { sendEmailBatch } from '@/lib/email'
 
 // ── Notification helpers ────────────────────────────────────────────────────
 
@@ -59,18 +60,14 @@ async function notifyGameStatusChange(opts: {
   )
 
   if (opts.sendEmails) {
-    const resend = getResend()
-    await Promise.allSettled(
+    await sendEmailBatch(
       participants
         .filter((p: { userId: string; email?: string }) => !!p.email)
-        .map((p: { userId: string; email?: string }) =>
-          resend.emails.send({
-            from: FROM_EMAIL,
-            to: p.email!,
-            subject: opts.emailSubject,
-            html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">${opts.emailHtml}</div>`,
-          })
-        )
+        .map((p: { userId: string; email?: string }) => ({
+          to: p.email!,
+          subject: opts.emailSubject,
+          html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">${opts.emailHtml}</div>`,
+        }))
     )
   }
 }

@@ -29,6 +29,25 @@ export async function sendEmail(opts: SendEmailOptions): Promise<void> {
   }
 }
 
+/**
+ * Send multiple emails while staying under Resend's 5 req/sec rate limit.
+ * Chunks into groups of 5, with a 220ms pause between chunks.
+ */
+export async function sendEmailBatch(emails: SendEmailOptions[]): Promise<void> {
+  if (!RESEND_API_KEY || emails.length === 0) return
+
+  const CHUNK = 5
+  const DELAY = 220 // ms — safely under 5/sec with headroom
+
+  for (let i = 0; i < emails.length; i += CHUNK) {
+    const chunk = emails.slice(i, i + CHUNK)
+    await Promise.allSettled(chunk.map(sendEmail))
+    if (i + CHUNK < emails.length) {
+      await new Promise(resolve => setTimeout(resolve, DELAY))
+    }
+  }
+}
+
 export function buildJoinRequestEmail({
   teamName,
   orgName,
