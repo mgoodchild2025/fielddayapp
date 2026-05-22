@@ -31,8 +31,8 @@ export default async function SchedulePage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('games').select(`
       id, scheduled_at, court, week_number, status,
-      home_team:teams!games_home_team_id_fkey(id, name, color),
-      away_team:teams!games_away_team_id_fkey(id, name, color),
+      home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
+      away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
       league:leagues!games_league_id_fkey(name, slug, schedule_published, event_type)
     `)
       .eq('organization_id', org.id)

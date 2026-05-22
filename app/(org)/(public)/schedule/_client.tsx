@@ -10,6 +10,27 @@ import { formatGameTime } from '@/lib/format-time'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ScheduleItem = { _type: 'game' | 'session'; scheduled_at: string; data: any }
 
+function TeamBadge({
+  name, logoUrl, color, bold,
+}: {
+  name: string
+  logoUrl?: string | null
+  color?: string | null
+  bold?: boolean
+}) {
+  return (
+    <span className="flex items-center gap-1">
+      {logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logoUrl} alt={name} className="w-4 h-4 rounded-full object-cover shrink-0" />
+      ) : color ? (
+        <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+      ) : null}
+      <span className={bold ? 'font-semibold' : 'font-medium'}>{name}</span>
+    </span>
+  )
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getLeague(item: ScheduleItem): { name: string; slug: string; event_type?: string } | null {
   const raw = item.data.league
@@ -71,6 +92,8 @@ export function MyGamesClient({
       const { date: gameDate, time: gameTime } = formatGameTime(g.scheduled_at, timezone)
       const homeColor    = homeTeam?.color as string | null | undefined
       const awayColor    = awayTeam?.color as string | null | undefined
+      const homeLogoUrl  = homeTeam?.logo_url as string | null | undefined
+      const awayLogoUrl  = awayTeam?.logo_url as string | null | undefined
       const isHomeMyTeam = teamIdSet.has(homeTeam?.id)
       const isAwayMyTeam = teamIdSet.has(awayTeam?.id)
       const isCancelled  = g.status === 'cancelled' || g.status === 'postponed'
@@ -121,20 +144,10 @@ export function MyGamesClient({
               ) : null}
             </div>
           </div>
-          <div className="flex items-center gap-1 flex-wrap mt-0.5">
-            {homeColor && (
-              <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: homeColor }} />
-            )}
-            <span className={isHomeMyTeam ? 'font-semibold' : 'font-medium'}>
-              {homeTeam?.name ?? 'TBD'}
-            </span>
+          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+            <TeamBadge name={homeTeam?.name ?? 'TBD'} logoUrl={homeLogoUrl} color={homeColor} bold={isHomeMyTeam} />
             <span className="text-gray-400 text-sm mx-0.5">vs</span>
-            {awayColor && (
-              <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: awayColor }} />
-            )}
-            <span className={isAwayMyTeam ? 'font-semibold' : 'font-medium'}>
-              {awayTeam?.name ?? 'TBD'}
-            </span>
+            <TeamBadge name={awayTeam?.name ?? 'TBD'} logoUrl={awayLogoUrl} color={awayColor} bold={isAwayMyTeam} />
           </div>
           <p className="text-xs text-gray-400 mt-0.5">{league?.name}</p>
 
