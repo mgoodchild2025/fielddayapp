@@ -13,7 +13,6 @@ interface Props {
     t_shirt_size: string | null
     emergency_contact_name: string | null
     emergency_contact_phone: string | null
-    date_of_birth: string | null
     how_did_you_hear: string | null
   } | null
   orgRole: OrgRole
@@ -38,7 +37,6 @@ export function PlayerDetailsForm({ userId, profile, playerDetails, orgRole }: P
       t_shirt_size: (fd.get('t_shirt_size') as string) || null,
       emergency_contact_name: (fd.get('emergency_contact_name') as string) || null,
       emergency_contact_phone: (fd.get('emergency_contact_phone') as string) || null,
-      date_of_birth: (fd.get('date_of_birth') as string) || null,
       how_did_you_hear: (fd.get('how_did_you_hear') as string) || null,
     }
     const newRole = fd.get('org_role') as OrgRole
@@ -73,15 +71,6 @@ export function PlayerDetailsForm({ userId, profile, playerDetails, orgRole }: P
             name="phone"
             type="tel"
             defaultValue={profile.phone ?? ''}
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label className={labelClass}>Date of Birth</label>
-          <input
-            name="date_of_birth"
-            type="date"
-            defaultValue={playerDetails?.date_of_birth ?? ''}
             className={inputClass}
           />
         </div>

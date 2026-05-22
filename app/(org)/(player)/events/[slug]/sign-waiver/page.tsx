@@ -77,7 +77,7 @@ export default async function SignWaiverPage({
       .is('waiver_signature_id', null)
   }
 
-  // Fetch player profile for name and DOB
+  // Fetch player profile for name
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: profile } = await (db as any)
     .from('profiles')
@@ -85,16 +85,7 @@ export default async function SignWaiverPage({
     .eq('id', user.id)
     .single()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: playerDetails } = await (db as any)
-    .from('player_details')
-    .select('date_of_birth')
-    .eq('organization_id', org.id)
-    .eq('user_id', user.id)
-    .single()
-
   const playerName = profile?.full_name ?? ''
-  const playerDob = playerDetails?.date_of_birth ?? null
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
@@ -147,7 +138,6 @@ export default async function SignWaiverPage({
             leagueId={league.id}
             leagueSlug={league.slug}
             playerName={playerName}
-            playerDob={playerDob}
           />
         )}
       </div>

@@ -16,30 +16,17 @@ interface Props {
   leagueName?: string
   registrationId?: string | null
   playerName: string
-  playerDob: string | null   // ISO date from player_details.date_of_birth
   onComplete: (signatureId: string) => void
   onSkip: () => void
   onBack?: () => void
 }
 
-function calculateAge(dob: string): number {
-  const today = new Date()
-  const birth = new Date(dob)
-  let age = today.getFullYear() - birth.getFullYear()
-  const m = today.getMonth() - birth.getMonth()
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
-  return age
-}
-
-export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registrationId, playerName, playerDob, onComplete, onSkip, onBack }: Props) {
-  // Derive minor status from DOB when available; null = unknown
-  const knownMinor: boolean | null = playerDob !== null ? calculateAge(playerDob) < 18 : null
-
-  // Age gate state — only used when DOB is unknown
+export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registrationId, playerName, onComplete, onSkip, onBack }: Props) {
+  // Age is always self-declared — no birthdate is stored
   const [ageConfirmed, setAgeConfirmed] = useState<'adult' | 'minor' | null>(null)
 
-  const isMinor = knownMinor !== null ? knownMinor : (ageConfirmed === 'minor' ? true : ageConfirmed === 'adult' ? false : null)
-  const showAgeGate = knownMinor === null && ageConfirmed === null
+  const isMinor = ageConfirmed === 'minor' ? true : ageConfirmed === 'adult' ? false : null
+  const showAgeGate = ageConfirmed === null
 
   // Waiver scroll state
   const [scrolledToBottom, setScrolledToBottom] = useState(false)

@@ -376,7 +376,6 @@ export function RegistrationFlow({
             leagueName={league.name}
             registrationId={registrationId}
             playerName={profile?.full_name ?? ''}
-            playerDob={playerDetails?.date_of_birth ?? null}
             onComplete={async () => {
               afterWaiver()
             }}

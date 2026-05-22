@@ -83,7 +83,7 @@ export default async function PlayerManagementPage({
       .single(),
     supabase
       .from('player_details')
-      .select('skill_level, t_shirt_size, emergency_contact_name, emergency_contact_phone, date_of_birth, how_did_you_hear')
+      .select('skill_level, t_shirt_size, emergency_contact_name, emergency_contact_phone, how_did_you_hear')
       .eq('organization_id', org.id)
       .eq('user_id', userId)
       .maybeSingle(),

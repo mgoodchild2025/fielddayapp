@@ -14,16 +14,6 @@ interface Props {
   leagueId: string
   leagueSlug: string
   playerName: string
-  playerDob: string | null
-}
-
-function calculateAge(dob: string): number {
-  const today = new Date()
-  const birth = new Date(dob)
-  let age = today.getFullYear() - birth.getFullYear()
-  const m = today.getMonth() - birth.getMonth()
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
-  return age
 }
 
 export function StandaloneWaiverSigner({
@@ -33,18 +23,14 @@ export function StandaloneWaiverSigner({
   leagueId,
   leagueSlug,
   playerName,
-  playerDob,
 }: Props) {
   const router = useRouter()
 
-  // Derive minor status from DOB when available; null = unknown
-  const knownMinor: boolean | null = playerDob !== null ? calculateAge(playerDob) < 18 : null
-
-  // Age gate state — only used when DOB is unknown
+  // Age is always self-declared — no birthdate is stored
   const [ageConfirmed, setAgeConfirmed] = useState<'adult' | 'minor' | null>(null)
 
-  const isMinor = knownMinor !== null ? knownMinor : (ageConfirmed === 'minor' ? true : ageConfirmed === 'adult' ? false : null)
-  const showAgeGate = knownMinor === null && ageConfirmed === null
+  const isMinor = ageConfirmed === 'minor' ? true : ageConfirmed === 'adult' ? false : null
+  const showAgeGate = ageConfirmed === null
 
   // Waiver scroll state
   const [scrolledToBottom, setScrolledToBottom] = useState(false)

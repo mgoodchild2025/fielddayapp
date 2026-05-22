@@ -37,7 +37,6 @@ const detailsSchema = z.object({
   t_shirt_size: z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']).optional().nullable(),
   emergency_contact_name: z.string().optional().nullable(),
   emergency_contact_phone: nullablePhone,
-  date_of_birth: z.string().optional().nullable(),
   how_did_you_hear: z.string().optional().nullable(),
 })
 

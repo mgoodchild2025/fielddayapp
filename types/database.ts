@@ -465,7 +465,6 @@ export type Database = {
           t_shirt_size: 'XS' | 'S' | 'M' | 'L' | 'XL' | 'XXL' | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
-          date_of_birth: string | null
           how_did_you_hear: string | null
           updated_at: string
         }
@@ -477,7 +476,6 @@ export type Database = {
           t_shirt_size?: 'XS' | 'S' | 'M' | 'L' | 'XL' | 'XXL' | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
-          date_of_birth?: string | null
           how_did_you_hear?: string | null
           updated_at?: string
         }
