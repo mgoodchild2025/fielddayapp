@@ -48,7 +48,7 @@ export function PrintQrCode({ checkinUrl, eventName, sessionLabel, orgName }: Pr
           {/* "Scan to check in" — big and obvious */}
           <div className="space-y-2">
             <p className="text-6xl font-black text-gray-900 tracking-tight leading-none">
-              📱 Scan to<br />check in
+              📱 Scan to check in
             </p>
             <p className="text-lg text-gray-500">
               Open your phone camera and point it at the code below
