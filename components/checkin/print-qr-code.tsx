@@ -46,11 +46,11 @@ export function PrintQrCode({ checkinUrl, eventName, sessionLabel, orgName }: Pr
           </div>
 
           {/* "Scan to check in" — big and obvious */}
-          <div className="space-y-1">
-            <p className="text-2xl font-bold text-gray-900 tracking-tight">
-              📱 Scan to check in
+          <div className="space-y-2">
+            <p className="text-6xl font-black text-gray-900 tracking-tight leading-none">
+              📱 Scan to<br />check in
             </p>
-            <p className="text-base text-gray-500">
+            <p className="text-lg text-gray-500">
               Open your phone camera and point it at the code below
             </p>
           </div>
