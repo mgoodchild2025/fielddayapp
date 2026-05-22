@@ -244,6 +244,142 @@ export async function selfCheckIn(token: string): Promise<CheckInResult> {
   }
 }
 
+// Player self-checks in for an event using their own login session (no token needed).
+// Called from the printed venue QR code landing page.
+export type SelfCheckInResult =
+  | { status: 'success'; playerName: string }
+  | { status: 'already_checked_in'; playerName: string; checkedInAt: string }
+  | { status: 'not_registered'; playerName: string | null }
+  | { status: 'unauthorized' }
+
+export async function checkInSelfForEvent(leagueId: string): Promise<SelfCheckInResult> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { status: 'unauthorized' }
+
+  const db = createServiceRoleClient()
+
+  // Fetch the player's name
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile } = await (db as any)
+    .from('profiles')
+    .select('full_name')
+    .eq('id', user.id)
+    .maybeSingle()
+  const playerName: string | null = profile?.full_name ?? null
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: reg } = await (db as any)
+    .from('registrations')
+    .select('id, checked_in_at')
+    .eq('league_id', leagueId)
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (!reg) return { status: 'not_registered', playerName }
+
+  if (reg.checked_in_at) {
+    return { status: 'already_checked_in', playerName: playerName ?? 'You', checkedInAt: reg.checked_in_at }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any)
+    .from('registrations')
+    .update({ checked_in_at: new Date().toISOString(), checked_in_by: null })
+    .eq('id', reg.id)
+
+  revalidatePath(`/admin/events/${leagueId}/checkin`)
+  return { status: 'success', playerName: playerName ?? 'You' }
+}
+
+// Player self-checks in for a specific session using their own login session.
+// Called from the printed venue QR code landing page (session-based events).
+export async function checkInSelfForSession(sessionId: string): Promise<SelfCheckInResult> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { status: 'unauthorized' }
+
+  const db = createServiceRoleClient()
+
+  // Fetch the player's name
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile } = await (db as any)
+    .from('profiles')
+    .select('full_name')
+    .eq('id', user.id)
+    .maybeSingle()
+  const playerName: string | null = profile?.full_name ?? null
+
+  // Fetch the session to get leagueId for revalidation
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: session } = await (db as any)
+    .from('event_sessions')
+    .select('id, league_id')
+    .eq('id', sessionId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+
+  if (!session) return { status: 'not_registered', playerName }
+
+  // Check session_registrations first (join-button flow)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: sessionReg } = await (db as any)
+    .from('session_registrations')
+    .select('id, checked_in_at')
+    .eq('session_id', sessionId)
+    .eq('user_id', user.id)
+    .eq('status', 'registered')
+    .maybeSingle()
+
+  if (sessionReg) {
+    if (sessionReg.checked_in_at) {
+      return { status: 'already_checked_in', playerName: playerName ?? 'You', checkedInAt: sessionReg.checked_in_at }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any)
+      .from('session_registrations')
+      .update({ checked_in_at: new Date().toISOString(), checked_in_by: null })
+      .eq('id', sessionReg.id)
+    revalidatePath(`/admin/events/${session.league_id}/checkin`)
+    return { status: 'success', playerName: playerName ?? 'You' }
+  }
+
+  // Check registrations table (drop-in registration flow)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: dropInReg } = await (db as any)
+    .from('registrations')
+    .select('id, checked_in_at')
+    .eq('session_id', sessionId)
+    .eq('user_id', user.id)
+    .eq('organization_id', org.id)
+    .eq('registration_type', 'drop_in')
+    .neq('status', 'cancelled')
+    .maybeSingle()
+
+  if (dropInReg) {
+    if (dropInReg.checked_in_at) {
+      return { status: 'already_checked_in', playerName: playerName ?? 'You', checkedInAt: dropInReg.checked_in_at }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any)
+      .from('registrations')
+      .update({ checked_in_at: new Date().toISOString(), checked_in_by: null })
+      .eq('id', dropInReg.id)
+    revalidatePath(`/admin/events/${session.league_id}/checkin`)
+    return { status: 'success', playerName: playerName ?? 'You' }
+  }
+
+  return { status: 'not_registered', playerName }
+}
+
 // Admin resets an event-level check-in (correction)
 export async function undoCheckIn(registrationId: string, leagueId: string) {
   const headersList = await headers()

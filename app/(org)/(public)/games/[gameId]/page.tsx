@@ -8,6 +8,7 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { GameRsvpButton } from '@/components/schedule/game-rsvp-button'
 import { GameAttendancePanel } from '@/components/schedule/game-attendance-panel'
+import { CaptainCheckinButton } from '@/components/checkin/captain-checkin-button'
 import { formatGameTime } from '@/lib/format-time'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -113,6 +114,10 @@ export default async function GameMatchupPage({
   const isCompleted  = result?.status === 'confirmed'
   const nowIso = new Date().toISOString()
   const isUpcoming = rawGame.scheduled_at >= nowIso
+  // Show check-in within 3 hours before or 2 hours after the game start
+  const gameStartMs = new Date(rawGame.scheduled_at).getTime()
+  const nowMs = Date.now()
+  const isCheckInWindow = nowMs >= gameStartMs - 3 * 60 * 60 * 1000 && nowMs <= gameStartMs + 2 * 60 * 60 * 1000
 
   // ── RSVP + attendance data (upcoming games only) ─────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -331,6 +336,19 @@ export default async function GameMatchupPage({
                     gameId={rawGame.id}
                     teamId={myTeamId}
                     initialStatus={rsvpStatus}
+                  />
+                )}
+                {/* Captain check-in button — shown during game-day window */}
+                {captainTeamIdForGame && league?.id && isCheckInWindow && (
+                  <CaptainCheckinButton
+                    teamId={captainTeamIdForGame}
+                    leagueId={league.id}
+                    timezone={timezone}
+                    teamName={
+                      captainTeamIdForGame === homeTeamId
+                        ? homeTeam?.name
+                        : awayTeam?.name
+                    }
                   />
                 )}
               </div>
