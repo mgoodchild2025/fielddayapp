@@ -34,17 +34,39 @@ async function resolveCnameViaDoH(host: string): Promise<string[]> {
  * Independent DNS check for CNAME records.
  * Overrides Railway's slow/lagging PENDING status to VALID when the
  * record actually resolves to the expected target via public DNS.
+ *
+ * Railway's hostlabel can be either just the subdomain ("www") or a full FQDN
+ * ("www.example.com"). We try both so it works either way.
  */
-async function verifyCnameRecords(records: RailwayDnsRecord[]): Promise<RailwayDnsRecord[]> {
+async function verifyCnameRecords(records: RailwayDnsRecord[], customDomain?: string): Promise<RailwayDnsRecord[]> {
   const normalize = (v: string) => v.replace(/\.$/, '').toLowerCase()
 
   return Promise.all(records.map(async (record) => {
     if (record.recordType !== 'CNAME' || record.status === 'VALID') return record
-    const resolved = await resolveCnameViaDoH(record.hostlabel)
-    const expected = normalize(record.requiredValue)
-    if (resolved.some(v => normalize(v) === expected)) {
-      return { ...record, status: 'VALID' as const }
+
+    const { hostlabel, requiredValue } = record
+    const expected = normalize(requiredValue)
+
+    // Build lookup candidates:
+    // 1. hostlabel as-is (works when Railway returns a full FQDN)
+    // 2. hostlabel.customDomain (works when Railway returns just the subdomain label)
+    // 3. customDomain itself (fallback for apex / bare domain setups)
+    const candidates = new Set<string>([hostlabel])
+    if (customDomain) {
+      if (!hostlabel.endsWith(customDomain)) candidates.add(`${hostlabel}.${customDomain}`)
+      candidates.add(customDomain)
     }
+
+    for (const candidate of candidates) {
+      const resolved = await resolveCnameViaDoH(candidate)
+      console.log(`[dns-check] CNAME lookup "${candidate}" → [${resolved.join(', ')}] (expected: "${expected}")`)
+      if (resolved.some(v => normalize(v) === expected)) {
+        console.log(`[dns-check] ✓ VALID match on "${candidate}"`)
+        return { ...record, status: 'VALID' as const }
+      }
+    }
+
+    console.log(`[dns-check] ✗ no match — hostlabel="${hostlabel}" requiredValue="${requiredValue}" customDomain="${customDomain}"`)
     return record
   }))
 }
@@ -234,7 +256,7 @@ export async function refreshDnsStatus(orgId: string): Promise<{ records: Railwa
 
     // Return records from the registration call, with our own DNS check layered on top
     if (result.dnsRecords.length > 0) {
-      return { records: await verifyCnameRecords(result.dnsRecords), error: null }
+      return { records: await verifyCnameRecords(result.dnsRecords, branding?.custom_domain ?? undefined), error: null }
     }
   }
 
@@ -247,7 +269,7 @@ export async function refreshDnsStatus(orgId: string): Promise<{ records: Railwa
 
   // Layer our own DNS resolution check on top of Railway's status —
   // Railway's verification can lag minutes behind actual propagation.
-  const records = await verifyCnameRecords(rawRecords)
+  const records = await verifyCnameRecords(rawRecords, branding?.custom_domain ?? undefined)
 
   // Persist latest DNS records back to DB so the page load always shows both records
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
