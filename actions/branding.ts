@@ -8,68 +8,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { convertToWebP } from '@/lib/image-utils'
 import { addRailwayCustomDomain, removeRailwayCustomDomain, getRailwayDomainStatus, isRailwayConfigured, type RailwayDnsRecord } from '@/lib/railway'
-
-/**
- * Look up a CNAME record via Cloudflare's public DNS-over-HTTPS API.
- * Using DoH avoids relying on the Railway container's internal resolver,
- * which can't see public DNS the same way nslookup from outside does.
- * Returns the resolved CNAME targets, or an empty array on failure.
- */
-async function resolveCnameViaDoH(host: string): Promise<string[]> {
-  try {
-    const res = await fetch(
-      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=CNAME`,
-      { headers: { Accept: 'application/dns-json' }, signal: AbortSignal.timeout(5000) }
-    )
-    if (!res.ok) return []
-    const json = await res.json() as { Answer?: Array<{ type: number; data: string }> }
-    // DNS type 5 = CNAME
-    return (json.Answer ?? []).filter(r => r.type === 5).map(r => r.data)
-  } catch {
-    return []
-  }
-}
-
-/**
- * Independent DNS check for CNAME records.
- * Overrides Railway's slow/lagging PENDING status to VALID when the
- * record actually resolves to the expected target via public DNS.
- *
- * Railway's hostlabel can be either just the subdomain ("www") or a full FQDN
- * ("www.example.com"). We try both so it works either way.
- */
-async function verifyCnameRecords(records: RailwayDnsRecord[], customDomain?: string): Promise<RailwayDnsRecord[]> {
-  const normalize = (v: string) => v.replace(/\.$/, '').toLowerCase()
-
-  return Promise.all(records.map(async (record) => {
-    if (record.recordType !== 'CNAME' || record.status === 'VALID') return record
-
-    const { hostlabel, requiredValue } = record
-    const expected = normalize(requiredValue)
-
-    // Build lookup candidates:
-    // 1. hostlabel as-is (works when Railway returns a full FQDN)
-    // 2. hostlabel.customDomain (works when Railway returns just the subdomain label)
-    // 3. customDomain itself (fallback for apex / bare domain setups)
-    const candidates = new Set<string>([hostlabel])
-    if (customDomain) {
-      if (!hostlabel.endsWith(customDomain)) candidates.add(`${hostlabel}.${customDomain}`)
-      candidates.add(customDomain)
-    }
-
-    for (const candidate of candidates) {
-      const resolved = await resolveCnameViaDoH(candidate)
-      console.log(`[dns-check] CNAME lookup "${candidate}" → [${resolved.join(', ')}] (expected: "${expected}")`)
-      if (resolved.some(v => normalize(v) === expected)) {
-        console.log(`[dns-check] ✓ VALID match on "${candidate}"`)
-        return { ...record, status: 'VALID' as const }
-      }
-    }
-
-    console.log(`[dns-check] ✗ no match — hostlabel="${hostlabel}" requiredValue="${requiredValue}" customDomain="${customDomain}"`)
-    return record
-  }))
-}
+import { verifyCnameRecords } from '@/lib/dns-check'
 
 const brandingSchema = z.object({
   orgId: z.string().uuid(),

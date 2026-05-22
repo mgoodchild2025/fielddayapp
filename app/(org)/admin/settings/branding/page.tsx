@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import type { RailwayDnsRecord } from '@/lib/railway'
+import { verifyCnameRecords } from '@/lib/dns-check'
 import { BrandingForm } from './branding-form'
 
 export default async function AdminBrandingPage() {
@@ -41,11 +42,12 @@ export default async function AdminBrandingPage() {
       } | null
     }
 
-  // Build initial DNS records from stored columns (status defaults to PENDING;
-  // user clicks "Check DNS" to fetch live status from Railway)
-  const initialDnsRecords: RailwayDnsRecord[] = []
+  // Build initial DNS records from stored columns, then verify CNAME status via
+  // Cloudflare DoH so the page always shows accurate status without requiring
+  // the user to click "Check DNS" each time.
+  const rawDnsRecords: RailwayDnsRecord[] = []
   if (branding?.railway_cname_host && branding?.railway_cname_value) {
-    initialDnsRecords.push({
+    rawDnsRecords.push({
       hostlabel: branding.railway_cname_host,
       requiredValue: branding.railway_cname_value,
       recordType: 'CNAME',
@@ -53,13 +55,16 @@ export default async function AdminBrandingPage() {
     })
   }
   if (branding?.railway_txt_host && branding?.railway_txt_value) {
-    initialDnsRecords.push({
+    rawDnsRecords.push({
       hostlabel: branding.railway_txt_host,
       requiredValue: branding.railway_txt_value,
       recordType: 'TXT',
       status: 'PENDING',
     })
   }
+  const initialDnsRecords = rawDnsRecords.length > 0
+    ? await verifyCnameRecords(rawDnsRecords, branding?.custom_domain ?? undefined)
+    : rawDnsRecords
 
   return (
     <div className="max-w-2xl">
