@@ -183,6 +183,26 @@ export async function cancelSession(sessionId: string, leagueId: string) {
   return { error: null }
 }
 
+export async function reopenSession(sessionId: string, leagueId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  await requireOrgMember(org, ['org_admin', 'league_admin'])
+
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
+    .from('event_sessions')
+    .update({ status: 'open' })
+    .eq('id', sessionId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${leagueId}/sessions`)
+  revalidatePath('/events/[slug]', 'page')
+  return { error: null }
+}
+
 export async function deleteSession(sessionId: string, leagueId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)

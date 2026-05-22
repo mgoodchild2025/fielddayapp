@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createSession, updateSession, cancelSession, deleteSession } from '@/actions/sessions'
+import { createSession, updateSession, cancelSession, reopenSession, deleteSession } from '@/actions/sessions'
 
 interface Session {
   id: string
@@ -310,6 +310,13 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
     })
   }
 
+  function handleReopen(sessionId: string) {
+    startTransition(async () => {
+      await reopenSession(sessionId, leagueId)
+      router.refresh()
+    })
+  }
+
   function handleDelete(sessionId: string) {
     startTransition(async () => {
       await deleteSession(sessionId, leagueId)
@@ -375,6 +382,16 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
                       <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>
                     ) : (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Open</span>
+                    )}
+
+                    {s.status === 'cancelled' && (
+                      <button
+                        onClick={() => handleReopen(s.id)}
+                        disabled={isPending}
+                        className="text-xs font-medium text-green-600 hover:underline disabled:opacity-40"
+                      >
+                        Reopen
+                      </button>
                     )}
 
                     {s.status !== 'cancelled' && (
