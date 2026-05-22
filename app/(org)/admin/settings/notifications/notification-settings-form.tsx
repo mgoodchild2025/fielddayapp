@@ -96,13 +96,35 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Master toggle */}
+      {/* ── Game-day morning SMS — informational, player-controlled ── */}
+      <div className="bg-white rounded-lg border p-5 space-y-2">
+        <div className="flex items-start gap-3">
+          <span className="text-lg leading-none mt-0.5">🌅</span>
+          <div>
+            <p className="font-medium text-gray-900">Game-Day Morning SMS</p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              A single digest message is sent each morning to players who have games that day,
+              listing all of their games in one text. Fires after 7 am local time.
+            </p>
+            <p className="text-xs text-gray-400 mt-2">
+              Controlled by each player in their profile under <span className="italic">Notification Preferences → Game Day</span>. No configuration needed here.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Pre-game SMS reminders — org-configured ── */}
       <div className="bg-white rounded-lg border p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="font-medium text-gray-900">SMS Game Reminders</p>
+            <div className="flex items-center gap-2">
+              <span className="text-lg leading-none">⏰</span>
+              <p className="font-medium text-gray-900">Pre-Game SMS Reminders</p>
+            </div>
             <p className="text-sm text-gray-500 mt-0.5">
-              Automatically text opted-in players before their scheduled game.
+              Send a separate SMS to players a set number of minutes before each individual game.
+              One message is sent per game, per configured reminder window — players with
+              multiple games in a day receive one reminder per game.
             </p>
           </div>
           <Toggle checked={smsEnabled} onChange={setSmsEnabled} />
