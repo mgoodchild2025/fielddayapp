@@ -1,6 +1,5 @@
 'use server'
 
-import { promises as dnsPromises } from 'dns'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
@@ -11,24 +10,40 @@ import { convertToWebP } from '@/lib/image-utils'
 import { addRailwayCustomDomain, removeRailwayCustomDomain, getRailwayDomainStatus, isRailwayConfigured, type RailwayDnsRecord } from '@/lib/railway'
 
 /**
- * Independent server-side DNS check for a CNAME record.
+ * Look up a CNAME record via Cloudflare's public DNS-over-HTTPS API.
+ * Using DoH avoids relying on the Railway container's internal resolver,
+ * which can't see public DNS the same way nslookup from outside does.
+ * Returns the resolved CNAME targets, or an empty array on failure.
+ */
+async function resolveCnameViaDoH(host: string): Promise<string[]> {
+  try {
+    const res = await fetch(
+      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=CNAME`,
+      { headers: { Accept: 'application/dns-json' }, signal: AbortSignal.timeout(5000) }
+    )
+    if (!res.ok) return []
+    const json = await res.json() as { Answer?: Array<{ type: number; data: string }> }
+    // DNS type 5 = CNAME
+    return (json.Answer ?? []).filter(r => r.type === 5).map(r => r.data)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Independent DNS check for CNAME records.
  * Overrides Railway's slow/lagging PENDING status to VALID when the
- * record actually resolves to the expected target.
+ * record actually resolves to the expected target via public DNS.
  */
 async function verifyCnameRecords(records: RailwayDnsRecord[]): Promise<RailwayDnsRecord[]> {
   const normalize = (v: string) => v.replace(/\.$/, '').toLowerCase()
 
   return Promise.all(records.map(async (record) => {
-    // Only re-check CNAME records that Railway hasn't confirmed yet
     if (record.recordType !== 'CNAME' || record.status === 'VALID') return record
-    try {
-      const resolved = await dnsPromises.resolveCname(record.hostlabel)
-      const expected = normalize(record.requiredValue)
-      if (resolved.some(v => normalize(v) === expected)) {
-        return { ...record, status: 'VALID' as const }
-      }
-    } catch {
-      // DNS lookup failed (NXDOMAIN, timeout, etc.) — keep Railway's status
+    const resolved = await resolveCnameViaDoH(record.hostlabel)
+    const expected = normalize(record.requiredValue)
+    if (resolved.some(v => normalize(v) === expected)) {
+      return { ...record, status: 'VALID' as const }
     }
     return record
   }))
