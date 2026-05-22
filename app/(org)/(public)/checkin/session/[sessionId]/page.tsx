@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { checkInSelfForSession } from '@/actions/checkin'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 
@@ -31,14 +30,13 @@ export default async function SelfCheckInSessionPage({
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Redirect to login, returning here after
   if (!user) {
     redirect(`/login?redirect=/checkin/session/${sessionId}`)
   }
 
   const db = createServiceRoleClient()
 
-  const [{ data: branding }, { data: session }] = await Promise.all([
+  const [{ data: branding }, { data: session }, { data: profile }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,10 +45,13 @@ export default async function SelfCheckInSessionPage({
       .select('id, scheduled_at, league_id, league:leagues!event_sessions_league_id_fkey(name)')
       .eq('id', sessionId)
       .eq('organization_id', org.id)
-      .single(),
+      .maybeSingle(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
   ])
 
   const timezone = branding?.timezone ?? 'America/Toronto'
+  const playerName: string = profile?.full_name ?? 'You'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leagueData = session ? (Array.isArray(session.league) ? session.league[0] : session.league) as any : null
   const leagueName: string = leagueData?.name ?? 'Pickup Session'
@@ -60,10 +61,10 @@ export default async function SelfCheckInSessionPage({
       <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
         <div className="flex-1 flex items-center justify-center px-4">
-          <div className="text-center">
-            <div className="text-4xl mb-4">⚠️</div>
-            <h1 className="text-xl font-semibold text-gray-800 mb-2">Session not found</h1>
-            <p className="text-gray-500 text-sm">This check-in link may be invalid or expired.</p>
+          <div className="text-center space-y-3">
+            <div className="text-4xl">⚠️</div>
+            <h1 className="text-xl font-semibold text-gray-800">Session not found</h1>
+            <p className="text-gray-500 text-sm">This check-in link may be invalid.</p>
           </div>
         </div>
         <Footer org={org} />
@@ -73,41 +74,71 @@ export default async function SelfCheckInSessionPage({
 
   const sessionLabel = formatSessionTime(session.scheduled_at, timezone)
 
-  // Run the check-in
-  const result = await checkInSelfForSession(sessionId)
+  // ── Perform check-in inline (not via server action, to avoid revalidatePath restriction) ──
+
+  // Check session_registrations first (join-button flow)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: sessionReg } = await (db as any)
+    .from('session_registrations')
+    .select('id, checked_in_at')
+    .eq('session_id', sessionId)
+    .eq('user_id', user.id)
+    .eq('status', 'registered')
+    .maybeSingle()
+
+  // Check drop-in registrations (registration-flow)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: dropInReg } = sessionReg ? { data: null } : await (db as any)
+    .from('registrations')
+    .select('id, checked_in_at')
+    .eq('session_id', sessionId)
+    .eq('user_id', user.id)
+    .eq('organization_id', org.id)
+    .eq('registration_type', 'drop_in')
+    .neq('status', 'cancelled')
+    .maybeSingle()
+
+  const reg = sessionReg ?? dropInReg
+  const table = sessionReg ? 'session_registrations' : 'registrations'
 
   let icon: string
   let heading: string
   let body: string
   let headingColor = 'text-gray-800'
 
-  if (result.status === 'success') {
-    icon = '✅'
-    heading = "You're checked in!"
-    body = `Welcome, ${result.playerName}. See you out there!`
-    headingColor = 'text-green-700'
-  } else if (result.status === 'already_checked_in') {
-    const time = new Date(result.checkedInAt).toLocaleTimeString('en-CA', {
+  if (!reg) {
+    icon = '🚫'
+    heading = 'Not registered for this session'
+    body = `${playerName}, you haven't joined this session yet. Register on the event page first.`
+    headingColor = 'text-red-700'
+  } else if (reg.checked_in_at) {
+    const time = new Date(reg.checked_in_at).toLocaleTimeString('en-CA', {
       hour: 'numeric',
       minute: '2-digit',
       timeZone: timezone,
     })
     icon = '✓'
     heading = 'Already checked in'
-    body = `${result.playerName}, you checked in at ${time}. You're all set!`
+    body = `${playerName}, you checked in at ${time}. You're all set!`
     headingColor = 'text-blue-700'
-  } else if (result.status === 'not_registered') {
-    icon = '🚫'
-    heading = 'Not registered for this session'
-    body = result.playerName
-      ? `${result.playerName}, you haven't joined this session yet. Register on the event page first.`
-      : 'You haven\'t joined this session yet. Register on the event page first.'
-    headingColor = 'text-red-700'
   } else {
-    icon = '🔒'
-    heading = 'Sign in required'
-    body = 'Please sign in to check in to this session.'
-    headingColor = 'text-gray-700'
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (db as any)
+      .from(table)
+      .update({ checked_in_at: new Date().toISOString(), checked_in_by: null })
+      .eq('id', reg.id)
+
+    if (error) {
+      icon = '⚠️'
+      heading = 'Check-in failed'
+      body = 'Something went wrong. Please see the event staff.'
+      headingColor = 'text-red-700'
+    } else {
+      icon = '✅'
+      heading = "You're checked in!"
+      body = `Welcome, ${playerName}. See you out there!`
+      headingColor = 'text-green-700'
+    }
   }
 
   return (

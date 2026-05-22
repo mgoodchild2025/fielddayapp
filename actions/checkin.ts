@@ -293,7 +293,6 @@ export async function checkInSelfForEvent(leagueId: string): Promise<SelfCheckIn
     .update({ checked_in_at: new Date().toISOString(), checked_in_by: null })
     .eq('id', reg.id)
 
-  revalidatePath(`/admin/events/${leagueId}/checkin`)
   return { status: 'success', playerName: playerName ?? 'You' }
 }
 
@@ -348,7 +347,6 @@ export async function checkInSelfForSession(sessionId: string): Promise<SelfChec
       .from('session_registrations')
       .update({ checked_in_at: new Date().toISOString(), checked_in_by: null })
       .eq('id', sessionReg.id)
-    revalidatePath(`/admin/events/${session.league_id}/checkin`)
     return { status: 'success', playerName: playerName ?? 'You' }
   }
 
@@ -373,7 +371,6 @@ export async function checkInSelfForSession(sessionId: string): Promise<SelfChec
       .from('registrations')
       .update({ checked_in_at: new Date().toISOString(), checked_in_by: null })
       .eq('id', dropInReg.id)
-    revalidatePath(`/admin/events/${session.league_id}/checkin`)
     return { status: 'success', playerName: playerName ?? 'You' }
   }
 
