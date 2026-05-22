@@ -174,8 +174,10 @@ export async function GET(req: NextRequest) {
         }
 
         const firstName = player.name.split(' ')[0] || 'there'
+        // Derive the date label from the actual game date, not now+24h.
+        // If the cron runs in the early morning, now+24h can land on the wrong calendar day.
         const dateLabel = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' })
-          .format(new Date(now.getTime() + 24 * 60 * 60 * 1000))
+          .format(new Date(myGames[0].scheduled_at))
 
         const gameRows = myGames.map(g => {
           const league = Array.isArray(g.leagues) ? g.leagues[0] : g.leagues
