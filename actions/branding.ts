@@ -1,5 +1,6 @@
 'use server'
 
+import { promises as dnsPromises } from 'dns'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
@@ -8,6 +9,30 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { convertToWebP } from '@/lib/image-utils'
 import { addRailwayCustomDomain, removeRailwayCustomDomain, getRailwayDomainStatus, isRailwayConfigured, type RailwayDnsRecord } from '@/lib/railway'
+
+/**
+ * Independent server-side DNS check for a CNAME record.
+ * Overrides Railway's slow/lagging PENDING status to VALID when the
+ * record actually resolves to the expected target.
+ */
+async function verifyCnameRecords(records: RailwayDnsRecord[]): Promise<RailwayDnsRecord[]> {
+  const normalize = (v: string) => v.replace(/\.$/, '').toLowerCase()
+
+  return Promise.all(records.map(async (record) => {
+    // Only re-check CNAME records that Railway hasn't confirmed yet
+    if (record.recordType !== 'CNAME' || record.status === 'VALID') return record
+    try {
+      const resolved = await dnsPromises.resolveCname(record.hostlabel)
+      const expected = normalize(record.requiredValue)
+      if (resolved.some(v => normalize(v) === expected)) {
+        return { ...record, status: 'VALID' as const }
+      }
+    } catch {
+      // DNS lookup failed (NXDOMAIN, timeout, etc.) — keep Railway's status
+    }
+    return record
+  }))
+}
 
 const brandingSchema = z.object({
   orgId: z.string().uuid(),
@@ -192,9 +217,9 @@ export async function refreshDnsStatus(orgId: string): Promise<{ records: Railwa
       })
       .eq('organization_id', orgId)
 
-    // Return records from the registration call (status will be PENDING)
+    // Return records from the registration call, with our own DNS check layered on top
     if (result.dnsRecords.length > 0) {
-      return { records: result.dnsRecords, error: null }
+      return { records: await verifyCnameRecords(result.dnsRecords), error: null }
     }
   }
 
@@ -202,8 +227,12 @@ export async function refreshDnsStatus(orgId: string): Promise<{ records: Railwa
     return { records: null, error: 'No custom domain saved. Enter a domain name and click Save first.' }
   }
 
-  const records = await getRailwayDomainStatus(railwayDomainId)
-  if (!records) return { records: null, error: 'Could not reach Railway API. Check RAILWAY_API_TOKEN.' }
+  const rawRecords = await getRailwayDomainStatus(railwayDomainId)
+  if (!rawRecords) return { records: null, error: 'Could not reach Railway API. Check RAILWAY_API_TOKEN.' }
+
+  // Layer our own DNS resolution check on top of Railway's status —
+  // Railway's verification can lag minutes behind actual propagation.
+  const records = await verifyCnameRecords(rawRecords)
 
   // Persist latest DNS records back to DB so the page load always shows both records
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
