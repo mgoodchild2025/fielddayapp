@@ -410,3 +410,61 @@ export function buildTeamInviteEmail({
 </body>
 </html>`
 }
+
+export function buildGameSubInviteEmail({
+  teamName,
+  opponentName,
+  leagueName,
+  orgName,
+  invitedBy,
+  gameDate,
+  gameTime,
+  court,
+  message,
+  acceptUrl,
+}: {
+  teamName: string
+  opponentName: string | null
+  leagueName: string | null
+  orgName: string
+  invitedBy: string
+  gameDate: string
+  gameTime: string
+  court: string | null
+  message: string | null
+  acceptUrl: string
+}): string {
+  const gameDetails = `${gameDate} · ${gameTime}${court ? ` · ${court}` : ''}`
+  const matchup = opponentName ? `${teamName} vs ${opponentName}` : teamName
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+    <div style="background:#1e3a5f;padding:24px 32px;">
+      <h1 style="color:#fff;margin:0;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">${orgName}</h1>
+    </div>
+    <div style="padding:32px;">
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Sub Invite 🏅</h2>
+      <p style="color:#6b7280;margin:0 0 24px;font-size:15px;line-height:1.6;">
+        <strong>${invitedBy}</strong> is looking for a sub for an upcoming game${leagueName ? ` in <strong>${leagueName}</strong>` : ''}.
+      </p>
+      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px 20px;margin-bottom:24px;">
+        <p style="margin:0 0 4px;font-weight:700;color:#111827;font-size:16px;">${matchup}</p>
+        <p style="margin:0;color:#6b7280;font-size:14px;">${gameDetails}</p>
+      </div>
+      ${message ? `<p style="color:#374151;font-size:14px;font-style:italic;margin:0 0 24px;padding:12px 16px;border-left:3px solid #e5e7eb;">"${message}"</p>` : ''}
+      <div style="text-align:center;margin:0 0 20px;">
+        <a href="${acceptUrl}"
+           style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:700;font-size:16px;">
+          View Invite &amp; Respond
+        </a>
+      </div>
+      <p style="color:#d1d5db;font-size:12px;text-align:center;margin:0;">
+        This invite expires in 7 days.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`
+}

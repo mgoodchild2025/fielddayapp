@@ -2,16 +2,22 @@
 
 import { useState, useTransition } from 'react'
 import { getGameAttendanceDetails } from '@/actions/rsvp'
+import { InviteSubButton } from '@/components/schedule/invite-sub-button'
 import type { AttendancePlayer } from '@/actions/rsvp'
+import type { GameSub } from '@/actions/game-subs'
 
 interface Props {
   gameId: string
   /** The captain's team ID — used to fetch the roster */
   teamId: string
   initialCounts: { in: number; out: number; total: number }
+  /** When true, shows the "Invite Sub" button and sub list */
+  isCaptain?: boolean
+  /** Pre-fetched game subs for this team (only passed for captains) */
+  gameSubs?: GameSub[]
 }
 
-export function GameAttendancePanel({ gameId, teamId, initialCounts }: Props) {
+export function GameAttendancePanel({ gameId, teamId, initialCounts, isCaptain, gameSubs }: Props) {
   const [open, setOpen] = useState(false)
   const [players, setPlayers] = useState<AttendancePlayer[] | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -107,6 +113,17 @@ export function GameAttendancePanel({ gameId, teamId, initialCounts }: Props) {
                   </li>
                 ))}
               </ul>
+
+              {/* Invite Sub section — captains only */}
+              {isCaptain && (
+                <div className="px-3 pb-3">
+                  <InviteSubButton
+                    gameId={gameId}
+                    teamId={teamId}
+                    initialSubs={gameSubs ?? []}
+                  />
+                </div>
+              )}
             </>
           ) : null}
         </div>

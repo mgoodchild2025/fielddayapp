@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
         .in('team_id', teamIds)
 
       // Build map: user_id → { email, name, teamIds }
-      type RGPlayer = { email: string; name: string; teamIds: Set<string> }
+      type RGPlayer = { email: string; name: string; teamIds: Set<string>; subGameIds: Set<string> }
       const rgPlayerMap = new Map<string, RGPlayer>()
       for (const m of rgMembers ?? []) {
         const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles as { email?: string; full_name?: string; email_reminders_enabled?: boolean } | null
@@ -111,9 +111,31 @@ export async function GET(req: NextRequest) {
         if (!p?.email || p?.email_reminders_enabled === false) continue
         if (!m.user_id || !m.team_id) continue
         if (!rgPlayerMap.has(m.user_id)) {
-          rgPlayerMap.set(m.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set() })
+          rgPlayerMap.set(m.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set() })
         }
         rgPlayerMap.get(m.user_id)!.teamIds.add(m.team_id)
+      }
+
+      // Also include confirmed game subs for tomorrow's games
+      const orgGameIds = orgGames.map(g => g.id as string)
+      if (orgGameIds.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: subRows } = await (supabase as any)
+          .from('game_subs')
+          .select('user_id, game_id, profiles!game_subs_user_id_fkey(email, full_name, email_reminders_enabled)')
+          .eq('organization_id', orgId)
+          .eq('status', 'confirmed')
+          .not('user_id', 'is', null)
+          .in('game_id', orgGameIds)
+        for (const s of subRows ?? []) {
+          const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles as { email?: string; full_name?: string; email_reminders_enabled?: boolean } | null
+          if (!p?.email || p?.email_reminders_enabled === false) continue
+          if (!s.user_id || !s.game_id) continue
+          if (!rgPlayerMap.has(s.user_id)) {
+            rgPlayerMap.set(s.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set() })
+          }
+          rgPlayerMap.get(s.user_id)!.subGameIds.add(s.game_id)
+        }
       }
 
       if (rgPlayerMap.size === 0) continue
@@ -134,7 +156,8 @@ export async function GET(req: NextRequest) {
 
         const myGames = orgGames.filter(g =>
           (g.home_team?.id && player.teamIds.has(g.home_team.id)) ||
-          (g.away_team?.id && player.teamIds.has(g.away_team.id))
+          (g.away_team?.id && player.teamIds.has(g.away_team.id)) ||
+          player.subGameIds.has(g.id as string)
         ).sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
 
         if (myGames.length === 0) continue
@@ -506,8 +529,8 @@ export async function GET(req: NextRequest) {
         .select('user_id, team_id, profiles!team_members_user_id_fkey(phone, full_name, sms_opted_in, sms_game_day_enabled)')
         .in('team_id', teamIds)
 
-      // Build map: user_id → { phone, name, teamIds[] }
-      type PlayerEntry = { phone: string; name: string; teamIds: Set<string> }
+      // Build map: user_id → { phone, name, teamIds[], subGameIds[] }
+      type PlayerEntry = { phone: string; name: string; teamIds: Set<string>; subGameIds: Set<string> }
       const playerMap = new Map<string, PlayerEntry>()
       for (const m of members ?? []) {
         const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
@@ -517,9 +540,32 @@ export async function GET(req: NextRequest) {
         const userId = m.user_id
         const teamId = m.team_id
         if (!playerMap.has(userId)) {
-          playerMap.set(userId, { phone: p.phone, name: p.full_name ?? '', teamIds: new Set() })
+          playerMap.set(userId, { phone: p.phone, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set() })
         }
         playerMap.get(userId)!.teamIds.add(teamId)
+      }
+
+      // Include confirmed game subs for today's games
+      const smsGameIds = orgGames.map(g => g.id as string)
+      if (smsGameIds.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: smsSubRows } = await (supabase as any)
+          .from('game_subs')
+          .select('user_id, game_id, profiles!game_subs_user_id_fkey(phone, full_name, sms_opted_in, sms_game_day_enabled)')
+          .eq('organization_id', orgId)
+          .eq('status', 'confirmed')
+          .not('user_id', 'is', null)
+          .in('game_id', smsGameIds)
+        for (const s of smsSubRows ?? []) {
+          const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          if (!p?.phone || !(p as any)?.sms_opted_in || !(p as any)?.sms_game_day_enabled) continue
+          if (!s.user_id || !s.game_id) continue
+          if (!playerMap.has(s.user_id)) {
+            playerMap.set(s.user_id, { phone: p.phone, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set() })
+          }
+          playerMap.get(s.user_id)!.subGameIds.add(s.game_id)
+        }
       }
 
       if (playerMap.size === 0) continue
@@ -541,10 +587,11 @@ export async function GET(req: NextRequest) {
       for (const [userId, player] of playerMap) {
         if (alreadySentSet.has(userId)) continue
 
-        // Find this player's games today (games where they're on the home or away team)
+        // Find this player's games today (games where they're on the home or away team, or confirmed sub)
         const myGames = orgGames.filter(g =>
           (g.home_team?.id && player.teamIds.has(g.home_team.id)) ||
-          (g.away_team?.id && player.teamIds.has(g.away_team.id))
+          (g.away_team?.id && player.teamIds.has(g.away_team.id)) ||
+          player.subGameIds.has(g.id as string)
         ).sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
 
         if (myGames.length === 0) continue

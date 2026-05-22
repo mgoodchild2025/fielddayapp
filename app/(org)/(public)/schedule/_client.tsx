@@ -6,6 +6,7 @@ import { PastGamesToggle } from '@/components/schedule/past-games-toggle'
 import { GameRsvpButton } from '@/components/schedule/game-rsvp-button'
 import { GameAttendancePanel } from '@/components/schedule/game-attendance-panel'
 import { formatGameTime } from '@/lib/format-time'
+import type { GameSub } from '@/actions/game-subs'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ScheduleItem = { _type: 'game' | 'session'; scheduled_at: string; data: any }
@@ -44,6 +45,8 @@ interface Props {
   captainTeamIds: string[]
   myRsvps: { gameId: string; status: 'in' | 'out' }[]
   captainAttendance: { gameId: string; in: number; out: number; total: number }[]
+  mySubGameIds: string[]
+  captainGameSubs: { gameId: string; teamId: string; subs: GameSub[] }[]
   userId: string
   timezone: string
 }
@@ -55,6 +58,8 @@ export function MyGamesClient({
   captainTeamIds,
   myRsvps,
   captainAttendance,
+  mySubGameIds,
+  captainGameSubs,
   userId,
   timezone,
 }: Props) {
@@ -64,6 +69,8 @@ export function MyGamesClient({
   const captainTeamIdSet = new Set(captainTeamIds)
   const rsvpMap = new Map(myRsvps.map((r) => [r.gameId, r.status]))
   const attendanceMap = new Map(captainAttendance.map((a) => [a.gameId, { in: a.in, out: a.out, total: a.total }]))
+  const mySubGameIdSet = new Set(mySubGameIds)
+  const captainSubsMap = new Map(captainGameSubs.map((g) => [g.gameId, { teamId: g.teamId, subs: g.subs }]))
 
   // Derive unique leagues, preserving first-seen order
   const leagueMap = new Map<string, string>()
@@ -114,6 +121,8 @@ export function MyGamesClient({
 
       const rsvpStatus = rsvpMap.get(g.id) ?? null
       const attendance = captainTeamIdForGame ? (attendanceMap.get(g.id) ?? null) : null
+      const captainSubInfo = captainSubsMap.get(g.id) ?? null
+      const isSubGame = mySubGameIdSet.has(g.id)
 
       return (
         <div
@@ -131,6 +140,11 @@ export function MyGamesClient({
               {g.court ? ` · ${g.court}` : ''}
             </p>
             <div className="flex items-center gap-1.5 shrink-0">
+              {isSubGame && (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-50 border border-violet-100 text-violet-600 leading-tight">
+                  Sub
+                </span>
+              )}
               {isCancelled ? (
                 <span className="text-xs font-medium text-red-500 bg-red-50 rounded px-1.5 py-0.5 leading-tight">
                   {g.status === 'postponed' ? 'Postponed' : 'Cancelled'}
@@ -157,6 +171,8 @@ export function MyGamesClient({
                   gameId={g.id}
                   teamId={captainTeamIdForGame}
                   initialCounts={attendance}
+                  isCaptain={true}
+                  gameSubs={captainSubInfo?.subs ?? []}
                 />
               )}
               {myTeamId && (

@@ -313,13 +313,29 @@ export async function acceptTeamInvitation(token: string) {
   revalidatePath('/dashboard')
   revalidatePath(`/teams/${invite.team_id}`)
 
-  // Handle league registration
+  // Handle league registration / waiver
   if (team?.league_id) {
     const league = Array.isArray(team.leagues) ? team.leagues[0] : team.leagues
     const leagueStatus = (league as { status?: string } | null)?.status
-    const leagueSlug = (league as { slug?: string } | null)?.slug
+    const leagueSlug   = (league as { slug?: string }   | null)?.slug
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const teamCode = (team as any)?.team_code
+
+    // Roster subs skip payment — just handle the waiver if needed
+    if (invite.role === 'sub') {
+      const { data: existingSig } = await db
+        .from('waiver_signatures')
+        .select('id')
+        .eq('organization_id', org.id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (!existingSig && leagueSlug) {
+        // Redirect to waiver signing, then back to the team page
+        redirect(`/events/${leagueSlug}/sign-waiver?redirect=${encodeURIComponent(`/teams/${invite.team_id}`)}`)
+      }
+      redirect(`/teams/${invite.team_id}`)
+    }
 
     if (leagueSlug && (leagueStatus === 'registration_open' || leagueStatus === 'active')) {
       // Always route through the registration flow for open/active leagues.

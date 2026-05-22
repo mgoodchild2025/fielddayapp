@@ -159,31 +159,44 @@ export default async function SchedulePage() {
   let myRsvps: { gameId: string; status: 'in' | 'out' }[] = []
   let captainTeamIds: string[] = []
   let captainAttendance: { gameId: string; in: number; out: number; total: number }[] = []
+  // Game subs: which games this user is subbing in, and subs per game for captains
+  let mySubGameIds: string[] = []
+  let captainGameSubs: { gameId: string; teamId: string; subs: import('@/actions/game-subs').GameSub[] }[] = []
 
   if (relevantGames.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const gameIds = relevantGames.map((g: any) => g.id as string)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [{ data: captainships }, { data: rsvpData }] = await Promise.all([
+    const [{ data: captainships }, { data: rsvpData }, { data: mySubRows }] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any).from('team_members').select('team_id').eq('user_id', user.id).eq('role', 'captain').eq('status', 'active'),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any).from('game_rsvps').select('game_id, status').eq('user_id', user.id).in('game_id', gameIds),
+      // Confirmed game_subs for this user (to show "Sub" badge on game cards)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('game_subs').select('game_id').eq('user_id', user.id).eq('organization_id', org.id).eq('status', 'confirmed').in('game_id', gameIds),
     ])
 
     captainTeamIds = (captainships ?? []).map((c: { team_id: string }) => c.team_id)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     myRsvps = (rsvpData ?? []).map((r: any) => ({ gameId: r.game_id, status: r.status as 'in' | 'out' }))
+    mySubGameIds = (mySubRows ?? []).map((r: { game_id: string }) => r.game_id)
 
     if (captainTeamIds.length > 0) {
       const captainTeamIdSet = new Set(captainTeamIds)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [{ data: teamMemberRows }, { data: teamRsvpRows }] = await Promise.all([
+      const [{ data: teamMemberRows }, { data: teamRsvpRows }, { data: captainSubRows }] = await Promise.all([
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (db as any).from('team_members').select('team_id').in('team_id', captainTeamIds).eq('status', 'active'),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (db as any).from('game_rsvps').select('game_id, team_id, status').in('team_id', captainTeamIds).in('game_id', gameIds),
+        // Game subs for captain's games (for invite panel)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any).from('game_subs').select(`
+          id, game_id, team_id, user_id, invited_email, status, message, expires_at, created_at,
+          inviter:profiles!game_subs_invited_by_fkey(full_name)
+        `).in('team_id', captainTeamIds).in('game_id', gameIds).in('status', ['invited', 'confirmed']),
       ])
 
       const teamSizeMap = new Map<string, number>()
@@ -201,6 +214,28 @@ export default async function SchedulePage() {
         else if (r.status === 'out') e.out++
       }
 
+      // Group subs by game_id
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const subsByGame = new Map<string, import('@/actions/game-subs').GameSub[]>()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const row of (captainSubRows ?? []) as any[]) {
+        const inviter = Array.isArray(row.inviter) ? row.inviter[0] : row.inviter
+        const sub: import('@/actions/game-subs').GameSub = {
+          id: row.id,
+          gameId: row.game_id,
+          teamId: row.team_id,
+          userId: row.user_id ?? null,
+          invitedEmail: row.invited_email,
+          status: row.status,
+          inviterName: inviter?.full_name ?? null,
+          message: row.message ?? null,
+          expiresAt: row.expires_at,
+          createdAt: row.created_at,
+        }
+        if (!subsByGame.has(row.game_id)) subsByGame.set(row.game_id, [])
+        subsByGame.get(row.game_id)!.push(sub)
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const game of relevantGames as any[]) {
         const homeTeam = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team
@@ -212,6 +247,11 @@ export default async function SchedulePage() {
         const total = teamSizeMap.get(captainTeamId) ?? 0
         const counts = rsvpByGame.get(game.id) ?? { in: 0, out: 0 }
         captainAttendance.push({ gameId: game.id, in: counts.in, out: counts.out, total })
+        captainGameSubs.push({
+          gameId: game.id,
+          teamId: captainTeamId,
+          subs: subsByGame.get(game.id) ?? [],
+        })
       }
     }
   }
@@ -256,6 +296,8 @@ export default async function SchedulePage() {
           captainTeamIds={captainTeamIds}
           myRsvps={myRsvps}
           captainAttendance={captainAttendance}
+          mySubGameIds={mySubGameIds}
+          captainGameSubs={captainGameSubs}
           userId={user.id}
           timezone={timezone}
         />
