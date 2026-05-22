@@ -75,7 +75,7 @@ export default async function CheckInPrintPage({
       {/* Print CSS */}
       <style>{`
         @media print {
-          @page { size: letter portrait; margin: 1in; }
+          @page { size: letter portrait; margin: 0.5in; }
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
         }
       `}</style>

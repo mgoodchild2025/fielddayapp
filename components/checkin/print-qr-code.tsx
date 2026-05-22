@@ -28,38 +28,42 @@ export function PrintQrCode({ checkinUrl, eventName, sessionLabel, orgName }: Pr
         </button>
       </div>
 
-      {/* QR card — centered, print-optimised */}
-      <div className="flex flex-col items-center justify-center min-h-[70vh] print:min-h-screen">
-        <div className="bg-white rounded-2xl border-2 border-gray-200 p-10 text-center max-w-sm w-full space-y-6 print:border-none print:rounded-none print:p-0 print:shadow-none">
+      {/* Full-page centred layout */}
+      <div className="flex flex-col items-center justify-center min-h-[85vh] print:min-h-screen print:justify-center">
+        <div className="text-center w-full max-w-lg space-y-8">
 
-          {/* Org + event name */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">
+          {/* Event name */}
+          <div className="space-y-1">
+            <p className="text-sm font-semibold uppercase tracking-widest text-gray-400">
               {orgName}
             </p>
-            <h1 className="text-2xl font-bold text-gray-900 leading-tight">
+            <h1 className="text-4xl font-bold text-gray-900 leading-tight">
               {eventName}
             </h1>
             {sessionLabel && (
-              <p className="text-sm text-gray-500 mt-1">{sessionLabel}</p>
+              <p className="text-lg text-gray-500 mt-2">{sessionLabel}</p>
             )}
           </div>
 
-          {/* QR code */}
-          <div className="flex justify-center py-2">
-            <QRCode value={checkinUrl} size={220} />
-          </div>
-
-          {/* Instructions */}
-          <div className="space-y-1.5">
-            <p className="text-base font-semibold text-gray-800">Scan to check in</p>
-            <p className="text-sm text-gray-500 leading-relaxed">
-              Open your camera and scan the code above. You&apos;ll be checked in automatically when you arrive.
+          {/* "Scan to check in" — big and obvious */}
+          <div className="space-y-1">
+            <p className="text-2xl font-bold text-gray-900 tracking-tight">
+              📱 Scan to check in
+            </p>
+            <p className="text-base text-gray-500">
+              Open your phone camera and point it at the code below
             </p>
           </div>
 
+          {/* QR code — large */}
+          <div className="flex justify-center">
+            <div className="p-6 bg-white border-4 border-gray-900 rounded-2xl inline-block print:border-gray-900">
+              <QRCode value={checkinUrl} size={320} />
+            </div>
+          </div>
+
           {/* URL hint */}
-          <p className="text-[11px] text-gray-300 break-all">{checkinUrl}</p>
+          <p className="text-xs text-gray-300 break-all">{checkinUrl}</p>
         </div>
       </div>
     </>
