@@ -156,7 +156,7 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
                     <div>
                       <h3 className="font-medium text-gray-900">{item.name}</h3>
                       {item.description && (
-                        <p className="text-sm text-gray-500 mt-0.5">{item.description}</p>
+                        <p className="text-sm text-gray-500 mt-0.5 whitespace-pre-wrap">{item.description}</p>
                       )}
                     </div>
                     <div className="text-right shrink-0">

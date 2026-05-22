@@ -139,7 +139,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
             >
               <h3 className="font-semibold text-gray-900 text-sm leading-snug hover:underline">{item.name}</h3>
               {item.description && (
-                <p className="text-xs text-gray-400 mt-0.5 line-clamp-2 leading-relaxed">{item.description}</p>
+                <p className="text-xs text-gray-400 mt-0.5 line-clamp-2 leading-relaxed whitespace-pre-wrap">{item.description}</p>
               )}
             </button>
             <p className="text-base font-bold mt-1.5" style={{ color: 'var(--brand-primary)' }}>
@@ -294,7 +294,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
 
               {/* Full description */}
               {item.description && (
-                <p className="text-sm text-gray-600 leading-relaxed">{item.description}</p>
+                <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{item.description}</p>
               )}
 
               {/* Variant picker */}
