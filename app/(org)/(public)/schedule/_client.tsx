@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { PastGamesToggle } from '@/components/schedule/past-games-toggle'
+import { GameRsvpButton } from '@/components/schedule/game-rsvp-button'
+import { GameAttendancePanel } from '@/components/schedule/game-attendance-panel'
 import { formatGameTime } from '@/lib/format-time'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -18,13 +20,29 @@ interface Props {
   upcomingItems: ScheduleItem[]
   pastItems: ScheduleItem[]
   myTeamIds: string[]
+  captainTeamIds: string[]
+  myRsvps: { gameId: string; status: 'in' | 'out' }[]
+  captainAttendance: { gameId: string; in: number; out: number; total: number }[]
+  userId: string
   timezone: string
 }
 
-export function MyGamesClient({ upcomingItems, pastItems, myTeamIds, timezone }: Props) {
+export function MyGamesClient({
+  upcomingItems,
+  pastItems,
+  myTeamIds,
+  captainTeamIds,
+  myRsvps,
+  captainAttendance,
+  userId,
+  timezone,
+}: Props) {
   const [activeLeague, setActiveLeague] = useState<string | null>(null)
 
   const teamIdSet = new Set(myTeamIds)
+  const captainTeamIdSet = new Set(captainTeamIds)
+  const rsvpMap = new Map(myRsvps.map((r) => [r.gameId, r.status]))
+  const attendanceMap = new Map(captainAttendance.map((a) => [a.gameId, { in: a.in, out: a.out, total: a.total }]))
 
   // Derive unique leagues, preserving first-seen order
   const leagueMap = new Map<string, string>()
@@ -57,6 +75,23 @@ export function MyGamesClient({ upcomingItems, pastItems, myTeamIds, timezone }:
       const isAwayMyTeam = teamIdSet.has(awayTeam?.id)
       const isCancelled  = g.status === 'cancelled' || g.status === 'postponed'
 
+      // RSVP: determine which team the player is on for this game
+      const myTeamId = isHomeMyTeam
+        ? (homeTeam?.id ?? null)
+        : isAwayMyTeam
+          ? (awayTeam?.id ?? null)
+          : null
+
+      // Captain attendance panel
+      const captainTeamIdForGame = captainTeamIdSet.has(homeTeam?.id)
+        ? homeTeam?.id
+        : captainTeamIdSet.has(awayTeam?.id)
+          ? awayTeam?.id
+          : null
+
+      const rsvpStatus = rsvpMap.get(g.id) ?? null
+      const attendance = captainTeamIdForGame ? (attendanceMap.get(g.id) ?? null) : null
+
       return (
         <div
           key={`game-${g.id}`}
@@ -72,7 +107,7 @@ export function MyGamesClient({ upcomingItems, pastItems, myTeamIds, timezone }:
           <div className="flex items-start justify-between gap-2">
             <p className="text-sm text-gray-500">
               {gameDate} · {gameTime}
-              {g.court ? ` · Court ${g.court}` : ''}
+              {g.court ? ` · ${g.court}` : ''}
             </p>
             <div className="flex items-center gap-1.5 shrink-0">
               {isCancelled ? (
@@ -102,6 +137,26 @@ export function MyGamesClient({ upcomingItems, pastItems, myTeamIds, timezone }:
             </span>
           </div>
           <p className="text-xs text-gray-400 mt-0.5">{league?.name}</p>
+
+          {/* RSVP + attendance — only for non-cancelled games */}
+          {!isCancelled && (attendance || myTeamId) && (
+            <div className="relative z-10 mt-2 flex items-center gap-3 flex-wrap">
+              {attendance && captainTeamIdForGame && (
+                <GameAttendancePanel
+                  gameId={g.id}
+                  teamId={captainTeamIdForGame}
+                  initialCounts={attendance}
+                />
+              )}
+              {myTeamId && (
+                <GameRsvpButton
+                  gameId={g.id}
+                  teamId={myTeamId}
+                  initialStatus={rsvpStatus}
+                />
+              )}
+            </div>
+          )}
         </div>
       )
     }

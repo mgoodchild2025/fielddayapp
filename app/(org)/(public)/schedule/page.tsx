@@ -154,6 +154,68 @@ export default async function SchedulePage() {
       return true
     })
 
+  // ── RSVP + captain attendance ─────────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let myRsvps: { gameId: string; status: 'in' | 'out' }[] = []
+  let captainTeamIds: string[] = []
+  let captainAttendance: { gameId: string; in: number; out: number; total: number }[] = []
+
+  if (relevantGames.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const gameIds = relevantGames.map((g: any) => g.id as string)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [{ data: captainships }, { data: rsvpData }] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('team_members').select('team_id').eq('user_id', user.id).eq('role', 'captain').eq('status', 'active'),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('game_rsvps').select('game_id, status').eq('user_id', user.id).in('game_id', gameIds),
+    ])
+
+    captainTeamIds = (captainships ?? []).map((c: { team_id: string }) => c.team_id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    myRsvps = (rsvpData ?? []).map((r: any) => ({ gameId: r.game_id, status: r.status as 'in' | 'out' }))
+
+    if (captainTeamIds.length > 0) {
+      const captainTeamIdSet = new Set(captainTeamIds)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const [{ data: teamMemberRows }, { data: teamRsvpRows }] = await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any).from('team_members').select('team_id').in('team_id', captainTeamIds).eq('status', 'active'),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any).from('game_rsvps').select('game_id, team_id, status').in('team_id', captainTeamIds).in('game_id', gameIds),
+      ])
+
+      const teamSizeMap = new Map<string, number>()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const row of (teamMemberRows ?? []) as any[]) {
+        teamSizeMap.set(row.team_id, (teamSizeMap.get(row.team_id) ?? 0) + 1)
+      }
+
+      const rsvpByGame = new Map<string, { in: number; out: number }>()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const r of (teamRsvpRows ?? []) as any[]) {
+        if (!rsvpByGame.has(r.game_id)) rsvpByGame.set(r.game_id, { in: 0, out: 0 })
+        const e = rsvpByGame.get(r.game_id)!
+        if (r.status === 'in') e.in++
+        else if (r.status === 'out') e.out++
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const game of relevantGames as any[]) {
+        const homeTeam = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team
+        const awayTeam = Array.isArray(game.away_team) ? game.away_team[0] : game.away_team
+        const hId = homeTeam?.id ?? ''
+        const aId = awayTeam?.id ?? ''
+        const captainTeamId = captainTeamIdSet.has(hId) ? hId : captainTeamIdSet.has(aId) ? aId : null
+        if (!captainTeamId) continue
+        const total = teamSizeMap.get(captainTeamId) ?? 0
+        const counts = rsvpByGame.get(game.id) ?? { in: 0, out: 0 }
+        captainAttendance.push({ gameId: game.id, in: counts.in, out: counts.out, total })
+      }
+    }
+  }
+
   // ── Merge and split upcoming vs past ──────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allItems: { _type: 'game' | 'session'; scheduled_at: string; data: any }[] = [
@@ -191,6 +253,10 @@ export default async function SchedulePage() {
           upcomingItems={upcomingItems}
           pastItems={pastItems}
           myTeamIds={Array.from(myTeamIds)}
+          captainTeamIds={captainTeamIds}
+          myRsvps={myRsvps}
+          captainAttendance={captainAttendance}
+          userId={user.id}
           timezone={timezone}
         />
 
