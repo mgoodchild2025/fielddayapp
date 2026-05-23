@@ -131,6 +131,14 @@ function EditRow({
 
 // ── Note row ───────────────────────────────────────────────────────────────────
 
+type InviteRole = 'player' | 'sub' | 'captain' | 'coach'
+const INVITE_ROLES: { value: InviteRole; label: string }[] = [
+  { value: 'player',  label: 'Player'  },
+  { value: 'sub',     label: 'Sub'     },
+  { value: 'captain', label: 'Captain' },
+  { value: 'coach',   label: 'Coach'   },
+]
+
 function NoteRow({
   note,
   teamId,
@@ -143,7 +151,7 @@ function NoteRow({
   onDelete: (id: string) => void
 }) {
   const [editing, setEditing] = useState(false)
-  const [inviting, setInviting] = useState(false)
+  const [inviteRole, setInviteRole] = useState<InviteRole>('player')
   const [inviteSuccess, setInviteSuccess] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [deleting, startDelete] = useTransition()
@@ -160,10 +168,8 @@ function NoteRow({
   function handleInvite() {
     if (!note.email) return
     setInviteError(null)
-    setInviting(true)
     startInvite(async () => {
-      const result = await sendTeamInvite({ teamId, email: note.email!, role: 'player' })
-      setInviting(false)
+      const result = await sendTeamInvite({ teamId, email: note.email!, role: inviteRole })
       if (result.error) {
         setInviteError(result.error)
       } else {
@@ -216,15 +222,26 @@ function NoteRow({
       {/* Actions — always visible, full-width row on mobile */}
       <div className="flex items-center gap-2 mt-2 ml-11">
         {note.email && !inviteSuccess && (
-          <button
-            type="button"
-            onClick={handleInvite}
-            disabled={invitePending || inviting}
-            className="flex-1 py-1.5 rounded-md text-xs font-semibold text-white disabled:opacity-40 transition-opacity"
-            style={{ backgroundColor: 'var(--brand-primary)' }}
-          >
-            {invitePending || inviting ? 'Sending…' : 'Send Invite'}
-          </button>
+          <>
+            <select
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value as InviteRole)}
+              className="border rounded-md px-2 py-1.5 text-xs bg-white text-gray-700"
+            >
+              {INVITE_ROLES.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleInvite}
+              disabled={invitePending}
+              className="flex-1 py-1.5 rounded-md text-xs font-semibold text-white disabled:opacity-40 transition-opacity"
+              style={{ backgroundColor: 'var(--brand-primary)' }}
+            >
+              {invitePending ? 'Sending…' : 'Send Invite'}
+            </button>
+          </>
         )}
         <button
           type="button"
