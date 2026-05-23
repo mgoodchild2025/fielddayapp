@@ -31,6 +31,7 @@ function EditRow({
   const [name, setName] = useState(note.name ?? '')
   const [email, setEmail] = useState(note.email ?? '')
   const [noteText, setNoteText] = useState(note.note ?? '')
+  const [role, setRole] = useState<InviteRole>((note.invite_role as InviteRole | undefined) ?? 'player')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const nameRef = useRef<HTMLInputElement>(null)
@@ -44,11 +45,11 @@ function EditRow({
     setError(null)
     startTransition(async () => {
       if (note.id) {
-        const result = await updateRosterNote({ id: note.id, teamId, name, email, note: noteText })
+        const result = await updateRosterNote({ id: note.id, teamId, name, email, note: noteText, invite_role: role })
         if (result.error) { setError(result.error); return }
-        onSave({ id: note.id, name: name.trim(), email: email.trim() || null, note: noteText.trim() || null, created_at: note.created_at ?? new Date().toISOString() })
+        onSave({ id: note.id, name: name.trim(), email: email.trim() || null, note: noteText.trim() || null, invite_role: role, created_at: note.created_at ?? new Date().toISOString() })
       } else {
-        const result = await addRosterNote({ teamId, name, email, note: noteText })
+        const result = await addRosterNote({ teamId, name, email, note: noteText, invite_role: role })
         if (result.error) { setError(result.error); return }
         if (result.data) onSave(result.data)
       }
@@ -106,6 +107,19 @@ function EditRow({
           style={ringStyle}
         />
       </div>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Role</label>
+        <select
+          value={role}
+          onChange={(e) => setRole(e.target.value as InviteRole)}
+          className={inputClass}
+          style={ringStyle}
+        >
+          {INVITE_ROLES.map((r) => (
+            <option key={r.value} value={r.value}>{r.label}</option>
+          ))}
+        </select>
+      </div>
       {error && <p className="text-xs text-red-600">{error}</p>}
       <div className="flex gap-2 pt-0.5">
         <button
@@ -151,11 +165,19 @@ function NoteRow({
   onDelete: (id: string) => void
 }) {
   const [editing, setEditing] = useState(false)
-  const [inviteRole, setInviteRole] = useState<InviteRole>('player')
+  const [inviteRole, setInviteRole] = useState<InviteRole>(note.invite_role ?? 'player')
   const [inviteSuccess, setInviteSuccess] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [deleting, startDelete] = useTransition()
   const [invitePending, startInvite] = useTransition()
+  const [rolePending, startRoleTransition] = useTransition()
+
+  function handleRoleChange(role: InviteRole) {
+    setInviteRole(role)
+    startRoleTransition(async () => {
+      await updateRosterNote({ id: note.id, teamId, name: note.name, email: note.email ?? undefined, note: note.note ?? undefined, invite_role: role })
+    })
+  }
 
   function handleDelete() {
     if (!confirm(`Remove "${note.name}" from the planning list?`)) return
@@ -225,8 +247,9 @@ function NoteRow({
           <>
             <select
               value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as InviteRole)}
-              className="border rounded-md px-2 py-1.5 text-xs bg-white text-gray-700"
+              onChange={(e) => handleRoleChange(e.target.value as InviteRole)}
+              disabled={rolePending}
+              className="border rounded-md px-2 py-1.5 text-xs bg-white text-gray-700 disabled:opacity-50"
             >
               {INVITE_ROLES.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>

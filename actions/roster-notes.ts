@@ -12,6 +12,7 @@ export type RosterNote = {
   name: string
   email: string | null
   note: string | null
+  invite_role: 'player' | 'sub' | 'captain' | 'coach'
   created_at: string
 }
 
@@ -64,7 +65,7 @@ export async function getRosterNotes(teamId: string): Promise<RosterNote[]> {
   const db = createServiceRoleClient()
   const { data } = await db
     .from('roster_notes' as never)
-    .select('id, name, email, note, created_at')
+    .select('id, name, email, note, invite_role, created_at')
     .eq('team_id', teamId)
     .eq('organization_id', org.id)
     .order('created_at', { ascending: true })
@@ -80,6 +81,7 @@ const addSchema = z.object({
   name: z.string().min(1).max(120),
   email: z.string().email().optional().or(z.literal('')),
   note: z.string().max(500).optional(),
+  invite_role: z.enum(['player', 'sub', 'captain', 'coach']).default('player'),
 })
 
 export async function addRosterNote(input: {
@@ -87,6 +89,7 @@ export async function addRosterNote(input: {
   name: string
   email?: string
   note?: string
+  invite_role?: 'player' | 'sub' | 'captain' | 'coach'
 }): Promise<{ error: string | null; data: RosterNote | null }> {
   const parsed = addSchema.safeParse(input)
   if (!parsed.success) return { error: 'Invalid input', data: null }
@@ -112,9 +115,10 @@ export async function addRosterNote(input: {
       name: parsed.data.name.trim(),
       email: parsed.data.email?.trim() || null,
       note: parsed.data.note?.trim() || null,
+      invite_role: parsed.data.invite_role,
       created_by: user.id,
     } as never)
-    .select('id, name, email, note, created_at')
+    .select('id, name, email, note, invite_role, created_at')
     .single()
     .returns<RosterNote>()
 
@@ -132,6 +136,7 @@ const updateSchema = z.object({
   name: z.string().min(1).max(120),
   email: z.string().email().optional().or(z.literal('')),
   note: z.string().max(500).optional(),
+  invite_role: z.enum(['player', 'sub', 'captain', 'coach']).optional(),
 })
 
 export async function updateRosterNote(input: {
@@ -140,6 +145,7 @@ export async function updateRosterNote(input: {
   name: string
   email?: string
   note?: string
+  invite_role?: 'player' | 'sub' | 'captain' | 'coach'
 }): Promise<{ error: string | null }> {
   const parsed = updateSchema.safeParse(input)
   if (!parsed.success) return { error: 'Invalid input' }
@@ -154,6 +160,7 @@ export async function updateRosterNote(input: {
       name: parsed.data.name.trim(),
       email: parsed.data.email?.trim() || null,
       note: parsed.data.note?.trim() || null,
+      ...(parsed.data.invite_role ? { invite_role: parsed.data.invite_role } : {}),
     } as never)
     .eq('id', parsed.data.id)
     .eq('team_id', parsed.data.teamId)
