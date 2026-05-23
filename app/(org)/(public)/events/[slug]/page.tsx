@@ -696,6 +696,7 @@ export default async function EventDetailPage({
         { id: 'stats', label: 'Stats', visibility: statsVisibility },
         ...((league as any).format_content || (league as any).format_pdf_url ? [{ id: 'format', label: 'Format', visibility: 'public' as const }] : []),
         ...(league.rules_content || (league as any).rules_pdf_url ? [{ id: 'rules',   label: 'Rules',   visibility: 'public' as const }] : []),
+        { id: 'overview', label: 'Event Info', visibility: 'public' as const },
       ]
     : [
         { id: 'overview', label: 'Info',  visibility: 'public' as const },
@@ -1541,7 +1542,7 @@ export default async function EventDetailPage({
             )}
 
             {/* Organizers */}
-            {!isInSeasonOrCompleted && eventOrganizers.length > 0 && (
+            {eventOrganizers.length > 0 && (
               <div className="bg-white rounded-lg border p-5">
                 <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">
                   {eventOrganizers.length === 1 ? 'Organizer' : 'Organizers'}
