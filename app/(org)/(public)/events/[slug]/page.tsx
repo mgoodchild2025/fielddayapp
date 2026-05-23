@@ -695,7 +695,6 @@ export default async function EventDetailPage({
         ...(hasBracket          ? [{ id: 'bracket', label: 'Playoffs', visibility: 'public' as const }] : []),
         { id: 'stats', label: 'Stats', visibility: statsVisibility },
         ...((league as any).format_content || (league as any).format_pdf_url ? [{ id: 'format', label: 'Format', visibility: 'public' as const }] : []),
-        ...(league.rules_content || (league as any).rules_pdf_url ? [{ id: 'rules',   label: 'Rules',   visibility: 'public' as const }] : []),
         { id: 'overview', label: 'Event Info', visibility: 'public' as const },
       ]
     : [
