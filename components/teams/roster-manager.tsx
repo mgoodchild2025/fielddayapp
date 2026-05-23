@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { captainSetMemberRole, captainRemoveTeamMember, sendRosterReminder } from '@/actions/teams'
+import { captainSetMemberRole, captainRemoveTeamMember, sendRosterReminder, captainAddPlayerByEmail } from '@/actions/teams'
 import { resendTeamInvite, cancelTeamInvitation } from '@/actions/invitations'
 import { setTeamMemberPosition } from '@/actions/positions'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
@@ -47,6 +47,7 @@ interface Props {
   initialMembers: ActiveMember[]
   initialInvites: PendingInvite[]
   positions?: string[]
+  teamCode?: string | null
 }
 
 const REG_BADGE: Record<string, { label: string; className: string }> = {
@@ -69,6 +70,7 @@ export function RosterManager({
   initialMembers,
   initialInvites,
   positions = [],
+  teamCode = null,
 }: Props) {
   const router = useRouter()
   const [members, setMembers] = useState(initialMembers)
@@ -78,6 +80,16 @@ export function RosterManager({
   const [actionPending, startActionTransition] = useTransition()
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
+
+  // ── New invite form ────────────────────────────────────────────────────────
+  const [showInviteForm, setShowInviteForm] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState<Role>('player')
+  const [invitePending, startInviteTransition] = useTransition()
+  const [inviteError, setInviteError] = useState<string | null>(null)
+  const [origin, setOrigin] = useState('')
+  useEffect(() => { setOrigin(window.location.origin) }, [])
+  const joinUrl = teamCode && origin ? `${origin}/join/${teamCode}` : null
 
   // Reminder modal state
   const [reminderTarget, setReminderTarget] = useState<{ id: string; name: string; type: 'member' | 'invite' } | null>(null)
@@ -144,6 +156,24 @@ export function RosterManager({
       const result = await cancelTeamInvitation(inviteId)
       if (result.error) {
         setActionError(result.error)
+        router.refresh()
+      }
+    })
+  }
+
+  function handleSendInvite(e: React.FormEvent) {
+    e.preventDefault()
+    setInviteError(null)
+    const email = inviteEmail
+    const role = inviteRole
+    startInviteTransition(async () => {
+      const result = await captainAddPlayerByEmail({ teamId, email, role })
+      if (result.error) {
+        setInviteError(result.error)
+      } else {
+        setInviteEmail('')
+        setInviteRole('player')
+        setShowInviteForm(false)
         router.refresh()
       }
     })
@@ -361,6 +391,80 @@ export function RosterManager({
             {actionError ?? actionSuccess}
           </div>
         )}
+
+        {/* ── Invite section ── */}
+        <div className="px-5 py-4 border-t bg-gray-50">
+          {/* Join link */}
+          {joinUrl && (
+            <div className="flex items-center gap-2 mb-3">
+              <code className="flex-1 min-w-0 text-xs text-gray-500 bg-white border rounded-md px-2.5 py-2 truncate font-mono">
+                {joinUrl}
+              </code>
+              <button
+                type="button"
+                onClick={() => navigator.clipboard.writeText(joinUrl)}
+                className="shrink-0 px-3 py-2 rounded-md text-xs font-semibold border transition-colors"
+                style={{ borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
+              >
+                Copy link
+              </button>
+            </div>
+          )}
+
+          {/* Email invite form */}
+          {!showInviteForm ? (
+            <button
+              type="button"
+              onClick={() => { setShowInviteForm(true); setInviteError(null) }}
+              className="text-xs font-medium transition-colors"
+              style={{ color: 'var(--brand-primary)' }}
+            >
+              + Email an invite
+            </button>
+          ) : (
+            <form onSubmit={handleSendInvite} className="space-y-2">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="player@example.com"
+                  required
+                  // eslint-disable-next-line jsx-a11y/no-autofocus
+                  autoFocus
+                  className="flex-1 border rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2"
+                />
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as Role)}
+                  className="border rounded-md px-3 py-2 text-sm bg-white"
+                >
+                  {ROLES.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={invitePending}
+                  className="flex-1 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-50"
+                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                >
+                  {invitePending ? 'Sending…' : 'Send invite'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowInviteForm(false); setInviteError(null) }}
+                  className="px-4 py-2 rounded-md text-sm text-gray-600 border bg-white hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+              {inviteError && <p className="text-xs text-red-600">{inviteError}</p>}
+            </form>
+          )}
+        </div>
       </div>
 
       {/* ── Reminder modal ── */}

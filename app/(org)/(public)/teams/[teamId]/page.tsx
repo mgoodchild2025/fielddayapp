@@ -18,7 +18,6 @@ import { TeamAvatar } from '@/components/ui/team-avatar'
 import { CalendarSubscribeButton } from '@/components/teams/calendar-subscribe-button'
 import { RosterNotesSection } from '@/components/teams/roster-notes-section'
 import { getRosterNotes } from '@/actions/roster-notes'
-import { InvitePlayersZone } from '@/components/teams/invite-players-zone'
 import Link from 'next/link'
 import { CalendarDays } from 'lucide-react'
 
@@ -313,7 +312,6 @@ export default async function TeamDetailPage({
 
         {/* Roster — editable for managers, read-only for players */}
         {isManager ? (
-          <>
           <RosterManager
             teamId={team.id}
             leagueId={leagueId}
@@ -352,13 +350,6 @@ export default async function TeamDetailPage({
               } satisfies ActiveMember
             })}
           />
-          <div className="mt-4 bg-white rounded-lg border overflow-hidden">
-            <InvitePlayersZone
-              teamId={team.id}
-              teamCode={(team as { team_code?: string | null }).team_code ?? null}
-            />
-          </div>
-          </>
         ) : (
           <div className="mt-6 bg-white rounded-lg border overflow-hidden">
             <div className="px-5 py-4 border-b">
