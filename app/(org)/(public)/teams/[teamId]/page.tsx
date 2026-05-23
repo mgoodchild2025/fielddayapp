@@ -15,10 +15,10 @@ import { getPositionsForSport } from '@/actions/positions'
 import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { TeamAvatar } from '@/components/ui/team-avatar'
-import { CopyableCode } from '@/components/teams/copyable-code'
 import { CalendarSubscribeButton } from '@/components/teams/calendar-subscribe-button'
 import { RosterNotesSection } from '@/components/teams/roster-notes-section'
 import { getRosterNotes } from '@/actions/roster-notes'
+import { InvitePlayersZone } from '@/components/teams/invite-players-zone'
 import Link from 'next/link'
 import { CalendarDays } from 'lucide-react'
 
@@ -295,17 +295,6 @@ export default async function TeamDetailPage({
           </div>
         </div>
 
-        {/* Team code — managers and org admins only */}
-        {isManager && team.team_code && (
-          <div className="mt-6 bg-white rounded-lg border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
-            <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Team Code</p>
-              <div className="mt-0.5"><CopyableCode code={team.team_code} /></div>
-            </div>
-            <p className="text-xs text-gray-400 sm:text-right">Share this code so players can join your team</p>
-          </div>
-        )}
-
         {/* Team schedule + calendar subscription — all team members */}
         <Link
           href={`/teams/${teamId}/schedule`}
@@ -324,6 +313,7 @@ export default async function TeamDetailPage({
 
         {/* Roster — editable for managers, read-only for players */}
         {isManager ? (
+          <>
           <RosterManager
             teamId={team.id}
             leagueId={leagueId}
@@ -362,6 +352,13 @@ export default async function TeamDetailPage({
               } satisfies ActiveMember
             })}
           />
+          <div className="mt-4 bg-white rounded-lg border overflow-hidden">
+            <InvitePlayersZone
+              teamId={team.id}
+              teamCode={(team as { team_code?: string | null }).team_code ?? null}
+            />
+          </div>
+          </>
         ) : (
           <div className="mt-6 bg-white rounded-lg border overflow-hidden">
             <div className="px-5 py-4 border-b">
