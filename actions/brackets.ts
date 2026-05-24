@@ -29,13 +29,16 @@ async function getOrgAndRequireAdmin() {
 }
 
 // Compute standings for a league from confirmed game results.
-// gameFilter: 'all' = all games; 'pool_only' = only games with pool_id set
+// gameFilter:
+//   'regular_only' = only games with pool_id IS NULL (matches public "Overall Standings" tab)
+//   'pool_only'    = only games with pool_id IS NOT NULL
+//   'all'          = all games regardless of pool_id
 // Returns standings + the league's standings_pts_method so seeding can use the same tiebreakers.
 async function computeStandings(
   db: ReturnType<typeof createServiceRoleClient>,
   leagueId: string,
   orgId: string,
-  gameFilter: 'all' | 'pool_only' = 'all'
+  gameFilter: 'all' | 'pool_only' | 'regular_only' = 'regular_only'
 ): Promise<{ standings: TeamStanding[]; ptsMethod: import('@/lib/bracket').StandingsSortMethod; sport: string | null }> {
   const [{ data: teams }, { data: results }, { data: leagueRow }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,6 +76,7 @@ async function computeStandings(
     const game = Array.isArray(r.game) ? r.game[0] : r.game as any
     if (!game || game.status !== 'completed' || game.league_id !== leagueId) continue
     if (gameFilter === 'pool_only' && !game.pool_id) continue
+    if (gameFilter === 'regular_only' && game.pool_id) continue
     const ht = game.home_team_id as string
     const at = game.away_team_id as string
     if (!record[ht] || !record[at]) continue
@@ -296,7 +300,9 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   let seededTeams: TeamStanding[] = []
 
   if (bracket.seeding_method === 'standings') {
-    const { standings, ptsMethod } = await computeStandings(db, leagueId, org.id)
+    // 'regular_only' matches the public Overall Standings tab: only games where pool_id IS NULL.
+    // Pool-play games are excluded so seeding order matches what admins see in standings.
+    const { standings, ptsMethod } = await computeStandings(db, leagueId, org.id, 'regular_only')
 
     // Sort the full standings once so all tier slicing operates on the correct order.
     // seedFromStandings sorts internally, but slicing an unsorted array first would
@@ -416,7 +422,7 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
     // fall back to full-season standings so seeding is at least deterministic.
     const { standings } = hasPoolData
       ? { standings: poolOnlyStandings }
-      : await computeStandings(db, leagueId, org.id, 'all')
+      : await computeStandings(db, leagueId, org.id, 'regular_only')
     const sortedStandings = seedFromStandings(standings, standings.length, ptsMethod)
     const sliced = sortedStandings.slice(seedOffset, seedOffset + bracket.teams_advancing)
     seededTeams = sliced.map((t, i) => ({ ...t, seed: i + 1 }))
