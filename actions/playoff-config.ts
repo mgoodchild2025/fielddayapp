@@ -116,7 +116,9 @@ async function insertBracketWithMatches(
 ): Promise<{ bracketId: string | null; error: string | null }> {
   const { name, bracketType, teamsAdvancing, thirdPlaceGame, poolNames, seedOffset } = opts
   const isAllPlay = bracketType === 'all_play'
-  const is6Team = teamsAdvancing === 6 && (bracketType === 'single_elimination' || isAllPlay)
+  // is6Team: only all_play brackets use the 6-team spec (bracketSize = 6, all teams play R1).
+  // A 6-team single_elimination bracket uses bracketSize=8 with 2 byes via generateSingleEliminationSpec.
+  const is6Team = isAllPlay && teamsAdvancing === 6
   const bracketSize = (is6Team || (isAllPlay && teamsAdvancing === 14)) ? teamsAdvancing : nextPowerOf2(teamsAdvancing)
   const actualThirdPlace = (bracketType === 'double_elimination' || isAllPlay) ? false : thirdPlaceGame
   const seedingMethod = opts.seedingMethod ?? (poolNames.length > 0 ? 'pool_results' : 'standings')
