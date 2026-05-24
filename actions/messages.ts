@@ -95,9 +95,9 @@ type DeliveryData = {
   audience_type: string
   league_id?: string
   team_id?: string
-  channel: 'email' | 'sms' | 'both'
-  cc_self: boolean
-  cc_admins: boolean
+  channel?: 'email' | 'sms' | 'both'
+  cc_self?: boolean
+  cc_admins?: boolean
 }
 
 type Recipient = { email: string | null; phone: string | null; sms_opted_in: boolean }
@@ -105,10 +105,23 @@ type Recipient = { email: string | null; phone: string | null; sms_opted_in: boo
 async function deliverAnnouncement(
   announcementId: string,
   orgId: string,
-  orgName: string,
-  senderId: string,
-  data: DeliveryData,
+  orgNameOrData: string | DeliveryData,
+  senderIdOrUndefined?: string,
+  dataOrUndefined?: DeliveryData,
 ) {
+  // Support both the new 5-arg call and the legacy 3-arg call from the cron route
+  let orgName: string
+  let senderId: string
+  let data: DeliveryData
+  if (typeof orgNameOrData === 'string') {
+    orgName = orgNameOrData
+    senderId = senderIdOrUndefined ?? ''
+    data = dataOrUndefined!
+  } else {
+    orgName = ''
+    senderId = ''
+    data = orgNameOrData
+  }
   const service = createServiceRoleClient()
 
   // ── 1. Collect primary audience user IDs ──────────────────────────────────
@@ -145,7 +158,7 @@ async function deliverAnnouncement(
   }
 
   // ── 2. CC additions ───────────────────────────────────────────────────────
-  if (data.cc_self) {
+  if (data.cc_self && senderId) {
     userIds.add(senderId)
   }
 
@@ -175,8 +188,9 @@ async function deliverAnnouncement(
     sms_opted_in: p.sms_opted_in ?? false,
   }))
 
-  const sendEmail = data.channel === 'email' || data.channel === 'both'
-  const sendSmsChannel = data.channel === 'sms' || data.channel === 'both'
+  const channel = data.channel ?? 'email'
+  const sendEmail = channel === 'email' || channel === 'both'
+  const sendSmsChannel = channel === 'sms' || channel === 'both'
 
   // ── 4. Email ──────────────────────────────────────────────────────────────
   if (sendEmail) {

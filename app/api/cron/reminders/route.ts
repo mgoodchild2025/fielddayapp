@@ -60,6 +60,10 @@ export async function GET(req: NextRequest) {
     .gte('scheduled_at', now.toISOString())
     .lte('scheduled_at', in24h.toISOString())
 
+  // Collect personalized game-reminder emails across all orgs; batch-send after the loop
+  // to avoid Resend's 5 req/s rate limit.
+  const reminderEmailBatch: Array<{ from: string; to: string; subject: string; html: string }> = []
+
   if ((reminderGames ?? []).length > 0) {
     // Fetch org branding (timezone) and org names
     type RGGame = {
@@ -195,7 +199,7 @@ export async function GET(req: NextRequest) {
           ? `Game reminder: you have a game tomorrow`
           : `Game reminder: you have ${myGames.length} games tomorrow`
 
-        await resend.emails.send({
+        reminderEmailBatch.push({
           from: FROM_EMAIL,
           to: player.email,
           subject,
@@ -208,14 +212,26 @@ export async function GET(req: NextRequest) {
               To stop receiving game reminders, update your <a href="#" style="color:#999">notification preferences</a> in your profile.
             </p>
           </div>`,
-        }).catch(() => {})
+        })
 
-        results.push(`email reminder sent to ${userId} (${myGames.length} game${myGames.length !== 1 ? 's' : ''})`)
+        results.push(`email reminder queued for ${userId} (${myGames.length} game${myGames.length !== 1 ? 's' : ''})`)
       }
     }
   }
 
+  // Flush the game-reminder email batch (up to 100 emails per Resend batch call)
+  if (reminderEmailBatch.length > 0) {
+    const EMAIL_BATCH_SIZE = 100
+    for (let i = 0; i < reminderEmailBatch.length; i += EMAIL_BATCH_SIZE) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (resend.batch as any).send(reminderEmailBatch.slice(i, i + EMAIL_BATCH_SIZE))
+        .catch((e: unknown) => results.push(`email batch send error: ${e}`))
+    }
+    results.push(`email reminder batch: ${reminderEmailBatch.length} email(s) dispatched`)
+  }
+
   // 3. Payment reminders — overdue installments
+  const paymentEmailBatch: Array<{ from: string; to: string; subject: string; html: string }> = []
   const { data: overdueInstallments } = await supabase
     .from('payment_plan_installments')
     .select('id, enrollment_id, amount_cents, due_date, payment_plan_enrollments(registration_id, organization_id)')
@@ -238,7 +254,7 @@ export async function GET(req: NextRequest) {
     const profile = reg ? (Array.isArray(reg.profiles) ? reg.profiles[0] : reg.profiles) : null
     if (!profile?.email) continue
 
-    await resend.emails.send({
+    paymentEmailBatch.push({
       from: FROM_EMAIL,
       to: profile.email,
       subject: 'Payment reminder — installment overdue',
@@ -248,7 +264,7 @@ export async function GET(req: NextRequest) {
         <p>You have an overdue installment of <strong>$${(inst.amount_cents / 100).toFixed(2)} CAD</strong> due ${new Date(inst.due_date).toLocaleDateString('en-CA')}.</p>
         <p>Please log in to your account to complete your payment.</p>
       </div>`,
-    }).catch(() => {})
+    })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase as any)
@@ -257,6 +273,13 @@ export async function GET(req: NextRequest) {
       .eq('id', inst.id)
 
     results.push(`payment reminder installment ${inst.id}`)
+  }
+
+  // Flush payment reminder email batch
+  if (paymentEmailBatch.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (resend.batch as any).send(paymentEmailBatch)
+      .catch((e: unknown) => results.push(`payment email batch error: ${e}`))
   }
 
   // 4. SMS game reminders — multi-reminder system using org_sms_reminders + game_sms_reminder_logs
