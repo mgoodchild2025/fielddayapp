@@ -1011,6 +1011,14 @@ export async function clearBracketSeeding(bracketId: string, leagueId: string) {
 
   if (error) return { error: error.message }
 
+  // Reset bracket status back to scaffold so it can be re-seeded
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any)
+    .from('brackets')
+    .update({ status: 'scaffold' })
+    .eq('id', bracketId)
+    .eq('organization_id', org.id)
+
   revalidatePath(`/admin/events/${leagueId}/bracket`)
   return { error: null }
 }
