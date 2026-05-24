@@ -899,14 +899,17 @@ const invitePlayerSchema = z.object({
 })
 
 const sendTeamMessageSchema = z.object({
-  teamId: z.string().uuid(),
-  subject: z.string().min(1).max(120),
-  body: z.string().min(1).max(2000),
+  teamId:     z.string().uuid(),
+  subject:    z.string().min(1).max(120),
+  body:       z.string().min(1).max(2000),
+  channel:    z.enum(['email', 'sms', 'both']).default('email'),
+  ccSelf:     z.boolean().default(false),
+  ccAdmins:   z.boolean().default(false),
 })
 
 /**
  * Captain sends a message to all active team members.
- * Creates a notification for every active member (excluding the sender).
+ * Creates in-app notifications and optionally sends email and/or SMS.
  */
 export async function sendTeamMessage(input: z.infer<typeof sendTeamMessageSchema>) {
   const parsed = sendTeamMessageSchema.safeParse(input)
@@ -940,39 +943,96 @@ export async function sendTeamMessage(input: z.infer<typeof sendTeamMessageSchem
   const isAdmin = ['org_admin', 'league_admin'].includes(orgMembership?.role ?? '')
   if (!isCaptain && !isAdmin) return { error: 'Only captains can message their team' }
 
-  // Get team name for notification title
-  const { data: team } = await supabase
-    .from('teams')
-    .select('name')
-    .eq('id', parsed.data.teamId)
-    .eq('organization_id', org.id)
-    .single()
+  // Get team + org names
+  const [{ data: team }, { data: orgBranding }] = await Promise.all([
+    supabase.from('teams').select('name').eq('id', parsed.data.teamId).eq('organization_id', org.id).single(),
+    db.from('org_branding').select('org_name').eq('organization_id', org.id).single(),
+  ])
 
-  // Fetch all active team members (excluding the sender)
-  const { data: members } = await supabase
+  // ── Build recipient user ID set ──────────────────────────────────────────
+  const userIds = new Set<string>()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: members } = await (supabase as any)
     .from('team_members')
     .select('user_id')
     .eq('team_id', parsed.data.teamId)
     .eq('organization_id', org.id)
     .eq('status', 'active')
-    .neq('user_id', user.id)
 
-  if (!members || members.length === 0) return { error: null }
+  for (const m of members ?? []) if (m.user_id && m.user_id !== user.id) userIds.add(m.user_id)
 
-  // Create a notification for each member (skip rows with null user_id)
-  const notifications = members
-    .filter((m): m is typeof m & { user_id: string } => m.user_id !== null)
-    .map((m) => ({
-      organization_id: org.id,
-      user_id: m.user_id,
-      type: 'team_message',
-      title: `📢 ${team?.name ?? 'Your team'}: ${parsed.data.subject}`,
-      body: parsed.data.body,
-      read: false,
-    }))
+  if (parsed.data.ccSelf) userIds.add(user.id)
 
-  const { error } = await supabase.from('notifications').insert(notifications)
-  if (error) return { error: error.message }
+  if (parsed.data.ccAdmins) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: admins } = await (db as any)
+      .from('org_members')
+      .select('user_id')
+      .eq('organization_id', org.id)
+      .in('role', ['org_admin', 'league_admin'])
+      .eq('status', 'active')
+    for (const a of admins ?? []) if (a.user_id) userIds.add(a.user_id)
+  }
+
+  if (userIds.size === 0) return { error: null }
+
+  const teamName = team?.name ?? 'Your team'
+  const notifTitle = `📢 ${teamName}: ${parsed.data.subject}`
+
+  // ── In-app notifications ─────────────────────────────────────────────────
+  const notifications = [...userIds].map((uid) => ({
+    organization_id: org.id,
+    user_id: uid,
+    type: 'team_message',
+    title: notifTitle,
+    body: parsed.data.body,
+    read: false,
+  }))
+  const { error: notifError } = await supabase.from('notifications').insert(notifications)
+  if (notifError) return { error: notifError.message }
+
+  // ── Fetch profiles for email / SMS ───────────────────────────────────────
+  const sendEmailChannel = parsed.data.channel === 'email' || parsed.data.channel === 'both'
+  const sendSmsChannel   = parsed.data.channel === 'sms'   || parsed.data.channel === 'both'
+
+  if (sendEmailChannel || sendSmsChannel) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: profiles } = await (db as any)
+      .from('profiles')
+      .select('id, email, phone, sms_opted_in')
+      .in('id', [...userIds])
+
+    if (sendEmailChannel) {
+      const emails = (profiles ?? []).map((p: { email?: string }) => p.email).filter(Boolean) as string[]
+      if (emails.length > 0) {
+        const { getResend, FROM_EMAIL: FROM } = await import('@/lib/resend')
+        const resend = getResend()
+        const orgLabel = (orgBranding as { org_name?: string } | null)?.org_name ?? org.name ?? 'Fieldday'
+        const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+          <p style="font-size:12px;color:#888;margin-bottom:4px">${orgLabel} · ${teamName}</p>
+          <h2 style="font-size:20px;font-weight:bold;margin-top:0">${parsed.data.subject}</h2>
+          <div style="white-space:pre-wrap;line-height:1.6;color:#333">${parsed.data.body}</div>
+        </div>`
+        const BATCH = 50
+        for (let i = 0; i < emails.length; i += BATCH) {
+          await resend.emails.send({ from: FROM, to: emails.slice(i, i + BATCH), subject: parsed.data.subject, html })
+        }
+      }
+    }
+
+    if (sendSmsChannel) {
+      const { sendSms: twilioSend, toE164 } = await import('@/lib/twilio')
+      const orgLabel = (orgBranding as { org_name?: string } | null)?.org_name ?? org.name ?? 'Fieldday'
+      const smsBody = `${orgLabel} · ${teamName}\n\n${parsed.data.subject}\n\n${parsed.data.body}\n\nReply STOP to unsubscribe.`
+      const smsProfiles = (profiles ?? []).filter(
+        (p: { phone?: string; sms_opted_in?: boolean }) => p.phone && p.sms_opted_in
+      )
+      await Promise.allSettled(
+        smsProfiles.map((p: { phone: string }) => twilioSend(toE164(p.phone), smsBody))
+      )
+    }
+  }
 
   return { error: null }
 }
