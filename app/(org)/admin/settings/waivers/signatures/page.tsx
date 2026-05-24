@@ -86,20 +86,32 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
   const uniqueEvents  = [...new Set(allRows.map((r) => r.eventName).filter(Boolean))].sort()
   const uniqueWaivers = [...new Set(allRows.map((r) => r.waiverTitle).filter(Boolean))].sort()
 
-  // Team options scoped to the selected event (and waiver) so the list stays relevant
+  // Team options scoped to the selected event (and waiver) so the list stays relevant.
+  // Deduplicate case-insensitively: keep the first-seen capitalisation for display but
+  // treat "SpikeGirls" and "spike girls" as the same team.
   const rowsForTeamFilter = allRows.filter((r) => {
     if (eventFilter  && r.eventName   !== eventFilter)  return false
     if (waiverFilter && r.waiverTitle !== waiverFilter) return false
     return true
   })
-  const uniqueTeams = [...new Set(rowsForTeamFilter.map((r) => r.teamName).filter(Boolean) as string[])].sort()
+  const seenTeamKeys = new Set<string>()
+  const uniqueTeams: string[] = []
+  for (const r of rowsForTeamFilter) {
+    if (!r.teamName) continue
+    const key = r.teamName.toLowerCase()
+    if (!seenTeamKeys.has(key)) {
+      seenTeamKeys.add(key)
+      uniqueTeams.push(r.teamName)
+    }
+  }
+  uniqueTeams.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
 
   // Apply filters
   const qLower = q.toLowerCase()
   const filteredRows = allRows.filter((r) => {
     if (eventFilter  && r.eventName   !== eventFilter)  return false
     if (waiverFilter && r.waiverTitle !== waiverFilter) return false
-    if (teamFilter   && r.teamName    !== teamFilter)   return false
+    if (teamFilter   && r.teamName?.toLowerCase() !== teamFilter.toLowerCase()) return false
     if (qLower) {
       const haystack = [r.playerName, r.playerEmail, r.signatureName ?? ''].join(' ').toLowerCase()
       if (!haystack.includes(qLower)) return false
