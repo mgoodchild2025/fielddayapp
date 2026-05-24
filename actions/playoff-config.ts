@@ -161,8 +161,10 @@ async function insertBracketWithMatches(
       team2_id: null,
       team1_label: m.team1Seed ? seedLabel(m.team1Seed, poolNames, seedOffset, opts.labelMode, opts.perPool) : null,
       team2_label: m.isBye ? 'Bye' : (m.team2Seed ? seedLabel(m.team2Seed, poolNames, seedOffset, opts.labelMode, opts.perPool) : null),
-      team1_seed: m.team1Seed,
-      team2_seed: m.isBye ? null : m.team2Seed,
+      // Store global seed (e.g. 9 for the 1st seed of Tier 2 with seed_from=9)
+      // so the bracket view shows the correct overall rank, not a tier-relative rank.
+      team1_seed: m.team1Seed ? m.team1Seed + seedOffset : null,
+      team2_seed: m.isBye ? null : (m.team2Seed ? m.team2Seed + seedOffset : null),
       is_bye: m.isBye,
       status: 'pending',
     }))

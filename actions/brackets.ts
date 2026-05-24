@@ -152,6 +152,16 @@ export async function scaffoldBracket(bracketId: string, leagueId: string) {
 
   if (!bracket) return { error: 'Bracket not found' }
 
+  // Read this bracket's tier offset so labels and seed numbers use global ranks
+  // (e.g. Tier 2 with seed_from=9 → "Seed 9" not "Seed 1", stored seed 9 not 1)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: tierRow } = await (db as any)
+    .from('playoff_tiers')
+    .select('seed_from')
+    .eq('bracket_id', bracketId)
+    .maybeSingle()
+  const scaffoldSeedOffset = tierRow?.seed_from ? Math.max(0, (tierRow.seed_from as number) - 1) : 0
+
   // Preserve any schedule dates the admin may have already set
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: existing } = await (db as any)
@@ -191,10 +201,10 @@ export async function scaffoldBracket(bracketId: string, leagueId: string) {
         match_number: m.matchNumber,
         team1_id: null,
         team2_id: null,
-        team1_label: m.team1Seed ? `Seed ${m.team1Seed}` : null,
-        team2_label: m.isBye ? 'Bye' : (m.team2Seed ? `Seed ${m.team2Seed}` : null),
-        team1_seed: m.team1Seed,
-        team2_seed: m.isBye ? null : m.team2Seed,
+        team1_label: m.team1Seed ? `Seed ${m.team1Seed + scaffoldSeedOffset}` : null,
+        team2_label: m.isBye ? 'Bye' : (m.team2Seed ? `Seed ${m.team2Seed + scaffoldSeedOffset}` : null),
+        team1_seed: m.team1Seed ? m.team1Seed + scaffoldSeedOffset : null,
+        team2_seed: m.isBye ? null : (m.team2Seed ? m.team2Seed + scaffoldSeedOffset : null),
         is_bye: m.isBye,
         status: 'pending',
         // Restore schedule data if previously set
@@ -441,8 +451,9 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
         team2_id: m.isBye ? null : (m.team2Seed ? (seedMap.get(m.team2Seed) ?? null) : null),
         team1_label: null,
         team2_label: null,
-        team1_seed: m.team1Seed,
-        team2_seed: m.isBye ? null : m.team2Seed,
+        // Store global seed so the bracket view shows the overall rank (e.g. 9 not 1 for Tier 2)
+        team1_seed: m.team1Seed ? m.team1Seed + seedOffset : null,
+        team2_seed: m.isBye ? null : (m.team2Seed ? m.team2Seed + seedOffset : null),
         is_bye: m.isBye,
         status: m.isBye ? 'bye' : (isWbFirstRound && m.team1Seed && (m.team2Seed || m.isBye) ? 'ready' : 'pending'),
         scheduled_at: prev?.scheduled_at ?? null,
