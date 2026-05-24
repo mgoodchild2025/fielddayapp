@@ -166,6 +166,8 @@ function TierRow({
           />
           3rd place
         </label>
+      ) : tier.bracketType === 'all_play' ? (
+        <span className="text-xs text-gray-300 whitespace-nowrap" title="All-Play brackets finish at the Final — no separate 3rd place game">—</span>
       ) : (
         <span className="text-xs text-gray-300 whitespace-nowrap">3rd place</span>
       )}
