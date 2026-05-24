@@ -128,7 +128,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
       id: raw.id,
       name: raw.name,
       bracketSize: raw.bracket_size,
-      bracketType: raw.bracket_type === 'double_elimination' ? 'double_elimination' : 'single_elimination',
+      bracketType: (raw.bracket_type === 'double_elimination' ? 'double_elimination' : raw.bracket_type === 'all_play' ? 'all_play' : 'single_elimination') as 'single_elimination' | 'double_elimination' | 'all_play',
       thirdPlaceGame: raw.third_place_game,
       status: raw.status,
       matches: (raw.bracket_matches ?? []).map((m): BracketMatchData => ({
@@ -222,7 +222,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
         sortOrder: t.sort_order,
         seedFrom: t.seed_from,
         seedTo: t.seed_to,
-        bracketType: (t.bracket_type === 'double_elimination' ? 'double_elimination' : 'single_elimination') as 'single_elimination' | 'double_elimination',
+        bracketType: (t.bracket_type === 'double_elimination' ? 'double_elimination' : t.bracket_type === 'all_play' ? 'all_play' : 'single_elimination') as 'single_elimination' | 'double_elimination' | 'all_play',
         thirdPlaceGame: t.third_place_game,
         bracketId: t.bracket_id,
         bracket: t.bracket_id ? buildBracketData(bracketMap.get(t.bracket_id)!) : null,

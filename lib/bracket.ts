@@ -3,7 +3,7 @@
  * No DB calls — takes standings data in, returns match structures out.
  */
 
-export type BracketType = 'single_elimination' | 'double_elimination'
+export type BracketType = 'single_elimination' | 'double_elimination' | 'all_play'
 export type SeedingMethod = 'standings' | 'pool_results' | 'manual'
 
 /** LB round numbers start at 100 (avoids collisions with WB round numbers ≤ bracketSize/2 ≤ 8 for 16-team) */
@@ -50,6 +50,8 @@ export interface BracketSpec {
   rounds: number[]           // e.g. [4, 2, 1] for 8-team (WB rounds only)
   matches: BracketMatchSpec[]
   thirdPlaceMatch: BracketMatchSpec | null
+  /** For all_play brackets: the match slot reserved for the best-loser wild card. */
+  bestLoserSlot?: { roundNumber: number; matchNumber: number; slot: 1 | 2 }
 }
 
 // ── Math helpers ──────────────────────────────────────────────────────────────
@@ -71,9 +73,15 @@ export function getRoundName(roundNumber: number, bracketSize: number): string {
     if (lbIndex === totalLbRounds - 1) return 'LB Semi-Finals'
     return `LB Round ${lbIndex}`
   }
-  // 6-team bracket has non-power-of-2 rounds
+  // All-play brackets have non-power-of-2 rounds
   if (bracketSize === 6) {
     if (roundNumber === 3) return 'First Round'
+    if (roundNumber === 2) return 'Semi-Finals'
+    if (roundNumber === 1) return 'Final'
+  }
+  if (bracketSize === 14) {
+    if (roundNumber === 4) return 'First Round'
+    if (roundNumber === 3) return 'Quarter-Finals'
     if (roundNumber === 2) return 'Semi-Finals'
     if (roundNumber === 1) return 'Final'
   }
@@ -136,7 +144,73 @@ export function generate6TeamBracketSpec(): BracketSpec {
       loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
   ]
 
-  return { bracketSize: 6, rounds: [3, 2, 1], matches, thirdPlaceMatch: null }
+  return {
+    bracketSize: 6,
+    rounds: [3, 2, 1],
+    matches,
+    thirdPlaceMatch: null,
+    bestLoserSlot: { roundNumber: 2, matchNumber: 2, slot: 2 },
+  }
+}
+
+// ── 14-team all-play bracket generator ───────────────────────────────────────
+// All 14 teams play in round 1 (no byes). 7 winners advance to QF.
+// The 8th QF slot (QF4 slot 2) is reserved for the best loser wild card.
+//
+//  Round 4 (First Round):  M1:1v14  M2:2v13  M3:3v12  M4:4v11  M5:5v10  M6:6v9  M7:7v8
+//  Round 3 (QF):           QF1: W(M1) vs W(M7)    QF2: W(M2) vs W(M6)
+//                          QF3: W(M3) vs W(M5)    QF4: W(M4) vs [Best Loser]
+//  Round 2 (SF):           SF1: W(QF1) vs W(QF3)  SF2: W(QF2) vs W(QF4)
+//  Round 1 (Final):        W(SF1) vs W(SF2)
+
+export function generate14TeamAllPlaySpec(): BracketSpec {
+  const matches: BracketMatchSpec[] = [
+    // ── First Round (R4) ────────────────────────────────────────────────────
+    // M1 winner → QF1 slot 1;  M7 winner → QF1 slot 2  (standard bracket protection)
+    { roundNumber: 4, matchNumber: 1, team1Seed: 1,  team2Seed: 14, isBye: false,
+      winnerToRoundNumber: 3, winnerToMatchNumber: 1, winnerToSlot: 1, loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+    { roundNumber: 4, matchNumber: 2, team1Seed: 2,  team2Seed: 13, isBye: false,
+      winnerToRoundNumber: 3, winnerToMatchNumber: 2, winnerToSlot: 1, loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+    { roundNumber: 4, matchNumber: 3, team1Seed: 3,  team2Seed: 12, isBye: false,
+      winnerToRoundNumber: 3, winnerToMatchNumber: 3, winnerToSlot: 1, loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+    { roundNumber: 4, matchNumber: 4, team1Seed: 4,  team2Seed: 11, isBye: false,
+      winnerToRoundNumber: 3, winnerToMatchNumber: 4, winnerToSlot: 1, loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+    { roundNumber: 4, matchNumber: 5, team1Seed: 5,  team2Seed: 10, isBye: false,
+      winnerToRoundNumber: 3, winnerToMatchNumber: 3, winnerToSlot: 2, loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+    { roundNumber: 4, matchNumber: 6, team1Seed: 6,  team2Seed: 9,  isBye: false,
+      winnerToRoundNumber: 3, winnerToMatchNumber: 2, winnerToSlot: 2, loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+    { roundNumber: 4, matchNumber: 7, team1Seed: 7,  team2Seed: 8,  isBye: false,
+      winnerToRoundNumber: 3, winnerToMatchNumber: 1, winnerToSlot: 2, loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+
+    // ── Quarter-Finals (R3) ──────────────────────────────────────────────────
+    // QF4 slot 2 is intentionally empty — filled by advanceBestLoser() after R1
+    { roundNumber: 3, matchNumber: 1, team1Seed: null, team2Seed: null, isBye: false,
+      winnerToRoundNumber: 2, winnerToMatchNumber: 1, winnerToSlot: 1, loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+    { roundNumber: 3, matchNumber: 2, team1Seed: null, team2Seed: null, isBye: false,
+      winnerToRoundNumber: 2, winnerToMatchNumber: 2, winnerToSlot: 1, loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+    { roundNumber: 3, matchNumber: 3, team1Seed: null, team2Seed: null, isBye: false,
+      winnerToRoundNumber: 2, winnerToMatchNumber: 1, winnerToSlot: 2, loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+    { roundNumber: 3, matchNumber: 4, team1Seed: null, team2Seed: null, isBye: false,
+      winnerToRoundNumber: 2, winnerToMatchNumber: 2, winnerToSlot: 2, loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+
+    // ── Semi-Finals (R2) ─────────────────────────────────────────────────────
+    { roundNumber: 2, matchNumber: 1, team1Seed: null, team2Seed: null, isBye: false,
+      winnerToRoundNumber: 1, winnerToMatchNumber: 1, winnerToSlot: 1, loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+    { roundNumber: 2, matchNumber: 2, team1Seed: null, team2Seed: null, isBye: false,
+      winnerToRoundNumber: 1, winnerToMatchNumber: 1, winnerToSlot: 2, loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+
+    // ── Final (R1) ───────────────────────────────────────────────────────────
+    { roundNumber: 1, matchNumber: 1, team1Seed: null, team2Seed: null, isBye: false,
+      winnerToRoundNumber: null, winnerToMatchNumber: null, winnerToSlot: null, loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+  ]
+
+  return {
+    bracketSize: 14,
+    rounds: [4, 3, 2, 1],
+    matches,
+    thirdPlaceMatch: null,
+    bestLoserSlot: { roundNumber: 3, matchNumber: 4, slot: 2 },
+  }
 }
 
 // ── Single elimination generator ──────────────────────────────────────────────
@@ -633,11 +707,24 @@ export function recommendBracket(opts: {
     return {
       bracketSize: 6,
       teamsAdvancing: 6,
-      bracketType: 'single_elimination',
-      reason: 'All 6 teams play in round 1 — no byes. Seeds 1v6 and 2v5 are elimination matches; seeds 3v4 both advance (winner gets the favorable semifinal draw). Top 4 move on to semis.',
+      bracketType: 'all_play',
+      reason: 'All 6 teams play in round 1 — no byes. 3 winners advance to semis plus the best-losing team earns a wild card.',
       alternatives: [
-        { bracketSize: 4, teamsAdvancing: 4, label: 'Top 4 teams (8-team bracket with byes)' },
+        { bracketSize: 4, teamsAdvancing: 4, label: 'Top 4 teams only' },
         { bracketSize: 8, teamsAdvancing: 6, label: '8-team bracket (top 2 seeds get first-round byes)' },
+      ],
+    }
+  }
+
+  if (teamCount === 14) {
+    return {
+      bracketSize: 14,
+      teamsAdvancing: 14,
+      bracketType: 'all_play',
+      reason: 'All 14 teams play in round 1 — no byes. 7 winners advance to QF plus the best-losing team earns a wild card.',
+      alternatives: [
+        { bracketSize: 8,  teamsAdvancing: 8,  label: 'Top 8 teams only' },
+        { bracketSize: 16, teamsAdvancing: 14, label: '16-team bracket (top 2 seeds get first-round byes)' },
       ],
     }
   }

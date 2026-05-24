@@ -11,6 +11,7 @@ import {
   generateSingleEliminationSpec,
   generateDoubleEliminationSpec,
   generate6TeamBracketSpec,
+  generate14TeamAllPlaySpec,
   seedFromStandings,
   seedFromDivisionStandings,
   seedFromPoolStandings,
@@ -83,7 +84,7 @@ const createBracketSchema = z.object({
   leagueId: z.string().uuid(),
   divisionId: z.string().uuid().optional(),
   name: z.string().min(1).default('Playoffs'),
-  bracketType: z.enum(['single_elimination', 'double_elimination']).default('single_elimination'),
+  bracketType: z.enum(['single_elimination', 'double_elimination', 'all_play']).default('single_elimination'),
   seedingMethod: z.enum(['standings', 'pool_results', 'pool_results_flat', 'manual']).default('standings'),
   bracketSize: z.coerce.number().int().min(2),
   teamsAdvancing: z.coerce.number().int().min(2),
@@ -173,11 +174,13 @@ export async function scaffoldBracket(bracketId: string, leagueId: string) {
     scheduleMap.set(`${m.round_number}:${m.match_number}`, { scheduled_at: m.scheduled_at, court: m.court, notes: m.notes })
   }
 
-  const spec = bracket.bracket_type === 'double_elimination'
-    ? generateDoubleEliminationSpec(bracket.teams_advancing)
-    : bracket.teams_advancing === 6
-      ? generate6TeamBracketSpec()
-      : generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
+  const spec = bracket.bracket_type === 'all_play'
+    ? (bracket.teams_advancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec())
+    : bracket.bracket_type === 'double_elimination'
+      ? generateDoubleEliminationSpec(bracket.teams_advancing)
+      : bracket.teams_advancing === 6
+        ? generate6TeamBracketSpec()
+        : generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
 
   const allMatchSpecs = [
     ...spec.matches,
@@ -201,8 +204,15 @@ export async function scaffoldBracket(bracketId: string, leagueId: string) {
         match_number: m.matchNumber,
         team1_id: null,
         team2_id: null,
-        team1_label: m.team1Seed ? `Seed ${m.team1Seed + scaffoldSeedOffset}` : null,
-        team2_label: m.isBye ? 'Bye' : (m.team2Seed ? `Seed ${m.team2Seed + scaffoldSeedOffset}` : null),
+        team1_label: (() => {
+          if (spec.bestLoserSlot?.roundNumber === m.roundNumber && spec.bestLoserSlot?.matchNumber === m.matchNumber && spec.bestLoserSlot?.slot === 1) return 'Best Loser'
+          return m.team1Seed ? `Seed ${m.team1Seed + scaffoldSeedOffset}` : null
+        })(),
+        team2_label: (() => {
+          if (m.isBye) return 'Bye'
+          if (spec.bestLoserSlot?.roundNumber === m.roundNumber && spec.bestLoserSlot?.matchNumber === m.matchNumber && spec.bestLoserSlot?.slot === 2) return 'Best Loser'
+          return m.team2Seed ? `Seed ${m.team2Seed + scaffoldSeedOffset}` : null
+        })(),
         team1_seed: m.team1Seed ? m.team1Seed + scaffoldSeedOffset : null,
         team2_seed: m.isBye ? null : (m.team2Seed ? m.team2Seed + scaffoldSeedOffset : null),
         is_bye: m.isBye,
@@ -409,9 +419,11 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   }
 
   // Generate the bracket structure
-  const spec = bracket.bracket_type === 'double_elimination'
-    ? generateDoubleEliminationSpec(bracket.teams_advancing)
-    : generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
+  const spec = bracket.bracket_type === 'all_play'
+    ? (bracket.teams_advancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec())
+    : bracket.bracket_type === 'double_elimination'
+      ? generateDoubleEliminationSpec(bracket.teams_advancing)
+      : generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
 
   const seedMap = new Map(seededTeams.map((t) => [t.seed!, t.teamId]))
 
@@ -449,8 +461,9 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
         match_number: m.matchNumber,
         team1_id: m.team1Seed ? (seedMap.get(m.team1Seed) ?? null) : null,
         team2_id: m.isBye ? null : (m.team2Seed ? (seedMap.get(m.team2Seed) ?? null) : null),
-        team1_label: null,
-        team2_label: null,
+        // Preserve "Best Loser" label on the wild card slot — it stays empty until advanceBestLoser() runs
+        team1_label: (spec.bestLoserSlot?.roundNumber === m.roundNumber && spec.bestLoserSlot?.matchNumber === m.matchNumber && spec.bestLoserSlot?.slot === 1) ? 'Best Loser' : null,
+        team2_label: (spec.bestLoserSlot?.roundNumber === m.roundNumber && spec.bestLoserSlot?.matchNumber === m.matchNumber && spec.bestLoserSlot?.slot === 2) ? 'Best Loser' : null,
         // Store global seed so the bracket view shows the overall rank (e.g. 9 not 1 for Tier 2)
         team1_seed: m.team1Seed ? m.team1Seed + seedOffset : null,
         team2_seed: m.isBye ? null : (m.team2Seed ? m.team2Seed + seedOffset : null),
@@ -962,15 +975,15 @@ export async function clearBracketSeeding(bracketId: string, leagueId: string) {
 }
 
 // ── advanceBestLoser ─────────────────────────────────────────────────────────
-// Used in 6-team brackets after all 3 first-round matches are complete.
-// Ranks the 3 losers by: match wins → set wins → point differential →
-// total points scored → head-to-head wins among the 3 losers.
-// Places the top-ranked loser into SF-B (round 2, match 2, slot 2).
+// Used in all-play brackets after all first-round matches are complete.
+// Ranks the losers by: bracket match score margin → set wins → point differential →
+// total points scored → pool/regular-season wins → head-to-head wins.
+// Places the top-ranked loser into the designated best-loser slot per the bracket spec.
 
 export type BestLoserCandidate = {
   teamId: string
   teamName: string
-  // Bracket first-round (quarterfinal) stats — primary tiebreaker
+  // Bracket first-round stats — primary tiebreaker
   qfSetWins: number
   qfPointDiff: number
   qfPointsFor: number
@@ -1000,9 +1013,21 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
     .single()
 
   if (!bracket) return { error: 'Bracket not found' }
-  if (bracket.teams_advancing !== 6 || bracket.bracket_type !== 'single_elimination') {
-    return { error: 'Best loser advancement only applies to 6-team single elimination brackets' }
+
+  // Support all_play brackets (6 or 14 teams) and legacy 6-team single_elimination
+  const isAllPlay = bracket.bracket_type === 'all_play'
+  const isLegacy6 = bracket.teams_advancing === 6 && bracket.bracket_type === 'single_elimination'
+  if (!isAllPlay && !isLegacy6) {
+    return { error: 'Best loser advancement only applies to all-play brackets' }
   }
+  if (isAllPlay && bracket.teams_advancing !== 6 && bracket.teams_advancing !== 14) {
+    return { error: 'All-play best loser is only supported for 6 or 14 team brackets' }
+  }
+
+  // Get the spec to find the best loser target slot
+  const spec = bracket.teams_advancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec()
+  const { bestLoserSlot } = spec
+  if (!bestLoserSlot) return { error: 'Bracket spec has no best loser slot defined' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: allMatches } = await (db as any)
@@ -1015,17 +1040,21 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
   type MatchRow = { id: string; round_number: number; match_number: number; team1_id: string | null; team2_id: string | null; winner_team_id: string | null; status: string; score1: number | null; score2: number | null; sets: SetScore[] | null }
   const matches = (allMatches ?? []) as MatchRow[]
 
-  // All 3 first-round matches must be completed
-  const r1Matches = matches.filter((m) => m.round_number === 3)
-  if (r1Matches.length !== 3) return { error: 'First round matches not found' }
+  // R1 = the round with the highest round_number (all teams play)
+  const maxRound = Math.max(...matches.map((m) => m.round_number))
+  const r1Matches = matches.filter((m) => m.round_number === maxRound)
+  const expectedR1Count = bracket.teams_advancing === 14 ? 7 : 3
+
+  if (r1Matches.length !== expectedR1Count) return { error: 'First round matches not found' }
   if (r1Matches.some((m) => m.status !== 'completed')) return { error: 'All first-round matches must be completed before determining the best loser' }
 
-  // SF-B (round 2, match 2) slot 2 must be empty
-  const sfB = matches.find((m) => m.round_number === 2 && m.match_number === 2)
-  if (!sfB) return { error: 'Semifinal B match not found' }
-  if (sfB.team2_id) return { error: 'Best loser has already been determined' }
+  // Find the target match for the best loser using the spec
+  const targetMatch = matches.find((m) => m.round_number === bestLoserSlot.roundNumber && m.match_number === bestLoserSlot.matchNumber)
+  if (!targetMatch) return { error: 'Best loser target match not found' }
+  const alreadyFilled = bestLoserSlot.slot === 1 ? targetMatch.team1_id : targetMatch.team2_id
+  if (alreadyFilled) return { error: 'Best loser has already been determined' }
 
-  // Collect the 3 losers
+  // Collect the losers from all R1 matches
   const loserIds: string[] = []
   for (const m of r1Matches) {
     if (!m.winner_team_id || !m.team1_id || !m.team2_id) return { error: 'Match result incomplete' }
@@ -1134,16 +1163,17 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
 
   const best = ranked[0]
 
-  // Place the best loser in SF-B slot 2, update status
+  // Place the best loser in the target slot defined by the spec
+  const isSlot1 = bestLoserSlot.slot === 1
+  const otherSlotFilled = isSlot1 ? !!targetMatch.team2_id : !!targetMatch.team1_id
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (db as any)
     .from('bracket_matches')
-    .update({
-      team2_id: best.teamId,
-      team2_label: null,
-      status: sfB.team1_id ? 'ready' : 'pending',
-    })
-    .eq('id', sfB.id)
+    .update(isSlot1
+      ? { team1_id: best.teamId, team1_label: null, status: otherSlotFilled ? 'ready' : 'pending' }
+      : { team2_id: best.teamId, team2_label: null, status: otherSlotFilled ? 'ready' : 'pending' }
+    )
+    .eq('id', targetMatch.id)
 
   revalidatePath(`/admin/events/${leagueId}/bracket`)
   return { error: null, advanced: { teamId: best.teamId, teamName: best.teamName }, candidates: ranked }

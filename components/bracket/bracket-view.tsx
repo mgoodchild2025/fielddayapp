@@ -40,7 +40,7 @@ export interface BracketData {
   id: string
   name: string
   bracketSize: number
-  bracketType: 'single_elimination' | 'double_elimination'
+  bracketType: 'single_elimination' | 'double_elimination' | 'all_play'
   thirdPlaceGame: boolean
   status: string
   matches: BracketMatchData[]
@@ -722,12 +722,19 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
     return final.winnerTeamId === final.team1Id ? final.team1Name : final.team2Name
   })()
 
-  // 6-team best loser panel
-  const is6TeamBracket = bracketSize === 6 && !isDE
-  const r1Matches = bracket.matches.filter((m) => m.roundNumber === 3)
-  const allR1Complete = r1Matches.length === 3 && r1Matches.every((m) => m.status === 'completed')
-  const sfB = bracket.matches.find((m) => m.roundNumber === 2 && m.matchNumber === 2)
-  const showBestLoserPanel = is6TeamBracket && isAdmin && allR1Complete && sfB && !sfB.team2Id
+  // All-play best loser panel (works for 6-team and 14-team all_play brackets, and legacy 6-team single_elim)
+  const isAllPlay = bracket.bracketType === 'all_play'
+  const maxRoundNumber = bracket.matches.length > 0 ? Math.max(...bracket.matches.map((m) => m.roundNumber)) : 0
+  const r1Matches = bracket.matches.filter((m) => m.roundNumber === (isAllPlay ? maxRoundNumber : 3))
+  const expectedR1Count = bracketSize === 14 ? 7 : 3
+  const allR1Complete = r1Matches.length === expectedR1Count && r1Matches.every((m) => m.status === 'completed')
+  // Best loser target: the match that still has a 'Best Loser' label with no real team assigned
+  const bestLoserTargetMatch = bracket.matches.find((m) =>
+    (m.team1Label === 'Best Loser' && !m.team1Id) ||
+    (m.team2Label === 'Best Loser' && !m.team2Id)
+  )
+  const is6TeamBracket = (bracketSize === 6 && !isDE) || isAllPlay
+  const showBestLoserPanel = is6TeamBracket && isAdmin && allR1Complete && !!bestLoserTargetMatch
 
   function onAdvanceBestLoser() {
     setBestLoserErr(null)
@@ -841,13 +848,13 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
         <p className="mb-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{swapErr}</p>
       )}
 
-      {/* 6-team best loser panel */}
+      {/* All-play best loser panel */}
       {showBestLoserPanel && !bestLoserResult && (
         <div className="mb-4 p-4 rounded-xl border border-amber-200 bg-amber-50 space-y-3">
           <div>
             <p className="text-sm font-semibold text-amber-900">Determine best loser</p>
             <p className="text-xs text-amber-700 mt-0.5">
-              All first-round matches are complete. Rank the three losing teams by match wins → set wins → point differential → total points → head-to-head wins to advance one to Semi-Final B.
+              All first-round matches are complete. Rank the losing teams by score margin → set wins → point differential → total points → regular-season record to advance the best loser.
             </p>
           </div>
           {bestLoserErr && (
@@ -864,11 +871,11 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
         </div>
       )}
 
-      {/* 6-team best loser result */}
+      {/* All-play best loser result */}
       {bestLoserResult && (
         <div className="mb-4 p-4 rounded-xl border border-green-200 bg-green-50 space-y-3">
           <p className="text-sm font-semibold text-green-900">
-            ✓ {bestLoserResult.advancedTeamName} advanced to Semi-Final B
+            ✓ {bestLoserResult.advancedTeamName} advanced as best loser
           </p>
           <div className="space-y-1">
             <p className="text-xs font-semibold text-green-800 uppercase tracking-wide">Loser rankings</p>

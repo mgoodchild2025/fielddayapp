@@ -4,7 +4,7 @@ import { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Printer, Trash2 } from 'lucide-react'
 import { savePlayoffConfig, generateAllTierBrackets, deletePlayoffConfig } from '@/actions/playoff-config'
-import { publishBracket, deleteBracket, seedBracket, clearBracketSeeding } from '@/actions/brackets'
+import { publishBracket, deleteBracket, seedBracket, clearBracketSeeding, advanceBestLoser } from '@/actions/brackets'
 import { BracketView, type BracketData, type TeamRef } from './bracket-view'
 import type { TeamStanding, BracketRecommendation } from '@/lib/bracket'
 import type { TierInput, PoolSeedingMethod } from '@/actions/playoff-config'
@@ -27,7 +27,7 @@ interface TierConfig {
   name: string
   seedFrom: number
   seedTo: number
-  bracketType: 'single_elimination' | 'double_elimination'
+  bracketType: 'single_elimination' | 'double_elimination' | 'all_play'
   thirdPlaceGame: boolean
 }
 
@@ -37,7 +37,7 @@ export interface ExistingTier {
   sortOrder: number
   seedFrom: number
   seedTo: number
-  bracketType: 'single_elimination' | 'double_elimination'
+  bracketType: 'single_elimination' | 'double_elimination' | 'all_play'
   thirdPlaceGame: boolean
   bracketId: string | null
   bracket: BracketData | null
@@ -147,11 +147,12 @@ function TierRow({
       {/* Format */}
       <select
         value={tier.bracketType}
-        onChange={(e) => onChange({ bracketType: e.target.value as 'single_elimination' | 'double_elimination' })}
+        onChange={(e) => onChange({ bracketType: e.target.value as 'single_elimination' | 'double_elimination' | 'all_play' })}
         className="border rounded px-2 py-1.5 text-xs"
       >
         <option value="single_elimination">Single Elim</option>
         <option value="double_elimination">Double Elim</option>
+        <option value="all_play">All-Play</option>
       </select>
 
       {/* 3rd place */}
@@ -211,8 +212,22 @@ function TierBracketCard({
   const [expanded, setExpanded] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [confirmClearSeed, setConfirmClearSeed] = useState(false)
+  const [bestLoserResult, setBestLoserResult] = useState<string | null>(null)
 
   const tierCount = tier.seedTo - tier.seedFrom + 1
+
+  // Determine if the "Advance Best Loser" button should be shown.
+  // Shown when: bracket is all_play, seeded (not scaffold), and the best loser slot still has no real team.
+  const isAllPlayBracket = tier.bracketType === 'all_play'
+  const bracket = tier.bracket
+  const hasBestLoserPending = isAllPlayBracket && bracket && bracket.status !== 'scaffold' && (() => {
+    if (!bracket.matches) return false
+    // The best loser slot has team1Label or team2Label = 'Best Loser' with no team assigned
+    return bracket.matches.some((m) =>
+      (m.team1Label === 'Best Loser' && !m.team1Id) ||
+      (m.team2Label === 'Best Loser' && !m.team2Id)
+    )
+  })()
   const tierColors: Record<string, string> = {
     'Gold': 'text-yellow-600 bg-yellow-50 border-yellow-200',
     'Silver': 'text-gray-500 bg-gray-50 border-gray-200',
@@ -260,6 +275,18 @@ function TierBracketCard({
     startTransition(async () => {
       await deleteBracket(tier.bracketId!, leagueId)
       onDeleted()
+      router.refresh()
+    })
+  }
+
+  function handleAdvanceBestLoser() {
+    if (!tier.bracketId) return
+    setErr(null)
+    setBestLoserResult(null)
+    startTransition(async () => {
+      const r = await advanceBestLoser(tier.bracketId!, leagueId)
+      if (r?.error) { setErr(r.error); return }
+      if (r?.advanced) setBestLoserResult(`${r.advanced.teamName} advanced as best loser`)
       router.refresh()
     })
   }
@@ -334,6 +361,17 @@ function TierBracketCard({
                   {isPending ? '…' : 'Republish'}
                 </button>
               )}
+              {hasBestLoserPending && (
+                <button
+                  type="button"
+                  onClick={handleAdvanceBestLoser}
+                  disabled={isPending}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors disabled:opacity-60"
+                  title="Determine and place the best loser from the first round"
+                >
+                  {isPending ? '…' : '⭐ Advance Best Loser'}
+                </button>
+              )}
               {!isScaffold && !confirmClearSeed && (
                 <button
                   type="button"
@@ -395,6 +433,7 @@ function TierBracketCard({
       </div>
 
       {err && <p className="px-5 pb-3 text-xs text-red-500">{err}</p>}
+      {bestLoserResult && <p className="px-5 pb-3 text-xs text-green-700 font-medium">✓ {bestLoserResult}</p>}
 
       {/* Scaffold notice */}
       {isScaffold && (

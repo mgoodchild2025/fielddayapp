@@ -9,6 +9,7 @@ import {
   generateSingleEliminationSpec,
   generateDoubleEliminationSpec,
   generate6TeamBracketSpec,
+  generate14TeamAllPlaySpec,
   nextPowerOf2,
   type TeamStanding,
   type BracketMatchSpec,
@@ -103,7 +104,7 @@ async function insertBracketWithMatches(
   leagueId: string,
   opts: {
     name: string
-    bracketType: 'single_elimination' | 'double_elimination'
+    bracketType: 'single_elimination' | 'double_elimination' | 'all_play'
     teamsAdvancing: number
     thirdPlaceGame: boolean
     poolNames: string[]  // empty = "Seed N" labels; single = pool_tiers per-pool; multiple = block/alternating
@@ -114,9 +115,10 @@ async function insertBracketWithMatches(
   }
 ): Promise<{ bracketId: string | null; error: string | null }> {
   const { name, bracketType, teamsAdvancing, thirdPlaceGame, poolNames, seedOffset } = opts
-  const is6Team = teamsAdvancing === 6 && bracketType === 'single_elimination'
-  const bracketSize = is6Team ? 6 : nextPowerOf2(teamsAdvancing)
-  const actualThirdPlace = bracketType === 'double_elimination' ? false : thirdPlaceGame
+  const isAllPlay = bracketType === 'all_play'
+  const is6Team = teamsAdvancing === 6 && (bracketType === 'single_elimination' || isAllPlay)
+  const bracketSize = (is6Team || (isAllPlay && teamsAdvancing === 14)) ? teamsAdvancing : nextPowerOf2(teamsAdvancing)
+  const actualThirdPlace = (bracketType === 'double_elimination' || isAllPlay) ? false : thirdPlaceGame
   const seedingMethod = opts.seedingMethod ?? (poolNames.length > 0 ? 'pool_results' : 'standings')
 
   // Insert bracket row in scaffold state — teams are assigned later via "Seed Bracket"
@@ -138,11 +140,15 @@ async function insertBracketWithMatches(
   const bracketId = bracket.id as string
 
   // Generate match spec
-  const spec = bracketType === 'double_elimination'
-    ? generateDoubleEliminationSpec(teamsAdvancing)
-    : is6Team
-      ? generate6TeamBracketSpec()
-      : generateSingleEliminationSpec(teamsAdvancing, actualThirdPlace)
+  const spec = isAllPlay
+    ? (teamsAdvancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec())
+    : bracketType === 'double_elimination'
+      ? generateDoubleEliminationSpec(teamsAdvancing)
+      : is6Team
+        ? generate6TeamBracketSpec()
+        : generateSingleEliminationSpec(teamsAdvancing, actualThirdPlace)
+
+  const { bestLoserSlot } = spec
 
   const allMatchSpecs: BracketMatchSpec[] = [
     ...spec.matches,
@@ -152,22 +158,26 @@ async function insertBracketWithMatches(
   // Insert scaffold matches with null team IDs and pool/seed position labels
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: insertedMatches, error: matchError } = await (db as any).from('bracket_matches').insert(
-    allMatchSpecs.map((m: BracketMatchSpec) => ({
-      organization_id: orgId,
-      bracket_id: bracketId,
-      round_number: m.roundNumber,
-      match_number: m.matchNumber,
-      team1_id: null,
-      team2_id: null,
-      team1_label: m.team1Seed ? seedLabel(m.team1Seed, poolNames, seedOffset, opts.labelMode, opts.perPool) : null,
-      team2_label: m.isBye ? 'Bye' : (m.team2Seed ? seedLabel(m.team2Seed, poolNames, seedOffset, opts.labelMode, opts.perPool) : null),
-      // Store global seed (e.g. 9 for the 1st seed of Tier 2 with seed_from=9)
-      // so the bracket view shows the correct overall rank, not a tier-relative rank.
-      team1_seed: m.team1Seed ? m.team1Seed + seedOffset : null,
-      team2_seed: m.isBye ? null : (m.team2Seed ? m.team2Seed + seedOffset : null),
-      is_bye: m.isBye,
-      status: 'pending',
-    }))
+    allMatchSpecs.map((m: BracketMatchSpec) => {
+      const isBestLoserSlot1 = bestLoserSlot?.roundNumber === m.roundNumber && bestLoserSlot?.matchNumber === m.matchNumber && bestLoserSlot?.slot === 1
+      const isBestLoserSlot2 = bestLoserSlot?.roundNumber === m.roundNumber && bestLoserSlot?.matchNumber === m.matchNumber && bestLoserSlot?.slot === 2
+      return {
+        organization_id: orgId,
+        bracket_id: bracketId,
+        round_number: m.roundNumber,
+        match_number: m.matchNumber,
+        team1_id: null,
+        team2_id: null,
+        team1_label: isBestLoserSlot1 ? 'Best Loser' : (m.team1Seed ? seedLabel(m.team1Seed, poolNames, seedOffset, opts.labelMode, opts.perPool) : null),
+        team2_label: m.isBye ? 'Bye' : (isBestLoserSlot2 ? 'Best Loser' : (m.team2Seed ? seedLabel(m.team2Seed, poolNames, seedOffset, opts.labelMode, opts.perPool) : null)),
+        // Store global seed (e.g. 9 for the 1st seed of Tier 2 with seed_from=9)
+        // so the bracket view shows the correct overall rank, not a tier-relative rank.
+        team1_seed: isBestLoserSlot1 ? null : (m.team1Seed ? m.team1Seed + seedOffset : null),
+        team2_seed: m.isBye ? null : (isBestLoserSlot2 ? null : (m.team2Seed ? m.team2Seed + seedOffset : null)),
+        is_bye: m.isBye,
+        status: 'pending',
+      }
+    })
   ).select('id, round_number, match_number')
 
   if (matchError) return { bracketId: null, error: matchError.message }
@@ -212,7 +222,7 @@ export interface TierInput {
   name: string
   seedFrom: number
   seedTo: number
-  bracketType: 'single_elimination' | 'double_elimination'
+  bracketType: 'single_elimination' | 'double_elimination' | 'all_play'
   thirdPlaceGame: boolean
 }
 
@@ -438,7 +448,7 @@ export async function generateAllTierBrackets(
     // Admins seed with real teams via "Seed Bracket" once all pool scores are final.
     const { bracketId, error } = await insertBracketWithMatches(db, org.id, leagueId, {
       name: tier.name,
-      bracketType: tier.bracket_type as 'single_elimination' | 'double_elimination',
+      bracketType: tier.bracket_type as 'single_elimination' | 'double_elimination' | 'all_play',
       teamsAdvancing,
       thirdPlaceGame: tier.third_place_game,
       poolNames: tierPoolNames,
