@@ -6,11 +6,11 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { SignaturesFilterBar } from './signatures-filter-bar'
 
 interface Props {
-  searchParams: Promise<{ q?: string; event?: string; waiver?: string }>
+  searchParams: Promise<{ q?: string; event?: string; waiver?: string; team?: string; sort?: string }>
 }
 
 export default async function WaiverSignaturesPage({ searchParams }: Props) {
-  const [headersList, { q = '', event: eventFilter = '', waiver: waiverFilter = '' }] =
+  const [headersList, { q = '', event: eventFilter = '', waiver: waiverFilter = '', team: teamFilter = '', sort = 'signed_desc' }] =
     await Promise.all([headers(), searchParams])
 
   const org = await getCurrentOrg(headersList)
@@ -85,17 +85,28 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
   // Unique options for dropdowns (sorted)
   const uniqueEvents  = [...new Set(allRows.map((r) => r.eventName).filter(Boolean))].sort()
   const uniqueWaivers = [...new Set(allRows.map((r) => r.waiverTitle).filter(Boolean))].sort()
+  const uniqueTeams   = [...new Set(allRows.map((r) => r.teamName).filter(Boolean) as string[])].sort()
 
   // Apply filters
   const qLower = q.toLowerCase()
   const filteredRows = allRows.filter((r) => {
     if (eventFilter  && r.eventName   !== eventFilter)  return false
     if (waiverFilter && r.waiverTitle !== waiverFilter) return false
+    if (teamFilter   && r.teamName    !== teamFilter)   return false
     if (qLower) {
       const haystack = [r.playerName, r.playerEmail, r.signatureName ?? ''].join(' ').toLowerCase()
       if (!haystack.includes(qLower)) return false
     }
     return true
+  })
+
+  // Apply sort
+  const sortedRows = [...filteredRows].sort((a, b) => {
+    if (sort === 'player_asc')  return (a.playerName || '').localeCompare(b.playerName || '')
+    if (sort === 'player_desc') return (b.playerName || '').localeCompare(a.playerName || '')
+    if (sort === 'signed_asc')  return (a.signedAt ?? '').localeCompare(b.signedAt ?? '')
+    // Default: signed_desc — already ordered this way from the DB, preserve original order
+    return (b.signedAt ?? '').localeCompare(a.signedAt ?? '')
   })
 
   return (
@@ -114,9 +125,12 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
         <SignaturesFilterBar
           events={uniqueEvents}
           waivers={uniqueWaivers}
+          teams={uniqueTeams}
           currentQ={q}
           currentEvent={eventFilter}
           currentWaiver={waiverFilter}
+          currentTeam={teamFilter}
+          currentSort={sort}
           total={allRows.length}
           filtered={filteredRows.length}
         />
@@ -135,7 +149,7 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map((row) => {
+              {sortedRows.map((row) => {
                 const isGuardian = !!row.guardianRelationship
                 const guardianLabel = row.guardianRelationship === 'legal_guardian' ? 'Legal guardian' : 'Parent'
                 return (
@@ -213,7 +227,7 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
                   </tr>
                 )
               })}
-              {filteredRows.length === 0 && (
+              {sortedRows.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
                     {allRows.length === 0 ? 'No signed waivers yet.' : 'No results match your filters.'}
