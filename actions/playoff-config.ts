@@ -120,7 +120,7 @@ async function insertBracketWithMatches(
   // A 6-team single_elimination bracket uses bracketSize=8 with 2 byes via generateSingleEliminationSpec.
   const is6Team = isAllPlay && teamsAdvancing === 6
   const bracketSize = (is6Team || (isAllPlay && teamsAdvancing === 14)) ? teamsAdvancing : nextPowerOf2(teamsAdvancing)
-  const actualThirdPlace = (bracketType === 'double_elimination' || isAllPlay) ? false : thirdPlaceGame
+  const actualThirdPlace = bracketType === 'double_elimination' ? false : thirdPlaceGame
   const seedingMethod = opts.seedingMethod ?? (poolNames.length > 0 ? 'pool_results' : 'standings')
 
   // Insert bracket row in scaffold state — teams are assigned later via "Seed Bracket"
@@ -143,7 +143,7 @@ async function insertBracketWithMatches(
 
   // Generate match spec
   const spec = isAllPlay
-    ? (teamsAdvancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec())
+    ? (teamsAdvancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec(actualThirdPlace))
     : bracketType === 'double_elimination'
       ? generateDoubleEliminationSpec(teamsAdvancing)
       : is6Team

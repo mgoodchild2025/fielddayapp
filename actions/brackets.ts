@@ -201,7 +201,7 @@ export async function scaffoldBracket(bracketId: string, leagueId: string) {
   }
 
   const spec = bracket.bracket_type === 'all_play'
-    ? (bracket.teams_advancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec())
+    ? (bracket.teams_advancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec(bracket.third_place_game))
     : bracket.bracket_type === 'double_elimination'
       ? generateDoubleEliminationSpec(bracket.teams_advancing)
       : generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
@@ -457,7 +457,7 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
 
   // Generate the bracket structure — must match the spec used during scaffold.
   const spec = bracket.bracket_type === 'all_play'
-    ? (bracket.teams_advancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec())
+    ? (bracket.teams_advancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec(bracket.third_place_game))
     : bracket.bracket_type === 'double_elimination'
       ? generateDoubleEliminationSpec(bracket.teams_advancing)
       : generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
@@ -1065,8 +1065,8 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
     return { error: 'All-play best loser is only supported for 6 or 14 team brackets' }
   }
 
-  // Get the spec to find the best loser target slot
-  const spec = bracket.teams_advancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec()
+  // Get the spec to find the best loser target slot (thirdPlaceGame doesn't affect bestLoserSlot)
+  const spec = bracket.teams_advancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec(bracket.third_place_game)
   const { bestLoserSlot } = spec
   if (!bestLoserSlot) return { error: 'Bracket spec has no best loser slot defined' }
 

@@ -139,9 +139,9 @@ function generateFirstRoundPairings(bracketSize: number): [number, number][] {
 //  Round 2 (Semi-Finals):  SF-A: W(M1) vs W(M3)   SF-B: W(M2) vs Best Loser
 //  Round 1 (Final):        W(SF-A) vs W(SF-B)
 
-export function generate6TeamBracketSpec(): BracketSpec {
+export function generate6TeamBracketSpec(thirdPlaceGame = false): BracketSpec {
   const matches: BracketMatchSpec[] = [
-    // First Round — all elimination; best loser is determined separately after R1
+    // First Round — all 6 teams play; best loser determined separately after R1
     { roundNumber: 3, matchNumber: 1, team1Seed: 1, team2Seed: 6, isBye: false,
       winnerToRoundNumber: 2, winnerToMatchNumber: 1, winnerToSlot: 1,
       loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
@@ -151,24 +151,34 @@ export function generate6TeamBracketSpec(): BracketSpec {
     { roundNumber: 3, matchNumber: 3, team1Seed: 3, team2Seed: 4, isBye: false,
       winnerToRoundNumber: 2, winnerToMatchNumber: 1, winnerToSlot: 2,
       loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
-    // Semi-Finals
+    // Semi-Finals — losers go to 3rd place match when thirdPlaceGame is true
     { roundNumber: 2, matchNumber: 1, team1Seed: null, team2Seed: null, isBye: false,
       winnerToRoundNumber: 1, winnerToMatchNumber: 1, winnerToSlot: 1,
-      loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+      loserToRoundNumber: thirdPlaceGame ? 1 : null,
+      loserToMatchNumber: thirdPlaceGame ? 2 : null,
+      loserToSlot: thirdPlaceGame ? 1 : null },
     { roundNumber: 2, matchNumber: 2, team1Seed: null, team2Seed: null, isBye: false,
       winnerToRoundNumber: 1, winnerToMatchNumber: 1, winnerToSlot: 2,
-      loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
+      loserToRoundNumber: thirdPlaceGame ? 1 : null,
+      loserToMatchNumber: thirdPlaceGame ? 2 : null,
+      loserToSlot: thirdPlaceGame ? 2 : null },
     // Final
     { roundNumber: 1, matchNumber: 1, team1Seed: null, team2Seed: null, isBye: false,
       winnerToRoundNumber: null, winnerToMatchNumber: null, winnerToSlot: null,
       loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null },
   ]
 
+  const thirdPlaceMatch: BracketMatchSpec | null = thirdPlaceGame
+    ? { roundNumber: 1, matchNumber: 2, team1Seed: null, team2Seed: null, isBye: false,
+        winnerToRoundNumber: null, winnerToMatchNumber: null, winnerToSlot: null,
+        loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null }
+    : null
+
   return {
     bracketSize: 6,
     rounds: [3, 2, 1],
     matches,
-    thirdPlaceMatch: null,
+    thirdPlaceMatch,
     bestLoserSlot: { roundNumber: 2, matchNumber: 2, slot: 2 },
   }
 }
