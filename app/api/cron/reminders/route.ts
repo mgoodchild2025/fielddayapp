@@ -670,6 +670,186 @@ export async function GET(req: NextRequest) {
 
   sms_diagnostics.game_day = gameDay_diagnostics
 
+  // 6. Waiver registration reminder — 24 h before event start
+  //    Emails captains and coaches listing players who haven't registered yet.
+  //    Only fires for leagues that have a waiver configured and a season_start_date set.
+  //    One email per team per league (deduplicated via league_waiver_reminder_logs).
+
+  const waiverReminderEmails: Array<{ from: string; to: string; subject: string; html: string }> = []
+
+  // Widen the query to a 48-h window so any timezone lands in range;
+  // per-org timezone check below narrows it to "actually tomorrow locally".
+  const win48Start = new Date(now.getTime() + 18 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const win48End   = new Date(now.getTime() + 54 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: waiverLeagues } = await (supabase as any)
+    .from('leagues')
+    .select('id, name, slug, organization_id, season_start_date')
+    .in('status', ['active', 'registration_open'])
+    .not('waiver_version_id', 'is', null)
+    .not('season_start_date', 'is', null)
+    .gte('season_start_date', win48Start)
+    .lte('season_start_date', win48End)
+
+  if ((waiverLeagues ?? []).length > 0) {
+    const wlOrgIds = [...new Set((waiverLeagues as { organization_id: string }[]).map(l => l.organization_id))]
+
+    const [{ data: wlBranding }, { data: wlOrgs }] = await Promise.all([
+      supabase.from('org_branding').select('organization_id, timezone').in('organization_id', wlOrgIds),
+      supabase.from('organizations').select('id, name, slug').in('id', wlOrgIds),
+    ])
+
+    const wlTimezoneByOrg = new Map((wlBranding ?? []).map(b => [b.organization_id, b.timezone ?? 'America/Toronto']))
+    const wlOrgById       = new Map((wlOrgs ?? []).map(o => [o.id, { name: o.name, slug: o.slug }]))
+
+    type WLLeague = { id: string; name: string; slug: string; organization_id: string; season_start_date: string }
+
+    for (const league of (waiverLeagues as WLLeague[]) ?? []) {
+      const timezone = wlTimezoneByOrg.get(league.organization_id) ?? 'America/Toronto'
+
+      // Check if season_start_date is exactly tomorrow in the org's timezone
+      const tomorrowInOrgTz = new Intl.DateTimeFormat('en-CA', { timeZone: timezone })
+        .format(new Date(now.getTime() + 24 * 60 * 60 * 1000))
+      if (league.season_start_date !== tomorrowInOrgTz) continue
+
+      const orgInfo = wlOrgById.get(league.organization_id)
+      const orgName = orgInfo?.name ?? 'Fieldday'
+      const orgSlug = orgInfo?.slug ?? ''
+      const registerUrl = `https://${orgSlug}.${platformDomain}/register/${league.slug}`
+
+      const dateLabel = new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric',
+      }).format(new Date(`${league.season_start_date}T12:00:00`))
+
+      // Fetch all teams in this league
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: wlTeams } = await (supabase as any)
+        .from('teams')
+        .select('id, name')
+        .eq('league_id', league.id)
+        .eq('organization_id', league.organization_id)
+        .eq('status', 'active')
+
+      if (!wlTeams || wlTeams.length === 0) continue
+
+      const teamIds = (wlTeams as { id: string; name: string }[]).map(t => t.id)
+
+      // Fetch all active team members for these teams (captains, coaches, players)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: wlMembers } = await (supabase as any)
+        .from('team_members')
+        .select('team_id, user_id, role, profiles!team_members_user_id_fkey(full_name, email)')
+        .in('team_id', teamIds)
+        .eq('status', 'active')
+
+      // Fetch active registrations for this league
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: wlRegs } = await (supabase as any)
+        .from('registrations')
+        .select('user_id')
+        .eq('league_id', league.id)
+        .eq('organization_id', league.organization_id)
+        .in('status', ['active', 'pending'])
+
+      const registeredUserIds = new Set((wlRegs ?? []).map((r: { user_id: string }) => r.user_id))
+
+      // Fetch already-sent log entries for this league's teams
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: wlLogs } = await (supabase as any)
+        .from('league_waiver_reminder_logs')
+        .select('team_id')
+        .eq('league_id', league.id)
+        .in('team_id', teamIds)
+
+      const alreadySentTeams = new Set((wlLogs ?? []).map((l: { team_id: string }) => l.team_id))
+
+      // Group members by team
+      type WLMember = {
+        team_id: string; user_id: string; role: string
+        profiles: { full_name?: string; email?: string } | { full_name?: string; email?: string }[] | null
+      }
+      const membersByTeam = new Map<string, WLMember[]>()
+      for (const m of (wlMembers ?? []) as WLMember[]) {
+        if (!membersByTeam.has(m.team_id)) membersByTeam.set(m.team_id, [])
+        membersByTeam.get(m.team_id)!.push(m)
+      }
+
+      for (const team of (wlTeams as { id: string; name: string }[])) {
+        if (alreadySentTeams.has(team.id)) continue
+
+        const members = membersByTeam.get(team.id) ?? []
+
+        // Find captains and coaches (they'll receive the email)
+        const leaders = members.filter(m => ['captain', 'coach'].includes(m.role))
+        if (leaders.length === 0) continue
+
+        // Find players who haven't registered yet
+        const unregistered = members
+          .filter(m => !['captain', 'coach'].includes(m.role)) // players only
+          .filter(m => m.user_id && !registeredUserIds.has(m.user_id))
+          .map(m => {
+            const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
+            return p?.full_name ?? 'Unknown Player'
+          })
+
+        if (unregistered.length === 0) continue // everyone's registered — no email needed
+
+        // Claim the send slot before sending
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: logErr } = await (supabase as any)
+          .from('league_waiver_reminder_logs')
+          .insert({ league_id: league.id, team_id: team.id })
+        if (logErr) {
+          if (logErr.code === '23505') continue // concurrent run claimed it
+          results.push(`waiver reminder log error team ${team.id}: ${logErr.message}`)
+          continue
+        }
+
+        const playerListHtml = unregistered
+          .map(name => `<li style="padding:2px 0">${name}</li>`)
+          .join('')
+
+        const subject = `Reminder: ${unregistered.length} player${unregistered.length !== 1 ? 's' : ''} still need${unregistered.length === 1 ? 's' : ''} to register for ${league.name}`
+
+        const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+          <h2 style="margin-top:0">${league.name} starts tomorrow — ${dateLabel}</h2>
+          <p style="color:#555">Hi Captain/Coach,</p>
+          <p style="color:#555">
+            <strong>${unregistered.length} player${unregistered.length !== 1 ? 's' : ''}</strong> on
+            <strong>${team.name}</strong> haven't registered yet.
+            Registration includes signing the waiver, which is required to participate and helps speed up check-in on game day.
+          </p>
+          <p style="color:#555;font-weight:600;margin-bottom:4px">Still needs to register:</p>
+          <ul style="margin:0 0 16px;padding-left:20px;color:#333">${playerListHtml}</ul>
+          <a href="${registerUrl}" style="display:inline-block;background:#333;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;font-size:14px">
+            Register for ${league.name} →
+          </a>
+          <p style="margin-top:24px;font-size:12px;color:#999">
+            You're receiving this as a team captain or coach with ${orgName}.<br>
+            This reminder was sent 24 hours before your event.
+          </p>
+        </div>`
+
+        for (const leader of leaders) {
+          const p = Array.isArray(leader.profiles) ? leader.profiles[0] : leader.profiles
+          if (!p?.email) continue
+          waiverReminderEmails.push({ from: FROM_EMAIL, to: p.email, subject, html })
+        }
+
+        results.push(`waiver reminder queued for team ${team.id} (${unregistered.length} unregistered, ${leaders.length} leader${leaders.length !== 1 ? 's' : ''})`)
+      }
+    }
+  }
+
+  // Flush waiver reminder batch
+  if (waiverReminderEmails.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (resend.batch as any).send(waiverReminderEmails)
+      .catch((e: unknown) => results.push(`waiver reminder batch error: ${e}`))
+    results.push(`waiver reminder batch: ${waiverReminderEmails.length} email(s) dispatched`)
+  }
+
   return NextResponse.json({ ok: true, processed: results, sms_diagnostics })
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err), stack: err instanceof Error ? err.stack : undefined }, { status: 500 })
