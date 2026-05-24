@@ -389,10 +389,19 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   } else if (bracket.seeding_method === 'pool_results_flat') {
     // Cross-pool flat ranking: count only pool-play games, rank all teams together,
     // then apply the tier offset so Tier2 (seed_from=9) picks teams 9–14.
-    const standings = await computeStandings(db, leagueId, org.id, 'pool_only')
+    const poolStandings = await computeStandings(db, leagueId, org.id, 'pool_only')
+    const hasPoolData = poolStandings.some((t) => t.wins > 0 || t.losses > 0 || t.ties > 0)
+    // If no pool-play game data exists (no pool_id set on games, or no confirmed results),
+    // fall back to full-season standings so seeding is at least deterministic.
+    const standings = hasPoolData
+      ? poolStandings
+      : await computeStandings(db, leagueId, org.id, 'all')
     const sortedStandings = seedFromStandings(standings, standings.length)
     const sliced = sortedStandings.slice(seedOffset, seedOffset + bracket.teams_advancing)
     seededTeams = sliced.map((t, i) => ({ ...t, seed: i + 1 }))
+    if (!hasPoolData) {
+      console.warn('[seedBracket] pool_results_flat: no pool-play game data found; falling back to full-season standings. Ensure pool games have pool_id set and results are confirmed.')
+    }
   }
 
   // Apply seed overrides
