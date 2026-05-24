@@ -84,7 +84,7 @@ const createBracketSchema = z.object({
   divisionId: z.string().uuid().optional(),
   name: z.string().min(1).default('Playoffs'),
   bracketType: z.enum(['single_elimination', 'double_elimination']).default('single_elimination'),
-  seedingMethod: z.enum(['standings', 'pool_results', 'manual']).default('standings'),
+  seedingMethod: z.enum(['standings', 'pool_results', 'pool_results_flat', 'manual']).default('standings'),
   bracketSize: z.coerce.number().int().min(2),
   teamsAdvancing: z.coerce.number().int().min(2),
   thirdPlaceGame: z.boolean().default(false),
@@ -366,6 +366,13 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
         seededTeams = seedFromPoolStandings(poolStandings, bracket.teams_advancing, order, advancePerPool)
       }
     }
+  } else if (bracket.seeding_method === 'pool_results_flat') {
+    // Cross-pool flat ranking: count only pool-play games, rank all teams together,
+    // then apply the tier offset so Tier2 (seed_from=9) picks teams 9–14.
+    const standings = await computeStandings(db, leagueId, org.id, 'pool_only')
+    const sortedStandings = seedFromStandings(standings, standings.length)
+    const sliced = sortedStandings.slice(seedOffset, seedOffset + bracket.teams_advancing)
+    seededTeams = sliced.map((t, i) => ({ ...t, seed: i + 1 }))
   }
 
   // Apply seed overrides

@@ -214,7 +214,7 @@ export interface TierInput {
   thirdPlaceGame: boolean
 }
 
-export type PoolSeedingMethod = 'standings' | 'pool_results' | 'pool_results_alternating' | 'pool_tiers' | 'manual'
+export type PoolSeedingMethod = 'standings' | 'pool_results' | 'pool_results_alternating' | 'pool_tiers' | 'pool_results_flat' | 'manual'
 
 export async function savePlayoffConfig(input: {
   leagueId: string
@@ -421,6 +421,11 @@ export async function generateAllTierBrackets(
       } else {
         perPool = allPoolNames.length > 0 ? Math.ceil(teamsAdvancing / allPoolNames.length) : undefined
       }
+    } else if (seedingMethod === 'pool_results_flat') {
+      // Cross-pool overall ranking — scaffold with flat seed labels (no pool anchor)
+      tierPoolNames = []
+      labelMode = 'alternating'
+      tierSeedOffset = tier.seed_from - 1
     } else {
       tierPoolNames = allPoolNames.length > 0 ? allPoolNames : []
       labelMode = 'alternating'

@@ -480,6 +480,7 @@ function ManageHeader({
               existingConfig.seedingMethod === 'pool_results' ? 'Pool play — block' :
               existingConfig.seedingMethod === 'pool_results_alternating' ? 'Pool play — alternating' :
               existingConfig.seedingMethod === 'pool_tiers' ? 'Pool play — split tiers' :
+              existingConfig.seedingMethod === 'pool_results_flat' ? 'Pool play — overall ranking' :
               'Auto (standings)'
             }
           </span>
@@ -826,7 +827,7 @@ export function PlayoffConfigWizard({
           {/* Top-level method buttons */}
           <div className="flex gap-3 flex-wrap">
             {(['standings', ...(pools.length >= 2 ? ['pool_results'] : []), 'manual'] as const).map((m) => {
-              const isPoolMethod = ['pool_results', 'pool_results_alternating', 'pool_tiers'].includes(seedingMethod)
+              const isPoolMethod = ['pool_results', 'pool_results_alternating', 'pool_tiers', 'pool_results_flat'].includes(seedingMethod)
               const isActive = m === 'standings' ? seedingMethod === 'standings'
                 : m === 'pool_results' ? isPoolMethod
                 : seedingMethod === 'manual'
@@ -860,11 +861,12 @@ export function PlayoffConfigWizard({
           </div>
 
           {/* Pool play sub-options */}
-          {['pool_results', 'pool_results_alternating', 'pool_tiers'].includes(seedingMethod) && pools.length >= 2 && (
+          {['pool_results', 'pool_results_alternating', 'pool_tiers', 'pool_results_flat'].includes(seedingMethod) && pools.length >= 2 && (
             <div className="border rounded-lg p-3 bg-gray-50 space-y-3">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Pool seeding order</p>
               <div className="flex gap-2 flex-wrap">
                 {([
+                  { value: 'pool_results_flat', label: 'Overall ranking', desc: `All teams ranked together by pool-play record` },
                   { value: 'pool_results', label: 'Block', desc: `${pools.map(p => p.name).join(', ')} fill seeds in order` },
                   { value: 'pool_results_alternating', label: 'Alternating', desc: `A1, B1, A2, B2 — pools interleaved by rank` },
                   { value: 'pool_tiers', label: 'Split tiers', desc: `Each pool gets its own playoff bracket` },
@@ -890,7 +892,7 @@ export function PlayoffConfigWizard({
                 ))}
               </div>
 
-              {/* Per-pool advance counts (Block + Alternating only) */}
+              {/* Per-pool advance counts (Block + Alternating only — not needed for overall ranking) */}
               {(seedingMethod === 'pool_results' || seedingMethod === 'pool_results_alternating') && (
                 <div className="space-y-1.5 pt-1 border-t border-gray-200">
                   <p className="text-xs text-gray-500 font-medium">Teams advancing from each pool</p>
