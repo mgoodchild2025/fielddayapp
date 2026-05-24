@@ -418,12 +418,16 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
     seededTeams = (finalSeeds.filter(Boolean) as TeamStanding[]).map((t, i) => ({ ...t, seed: i + 1 }))
   }
 
-  // Generate the bracket structure
+  // Generate the bracket structure — must match the spec used during scaffold.
+  // For 6-team brackets (both all_play and legacy single_elimination), use generate6TeamBracketSpec()
+  // so the seeded match layout is identical to what the scaffold created.
   const spec = bracket.bracket_type === 'all_play'
     ? (bracket.teams_advancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec())
     : bracket.bracket_type === 'double_elimination'
       ? generateDoubleEliminationSpec(bracket.teams_advancing)
-      : generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
+      : bracket.teams_advancing === 6
+        ? generate6TeamBracketSpec()
+        : generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
 
   const seedMap = new Map(seededTeams.map((t) => [t.seed!, t.teamId]))
 
