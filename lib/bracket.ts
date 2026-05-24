@@ -565,17 +565,27 @@ export function seedFromStandings(
   standings: TeamStanding[],
   bracketSize: number,
   ptsMethod: StandingsSortMethod = 'wins',
+  volleyballMode: 'match_based' | 'set_based' = 'match_based',
 ): TeamStanding[] {
+  const isSetBased = volleyballMode === 'set_based'
+
   const sorted = [...standings].sort((a, b) => {
-    // 1. Match wins
+    if (isSetBased) {
+      // Volleyball set-based: rank by set wins → set differential → point diff
+      // (matches sortSetBased() on the public standings page)
+      const swDiff = (b.setWins ?? 0) - (a.setWins ?? 0)
+      if (swDiff !== 0) return swDiff
+      const sdDiff = ((b.setWins ?? 0) - (b.setLosses ?? 0)) - ((a.setWins ?? 0) - (a.setLosses ?? 0))
+      if (sdDiff !== 0) return sdDiff
+      return (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst)
+    }
+    // Standard match-based: rank by match wins → standings pts method → set ratio → point diff
+    // (matches sortMatchBased() on the public standings page)
     if (b.wins !== a.wins) return b.wins - a.wins
-    // 2. Standings points (per league's pts method — e.g. set wins, set diff, points for)
     const ptsDiff = computeStandingsPts(b, ptsMethod) - computeStandingsPts(a, ptsMethod)
     if (ptsDiff !== 0) return ptsDiff
-    // 3. Set ratio (SW ÷ SL)
     const ratioDiff = setRatio(b) - setRatio(a)
     if (ratioDiff !== 0) return ratioDiff
-    // 4. Point differential
     return (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst)
   })
   return sorted.slice(0, bracketSize).map((t, i) => ({ ...t, seed: i + 1 }))

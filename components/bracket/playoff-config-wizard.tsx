@@ -215,7 +215,7 @@ function TierBracketCard({
   const [err, setErr] = useState<string | null>(null)
   const [confirmClearSeed, setConfirmClearSeed] = useState(false)
   const [bestLoserResult, setBestLoserResult] = useState<string | null>(null)
-  const [seedingOrder, setSeedingOrder] = useState<{ seed: number; name: string; wins: number; losses: number; ties: number }[] | null>(null)
+  const [seedingOrder, setSeedingOrder] = useState<{ seed: number; name: string; wins: number; losses: number; ties: number; setWins: number }[] | null>(null)
 
   const tierCount = tier.seedTo - tier.seedFrom + 1
 
@@ -445,7 +445,7 @@ function TierBracketCard({
           <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
             {seedingOrder.map((t) => (
               <p key={t.seed} className="text-xs text-blue-800">
-                <span className="font-medium">#{t.seed}</span> {t.name} <span className="text-blue-500">({t.wins}W-{t.losses}L{t.ties > 0 ? `-${t.ties}T` : ''})</span>
+                <span className="font-medium">#{t.seed}</span> {t.name} <span className="text-blue-500">({t.wins}W-{t.losses}L{t.ties > 0 ? `-${t.ties}T` : ''}{t.setWins > 0 ? ` ${t.setWins}SW` : ''})</span>
               </p>
             ))}
           </div>

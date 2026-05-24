@@ -39,7 +39,7 @@ async function computeStandings(
   leagueId: string,
   orgId: string,
   gameFilter: 'all' | 'pool_only' | 'regular_only' = 'regular_only'
-): Promise<{ standings: TeamStanding[]; ptsMethod: import('@/lib/bracket').StandingsSortMethod; sport: string | null }> {
+): Promise<{ standings: TeamStanding[]; ptsMethod: import('@/lib/bracket').StandingsSortMethod; sport: string | null; volleyballMode: 'match_based' | 'set_based' }> {
   const [{ data: teams }, { data: results }, { data: leagueRow }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('teams').select('id, name, division_id, pool_id').eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
@@ -48,7 +48,7 @@ async function computeStandings(
       .eq('organization_id', orgId)
       .eq('status', 'confirmed'),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('sport, standings_pts_method').eq('id', leagueId).maybeSingle(),
+    (db as any).from('leagues').select('sport, standings_pts_method, volleyball_standings_mode').eq('id', leagueId).maybeSingle(),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,6 +56,8 @@ async function computeStandings(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sport: string | null = (leagueRow as any)?.sport ?? null
   const isVolleyball = sport === 'volleyball' || sport === 'beach_volleyball'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const volleyballMode: 'match_based' | 'set_based' = isVolleyball ? ((leagueRow as any)?.volleyball_standings_mode ?? 'match_based') : 'match_based'
 
   const record: Record<string, TeamStanding> = {}
   for (const t of teams ?? []) {
@@ -99,7 +101,7 @@ async function computeStandings(
     }
   }
 
-  return { standings: Object.values(record), ptsMethod, sport }
+  return { standings: Object.values(record), ptsMethod, sport, volleyballMode }
 }
 
 // ── createBracket ─────────────────────────────────────────────────────────────
@@ -302,13 +304,13 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   if (bracket.seeding_method === 'standings') {
     // 'regular_only' matches the public Overall Standings tab: only games where pool_id IS NULL.
     // Pool-play games are excluded so seeding order matches what admins see in standings.
-    const { standings, ptsMethod } = await computeStandings(db, leagueId, org.id, 'regular_only')
+    const { standings, ptsMethod, volleyballMode } = await computeStandings(db, leagueId, org.id, 'regular_only')
 
     // Sort the full standings once so all tier slicing operates on the correct order.
     // seedFromStandings sorts internally, but slicing an unsorted array first would
     // pick the wrong teams. By pre-sorting we ensure slice(seedOffset, ...) always
     // skips exactly the right number of top-ranked teams.
-    const sortedStandings = seedFromStandings(standings, standings.length, ptsMethod)
+    const sortedStandings = seedFromStandings(standings, standings.length, ptsMethod, volleyballMode)
 
     if (bracket.division_id) {
       const divTeams = sortedStandings.filter((t) => t.divisionId === bracket.division_id)
@@ -344,7 +346,7 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
     bracket.seeding_method === 'pool_tiers'
   ) {
     // Use pool-play game results for standings (not regular season games)
-    const { standings, ptsMethod } = await computeStandings(db, leagueId, org.id, 'pool_only')
+    const { standings, ptsMethod, volleyballMode } = await computeStandings(db, leagueId, org.id, 'pool_only')
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: pools } = await (db as any)
@@ -382,7 +384,8 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
           seededTeams = seedFromStandings(
             standings.filter((t) => t.poolId === pool.id),
             bracket.teams_advancing,
-            ptsMethod
+            ptsMethod,
+            volleyballMode
           )
         }
       } else {
@@ -416,14 +419,14 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   } else if (bracket.seeding_method === 'pool_results_flat') {
     // Cross-pool flat ranking: count only pool-play games, rank all teams together,
     // then apply the tier offset so Tier2 (seed_from=9) picks teams 9–14.
-    const { standings: poolOnlyStandings, ptsMethod } = await computeStandings(db, leagueId, org.id, 'pool_only')
+    const { standings: poolOnlyStandings, ptsMethod, volleyballMode } = await computeStandings(db, leagueId, org.id, 'pool_only')
     const hasPoolData = poolOnlyStandings.some((t) => t.wins > 0 || t.losses > 0 || t.ties > 0)
     // If no pool-play game data exists (no pool_id set on games, or no confirmed results),
     // fall back to full-season standings so seeding is at least deterministic.
     const { standings } = hasPoolData
       ? { standings: poolOnlyStandings }
       : await computeStandings(db, leagueId, org.id, 'regular_only')
-    const sortedStandings = seedFromStandings(standings, standings.length, ptsMethod)
+    const sortedStandings = seedFromStandings(standings, standings.length, ptsMethod, volleyballMode)
     const sliced = sortedStandings.slice(seedOffset, seedOffset + bracket.teams_advancing)
     seededTeams = sliced.map((t, i) => ({ ...t, seed: i + 1 }))
     if (!hasPoolData) {
@@ -543,7 +546,7 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   return {
     error: null,
     // Diagnostic: ordered list of seeded teams so the admin can compare against standings
-    seededOrder: seededTeams.map((t) => ({ seed: t.seed ?? 0, name: t.teamName, wins: t.wins, losses: t.losses, ties: t.ties })),
+    seededOrder: seededTeams.map((t) => ({ seed: t.seed ?? 0, name: t.teamName, wins: t.wins, losses: t.losses, ties: t.ties, setWins: t.setWins ?? 0 })),
   }
 }
 
