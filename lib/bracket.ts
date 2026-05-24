@@ -28,7 +28,27 @@ export interface TeamStanding {
   ties: number
   pointsFor: number
   pointsAgainst: number
+  setWins?: number
+  setLosses?: number
   seed?: number // override
+}
+
+// Standings sort options — must match the league's standings_pts_method setting.
+export type StandingsSortMethod = 'wins' | 'set_wins' | 'set_differential' | 'points_for'
+
+function computeStandingsPts(team: TeamStanding, method: StandingsSortMethod): number {
+  switch (method) {
+    case 'wins':             return team.wins
+    case 'set_wins':         return team.setWins ?? 0
+    case 'set_differential': return (team.setWins ?? 0) - (team.setLosses ?? 0)
+    case 'points_for':       return team.pointsFor
+  }
+}
+
+function setRatio(team: TeamStanding): number {
+  const sw = team.setWins ?? 0
+  const sl = team.setLosses ?? 0
+  return sl === 0 ? sw : sw / sl
 }
 
 export interface BracketMatchSpec {
@@ -541,13 +561,22 @@ export function generateDoubleEliminationSpec(teamsAdvancing: number): BracketSp
 
 // ── Seeding from standings ────────────────────────────────────────────────────
 
-export function seedFromStandings(standings: TeamStanding[], bracketSize: number): TeamStanding[] {
+export function seedFromStandings(
+  standings: TeamStanding[],
+  bracketSize: number,
+  ptsMethod: StandingsSortMethod = 'wins',
+): TeamStanding[] {
   const sorted = [...standings].sort((a, b) => {
+    // 1. Match wins
     if (b.wins !== a.wins) return b.wins - a.wins
-    const diffA = a.pointsFor - a.pointsAgainst
-    const diffB = b.pointsFor - b.pointsAgainst
-    if (diffB !== diffA) return diffB - diffA
-    return b.pointsFor - a.pointsFor
+    // 2. Standings points (per league's pts method — e.g. set wins, set diff, points for)
+    const ptsDiff = computeStandingsPts(b, ptsMethod) - computeStandingsPts(a, ptsMethod)
+    if (ptsDiff !== 0) return ptsDiff
+    // 3. Set ratio (SW ÷ SL)
+    const ratioDiff = setRatio(b) - setRatio(a)
+    if (ratioDiff !== 0) return ratioDiff
+    // 4. Point differential
+    return (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst)
   })
   return sorted.slice(0, bracketSize).map((t, i) => ({ ...t, seed: i + 1 }))
 }

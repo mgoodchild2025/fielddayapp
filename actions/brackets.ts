@@ -30,20 +30,29 @@ async function getOrgAndRequireAdmin() {
 
 // Compute standings for a league from confirmed game results.
 // gameFilter: 'all' = all games; 'pool_only' = only games with pool_id set
+// Returns standings + the league's standings_pts_method so seeding can use the same tiebreakers.
 async function computeStandings(
   db: ReturnType<typeof createServiceRoleClient>,
   leagueId: string,
   orgId: string,
   gameFilter: 'all' | 'pool_only' = 'all'
-): Promise<TeamStanding[]> {
-  const [{ data: teams }, { data: results }] = await Promise.all([
+): Promise<{ standings: TeamStanding[]; ptsMethod: import('@/lib/bracket').StandingsSortMethod; sport: string | null }> {
+  const [{ data: teams }, { data: results }, { data: leagueRow }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('teams').select('id, name, division_id, pool_id').eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
     db.from('game_results')
-      .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
+      .select('home_score, away_score, sets, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
       .eq('organization_id', orgId)
       .eq('status', 'confirmed'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('leagues').select('sport, standings_pts_method').eq('id', leagueId).maybeSingle(),
   ])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ptsMethod: import('@/lib/bracket').StandingsSortMethod = (leagueRow as any)?.standings_pts_method ?? 'wins'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sport: string | null = (leagueRow as any)?.sport ?? null
+  const isVolleyball = sport === 'volleyball' || sport === 'beach_volleyball'
 
   const record: Record<string, TeamStanding> = {}
   for (const t of teams ?? []) {
@@ -55,6 +64,7 @@ async function computeStandings(
       poolId: (t as any).pool_id ?? null,
       wins: 0, losses: 0, ties: 0,
       pointsFor: 0, pointsAgainst: 0,
+      setWins: 0, setLosses: 0,
     }
   }
 
@@ -68,14 +78,24 @@ async function computeStandings(
     if (!record[ht] || !record[at]) continue
     const hs = r.home_score ?? 0
     const as_ = r.away_score ?? 0
-    record[ht].pointsFor += hs; record[ht].pointsAgainst += as_
-    record[at].pointsFor += as_; record[at].pointsAgainst += hs
     if (hs > as_) { record[ht].wins++; record[at].losses++ }
     else if (as_ > hs) { record[at].wins++; record[ht].losses++ }
     else { record[ht].ties++; record[at].ties++ }
+    // For volleyball: accumulate set-level points; for other sports: match scores
+    if (isVolleyball && Array.isArray(r.sets)) {
+      for (const s of r.sets as { home: number; away: number }[]) {
+        record[ht].pointsFor += s.home; record[ht].pointsAgainst += s.away
+        record[at].pointsFor += s.away; record[at].pointsAgainst += s.home
+        if (s.home > s.away) { record[ht].setWins!++; record[at].setLosses!++ }
+        else if (s.away > s.home) { record[at].setWins!++; record[ht].setLosses!++ }
+      }
+    } else {
+      record[ht].pointsFor += hs; record[ht].pointsAgainst += as_
+      record[at].pointsFor += as_; record[at].pointsAgainst += hs
+    }
   }
 
-  return Object.values(record)
+  return { standings: Object.values(record), ptsMethod, sport }
 }
 
 // ── createBracket ─────────────────────────────────────────────────────────────
@@ -276,13 +296,13 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   let seededTeams: TeamStanding[] = []
 
   if (bracket.seeding_method === 'standings') {
-    const standings = await computeStandings(db, leagueId, org.id)
+    const { standings, ptsMethod } = await computeStandings(db, leagueId, org.id)
 
     // Sort the full standings once so all tier slicing operates on the correct order.
     // seedFromStandings sorts internally, but slicing an unsorted array first would
     // pick the wrong teams. By pre-sorting we ensure slice(seedOffset, ...) always
     // skips exactly the right number of top-ranked teams.
-    const sortedStandings = seedFromStandings(standings, standings.length)
+    const sortedStandings = seedFromStandings(standings, standings.length, ptsMethod)
 
     if (bracket.division_id) {
       const divTeams = sortedStandings.filter((t) => t.divisionId === bracket.division_id)
@@ -318,7 +338,7 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
     bracket.seeding_method === 'pool_tiers'
   ) {
     // Use pool-play game results for standings (not regular season games)
-    const standings = await computeStandings(db, leagueId, org.id, 'pool_only')
+    const { standings, ptsMethod } = await computeStandings(db, leagueId, org.id, 'pool_only')
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: pools } = await (db as any)
@@ -355,7 +375,8 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
         if (pool) {
           seededTeams = seedFromStandings(
             standings.filter((t) => t.poolId === pool.id),
-            bracket.teams_advancing
+            bracket.teams_advancing,
+            ptsMethod
           )
         }
       } else {
@@ -389,14 +410,14 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   } else if (bracket.seeding_method === 'pool_results_flat') {
     // Cross-pool flat ranking: count only pool-play games, rank all teams together,
     // then apply the tier offset so Tier2 (seed_from=9) picks teams 9–14.
-    const poolStandings = await computeStandings(db, leagueId, org.id, 'pool_only')
-    const hasPoolData = poolStandings.some((t) => t.wins > 0 || t.losses > 0 || t.ties > 0)
+    const { standings: poolOnlyStandings, ptsMethod } = await computeStandings(db, leagueId, org.id, 'pool_only')
+    const hasPoolData = poolOnlyStandings.some((t) => t.wins > 0 || t.losses > 0 || t.ties > 0)
     // If no pool-play game data exists (no pool_id set on games, or no confirmed results),
     // fall back to full-season standings so seeding is at least deterministic.
-    const standings = hasPoolData
-      ? poolStandings
+    const { standings } = hasPoolData
+      ? { standings: poolOnlyStandings }
       : await computeStandings(db, leagueId, org.id, 'all')
-    const sortedStandings = seedFromStandings(standings, standings.length)
+    const sortedStandings = seedFromStandings(standings, standings.length, ptsMethod)
     const sliced = sortedStandings.slice(seedOffset, seedOffset + bracket.teams_advancing)
     seededTeams = sliced.map((t, i) => ({ ...t, seed: i + 1 }))
     if (!hasPoolData) {
