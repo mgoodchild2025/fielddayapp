@@ -658,6 +658,10 @@ export function PlayoffConfigWizard({
 
   function handlePreviewSplit() {
     const built = buildTiersFromCount(totalTeams, tierCount)
+    // For a single-tier config, apply the recommended bracket type (e.g. all_play for 6/14 teams)
+    if (built.length === 1 && recommendation.bracketType && recommendation.bracketType !== 'single_elimination') {
+      built[0].bracketType = recommendation.bracketType as TierConfig['bracketType']
+    }
     setTiers(built)
     setStep('tiers')
   }

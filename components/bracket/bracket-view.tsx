@@ -722,18 +722,22 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
     return final.winnerTeamId === final.team1Id ? final.team1Name : final.team2Name
   })()
 
-  // All-play best loser panel (works for 6-team and 14-team all_play brackets, and legacy 6-team single_elim)
+  // All-play / 6-team best loser panel
   const isAllPlay = bracket.bracketType === 'all_play'
+  const isLegacy6Team = bracketSize === 6 && !isDE && !isAllPlay  // single_elimination 6-team created before all_play
   const maxRoundNumber = bracket.matches.length > 0 ? Math.max(...bracket.matches.map((m) => m.roundNumber)) : 0
   const r1Matches = bracket.matches.filter((m) => m.roundNumber === (isAllPlay ? maxRoundNumber : 3))
   const expectedR1Count = bracketSize === 14 ? 7 : 3
   const allR1Complete = r1Matches.length === expectedR1Count && r1Matches.every((m) => m.status === 'completed')
-  // Best loser target: the match that still has a 'Best Loser' label with no real team assigned
-  const bestLoserTargetMatch = bracket.matches.find((m) =>
-    (m.team1Label === 'Best Loser' && !m.team1Id) ||
-    (m.team2Label === 'Best Loser' && !m.team2Id)
-  )
-  const is6TeamBracket = (bracketSize === 6 && !isDE) || isAllPlay
+  // Best loser target: for all_play brackets, find the slot with 'Best Loser' label and no team.
+  // For legacy 6-team single_elimination brackets, fall back to finding sfB (round 2 match 2) with empty slot 2.
+  const bestLoserTargetMatch = isAllPlay
+    ? bracket.matches.find((m) =>
+        (m.team1Label === 'Best Loser' && !m.team1Id) ||
+        (m.team2Label === 'Best Loser' && !m.team2Id)
+      )
+    : bracket.matches.find((m) => m.roundNumber === 2 && m.matchNumber === 2 && !m.team2Id)
+  const is6TeamBracket = isLegacy6Team || isAllPlay
   const showBestLoserPanel = is6TeamBracket && isAdmin && allR1Complete && !!bestLoserTargetMatch
 
   function onAdvanceBestLoser() {
