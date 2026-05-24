@@ -540,7 +540,11 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
 
   revalidatePath(`/admin/events/${leagueId}/bracket`)
   revalidatePath('/events/[slug]', 'page')
-  return { error: null }
+  return {
+    error: null,
+    // Diagnostic: ordered list of seeded teams so the admin can compare against standings
+    seededOrder: seededTeams.map((t) => ({ seed: t.seed ?? 0, name: t.teamName, wins: t.wins, losses: t.losses, ties: t.ties })),
+  }
 }
 
 // ── wireMatchReferences (shared by scaffold + seed) ───────────────────────────

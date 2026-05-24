@@ -215,6 +215,7 @@ function TierBracketCard({
   const [err, setErr] = useState<string | null>(null)
   const [confirmClearSeed, setConfirmClearSeed] = useState(false)
   const [bestLoserResult, setBestLoserResult] = useState<string | null>(null)
+  const [seedingOrder, setSeedingOrder] = useState<{ seed: number; name: string; wins: number; losses: number; ties: number }[] | null>(null)
 
   const tierCount = tier.seedTo - tier.seedFrom + 1
 
@@ -243,9 +244,11 @@ function TierBracketCard({
   function handleSeed() {
     if (!tier.bracketId) return
     setErr(null)
+    setSeedingOrder(null)
     startTransition(async () => {
       const r = await seedBracket(tier.bracketId!, leagueId)
       if (r?.error) { setErr(r.error); return }
+      if (r?.seededOrder) setSeedingOrder(r.seededOrder)
       router.refresh()
     })
   }
@@ -436,6 +439,19 @@ function TierBracketCard({
 
       {err && <p className="px-5 pb-3 text-xs text-red-500">{err}</p>}
       {bestLoserResult && <p className="px-5 pb-3 text-xs text-green-700 font-medium">✓ {bestLoserResult}</p>}
+      {seedingOrder && seedingOrder.length > 0 && (
+        <div className="mx-5 mb-3 rounded border border-blue-200 bg-blue-50 p-3">
+          <p className="text-xs font-semibold text-blue-700 mb-1.5">Seeds applied (from seeder):</p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+            {seedingOrder.map((t) => (
+              <p key={t.seed} className="text-xs text-blue-800">
+                <span className="font-medium">#{t.seed}</span> {t.name} <span className="text-blue-500">({t.wins}W-{t.losses}L{t.ties > 0 ? `-${t.ties}T` : ''})</span>
+              </p>
+            ))}
+          </div>
+          <p className="text-xs text-blue-500 mt-1.5">Compare this against your standings tab. If order differs, check the seeding method and whether pool games have pool_id set.</p>
+        </div>
+      )}
 
       {/* Scaffold notice */}
       {isScaffold && (
