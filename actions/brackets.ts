@@ -546,7 +546,7 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   return {
     error: null,
     // Diagnostic: ordered list of seeded teams so the admin can compare against standings
-    seededOrder: seededTeams.map((t) => ({ seed: t.seed ?? 0, name: t.teamName, wins: t.wins, losses: t.losses, ties: t.ties, setWins: t.setWins ?? 0 })),
+    seededOrder: seededTeams.map((t) => ({ seed: (t.seed ?? 0) + seedOffset, name: t.teamName, wins: t.wins, losses: t.losses, ties: t.ties, setWins: t.setWins ?? 0 })),
   }
 }
 
