@@ -99,7 +99,19 @@ export function SignaturesFilterBar({
         {events.length > 0 && (
           <select
             value={currentEvent}
-            onChange={(e) => update('event', e.target.value)}
+            onChange={(e) => {
+              // Changing event clears any stale team selection
+              const params = new URLSearchParams(searchParams.toString())
+              if (e.target.value) {
+                params.set('event', e.target.value)
+              } else {
+                params.delete('event')
+              }
+              params.delete('team')
+              startTransition(() => {
+                router.replace(`${pathname}?${params.toString()}`)
+              })
+            }}
             className={selectClass}
             style={ringStyle}
           >

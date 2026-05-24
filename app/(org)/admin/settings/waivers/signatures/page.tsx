@@ -85,7 +85,14 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
   // Unique options for dropdowns (sorted)
   const uniqueEvents  = [...new Set(allRows.map((r) => r.eventName).filter(Boolean))].sort()
   const uniqueWaivers = [...new Set(allRows.map((r) => r.waiverTitle).filter(Boolean))].sort()
-  const uniqueTeams   = [...new Set(allRows.map((r) => r.teamName).filter(Boolean) as string[])].sort()
+
+  // Team options scoped to the selected event (and waiver) so the list stays relevant
+  const rowsForTeamFilter = allRows.filter((r) => {
+    if (eventFilter  && r.eventName   !== eventFilter)  return false
+    if (waiverFilter && r.waiverTitle !== waiverFilter) return false
+    return true
+  })
+  const uniqueTeams = [...new Set(rowsForTeamFilter.map((r) => r.teamName).filter(Boolean) as string[])].sort()
 
   // Apply filters
   const qLower = q.toLowerCase()
