@@ -258,16 +258,23 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   if (bracket.seeding_method === 'standings') {
     const standings = await computeStandings(db, leagueId, org.id)
 
+    // Sort the full standings once so all tier slicing operates on the correct order.
+    // seedFromStandings sorts internally, but slicing an unsorted array first would
+    // pick the wrong teams. By pre-sorting we ensure slice(seedOffset, ...) always
+    // skips exactly the right number of top-ranked teams.
+    const sortedStandings = seedFromStandings(standings, standings.length)
+
     if (bracket.division_id) {
-      const divTeams = standings.filter((t) => t.divisionId === bracket.division_id)
-      // Apply offset: skip teams already assigned to higher tiers
+      const divTeams = sortedStandings.filter((t) => t.divisionId === bracket.division_id)
+      // Slice from the offset and re-number seeds 1-N within this tier
       const sliced = divTeams.slice(seedOffset, seedOffset + bracket.teams_advancing)
-      seededTeams = seedFromStandings(sliced, bracket.teams_advancing)
+      seededTeams = sliced.map((t, i) => ({ ...t, seed: i + 1 }))
     } else {
       const { data: divisions } = await db.from('divisions').select('id, name').eq('league_id', leagueId).eq('organization_id', org.id)
 
       if (divisions && divisions.length > 0) {
         if (seedOffset === 0) {
+          // Top tier with divisions: use snake/wild-card seeding across divisions
           const divisionStandings = divisions.map((div) => ({
             divisionId: div.id,
             divisionName: div.name,
@@ -275,14 +282,14 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
           }))
           seededTeams = seedFromDivisionStandings(divisionStandings, bracket.teams_advancing)
         } else {
-          // For lower tiers with an offset, sort all teams then slice from the offset
-          const sliced = standings.slice(seedOffset, seedOffset + bracket.teams_advancing)
-          seededTeams = seedFromStandings(sliced, bracket.teams_advancing)
+          // Lower tier: skip teams already in higher tiers, then take the next block
+          const sliced = sortedStandings.slice(seedOffset, seedOffset + bracket.teams_advancing)
+          seededTeams = sliced.map((t, i) => ({ ...t, seed: i + 1 }))
         }
       } else {
-        // No divisions — apply offset directly into the sorted standings
-        const sliced = standings.slice(seedOffset, seedOffset + bracket.teams_advancing)
-        seededTeams = seedFromStandings(sliced, bracket.teams_advancing)
+        // No divisions — skip the top seedOffset teams and take the next block
+        const sliced = sortedStandings.slice(seedOffset, seedOffset + bracket.teams_advancing)
+        seededTeams = sliced.map((t, i) => ({ ...t, seed: i + 1 }))
       }
     }
   } else if (
