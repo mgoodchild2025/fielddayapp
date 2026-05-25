@@ -62,7 +62,7 @@ interface CommunityHomeProps {
   openEvents: League[]
   inSeasonEvents: League[]
   completedEvents: League[]
-  teamCountMap: Map<string, number>
+  spotsMap: Map<string, { filled: number; max: number | null; unit: 'team' | 'player' }>
   sectionLayout: { key: string; visible: boolean }[] | null
 }
 
@@ -73,9 +73,26 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   drop_in: 'Drop-in',
 }
 
-function EventCard({ league, teamCount }: { league: League; teamCount: number }) {
-  const isPerTeam = league.payment_mode === 'per_team'
-  const teamsAtCapacity = isPerTeam && league.max_teams !== null && teamCount >= league.max_teams
+function SpotsLabel({ spots }: { spots: { filled: number; max: number | null; unit: 'team' | 'player' } | undefined }) {
+  if (!spots || spots.max === null) return <span className="text-xs font-medium shrink-0 ml-2 text-green-600">Open</span>
+  const left = spots.max - spots.filled
+  const atCapacity = spots.filled >= spots.max
+  const isLow = !atCapacity && (left <= (spots.unit === 'team' ? 3 : 5) || spots.filled / spots.max >= 0.8)
+  if (atCapacity) {
+    return <span className="text-xs font-medium shrink-0 ml-2 text-amber-600">{spots.unit === 'team' ? 'Teams Full' : 'Full'}</span>
+  }
+  if (isLow) {
+    return (
+      <span className="text-xs font-medium shrink-0 ml-2 text-amber-500">
+        Only {left} {spots.unit}{left !== 1 ? 's' : ''} left
+      </span>
+    )
+  }
+  return <span className="text-xs font-medium shrink-0 ml-2 text-green-600">Open</span>
+}
+
+function EventCard({ league, spots }: { league: League; spots: { filled: number; max: number | null; unit: 'team' | 'player' } | undefined }) {
+  const atCapacity = spots !== undefined && spots.max !== null && spots.filled >= spots.max
   const et = league.event_type ?? 'league'
 
   return (
@@ -94,9 +111,7 @@ function EventCard({ league, teamCount }: { league: League; teamCount: number })
             </span>
           )}
         </div>
-        <span className={`text-xs font-medium shrink-0 ml-2 ${teamsAtCapacity ? 'text-amber-600' : 'text-green-600'}`}>
-          {teamsAtCapacity ? 'Teams Full' : 'Open'}
-        </span>
+        <SpotsLabel spots={spots} />
       </div>
       <div className="flex items-start gap-3 mt-2">
         <EventAvatar logoUrl={league.logo_url} name={league.name} sport={league.sport} size="md" className="shrink-0 border border-gray-100" />
@@ -126,7 +141,7 @@ function EventCard({ league, teamCount }: { league: League; teamCount: number })
         </div>
       )}
       <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>
-        {teamsAtCapacity
+        {atCapacity
           ? 'Players can still join a team'
           : league.price_cents === 0
             ? 'Free'
@@ -167,7 +182,7 @@ export function CommunityHome({
   openEvents,
   inSeasonEvents,
   completedEvents,
-  teamCountMap,
+  spotsMap,
   sectionLayout,
 }: CommunityHomeProps) {
   void completedEvents
@@ -200,7 +215,7 @@ export function CommunityHome({
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {openEvents.map((league) => (
-                    <EventCard key={league.id} league={league} teamCount={teamCountMap.get(league.id) ?? 0} />
+                    <EventCard key={league.id} league={league} spots={spotsMap.get(league.id)} />
                   ))}
                 </div>
               </section>

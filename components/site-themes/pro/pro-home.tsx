@@ -45,7 +45,7 @@ interface ProHomeProps {
   recentResults: RecentResult[]
   openEvents: League[]
   inSeasonEvents: League[]
-  teamCountMap: Map<string, number>
+  spotsMap: Map<string, { filled: number; max: number | null; unit: 'team' | 'player' }>
   sectionLayout: { key: string; visible: boolean }[] | null
 }
 
@@ -67,7 +67,7 @@ function SponsorLogo({ sponsor, size }: { sponsor: Sponsor; size: 'sm' | 'lg' })
     : <div>{el}</div>
 }
 
-export function ProHome({ org, branding, heroContent, sponsors, staff, recentResults, openEvents, inSeasonEvents, teamCountMap, sectionLayout }: ProHomeProps) {
+export function ProHome({ org, branding, heroContent, sponsors, staff, recentResults, openEvents, inSeasonEvents, spotsMap, sectionLayout }: ProHomeProps) {
   const headline    = heroContent.headline    || org.name
   const subheadline = heroContent.subheadline || branding?.tagline || null
   const ctaLabel    = heroContent.cta_label   || 'Register'
@@ -118,9 +118,11 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {openEvents.map((league) => {
-                      const isPerTeam = league.payment_mode === 'per_team'
-                      const teamCount = teamCountMap.get(league.id) ?? 0
-                      const atCapacity = isPerTeam && league.max_teams !== null && teamCount >= league.max_teams
+                      const spots = spotsMap.get(league.id)
+                      const atCapacity = spots !== undefined && spots.max !== null && spots.filled >= spots.max
+                      const spotsLeft = spots && spots.max !== null ? spots.max - spots.filled : null
+                      const isLow = !atCapacity && spotsLeft !== null && spots !== undefined &&
+                        (spotsLeft <= (spots.unit === 'team' ? 3 : 5) || (spots.max !== null && spots.filled / spots.max >= 0.8))
                       return (
                         <Link key={league.id} href={`/events/${league.slug}`}
                           className="group block rounded-xl border-l-4 bg-white border border-gray-100 hover:shadow-md transition-all p-5"
@@ -132,12 +134,21 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
                               {league.name}
                             </h3>
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-gray-400">
-                            <span className="capitalize">{league.event_type ?? 'league'}</span>
-                            {league.skill_level && <><span>·</span><span className="capitalize">{league.skill_level}</span></>}
+                          <div className="flex items-center justify-between gap-2 text-xs text-gray-400">
+                            <div className="flex items-center gap-2">
+                              <span className="capitalize">{league.event_type ?? 'league'}</span>
+                              {league.skill_level && <><span>·</span><span className="capitalize">{league.skill_level}</span></>}
+                            </div>
+                            {atCapacity
+                              ? <span className="text-amber-600 font-medium">{spots?.unit === 'team' ? 'Teams Full' : 'Full'}</span>
+                              : isLow
+                                ? <span className="text-amber-500 font-medium">Only {spotsLeft} {spots?.unit}{spotsLeft !== 1 ? 's' : ''} left</span>
+                                : null}
                           </div>
                           <p className="mt-3 text-sm font-bold" style={{ color: 'var(--brand-primary)' }}>
-                            {atCapacity ? 'Teams Full' : league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency ?? 'CAD'}`}
+                            {atCapacity
+                              ? (spots?.unit === 'team' ? 'Join a team →' : 'Full')
+                              : league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency ?? 'CAD'}`}
                           </p>
                         </Link>
                       )

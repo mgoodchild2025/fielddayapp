@@ -40,7 +40,7 @@ interface ClubHomeProps {
   staff: StaffMember[]
   openEvents: League[]
   inSeasonEvents: League[]
-  teamCountMap: Map<string, number>
+  spotsMap: Map<string, { filled: number; max: number | null; unit: 'team' | 'player' }>
   sectionLayout: { key: string; visible: boolean }[] | null
 }
 
@@ -102,7 +102,7 @@ function StaffRow({ staff }: { staff: StaffMember[] }) {
   )
 }
 
-export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, staff, openEvents, inSeasonEvents, teamCountMap, sectionLayout }: ClubHomeProps) {
+export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, staff, openEvents, inSeasonEvents, spotsMap, sectionLayout }: ClubHomeProps) {
   const headline    = heroContent.headline    || org.name
   const subheadline = heroContent.subheadline || branding?.tagline || null
   const ctaLabel    = heroContent.cta_label   || 'Register Now'
@@ -130,9 +130,11 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {openEvents.map((league) => {
-                      const isPerTeam = league.payment_mode === 'per_team'
-                      const teamCount = teamCountMap.get(league.id) ?? 0
-                      const atCapacity = isPerTeam && league.max_teams !== null && teamCount >= league.max_teams
+                      const spots = spotsMap.get(league.id)
+                      const atCapacity = spots !== undefined && spots.max !== null && spots.filled >= spots.max
+                      const spotsLeft = spots && spots.max !== null ? spots.max - spots.filled : null
+                      const isLow = !atCapacity && spotsLeft !== null && spots !== undefined &&
+                        (spotsLeft <= (spots.unit === 'team' ? 3 : 5) || (spots.max !== null && spots.filled / spots.max >= 0.8))
                       return (
                         <Link key={league.id} href={`/events/${league.slug}`}
                           className="group block bg-white border rounded-xl p-5 hover:border-gray-300 hover:shadow-sm transition-all"
@@ -142,8 +144,10 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
                               {league.event_type ?? 'league'}
                             </span>
                             {atCapacity
-                              ? <span className="text-xs text-amber-600 font-medium">Teams Full</span>
-                              : <span className="text-xs text-green-600 font-medium">Open</span>}
+                              ? <span className="text-xs text-amber-600 font-medium">{spots?.unit === 'team' ? 'Teams Full' : 'Full'}</span>
+                              : isLow
+                                ? <span className="text-xs text-amber-500 font-medium">Only {spotsLeft} {spots?.unit}{spotsLeft !== 1 ? 's' : ''} left</span>
+                                : <span className="text-xs text-green-600 font-medium">Open</span>}
                           </div>
                           <div className="flex items-center gap-3 mb-1">
                             <EventAvatar logoUrl={league.logo_url} name={league.name} sport={league.sport} size="sm" />
