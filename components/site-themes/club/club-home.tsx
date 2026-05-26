@@ -146,7 +146,7 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
                             {atCapacity
                               ? <span className="text-xs text-amber-600 font-medium">{spots?.unit === 'team' ? 'Teams Full' : 'Full'}</span>
                               : isLow
-                                ? <span className="text-xs text-amber-500 font-medium">Only {spotsLeft} {spots?.unit}{spotsLeft !== 1 ? 's' : ''} left</span>
+                                ? <span className="text-xs text-amber-500 font-medium">Only {spotsLeft} {spots?.unit} spot{spotsLeft !== 1 ? 's' : ''} left</span>
                                 : <span className="text-xs text-green-600 font-medium">Open</span>}
                           </div>
                           <div className="flex items-center gap-3 mb-1">

@@ -84,7 +84,7 @@ function SpotsLabel({ spots }: { spots: { filled: number; max: number | null; un
   if (isLow) {
     return (
       <span className="text-xs font-medium shrink-0 ml-2 text-amber-500">
-        Only {left} {spots.unit}{left !== 1 ? 's' : ''} left
+        Only {left} {spots.unit} spot{left !== 1 ? 's' : ''} left
       </span>
     )
   }

@@ -142,7 +142,7 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
                             {atCapacity
                               ? <span className="text-amber-600 font-medium">{spots?.unit === 'team' ? 'Teams Full' : 'Full'}</span>
                               : isLow
-                                ? <span className="text-amber-500 font-medium">Only {spotsLeft} {spots?.unit}{spotsLeft !== 1 ? 's' : ''} left</span>
+                                ? <span className="text-amber-500 font-medium">Only {spotsLeft} {spots?.unit} spot{spotsLeft !== 1 ? 's' : ''} left</span>
                                 : null}
                           </div>
                           <p className="mt-3 text-sm font-bold" style={{ color: 'var(--brand-primary)' }}>
