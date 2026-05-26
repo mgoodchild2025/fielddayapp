@@ -2,6 +2,9 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
+import { getMfaStatus } from '@/lib/mfa'
+import { MfaGraceBanner } from '@/components/mfa/mfa-grace-banner'
 
 export default async function PlatformAdminLayout({
   children,
@@ -21,8 +24,47 @@ export default async function PlatformAdminLayout({
 
   if (profile?.platform_role !== 'platform_admin') redirect('/')
 
+  // MFA enforcement for platform admins
+  let mfaGraceDaysLeft: number | null = null
+  const mfa = await getMfaStatus()
+
+  if (!mfa.isVerified) {
+    if (mfa.needsVerify) {
+      redirect('/mfa/verify?redirect=/super')
+    }
+
+    // No factor enrolled — check / start grace period
+    const db = createServiceRoleClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: profileRow } = await (db as any)
+      .from('profiles')
+      .select('mfa_grace_until')
+      .eq('id', user.id)
+      .single()
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const graceUntil = (profileRow as any)?.mfa_grace_until
+      ? new Date((profileRow as any).mfa_grace_until)
+      : null
+    const now = new Date()
+
+    if (!graceUntil) {
+      const graceEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any).from('profiles').update({ mfa_grace_until: graceEnd.toISOString() }).eq('id', user.id)
+      mfaGraceDaysLeft = 14
+    } else if (graceUntil <= now) {
+      redirect('/mfa/setup?redirect=/super')
+    } else {
+      mfaGraceDaysLeft = Math.ceil(
+        (graceUntil.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)
+      )
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-950">
+      {mfaGraceDaysLeft !== null && <MfaGraceBanner daysLeft={mfaGraceDaysLeft} />}
       <nav className="bg-gray-900 border-b border-gray-800 text-white px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Image src="/Fieldday-Icon.png" alt="Fieldday" width={28} height={28} className="rounded" />

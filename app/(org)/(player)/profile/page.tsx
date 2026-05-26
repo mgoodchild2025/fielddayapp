@@ -7,6 +7,8 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { ProfileForm } from './profile-form'
+import { MfaSettings } from '@/components/profile/mfa-settings'
+import { getMfaStatus } from '@/lib/mfa'
 
 export default async function ProfilePage() {
   const headersList = await headers()
@@ -17,13 +19,14 @@ export default async function ProfilePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: profile }, { data: playerDetails }, { data: branding }] = await Promise.all([
+  const [{ data: profile }, { data: playerDetails }, { data: branding }, mfa] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('profiles').select('*').eq('id', user.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('player_details').select('*').eq('organization_id', org.id).eq('user_id', user.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
+    getMfaStatus(),
   ])
 
   return (
@@ -34,6 +37,11 @@ export default async function ProfilePage() {
           My Profile
         </h1>
         <ProfileForm profile={profile} playerDetails={playerDetails} orgId={org.id} />
+
+        {/* Security — optional MFA for all players */}
+        <div className="mt-6">
+          <MfaSettings isEnrolled={mfa.hasTotp} factorId={mfa.factorId} />
+        </div>
 
         {/* Privacy & Data rights link */}
         <div className="mt-8 pt-6 border-t">
