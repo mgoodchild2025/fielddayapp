@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
   const { data: reminderGames } = await (supabase as any)
     .from('games')
     .select(`
-      id, organization_id, scheduled_at, court,
+      id, organization_id, scheduled_at, court, league_id,
       home_team:teams!games_home_team_id_fkey(id, name),
       away_team:teams!games_away_team_id_fkey(id, name),
       leagues(name, sport)
@@ -68,6 +68,7 @@ export async function GET(req: NextRequest) {
     // Fetch org branding (timezone) and org names
     type RGGame = {
       id: string; organization_id: string; scheduled_at: string; court: string | null
+      league_id: string | null
       home_team: { id: string; name: string } | null
       away_team: { id: string; name: string } | null
       leagues: { name: string; sport?: string | null } | { name: string; sport?: string | null }[] | null
@@ -98,26 +99,70 @@ export async function GET(req: NextRequest) {
       const teamIds = [...new Set(
         orgGames.flatMap(g => [g.home_team?.id, g.away_team?.id]).filter(Boolean) as string[]
       )]
-      if (teamIds.length === 0) continue
 
-      const { data: rgMembers } = await supabase
-        .from('team_members')
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .select('user_id, team_id, profiles!team_members_user_id_fkey(email, full_name, email_reminders_enabled)')
-        .in('team_id', teamIds)
+      // Pickup/drop-in games have no teams — recipients are league registrants instead
+      const pickupLeagueIds = [...new Set(
+        orgGames
+          .filter(g => !g.home_team && !g.away_team && g.league_id)
+          .map(g => g.league_id as string)
+      )]
 
-      // Build map: user_id → { email, name, teamIds }
-      type RGPlayer = { email: string; name: string; teamIds: Set<string>; subGameIds: Set<string> }
+      if (teamIds.length === 0 && pickupLeagueIds.length === 0) continue
+
+      // Fetch team members (regular games) and pickup registrants in parallel
+      const [{ data: rgMembers }, { data: pickupRegs }] = await Promise.all([
+        teamIds.length > 0
+          ? supabase
+              .from('team_members')
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              .select('user_id, team_id, profiles!team_members_user_id_fkey(email, full_name, email_reminders_enabled)' as any)
+              .in('team_id', teamIds)
+          : Promise.resolve({ data: [] as unknown[] }),
+        pickupLeagueIds.length > 0
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (supabase as any)
+              .from('registrations')
+              .select('user_id, league_id')
+              .in('league_id', pickupLeagueIds)
+              .in('status', ['active', 'pending'])
+          : Promise.resolve({ data: [] as unknown[] }),
+      ])
+
+      // Build map: user_id → { email, name, teamIds, subGameIds, pickupLeagueIds }
+      type RGPlayer = { email: string; name: string; teamIds: Set<string>; subGameIds: Set<string>; pickupLeagueIds: Set<string> }
       const rgPlayerMap = new Map<string, RGPlayer>()
-      for (const m of rgMembers ?? []) {
+
+      for (const m of (rgMembers ?? []) as { user_id?: string; team_id?: string; profiles?: unknown }[]) {
         const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles as { email?: string; full_name?: string; email_reminders_enabled?: boolean } | null
         // Skip if no email or opted out (null = not yet set, treat as opted in)
         if (!p?.email || p?.email_reminders_enabled === false) continue
         if (!m.user_id || !m.team_id) continue
         if (!rgPlayerMap.has(m.user_id)) {
-          rgPlayerMap.set(m.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set() })
+          rgPlayerMap.set(m.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
         }
         rgPlayerMap.get(m.user_id)!.teamIds.add(m.team_id)
+      }
+
+      // For pickup registrants, fetch profiles separately then add to map
+      if (pickupLeagueIds.length > 0 && (pickupRegs ?? []).length > 0) {
+        const pickupUserIds = [...new Set((pickupRegs as { user_id: string; league_id: string }[]).map(r => r.user_id).filter(Boolean))]
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: pickupProfiles } = await (supabase as any)
+          .from('profiles')
+          .select('id, email, full_name, email_reminders_enabled')
+          .in('id', pickupUserIds)
+        type PickupProfile = { id: string; email?: string; full_name?: string; email_reminders_enabled?: boolean }
+        const profileById = new Map<string, PickupProfile>((pickupProfiles ?? []).map((p: PickupProfile) => [p.id, p]))
+
+        for (const r of (pickupRegs as { user_id: string; league_id: string }[]) ?? []) {
+          if (!r.user_id || !r.league_id) continue
+          const p = profileById.get(r.user_id)
+          if (!p?.email || p?.email_reminders_enabled === false) continue
+          if (!rgPlayerMap.has(r.user_id)) {
+            rgPlayerMap.set(r.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
+          }
+          rgPlayerMap.get(r.user_id)!.pickupLeagueIds.add(r.league_id)
+        }
       }
 
       // Also include confirmed game subs for tomorrow's games
@@ -136,7 +181,7 @@ export async function GET(req: NextRequest) {
           if (!p?.email || p?.email_reminders_enabled === false) continue
           if (!s.user_id || !s.game_id) continue
           if (!rgPlayerMap.has(s.user_id)) {
-            rgPlayerMap.set(s.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set() })
+            rgPlayerMap.set(s.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
           }
           rgPlayerMap.get(s.user_id)!.subGameIds.add(s.game_id)
         }
@@ -158,11 +203,13 @@ export async function GET(req: NextRequest) {
       for (const [userId, player] of rgPlayerMap) {
         if (rgAlreadySent.has(userId)) continue
 
-        const myGames = orgGames.filter(g =>
-          (g.home_team?.id && player.teamIds.has(g.home_team.id)) ||
-          (g.away_team?.id && player.teamIds.has(g.away_team.id)) ||
-          player.subGameIds.has(g.id as string)
-        ).sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+        const myGames = orgGames.filter(g => {
+          const isPickup = !g.home_team && !g.away_team
+          if (isPickup) return g.league_id ? player.pickupLeagueIds.has(g.league_id) : false
+          return (g.home_team?.id && player.teamIds.has(g.home_team.id)) ||
+            (g.away_team?.id && player.teamIds.has(g.away_team.id)) ||
+            player.subGameIds.has(g.id as string)
+        }).sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
 
         if (myGames.length === 0) continue
 
