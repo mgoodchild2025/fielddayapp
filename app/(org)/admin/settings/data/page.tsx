@@ -4,6 +4,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgDataControls } from '@/components/settings/org-data-controls'
+import { OrgExportControls } from '@/components/settings/org-export-controls'
 
 const EXPORT_WINDOW_DAYS = 30
 
@@ -111,6 +112,13 @@ export default async function AdminDataPage() {
               Contact <a href="mailto:privacy@fielddayapp.ca" className="underline">privacy@fielddayapp.ca</a> with questions.
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Full ZIP export — async job with email notification */}
+      {canExport && (
+        <div className="mb-6">
+          <OrgExportControls />
         </div>
       )}
 
