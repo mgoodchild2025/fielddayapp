@@ -97,39 +97,25 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
   const inSeasonEvents = leagueList.filter((l) => l.status === 'active')
   const completedEvents = leagueList.filter((l) => l.status === 'completed')
 
-  // Fetch team counts for per-team open events
-  const perTeamOpenIds = openEvents.filter((l) => l.payment_mode === 'per_team').map((l) => l.id)
-  const perPlayerOpenIds = openEvents.filter((l) => l.payment_mode !== 'per_team' && l.max_teams !== null).map((l) => l.id)
-
+  // Fetch team counts for all open events (no status filter — matches /events page behaviour)
+  const openEventIds = openEvents.map((l) => l.id)
   const teamCountMap = new Map<string, number>()
-  const registrationCountMap = new Map<string, number>()
-
-  await Promise.all([
-    perTeamOpenIds.length > 0
-      ? (db as any) // eslint-disable-line @typescript-eslint/no-explicit-any
-          .from('teams').select('league_id').in('league_id', perTeamOpenIds).eq('status', 'active')
-          .then(({ data }: { data: { league_id: string }[] | null }) => {
-            for (const t of data ?? []) teamCountMap.set(t.league_id, (teamCountMap.get(t.league_id) ?? 0) + 1)
-          })
-      : Promise.resolve(),
-    perPlayerOpenIds.length > 0
-      ? (db as any) // eslint-disable-line @typescript-eslint/no-explicit-any
-          .from('registrations').select('league_id').in('league_id', perPlayerOpenIds).in('status', ['active', 'pending'])
-          .then(({ data }: { data: { league_id: string }[] | null }) => {
-            for (const r of data ?? []) registrationCountMap.set(r.league_id, (registrationCountMap.get(r.league_id) ?? 0) + 1)
-          })
-      : Promise.resolve(),
-  ])
+  if (openEventIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any)
+      .from('teams').select('league_id').in('league_id', openEventIds)
+      .then(({ data }: { data: { league_id: string }[] | null }) => {
+        for (const t of data ?? []) teamCountMap.set(t.league_id, (teamCountMap.get(t.league_id) ?? 0) + 1)
+      })
+  }
 
   // Unified spots map — consumed by all theme components
+  // max_teams is the team cap for per_team events; per_player events use it too for team-slot capacity
   type SpotsEntry = { filled: number; max: number | null; unit: 'team' | 'player' }
   const spotsMap = new Map<string, SpotsEntry>()
   for (const l of openEvents) {
-    if (l.payment_mode === 'per_team') {
-      spotsMap.set(l.id, { filled: teamCountMap.get(l.id) ?? 0, max: l.max_teams, unit: 'team' })
-    } else {
-      spotsMap.set(l.id, { filled: registrationCountMap.get(l.id) ?? 0, max: l.max_teams, unit: 'player' })
-    }
+    const unit: 'team' | 'player' = l.payment_mode === 'per_team' ? 'team' : 'player'
+    spotsMap.set(l.id, { filled: teamCountMap.get(l.id) ?? 0, max: l.max_teams, unit })
   }
 
   // Process recent results for Pro theme (field names match ProHome's RecentResult type)
