@@ -83,7 +83,16 @@ export async function login(input: { email: string; password: string; redirectTo
 
   // Only allow relative paths to prevent open redirect
   const safeRedirect = input.redirectTo?.startsWith('/') ? input.redirectTo : '/my-events'
-  redirect(orgId ? safeRedirect : '/super')
+  const destination = orgId ? safeRedirect : '/super'
+
+  // If the user has a TOTP factor enrolled, redirect to MFA verification
+  // before granting access — applies to ALL roles (players, admins, platform admins).
+  const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  if (aalData?.nextLevel === 'aal2' && aalData?.currentLevel === 'aal1') {
+    redirect(`/mfa/verify?redirect=${encodeURIComponent(destination)}`)
+  }
+
+  redirect(destination)
 }
 
 const signUpSchema = z.object({

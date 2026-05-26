@@ -44,6 +44,7 @@ export async function requireOrgMember(org: OrgContext, allowedRoles?: OrgRole[]
  * Require the user to be authenticated (any logged-in user, no org membership check).
  * Use this for public-facing org pages (Leagues, Schedule, Standings).
  * Redirects to /login if not authenticated.
+ * Redirects to /mfa/verify if the user has enrolled MFA but hasn't verified this session.
  */
 export async function requireAuth() {
   const supabase = await createServerClient()
@@ -56,6 +57,17 @@ export async function requireAuth() {
     const returnTo = pathname && pathname !== '/login' ? `?redirect=${encodeURIComponent(pathname)}` : ''
     redirect(`/login${returnTo}`)
   }
+
+  // If the user has a TOTP factor enrolled but hasn't verified it this session,
+  // redirect to the MFA challenge page regardless of role.
+  const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  if (aalData?.nextLevel === 'aal2' && aalData?.currentLevel === 'aal1') {
+    const headersList = await headers()
+    const pathname = headersList.get('x-pathname') ?? ''
+    const returnTo = pathname ? `?redirect=${encodeURIComponent(pathname)}` : ''
+    redirect(`/mfa/verify${returnTo}`)
+  }
+
   return user
 }
 
