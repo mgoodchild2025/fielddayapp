@@ -102,6 +102,8 @@ export async function GET(_req: NextRequest) {
     }
 
     // Step 2: fetch all remaining org-scoped data in parallel
+    // Also fetch auth users as a fallback for players who signed waivers via the
+    // standalone flow (creates a Supabase auth user but no profiles row)
     const [
       { data: profileRows },
       { data: playerDetails },
@@ -109,6 +111,7 @@ export async function GET(_req: NextRequest) {
       { data: waiverSignatures },
       { data: payments },
       { data: gameRsvps },
+      authUsersResult,
     ] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any).from('profiles')
@@ -143,7 +146,17 @@ export async function GET(_req: NextRequest) {
         .select('user_id, game_id, status, created_at')
         .eq('organization_id', org.id)
         .not('user_id', 'is', null),
+
+      // Auth users — fallback for players who have no profiles row (e.g. standalone waiver signers)
+      db.auth.admin.listUsers({ perPage: 1000 }),
     ])
+
+    // Build auth user lookup map for fallback (keyed by user id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const authUserMap = new Map<string, any>()
+    for (const u of authUsersResult?.data?.users ?? []) {
+      if (userIdSet.has(u.id)) authUserMap.set(u.id, u)
+    }
 
     // Build lookup maps
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -201,8 +214,30 @@ export async function GET(_req: NextRequest) {
     // Assemble per-player records
     const players = userIds.map((userId) => {
       const profile = profileMap.get(userId)
+      const authUser = authUserMap.get(userId)
       const orgMembership = orgMemberMap.get(userId)
       const details = playerDetailMap.get(userId)
+
+      // Merge: profiles row wins; fall back to auth.users for players who
+      // signed waivers via the standalone flow (no profiles row created)
+      const profileData = profile ? {
+        full_name: profile.full_name,
+        email: profile.email,
+        phone: profile.phone,
+        date_of_birth: profile.date_of_birth,
+        gender: profile.gender,
+        avatar_url: profile.avatar_url,
+        created_at: profile.created_at,
+      } : authUser ? {
+        full_name: authUser.user_metadata?.full_name ?? null,
+        email: authUser.email ?? null,
+        phone: authUser.phone ?? null,
+        date_of_birth: null,
+        gender: null,
+        avatar_url: null,
+        created_at: authUser.created_at,
+      } : null
+
       return {
         user_id: userId,
         membership: orgMembership ? {
@@ -210,15 +245,7 @@ export async function GET(_req: NextRequest) {
           status: orgMembership.status,
           joined_at: orgMembership.created_at,
         } : null,
-        profile: profile ? {
-          full_name: profile.full_name,
-          email: profile.email,
-          phone: profile.phone,
-          date_of_birth: profile.date_of_birth,
-          gender: profile.gender,
-          avatar_url: profile.avatar_url,
-          created_at: profile.created_at,
-        } : null,
+        profile: profileData,
         player_details: details ? {
           emergency_contact_name: details.emergency_contact_name,
           emergency_contact_phone: details.emergency_contact_phone,
