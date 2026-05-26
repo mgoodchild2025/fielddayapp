@@ -52,33 +52,68 @@ export async function GET(_req: NextRequest) {
       }
     }
 
-    // Step 1: fetch all org members to get user IDs
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: orgMembers } = await (db as any)
-      .from('org_members')
-      .select('user_id, role, status, created_at')
-      .eq('organization_id', org.id)
+    // Step 1: collect user IDs from ALL org-scoped tables (union approach —
+    // some players may exist in registrations/team_members without an org_members row)
+    const [
+      { data: orgMemberRows },
+      { data: registrationRows },
+      { data: teamMemberRows },
+    ] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('org_members')
+        .select('user_id, role, status, created_at')
+        .eq('organization_id', org.id),
 
-    const userIds: string[] = (orgMembers ?? [])
-      .map((m: { user_id: string }) => m.user_id)
-      .filter(Boolean)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('registrations')
+        .select('user_id')
+        .eq('organization_id', org.id)
+        .not('user_id', 'is', null),
 
-    // Step 2: fetch all org-scoped data in parallel
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('team_members')
+        .select('user_id, team_id, role, status, created_at, teams(name)')
+        .eq('organization_id', org.id)
+        .not('user_id', 'is', null),
+    ])
+
+    // Union all user IDs
+    const userIdSet = new Set<string>()
+    for (const r of orgMemberRows ?? []) if (r.user_id) userIdSet.add(r.user_id)
+    for (const r of registrationRows ?? []) if (r.user_id) userIdSet.add(r.user_id)
+    for (const r of teamMemberRows ?? []) if (r.user_id) userIdSet.add(r.user_id)
+    const userIds = Array.from(userIdSet)
+
+    if (userIds.length === 0) {
+      // No players found — return empty export
+      const exportData = {
+        exported_at: new Date().toISOString(),
+        organization: { id: org.id, name: org.name, slug: org.slug },
+        player_count: 0,
+        players: [],
+      }
+      return new NextResponse(JSON.stringify(exportData, null, 2), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Disposition': `attachment; filename="fieldday-player-data-${org.slug}-${new Date().toISOString().slice(0, 10)}.json"`,
+        },
+      })
+    }
+
+    // Step 2: fetch all remaining org-scoped data in parallel
     const [
       { data: profileRows },
       { data: playerDetails },
-      { data: registrations },
-      { data: teamMembers },
+      { data: allRegistrations },
       { data: waiverSignatures },
       { data: payments },
       { data: gameRsvps },
     ] = await Promise.all([
-      userIds.length > 0
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ? (db as any).from('profiles')
-            .select('id, full_name, email, phone, date_of_birth, gender, avatar_url, created_at')
-            .in('id', userIds)
-        : Promise.resolve({ data: [] }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('profiles')
+        .select('id, full_name, email, phone, date_of_birth, gender, avatar_url, created_at')
+        .in('id', userIds),
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any).from('player_details')
@@ -88,17 +123,14 @@ export async function GET(_req: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any).from('registrations')
         .select('user_id, league_id, status, amount_paid_cents, created_at, leagues(name, sport)')
-        .eq('organization_id', org.id),
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('team_members')
-        .select('user_id, team_id, role, status, created_at, teams(name)')
-        .eq('organization_id', org.id),
+        .eq('organization_id', org.id)
+        .not('user_id', 'is', null),
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any).from('waiver_signatures')
         .select('user_id, waiver_id, signed_at, waivers(title)')
-        .eq('organization_id', org.id),
+        .eq('organization_id', org.id)
+        .not('user_id', 'is', null),
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any).from('payments')
@@ -109,32 +141,37 @@ export async function GET(_req: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any).from('game_rsvps')
         .select('user_id, game_id, status, created_at')
-        .eq('organization_id', org.id),
+        .eq('organization_id', org.id)
+        .not('user_id', 'is', null),
     ])
 
-    // Build lookup maps for efficient per-player assembly
+    // Build lookup maps
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const profileMap = new Map<string, any>()
     for (const p of profileRows ?? []) profileMap.set(p.id, p)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const orgMemberMap = new Map<string, any>()
+    for (const m of orgMemberRows ?? []) orgMemberMap.set(m.user_id, m)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const playerDetailMap = new Map<string, any>()
     for (const pd of playerDetails ?? []) playerDetailMap.set(pd.user_id, pd)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const registrationsByUser = new Map<string, any[]>()
-    for (const r of registrations ?? []) {
-      const list = registrationsByUser.get(r.user_id) ?? []
-      list.push(r)
-      registrationsByUser.set(r.user_id, list)
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const teamsByUser = new Map<string, any[]>()
-    for (const tm of teamMembers ?? []) {
+    for (const tm of teamMemberRows ?? []) {
       const list = teamsByUser.get(tm.user_id) ?? []
       list.push(tm)
       teamsByUser.set(tm.user_id, list)
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const registrationsByUser = new Map<string, any[]>()
+    for (const r of allRegistrations ?? []) {
+      const list = registrationsByUser.get(r.user_id) ?? []
+      list.push(r)
+      registrationsByUser.set(r.user_id, list)
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -162,17 +199,17 @@ export async function GET(_req: NextRequest) {
     }
 
     // Assemble per-player records
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const players = (orgMembers ?? []).map((om: any) => {
-      const profile = profileMap.get(om.user_id)
-      const details = playerDetailMap.get(om.user_id)
+    const players = userIds.map((userId) => {
+      const profile = profileMap.get(userId)
+      const orgMembership = orgMemberMap.get(userId)
+      const details = playerDetailMap.get(userId)
       return {
-        user_id: om.user_id,
-        membership: {
-          role: om.role,
-          status: om.status,
-          joined_at: om.created_at,
-        },
+        user_id: userId,
+        membership: orgMembership ? {
+          role: orgMembership.role,
+          status: orgMembership.status,
+          joined_at: orgMembership.created_at,
+        } : null,
         profile: profile ? {
           full_name: profile.full_name,
           email: profile.email,
@@ -190,7 +227,7 @@ export async function GET(_req: NextRequest) {
           notes: details.notes,
         } : null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        registrations: (registrationsByUser.get(om.user_id) ?? []).map((r: any) => ({
+        registrations: (registrationsByUser.get(userId) ?? []).map((r: any) => ({
           league: r.leagues?.name,
           sport: r.leagues?.sport,
           status: r.status,
@@ -198,19 +235,19 @@ export async function GET(_req: NextRequest) {
           registered_at: r.created_at,
         })),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        team_memberships: (teamsByUser.get(om.user_id) ?? []).map((tm: any) => ({
+        team_memberships: (teamsByUser.get(userId) ?? []).map((tm: any) => ({
           team: tm.teams?.name,
           role: tm.role,
           status: tm.status,
           joined_at: tm.created_at,
         })),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        waiver_signatures: (waiversByUser.get(om.user_id) ?? []).map((ws: any) => ({
+        waiver_signatures: (waiversByUser.get(userId) ?? []).map((ws: any) => ({
           waiver: ws.waivers?.title,
           signed_at: ws.signed_at,
         })),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        payments: (paymentsByUser.get(om.user_id) ?? []).map((p: any) => ({
+        payments: (paymentsByUser.get(userId) ?? []).map((p: any) => ({
           amount_cents: p.amount_cents,
           currency: p.currency,
           status: p.status,
@@ -218,7 +255,7 @@ export async function GET(_req: NextRequest) {
           date: p.created_at,
         })),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        game_rsvps: (rsvpsByUser.get(om.user_id) ?? []).map((r: any) => ({
+        game_rsvps: (rsvpsByUser.get(userId) ?? []).map((r: any) => ({
           game_id: r.game_id,
           status: r.status,
           responded_at: r.created_at,
@@ -239,11 +276,7 @@ export async function GET(_req: NextRequest) {
 
     const exportData = {
       exported_at: new Date().toISOString(),
-      organization: {
-        id: org.id,
-        name: org.name,
-        slug: org.slug,
-      },
+      organization: { id: org.id, name: org.name, slug: org.slug },
       player_count: players.length,
       players,
     }
