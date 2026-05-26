@@ -14,6 +14,7 @@ const CATEGORIES = [
   { href: '/admin/settings/event-rules',   label: 'Event Rules',     description: 'Reusable rule templates selectable per event.' },
   { href: '/admin/settings/positions',     label: 'Positions',       description: 'Customise player positions available per sport.' },
   { href: '/admin/settings/discounts',     label: 'Discount Codes',  description: 'Create and manage promo / discount codes.' },
+  { href: '/admin/settings/data',          label: 'Data & Privacy',  description: 'Export player data and manage data retention settings.' },
 ]
 
 export function SettingsNav() {
