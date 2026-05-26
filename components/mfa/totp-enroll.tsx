@@ -11,10 +11,13 @@ interface Props {
   factorId: string
   qrCode: string      // data URI
   secret: string
-  redirect: string
+  /** Navigate here after user acknowledges backup codes (full-page flow) */
+  redirect?: string
+  /** Called instead of router.push when embedded in another page (profile flow) */
+  onComplete?: () => void
 }
 
-export function TotpEnroll({ factorId, qrCode, secret, redirect }: Props) {
+export function TotpEnroll({ factorId, qrCode, secret, redirect, onComplete }: Props) {
   const router = useRouter()
   const [step, setStep] = useState<Step>('scan')
   const [code, setCode] = useState('')
@@ -203,7 +206,13 @@ export function TotpEnroll({ factorId, qrCode, secret, redirect }: Props) {
         </label>
 
         <button
-          onClick={() => router.push(redirect)}
+          onClick={() => {
+            if (onComplete) {
+              onComplete()
+            } else if (redirect) {
+              router.push(redirect)
+            }
+          }}
           disabled={!acknowledged}
           className="w-full py-2.5 px-4 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >

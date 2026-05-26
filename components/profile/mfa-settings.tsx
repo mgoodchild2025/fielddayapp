@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { enrollTotp, verifyEnrollment, unenrollMfa, verifyBackupCode } from '@/actions/mfa'
+import { useRouter } from 'next/navigation'
+import { enrollTotp, unenrollMfa } from '@/actions/mfa'
 import { TotpEnroll } from '@/components/mfa/totp-enroll'
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function MfaSettings({ isEnrolled: initialEnrolled, factorId: initialFactorId }: Props) {
+  const router = useRouter()
   const [enrolled, setEnrolled] = useState(initialEnrolled)
   const [factorId, setFactorId] = useState<string | null>(initialFactorId)
   const [enrolling, setEnrolling] = useState(false)
@@ -30,11 +32,12 @@ export function MfaSettings({ isEnrolled: initialEnrolled, factorId: initialFact
   }
 
   function handleEnrollComplete() {
-    // TotpEnroll redirects on completion; if we're in the profile page context
-    // the user stays here — just update state.
+    // After backup codes are acknowledged, update local state and refresh
+    // the server component to reflect the newly enrolled factor.
     setEnrolled(true)
     setEnrolling(false)
     setEnrollData(null)
+    router.refresh()
   }
 
   async function handleRemove() {
@@ -85,12 +88,11 @@ export function MfaSettings({ isEnrolled: initialEnrolled, factorId: initialFact
 
           {enrolling && enrollData && (
             <div className="mt-4">
-              {/* Reuse TotpEnroll — pass a dummy redirect that won't actually navigate */}
               <TotpEnroll
                 factorId={enrollData.factorId}
                 qrCode={enrollData.qrCode}
                 secret={enrollData.secret}
-                redirect="/profile"
+                onComplete={handleEnrollComplete}
               />
             </div>
           )}
