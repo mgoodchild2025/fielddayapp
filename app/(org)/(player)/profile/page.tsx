@@ -1,5 +1,6 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
@@ -33,6 +34,19 @@ export default async function ProfilePage() {
           My Profile
         </h1>
         <ProfileForm profile={profile} playerDetails={playerDetails} orgId={org.id} />
+
+        {/* Privacy & Data rights link */}
+        <div className="mt-8 pt-6 border-t">
+          <Link
+            href="/profile/privacy"
+            className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            Privacy &amp; Your Data
+          </Link>
+        </div>
       </div>
       <Footer org={org} />
     </div>
