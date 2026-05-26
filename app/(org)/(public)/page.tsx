@@ -19,7 +19,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
       .single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues')
-      .select('id, name, slug, event_type, sport, logo_url, status, season_start_date, price_cents, currency, max_teams, payment_mode, skill_level, days_of_week')
+      .select('id, name, slug, event_type, sport, logo_url, status, season_start_date, price_cents, currency, max_teams, max_participants, payment_mode, skill_level, days_of_week')
       .eq('organization_id', orgId)
       .neq('status', 'draft')
       .neq('status', 'archived')
@@ -87,7 +87,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
     id: string; name: string; slug: string; event_type: string | null; status: string
     sport: string | null; logo_url: string | null
     season_start_date: string | null; price_cents: number; currency: string | null
-    max_teams: number | null; payment_mode: string | null; skill_level: string | null
+    max_teams: number | null; max_participants: number | null; payment_mode: string | null; skill_level: string | null
     days_of_week: string[] | null
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -97,25 +97,41 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
   const inSeasonEvents = leagueList.filter((l) => l.status === 'active')
   const completedEvents = leagueList.filter((l) => l.status === 'completed')
 
-  // Fetch team counts for all open events (no status filter — matches /events page behaviour)
-  const openEventIds = openEvents.map((l) => l.id)
-  const teamCountMap = new Map<string, number>()
-  if (openEventIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any)
-      .from('teams').select('league_id').in('league_id', openEventIds)
-      .then(({ data }: { data: { league_id: string }[] | null }) => {
-        for (const t of data ?? []) teamCountMap.set(t.league_id, (teamCountMap.get(t.league_id) ?? 0) + 1)
-      })
-  }
+  // Fetch capacity counts for open events:
+  //   per_team  → count teams (no status filter, matches /events page)   → cap = max_teams
+  //   per_player → count active/pending registrations                     → cap = max_participants
+  const perTeamOpenIds    = openEvents.filter((l) => l.payment_mode === 'per_team').map((l) => l.id)
+  const perPlayerOpenIds  = openEvents.filter((l) => l.payment_mode !== 'per_team' && l.max_participants !== null).map((l) => l.id)
+
+  const teamCountMap         = new Map<string, number>()
+  const registrationCountMap = new Map<string, number>()
+
+  await Promise.all([
+    perTeamOpenIds.length > 0
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any).from('teams').select('league_id').in('league_id', perTeamOpenIds)
+          .then(({ data }: { data: { league_id: string }[] | null }) => {
+            for (const t of data ?? []) teamCountMap.set(t.league_id, (teamCountMap.get(t.league_id) ?? 0) + 1)
+          })
+      : Promise.resolve(),
+    perPlayerOpenIds.length > 0
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any).from('registrations').select('league_id').in('league_id', perPlayerOpenIds).in('status', ['active', 'pending'])
+          .then(({ data }: { data: { league_id: string }[] | null }) => {
+            for (const r of data ?? []) registrationCountMap.set(r.league_id, (registrationCountMap.get(r.league_id) ?? 0) + 1)
+          })
+      : Promise.resolve(),
+  ])
 
   // Unified spots map — consumed by all theme components
-  // max_teams is the team cap for per_team events; per_player events use it too for team-slot capacity
   type SpotsEntry = { filled: number; max: number | null; unit: 'team' | 'player' }
   const spotsMap = new Map<string, SpotsEntry>()
   for (const l of openEvents) {
-    const unit: 'team' | 'player' = l.payment_mode === 'per_team' ? 'team' : 'player'
-    spotsMap.set(l.id, { filled: teamCountMap.get(l.id) ?? 0, max: l.max_teams, unit })
+    if (l.payment_mode === 'per_team') {
+      spotsMap.set(l.id, { filled: teamCountMap.get(l.id) ?? 0, max: l.max_teams, unit: 'team' })
+    } else {
+      spotsMap.set(l.id, { filled: registrationCountMap.get(l.id) ?? 0, max: l.max_participants, unit: 'player' })
+    }
   }
 
   // Process recent results for Pro theme (field names match ProHome's RecentResult type)
