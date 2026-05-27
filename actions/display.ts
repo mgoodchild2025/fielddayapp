@@ -223,53 +223,92 @@ export async function getDisplayData(
   // ── Bracket ─────────────────────────────────────────────────────────────────
   let bracket: DisplayData['bracket'] = null
   if (needsBracket) {
+    // Collect bracket references: try playoff_tiers (Gold/Silver/etc.) first,
+    // then fall back to fetching the most recent bracket directly.
+    type BracketRef = { bracketId: string; tierName: string | null }
+    const bracketRefs: BracketRef[] = []
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: bracketRow } = await (db as any)
-      .from('brackets')
-      .select('id, bracket_size')
+    const { data: configRow } = await (db as any)
+      .from('playoff_configs')
+      .select('id')
       .eq('league_id', leagueId)
       .eq('organization_id', orgId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle() as { data: { id: string; bracket_size: number } | null }
+      .maybeSingle() as { data: { id: string } | null }
 
-    if (bracketRow) {
+    if (configRow) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: matchesData } = await (db as any)
-        .from('bracket_matches')
-        .select(`
-          id, round_number, match_number, score1, score2, status,
-          team1_label, team2_label,
-          team1:teams!bracket_matches_team1_id_fkey(name),
-          team2:teams!bracket_matches_team2_id_fkey(name),
-          winner:teams!bracket_matches_winner_team_id_fkey(id)
-        `)
-        .eq('bracket_id', bracketRow.id)
-        .order('round_number').order('match_number')
+      const { data: tiersData } = await (db as any)
+        .from('playoff_tiers')
+        .select('name, bracket_id, sort_order')
+        .eq('config_id', configRow.id)
+        .not('bracket_id', 'is', null)
+        .order('sort_order') as { data: { name: string; bracket_id: string; sort_order: number }[] | null }
 
+      for (const t of tiersData ?? []) {
+        if (t.bracket_id) bracketRefs.push({ bracketId: t.bracket_id, tierName: t.name })
+      }
+    }
+
+    // Fallback: no tiers configured — fetch the most recently created bracket
+    if (bracketRefs.length === 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const matches: DisplayBracketMatch[] = (matchesData ?? []).map((m: any) => {
-        const t1 = Array.isArray(m.team1) ? m.team1[0] : m.team1
-        const t2 = Array.isArray(m.team2) ? m.team2[0] : m.team2
-        const w  = Array.isArray(m.winner) ? m.winner[0] : m.winner
-        return {
-          id:           m.id,
-          round_number: m.round_number,
-          match_number: m.match_number,
-          team1_name:   t1?.name ?? m.team1_label ?? null,
-          team2_name:   t2?.name ?? m.team2_label ?? null,
-          score1:       m.score1 ?? null,
-          score2:       m.score2 ?? null,
-          winner_id:    w?.id ?? null,
-          status:       m.status ?? 'pending',
-          is_bye:       m.team2_label === 'Bye',
-        } satisfies DisplayBracketMatch
-      })
+      const { data: bracketRow } = await (db as any)
+        .from('brackets')
+        .select('id')
+        .eq('league_id', leagueId)
+        .eq('organization_id', orgId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle() as { data: { id: string } | null }
 
-      const rounds = matches.length > 0
-        ? Math.max(...matches.map((m) => m.round_number))
-        : 0
-      bracket = { rounds, matches }
+      if (bracketRow) bracketRefs.push({ bracketId: bracketRow.id, tierName: null })
+    }
+
+    if (bracketRefs.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fetchMatches = async (bracketId: string): Promise<DisplayBracketMatch[]> => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: matchesData } = await (db as any)
+          .from('bracket_matches')
+          .select(`
+            id, round_number, match_number, score1, score2, status,
+            team1_label, team2_label,
+            team1:teams!bracket_matches_team1_id_fkey(name),
+            team2:teams!bracket_matches_team2_id_fkey(name),
+            winner:teams!bracket_matches_winner_team_id_fkey(id)
+          `)
+          .eq('bracket_id', bracketId)
+          .order('round_number').order('match_number')
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return (matchesData ?? []).map((m: any) => {
+          const t1 = Array.isArray(m.team1) ? m.team1[0] : m.team1
+          const t2 = Array.isArray(m.team2) ? m.team2[0] : m.team2
+          const w  = Array.isArray(m.winner) ? m.winner[0] : m.winner
+          return {
+            id:           m.id,
+            round_number: m.round_number,
+            match_number: m.match_number,
+            team1_name:   t1?.name ?? m.team1_label ?? null,
+            team2_name:   t2?.name ?? m.team2_label ?? null,
+            score1:       m.score1 ?? null,
+            score2:       m.score2 ?? null,
+            winner_id:    w?.id ?? null,
+            status:       m.status ?? 'pending',
+            is_bye:       m.team2_label === 'Bye',
+          } satisfies DisplayBracketMatch
+        })
+      }
+
+      const tiers = await Promise.all(
+        bracketRefs.map(async ({ bracketId, tierName }) => ({
+          name:    tierName,
+          matches: await fetchMatches(bracketId),
+        }))
+      )
+
+      bracket = { tiers }
     }
   }
 

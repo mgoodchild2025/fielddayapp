@@ -1,55 +1,284 @@
 import type { DisplayBracketMatch, ZoneConfig } from '@/lib/display-types'
 import { FitContent } from './fit-content'
 
+type Tier = { name: string | null; matches: DisplayBracketMatch[] }
+
 interface Props {
-  bracket: { rounds: number; matches: DisplayBracketMatch[] } | null
+  bracket: { tiers: Tier[] } | null
   config:  Extract<ZoneConfig, { type: 'bracket' }>
   theme:   'dark' | 'light'
 }
 
-/**
- * Round numbers in the DB are inverted — round_number=1 is always the Final,
- * round_number=2 is Semi-Finals, round_number=4 is Quarter-Finals, and the
- * first round (most matches) gets the highest number.
- */
+// ── Layout constants ──────────────────────────────────────────────────────────
+// These mirror the admin BracketDiagram constants (148px match height, 24px gap,
+// 224px column width) but scaled down for TV display — no edit buttons needed.
+const MATCH_H  = 80    // height of each match card in px
+const MATCH_GAP = 20   // vertical gap between cards in the same round
+const COL_W    = 216   // full column width (match card sits with 8px inset each side)
+const ARM_W    = 8     // width of each horizontal connector arm (left and right)
+
+// ── Round label ───────────────────────────────────────────────────────────────
+// round_number in the DB is inverted: 1 = Final, 2 = Semis, 4 = QF, etc.
 function getRoundLabel(roundNumber: number): string {
   if (roundNumber === 1) return 'Final'
   if (roundNumber === 2) return 'Semi-Finals'
   if (roundNumber === 4) return 'Quarter-Finals'
-  const teamsInRound = roundNumber * 2
-  if (teamsInRound === 16) return 'Round of 16'
-  if (teamsInRound === 8) return 'Round of 8'
-  if (teamsInRound >= 32) return `Round of ${teamsInRound}`
-  return `Round of ${teamsInRound}`
+  return `Round of ${roundNumber * 2}`
 }
 
-/**
- * Returns the subset of round numbers to show, given all unique round numbers
- * (sorted high → low, i.e. first round → final).
- */
+// ── Round filter ──────────────────────────────────────────────────────────────
+// allRounds is sorted high → low (first round first, final last).
 function getVisibleRoundNums(
   allRounds: number[],
   filter: Extract<ZoneConfig, { type: 'bracket' }>['round_filter'],
 ): number[] {
   switch (filter) {
-    // ── Single-round views (by known round_number) ────────────────────────────
     case 'final':    return allRounds.filter((r) => r === 1)
     case 'semis':    return allRounds.filter((r) => r === 2)
     case 'quarters': return allRounds.filter((r) => r === 4)
-    // "first" = highest round_number = the opening round with the most matches
     case 'first':    return allRounds.length > 0 ? [allRounds[0]] : []
-    // ── Multi-round views (last N in bracket order, final on the right) ───────
-    // allRounds is high→low, so "last 2" = last 2 elements = [semis, final]
-    case 'last_2':   return allRounds.slice(-2)
+    case 'last_2':   return allRounds.slice(-2)   // last 2 before final (semis + final)
     case 'last_3':   return allRounds.slice(-3)
     default:         return allRounds
   }
 }
 
+// ── Match card ────────────────────────────────────────────────────────────────
+function MatchCard({ match, isDark }: { match: DisplayBracketMatch; isDark: boolean }) {
+  const t1Wins  = match.score1 !== null && match.score2 !== null && match.score1 > match.score2
+  const t2Wins  = match.score1 !== null && match.score2 !== null && match.score2 > match.score1
+  const hasScore = match.score1 !== null || match.score2 !== null
+  // TBD match — both team slots empty and no score
+  const isTbd   = !hasScore && match.team1_name === null && match.team2_name === null
+
+  const border = isDark ? '#3f3f46' : '#e5e7eb'
+  const bg     = isDark ? '#18181b' : '#ffffff'
+  const divBg  = isDark ? 'rgba(6,78,59,0.30)' : '#f0fdf4'
+
+  const nameColor = (wins: boolean, bye: boolean) => {
+    if (bye)       return isDark ? '#52525b' : '#d1d5db'
+    if (wins)      return isDark ? '#6ee7b7' : '#065f46'
+    if (hasScore)  return isDark ? '#71717a' : '#9ca3af'
+    return isDark ? '#e4e4e7' : '#111827'
+  }
+
+  const scoreColor = (wins: boolean) =>
+    wins ? (isDark ? '#6ee7b7' : '#065f46') : (isDark ? '#71717a' : '#6b7280')
+
+  return (
+    <div style={{
+      width: '100%',
+      height: MATCH_H,
+      borderRadius: 8,
+      overflow: 'hidden',
+      border: `1px solid ${border}`,
+      backgroundColor: bg,
+      opacity: isTbd ? 0.45 : 1,
+      fontSize: 13,
+      lineHeight: 1,
+    }}>
+      {/* Team 1 row */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 10px',
+        height: MATCH_H / 2,
+        borderBottom: `1px solid ${border}`,
+        backgroundColor: t1Wins ? divBg : 'transparent',
+      }}>
+        <span style={{
+          fontWeight: 600,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          flex: 1,
+          color: nameColor(t1Wins, false),
+        }}>
+          {match.team1_name ?? '—'}
+        </span>
+        {match.score1 !== null && (
+          <span style={{
+            fontWeight: 700,
+            fontVariantNumeric: 'tabular-nums',
+            marginLeft: 6,
+            flexShrink: 0,
+            color: scoreColor(t1Wins),
+          }}>
+            {match.score1}
+          </span>
+        )}
+      </div>
+
+      {/* Team 2 row */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 10px',
+        height: MATCH_H / 2,
+        backgroundColor: t2Wins ? divBg : 'transparent',
+      }}>
+        <span style={{
+          fontWeight: 600,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          flex: 1,
+          color: nameColor(t2Wins, match.is_bye),
+          fontStyle: match.is_bye ? 'italic' : 'normal',
+        }}>
+          {match.is_bye ? 'Bye' : (match.team2_name ?? '—')}
+        </span>
+        {match.score2 !== null && !match.is_bye && (
+          <span style={{
+            fontWeight: 700,
+            fontVariantNumeric: 'tabular-nums',
+            marginLeft: 6,
+            flexShrink: 0,
+            color: scoreColor(t2Wins),
+          }}>
+            {match.score2}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Single-tier bracket diagram with connecting lines ─────────────────────────
+function TierDiagram({
+  tier,
+  filter,
+  isDark,
+}: {
+  tier: Tier
+  filter: Extract<ZoneConfig, { type: 'bracket' }>['round_filter']
+  isDark: boolean
+}) {
+  const { matches } = tier
+
+  // Derive unique round numbers from actual data, sorted high → low
+  // (high = first/opening round with most matches, 1 = final)
+  const allRoundNums = [...new Set(matches.map((m) => m.round_number))].sort((a, b) => b - a)
+  const visibleRoundNums = getVisibleRoundNums(allRoundNums, filter)
+  if (visibleRoundNums.length === 0) return null
+
+  // Group matches by round and sort by match_number within each round
+  const byRound = new Map<number, DisplayBracketMatch[]>()
+  for (const r of visibleRoundNums) byRound.set(r, [])
+  for (const m of matches) {
+    if (byRound.has(m.round_number)) byRound.get(m.round_number)!.push(m)
+  }
+  for (const [r, ms] of byRound) {
+    byRound.set(r, [...ms].sort((a, b) => a.match_number - b.match_number))
+  }
+
+  // totalHeight is determined by the first (most-match) round
+  const firstRoundCount = (byRound.get(visibleRoundNums[0]) ?? []).length
+  const totalH = firstRoundCount * (MATCH_H + MATCH_GAP) - MATCH_GAP
+
+  const numCols = visibleRoundNums.length
+  // Each column occupies COL_W + ARM_W on the right (connector arm space).
+  // The last column needs no right arm, so total = numCols * COL_W + (numCols - 1) * ARM_W * 2
+  const totalW = numCols * COL_W + Math.max(0, numCols - 1) * ARM_W * 2
+
+  const lineColor = isDark ? '#4b5563' : '#9ca3af'
+
+  return (
+    <div style={{ position: 'relative', width: totalW }}>
+      {/* Round labels */}
+      <div style={{ display: 'flex', marginBottom: 6 }}>
+        {visibleRoundNums.map((rn) => (
+          <div key={rn} style={{ width: COL_W + (ARM_W * 2), flexShrink: 0, textAlign: 'center' }}>
+            <span style={{
+              fontSize: 10,
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              color: isDark ? '#71717a' : '#9ca3af',
+            }}>
+              {getRoundLabel(rn)}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Match columns — flex row, each column is position:relative */}
+      <div style={{ display: 'flex', height: totalH }}>
+        {visibleRoundNums.map((roundNum, colIdx) => {
+          const roundMatches = byRound.get(roundNum) ?? []
+          const matchesInRound = roundMatches.length
+          const slotH = totalH / matchesInRound
+          const isLastCol = colIdx === numCols - 1
+
+          return (
+            <div
+              key={roundNum}
+              style={{
+                width: COL_W + ARM_W * 2,
+                flexShrink: 0,
+                position: 'relative',
+                height: totalH,
+              }}
+            >
+              {roundMatches.map((match, i) => {
+                // Centre each match card within its vertical slot
+                const top = i * slotH + (slotH - MATCH_H) / 2
+
+                return (
+                  <div
+                    key={match.id}
+                    style={{ position: 'absolute', top, left: ARM_W, right: ARM_W }}
+                  >
+                    {/* Right horizontal arm — connects this card to the next column's bracket */}
+                    {!isLastCol && (
+                      <div style={{
+                        position: 'absolute',
+                        right: -(ARM_W * 2),
+                        top: MATCH_H / 2,
+                        width: ARM_W * 2,
+                        height: 1,
+                        backgroundColor: lineColor,
+                      }} />
+                    )}
+
+                    {/* Left bracket — the ⊏-shaped connector from the previous column.
+                        The bracket spans slotH/2 centred on this match's midpoint.
+                        This correctly brackets the two predecessor matches whose
+                        combined slot height equals slotH. */}
+                    {colIdx > 0 && (
+                      <div style={{
+                        position: 'absolute',
+                        left: -(ARM_W * 2),
+                        top: MATCH_H / 2 - slotH / 4,
+                        width: ARM_W * 2,
+                        height: slotH / 2,
+                        borderLeft:   `1px solid ${lineColor}`,
+                        borderTop:    `1px solid ${lineColor}`,
+                        borderBottom: `1px solid ${lineColor}`,
+                      }} />
+                    )}
+
+                    <MatchCard match={match} isDark={isDark} />
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Main BracketZone ──────────────────────────────────────────────────────────
 export function BracketZone({ bracket, config, theme }: Props) {
   const isDark = theme === 'dark'
 
-  if (!bracket || bracket.matches.length === 0) {
+  const activeTiers = bracket?.tiers.filter((t) => t.matches.length > 0) ?? []
+
+  if (activeTiers.length === 0) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
         <div className={`px-4 py-2 shrink-0 border-b ${isDark ? 'border-zinc-700' : 'border-gray-200'}`}>
@@ -64,23 +293,8 @@ export function BracketZone({ bracket, config, theme }: Props) {
     )
   }
 
-  const { matches } = bracket
-
-  // Derive the unique round numbers present in the data, sorted high → low
-  // (high = first round with most matches, low = 1 = final)
-  const allRoundNums = [...new Set(matches.map((m) => m.round_number))].sort((a, b) => b - a)
-
-  // Apply the round filter to get which rounds to display
-  const visibleRoundNums = getVisibleRoundNums(allRoundNums, config.round_filter)
-
-  // Group matches by round_number
-  const byRound = new Map<number, DisplayBracketMatch[]>()
-  for (const r of visibleRoundNums) byRound.set(r, [])
-  for (const m of matches) {
-    if (byRound.has(m.round_number)) {
-      byRound.get(m.round_number)!.push(m)
-    }
-  }
+  // Only show tier names when there are multiple tiers and at least one has a name
+  const showTierNames = activeTiers.length > 1 && activeTiers.some((t) => t.name)
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -90,84 +304,25 @@ export function BracketZone({ bracket, config, theme }: Props) {
         </h2>
       </div>
 
-      {/* Auto-fit bracket — all visible rounds scale to fill the zone */}
       <FitContent>
-        <div className="flex gap-3 p-3 items-start">
-          {visibleRoundNums.map((roundNum) => {
-            const roundMatches = byRound.get(roundNum) ?? []
-            return (
-              <div key={roundNum} className="flex flex-col gap-2 min-w-[180px]">
-                {/* Round header */}
-                <div className={`text-xs font-bold uppercase tracking-wider text-center pb-1 ${
-                  isDark ? 'text-zinc-400' : 'text-gray-500'
-                }`}>
-                  {getRoundLabel(roundNum)}
+        <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {activeTiers.map((tier, i) => (
+            <div key={i}>
+              {showTierNames && tier.name && (
+                <div style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.12em',
+                  marginBottom: 10,
+                  color: isDark ? '#a1a1aa' : '#6b7280',
+                }}>
+                  {tier.name}
                 </div>
-
-                {/* Matches in this round */}
-                {roundMatches.map((m) => {
-                  const t1Wins = m.score1 !== null && m.score2 !== null && m.score1 > m.score2
-                  const t2Wins = m.score1 !== null && m.score2 !== null && m.score2 > m.score1
-                  const hasScore = m.score1 !== null || m.score2 !== null
-
-                  return (
-                    <div
-                      key={m.id}
-                      className={`rounded-lg overflow-hidden border text-sm ${
-                        isDark ? 'border-zinc-700 bg-zinc-900' : 'border-gray-200 bg-white'
-                      } ${m.is_bye ? 'opacity-50' : ''}`}
-                    >
-                      {/* Team 1 */}
-                      <div className={`flex items-center justify-between px-3 py-2 border-b ${
-                        isDark ? 'border-zinc-700' : 'border-gray-100'
-                      } ${t1Wins ? isDark ? 'bg-emerald-900/30' : 'bg-emerald-50' : ''}`}>
-                        <span className={`font-semibold truncate ${
-                          t1Wins
-                            ? isDark ? 'text-emerald-300' : 'text-emerald-700'
-                            : !hasScore
-                            ? isDark ? 'text-zinc-200' : 'text-gray-800'
-                            : isDark ? 'text-zinc-400' : 'text-gray-400'
-                        }`}>
-                          {m.team1_name ?? '—'}
-                        </span>
-                        {m.score1 !== null && (
-                          <span className={`font-bold tabular-nums ml-2 shrink-0 ${
-                            t1Wins ? isDark ? 'text-emerald-300' : 'text-emerald-700' : isDark ? 'text-zinc-400' : 'text-gray-500'
-                          }`}>
-                            {m.score1}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Team 2 */}
-                      <div className={`flex items-center justify-between px-3 py-2 ${
-                        t2Wins ? isDark ? 'bg-emerald-900/30' : 'bg-emerald-50' : ''
-                      }`}>
-                        <span className={`font-semibold truncate ${
-                          m.is_bye
-                            ? isDark ? 'text-zinc-600' : 'text-gray-300'
-                            : t2Wins
-                            ? isDark ? 'text-emerald-300' : 'text-emerald-700'
-                            : !hasScore
-                            ? isDark ? 'text-zinc-200' : 'text-gray-800'
-                            : isDark ? 'text-zinc-400' : 'text-gray-400'
-                        }`}>
-                          {m.is_bye ? 'Bye' : (m.team2_name ?? '—')}
-                        </span>
-                        {m.score2 !== null && !m.is_bye && (
-                          <span className={`font-bold tabular-nums ml-2 shrink-0 ${
-                            t2Wins ? isDark ? 'text-emerald-300' : 'text-emerald-700' : isDark ? 'text-zinc-400' : 'text-gray-500'
-                          }`}>
-                            {m.score2}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )
-          })}
+              )}
+              <TierDiagram tier={tier} filter={config.round_filter} isDark={isDark} />
+            </div>
+          ))}
         </div>
       </FitContent>
     </div>

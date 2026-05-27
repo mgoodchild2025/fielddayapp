@@ -123,5 +123,5 @@ export interface DisplayData {
   pools:     { id: string; name: string }[]
   games:     DisplayGame[]
   standings: DisplayStanding[]
-  bracket:   { rounds: number; matches: DisplayBracketMatch[] } | null
+  bracket:   { tiers: { name: string | null; matches: DisplayBracketMatch[] }[] } | null
 }
