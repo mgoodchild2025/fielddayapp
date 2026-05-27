@@ -83,7 +83,7 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+    const { error: updateError } = await (supabase as any)
       .from('subscriptions')
       .update({
         plan_tier: 'free',
@@ -93,10 +93,15 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
       })
       .eq('organization_id', org.id)
 
+    if (updateError) {
+      console.error('[billing] switchToFreePlan DB error:', updateError)
+      return { error: updateError.message }
+    }
+
     return { error: null }
   } catch (err) {
     console.error('[billing] switchToFreePlan error:', err)
-    return { error: 'An unexpected error occurred. Please try again.' }
+    return { error: err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.' }
   }
 }
 
