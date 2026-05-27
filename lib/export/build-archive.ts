@@ -132,7 +132,7 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
     created_at: l.created_at ?? '',
     updated_at: l.updated_at ?? '',
   }))
-  await addFile('leagues/leagues.csv', toCsvBytes(leaguesCsv), leaguesCsv.length)
+  await addFile('leagues/leagues.csv', toCsvBytes(leaguesCsv, ['league_id','name','sport','description','event_type','status','max_teams','max_participants','registration_opens_at','registration_closes_at','start_date','end_date','slug','created_at','updated_at']), leaguesCsv.length)
 
   // ── leagues/divisions.csv (pools) ────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -143,7 +143,7 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
     sort_order: p.sort_order ?? 0,
     created_at: p.created_at ?? '',
   }))
-  await addFile('leagues/divisions.csv', toCsvBytes(divisionsCsv), divisionsCsv.length)
+  await addFile('leagues/divisions.csv', toCsvBytes(divisionsCsv, ['division_id','league_id','name','sort_order','created_at']), divisionsCsv.length)
 
   // ── teams/teams.csv ───────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -156,7 +156,7 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
     logo_url: t.logo_url ?? '',
     created_at: t.created_at ?? '',
   }))
-  await addFile('teams/teams.csv', toCsvBytes(teamsCsv), teamsCsv.length)
+  await addFile('teams/teams.csv', toCsvBytes(teamsCsv, ['team_id','league_id','division_id','name','color','logo_url','created_at']), teamsCsv.length)
 
   // ── teams/rosters.csv ─────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -170,7 +170,7 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
     joined_at: tm.created_at ?? '',
     left_at: tm.left_at ?? '',
   }))
-  await addFile('teams/rosters.csv', toCsvBytes(rostersCsv), rostersCsv.length)
+  await addFile('teams/rosters.csv', toCsvBytes(rostersCsv, ['roster_id','team_id','player_id','role','status','jersey_number','joined_at','left_at']), rostersCsv.length)
 
   // ── players/players.csv ───────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -192,7 +192,7 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
       updated_at: p?.updated_at ?? '',
     }
   })
-  await addFile('players/players.csv', toCsvBytes(playersCsv), playersCsv.length)
+  await addFile('players/players.csv', toCsvBytes(playersCsv, ['player_id','first_name','last_name','email','phone','status','created_at','updated_at']), playersCsv.length)
 
   // ── players/participation-history.csv ─────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -204,7 +204,7 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
     amount_paid_cents: r.amount_paid_cents ?? 0,
     registered_at: r.created_at ?? '',
   }))
-  await addFile('players/participation-history.csv', toCsvBytes(participationCsv), participationCsv.length)
+  await addFile('players/participation-history.csv', toCsvBytes(participationCsv, ['participation_id','player_id','league_id','status','amount_paid_cents','registered_at']), participationCsv.length)
 
   // ── players/player-consents.csv (waiver signatures) ─────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -218,7 +218,7 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
     ip_address: ws.ip_address ?? '',
     league_id: ws.league_id ?? '',
   }))
-  await addFile('players/player-consents.csv', toCsvBytes(consentsCsv), consentsCsv.length)
+  await addFile('players/player-consents.csv', toCsvBytes(consentsCsv, ['consent_id','player_id','waiver_id','consent_type','consent_given','signed_at','ip_address','league_id']), consentsCsv.length)
 
   // ── games/games.csv ───────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -236,7 +236,7 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
     cancellation_reason: g.cancellation_reason ?? '',
     created_at: g.created_at ?? '',
   }))
-  await addFile('games/games.csv', toCsvBytes(gamesCsv), gamesCsv.length)
+  await addFile('games/games.csv', toCsvBytes(gamesCsv, ['game_id','league_id','home_team_id','away_team_id','home_team_label','away_team_label','scheduled_at','court','week_number','status','cancellation_reason','created_at']), gamesCsv.length)
 
   // ── games/game-results.csv ────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -252,7 +252,7 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
     confirmed_by: r.confirmed_by ?? '',
     confirmed_at: r.confirmed_at ?? '',
   }))
-  await addFile('games/game-results.csv', toCsvBytes(resultsCsv), resultsCsv.length)
+  await addFile('games/game-results.csv', toCsvBytes(resultsCsv, ['result_id','game_id','home_score','away_score','sets','status','recorded_by','recorded_at','confirmed_by','confirmed_at']), resultsCsv.length)
 
   // ── games/player-stats.csv ────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -265,12 +265,12 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
     stat_value: s.value ?? '',
     recorded_at: s.created_at ?? '',
   }))
-  await addFile('games/player-stats.csv', toCsvBytes(statsCsv), statsCsv.length)
+  await addFile('games/player-stats.csv', toCsvBytes(statsCsv, ['stat_id','game_id','player_id','team_id','stat_name','stat_value','recorded_at']), statsCsv.length)
 
   // ── games/standings.csv ───────────────────────────────────────────────────
   // Compute standings from game results per league
   const standingsCsv = computeStandings(games, gameResults, now.toISOString().slice(0, 10))
-  await addFile('games/standings.csv', toCsvBytes(standingsCsv), standingsCsv.length)
+  await addFile('games/standings.csv', toCsvBytes(standingsCsv, ['standing_id','league_id','team_id','as_of_date','games_played','wins','losses','ties','points','ranking']), standingsCsv.length)
 
   // ── financial/transactions.csv ────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -288,7 +288,7 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
     created_at: p.created_at ?? '',
     refunded_at: p.refunded_at ?? '',
   }))
-  await addFile('financial/transactions.csv', toCsvBytes(transactionsCsv), transactionsCsv.length)
+  await addFile('financial/transactions.csv', toCsvBytes(transactionsCsv, ['transaction_id','player_id','league_id','team_id','description','amount_cents','currency','status','processor','processor_reference','created_at','refunded_at']), transactionsCsv.length)
 
   // ── waivers/waivers.csv ───────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -299,7 +299,7 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
     is_active: w.is_active ?? false,
     created_at: w.created_at ?? '',
   }))
-  await addFile('waivers/waivers.csv', toCsvBytes(waiversCsv), waiversCsv.length)
+  await addFile('waivers/waivers.csv', toCsvBytes(waiversCsv, ['waiver_id','title','version','is_active','created_at']), waiversCsv.length)
 
   // ── media/media-index.csv ─────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -312,7 +312,7 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
     display_order: p.display_order ?? 0,
     uploaded_at: p.created_at ?? '',
   }))
-  await addFile('media/media-index.csv', toCsvBytes(mediaIndexCsv), mediaIndexCsv.length)
+  await addFile('media/media-index.csv', toCsvBytes(mediaIndexCsv, ['media_id','entity_type','entity_id','url','caption','display_order','uploaded_at']), mediaIndexCsv.length)
 
   // ── manifest.json ─────────────────────────────────────────────────────────
   const totalRecords = manifestFiles.reduce((sum, f) => sum + f.rows, 0)

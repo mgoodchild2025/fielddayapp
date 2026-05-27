@@ -6,12 +6,22 @@ const BOM = '\xEF\xBB\xBF'
 /**
  * Converts an array of objects to a CSV string with UTF-8 BOM.
  * Returns a Uint8Array suitable for inclusion in a ZIP archive.
+ *
+ * @param rows     Data rows to serialise.
+ * @param columns  Expected column names. When rows is empty these are used to
+ *                 write a header-only file so the file is readable and clearly
+ *                 structured rather than containing only the raw BOM bytes.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function toCsvBytes(rows: any[]): Uint8Array {
+export function toCsvBytes(rows: any[], columns?: string[]): Uint8Array {
   if (rows.length === 0) {
-    const empty = BOM + '\n'
-    return new TextEncoder().encode(empty)
+    // Write header row using supplied column names so the file is useful even
+    // when the table has no data.  Without this, the file contains only the
+    // UTF-8 BOM (EF BB BF), which appears as "ï»¿" in Latin-1 editors.
+    const header = columns && columns.length > 0
+      ? BOM + columns.map(c => `"${c}"`).join(',') + '\n'
+      : BOM + '\n'
+    return new TextEncoder().encode(header)
   }
   const csv = Papa.unparse(rows, {
     quotes: true,       // always quote fields
