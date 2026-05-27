@@ -1,6 +1,19 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 const EMAIL_FROM = process.env.EMAIL_FROM ?? 'noreply@fielddayapp.ca'
 
+/**
+ * Shared compliance footer for all transactional emails.
+ * Identifies the sender and explains why the recipient is getting the email.
+ */
+function buildTransactionalFooter(orgName: string): string {
+  return `<div style="margin-top:24px;padding-top:16px;border-top:1px solid #f3f4f6;">
+    <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;line-height:1.6;">
+      You&rsquo;re receiving this email because of your activity with <strong>${orgName}</strong>, powered by Fieldday.<br>
+      To manage your notification preferences, log in and visit your profile settings.
+    </p>
+  </div>`
+}
+
 interface SendEmailOptions {
   to: string
   subject: string
@@ -86,6 +99,7 @@ export function buildJoinRequestEmail({
       <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">
         Log in to approve or decline from the team page.
       </p>
+      ${buildTransactionalFooter(orgName)}
     </div>
   </div>
 </body>
@@ -120,6 +134,7 @@ export function buildJoinApprovedEmail({
           View Your Team →
         </a>
       </div>
+      ${buildTransactionalFooter(orgName)}
     </div>
   </div>
 </body>
@@ -147,6 +162,7 @@ export function buildJoinDeclinedEmail({
         Your request to join <strong>${teamName}</strong> was not approved at this time.
         Reach out to the team captain or organiser for more information.
       </p>
+      ${buildTransactionalFooter(orgName)}
     </div>
   </div>
 </body>
@@ -191,6 +207,7 @@ export function buildRosterReminderEmail({
       <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">
         Complete your registration and waiver if you haven&rsquo;t already.
       </p>
+      ${buildTransactionalFooter(orgName)}
     </div>
   </div>
 </body>
@@ -234,6 +251,7 @@ export function buildPickupInviteEmail({
       <p style="color:#9ca3af;font-size:12px;text-align:center;margin:16px 0 0;">
         You&rsquo;ll need to log in or create an account with this email address to access the event.
       </p>
+      ${buildTransactionalFooter(orgName)}
     </div>
   </div>
 </body>
@@ -271,6 +289,7 @@ export function buildCaptainAssignedEmail({
           Go to My Team →
         </a>
       </div>
+      ${buildTransactionalFooter(orgName)}
     </div>
   </div>
 </body>
@@ -309,6 +328,7 @@ export function buildTeamAddedEmail({
           View Team
         </a>
       </div>
+      ${buildTransactionalFooter(orgName)}
     </div>
   </div>
 </body>
@@ -357,6 +377,7 @@ export function buildOrganizerInviteEmail({
       <p style="color:#111827;font-size:15px;font-weight:700;font-style:italic;text-align:center;margin:24px 0 0;">
         Have a field day! ⚡
       </p>
+      ${buildTransactionalFooter(orgName)}
     </div>
   </div>
 </body>
@@ -405,6 +426,7 @@ export function buildTeamInviteEmail({
       <p style="color:#d1d5db;font-size:12px;text-align:center;margin:16px 0 0;">
         This invitation expires in 7 days.
       </p>
+      ${buildTransactionalFooter(orgName)}
     </div>
   </div>
 </body>
@@ -463,6 +485,7 @@ export function buildGameSubInviteEmail({
       <p style="color:#d1d5db;font-size:12px;text-align:center;margin:0;">
         This invite expires in 7 days.
       </p>
+      ${buildTransactionalFooter(orgName)}
     </div>
   </div>
 </body>

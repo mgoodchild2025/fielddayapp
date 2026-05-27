@@ -79,6 +79,9 @@ export async function sendRegistrationConfirmation({
         <div style="margin-top: 32px; padding: 16px; background: #f9f9f9; border-radius: 8px; font-size: 14px; color: #666;">
           Questions? Reply to this email and we'll get back to you.
         </div>
+        <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 24px 0 0; border-top: 1px solid #f3f4f6; padding-top: 16px; line-height: 1.6;">
+          You&rsquo;re receiving this because you registered for an event with <strong>${esc(orgName)}</strong>, powered by Fieldday.
+        </p>
       </div>
     `,
   })
@@ -119,6 +122,9 @@ export async function sendWaiverSigningRequest({
         <div style="margin-top: 32px; padding: 16px; background: #f9f9f9; border-radius: 8px; font-size: 14px; color: #666;">
           Questions? Reply to this email.
         </div>
+        <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 24px 0 0; border-top: 1px solid #f3f4f6; padding-top: 16px; line-height: 1.6;">
+          You&rsquo;re receiving this because you&rsquo;re registered with <strong>${esc(orgName)}</strong>, powered by Fieldday.
+        </p>
       </div>
     `,
   })
@@ -196,6 +202,9 @@ export async function sendPaymentFailedEmail({
         <p style="color: #444; font-size: 16px;">
           Please log in and retry your registration to secure your spot.
         </p>
+        <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 24px 0 0; border-top: 1px solid #f3f4f6; padding-top: 16px; line-height: 1.6;">
+          You&rsquo;re receiving this because you attempted to register for an event with <strong>${esc(leagueName)}</strong>, powered by Fieldday.
+        </p>
       </div>
     `,
   })
@@ -230,7 +239,11 @@ export async function sendSignupConfirmation({
           </a>
         </div>
         <p style="color: #999; font-size: 13px; text-align: center;">
-          This link expires in 24 hours. If you didn't create an account, you can safely ignore this email.
+          This link expires in 24 hours. If you didn&rsquo;t create an account, you can safely ignore this email.
+        </p>
+        <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 24px 0 0; border-top: 1px solid #f3f4f6; padding-top: 16px; line-height: 1.6;">
+          You&rsquo;re receiving this because someone used this email address to sign up for Fieldday.<br>
+          If this wasn&rsquo;t you, you can safely ignore this email.
         </p>
       </div>
     `,

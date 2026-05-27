@@ -74,12 +74,14 @@ export async function GET(req: NextRequest) {
       leagues: { name: string; sport?: string | null } | { name: string; sport?: string | null }[] | null
     }
     const rgOrgIds = [...new Set((reminderGames as RGGame[]).map(g => g.organization_id))]
+    const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
     const [{ data: rgBranding }, { data: rgOrgs }] = await Promise.all([
       supabase.from('org_branding').select('organization_id, timezone').in('organization_id', rgOrgIds),
-      supabase.from('organizations').select('id, name').in('id', rgOrgIds),
+      supabase.from('organizations').select('id, name, slug').in('id', rgOrgIds),
     ])
     const rgTimezoneByOrg = new Map((rgBranding ?? []).map(b => [b.organization_id, b.timezone ?? 'America/Toronto']))
     const rgOrgNameById = new Map((rgOrgs ?? []).map(o => [o.id, o.name]))
+    const rgOrgSlugById = new Map((rgOrgs ?? []).map(o => [o.id, o.slug]))
 
     // Group games by org
     const rgGamesByOrg = new Map<string, RGGame[]>()
@@ -225,6 +227,10 @@ export async function GET(req: NextRequest) {
         }
 
         const firstName = player.name.split(' ')[0] || 'there'
+        const orgSlug = rgOrgSlugById.get(orgId) ?? ''
+        const profileUrl = orgSlug
+          ? `https://${orgSlug}.${PLATFORM_DOMAIN}/profile`
+          : `https://app.${PLATFORM_DOMAIN}/profile`
         // Derive the date label from the actual game date, not now+24h.
         // If the cron runs in the early morning, now+24h can land on the wrong calendar day.
         const dateLabel = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' })
@@ -254,9 +260,9 @@ export async function GET(req: NextRequest) {
             <h2 style="margin-top:0">Hi ${firstName}, you have ${myGames.length === 1 ? 'a game' : `${myGames.length} games`} tomorrow!</h2>
             <p style="color:#555;margin-bottom:16px">${dateLabel}</p>
             <table style="width:100%;border-collapse:collapse">${gameRows}</table>
-            <p style="margin-top:24px;font-size:12px;color:#999">
-              You're receiving this because you're registered with ${orgName}.<br>
-              To stop receiving game reminders, update your <a href="#" style="color:#999">notification preferences</a> in your profile.
+            <p style="margin-top:24px;font-size:12px;color:#999;border-top:1px solid #f3f4f6;padding-top:16px;line-height:1.6;">
+              You&rsquo;re receiving this because you&rsquo;re registered with <strong>${orgName}</strong>, powered by Fieldday.<br>
+              To stop receiving game reminders, update your <a href="${profileUrl}" style="color:#999">notification preferences</a> in your profile.
             </p>
           </div>`,
         })
@@ -310,6 +316,9 @@ export async function GET(req: NextRequest) {
         <p>Hi ${profile.full_name ?? 'there'},</p>
         <p>You have an overdue installment of <strong>$${(inst.amount_cents / 100).toFixed(2)} CAD</strong> due ${new Date(inst.due_date).toLocaleDateString('en-CA')}.</p>
         <p>Please log in to your account to complete your payment.</p>
+        <p style="font-size:12px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:16px;margin-top:24px;line-height:1.6;">
+          You&rsquo;re receiving this because you have an active payment plan for a league registration, powered by Fieldday.
+        </p>
       </div>`,
     })
 

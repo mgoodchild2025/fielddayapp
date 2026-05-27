@@ -124,6 +124,12 @@ async function deliverAnnouncement(
   }
   const service = createServiceRoleClient()
 
+  // Resolve org name if not supplied (cron path passes empty string)
+  if (!orgName) {
+    const { data: orgRow } = await service.from('organizations').select('name').eq('id', orgId).single()
+    orgName = orgRow?.name ?? 'Fieldday'
+  }
+
   // ── 1. Collect primary audience user IDs ──────────────────────────────────
   const userIds = new Set<string>()
 
@@ -201,6 +207,10 @@ async function deliverAnnouncement(
       const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
         <h2 style="font-size:20px;font-weight:bold">${data.title}</h2>
         <div style="white-space:pre-wrap;line-height:1.6">${data.body}</div>
+        <p style="font-size:12px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:16px;margin-top:24px;line-height:1.6;">
+          This message was sent to you by <strong>${orgName}</strong>, powered by Fieldday.<br>
+          You&rsquo;re receiving this because you&rsquo;re a member of this organization. To manage your notification preferences, log in and visit your profile settings.
+        </p>
       </div>`
       for (let i = 0; i < emails.length; i += BATCH_SIZE) {
         await resend.emails.send({
