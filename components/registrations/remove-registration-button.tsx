@@ -30,7 +30,7 @@ export function RemoveRegistrationButton({ registrationId, leagueId, playerName 
   }
 
   return (
-    <span className="inline-flex items-center gap-1">
+    <span className="inline-flex flex-col items-start gap-0.5">
       <button
         onClick={handle}
         disabled={pending}
@@ -38,7 +38,7 @@ export function RemoveRegistrationButton({ registrationId, leagueId, playerName 
       >
         {pending ? '…' : 'Remove'}
       </button>
-      {error && <span className="text-xs text-red-600" title={error}>!</span>}
+      {error && <span className="text-xs text-red-600">{error}</span>}
     </span>
   )
 }

@@ -150,6 +150,14 @@ export async function removeRegistration(registrationId: string, leagueId: strin
       .in('team_id', teamIds)
   }
 
+  // Nullify registration_id on any payments before deleting — the payments FK
+  // has no ON DELETE clause (defaults to RESTRICT), which would block deletion.
+  // Payments are kept for financial records; we just detach them from the registration.
+  await db
+    .from('payments')
+    .update({ registration_id: null })
+    .eq('registration_id', registrationId)
+
   const { error } = await db
     .from('registrations')
     .delete()
