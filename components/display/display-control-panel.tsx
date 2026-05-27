@@ -76,7 +76,7 @@ function ZoneEditor({
   return (
     <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Zone {label}</span>
+        <span className="text-xs font-bold uppercase tracking-wider text-gray-200">Zone {label}</span>
       </div>
 
       {/* Type picker */}
@@ -102,7 +102,7 @@ function ZoneEditor({
       {zone.type === 'schedule' && (
         <div className="space-y-2">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Date filter</label>
+            <label className="block text-xs text-gray-200 mb-1">Date filter</label>
             <select
               value={zone.date_filter}
               onChange={(e) => onChange({ ...zone, date_filter: e.target.value as 'today' | 'all' })}
@@ -114,7 +114,7 @@ function ZoneEditor({
           </div>
           {pools.length > 0 && (
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Pool filter</label>
+              <label className="block text-xs text-gray-200 mb-1">Pool filter</label>
               <select
                 value={zone.pool_id ?? ''}
                 onChange={(e) => onChange({ ...zone, pool_id: e.target.value || null })}
@@ -145,7 +145,7 @@ function ZoneEditor({
       {zone.type === 'qr_code' && (
         <div className="space-y-2">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">URL</label>
+            <label className="block text-xs text-gray-200 mb-1">URL</label>
             <input
               type="url"
               value={zone.url}
@@ -155,7 +155,7 @@ function ZoneEditor({
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Label (shown below QR)</label>
+            <label className="block text-xs text-gray-200 mb-1">Label (shown below QR)</label>
             <input
               type="text"
               value={zone.label}
@@ -170,7 +170,7 @@ function ZoneEditor({
       {zone.type === 'message' && (
         <div className="space-y-2">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Sub-heading (optional)</label>
+            <label className="block text-xs text-gray-200 mb-1">Sub-heading (optional)</label>
             <input
               type="text"
               value={zone.title ?? ''}
@@ -180,7 +180,7 @@ function ZoneEditor({
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Message</label>
+            <label className="block text-xs text-gray-200 mb-1">Message</label>
             <textarea
               value={zone.body}
               onChange={(e) => onChange({ ...zone, body: e.target.value })}
@@ -189,7 +189,7 @@ function ZoneEditor({
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Text size</label>
+            <label className="block text-xs text-gray-200 mb-1">Text size</label>
             <select
               value={zone.font_size ?? 'lg'}
               onChange={(e) => onChange({ ...zone, font_size: e.target.value as 'sm'|'md'|'lg'|'xl' })}
@@ -256,7 +256,7 @@ function ScreenEditor({
       <div className="rounded-xl border border-gray-700 bg-gray-800 p-4">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">TV Display URL</p>
+            <p className="text-xs font-semibold text-gray-200 uppercase tracking-wider mb-1">TV Display URL</p>
             <div className="flex items-center gap-2">
               <code className="text-sm text-orange-400 bg-gray-900 px-2 py-1 rounded truncate block flex-1 min-w-0">
                 {tvUrl}
@@ -355,7 +355,7 @@ function ScreenEditor({
         </div>
 
         <div className="flex items-center gap-3">
-          <label className="text-sm text-gray-400 w-32 shrink-0">Theme</label>
+          <label className="text-sm text-gray-200 w-32 shrink-0">Theme</label>
           <div className="flex gap-2">
             {(['dark', 'light'] as const).map((t) => (
               <button
@@ -375,7 +375,7 @@ function ScreenEditor({
         </div>
 
         <div className="flex items-center gap-3">
-          <label className="text-sm text-gray-400 w-32 shrink-0">Refresh every</label>
+          <label className="text-sm text-gray-200 w-32 shrink-0">Refresh every</label>
           <div className="flex items-center gap-2">
             <input
               type="number"
@@ -385,7 +385,7 @@ function ScreenEditor({
               onChange={(e) => setConfig({ refresh_seconds: Math.max(10, parseInt(e.target.value) || 30) })}
               className="w-20 bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white text-right"
             />
-            <span className="text-sm text-gray-400">seconds</span>
+            <span className="text-sm text-gray-200">seconds</span>
           </div>
         </div>
       </div>
