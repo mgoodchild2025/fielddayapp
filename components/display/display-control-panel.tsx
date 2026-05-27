@@ -64,7 +64,7 @@ function ZoneEditor({
     switch (type) {
       case 'schedule':  return { type, date_filter: 'today' as const, pool_id: null, court_filter: null }
       case 'standings': return { type, pool_id: null }
-      case 'bracket':   return { type }
+      case 'bracket':   return { type, round_filter: 'all' as const }
       case 'qr_code':   return { type, url: '', label: 'Scan to Register' }
       case 'message':   return { type, title: '', body: 'Welcome!', font_size: 'lg' as const }
       case 'clock':     return { type }
@@ -138,6 +138,22 @@ function ZoneEditor({
           >
             <option value="">All teams</option>
             {pools.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      {zone.type === 'bracket' && (
+        <div>
+          <label className="block text-xs text-gray-200 mb-1">Rounds to show</label>
+          <select
+            value={zone.round_filter}
+            onChange={(e) => onChange({ ...zone, round_filter: e.target.value as 'all' | 'final' | 'last_2' | 'last_3' })}
+            className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white"
+          >
+            <option value="all">All rounds</option>
+            <option value="final">Final only</option>
+            <option value="last_2">Semi-Finals + Final</option>
+            <option value="last_3">Quarter-Finals + Semis + Final</option>
           </select>
         </div>
       )}

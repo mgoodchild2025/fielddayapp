@@ -1,9 +1,10 @@
-import type { DisplayBracketMatch } from '@/lib/display-types'
+import type { DisplayBracketMatch, ZoneConfig } from '@/lib/display-types'
 import { FitContent } from './fit-content'
 
 interface Props {
   bracket: { rounds: number; matches: DisplayBracketMatch[] } | null
-  theme: 'dark' | 'light'
+  config:  Extract<ZoneConfig, { type: 'bracket' }>
+  theme:   'dark' | 'light'
 }
 
 function getRoundLabel(round: number, totalRounds: number): string {
@@ -14,7 +15,7 @@ function getRoundLabel(round: number, totalRounds: number): string {
   return `Round ${round}`
 }
 
-export function BracketZone({ bracket, theme }: Props) {
+export function BracketZone({ bracket, config, theme }: Props) {
   const isDark = theme === 'dark'
 
   if (!bracket || bracket.matches.length === 0) {
@@ -34,10 +35,21 @@ export function BracketZone({ bracket, theme }: Props) {
 
   const { rounds, matches } = bracket
 
-  // Group matches by round
+  // Apply round filter — filter by how many rounds from the end to show
+  const minRound = (() => {
+    switch (config.round_filter) {
+      case 'final':  return rounds          // last round only
+      case 'last_2': return rounds - 1      // last 2 rounds
+      case 'last_3': return rounds - 2      // last 3 rounds
+      default:       return 1               // all rounds
+    }
+  })()
+  const visibleMatches = matches.filter((m) => m.round_number >= Math.max(1, minRound))
+
+  // Group visible matches by round
   const byRound = new Map<number, DisplayBracketMatch[]>()
-  for (let r = 1; r <= rounds; r++) byRound.set(r, [])
-  for (const m of matches) {
+  for (let r = Math.max(1, minRound); r <= rounds; r++) byRound.set(r, [])
+  for (const m of visibleMatches) {
     byRound.get(m.round_number)?.push(m)
   }
 
