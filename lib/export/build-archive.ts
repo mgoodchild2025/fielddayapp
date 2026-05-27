@@ -23,6 +23,34 @@ import {
 const EXPORT_VERSION = '1.0'
 const PLATFORM_VERSION = '1.0.0'
 
+/** Derive a file extension from a Content-Type header value. */
+function extFromContentType(ct: string): string | null {
+  const type = ct.split(';')[0].trim().toLowerCase()
+  const map: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'image/svg+xml': 'svg',
+    'image/avif': 'avif',
+  }
+  return map[type] ?? null
+}
+
+/** Derive a file extension from a URL path as a fallback. */
+function extFromUrl(url: string): string | null {
+  try {
+    const pathname = new URL(url).pathname
+    const dot = pathname.lastIndexOf('.')
+    if (dot === -1) return null
+    const ext = pathname.slice(dot + 1).toLowerCase().split('?')[0]
+    return ext.length > 0 && ext.length <= 5 ? ext : null
+  } catch {
+    return null
+  }
+}
+
 interface ManifestFile {
   path: string
   rows: number
@@ -301,18 +329,79 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
   }))
   await addFile('waivers/waivers.csv', toCsvBytes(waiversCsv, ['waiver_id','title','version','is_active','created_at']), waiversCsv.length)
 
-  // ── media/media-index.csv ─────────────────────────────────────────────────
+  // ── media/ — download actual image files ─────────────────────────────────
+  // Each entry in media-index.csv also has a local_path so the archive is
+  // self-contained and the CSV can serve as a manifest for the included files.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mediaIndexCsv = photos.map((p: any) => ({
-    media_id: p.id,
-    entity_type: 'org_photo',
-    entity_id: orgId,
-    url: p.url ?? '',
-    caption: p.caption ?? '',
-    display_order: p.display_order ?? 0,
-    uploaded_at: p.created_at ?? '',
-  }))
-  await addFile('media/media-index.csv', toCsvBytes(mediaIndexCsv, ['media_id','entity_type','entity_id','url','caption','display_order','uploaded_at']), mediaIndexCsv.length)
+  const mediaIndexRows: any[] = []
+
+  // Helper: download a URL, add to ZIP, return the zip path (or null on failure)
+  async function downloadMedia(url: string, zipDir: string, basename: string): Promise<string | null> {
+    if (!url) return null
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })
+      if (!res.ok) return null
+      const contentType = res.headers.get('content-type') ?? ''
+      const ext = extFromContentType(contentType) ?? extFromUrl(url) ?? 'bin'
+      const zipPath = `${zipDir}/${basename}.${ext}`
+      const bytes = new Uint8Array(await res.arrayBuffer())
+      files[zipPath] = bytes
+      return zipPath
+    } catch {
+      return null
+    }
+  }
+
+  // Org logo
+  if (branding?.logo_url) {
+    const localPath = await downloadMedia(branding.logo_url, 'media', 'org-logo')
+    mediaIndexRows.push({
+      media_id: 'org-logo',
+      entity_type: 'org_logo',
+      entity_id: orgId,
+      url: branding.logo_url,
+      local_path: localPath ?? '',
+      caption: '',
+      display_order: 0,
+      uploaded_at: '',
+    })
+  }
+
+  // Team logos
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const t of teams as any[]) {
+    if (!t.logo_url) continue
+    const localPath = await downloadMedia(t.logo_url, 'media/team-logos', t.id)
+    mediaIndexRows.push({
+      media_id: t.id,
+      entity_type: 'team_logo',
+      entity_id: t.id,
+      url: t.logo_url,
+      local_path: localPath ?? '',
+      caption: t.name ?? '',
+      display_order: 0,
+      uploaded_at: t.created_at ?? '',
+    })
+  }
+
+  // Org gallery photos
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const p of photos as any[]) {
+    if (!p.url) continue
+    const localPath = await downloadMedia(p.url, 'media/photos', p.id)
+    mediaIndexRows.push({
+      media_id: p.id,
+      entity_type: 'org_photo',
+      entity_id: orgId,
+      url: p.url,
+      local_path: localPath ?? '',
+      caption: p.caption ?? '',
+      display_order: p.display_order ?? 0,
+      uploaded_at: p.created_at ?? '',
+    })
+  }
+
+  await addFile('media/media-index.csv', toCsvBytes(mediaIndexRows, ['media_id','entity_type','entity_id','url','local_path','caption','display_order','uploaded_at']), mediaIndexRows.length)
 
   // ── manifest.json ─────────────────────────────────────────────────────────
   const totalRecords = manifestFiles.reduce((sum, f) => sum + f.rows, 0)
