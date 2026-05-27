@@ -32,7 +32,16 @@ export function FitContent({ children }: { children: React.ReactNode }) {
     <div ref={outerRef} className="flex-1 overflow-hidden">
       <div
         ref={innerRef}
-        style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          // max-content lets the inner div grow to its true natural width so
+          // scrollWidth correctly captures horizontal overflow (e.g. bracket
+          // columns). min-width: 100% ensures tables still fill the zone when
+          // content is narrower than the container.
+          width: 'max-content',
+          minWidth: '100%',
+        }}
       >
         {children}
       </div>
