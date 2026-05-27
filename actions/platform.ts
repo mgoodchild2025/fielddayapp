@@ -3,7 +3,6 @@
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 
 const IMPERSONATE_COOKIE = 'fieldday_impersonate_org_id'
@@ -173,7 +172,7 @@ export async function setOrgAdmin(orgId: string, email: string) {
 
 // ─── Impersonation ────────────────────────────────────────────────────────────
 
-export async function startImpersonation(orgId: string) {
+export async function startImpersonation(orgId: string): Promise<{ redirect: string }> {
   const jar = await cookies()
   jar.set(IMPERSONATE_COOKIE, orgId, {
     httpOnly: true,
@@ -182,13 +181,13 @@ export async function startImpersonation(orgId: string) {
     path: '/',
     maxAge: 60 * 60, // 1 hour
   })
-  redirect('/admin/dashboard')
+  return { redirect: '/admin/dashboard' }
 }
 
-export async function exitImpersonation() {
+export async function exitImpersonation(): Promise<{ redirect: string }> {
   const jar = await cookies()
   jar.delete(IMPERSONATE_COOKIE)
-  redirect('/super')
+  return { redirect: '/super' }
 }
 
 // ─── Delete Organisation ──────────────────────────────────────────────────────
