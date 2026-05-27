@@ -50,7 +50,8 @@ export async function fetchTeams(db: DB, orgId: string) {
 export async function fetchTeamMembers(db: DB, orgId: string) {
   const { data, error } = await db
     .from('team_members')
-    .select('id, team_id, user_id, role, status, jersey_number, created_at, left_at')
+    // joined_at is the actual column name; jersey_number and left_at do not exist
+    .select('id, team_id, user_id, role, status, joined_at')
     .eq('organization_id', orgId)
     .not('user_id', 'is', null)
   if (error) throw new Error(`fetchTeamMembers failed: ${error.message}`)
@@ -112,7 +113,8 @@ export async function fetchOrgMembers(db: DB, orgId: string) {
 export async function fetchRegistrations(db: DB, orgId: string) {
   const { data, error } = await db
     .from('registrations')
-    .select('id, user_id, league_id, status, amount_paid_cents, created_at')
+    // amount_paid_cents does not exist on registrations; payment amounts are in the payments table
+    .select('id, user_id, league_id, status, created_at')
     .eq('organization_id', orgId)
     .not('user_id', 'is', null)
   if (error) throw new Error(`fetchRegistrations failed: ${error.message}`)
@@ -132,7 +134,8 @@ export async function fetchGames(db: DB, orgId: string) {
 export async function fetchGameResults(db: DB, orgId: string) {
   const { data, error } = await db
     .from('game_results')
-    .select('id, game_id, home_score, away_score, sets, status, recorded_by, recorded_at, confirmed_by, confirmed_at')
+    // submitted_by / submitted_at are the actual column names (not recorded_by / recorded_at)
+    .select('id, game_id, home_score, away_score, sets, status, submitted_by, submitted_at, confirmed_by, confirmed_at')
     .eq('organization_id', orgId)
   if (error) throw new Error(`fetchGameResults failed: ${error.message}`)
   return data ?? []
@@ -169,7 +172,8 @@ export async function fetchWaiverSignatures(db: DB, orgId: string) {
 export async function fetchPayments(db: DB, orgId: string) {
   const { data, error } = await db
     .from('payments')
-    .select('id, user_id, league_id, team_id, amount_cents, currency, status, stripe_payment_intent_id, description, created_at, refunded_at')
+    // description and refunded_at do not exist; paid_at is the actual timestamp column
+    .select('id, user_id, league_id, team_id, amount_cents, currency, status, stripe_payment_intent_id, paid_at, created_at')
     .eq('organization_id', orgId)
   if (error) throw new Error(`fetchPayments failed: ${error.message}`)
   return data ?? []

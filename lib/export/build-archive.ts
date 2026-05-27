@@ -194,11 +194,9 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
     player_id: tm.user_id ?? '',
     role: tm.role ?? '',
     status: tm.status ?? '',
-    jersey_number: tm.jersey_number ?? '',
-    joined_at: tm.created_at ?? '',
-    left_at: tm.left_at ?? '',
+    joined_at: tm.joined_at ?? '',
   }))
-  await addFile('teams/rosters.csv', toCsvBytes(rostersCsv, ['roster_id','team_id','player_id','role','status','jersey_number','joined_at','left_at']), rostersCsv.length)
+  await addFile('teams/rosters.csv', toCsvBytes(rostersCsv, ['roster_id','team_id','player_id','role','status','joined_at']), rostersCsv.length)
 
   // ── players/players.csv ───────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -229,10 +227,9 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
     player_id: r.user_id ?? '',
     league_id: r.league_id ?? '',
     status: r.status ?? '',
-    amount_paid_cents: r.amount_paid_cents ?? 0,
     registered_at: r.created_at ?? '',
   }))
-  await addFile('players/participation-history.csv', toCsvBytes(participationCsv, ['participation_id','player_id','league_id','status','amount_paid_cents','registered_at']), participationCsv.length)
+  await addFile('players/participation-history.csv', toCsvBytes(participationCsv, ['participation_id','player_id','league_id','status','registered_at']), participationCsv.length)
 
   // ── players/player-consents.csv (waiver signatures) ─────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -275,12 +272,12 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
     away_score: r.away_score ?? '',
     sets: r.sets ? JSON.stringify(r.sets) : '',
     status: r.status ?? '',
-    recorded_by: r.recorded_by ?? '',
-    recorded_at: r.recorded_at ?? '',
+    submitted_by: r.submitted_by ?? '',
+    submitted_at: r.submitted_at ?? '',
     confirmed_by: r.confirmed_by ?? '',
     confirmed_at: r.confirmed_at ?? '',
   }))
-  await addFile('games/game-results.csv', toCsvBytes(resultsCsv, ['result_id','game_id','home_score','away_score','sets','status','recorded_by','recorded_at','confirmed_by','confirmed_at']), resultsCsv.length)
+  await addFile('games/game-results.csv', toCsvBytes(resultsCsv, ['result_id','game_id','home_score','away_score','sets','status','submitted_by','submitted_at','confirmed_by','confirmed_at']), resultsCsv.length)
 
   // ── games/player-stats.csv ────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -307,16 +304,15 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
     player_id: p.user_id ?? '',
     league_id: p.league_id ?? '',
     team_id: p.team_id ?? '',
-    description: p.description ?? '',
     amount_cents: p.amount_cents ?? 0,
     currency: p.currency ?? 'CAD',
     status: p.status ?? '',
     processor: 'stripe',
     processor_reference: p.stripe_payment_intent_id ?? '',
+    paid_at: p.paid_at ?? '',
     created_at: p.created_at ?? '',
-    refunded_at: p.refunded_at ?? '',
   }))
-  await addFile('financial/transactions.csv', toCsvBytes(transactionsCsv, ['transaction_id','player_id','league_id','team_id','description','amount_cents','currency','status','processor','processor_reference','created_at','refunded_at']), transactionsCsv.length)
+  await addFile('financial/transactions.csv', toCsvBytes(transactionsCsv, ['transaction_id','player_id','league_id','team_id','amount_cents','currency','status','processor','processor_reference','paid_at','created_at']), transactionsCsv.length)
 
   // ── waivers/waivers.csv ───────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
