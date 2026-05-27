@@ -104,7 +104,8 @@ export async function fetchAllOrgUserIds(db: DB, orgId: string): Promise<string[
 export async function fetchOrgMembers(db: DB, orgId: string) {
   const { data, error } = await db
     .from('org_members')
-    .select('user_id, role, status, created_at')
+    // joined_at is the actual column name (not created_at)
+    .select('user_id, role, status, joined_at')
     .eq('organization_id', orgId)
   if (error) throw new Error(`fetchOrgMembers failed: ${error.message}`)
   return data ?? []
