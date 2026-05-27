@@ -35,20 +35,31 @@ export function BracketZone({ bracket, config, theme }: Props) {
 
   const { rounds, matches } = bracket
 
-  // Apply round filter — filter by how many rounds from the end to show
-  const minRound = (() => {
+  // Determine which round numbers are visible based on the filter.
+  // "single" filters show exactly one round; "range" filters show a span.
+  const { minRound, maxRound } = (() => {
     switch (config.round_filter) {
-      case 'final':  return rounds          // last round only
-      case 'last_2': return rounds - 1      // last 2 rounds
-      case 'last_3': return rounds - 2      // last 3 rounds
-      default:       return 1               // all rounds
+      // ── Single-round views ─────────────────────────────────────────────────
+      case 'final':    return { minRound: rounds,     maxRound: rounds }
+      case 'semis':    return { minRound: rounds - 1, maxRound: rounds - 1 }
+      case 'quarters': return { minRound: rounds - 2, maxRound: rounds - 2 }
+      case 'first':    return { minRound: 1,           maxRound: 1 }
+      // ── Multi-round views ──────────────────────────────────────────────────
+      case 'last_2':   return { minRound: rounds - 1, maxRound: rounds }
+      case 'last_3':   return { minRound: rounds - 2, maxRound: rounds }
+      default:         return { minRound: 1,           maxRound: rounds }
     }
   })()
-  const visibleMatches = matches.filter((m) => m.round_number >= Math.max(1, minRound))
+  const lo = Math.max(1, minRound)
+  const hi = Math.min(rounds, maxRound)
+
+  const visibleMatches = matches.filter(
+    (m) => m.round_number >= lo && m.round_number <= hi,
+  )
 
   // Group visible matches by round
   const byRound = new Map<number, DisplayBracketMatch[]>()
-  for (let r = Math.max(1, minRound); r <= rounds; r++) byRound.set(r, [])
+  for (let r = lo; r <= hi; r++) byRound.set(r, [])
   for (const m of visibleMatches) {
     byRound.get(m.round_number)?.push(m)
   }

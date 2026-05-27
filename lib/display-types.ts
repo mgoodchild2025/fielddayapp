@@ -13,7 +13,7 @@ export type LayoutId =
 export type ZoneConfig =
   | { type: 'schedule';  date_filter: 'today' | 'all'; pool_id?: string | null; court_filter?: string | null }
   | { type: 'standings'; pool_id?: string | null }
-  | { type: 'bracket';  round_filter: 'all' | 'final' | 'last_2' | 'last_3' }
+  | { type: 'bracket';  round_filter: 'all' | 'final' | 'semis' | 'quarters' | 'first' | 'last_2' | 'last_3' }
   | { type: 'qr_code';  url: string; label: string }
   | { type: 'message';  title?: string; body: string; font_size: 'sm' | 'md' | 'lg' | 'xl' }
   | { type: 'clock' }

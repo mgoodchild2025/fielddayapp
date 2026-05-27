@@ -147,13 +147,20 @@ function ZoneEditor({
           <label className="block text-xs text-gray-200 mb-1">Rounds to show</label>
           <select
             value={zone.round_filter}
-            onChange={(e) => onChange({ ...zone, round_filter: e.target.value as 'all' | 'final' | 'last_2' | 'last_3' })}
+            onChange={(e) => onChange({ ...zone, round_filter: e.target.value as typeof zone.round_filter })}
             className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white"
           >
-            <option value="all">All rounds</option>
-            <option value="final">Final only</option>
-            <option value="last_2">Semi-Finals + Final</option>
-            <option value="last_3">Quarter-Finals + Semis + Final</option>
+            <optgroup label="Single tier">
+              <option value="first">First round only</option>
+              <option value="quarters">Quarter-Finals only</option>
+              <option value="semis">Semi-Finals only</option>
+              <option value="final">Final only</option>
+            </optgroup>
+            <optgroup label="Multiple tiers">
+              <option value="last_2">Semi-Finals + Final</option>
+              <option value="last_3">Quarter-Finals + Semis + Final</option>
+              <option value="all">All rounds</option>
+            </optgroup>
           </select>
         </div>
       )}
