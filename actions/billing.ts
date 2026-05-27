@@ -64,6 +64,43 @@ export async function getSubscription(): Promise<SubscriptionRow | null> {
 }
 
 /**
+ * Switch the org to the free plan.
+ * Only allowed when there is no active Stripe subscription (trialing, canceled, or never paid).
+ */
+export async function switchToFreePlan(): Promise<{ error: string | null }> {
+  try {
+    const { org } = await requireOrgAdmin()
+    const supabase = createServiceRoleClient()
+
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('stripe_subscription_id, status')
+      .eq('organization_id', org.id)
+      .single()
+
+    if (sub?.stripe_subscription_id) {
+      return { error: 'You have an active Stripe subscription. Cancel it via the billing portal before switching to the free plan.' }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
+      .from('subscriptions')
+      .update({
+        plan_tier: 'free',
+        status: 'active',
+        trial_end: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('organization_id', org.id)
+
+    return { error: null }
+  } catch (err) {
+    console.error('[billing] switchToFreePlan error:', err)
+    return { error: 'An unexpected error occurred. Please try again.' }
+  }
+}
+
+/**
  * Create a Stripe Checkout session for a new subscription.
  * Returns { url } to redirect to, or { error }.
  */

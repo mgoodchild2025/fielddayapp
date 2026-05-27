@@ -6,6 +6,7 @@ import {
   createCustomerPortalSession,
   hibernateSubscription,
   resumeFromHibernation,
+  switchToFreePlan,
 } from '@/actions/billing'
 import type { SubscriptionRow } from '@/actions/billing'
 import { HelpLink } from '@/components/ui/help-link'
@@ -156,6 +157,16 @@ export function BillingPageClient({ subscription, successRedirect, canceledRedir
     setPendingAction('resume')
     startTransition(async () => {
       const result = await resumeFromHibernation()
+      if (result.error) { setError(result.error); setPendingAction(null) }
+      else { window.location.reload() }
+    })
+  }
+
+  function handleSwitchToFree() {
+    setError(null)
+    setPendingAction('free')
+    startTransition(async () => {
+      const result = await switchToFreePlan()
       if (result.error) { setError(result.error); setPendingAction(null) }
       else { window.location.reload() }
     })
@@ -356,9 +367,17 @@ export function BillingPageClient({ subscription, successRedirect, canceledRedir
                       <div className="w-full rounded-lg py-2 text-sm font-semibold text-center text-green-700 bg-green-50 border border-green-200">
                         Your current plan
                       </div>
+                    ) : !hasStripeSubscription ? (
+                      <button
+                        onClick={handleSwitchToFree}
+                        disabled={isPending}
+                        className="w-full rounded-lg py-2 text-sm font-semibold transition-colors disabled:opacity-50 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300"
+                      >
+                        {isPending && pendingAction === 'free' ? 'Switching…' : 'Continue with Free'}
+                      </button>
                     ) : (
                       <div className="w-full rounded-lg py-2 text-sm font-medium text-center text-gray-400 bg-gray-50 border border-gray-200">
-                        Downgrade not available
+                        Cancel subscription first
                       </div>
                     )
                   ) : (
