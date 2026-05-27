@@ -6,6 +6,7 @@ import { BrandProvider } from '@/components/branding/brand-provider'
 import { CartProvider } from '@/components/shop/cart-provider'
 import { CartButton } from '@/components/shop/cart-button'
 import { MaintenancePage } from '@/components/maintenance-page'
+import { HibernatePage } from '@/components/hibernate-page'
 import type { OrgBranding } from '@/types/database'
 
 // ── Dynamic metadata per org ─────────────────────────────────────────────────
@@ -92,6 +93,7 @@ export default async function OrgLayout({
     { data: { user } },
     { data: orgRow },
     { data: platformSettings },
+    { data: subscriptionRow },
   ] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db2 as any).from('org_branding').select('*').eq('organization_id', orgId).single(),
@@ -99,7 +101,7 @@ export default async function OrgLayout({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db2 as any)
       .from('organizations')
-      .select('maintenance_mode, maintenance_message, maintenance_until')
+      .select('name, maintenance_mode, maintenance_message, maintenance_until')
       .eq('id', orgId)
       .single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -107,6 +109,12 @@ export default async function OrgLayout({
       .from('platform_settings')
       .select('key, value')
       .in('key', ['maintenance_mode_all', 'maintenance_mode_message', 'maintenance_mode_until']),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db2 as any)
+      .from('subscriptions')
+      .select('status, hibernate_until')
+      .eq('organization_id', orgId)
+      .single(),
   ])
 
   // ── Maintenance gate ────────────────────────────────────────────────────────
@@ -145,6 +153,29 @@ export default async function OrgLayout({
           <MaintenancePage
             message={message}
             until={until}
+            branding={branding as OrgBranding | null}
+            timezone={timezone}
+          />
+        </BrandProvider>
+      </>
+    )
+  }
+
+  // ── Hibernate gate ──────────────────────────────────────────────────────────
+  // Hibernating orgs show a seasonal off-season page to all public visitors.
+  // Platform admins and org admins can still access the admin panel directly
+  // (the admin layout handles its own auth); this gate only affects public pages.
+  const isHibernating = subscriptionRow?.status === 'hibernating'
+  if (isHibernating && !isPlatformAdmin) {
+    const timezone = (branding as OrgBranding | null)?.timezone ?? 'America/Toronto'
+    return (
+      <>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <BrandProvider branding={branding as OrgBranding | null}>
+          <HibernatePage
+            orgName={orgRow?.name ?? 'This organization'}
+            resumeAt={subscriptionRow?.hibernate_until ?? null}
             branding={branding as OrgBranding | null}
             timezone={timezone}
           />

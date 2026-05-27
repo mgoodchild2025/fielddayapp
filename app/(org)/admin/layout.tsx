@@ -7,7 +7,9 @@ import { getMfaStatus } from '@/lib/mfa'
 import { AdminSidebar } from '@/components/layout/admin-sidebar'
 import { ImpersonationBanner } from '@/components/layout/impersonation-banner'
 import { BillingBanner } from '@/components/layout/billing-banner'
+import { LimitWarningBanner } from '@/components/layout/limit-warning-banner'
 import { MfaGraceBanner } from '@/components/mfa/mfa-grace-banner'
+import { getLimit, getActiveLeagueCount } from '@/lib/features'
 
 export default async function AdminLayout({
   children,
@@ -92,13 +94,26 @@ export default async function AdminLayout({
     }
   }
 
-  // Fetch subscription for billing banner (service role — same reason)
+  // Fetch subscription + plan limits in parallel for banners
   const db = createServiceRoleClient()
-  const { data: subscription } = await db
-    .from('subscriptions')
-    .select('status, trial_end, cancel_at_period_end, current_period_end')
-    .eq('organization_id', org.id)
-    .single()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [{ data: subscription }, playerLimit, leagueLimit, activeLeagueCount, { count: playerCount }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
+      .from('subscriptions')
+      .select('status, trial_end, cancel_at_period_end, current_period_end, hibernate_until, pre_hibernate_tier')
+      .eq('organization_id', org.id)
+      .single() as Promise<{ data: { status: string; trial_end: string | null; cancel_at_period_end: boolean | null; current_period_end: string | null; hibernate_until: string | null; pre_hibernate_tier: string | null } | null }>,
+    getLimit(org.id, 'max_players'),
+    getLimit(org.id, 'max_leagues'),
+    getActiveLeagueCount(org.id),
+    db
+      .from('org_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', org.id)
+      .eq('role', 'player')
+      .eq('status', 'active'),
+  ])
 
   return (
     <div className={`min-h-screen flex flex-col ${isImpersonating ? 'pt-10' : ''}`} style={{ backgroundColor: '#F8F8F8' }}>
@@ -114,6 +129,16 @@ export default async function AdminLayout({
           trialEnd={subscription?.trial_end ?? null}
           cancelAtPeriodEnd={subscription?.cancel_at_period_end ?? false}
           currentPeriodEnd={subscription?.current_period_end ?? null}
+          hibernateUntil={subscription?.hibernate_until ?? null}
+          preHibernateTier={subscription?.pre_hibernate_tier ?? null}
+        />
+      </div>
+      <div className="print:hidden">
+        <LimitWarningBanner
+          playerCount={playerCount ?? 0}
+          playerLimit={playerLimit}
+          leagueCount={activeLeagueCount}
+          leagueLimit={leagueLimit}
         />
       </div>
       <div className="flex flex-1 overflow-hidden print:block print:overflow-visible">

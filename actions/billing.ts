@@ -11,9 +11,10 @@ const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.
 
 // Price IDs come from env — set these after creating products in Stripe dashboard
 const PRICE_IDS: Record<string, string | undefined> = {
-  starter: process.env.STRIPE_PRICE_STARTER_MONTHLY,
-  pro:     process.env.STRIPE_PRICE_PRO_MONTHLY,
-  club:    process.env.STRIPE_PRICE_CLUB_MONTHLY,
+  starter:   process.env.STRIPE_PRICE_STARTER_MONTHLY,
+  pro:       process.env.STRIPE_PRICE_PRO_MONTHLY,
+  club:      process.env.STRIPE_PRICE_CLUB_MONTHLY,
+  hibernate: process.env.STRIPE_PRICE_HIBERNATE_MONTHLY,  // $9/mo data-retention price
 }
 
 export type SubscriptionRow = {
@@ -21,12 +22,14 @@ export type SubscriptionRow = {
   organization_id: string
   stripe_subscription_id: string | null
   stripe_customer_id: string | null
-  plan_tier: 'starter' | 'pro' | 'club' | 'internal'
+  plan_tier: 'free' | 'starter' | 'pro' | 'club' | 'internal'
   billing_interval: string | null
-  status: 'trialing' | 'active' | 'past_due' | 'canceled' | 'paused'
+  status: 'trialing' | 'active' | 'past_due' | 'canceled' | 'paused' | 'hibernating'
   trial_end: string | null
   current_period_end: string | null
   cancel_at_period_end: boolean | null
+  hibernate_until: string | null
+  pre_hibernate_tier: string | null
   created_at: string
 }
 
@@ -152,6 +155,123 @@ export async function createCustomerPortalSession(): Promise<{ url: string } | {
     return { url: session.url }
   } catch (err) {
     console.error('[billing] createCustomerPortalSession error:', err)
+    return { error: 'An unexpected error occurred. Please try again.' }
+  }
+}
+
+/**
+ * Hibernate the org's subscription.
+ * Switches the Stripe subscription to the $9/mo hibernate price,
+ * sets status = 'hibernating', stores the original tier for later restoration,
+ * and optionally sets a date when the subscription auto-resumes.
+ *
+ * resumeAt: ISO date string (YYYY-MM-DD) or null for manual resume only.
+ */
+export async function hibernateSubscription(
+  resumeAt: string | null
+): Promise<{ error: string | null }> {
+  try {
+    const { org } = await requireOrgAdmin()
+    const supabase = createServiceRoleClient()
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: sub } = await (supabase as any)
+      .from('subscriptions')
+      .select('stripe_subscription_id, stripe_customer_id, plan_tier, status')
+      .eq('organization_id', org.id)
+      .single() as { data: { stripe_subscription_id: string | null; stripe_customer_id: string | null; plan_tier: string; status: string } | null }
+
+    if (!sub) return { error: 'Subscription not found.' }
+    if (sub.status === 'hibernating') return { error: 'Subscription is already hibernating.' }
+    if (sub.status !== 'active') return { error: 'Only active subscriptions can be hibernated.' }
+    if (sub.plan_tier === 'free') return { error: 'Free plans cannot be hibernated — they are already free.' }
+
+    const hibernateUntil = resumeAt ? new Date(resumeAt).toISOString() : null
+
+    // If there's a Stripe subscription, switch to the hibernate price
+    if (sub.stripe_subscription_id && PRICE_IDS.hibernate) {
+      const stripe = getStripe()
+      const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id)
+      const currentItemId = stripeSub.items.data[0]?.id
+
+      if (currentItemId) {
+        await stripe.subscriptions.update(sub.stripe_subscription_id, {
+          items: [{ id: currentItemId, price: PRICE_IDS.hibernate }],
+          proration_behavior: 'always_invoice',
+          metadata: { hibernating: 'true', original_tier: sub.plan_tier },
+        })
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
+      .from('subscriptions')
+      .update({
+        status: 'hibernating',
+        pre_hibernate_tier: sub.plan_tier,
+        hibernate_until: hibernateUntil,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('organization_id', org.id)
+
+    return { error: null }
+  } catch (err) {
+    console.error('[billing] hibernateSubscription error:', err)
+    return { error: 'An unexpected error occurred. Please try again.' }
+  }
+}
+
+/**
+ * Resume a hibernating subscription immediately.
+ * Switches the Stripe subscription back to the original tier price.
+ */
+export async function resumeFromHibernation(): Promise<{ error: string | null }> {
+  try {
+    const { org } = await requireOrgAdmin()
+    const supabase = createServiceRoleClient()
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: sub } = await (supabase as any)
+      .from('subscriptions')
+      .select('stripe_subscription_id, pre_hibernate_tier, status')
+      .eq('organization_id', org.id)
+      .single() as { data: { stripe_subscription_id: string | null; pre_hibernate_tier: string | null; status: string } | null }
+
+    if (!sub) return { error: 'Subscription not found.' }
+    if (sub.status !== 'hibernating') return { error: 'Subscription is not currently hibernating.' }
+
+    const restoreTier = (sub.pre_hibernate_tier ?? 'starter') as 'starter' | 'pro' | 'club'
+    const restorePriceId = PRICE_IDS[restoreTier]
+
+    if (sub.stripe_subscription_id && restorePriceId) {
+      const stripe = getStripe()
+      const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id)
+      const currentItemId = stripeSub.items.data[0]?.id
+
+      if (currentItemId) {
+        await stripe.subscriptions.update(sub.stripe_subscription_id, {
+          items: [{ id: currentItemId, price: restorePriceId }],
+          proration_behavior: 'always_invoice',
+          metadata: { hibernating: 'false', original_tier: '' },
+        })
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
+      .from('subscriptions')
+      .update({
+        status: 'active',
+        plan_tier: restoreTier,
+        pre_hibernate_tier: null,
+        hibernate_until: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('organization_id', org.id)
+
+    return { error: null }
+  } catch (err) {
+    console.error('[billing] resumeFromHibernation error:', err)
     return { error: 'An unexpected error occurred. Please try again.' }
   }
 }

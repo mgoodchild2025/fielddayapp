@@ -121,8 +121,10 @@ async function getOrgTier(orgId: string): Promise<string> {
     .select('plan_tier, status')
     .eq('organization_id', orgId)
     .single()
-  if (!data || data.status === 'canceled' || data.status === 'past_due') return 'suspended'
-  return data.plan_tier ?? 'starter'
+  if (!data) return 'suspended'
+  if (data.status === 'canceled' || data.status === 'past_due') return 'suspended'
+  if (data.status === 'hibernating') return 'hibernating'
+  return data.plan_tier ?? 'free'
 }
 
 async function getOrgOverrides(orgId: string): Promise<OverrideRow[]> {
@@ -144,7 +146,8 @@ export async function canAccess(orgId: string, feature: BooleanFeature): Promise
     getOrgOverrides(orgId),
   ])
 
-  if (tier === 'suspended') return false
+  // Suspended and hibernating orgs cannot access features
+  if (tier === 'suspended' || tier === 'hibernating') return false
 
   // Org-level override wins
   const override = overrides.find((o) => o.feature === feature)
@@ -164,6 +167,7 @@ export async function getLimit(orgId: string, feature: LimitFeature): Promise<nu
   ])
 
   if (tier === 'suspended') return 0
+  if (tier === 'hibernating') return 0
 
   // Org-level override wins
   const override = overrides.find((o) => o.feature === feature)

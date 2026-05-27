@@ -7,6 +7,8 @@ type Props = {
   trialEnd: string | null
   cancelAtPeriodEnd: boolean
   currentPeriodEnd: string | null
+  hibernateUntil?: string | null
+  preHibernateTier?: string | null
 }
 
 function daysUntil(iso: string | null): number | null {
@@ -15,7 +17,19 @@ function daysUntil(iso: string | null): number | null {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
 }
 
-export function BillingBanner({ status, trialEnd, cancelAtPeriodEnd, currentPeriodEnd }: Props) {
+function formatDate(iso: string | null): string {
+  if (!iso) return '—'
+  return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(iso))
+}
+
+export function BillingBanner({
+  status,
+  trialEnd,
+  cancelAtPeriodEnd,
+  currentPeriodEnd,
+  hibernateUntil,
+  preHibernateTier,
+}: Props) {
   if (status === 'active' && !cancelAtPeriodEnd) return null
 
   if (status === 'trialing') {
@@ -36,6 +50,27 @@ export function BillingBanner({ status, trialEnd, cancelAtPeriodEnd, currentPeri
           className="shrink-0 rounded bg-white/20 hover:bg-white/30 px-3 py-1 text-xs font-semibold transition-colors"
         >
           Choose a plan →
+        </Link>
+      </div>
+    )
+  }
+
+  if (status === 'hibernating') {
+    const tierLabel = preHibernateTier
+      ? preHibernateTier.charAt(0).toUpperCase() + preHibernateTier.slice(1)
+      : 'paid'
+    const resumeDate = hibernateUntil ? formatDate(hibernateUntil) : null
+    return (
+      <div className="w-full px-4 py-2 text-sm bg-blue-600 text-white flex items-center justify-between gap-4">
+        <span>
+          ❄️ Your account is hibernating ({tierLabel} plan · $9/mo).
+          {resumeDate ? ` Auto-resumes ${resumeDate}.` : ' Resume anytime to restore full access.'}
+        </span>
+        <Link
+          href="/admin/settings/billing"
+          className="shrink-0 rounded bg-white/20 hover:bg-white/30 px-3 py-1 text-xs font-semibold transition-colors"
+        >
+          Resume now →
         </Link>
       </div>
     )

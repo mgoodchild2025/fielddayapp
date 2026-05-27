@@ -14,8 +14,8 @@ export default async function Page({
   searchParams: Promise<{ plan?: string }>
 }) {
   const { plan } = await searchParams
-  const validPlans = ['starter', 'pro', 'club']
-  const defaultPlan = (validPlans.includes(plan ?? '') ? plan : 'pro') as 'starter' | 'pro' | 'club'
+  const validPlans = ['free', 'starter', 'pro', 'club']
+  const defaultPlan = (validPlans.includes(plan ?? '') ? plan : 'pro') as 'free' | 'starter' | 'pro' | 'club'
 
   const service = createServiceRoleClient()
   const { data: setting } = await service

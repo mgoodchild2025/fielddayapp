@@ -11,56 +11,69 @@ const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.
 
 const PLANS = [
   {
+    id: 'free' as const,
+    name: 'Free',
+    price: 0,
+    period: '',
+    tagline: 'For small starter groups',
+    color: 'gray',
+    features: [
+      '1 active league',
+      'Up to 50 players',
+      'Online registration & payments',
+      'Schedule, standings & RSVP',
+      'Email notifications & waivers',
+      'Free forever — no credit card',
+    ],
+    popular: false,
+  },
+  {
     id: 'starter' as const,
     name: 'Starter',
-    price: 49,
+    price: 39,
     period: '/month',
     tagline: 'For small recreational leagues',
     color: 'gray',
     features: [
       '3 active leagues',
-      'Up to 200 registered players',
-      'Schedule & standings',
-      'Admin & captain score entry',
-      'Custom branding & colours',
-      'Broadcast email to members',
-      'Email support',
+      'Up to 150 players',
+      'Pools, divisions & drop-ins',
+      'Discount codes & early bird pricing',
+      'Stats, leaderboards & scoresheets',
+      'Co-organizer access',
     ],
     popular: false,
   },
   {
     id: 'pro' as const,
     name: 'Pro',
-    price: 99,
+    price: 89,
     period: '/month',
     tagline: 'For growing organizations',
     color: 'emerald',
     features: [
       '10 active leagues',
-      'Up to 1,000 registered players',
-      'Everything in Starter',
-      'Drop-in session management',
-      'Discount & promo codes',
+      'Up to 500 players',
       'SMS game reminders',
       'Payment installment plans',
-      'Priority support',
+      'Double elimination brackets',
+      'Everything in Starter',
     ],
     popular: true,
   },
   {
     id: 'club' as const,
     name: 'Club',
-    price: 199,
+    price: 179,
     period: '/month',
     tagline: 'For large multi-sport clubs',
     color: 'slate',
     features: [
-      'Unlimited active leagues',
-      'Unlimited players',
-      'Everything in Pro',
+      'Unlimited leagues & players',
       'Custom domain (yourleague.com)',
-      'White-glove onboarding',
+      'Waived transaction fees',
       'Dedicated account manager',
+      'Everything in Pro',
     ],
     popular: false,
   },
@@ -123,9 +136,17 @@ function PricingCard({
       </div>
 
       <div className="mb-6">
-        <span className="text-4xl font-extrabold text-gray-900">${plan.price}</span>
-        <span className="text-gray-400 text-sm ml-1">{plan.period}</span>
-        <p className="text-xs text-emerald-600 font-medium mt-1.5">15-day free trial — no credit card required</p>
+        {plan.price === 0 ? (
+          <span className="text-4xl font-extrabold text-gray-900">Free</span>
+        ) : (
+          <>
+            <span className="text-4xl font-extrabold text-gray-900">${plan.price}</span>
+            <span className="text-gray-400 text-sm ml-1">{plan.period}</span>
+          </>
+        )}
+        <p className="text-xs text-emerald-600 font-medium mt-1.5">
+          {plan.price === 0 ? 'No credit card required · Free forever' : '15-day free trial — no credit card required'}
+        </p>
       </div>
 
       <ul className="space-y-2.5 mb-8 flex-1">

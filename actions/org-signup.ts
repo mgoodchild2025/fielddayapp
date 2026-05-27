@@ -43,7 +43,7 @@ const signupSchema = z.object({
   fullName: z.string().trim().min(2, 'Name must be at least 2 characters').max(100, 'Name must be 100 characters or fewer'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  plan: z.enum(['starter', 'pro', 'club']).default('pro'),
+  plan: z.enum(['free', 'starter', 'pro', 'club']).default('pro'),
 })
 
 export async function orgSignup(input: z.infer<typeof signupSchema>) {
@@ -125,14 +125,17 @@ export async function orgSignup(input: z.infer<typeof signupSchema>) {
 
   if (orgError) return { error: orgError.message, slug: null }
 
-  const trialEnd = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString()
+  // Free plans start immediately (no trial, no Stripe); paid plans get a 15-day trial
+  const isFree = plan === 'free'
+  const trialEnd = isFree ? null : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString()
 
   await Promise.all([
     service.from('org_branding').insert({ organization_id: org.id }),
-    service.from('subscriptions').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (service as any).from('subscriptions').insert({
       organization_id: org.id,
       plan_tier: plan,
-      status: 'trialing',
+      status: isFree ? 'active' : 'trialing',
       trial_end: trialEnd,
     }),
     service.from('org_members').insert({

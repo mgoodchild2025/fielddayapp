@@ -4,11 +4,12 @@ import { useState, useTransition } from 'react'
 import { savePlanConfigs } from '@/actions/plan-config'
 import type { FeatureGroup } from '@/lib/features'
 
-type Tier = 'starter' | 'pro' | 'club' | 'internal'
+type Tier = 'free' | 'starter' | 'pro' | 'club' | 'internal'
 type CellValue = { enabled: boolean; limit_value: number | null }
 type ConfigMap = Record<string, Record<string, CellValue>>
 
 const TIER_LABELS: Record<Tier, string> = {
+  free:     'Free',
   starter:  'Starter',
   pro:      'Pro',
   club:     'Club',
@@ -16,6 +17,7 @@ const TIER_LABELS: Record<Tier, string> = {
 }
 
 const TIER_COLORS: Record<Tier, string> = {
+  free:     'text-gray-400',
   starter:  'text-gray-300',
   pro:      'text-blue-400',
   club:     'text-emerald-400',

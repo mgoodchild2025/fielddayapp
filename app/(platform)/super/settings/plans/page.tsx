@@ -5,7 +5,7 @@ import { PlanConfigEditor } from './plan-config-editor'
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Plan Configuration — Fieldday' }
 
-const TIERS = ['starter', 'pro', 'club', 'internal'] as const
+const TIERS = ['free', 'starter', 'pro', 'club', 'internal'] as const
 
 export default async function PlanConfigPage() {
   const rows = await getPlanConfigs()
