@@ -39,6 +39,11 @@ async function requireOrgAdmin() {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+
+  // Platform admins impersonating an org bypass the membership check
+  const isImpersonating = headersList.get('x-impersonating') === '1'
+  if (isImpersonating) return { org, user }
+
   const db = createServiceRoleClient()
   const { data: member } = await db
     .from('org_members')
