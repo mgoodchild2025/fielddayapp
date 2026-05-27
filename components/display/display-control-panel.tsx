@@ -53,18 +53,19 @@ const ZONE_TYPES: { value: ZoneConfig['type']; label: string; icon: string }[] =
 // ── Zone editor ───────────────────────────────────────────────────────────────
 
 function ZoneEditor({
-  label, zone, onChange, pools,
+  label, zone, onChange, pools, bracketTiers,
 }: {
   label: string
   zone: ZoneConfig
   onChange: (z: ZoneConfig) => void
   pools: { id: string; name: string }[]
+  bracketTiers: { name: string }[]
 }) {
   const sel = (type: ZoneConfig['type']) => {
     switch (type) {
       case 'schedule':  return { type, date_filter: 'today' as const, pool_id: null, court_filter: null }
       case 'standings': return { type, pool_id: null }
-      case 'bracket':   return { type, round_filter: 'all' as const }
+      case 'bracket':   return { type, round_filter: 'all' as const, tier_filter: null }
       case 'qr_code':   return { type, url: '', label: 'Scan to Register' }
       case 'message':   return { type, title: '', body: 'Welcome!', font_size: 'lg' as const }
       case 'clock':     return { type }
@@ -143,25 +144,42 @@ function ZoneEditor({
       )}
 
       {zone.type === 'bracket' && (
-        <div>
-          <label className="block text-xs text-gray-200 mb-1">Rounds to show</label>
-          <select
-            value={zone.round_filter}
-            onChange={(e) => onChange({ ...zone, round_filter: e.target.value as typeof zone.round_filter })}
-            className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white"
-          >
-            <optgroup label="Single tier">
-              <option value="first">First round only</option>
-              <option value="quarters">Quarter-Finals only</option>
-              <option value="semis">Semi-Finals only</option>
-              <option value="final">Final only</option>
-            </optgroup>
-            <optgroup label="Multiple tiers">
-              <option value="last_2">Semi-Finals + Final</option>
-              <option value="last_3">Quarter-Finals + Semis + Final</option>
-              <option value="all">All rounds</option>
-            </optgroup>
-          </select>
+        <div className="space-y-2">
+          {bracketTiers.length > 1 && (
+            <div>
+              <label className="block text-xs text-gray-200 mb-1">Tier to show</label>
+              <select
+                value={zone.tier_filter ?? ''}
+                onChange={(e) => onChange({ ...zone, tier_filter: e.target.value || null })}
+                className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white"
+              >
+                <option value="">All tiers</option>
+                {bracketTiers.map((t) => (
+                  <option key={t.name} value={t.name}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div>
+            <label className="block text-xs text-gray-200 mb-1">Rounds to show</label>
+            <select
+              value={zone.round_filter}
+              onChange={(e) => onChange({ ...zone, round_filter: e.target.value as typeof zone.round_filter })}
+              className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white"
+            >
+              <optgroup label="Single round">
+                <option value="first">First round only</option>
+                <option value="quarters">Quarter-Finals only</option>
+                <option value="semis">Semi-Finals only</option>
+                <option value="final">Final only</option>
+              </optgroup>
+              <optgroup label="Multiple rounds">
+                <option value="last_2">Semi-Finals + Final</option>
+                <option value="last_3">Quarter-Finals + Semis + Final</option>
+                <option value="all">All rounds</option>
+              </optgroup>
+            </select>
+          </div>
         </div>
       )}
 
@@ -239,7 +257,7 @@ interface ScreenState {
 }
 
 function ScreenEditor({
-  state, onChange, onSave, onDelete, isSaving, displayBaseUrl, pools, leagueId,
+  state, onChange, onSave, onDelete, isSaving, displayBaseUrl, pools, bracketTiers, leagueId,
 }: {
   state: ScreenState
   onChange: (s: ScreenState) => void
@@ -248,6 +266,7 @@ function ScreenEditor({
   isSaving: boolean
   displayBaseUrl: string
   pools: { id: string; name: string }[]
+  bracketTiers: { name: string }[]
   leagueId: string
 }) {
   const { screen, enabled, config } = state
@@ -356,6 +375,7 @@ function ScreenEditor({
               zone={zone}
               onChange={(z) => setZone(i, z)}
               pools={pools}
+              bracketTiers={bracketTiers}
             />
           ))}
         </div>
@@ -443,12 +463,13 @@ interface Props {
   leagueName:     string
   displayBaseUrl: string
   pools:          { id: string; name: string }[]
+  bracketTiers:   { name: string }[]
   timezone:       string
   initialScreens: ScreenState[]
 }
 
 export function DisplayControlPanel({
-  leagueId, leagueName, displayBaseUrl, pools, timezone, initialScreens,
+  leagueId, leagueName, displayBaseUrl, pools, bracketTiers, timezone, initialScreens,
 }: Props) {
   const [screens, setScreens] = useState<ScreenState[]>(
     initialScreens.length > 0 ? initialScreens : [{ screen: 1, enabled: false, config: defaultConfig() }]
@@ -561,6 +582,7 @@ export function DisplayControlPanel({
         isSaving={isPending}
         displayBaseUrl={displayBaseUrl}
         pools={pools}
+        bracketTiers={bracketTiers}
         leagueId={leagueId}
       />
     </div>

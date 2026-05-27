@@ -276,7 +276,11 @@ function TierDiagram({
 export function BracketZone({ bracket, config, theme }: Props) {
   const isDark = theme === 'dark'
 
-  const activeTiers = bracket?.tiers.filter((t) => t.matches.length > 0) ?? []
+  // Apply tier_filter if set — lets each zone show a specific tier (e.g. Gold only)
+  const activeTiers = (bracket?.tiers ?? []).filter((t) =>
+    t.matches.length > 0 &&
+    (!config.tier_filter || t.name === config.tier_filter)
+  )
 
   if (activeTiers.length === 0) {
     return (
