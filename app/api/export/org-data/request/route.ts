@@ -13,7 +13,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 
-const RATE_LIMIT_MAX = 25  // temporarily raised for testing (was 3)
+const RATE_LIMIT_MAX = 3
 const RATE_LIMIT_WINDOW_HOURS = 24
 
 export async function POST(req: NextRequest) {
