@@ -1,4 +1,5 @@
 import type { DisplayStanding, ZoneConfig } from '@/lib/display-types'
+import { FitContent } from './fit-content'
 
 interface Props {
   standings: DisplayStanding[]
@@ -31,22 +32,22 @@ export function StandingsZone({ standings, config, theme, pools }: Props) {
         </h2>
       </div>
 
-      <div className="flex-1 overflow-auto">
-        {ranked.length === 0 ? (
-          <div className={`flex items-center justify-center h-full text-lg ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
-            No standings yet
-          </div>
-        ) : (
+      {ranked.length === 0 ? (
+        <div className={`flex items-center justify-center flex-1 text-lg ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
+          No standings yet
+        </div>
+      ) : (
+        <FitContent>
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className={`text-xs ${isDark ? 'text-zinc-500 border-zinc-700' : 'text-gray-400 border-gray-200'} border-b`}>
-                <th className="px-3 py-2 text-left w-8">#</th>
-                <th className="px-2 py-2 text-left">Team</th>
-                <th className="px-3 py-2 text-center">GP</th>
-                <th className="px-3 py-2 text-center">W</th>
-                <th className="px-3 py-2 text-center">L</th>
-                <th className="px-3 py-2 text-center">D</th>
-                <th className="px-3 py-2 text-center font-bold">Pts</th>
+                <th className="px-3 py-1.5 text-left w-8">#</th>
+                <th className="px-2 py-1.5 text-left">Team</th>
+                <th className="px-3 py-1.5 text-center">GP</th>
+                <th className="px-3 py-1.5 text-center">W</th>
+                <th className="px-3 py-1.5 text-center">L</th>
+                <th className="px-3 py-1.5 text-center">D</th>
+                <th className="px-3 py-1.5 text-center font-bold">Pts</th>
               </tr>
             </thead>
             <tbody>
@@ -59,7 +60,7 @@ export function StandingsZone({ standings, config, theme, pools }: Props) {
                       : i % 2 === 0 ? 'bg-gray-50 border-gray-100' : 'bg-white border-gray-100'
                   }`}
                 >
-                  <td className={`px-3 py-3 text-sm font-bold ${
+                  <td className={`px-3 py-2 text-sm font-bold ${
                     s.rank === 1 ? 'text-amber-400' :
                     s.rank === 2 ? 'text-zinc-300' :
                     s.rank === 3 ? 'text-amber-600' :
@@ -67,23 +68,23 @@ export function StandingsZone({ standings, config, theme, pools }: Props) {
                   }`}>
                     {s.rank}
                   </td>
-                  <td className="px-2 py-3">
+                  <td className="px-2 py-2">
                     <div className="flex items-center gap-2">
                       {s.color && <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />}
                       <span className={`font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>{s.name}</span>
                     </div>
                   </td>
-                  <td className={`px-3 py-3 text-center tabular-nums ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{s.played}</td>
-                  <td className={`px-3 py-3 text-center tabular-nums font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{s.won}</td>
-                  <td className={`px-3 py-3 text-center tabular-nums ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{s.lost}</td>
-                  <td className={`px-3 py-3 text-center tabular-nums ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{s.drawn}</td>
-                  <td className={`px-3 py-3 text-center tabular-nums text-base font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{s.pts}</td>
+                  <td className={`px-3 py-2 text-center tabular-nums ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{s.played}</td>
+                  <td className={`px-3 py-2 text-center tabular-nums font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{s.won}</td>
+                  <td className={`px-3 py-2 text-center tabular-nums ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{s.lost}</td>
+                  <td className={`px-3 py-2 text-center tabular-nums ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{s.drawn}</td>
+                  <td className={`px-3 py-2 text-center tabular-nums text-base font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{s.pts}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        )}
-      </div>
+        </FitContent>
+      )}
     </div>
   )
 }

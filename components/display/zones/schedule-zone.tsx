@@ -1,4 +1,5 @@
 import type { DisplayGame, ZoneConfig } from '@/lib/display-types'
+import { FitContent } from './fit-content'
 
 interface Props {
   games: DisplayGame[]
@@ -61,12 +62,12 @@ export function ScheduleZone({ games, config, timezone, theme, pools }: Props) {
       </div>
 
       {/* Games list */}
-      <div className="flex-1 overflow-auto">
-        {visible.length === 0 ? (
-          <div className={`flex items-center justify-center h-full text-lg ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
-            No games scheduled
-          </div>
-        ) : (
+      {visible.length === 0 ? (
+        <div className={`flex items-center justify-center flex-1 text-lg ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
+          No games scheduled
+        </div>
+      ) : (
+        <FitContent>
           <table className="w-full text-sm border-collapse">
             <tbody>
               {visible.map((g, i) => {
@@ -141,8 +142,8 @@ export function ScheduleZone({ games, config, timezone, theme, pools }: Props) {
               })}
             </tbody>
           </table>
-        )}
-      </div>
+        </FitContent>
+      )}
     </div>
   )
 }

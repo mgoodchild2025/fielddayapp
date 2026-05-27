@@ -1,4 +1,5 @@
 import type { DisplayBracketMatch } from '@/lib/display-types'
+import { FitContent } from './fit-content'
 
 interface Props {
   bracket: { rounds: number; matches: DisplayBracketMatch[] } | null
@@ -48,9 +49,9 @@ export function BracketZone({ bracket, theme }: Props) {
         </h2>
       </div>
 
-      {/* Horizontal scrolling bracket */}
-      <div className="flex-1 overflow-auto p-3">
-        <div className="flex gap-3 h-full items-start min-w-max">
+      {/* Auto-fit bracket — all rounds scale to fit the zone */}
+      <FitContent>
+        <div className="flex gap-3 p-3 items-start">
           {Array.from(byRound.entries()).map(([roundNum, roundMatches]) => (
             <div key={roundNum} className="flex flex-col gap-2 min-w-[180px]">
               {/* Round header */}
@@ -124,7 +125,7 @@ export function BracketZone({ bracket, theme }: Props) {
             </div>
           ))}
         </div>
-      </div>
+      </FitContent>
     </div>
   )
 }
