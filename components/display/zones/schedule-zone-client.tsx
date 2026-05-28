@@ -24,12 +24,15 @@ function slotKey(iso: string) {
 
 // ── Team badge: logo image → color dot → nothing ──────────────────────────────
 function TeamBadge({ logoUrl, color, name }: { logoUrl: string | null; color: string | null; name: string }) {
-  if (logoUrl) {
+  const [imgError, setImgError] = useState(false)
+
+  if (logoUrl && !imgError) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={logoUrl}
         alt={name}
+        onError={() => setImgError(true)}
         style={{
           width: 18, height: 18, borderRadius: '50%',
           objectFit: 'cover', flexShrink: 0,

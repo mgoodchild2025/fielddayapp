@@ -1,5 +1,30 @@
+'use client'
+
+import { useState } from 'react'
 import type { DisplayStanding, ZoneConfig } from '@/lib/display-types'
 import { FitContent } from './fit-content'
+
+// logo → color dot → nothing, with graceful error fallback
+function TeamBadge({ logoUrl, color, name }: { logoUrl: string | null; color: string | null; name: string }) {
+  const [imgError, setImgError] = useState(false)
+
+  if (logoUrl && !imgError) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logoUrl}
+        alt={name}
+        onError={() => setImgError(true)}
+        className="w-5 h-5 rounded-full object-cover shrink-0"
+        style={{ border: '1px solid rgba(128,128,128,0.2)' }}
+      />
+    )
+  }
+  if (color) {
+    return <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+  }
+  return null
+}
 
 interface Props {
   standings: DisplayStanding[]
@@ -70,17 +95,7 @@ export function StandingsZone({ standings, config, theme, pools }: Props) {
                   </td>
                   <td className="px-2 py-2">
                     <div className="flex items-center gap-2">
-                      {s.logo_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={s.logo_url}
-                          alt={s.name}
-                          className="w-5 h-5 rounded-full object-cover shrink-0"
-                          style={{ border: '1px solid rgba(128,128,128,0.2)' }}
-                        />
-                      ) : s.color ? (
-                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                      ) : null}
+                      <TeamBadge logoUrl={s.logo_url} color={s.color} name={s.name} />
                       <span className={`font-semibold ${isDark ? 'text-zinc-100' : 'text-gray-900'}`}>{s.name}</span>
                     </div>
                   </td>
