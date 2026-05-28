@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getPublishedDocument, listPublishedDocuments } from '@/actions/legal'
+import { getPublishedDocument } from '@/actions/legal'
+
+export const dynamic = 'force-dynamic'
 import { LegalDocumentContent } from '@/components/legal/legal-document-content'
 import type { Metadata } from 'next'
 
@@ -82,7 +84,3 @@ export default async function LegalDocumentPage({ params }: Props) {
   )
 }
 
-export async function generateStaticParams() {
-  const docs = await listPublishedDocuments()
-  return docs.map((d) => ({ slug: d.slug }))
-}
