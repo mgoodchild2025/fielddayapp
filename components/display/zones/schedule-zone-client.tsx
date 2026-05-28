@@ -165,9 +165,9 @@ export function ScheduleClient({ games, timezone, isDark, scrollSpeed }: Props) 
   const bg       = isDark ? '#18181b' : '#ffffff'
   const border   = isDark ? '#3f3f46' : '#e5e7eb'
   const hdrBg    = isDark ? '#27272a' : '#f3f4f6'
-  const hdrText  = isDark ? '#71717a' : '#9ca3af'
+  const hdrText  = isDark ? '#a1a1aa' : '#6b7280'
   const teamFull = isDark ? '#e4e4e7' : '#111827'
-  const teamDim  = isDark ? '#52525b' : '#d1d5db'
+  const teamDim  = isDark ? '#71717a' : '#9ca3af'
   const currBg   = isDark ? 'rgba(16,185,129,0.07)' : 'rgba(16,185,129,0.05)'
   const nextBg   = isDark ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.015)'
 
