@@ -335,31 +335,75 @@ export function ScheduleClient({ games, timezone, isDark, scrollSpeed }: Props) 
         `}</style>
       )}
 
-      <div ref={outerRef} style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
 
-        {/* Gradient fades hint that more content exists */}
-        {shouldScroll && (
-          <>
-            <div style={{
-              position: 'absolute', inset: '0 0 auto 0', height: 28, zIndex: 10,
-              background: `linear-gradient(to bottom, ${bg}, transparent)`,
-              pointerEvents: 'none',
-            }} />
-            <div style={{
-              position: 'absolute', inset: 'auto 0 0 0', height: 28, zIndex: 10,
-              background: `linear-gradient(to top, ${bg}, transparent)`,
-              pointerEvents: 'none',
-            }} />
-          </>
-        )}
+        {/* ── Column headers ──────────────────────────────────────────────── */}
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          padding: '5px 14px', gap: 10,
+          flexShrink: 0,
+          borderBottom: `1px solid ${border}`,
+          backgroundColor: hdrBg,
+        }}>
+          {hasCourts && (
+            <span style={{
+              fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
+              letterSpacing: '0.1em', color: hdrText,
+              minWidth: 60, maxWidth: 80, flexShrink: 0, textAlign: 'center',
+            }}>
+              Court
+            </span>
+          )}
+          <span style={{
+            flex: 1, fontSize: 9, fontWeight: 700,
+            textTransform: 'uppercase', letterSpacing: '0.1em', color: hdrText,
+          }}>
+            Home
+          </span>
+          <span style={{
+            width: 88, flexShrink: 0, textAlign: 'center',
+            fontSize: 9, fontWeight: 700,
+            textTransform: 'uppercase', letterSpacing: '0.1em', color: hdrText,
+          }}>
+            Score
+          </span>
+          <span style={{
+            flex: 1, textAlign: 'right',
+            fontSize: 9, fontWeight: 700,
+            textTransform: 'uppercase', letterSpacing: '0.1em', color: hdrText,
+          }}>
+            Away
+          </span>
+        </div>
 
-        {/* Scrolling wrapper — content duplicated for seamless loop */}
-        <div style={shouldScroll ? {
-          animation: `sched-scroll ${scrollDuration}s linear infinite`,
-          willChange: 'transform',
-        } : undefined}>
-          <div ref={singleRef}>{renderSlots()}</div>
-          {shouldScroll && <div aria-hidden="true">{renderSlots()}</div>}
+        {/* ── Scrolling content ───────────────────────────────────────────── */}
+        <div ref={outerRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
+
+          {/* Gradient fades hint that more content exists */}
+          {shouldScroll && (
+            <>
+              <div style={{
+                position: 'absolute', inset: '0 0 auto 0', height: 28, zIndex: 10,
+                background: `linear-gradient(to bottom, ${bg}, transparent)`,
+                pointerEvents: 'none',
+              }} />
+              <div style={{
+                position: 'absolute', inset: 'auto 0 0 0', height: 28, zIndex: 10,
+                background: `linear-gradient(to top, ${bg}, transparent)`,
+                pointerEvents: 'none',
+              }} />
+            </>
+          )}
+
+          {/* Scrolling wrapper — content duplicated for seamless loop */}
+          <div style={shouldScroll ? {
+            animation: `sched-scroll ${scrollDuration}s linear infinite`,
+            willChange: 'transform',
+          } : undefined}>
+            <div ref={singleRef}>{renderSlots()}</div>
+            {shouldScroll && <div aria-hidden="true">{renderSlots()}</div>}
+          </div>
+
         </div>
 
       </div>
