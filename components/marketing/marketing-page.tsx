@@ -226,14 +226,14 @@ const PLANS = [
     id: 'starter',
     name: 'Starter',
     price: 49,
-    features: ['3 active leagues', 'Up to 200 players', 'Custom branding & colours'],
+    features: ['3 active leagues', 'Up to 200 players', 'Custom branding & nav links'],
     popular: false,
   },
   {
     id: 'pro',
     name: 'Pro',
     price: 99,
-    features: ['10 active leagues', 'Up to 1,000 players', 'SMS reminders & discount codes'],
+    features: ['10 active leagues', 'Up to 1,000 players', 'SMS, merch shop & check-in'],
     popular: true,
   },
   {
@@ -344,12 +344,14 @@ const MATRIX: Array<{
   { label: 'Leagues & tournaments',      starter: 'check',      pro: 'check',      club: 'check' },
   { label: 'Drop-in events',             starter: 'dash',       pro: 'check',      club: 'check' },
   { label: 'Recurring sessions',         starter: 'dash',       pro: 'check',      club: 'check' },
+  { label: 'QR code check-in',           starter: 'dash',       pro: 'check',      club: 'check' },
 
   { section: 'Scheduling' },
   { label: 'Game schedule builder',              starter: 'check', pro: 'check', club: 'check' },
   { label: 'Single-elimination brackets',        starter: 'check', pro: 'check', club: 'check' },
   { label: 'Double-elimination brackets',        starter: 'dash',  pro: 'check', club: 'check' },
   { label: 'Pools & divisions',                  starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Game substitute management',         starter: 'check', pro: 'check', club: 'check' },
   { label: 'CSV schedule import',                starter: 'dash',  pro: 'dash',  club: 'check' },
   { label: 'Print scoresheets',                  starter: 'dash',  pro: 'check', club: 'check' },
 
@@ -357,9 +359,10 @@ const MATRIX: Array<{
   { label: 'Online registration',                starter: 'check', pro: 'check', club: 'check' },
   { label: 'Team or individual registration',    starter: 'check', pro: 'check', club: 'check' },
   { label: 'Stripe payments (you keep 100%)',    starter: 'check', pro: 'check', club: 'check' },
-  { label: 'Digital waivers',                    starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Digital waivers + QR signing',       starter: 'check', pro: 'check', club: 'check' },
   { label: 'Early bird pricing',                 starter: 'dash',  pro: 'check', club: 'check' },
   { label: 'Discount / promo codes',             starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Merchandise shop',                   starter: 'dash',  pro: 'check', club: 'check' },
   { label: 'Payment plans (installments)',        starter: 'dash',  pro: 'dash',  club: 'check' },
 
   { section: 'Stats & Communications' },
@@ -371,6 +374,8 @@ const MATRIX: Array<{
 
   { section: 'Customisation' },
   { label: 'Custom branding (logo, colours)',    starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Custom navigation links',            starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Photo gallery & media page',         starter: 'dash',  pro: 'check', club: 'check' },
   { label: 'Event rules templates',              starter: 'dash',  pro: 'check', club: 'check' },
   { label: 'Custom player positions',            starter: 'dash',  pro: 'check', club: 'check' },
   { label: 'Co-organizer accounts',              starter: 'dash',  pro: 'check', club: 'check' },

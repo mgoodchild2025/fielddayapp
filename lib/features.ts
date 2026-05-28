@@ -19,6 +19,11 @@ export type BooleanFeature =
   | 'event_rules_templates'
   | 'custom_positions'
   | 'favicon'
+  | 'merchandise_shop'
+  | 'game_substitutes'
+  | 'custom_nav_links'
+  | 'player_check_in'
+  | 'media_gallery'
 
 export type LimitFeature =
   | 'max_leagues'   // null = unlimited
@@ -54,6 +59,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       { key: 'pools_divisions',       label: 'Pools & divisions',           description: 'Organise teams into pools and divisions', type: 'boolean' },
       { key: 'csv_import',            label: 'CSV schedule import',         description: 'Import game schedules from a CSV file', type: 'boolean' },
       { key: 'print_scoresheets',     label: 'Print scoresheets',           description: 'Generate print-ready score and stat sheets', type: 'boolean' },
+      { key: 'game_substitutes',      label: 'Game substitute management',  description: 'Captains invite one-off game subs by email with automatic waiver handling', type: 'boolean' },
     ],
   },
   {
@@ -62,6 +68,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       { key: 'early_bird_pricing',    label: 'Early bird pricing',    description: 'Set a discounted early registration price with deadline', type: 'boolean' },
       { key: 'discount_codes',        label: 'Discount / promo codes', description: 'Create and manage promotional discount codes', type: 'boolean' },
       { key: 'payment_plans',         label: 'Payment plans',          description: 'Allow players to pay in instalments', type: 'boolean' },
+      { key: 'merchandise_shop',      label: 'Merchandise shop',       description: 'Standalone shop where members can buy merch at any time (separate from registration)', type: 'boolean' },
     ],
   },
   {
@@ -69,6 +76,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     features: [
       { key: 'drop_in_sessions',   label: 'Drop-in events',       description: 'Create single-session drop-in events with per-session pricing', type: 'boolean' },
       { key: 'recurring_sessions', label: 'Recurring sessions',   description: 'Create repeating game sessions', type: 'boolean' },
+      { key: 'player_check_in',    label: 'QR code check-in',     description: 'Scan player QR codes at the venue for event and drop-in check-in', type: 'boolean' },
     ],
   },
   {
@@ -84,6 +92,8 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       { key: 'co_organizers',         label: 'Co-organizer accounts',    description: 'Invite users with league_admin role', type: 'boolean' },
       { key: 'event_rules_templates', label: 'Event rules templates',    description: 'Save and reuse event rules across leagues', type: 'boolean' },
       { key: 'custom_positions',      label: 'Custom sport positions',   description: 'Define custom player positions per sport', type: 'boolean' },
+      { key: 'custom_nav_links',      label: 'Custom navigation links',  description: 'Add up to 5 custom links (URLs or PDF documents) to the public nav bar', type: 'boolean' },
+      { key: 'media_gallery',         label: 'Photo gallery & media page', description: 'Upload photos and embed YouTube videos or Instagram posts on a public media page', type: 'boolean' },
       { key: 'favicon',               label: 'Custom favicon',           description: 'Upload a custom browser favicon', type: 'boolean' },
       { key: 'custom_domain',         label: 'Custom domain',            description: 'Serve the org site from a custom domain name', type: 'boolean' },
     ],
