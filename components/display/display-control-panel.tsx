@@ -14,8 +14,12 @@ const LAYOUTS: { id: LayoutId; label: string; preview: React.ReactNode }[] = [
   { id: 'main_sidebar',   label: 'Main + Sidebar',preview: <LayoutPrev cells={[[1,1,1.5,2],[1.5,1,2,2]]} narrow={[1]} /> },
   { id: 'sidebar_main',   label: 'Sidebar + Main',preview: <LayoutPrev cells={[[1,1,1.5,2],[1.5,1,2,2]]} narrow={[0]} /> },
   { id: 'thirds',         label: 'Three Columns', preview: <LayoutPrev cells={[[1,1,1.67,2],[1.67,1,2.33,2],[2.33,1,3,2]]} /> },
-  { id: 'main_two_right', label: 'Main + 2 Right',preview: <LayoutPrev cells={[[1,1,1.5,2],[1.5,1,2,1.5],[1.5,1.5,2,2]]} narrow={[1,2]} /> },
-  { id: 'four_quad',      label: '4 Panels',      preview: <LayoutPrev cells={[[1,1,1.5,1.5],[1.5,1,2,1.5],[1,1.5,1.5,2],[1.5,1.5,2,2]]} /> },
+  { id: 'main_two_right', label: 'Main + 2 Right', preview: <LayoutPrev cells={[[1,1,1.5,2],[1.5,1,2,1.5],[1.5,1.5,2,2]]} narrow={[1,2]} /> },
+  { id: 'two_left_main',  label: '2 Left + Main',  preview: <LayoutPrev cells={[[1,1,1.5,1.5],[1,1.5,1.5,2],[1.5,1,2,2]]} narrow={[0,1]} /> },
+  { id: 'main_top_two',   label: 'Top + 2 Below',  preview: <LayoutPrev cells={[[1,1,2,1.5],[1,1.5,1.5,2],[1.5,1.5,2,2]]} narrow={[1,2]} /> },
+  { id: 'two_top_main',   label: '2 Above + Main', preview: <LayoutPrev cells={[[1,1,1.5,1.5],[1.5,1,2,1.5],[1,1.5,2,2]]} narrow={[0,1]} /> },
+  { id: 'three_rows',     label: 'Three Rows',     preview: <LayoutPrev cells={[[1,1,2,1.33],[1,1.33,2,1.67],[1,1.67,2,2]]} /> },
+  { id: 'four_quad',      label: '4 Panels',       preview: <LayoutPrev cells={[[1,1,1.5,1.5],[1.5,1,2,1.5],[1,1.5,1.5,2],[1.5,1.5,2,2]]} /> },
 ]
 
 function LayoutPrev({ cells, narrow }: { cells: [number,number,number,number][]; narrow?: number[] }) {

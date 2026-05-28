@@ -8,6 +8,10 @@ export type LayoutId =
   | 'sidebar_main'
   | 'thirds'
   | 'main_two_right'
+  | 'two_left_main'
+  | 'main_top_two'
+  | 'two_top_main'
+  | 'three_rows'
   | 'four_quad'
 
 export type ZoneConfig =
@@ -36,6 +40,10 @@ export const ZONE_COUNT: Record<LayoutId, number> = {
   sidebar_main:   2,
   thirds:         3,
   main_two_right: 3,
+  two_left_main:  3,
+  main_top_two:   3,
+  two_top_main:   3,
+  three_rows:     3,
   four_quad:      4,
 }
 
@@ -47,6 +55,10 @@ export const ZONE_LABELS: Record<LayoutId, string[]> = {
   sidebar_main:   ['Sidebar', 'Main (large)'],
   thirds:         ['Left', 'Center', 'Right'],
   main_two_right: ['Main (large)', 'Top Right', 'Bottom Right'],
+  two_left_main:  ['Top Left', 'Bottom Left', 'Main (large)'],
+  main_top_two:   ['Main (large)', 'Bottom Left', 'Bottom Right'],
+  two_top_main:   ['Top Left', 'Top Right', 'Main (large)'],
+  three_rows:     ['Top', 'Middle', 'Bottom'],
   four_quad:      ['Top Left', 'Top Right', 'Bottom Left', 'Bottom Right'],
 }
 

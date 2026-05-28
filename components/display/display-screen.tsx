@@ -15,20 +15,30 @@ import { LogoZone }      from './zones/logo-zone'
 
 function gridStyle(layout: DisplayConfig['layout']): React.CSSProperties {
   switch (layout) {
-    case 'fullscreen':     return { display: 'grid', gridTemplateColumns: '1fr',      gridTemplateRows: '1fr' }
-    case 'split_h':        return { display: 'grid', gridTemplateColumns: '1fr 1fr',  gridTemplateRows: '1fr' }
-    case 'split_v':        return { display: 'grid', gridTemplateColumns: '1fr',      gridTemplateRows: '1fr 1fr' }
-    case 'main_sidebar':   return { display: 'grid', gridTemplateColumns: '2fr 1fr',  gridTemplateRows: '1fr' }
-    case 'sidebar_main':   return { display: 'grid', gridTemplateColumns: '1fr 2fr',  gridTemplateRows: '1fr' }
+    case 'fullscreen':     return { display: 'grid', gridTemplateColumns: '1fr',         gridTemplateRows: '1fr' }
+    case 'split_h':        return { display: 'grid', gridTemplateColumns: '1fr 1fr',     gridTemplateRows: '1fr' }
+    case 'split_v':        return { display: 'grid', gridTemplateColumns: '1fr',         gridTemplateRows: '1fr 1fr' }
+    case 'main_sidebar':   return { display: 'grid', gridTemplateColumns: '2fr 1fr',     gridTemplateRows: '1fr' }
+    case 'sidebar_main':   return { display: 'grid', gridTemplateColumns: '1fr 2fr',     gridTemplateRows: '1fr' }
     case 'thirds':         return { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '1fr' }
-    case 'main_two_right': return { display: 'grid', gridTemplateColumns: '2fr 1fr',  gridTemplateRows: '1fr 1fr' }
-    case 'four_quad':      return { display: 'grid', gridTemplateColumns: '1fr 1fr',  gridTemplateRows: '1fr 1fr' }
+    case 'main_two_right': return { display: 'grid', gridTemplateColumns: '2fr 1fr',     gridTemplateRows: '1fr 1fr' }
+    case 'two_left_main':  return { display: 'grid', gridTemplateColumns: '1fr 2fr',     gridTemplateRows: '1fr 1fr' }
+    case 'main_top_two':   return { display: 'grid', gridTemplateColumns: '1fr 1fr',     gridTemplateRows: '2fr 1fr' }
+    case 'two_top_main':   return { display: 'grid', gridTemplateColumns: '1fr 1fr',     gridTemplateRows: '1fr 2fr' }
+    case 'three_rows':     return { display: 'grid', gridTemplateColumns: '1fr',         gridTemplateRows: '1fr 1fr 1fr' }
+    case 'four_quad':      return { display: 'grid', gridTemplateColumns: '1fr 1fr',     gridTemplateRows: '1fr 1fr' }
   }
 }
 
 function zoneStyle(layout: DisplayConfig['layout'], index: number): React.CSSProperties {
-  // Zone A in main_two_right spans both rows on the left
+  // main_two_right: zone 0 (left main) spans both rows
   if (layout === 'main_two_right' && index === 0) return { gridRow: '1 / 3' }
+  // two_left_main: zone 2 (right main) spans both rows
+  if (layout === 'two_left_main'  && index === 2) return { gridColumn: '2', gridRow: '1 / 3' }
+  // main_top_two: zone 0 (top main) spans both columns
+  if (layout === 'main_top_two'   && index === 0) return { gridColumn: '1 / 3' }
+  // two_top_main: zone 2 (bottom main) spans both columns
+  if (layout === 'two_top_main'   && index === 2) return { gridColumn: '1 / 3' }
   return {}
 }
 
@@ -184,6 +194,9 @@ function needsRightBorder(layout: DisplayConfig['layout'], index: number): boole
     case 'sidebar_main':   return index === 0
     case 'thirds':         return index < 2
     case 'main_two_right': return index === 0
+    case 'two_left_main':  return index === 0 || index === 1
+    case 'main_top_two':   return index === 1
+    case 'two_top_main':   return index === 0
     case 'four_quad':      return index % 2 === 0
     default: return false
   }
@@ -193,6 +206,10 @@ function needsBottomBorder(layout: DisplayConfig['layout'], index: number): bool
   switch (layout) {
     case 'split_v':        return index === 0
     case 'main_two_right': return index === 1
+    case 'two_left_main':  return index === 0
+    case 'main_top_two':   return index === 0
+    case 'two_top_main':   return index === 0 || index === 1
+    case 'three_rows':     return index === 0 || index === 1
     case 'four_quad':      return index < 2
     default: return false
   }
