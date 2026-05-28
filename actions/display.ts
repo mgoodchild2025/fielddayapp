@@ -273,6 +273,7 @@ export async function getDisplayData(
           .from('bracket_matches')
           .select(`
             id, round_number, match_number, score1, score2, status,
+            scheduled_at, court,
             team1_label, team2_label,
             team1:teams!bracket_matches_team1_id_fkey(name),
             team2:teams!bracket_matches_team2_id_fkey(name),
@@ -297,6 +298,8 @@ export async function getDisplayData(
             winner_id:    w?.id ?? null,
             status:       m.status ?? 'pending',
             is_bye:       m.team2_label === 'Bye',
+            scheduled_at: m.scheduled_at ?? null,
+            court:        m.court ?? null,
           } satisfies DisplayBracketMatch
         })
       }

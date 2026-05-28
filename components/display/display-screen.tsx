@@ -58,7 +58,7 @@ function ZoneRenderer({
         />
       )
     case 'bracket':
-      return <BracketZone bracket={data.bracket} config={config as Extract<ZoneConfig, { type: 'bracket' }>} theme={theme} />
+      return <BracketZone bracket={data.bracket} config={config as Extract<ZoneConfig, { type: 'bracket' }>} theme={theme} timezone={data.timezone} />
     case 'qr_code':
       return <QrZone config={config} theme={theme} />
     case 'message':

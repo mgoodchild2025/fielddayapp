@@ -114,6 +114,8 @@ export interface DisplayBracketMatch {
   winner_id:     string | null
   status:        string
   is_bye:        boolean
+  scheduled_at:  string | null
+  court:         string | null
 }
 
 export interface DisplayData {

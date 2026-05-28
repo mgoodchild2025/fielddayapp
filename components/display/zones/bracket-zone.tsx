@@ -4,9 +4,16 @@ import { FitContent } from './fit-content'
 type Tier = { name: string | null; matches: DisplayBracketMatch[] }
 
 interface Props {
-  bracket: { tiers: Tier[] } | null
-  config:  Extract<ZoneConfig, { type: 'bracket' }>
-  theme:   'dark' | 'light'
+  bracket:  { tiers: Tier[] } | null
+  config:   Extract<ZoneConfig, { type: 'bracket' }>
+  theme:    'dark' | 'light'
+  timezone: string
+}
+
+function fmtMatchTime(iso: string, timezone: string) {
+  return new Intl.DateTimeFormat('en-CA', {
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: timezone,
+  }).format(new Date(iso))
 }
 
 // ── Layout constants ──────────────────────────────────────────────────────────
@@ -44,16 +51,39 @@ function getVisibleRoundNums(
 }
 
 // ── Match card ────────────────────────────────────────────────────────────────
-function MatchCard({ match, isDark }: { match: DisplayBracketMatch; isDark: boolean }) {
-  const t1Wins  = match.score1 !== null && match.score2 !== null && match.score1 > match.score2
-  const t2Wins  = match.score1 !== null && match.score2 !== null && match.score2 > match.score1
-  const hasScore = match.score1 !== null || match.score2 !== null
-  // TBD match — both team slots empty and no score
-  const isTbd   = !hasScore && match.team1_name === null && match.team2_name === null
+// When a match has no scores yet and has a scheduled time, the divider between
+// the two team rows shows the time (and court if set) instead of a plain line.
+// The two team rows shrink to 34 px each, leaving 12 px for the time strip —
+// total is still MATCH_H = 80 px.
 
+const TEAM_ROW_H  = 34  // px per team row when time strip is shown
+const TIME_STRIP_H = 12 // px for the time/court strip
+
+function MatchCard({
+  match,
+  isDark,
+  timezone,
+}: {
+  match:    DisplayBracketMatch
+  isDark:   boolean
+  timezone: string
+}) {
+  const t1Wins   = match.score1 !== null && match.score2 !== null && match.score1 > match.score2
+  const t2Wins   = match.score1 !== null && match.score2 !== null && match.score2 > match.score1
+  const hasScore = match.score1 !== null || match.score2 !== null
+  const isTbd    = !hasScore && match.team1_name === null && match.team2_name === null
+
+  // Show time strip only when there are no scores and a scheduled time exists
+  const showTime = !hasScore && !!match.scheduled_at
+  const timeLabel = showTime
+    ? [fmtMatchTime(match.scheduled_at!, timezone), match.court].filter(Boolean).join(' · ')
+    : null
+
+  const rowH   = showTime ? TEAM_ROW_H : MATCH_H / 2
   const border = isDark ? '#3f3f46' : '#e5e7eb'
   const bg     = isDark ? '#18181b' : '#ffffff'
   const divBg  = isDark ? 'rgba(6,78,59,0.30)' : '#f0fdf4'
+  const metaColor = isDark ? '#52525b' : '#9ca3af'
 
   const nameColor = (wins: boolean, bye: boolean) => {
     if (bye)       return isDark ? '#52525b' : '#d1d5db'
@@ -76,6 +106,8 @@ function MatchCard({ match, isDark }: { match: DisplayBracketMatch; isDark: bool
       opacity: isTbd ? 0.45 : 1,
       fontSize: 13,
       lineHeight: 1,
+      display: 'flex',
+      flexDirection: 'column',
     }}>
       {/* Team 1 row */}
       <div style={{
@@ -83,8 +115,8 @@ function MatchCard({ match, isDark }: { match: DisplayBracketMatch; isDark: bool
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 10px',
-        height: MATCH_H / 2,
-        borderBottom: `1px solid ${border}`,
+        height: rowH,
+        flexShrink: 0,
         backgroundColor: t1Wins ? divBg : 'transparent',
       }}>
         <span style={{
@@ -110,13 +142,48 @@ function MatchCard({ match, isDark }: { match: DisplayBracketMatch; isDark: bool
         )}
       </div>
 
+      {/* Divider — plain line, or time+court strip for unscored matches */}
+      {showTime ? (
+        <div style={{
+          position: 'relative',
+          height: TIME_STRIP_H,
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+        }}>
+          {/* Full-width rule */}
+          <div style={{ position: 'absolute', inset: '50% 0 auto 0', height: 1, backgroundColor: border }} />
+          {/* Time label floats over the rule */}
+          <span style={{
+            position: 'relative',
+            fontSize: 9,
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+            color: metaColor,
+            backgroundColor: bg,
+            paddingLeft: 5,
+            paddingRight: 5,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            maxWidth: '90%',
+            textOverflow: 'ellipsis',
+          }}>
+            {timeLabel}
+          </span>
+        </div>
+      ) : (
+        <div style={{ height: 1, flexShrink: 0, backgroundColor: border }} />
+      )}
+
       {/* Team 2 row */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 10px',
-        height: MATCH_H / 2,
+        flex: 1,
         backgroundColor: t2Wins ? divBg : 'transparent',
       }}>
         <span style={{
@@ -151,10 +218,12 @@ function TierDiagram({
   tier,
   filter,
   isDark,
+  timezone,
 }: {
-  tier: Tier
-  filter: Extract<ZoneConfig, { type: 'bracket' }>['round_filter']
-  isDark: boolean
+  tier:     Tier
+  filter:   Extract<ZoneConfig, { type: 'bracket' }>['round_filter']
+  isDark:   boolean
+  timezone: string
 }) {
   const { matches } = tier
 
@@ -252,7 +321,7 @@ function TierDiagram({
                           borderBottom: `1px solid ${lineColor}`,
                         }} />
                       )}
-                      <MatchCard match={match} isDark={isDark} />
+                      <MatchCard match={match} isDark={isDark} timezone={timezone} />
                     </div>
                   )
                 })}
@@ -303,7 +372,7 @@ function TierDiagram({
             Third Place
           </div>
           <div style={{ paddingLeft: ARM_W, paddingRight: ARM_W }}>
-            <MatchCard match={thirdPlaceMatch} isDark={isDark} />
+            <MatchCard match={thirdPlaceMatch} isDark={isDark} timezone={timezone} />
           </div>
         </div>
       )}
@@ -312,7 +381,7 @@ function TierDiagram({
 }
 
 // ── Main BracketZone ──────────────────────────────────────────────────────────
-export function BracketZone({ bracket, config, theme }: Props) {
+export function BracketZone({ bracket, config, theme, timezone }: Props) {
   const isDark = theme === 'dark'
 
   // Apply tier_filter if set — lets each zone show a specific tier (e.g. Gold only)
@@ -366,7 +435,7 @@ export function BracketZone({ bracket, config, theme }: Props) {
                   {tier.name}
                 </div>
               )}
-              <TierDiagram tier={tier} filter={config.round_filter} isDark={isDark} />
+              <TierDiagram tier={tier} filter={config.round_filter} isDark={isDark} timezone={timezone} />
             </div>
           ))}
         </div>
