@@ -158,16 +158,32 @@ function TierDiagram({
 }) {
   const { matches } = tier
 
-  // Derive unique round numbers from actual data, sorted high → low
-  // (high = first/opening round with most matches, 1 = final)
-  const allRoundNums = [...new Set(matches.map((m) => m.round_number))].sort((a, b) => b - a)
+  // The third place match lives in round 1 with match_number === 2.
+  // Separate it out before layout so it doesn't appear in the Final column.
+  const thirdPlaceMatch = matches.find((m) => m.round_number === 1 && m.match_number === 2)
+  const mainMatches     = matches.filter((m) => !(m.round_number === 1 && m.match_number === 2))
+
+  // Champion: winner of the final (round_number=1, match_number=1)
+  const finalMatch = mainMatches.find((m) => m.round_number === 1 && m.match_number === 1)
+  const champion = (() => {
+    if (!finalMatch || finalMatch.score1 === null || finalMatch.score2 === null) return null
+    if (finalMatch.score1 > finalMatch.score2) return finalMatch.team1_name
+    if (finalMatch.score2 > finalMatch.score1) return finalMatch.team2_name
+    return null
+  })()
+
+  // Derive unique round numbers from main matches only, sorted high → low
+  const allRoundNums = [...new Set(mainMatches.map((m) => m.round_number))].sort((a, b) => b - a)
   const visibleRoundNums = getVisibleRoundNums(allRoundNums, filter)
   if (visibleRoundNums.length === 0) return null
+
+  // Show third place and champion only when the final round is visible
+  const finalVisible = visibleRoundNums.includes(1)
 
   // Group matches by round and sort by match_number within each round
   const byRound = new Map<number, DisplayBracketMatch[]>()
   for (const r of visibleRoundNums) byRound.set(r, [])
-  for (const m of matches) {
+  for (const m of mainMatches) {
     if (byRound.has(m.round_number)) byRound.get(m.round_number)!.push(m)
   }
   for (const [r, ms] of byRound) {
@@ -179,95 +195,117 @@ function TierDiagram({
   const totalH = firstRoundCount * (MATCH_H + MATCH_GAP) - MATCH_GAP
 
   const numCols = visibleRoundNums.length
-  // Each column occupies COL_W + ARM_W on the right (connector arm space).
-  // The last column needs no right arm, so total = numCols * COL_W + (numCols - 1) * ARM_W * 2
-  const totalW = numCols * COL_W + Math.max(0, numCols - 1) * ARM_W * 2
+  const totalW  = numCols * COL_W + Math.max(0, numCols - 1) * ARM_W * 2
 
-  const lineColor = isDark ? '#4b5563' : '#9ca3af'
+  const lineColor    = isDark ? '#4b5563' : '#9ca3af'
+  const subtextColor = isDark ? '#71717a' : '#9ca3af'
+  const dividerColor = isDark ? '#3f3f46' : '#e5e7eb'
 
   return (
-    <div style={{ position: 'relative', width: totalW }}>
-      {/* Round labels */}
-      <div style={{ display: 'flex', marginBottom: 6 }}>
-        {visibleRoundNums.map((rn) => (
-          <div key={rn} style={{ width: COL_W + (ARM_W * 2), flexShrink: 0, textAlign: 'center' }}>
-            <span style={{
-              fontSize: 10,
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-              color: isDark ? '#71717a' : '#9ca3af',
-            }}>
-              {getRoundLabel(rn)}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Match columns — flex row, each column is position:relative */}
-      <div style={{ display: 'flex', height: totalH }}>
-        {visibleRoundNums.map((roundNum, colIdx) => {
-          const roundMatches = byRound.get(roundNum) ?? []
-          const matchesInRound = roundMatches.length
-          const slotH = totalH / matchesInRound
-          const isLastCol = colIdx === numCols - 1
-
-          return (
-            <div
-              key={roundNum}
-              style={{
-                width: COL_W + ARM_W * 2,
-                flexShrink: 0,
-                position: 'relative',
-                height: totalH,
-              }}
-            >
-              {roundMatches.map((match, i) => {
-                // Centre each match card within its vertical slot
-                const top = i * slotH + (slotH - MATCH_H) / 2
-
-                return (
-                  <div
-                    key={match.id}
-                    style={{ position: 'absolute', top, left: ARM_W, right: ARM_W }}
-                  >
-                    {/* Right horizontal arm — connects this card to the next column's bracket */}
-                    {!isLastCol && (
-                      <div style={{
-                        position: 'absolute',
-                        right: -(ARM_W * 2),
-                        top: MATCH_H / 2,
-                        width: ARM_W * 2,
-                        height: 1,
-                        backgroundColor: lineColor,
-                      }} />
-                    )}
-
-                    {/* Left bracket — the ⊏-shaped connector from the previous column.
-                        The bracket spans slotH/2 centred on this match's midpoint.
-                        This correctly brackets the two predecessor matches whose
-                        combined slot height equals slotH. */}
-                    {colIdx > 0 && (
-                      <div style={{
-                        position: 'absolute',
-                        left: -(ARM_W * 2),
-                        top: MATCH_H / 2 - slotH / 4,
-                        width: ARM_W * 2,
-                        height: slotH / 2,
-                        borderLeft:   `1px solid ${lineColor}`,
-                        borderTop:    `1px solid ${lineColor}`,
-                        borderBottom: `1px solid ${lineColor}`,
-                      }} />
-                    )}
-
-                    <MatchCard match={match} isDark={isDark} />
-                  </div>
-                )
-              })}
+    <div>
+      {/* ── Main bracket ──────────────────────────────────────────────────── */}
+      <div style={{ position: 'relative', width: totalW }}>
+        {/* Round labels */}
+        <div style={{ display: 'flex', marginBottom: 6 }}>
+          {visibleRoundNums.map((rn) => (
+            <div key={rn} style={{ width: COL_W + ARM_W * 2, flexShrink: 0, textAlign: 'center' }}>
+              <span style={{
+                fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                letterSpacing: '0.1em', color: subtextColor,
+              }}>
+                {getRoundLabel(rn)}
+              </span>
             </div>
-          )
-        })}
+          ))}
+        </div>
+
+        {/* Match columns */}
+        <div style={{ display: 'flex', height: totalH }}>
+          {visibleRoundNums.map((roundNum, colIdx) => {
+            const roundMatches  = byRound.get(roundNum) ?? []
+            const matchesInRound = roundMatches.length
+            const slotH          = totalH / matchesInRound
+            const isLastCol      = colIdx === numCols - 1
+
+            return (
+              <div key={roundNum} style={{ width: COL_W + ARM_W * 2, flexShrink: 0, position: 'relative', height: totalH }}>
+                {roundMatches.map((match, i) => {
+                  const top = i * slotH + (slotH - MATCH_H) / 2
+                  return (
+                    <div key={match.id} style={{ position: 'absolute', top, left: ARM_W, right: ARM_W }}>
+                      {/* Right arm */}
+                      {!isLastCol && (
+                        <div style={{
+                          position: 'absolute', right: -(ARM_W * 2), top: MATCH_H / 2,
+                          width: ARM_W * 2, height: 1, backgroundColor: lineColor,
+                        }} />
+                      )}
+                      {/* Left ⊏ bracket */}
+                      {colIdx > 0 && (
+                        <div style={{
+                          position: 'absolute', left: -(ARM_W * 2),
+                          top: MATCH_H / 2 - slotH / 4,
+                          width: ARM_W * 2, height: slotH / 2,
+                          borderLeft: `1px solid ${lineColor}`,
+                          borderTop:  `1px solid ${lineColor}`,
+                          borderBottom: `1px solid ${lineColor}`,
+                        }} />
+                      )}
+                      <MatchCard match={match} isDark={isDark} />
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
       </div>
+
+      {/* ── Third place match ──────────────────────────────────────────────── */}
+      {finalVisible && thirdPlaceMatch && (
+        <div style={{
+          marginTop: 16,
+          paddingTop: 14,
+          borderTop: `1px solid ${dividerColor}`,
+          maxWidth: COL_W + ARM_W * 2,
+        }}>
+          <div style={{
+            fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+            letterSpacing: '0.1em', color: subtextColor, marginBottom: 6,
+            paddingLeft: ARM_W,
+          }}>
+            Third Place
+          </div>
+          <div style={{ paddingLeft: ARM_W, paddingRight: ARM_W }}>
+            <MatchCard match={thirdPlaceMatch} isDark={isDark} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Champion callout ───────────────────────────────────────────────── */}
+      {finalVisible && champion && (
+        <div style={{
+          marginTop: 16,
+          paddingTop: 14,
+          borderTop: `1px solid ${dividerColor}`,
+          textAlign: 'center',
+        }}>
+          <div style={{
+            fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+            letterSpacing: '0.12em', color: subtextColor, marginBottom: 6,
+          }}>
+            Champion
+          </div>
+          <div style={{
+            fontSize: 20,
+            fontWeight: 800,
+            color: '#f59e0b',        // amber-400 — universally "gold"
+            letterSpacing: '-0.01em',
+          }}>
+            🏆 {champion}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
