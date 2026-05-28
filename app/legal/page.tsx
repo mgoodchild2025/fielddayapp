@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { listPublishedDocuments } from '@/actions/legal'
 import type { Metadata } from 'next'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Legal & Policies — Fieldday',
   description: 'Fieldday privacy policy, terms of service, and other legal documents.',

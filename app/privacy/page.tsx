@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { getPublishedDocument } from '@/actions/legal'
 
+export const dynamic = 'force-dynamic'
+
 export default async function PrivacyPage() {
   const doc = await getPublishedDocument('privacy-policy')
   if (doc) {

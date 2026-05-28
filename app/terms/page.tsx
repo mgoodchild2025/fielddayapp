@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { getPublishedDocument } from '@/actions/legal'
 
+export const dynamic = 'force-dynamic'
+
 export default async function TermsPage() {
   const doc = await getPublishedDocument('terms-of-service')
   if (doc) {
