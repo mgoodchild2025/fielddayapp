@@ -335,14 +335,17 @@ export function BracketZone({ bracket, config, theme }: Props) {
     )
   }
 
-  // Only show tier names when there are multiple tiers and at least one has a name
-  const showTierNames = activeTiers.length > 1 && activeTiers.some((t) => t.name)
+  // Show tier name above each diagram whenever the tier has a name
+  const showTierNames = activeTiers.some((t) => t.name)
+
+  // Zone header: use tier name when a filter is active, otherwise generic "Bracket"
+  const headerText = config.tier_filter ? `${config.tier_filter} Bracket` : 'Bracket'
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className={`px-4 py-2 shrink-0 border-b ${isDark ? 'border-zinc-700' : 'border-gray-200'}`}>
         <h2 className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
-          Bracket
+          {headerText}
         </h2>
       </div>
 
@@ -352,12 +355,12 @@ export function BracketZone({ bracket, config, theme }: Props) {
             <div key={i}>
               {showTierNames && tier.name && (
                 <div style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 700,
                   textTransform: 'uppercase',
                   letterSpacing: '0.12em',
                   marginBottom: 10,
-                  color: isDark ? '#a1a1aa' : '#6b7280',
+                  color: isDark ? '#d4d4d8' : '#374151',
                 }}>
                   {tier.name}
                 </div>

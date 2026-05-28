@@ -123,6 +123,9 @@ export function ScheduleClient({ games, timezone, isDark }: Props) {
 
   // ── Theme tokens ──────────────────────────────────────────────────────────────
 
+  // Only render the court column when at least one visible game has a court value
+  const hasCourts = games.some(g => g.court)
+
   const bg       = isDark ? '#18181b' : '#ffffff'
   const border   = isDark ? '#3f3f46' : '#e5e7eb'
   const hdrBg    = isDark ? '#27272a' : '#f3f4f6'
@@ -198,13 +201,25 @@ export function ScheduleClient({ games, timezone, isDark }: Props) {
               opacity: muted ? 0.38 : 1,
             }}>
 
-              {/* Court */}
-              <span style={{
-                fontSize: 11, color: hdrText,
-                minWidth: 54, flexShrink: 0, fontWeight: 500,
-              }}>
-                {g.court ?? ''}
-              </span>
+              {/* Court — only rendered when at least one game has a court */}
+              {hasCourts && (
+                <span style={{
+                  fontSize: 11, fontWeight: 700,
+                  color: isDark ? '#a1a1aa' : '#4b5563',
+                  backgroundColor: isDark ? '#27272a' : '#f3f4f6',
+                  border: `1px solid ${border}`,
+                  borderRadius: 4,
+                  padding: '1px 6px',
+                  minWidth: 60, flexShrink: 0,
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: 80,
+                }}>
+                  {g.court ?? '—'}
+                </span>
+              )}
 
               {/* Home team */}
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
