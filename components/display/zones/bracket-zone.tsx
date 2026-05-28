@@ -203,26 +203,27 @@ function TierDiagram({
 
   return (
     <div>
-      {/* ── Main bracket ──────────────────────────────────────────────────── */}
-      <div style={{ position: 'relative', width: totalW }}>
-        {/* Round labels */}
-        <div style={{ display: 'flex', marginBottom: 6 }}>
-          {visibleRoundNums.map((rn) => (
-            <div key={rn} style={{ width: COL_W + ARM_W * 2, flexShrink: 0, textAlign: 'center' }}>
-              <span style={{
-                fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                letterSpacing: '0.1em', color: subtextColor,
-              }}>
-                {getRoundLabel(rn)}
-              </span>
-            </div>
-          ))}
-        </div>
+      {/* ── Round labels ──────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', marginBottom: 6 }}>
+        {visibleRoundNums.map((rn) => (
+          <div key={rn} style={{ width: COL_W + ARM_W * 2, flexShrink: 0, textAlign: 'center' }}>
+            <span style={{
+              fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+              letterSpacing: '0.1em', color: subtextColor,
+            }}>
+              {getRoundLabel(rn)}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Match columns + champion inline to the right ───────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', height: totalH }}>
 
         {/* Match columns */}
-        <div style={{ display: 'flex', height: totalH }}>
+        <div style={{ display: 'flex', height: totalH, flexShrink: 0 }}>
           {visibleRoundNums.map((roundNum, colIdx) => {
-            const roundMatches  = byRound.get(roundNum) ?? []
+            const roundMatches   = byRound.get(roundNum) ?? []
             const matchesInRound = roundMatches.length
             const slotH          = totalH / matchesInRound
             const isLastCol      = colIdx === numCols - 1
@@ -233,8 +234,8 @@ function TierDiagram({
                   const top = i * slotH + (slotH - MATCH_H) / 2
                   return (
                     <div key={match.id} style={{ position: 'absolute', top, left: ARM_W, right: ARM_W }}>
-                      {/* Right arm */}
-                      {!isLastCol && (
+                      {/* Right arm — between rounds, or connecting final to champion */}
+                      {(!isLastCol || (isLastCol && finalVisible && !!champion)) && (
                         <div style={{
                           position: 'absolute', right: -(ARM_W * 2), top: MATCH_H / 2,
                           width: ARM_W * 2, height: 1, backgroundColor: lineColor,
@@ -259,6 +260,31 @@ function TierDiagram({
             )
           })}
         </div>
+
+        {/* Champion — vertically centered with final match, connected by arm line */}
+        {finalVisible && champion && (
+          <div style={{
+            paddingLeft: ARM_W * 2 + 12,  // clears the arm line + breathing room
+            flexShrink: 0,
+          }}>
+            <div style={{
+              fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+              letterSpacing: '0.12em', color: subtextColor, marginBottom: 5,
+            }}>
+              Champion
+            </div>
+            <div style={{
+              fontSize: 18,
+              fontWeight: 800,
+              color: '#f59e0b',
+              letterSpacing: '-0.01em',
+              whiteSpace: 'nowrap',
+            }}>
+              🏆 {champion}
+            </div>
+          </div>
+        )}
+
       </div>
 
       {/* ── Third place match ──────────────────────────────────────────────── */}
@@ -278,31 +304,6 @@ function TierDiagram({
           </div>
           <div style={{ paddingLeft: ARM_W, paddingRight: ARM_W }}>
             <MatchCard match={thirdPlaceMatch} isDark={isDark} />
-          </div>
-        </div>
-      )}
-
-      {/* ── Champion callout ───────────────────────────────────────────────── */}
-      {finalVisible && champion && (
-        <div style={{
-          marginTop: 16,
-          paddingTop: 14,
-          borderTop: `1px solid ${dividerColor}`,
-          textAlign: 'center',
-        }}>
-          <div style={{
-            fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-            letterSpacing: '0.12em', color: subtextColor, marginBottom: 6,
-          }}>
-            Champion
-          </div>
-          <div style={{
-            fontSize: 20,
-            fontWeight: 800,
-            color: '#f59e0b',        // amber-400 — universally "gold"
-            letterSpacing: '-0.01em',
-          }}>
-            🏆 {champion}
           </div>
         </div>
       )}
