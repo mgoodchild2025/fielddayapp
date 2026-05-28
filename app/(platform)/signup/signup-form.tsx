@@ -178,10 +178,12 @@ function SignupForm({
   selectedPlan,
   onPlanChange,
   onSuccess,
+  consentDocs,
 }: {
   selectedPlan: PlanId
   onPlanChange: (p: PlanId) => void
   onSuccess: (email: string, slug: string) => void
+  consentDocs: import('@/actions/tenant-consent').ConsentDoc[] | null
 }) {
   const [pending, start] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -194,6 +196,7 @@ function SignupForm({
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -226,8 +229,17 @@ function SignupForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    if (!termsAccepted) {
+      setError('You must read and accept the agreements before creating your organization.')
+      return
+    }
     start(async () => {
-      const result = await orgSignup({ orgName, slug, fullName, email, password, plan: selectedPlan })
+      const result = await orgSignup({
+        orgName, slug, fullName, email, password, plan: selectedPlan,
+        termsAccepted,
+        ipAddress: null,  // captured server-side from headers in a future pass
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      })
       if (result.error) {
         setError(result.error)
       } else if (result.slug) {
@@ -386,19 +398,63 @@ function SignupForm({
         </div>
       </div>
 
+      {/* Legal acceptance */}
+      <div className="border border-gray-200 rounded-xl p-4 bg-gray-50 space-y-3">
+        <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Review and accept agreements</p>
+        <p className="text-xs text-gray-500">
+          By creating an organization you are accepting these agreements on behalf of your organization.
+        </p>
+        {consentDocs ? (
+          <ul className="space-y-1.5">
+            {consentDocs.map((doc) => (
+              <li key={doc.slug} className="flex items-center justify-between text-xs">
+                <a
+                  href={doc.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 underline underline-offset-2"
+                >
+                  {doc.title}
+                </a>
+                <span className="text-gray-400 ml-2 shrink-0">
+                  v{doc.version}
+                  {doc.effectiveDate ? ` · Effective ${new Date(doc.effectiveDate + 'T00:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <ul className="space-y-1.5 text-xs text-gray-500">
+            <li><a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">Terms of Service</a></li>
+            <li><a href="/legal/tenant-privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">Privacy Policy for Tenants</a></li>
+            <li><a href="/legal/dpa" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">Data Processing Addendum</a></li>
+          </ul>
+        )}
+        <label className="flex items-start gap-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={termsAccepted}
+            onChange={(e) => setTermsAccepted(e.target.checked)}
+            className="rounded mt-0.5 shrink-0"
+          />
+          <span className="text-xs text-gray-700">
+            I confirm I have read and agree to the Terms of Service, Privacy Policy for Tenants, and Data Processing Addendum on behalf of{' '}
+            <span className="font-medium">{orgName || 'my organization'}</span>.
+          </span>
+        </label>
+      </div>
+
       {/* Submit */}
       <button
         type="submit"
-        disabled={pending || slugStatus === 'taken'}
+        disabled={pending || slugStatus === 'taken' || !termsAccepted}
         className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white font-semibold rounded-xl transition-colors text-sm shadow-sm shadow-emerald-200"
       >
-        {pending ? 'Creating your account…' : `Start your ${plan.name} trial — free for 15 days`}
+        {pending ? 'Creating your account…' : `Accept and create organization`}
       </button>
 
       <p className="text-xs text-center text-gray-400">
-        No credit card required. By continuing you agree to our{' '}
-        <a href="#" className="underline hover:text-gray-600">Terms of Service</a> and{' '}
-        <a href="#" className="underline hover:text-gray-600">Privacy Policy</a>.
+        No credit card required · 15-day free trial
       </p>
     </form>
   )
@@ -474,9 +530,11 @@ function SignupsDisabledScreen() {
 export function SignupPage({
   signupsEnabled,
   defaultPlan = 'pro',
+  consentDocs = null,
 }: {
   signupsEnabled: boolean
   defaultPlan?: PlanId
+  consentDocs?: import('@/actions/tenant-consent').ConsentDoc[] | null
 }) {
   const [selectedPlan, setSelectedPlan] = useState<PlanId>(defaultPlan)
   const [successData, setSuccessData] = useState<{ email: string; slug: string } | null>(null)
@@ -526,6 +584,7 @@ export function SignupPage({
               selectedPlan={selectedPlan}
               onPlanChange={setSelectedPlan}
               onSuccess={(email, slug) => setSuccessData({ email, slug })}
+              consentDocs={consentDocs}
             />
           </div>
 

@@ -10,6 +10,7 @@ import { BillingBanner } from '@/components/layout/billing-banner'
 import { LimitWarningBanner } from '@/components/layout/limit-warning-banner'
 import { MfaGraceBanner } from '@/components/mfa/mfa-grace-banner'
 import { getLimit, getActiveLeagueCount } from '@/lib/features'
+import { getPendingReacceptance } from '@/actions/tenant-consent'
 
 export default async function AdminLayout({
   children,
@@ -90,6 +91,18 @@ export default async function AdminLayout({
             (graceUntil.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)
           )
         }
+      }
+    }
+  }
+
+  // Reacceptance check for org_admin (not impersonating)
+  if (memberRole === 'org_admin' && !isImpersonating) {
+    const pending = await getPendingReacceptance(org.id)
+    if (pending.length > 0) {
+      const pathname = headersList.get('x-pathname') ?? '/admin/dashboard'
+      // Only block if not already on the reaccept page to avoid redirect loop
+      if (!pathname.startsWith('/admin/reaccept')) {
+        redirect(`/admin/reaccept?redirect=${encodeURIComponent(pathname)}`)
       }
     }
   }

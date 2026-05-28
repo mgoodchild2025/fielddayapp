@@ -156,11 +156,16 @@ function PublishDialog({
     return `${current}.1`
   }
 
+  const TENANT_SLUGS = ['terms', 'tenant-privacy', 'dpa']
+  const isTenantDoc = TENANT_SLUGS.includes(doc.slug)
+
   const [version, setVersion] = useState(suggestNextVersion(doc.version))
   const [effectiveDate, setEffectiveDate] = useState(
     new Date().toISOString().split('T')[0]
   )
   const [notes, setNotes] = useState('')
+  const [requiresReconsent, setRequiresReconsent] = useState(false)
+  const [reconsentSummary, setReconsentSummary] = useState('')
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -174,6 +179,8 @@ function PublishDialog({
         version: version.trim(),
         effectiveDate: effectiveDate || null,
         notes: notes.trim() || null,
+        requiresReconsent,
+        reconsentSummary: reconsentSummary.trim() || null,
       })
       if (result.error) {
         setError(result.error)
@@ -235,6 +242,35 @@ function PublishDialog({
 
           {error && (
             <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+          )}
+
+          {isTenantDoc && (
+            <div className="space-y-3 border-t border-gray-100 pt-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={requiresReconsent}
+                  onChange={(e) => setRequiresReconsent(e.target.checked)}
+                  className="rounded mt-0.5"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-700">Require existing tenants to re-accept</span>
+                  <p className="text-xs text-gray-400 mt-0.5">Org admins will be blocked on next login until they accept the updated agreement.</p>
+                </div>
+              </label>
+              {requiresReconsent && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Summary of changes (shown to tenants)</label>
+                  <textarea
+                    value={reconsentSummary}
+                    onChange={(e) => setReconsentSummary(e.target.value)}
+                    placeholder="Briefly describe what changed in this version…"
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  />
+                </div>
+              )}
+            </div>
           )}
 
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">

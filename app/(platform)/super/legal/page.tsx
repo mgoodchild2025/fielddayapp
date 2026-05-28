@@ -56,14 +56,20 @@ export default async function PlatformLegalPage() {
         ))}
       </div>
 
-      {/* Link to public index */}
-      <div className="mt-8 pt-6 border-t border-gray-800">
+      {/* Footer links */}
+      <div className="mt-8 pt-6 border-t border-gray-800 flex items-center gap-6">
         <Link
           href="/legal"
           target="_blank"
           className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
         >
           View public legal page ↗
+        </Link>
+        <Link
+          href="/super/legal/acceptances"
+          className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
+        >
+          Acceptance search
         </Link>
       </div>
     </div>

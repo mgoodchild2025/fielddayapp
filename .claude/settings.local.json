@@ -88,7 +88,10 @@
       "Bash(grep -v \"//\\\\|error.message\\\\|upsertError\\\\|if \\(error\\\\|return { data: null, error\")",
       "Bash(git -C /Users/mgoodchild/Fieldday add Dockerfile)",
       "Bash(npm install *)",
-      "Bash(git -C /Users/mgoodchild/Fieldday add package-lock.json)"
+      "Bash(git -C /Users/mgoodchild/Fieldday add package-lock.json)",
+      "Bash(git -C /Users/mgoodchild/Fieldday add 'app/\\(org\\)/\\(auth\\)/register/page.tsx' actions/auth.ts)",
+      "Bash(sed -n '75,95p' /Users/mgoodchild/Fieldday/app/\\\\\\(org\\\\\\)/\\\\\\(public\\\\\\)/schedule/_client.tsx)",
+      "Bash(sed -n '25,45p' /Users/mgoodchild/Fieldday/app/\\\\\\(org\\\\\\)/\\\\\\(public\\\\\\)/schedule/page.tsx)"
     ]
   }
 }

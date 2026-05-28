@@ -101,6 +101,12 @@ export default async function PlatformOrgDetailPage({
               {org.status}
             </span>
             <ImpersonateButton orgId={org.id} />
+            <Link
+              href={`/super/orgs/${org.id}/acceptances`}
+              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-md"
+            >
+              Acceptances
+            </Link>
             <a
               href={siteUrl}
               target="_blank"

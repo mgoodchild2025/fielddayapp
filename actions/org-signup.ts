@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getResend, FROM_EMAIL } from '@/lib/resend'
 import { getNewOrgNotificationEmail } from './platform-settings'
+import { getTenantConsentDocs, writeAcceptanceRows } from './tenant-consent'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 const LOGO_URL = `https://${PLATFORM_DOMAIN}/Fieldday-Icon.png`
@@ -44,14 +45,29 @@ const signupSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   plan: z.enum(['free', 'starter', 'pro', 'club']).default('pro'),
+  termsAccepted: z.boolean().refine((v) => v === true, { message: 'You must accept the agreements to continue' }),
+  ipAddress: z.string().nullable().optional(),
+  userAgent: z.string().nullable().optional(),
 })
 
 export async function orgSignup(input: z.infer<typeof signupSchema>) {
   const parsed = signupSchema.safeParse(input)
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid input', slug: null }
 
-  const { orgName, slug, fullName, email, password, plan } = parsed.data
+  const { orgName, slug, fullName, email, password, plan, termsAccepted, ipAddress, userAgent } = parsed.data
+
+  // Server-side guard: reject if acceptance flag not present
+  if (!termsAccepted) return { error: 'You must accept the agreements to continue', slug: null }
+
   const service = createServiceRoleClient()
+
+  // Fetch published consent docs before creating anything — if any are missing,
+  // we cannot create the org (no acceptance record would be possible).
+  const consentDocs = await getTenantConsentDocs()
+  // If docs aren't published yet (pre-launch), allow onboarding but skip writing
+  // acceptance rows (they'd fail with no version reference). Set this to strict
+  // once documents are published.
+  const consentRequired = consentDocs !== null
 
   // Check signups are enabled
   const { data: setting } = await service
@@ -145,6 +161,23 @@ export async function orgSignup(input: z.infer<typeof signupSchema>) {
       status: 'active',
     }),
   ])
+
+  // Write acceptance records — if docs are published, this is mandatory
+  if (consentRequired && consentDocs) {
+    const { error: consentError } = await writeAcceptanceRows({
+      organizationId: org.id,
+      userId,
+      docs: consentDocs,
+      acceptanceType: 'onboarding',
+      ipAddress: ipAddress ?? null,
+      userAgent: userAgent ?? null,
+    })
+    if (consentError) {
+      // Roll back org creation on acceptance write failure
+      await service.from('organizations').delete().eq('id', org.id)
+      return { error: `Failed to record agreement acceptance: ${consentError}`, slug: null }
+    }
+  }
 
   // Send email via Resend — verification for new users, welcome for existing ones
   const resend = getResend()

@@ -173,6 +173,8 @@ export async function publishDocument(
     version: string
     effectiveDate: string | null
     notes: string | null
+    requiresReconsent?: boolean
+    reconsentSummary?: string | null
   },
 ): Promise<{ error: string | null }> {
   try {
@@ -201,6 +203,8 @@ export async function publishDocument(
         effective_date: opts.effectiveDate ?? null,
         published_by: userId,
         notes: opts.notes ?? null,
+        requires_reconsent: opts.requiresReconsent ?? false,
+        reconsent_summary: opts.reconsentSummary ?? null,
       })
 
     if (vErr) return { error: vErr.message }
@@ -215,6 +219,8 @@ export async function publishDocument(
         published_content: docTyped.content,
         effective_date: opts.effectiveDate ?? null,
         version: opts.version,
+        requires_reconsent: opts.requiresReconsent ?? false,
+        reconsent_summary: opts.reconsentSummary ?? null,
       })
       .eq('slug', slug)
 
