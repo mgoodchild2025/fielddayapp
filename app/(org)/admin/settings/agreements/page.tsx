@@ -2,7 +2,8 @@ import { headers } from 'next/headers'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
-import { getOrgAcceptances, getPendingReacceptance, TENANT_CONSENT_SLUGS } from '@/actions/tenant-consent'
+import { getOrgAcceptances, getPendingReacceptance } from '@/actions/tenant-consent'
+import { TENANT_CONSENT_SLUGS } from '@/lib/tenant-consent-types'
 
 export const dynamic = 'force-dynamic'
 
