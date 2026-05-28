@@ -100,15 +100,26 @@ export async function getDisplayData(
   const needsBracket   = zoneTypes.has('bracket')
 
   // Base queries always needed
-  const [{ data: leagueRow }, { data: brandingRow }, { data: poolsData }] = await Promise.all([
+  const [{ data: leagueRow }, { data: brandingRow }, { data: poolsData }, { data: orgRow }] = await Promise.all([
     db.from('leagues').select('id, name, sport').eq('id', leagueId).single(),
     db.from('org_branding').select('logo_url').eq('organization_id', orgId).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('pools').select('id, name, sort_order')
       .eq('league_id', leagueId).eq('organization_id', orgId).order('sort_order'),
+    db.from('organizations').select('name').eq('id', orgId).single(),
   ])
 
-  const { data: orgRow } = await db.from('organizations').select('name').eq('id', orgId).single()
+  // Team lookup by name — used to enrich label-based games (no FK) with color/logo
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: allTeamsData } = await (db as any)
+    .from('teams').select('name, color, logo_url')
+    .eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active')
+  type TeamMeta = { color: string | null; logo_url: string | null }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const teamByName = new Map<string, TeamMeta>((allTeamsData ?? []).map((t: any) => [
+    (t.name as string).toLowerCase().trim(),
+    { color: t.color ?? null, logo_url: t.logo_url ?? null },
+  ]))
 
   // ── Schedule ────────────────────────────────────────────────────────────────
   let games: DisplayGame[] = []
@@ -151,16 +162,24 @@ export async function getDisplayData(
       const result = Array.isArray(g.game_results) ? g.game_results[0] : g.game_results
       const home = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
       const away = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
+
+      // When a game uses a label instead of a team FK, try to match by name
+      // so logos + colors still appear for known teams
+      const homeName = home?.name ?? g.home_team_label ?? 'TBD'
+      const awayName = away?.name ?? g.away_team_label ?? 'TBD'
+      const homeFallback = home ? null : teamByName.get(homeName.toLowerCase().trim()) ?? null
+      const awayFallback = away ? null : teamByName.get(awayName.toLowerCase().trim()) ?? null
+
       return {
         id:            g.id,
         scheduled_at:  g.scheduled_at,
         court:         g.court ?? null,
-        home_name:     home?.name ?? g.home_team_label ?? 'TBD',
-        away_name:     away?.name ?? g.away_team_label ?? 'TBD',
-        home_color:    home?.color ?? null,
-        away_color:    away?.color ?? null,
-        home_logo_url: home?.logo_url ?? null,
-        away_logo_url: away?.logo_url ?? null,
+        home_name:     homeName,
+        away_name:     awayName,
+        home_color:    home?.color ?? homeFallback?.color ?? null,
+        away_color:    away?.color ?? awayFallback?.color ?? null,
+        home_logo_url: home?.logo_url ?? homeFallback?.logo_url ?? null,
+        away_logo_url: away?.logo_url ?? awayFallback?.logo_url ?? null,
         home_score:    result?.home_score ?? null,
         away_score:    result?.away_score ?? null,
         result_status: result?.status ?? null,
