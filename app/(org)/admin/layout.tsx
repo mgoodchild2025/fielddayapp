@@ -101,8 +101,8 @@ export default async function AdminLayout({
     if (pending.length > 0) {
       const pathname = headersList.get('x-pathname') ?? '/admin/dashboard'
       // Only block if not already on the reaccept page to avoid redirect loop
-      if (!pathname.startsWith('/admin/reaccept')) {
-        redirect(`/admin/reaccept?redirect=${encodeURIComponent(pathname)}`)
+      if (!pathname.startsWith('/reaccept')) {
+        redirect(`/reaccept?redirect=${encodeURIComponent(pathname)}`)
       }
     }
   }
