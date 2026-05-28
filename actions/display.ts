@@ -175,7 +175,7 @@ export async function getDisplayData(
   if (needsStandings) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [{ data: teamsData }, { data: resultsData }] = await Promise.all([
-      (db as any).from('teams').select('id, name, color, pool_id')
+      (db as any).from('teams').select('id, name, color, logo_url, pool_id')
         .eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
       (db as any).from('game_results')
         .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status)')
@@ -211,6 +211,7 @@ export async function getDisplayData(
       const s = records[t.id] ?? stat()
       return {
         rank: 0, team_id: t.id, name: t.name, color: t.color ?? null,
+        logo_url: t.logo_url ?? null,
         pool_id: t.pool_id ?? null,
         ...s, pts: s.won * 3 + s.drawn,
       } satisfies DisplayStanding

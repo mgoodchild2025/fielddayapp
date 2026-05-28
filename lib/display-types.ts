@@ -95,6 +95,7 @@ export interface DisplayStanding {
   team_id:  string
   name:     string
   color:    string | null
+  logo_url: string | null
   pool_id:  string | null
   played:   number
   won:      number
