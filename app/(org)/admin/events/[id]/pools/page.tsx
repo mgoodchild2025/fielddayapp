@@ -2,12 +2,24 @@ import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { canAccess } from '@/lib/features'
+import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { AdminPoolsManager } from '@/components/pools/admin-pools-manager'
 
 export default async function AdminPoolsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+
+  if (!await canAccess(org.id, 'pools_divisions')) {
+    return (
+      <div className="max-w-3xl">
+        <h1 className="text-2xl font-bold mb-6">Pools & Divisions</h1>
+        <UpgradePrompt feature="Pools & divisions" requiredTier="pro" />
+      </div>
+    )
+  }
+
   const db = createServiceRoleClient()
 
   const [{ data: league }, { data: pools }, { data: teams }, { data: resultsData }] = await Promise.all([

@@ -1,8 +1,10 @@
 import { headers } from 'next/headers'
+import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireAuth } from '@/lib/auth'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { canAccess } from '@/lib/features'
 import { getShopItems } from '@/actions/merchandise'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
@@ -12,6 +14,9 @@ export default async function ShopPage() {
   await requireAuth()
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+
+  if (!await canAccess(org.id, 'merchandise_shop')) notFound()
+
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
 

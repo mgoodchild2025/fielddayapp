@@ -1,6 +1,8 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { canAccess } from '@/lib/features'
+import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { PositionsEditor } from '@/components/positions/positions-editor'
 import type { SportPosition } from '@/actions/positions'
 
@@ -20,6 +22,16 @@ const SPORT_LABELS: Record<string, string> = {
 export default async function AdminPositionsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+
+  if (!await canAccess(org.id, 'custom_positions')) {
+    return (
+      <div className="max-w-3xl">
+        <h1 className="text-2xl font-bold mb-6">Custom Positions</h1>
+        <UpgradePrompt feature="Custom sport positions" requiredTier="pro" />
+      </div>
+    )
+  }
+
   const db = createServiceRoleClient()
 
   // Get all sports used by this org's leagues

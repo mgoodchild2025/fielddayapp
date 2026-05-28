@@ -1,6 +1,8 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { canAccess } from '@/lib/features'
+import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import Link from 'next/link'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -13,6 +15,16 @@ const STATUS_STYLES: Record<string, string> = {
 export default async function AdminDropInsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+
+  if (!await canAccess(org.id, 'drop_in_sessions')) {
+    return (
+      <div className="max-w-3xl">
+        <h1 className="text-2xl font-bold mb-6">Drop-in Sessions</h1>
+        <UpgradePrompt feature="Drop-in events" requiredTier="pro" />
+      </div>
+    )
+  }
+
   const supabase = createServiceRoleClient()
 
   const { data: sessions } = await supabase

@@ -62,6 +62,8 @@ interface Props {
   unsettledCount?: number
   /** Pools for this league — enables pool_results seeding option */
   pools?: { id: string; name: string; sort_order: number }[]
+  /** Whether double elimination bracket type is available on this plan */
+  canDoubleElimination?: boolean
 }
 
 // ── Tier seed split helper ────────────────────────────────────────────────────
@@ -95,6 +97,7 @@ function TierRow({
   onChange,
   onRemove,
   canRemove,
+  canDoubleElimination = true,
 }: {
   tier: TierConfig
   index: number
@@ -102,6 +105,7 @@ function TierRow({
   onChange: (updates: Partial<TierConfig>) => void
   onRemove: () => void
   canRemove: boolean
+  canDoubleElimination?: boolean
 }) {
   const seedOptions: number[] = []
   for (let i = 1; i <= totalTeams; i++) seedOptions.push(i)
@@ -151,7 +155,7 @@ function TierRow({
         className="border rounded px-2 py-1.5 text-xs"
       >
         <option value="single_elimination">Single Elim</option>
-        <option value="double_elimination">Double Elim</option>
+        {canDoubleElimination && <option value="double_elimination">Double Elim</option>}
         <option value="all_play">All-Play</option>
       </select>
 
@@ -602,6 +606,7 @@ export function PlayoffConfigWizard({
   existingConfig,
   unsettledCount,
   pools = [],
+  canDoubleElimination = true,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -836,6 +841,7 @@ export function PlayoffConfigWizard({
                 onChange={(upd) => updateTier(i, upd)}
                 onRemove={() => removeTier(i)}
                 canRemove={tiers.length > 1}
+                canDoubleElimination={canDoubleElimination}
               />
             ))}
           </div>

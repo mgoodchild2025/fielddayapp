@@ -2,6 +2,8 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { canAccess } from '@/lib/features'
+import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { getAllMerchandiseOrders, getMerchandiseItems } from '@/actions/merchandise'
 import type { MerchItem } from '@/actions/merchandise'
 import { MerchandiseOrdersTable } from '@/components/merchandise/merch-orders-table'
@@ -40,6 +42,15 @@ export default async function AdminShopPage({
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin'])
+
+  if (!await canAccess(org.id, 'merchandise_shop')) {
+    return (
+      <div className="max-w-3xl">
+        <h1 className="text-2xl font-bold mb-6">Shop</h1>
+        <UpgradePrompt feature="Merchandise shop" requiredTier="pro" />
+      </div>
+    )
+  }
 
   const supabase = createServiceRoleClient()
   const [orders, items, paymentSettingsResult] = await Promise.all([

@@ -2,6 +2,8 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { canAccess } from '@/lib/features'
+import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { PhotoManager } from '@/app/(org)/admin/settings/website/photos/photo-manager'
 import Link from 'next/link'
 
@@ -9,6 +11,15 @@ export default async function AdminGalleryPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin'])
+
+  if (!await canAccess(org.id, 'media_gallery')) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Gallery</h1>
+        <UpgradePrompt feature="Photo gallery & media page" requiredTier="pro" />
+      </div>
+    )
+  }
 
   const db = createServiceRoleClient()
 

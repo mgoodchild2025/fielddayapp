@@ -3,6 +3,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
+import { canAccess } from '@/lib/features'
 import { PlayoffConfigWizard } from '@/components/bracket/playoff-config-wizard'
 import { recommendBracket, seedFromStandings, seedFromDivisionStandings, seedFromPoolStandings, type TeamStanding } from '@/lib/bracket'
 import type { BracketData, BracketMatchData, TeamRef } from '@/components/bracket/bracket-view'
@@ -17,6 +18,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
 
   const db = createServiceRoleClient()
   const scope = await getAdminScope(org.id)
+  const canDoubleElimination = await canAccess(org.id, 'double_elimination')
 
   // ── Load context ────────────────────────────────────────────────────────────
   const [{ data: league }, { data: divisions }, { data: poolsData }, { data: teams }, { data: results }, { count: unsettledCount }] = await Promise.all([
@@ -249,6 +251,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
         existingConfig={existingConfig}
         unsettledCount={unsettledCount ?? 0}
         pools={poolList}
+        canDoubleElimination={canDoubleElimination}
       />
     </div>
   )

@@ -1,6 +1,8 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { canAccess } from '@/lib/features'
+import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { DiscountForm } from './discount-form'
 import { DiscountRow } from './discount-row'
 import { HelpLink } from '@/components/ui/help-link'
@@ -8,6 +10,15 @@ import { HelpLink } from '@/components/ui/help-link'
 export default async function AdminDiscountsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+
+  if (!await canAccess(org.id, 'discount_codes')) {
+    return (
+      <div className="max-w-3xl">
+        <h1 className="text-2xl font-bold mb-6">Discount Codes</h1>
+        <UpgradePrompt feature="Discount / promo codes" requiredTier="pro" />
+      </div>
+    )
+  }
   const supabase = createServiceRoleClient()
 
   const { data: codes } = await supabase

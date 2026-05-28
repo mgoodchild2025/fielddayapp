@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { canAccess } from '@/lib/features'
 import type { RailwayDnsRecord } from '@/lib/railway'
 import { verifyCnameRecords } from '@/lib/dns-check'
 import { BrandingForm } from './branding-form'
@@ -66,6 +67,11 @@ export default async function AdminBrandingPage() {
     ? await verifyCnameRecords(rawDnsRecords, branding?.custom_domain ?? undefined)
     : rawDnsRecords
 
+  const [canCustomDomain, canFavicon] = await Promise.all([
+    canAccess(org.id, 'custom_domain'),
+    canAccess(org.id, 'favicon'),
+  ])
+
   return (
     <div className="max-w-2xl">
       <h1 className="text-2xl font-bold mb-6">Branding</h1>
@@ -73,6 +79,8 @@ export default async function AdminBrandingPage() {
         branding={branding}
         orgId={org.id}
         initialDnsRecords={initialDnsRecords}
+        canCustomDomain={canCustomDomain}
+        canFavicon={canFavicon}
       />
     </div>
   )

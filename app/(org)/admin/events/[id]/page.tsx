@@ -49,6 +49,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     hasEarlyBird,
     merchOrders,
     leagueDocuments,
+    canCoOrganizers,
   ] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues').select('*').eq('id', id).eq('organization_id', org.id).single(),
@@ -66,6 +67,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     canAccess(org.id, 'early_bird_pricing'),
     getMerchandiseOrders(id),
     getLeagueDocuments(id),
+    canAccess(org.id, 'co_organizers'),
   ])
 
   if (!league) notFound()
@@ -198,7 +200,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
           leagueId={id}
           organizers={organizersData.organizers}
           availableAdmins={organizersData.availableAdmins}
-          isOrgAdmin={isOrgAdmin}
+          isOrgAdmin={isOrgAdmin && canCoOrganizers}
         />
 
         {/* Merchandise summary — only rendered when there are orders */}

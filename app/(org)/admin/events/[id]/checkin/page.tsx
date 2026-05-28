@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { canAccess } from '@/lib/features'
+import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { QRScanner } from '@/components/checkin/qr-scanner'
 import { CheckInList } from '@/components/checkin/checkin-list'
 import { TeamCheckinSelector } from '@/components/checkin/team-checkin-selector'
@@ -59,6 +61,16 @@ export default async function AdminCheckInPage({
   const { session: sessionParam } = await searchParams
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+
+  if (!await canAccess(org.id, 'player_check_in')) {
+    return (
+      <div className="max-w-3xl">
+        <h1 className="text-2xl font-bold mb-6">Check-in</h1>
+        <UpgradePrompt feature="QR code check-in" requiredTier="pro" />
+      </div>
+    )
+  }
+
   const db = createServiceRoleClient()
 
   const [leagueRes, brandingRes] = await Promise.all([

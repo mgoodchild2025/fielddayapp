@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { updateBranding, uploadOrgLogo } from '@/actions/branding'
 import { FontPicker, HEADING_FONTS, BODY_FONTS } from '@/components/branding/font-picker'
 import { DnsRecordsPanel } from '@/components/branding/dns-records-panel'
+import { UpgradeBadge } from '@/components/ui/upgrade-prompt'
 import type { RailwayDnsRecord } from '@/lib/railway'
 
 // Minimal subset of org_branding needed by this form (avoids depending on generated DB types
@@ -108,10 +109,14 @@ export function BrandingForm({
   branding,
   orgId,
   initialDnsRecords,
+  canCustomDomain = true,
+  canFavicon = true,
 }: {
   branding: OrgBranding | null
   orgId: string
   initialDnsRecords: RailwayDnsRecord[]
+  canCustomDomain?: boolean
+  canFavicon?: boolean
 }) {
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -342,18 +347,29 @@ export function BrandingForm({
             </div>
           ))}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Custom Domain</label>
-            <input {...register('custom_domain')} type="text" placeholder="www.yourclub.com" className="w-full border rounded-md px-3 py-2 text-sm font-mono" />
-            <p className="text-xs text-gray-400 mt-1">
-              Save this form to register the domain automatically. DNS records will appear below.
-              Leave blank to use your free <code className="bg-gray-100 px-1 rounded">{'{slug}'}.fielddayapp.ca</code> subdomain.
-            </p>
-            {/* DNS records panel — shown once domain is saved and records are available */}
-            <DnsRecordsPanel
-              orgId={orgId}
-              domain={watch('custom_domain') ?? ''}
-              initialRecords={dnsRecords}
-            />
+            <div className="flex items-center gap-2 mb-1">
+              <label className="block text-sm font-medium text-gray-700">Custom Domain</label>
+              {!canCustomDomain && <UpgradeBadge requiredTier="club" />}
+            </div>
+            {canCustomDomain ? (
+              <>
+                <input {...register('custom_domain')} type="text" placeholder="www.yourclub.com" className="w-full border rounded-md px-3 py-2 text-sm font-mono" />
+                <p className="text-xs text-gray-400 mt-1">
+                  Save this form to register the domain automatically. DNS records will appear below.
+                  Leave blank to use your free <code className="bg-gray-100 px-1 rounded">{'{slug}'}.fielddayapp.ca</code> subdomain.
+                </p>
+                {/* DNS records panel — shown once domain is saved and records are available */}
+                <DnsRecordsPanel
+                  orgId={orgId}
+                  domain={watch('custom_domain') ?? ''}
+                  initialRecords={dnsRecords}
+                />
+              </>
+            ) : (
+              <p className="text-xs text-gray-400">
+                Serve your org site from a custom domain like <code className="bg-gray-100 px-1 rounded">www.yourclub.com</code>. Upgrade to Club to enable this.
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>

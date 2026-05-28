@@ -2,12 +2,14 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
+import { canAccess } from '@/lib/features'
 import { AddGameForm } from '@/components/schedule/add-game-form'
 import { AssignSlotsCard } from '@/components/schedule/assign-slots-card'
 import { InsertBreakForm } from '@/components/schedule/insert-break-form'
 import { ScheduleImport } from '@/components/schedule/schedule-import'
 import { RoundRobinGenerator } from '@/components/schedule/round-robin-generator'
 import { ScheduleTable } from '@/components/schedule/schedule-table'
+import { UpgradeBadge } from '@/components/ui/upgrade-prompt'
 import { formatGameTime } from '@/lib/format-time'
 
 export default async function AdminSchedulePage({ params }: { params: Promise<{ id: string }> }) {
@@ -66,6 +68,8 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
       .eq('organization_id', org.id)
       .order('sort_order', { ascending: true }),
   ])
+
+  const canImportCsv = await canAccess(org.id, 'csv_import')
 
   const sport = league?.sport ?? ''
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -153,7 +157,18 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
           <AddGameForm leagueId={id} sport={sport} teams={teams ?? []} pools={pools ?? []} />
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <InsertBreakForm leagueId={id} gameTimes={(mappedGames as any[]).map((g: any) => g.scheduledAt as string).filter(Boolean)} />
-          <ScheduleImport leagueId={id} sport={sport} pools={pools ?? []} />
+          {canImportCsv
+            ? <ScheduleImport leagueId={id} sport={sport} pools={pools ?? []} />
+            : (
+              <div className="bg-white rounded-lg border p-4">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-sm font-medium text-gray-700">Import Schedule (CSV)</h3>
+                  <UpgradeBadge requiredTier="pro" />
+                </div>
+                <p className="text-xs text-gray-400">Import game schedules from a CSV file.</p>
+              </div>
+            )
+          }
         </div>
       )}
     </div>

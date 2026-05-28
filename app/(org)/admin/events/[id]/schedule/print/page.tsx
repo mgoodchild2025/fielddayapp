@@ -4,6 +4,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
+import { canAccess } from '@/lib/features'
 import { parseLocalToUtc, formatGameTime } from '@/lib/format-time'
 import { getScoreStructure } from '@/lib/print-config'
 import { getStatDefinitions } from '@/actions/stats'
@@ -27,6 +28,8 @@ export default async function SchedulePrintPage({
   const org = await getCurrentOrg(headersList)
   const scope = await getAdminScope(org.id)
   if (!scope.isOrgAdmin) notFound()
+
+  if (!await canAccess(org.id, 'print_scoresheets')) notFound()
 
   const supabase = await createServerClient()
   const db = createServiceRoleClient()

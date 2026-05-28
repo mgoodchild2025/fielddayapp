@@ -1,6 +1,8 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { canAccess } from '@/lib/features'
+import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { getStatDefinitions, getGameStats } from '@/actions/stats'
 import { StatsEntryTable } from '@/components/stats/stats-entry-table'
 import type { GameForStats } from '@/components/stats/stats-entry-table'
@@ -15,6 +17,16 @@ export default async function AdminStatsPage({
   const { id } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+
+  if (!await canAccess(org.id, 'stats_leaderboards')) {
+    return (
+      <div className="max-w-3xl">
+        <h1 className="text-2xl font-bold mb-6">Stats & Leaderboards</h1>
+        <UpgradePrompt feature="Player stats & leaderboards" requiredTier="pro" />
+      </div>
+    )
+  }
+
   const service = createServiceRoleClient()
 
   const [{ data: league }, { data: branding }] = await Promise.all([
