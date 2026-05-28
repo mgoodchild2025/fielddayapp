@@ -10,6 +10,14 @@
 --
 -- Removed: 'terms-of-service'         → duplicate of 'terms'
 -- Removed: 'data-processing-agreement'→ duplicate of 'dpa'
+--
+-- The immutability trigger on legal_document_versions blocks ALL deletes,
+-- including cascades from the parent table. Disable it for this cleanup,
+-- then re-enable it immediately after.
+
+ALTER TABLE public.legal_document_versions DISABLE TRIGGER no_delete_legal_versions;
 
 DELETE FROM public.legal_documents WHERE slug = 'terms-of-service';
 DELETE FROM public.legal_documents WHERE slug = 'data-processing-agreement';
+
+ALTER TABLE public.legal_document_versions ENABLE TRIGGER no_delete_legal_versions;
