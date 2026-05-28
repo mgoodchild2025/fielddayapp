@@ -11,7 +11,7 @@ export type LayoutId =
   | 'four_quad'
 
 export type ZoneConfig =
-  | { type: 'schedule';  date_filter: 'today' | 'all'; pool_id?: string | null; court_filter?: string | null }
+  | { type: 'schedule';  date_filter: 'today' | 'all'; pool_id?: string | null; court_filter?: string | null; scroll_speed?: 'slow' | 'normal' | 'fast' | null }
   | { type: 'standings'; pool_id?: string | null }
   | { type: 'bracket';  round_filter: 'all' | 'final' | 'semis' | 'quarters' | 'first' | 'last_2' | 'last_3'; tier_filter?: string | null }
   | { type: 'qr_code';  url: string; label: string }

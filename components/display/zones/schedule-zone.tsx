@@ -46,7 +46,7 @@ export function ScheduleZone({ games, config, timezone, theme, pools }: Props) {
           No games scheduled
         </div>
       ) : (
-        <ScheduleClient games={visible} timezone={timezone} isDark={isDark} />
+        <ScheduleClient games={visible} timezone={timezone} isDark={isDark} scrollSpeed={config.scroll_speed ?? null} />
       )}
     </div>
   )

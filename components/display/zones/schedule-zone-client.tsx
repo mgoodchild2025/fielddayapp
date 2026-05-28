@@ -35,15 +35,23 @@ interface Slot {
   isNext:    boolean
 }
 
+// px/s for each named speed; auto derives from content height
+const SPEED_PX_PER_S: Record<string, number> = {
+  slow:   20,
+  normal: 40,
+  fast:   75,
+}
+
 interface Props {
-  games:    DisplayGame[]
-  timezone: string
-  isDark:   boolean
+  games:       DisplayGame[]
+  timezone:    string
+  isDark:      boolean
+  scrollSpeed: 'slow' | 'normal' | 'fast' | null
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export function ScheduleClient({ games, timezone, isDark }: Props) {
+export function ScheduleClient({ games, timezone, isDark, scrollSpeed }: Props) {
   const [now, setNow]               = useState(() => new Date())
   const [shouldScroll, setShouldScroll] = useState(false)
   const outerRef  = useRef<HTMLDivElement>(null)
@@ -117,9 +125,10 @@ export function ScheduleClient({ games, timezone, isDark }: Props) {
     })
   }, [games, now, timezone])
 
-  // Scroll speed: ~40 px/s based on estimated content height, minimum 20 s
-  const estimatedH     = games.length * 38 + slots.length * 26
-  const scrollDuration = Math.max(20, estimatedH / 40)
+  // Scroll duration: named speed → fixed px/s; null → auto (content-based)
+  const estimatedH = games.length * 38 + slots.length * 26
+  const pxPerSec   = scrollSpeed ? (SPEED_PX_PER_S[scrollSpeed] ?? 40) : 40
+  const scrollDuration = Math.max(15, estimatedH / pxPerSec)
 
   // ── Theme tokens ──────────────────────────────────────────────────────────────
 

@@ -126,6 +126,19 @@ function ZoneEditor({
               </select>
             </div>
           )}
+          <div>
+            <label className="block text-xs text-gray-200 mb-1">Scroll speed</label>
+            <select
+              value={zone.scroll_speed ?? ''}
+              onChange={(e) => onChange({ ...zone, scroll_speed: (e.target.value || null) as 'slow' | 'normal' | 'fast' | null })}
+              className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white"
+            >
+              <option value="">Auto</option>
+              <option value="slow">Slow</option>
+              <option value="normal">Normal</option>
+              <option value="fast">Fast</option>
+            </select>
+          </div>
         </div>
       )}
 
