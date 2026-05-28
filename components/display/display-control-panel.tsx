@@ -270,13 +270,14 @@ interface ScreenState {
 }
 
 function ScreenEditor({
-  state, onChange, onSave, onDelete, isSaving, displayBaseUrl, pools, bracketTiers, leagueId,
+  state, onChange, onSave, onDelete, isSaving, isDirty, displayBaseUrl, pools, bracketTiers, leagueId,
 }: {
   state: ScreenState
   onChange: (s: ScreenState) => void
   onSave: () => void
   onDelete: () => void
   isSaving: boolean
+  isDirty: boolean
   displayBaseUrl: string
   pools: { id: string; name: string }[]
   bracketTiers: { name: string }[]
@@ -456,14 +457,26 @@ function ScreenEditor({
         >
           Remove Screen {screen}
         </button>
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={isSaving}
-          className="px-5 py-2 bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
-        >
-          {isSaving ? 'Saving…' : 'Save & Apply'}
-        </button>
+        <div className="flex items-center gap-3">
+          {isDirty && !isSaving && (
+            <span className="flex items-center gap-1.5 text-xs text-amber-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              Unsaved changes
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={isSaving}
+            className={`px-5 py-2 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors ${
+              isDirty && !isSaving
+                ? 'bg-orange-500 hover:bg-orange-400 ring-2 ring-orange-400/50'
+                : 'bg-orange-500 hover:bg-orange-400'
+            }`}
+          >
+            {isSaving ? 'Saving…' : 'Save & Apply'}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -491,11 +504,13 @@ export function DisplayControlPanel({
   const [isPending, startTransition] = useTransition()
   const [error, setError]   = useState<string | null>(null)
   const [saved, setSaved]   = useState(false)
+  const [dirty, setDirty]   = useState(false)
 
   const currentScreen = screens.find((s) => s.screen === activeScreen)!
 
   function updateScreen(updated: ScreenState) {
     setSaved(false)
+    setDirty(true)
     setScreens((prev) => prev.map((s) => s.screen === updated.screen ? updated : s))
   }
 
@@ -515,7 +530,7 @@ export function DisplayControlPanel({
     startTransition(async () => {
       const result = await saveDisplayConfig(leagueId, toSave.screen, toSave.config, toSave.enabled)
       if (result.error) { setError(result.error) }
-      else { setSaved(true) }
+      else { setSaved(true); setDirty(false) }
     })
   }
 
@@ -552,7 +567,7 @@ export function DisplayControlPanel({
           <button
             key={s.screen}
             type="button"
-            onClick={() => { setActiveScreen(s.screen); setSaved(false); setError(null) }}
+            onClick={() => { setActiveScreen(s.screen); setSaved(false); setError(null); setDirty(false) }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               s.screen === activeScreen
                 ? 'bg-gray-700 text-white'
@@ -580,9 +595,9 @@ export function DisplayControlPanel({
           {error}
         </div>
       )}
-      {saved && (
+      {saved && !dirty && (
         <div className="mb-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 text-sm text-emerald-400">
-          ✓ Screen {activeScreen} saved — the display will update within {currentScreen.config.refresh_seconds}s.
+          ✓ Screen {activeScreen} saved — the TV display will update within {currentScreen.config.refresh_seconds}s.
         </div>
       )}
 
@@ -593,6 +608,7 @@ export function DisplayControlPanel({
         onSave={handleSave}
         onDelete={handleDelete}
         isSaving={isPending}
+        isDirty={dirty}
         displayBaseUrl={displayBaseUrl}
         pools={pools}
         bracketTiers={bracketTiers}
