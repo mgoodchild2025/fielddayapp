@@ -81,6 +81,8 @@ export interface DisplayGame {
   away_name:       string
   home_color:      string | null
   away_color:      string | null
+  home_logo_url:   string | null
+  away_logo_url:   string | null
   home_score:      number | null
   away_score:      number | null
   result_status:   'pending' | 'confirmed' | null

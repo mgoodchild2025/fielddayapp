@@ -22,6 +22,33 @@ function slotKey(iso: string) {
   return iso.slice(0, 16) // "YYYY-MM-DDTHH:MM"
 }
 
+// ── Team badge: logo image → color dot → nothing ──────────────────────────────
+function TeamBadge({ logoUrl, color, name }: { logoUrl: string | null; color: string | null; name: string }) {
+  if (logoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logoUrl}
+        alt={name}
+        style={{
+          width: 18, height: 18, borderRadius: '50%',
+          objectFit: 'cover', flexShrink: 0,
+          border: '1px solid rgba(128,128,128,0.2)',
+        }}
+      />
+    )
+  }
+  if (color) {
+    return (
+      <div style={{
+        width: 8, height: 8, borderRadius: '50%',
+        backgroundColor: color, flexShrink: 0,
+      }} />
+    )
+  }
+  return null
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface Slot {
@@ -232,12 +259,7 @@ export function ScheduleClient({ games, timezone, isDark, scrollSpeed }: Props) 
 
               {/* Home team */}
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                {g.home_color && (
-                  <div style={{
-                    width: 8, height: 8, borderRadius: '50%',
-                    backgroundColor: g.home_color, flexShrink: 0,
-                  }} />
-                )}
+                <TeamBadge logoUrl={g.home_logo_url} color={g.home_color} name={g.home_name} />
                 <span style={{
                   fontWeight: 600, fontSize: 13, lineHeight: 1.2,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -290,12 +312,7 @@ export function ScheduleClient({ games, timezone, isDark, scrollSpeed }: Props) 
                 }}>
                   {g.away_name}
                 </span>
-                {g.away_color && (
-                  <div style={{
-                    width: 8, height: 8, borderRadius: '50%',
-                    backgroundColor: g.away_color, flexShrink: 0,
-                  }} />
-                )}
+                <TeamBadge logoUrl={g.away_logo_url} color={g.away_color} name={g.away_name} />
               </div>
 
             </div>

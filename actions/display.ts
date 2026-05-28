@@ -129,8 +129,8 @@ export async function getDisplayData(
       .from('games')
       .select(`
         id, scheduled_at, court, status, pool_id,
-        home_team:teams!games_home_team_id_fkey(name, color),
-        away_team:teams!games_away_team_id_fkey(name, color),
+        home_team:teams!games_home_team_id_fkey(name, color, logo_url),
+        away_team:teams!games_away_team_id_fkey(name, color, logo_url),
         home_team_label, away_team_label,
         game_results(home_score, away_score, status)
       `)
@@ -159,6 +159,8 @@ export async function getDisplayData(
         away_name:     away?.name ?? g.away_team_label ?? 'TBD',
         home_color:    home?.color ?? null,
         away_color:    away?.color ?? null,
+        home_logo_url: home?.logo_url ?? null,
+        away_logo_url: away?.logo_url ?? null,
         home_score:    result?.home_score ?? null,
         away_score:    result?.away_score ?? null,
         result_status: result?.status ?? null,
