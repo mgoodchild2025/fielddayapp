@@ -132,8 +132,11 @@ async function getOrgTier(orgId: string): Promise<string> {
     .eq('organization_id', orgId)
     .single()
   if (!data) return 'suspended'
-  if (data.status === 'canceled' || data.status === 'past_due') return 'suspended'
-  if (data.status === 'hibernating') return 'hibernating'
+  // Lapsed / failed payments: drop to free tier rather than fully suspending —
+  // free features remain accessible while the org resolves their billing.
+  if (data.status === 'canceled' || data.status === 'past_due') return 'free'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if ((data.status as any) === 'hibernating') return 'hibernating'
   return data.plan_tier ?? 'free'
 }
 
