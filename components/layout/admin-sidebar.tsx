@@ -116,7 +116,7 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
     <>
       {/* Desktop sidebar — sticky so it stays in view on long pages */}
       <aside
-        className="hidden lg:flex print:hidden w-56 shrink-0 flex-col sticky top-0 h-screen overflow-y-auto"
+        className="hidden lg:flex print:hidden w-56 shrink-0 flex-col h-full overflow-y-auto"
         style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
       >
         <SidebarContent org={org} role={role} />
