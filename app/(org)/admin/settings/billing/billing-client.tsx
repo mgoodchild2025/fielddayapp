@@ -79,6 +79,8 @@ type Props = {
   subscription: SubscriptionRow | null
   successRedirect: boolean
   canceledRedirect: boolean
+  activeLeagueCount?: number
+  playerCount?: number
 }
 
 function daysUntil(iso: string | null): number | null {
@@ -99,7 +101,7 @@ function minResumeDate(): string {
   return d.toISOString().slice(0, 10)
 }
 
-export function BillingPageClient({ subscription, successRedirect, canceledRedirect }: Props) {
+export function BillingPageClient({ subscription, successRedirect, canceledRedirect, activeLeagueCount = 0, playerCount = 0 }: Props) {
   const [isPending, startTransition] = useTransition()
   const [pendingAction, setPendingAction] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -171,6 +173,9 @@ export function BillingPageClient({ subscription, successRedirect, canceledRedir
       else { window.location.reload() }
     })
   }
+
+  // Whether the org exceeds free tier limits (blocks downgrade to free)
+  const exceedsFreeLimit = activeLeagueCount > 1 || playerCount > 50
 
   // Which plans to show in the upgrade grid
   // For free/trialing/canceled orgs: show all paid plans
@@ -367,7 +372,22 @@ export function BillingPageClient({ subscription, successRedirect, canceledRedir
                       <div className="w-full rounded-lg py-2 text-sm font-semibold text-center text-green-700 bg-green-50 border border-green-200">
                         Your current plan
                       </div>
-                    ) : !hasStripeSubscription ? (
+                    ) : hasStripeSubscription ? (
+                      <div className="w-full rounded-lg py-2 text-sm font-medium text-center text-gray-400 bg-gray-50 border border-gray-200">
+                        Cancel subscription first
+                      </div>
+                    ) : exceedsFreeLimit ? (
+                      <div className="space-y-1.5">
+                        <div className="w-full rounded-lg py-2 text-sm font-medium text-center text-amber-700 bg-amber-50 border border-amber-200 cursor-not-allowed">
+                          Limits exceeded
+                        </div>
+                        <p className="text-xs text-amber-700 leading-snug">
+                          {activeLeagueCount > 1 && `${activeLeagueCount} active events (max 1). `}
+                          {playerCount > 50 && `${playerCount} players (max 50). `}
+                          Archive excess data to downgrade.
+                        </p>
+                      </div>
+                    ) : (
                       <button
                         onClick={handleSwitchToFree}
                         disabled={isPending}
@@ -375,10 +395,6 @@ export function BillingPageClient({ subscription, successRedirect, canceledRedir
                       >
                         {isPending && pendingAction === 'free' ? 'Switching…' : 'Continue with Free'}
                       </button>
-                    ) : (
-                      <div className="w-full rounded-lg py-2 text-sm font-medium text-center text-gray-400 bg-gray-50 border border-gray-200">
-                        Cancel subscription first
-                      </div>
                     )
                   ) : (
                     <button

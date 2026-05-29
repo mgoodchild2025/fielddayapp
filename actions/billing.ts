@@ -77,14 +77,47 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
     const { org } = await requireOrgAdmin()
     const supabase = createServiceRoleClient()
 
-    const { data: sub } = await supabase
-      .from('subscriptions')
-      .select('stripe_subscription_id, status')
-      .eq('organization_id', org.id)
-      .single()
+    const [
+      { data: sub },
+      { count: activeLeagueCount },
+      { count: playerCount },
+    ] = await Promise.all([
+      supabase
+        .from('subscriptions')
+        .select('stripe_subscription_id, status')
+        .eq('organization_id', org.id)
+        .single(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any)
+        .from('leagues')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', org.id)
+        .in('status', ['registration_open', 'active']),
+      supabase
+        .from('org_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', org.id)
+        .eq('role', 'player')
+        .eq('status', 'active'),
+    ])
 
     if (sub?.stripe_subscription_id) {
       return { error: 'You have an active Stripe subscription. Cancel it via the billing portal before switching to the free plan.' }
+    }
+
+    const leagues = activeLeagueCount ?? 0
+    const players = playerCount ?? 0
+
+    if (leagues > 1) {
+      return {
+        error: `Your account has ${leagues} active events. The free plan allows 1. Please archive or delete extra events before downgrading.`,
+      }
+    }
+
+    if (players > 50) {
+      return {
+        error: `Your account has ${players} registered players. The free plan allows 50. Please contact support if you need help managing your roster before downgrading.`,
+      }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
