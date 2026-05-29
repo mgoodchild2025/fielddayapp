@@ -1873,9 +1873,9 @@ export default async function EventDetailPage({
 
         {/* ──────────────── SCHEDULE TAB ──────────────── */}
         {activeTab === 'schedule' && (
-          <div>
+          <div className="bg-gray-900 rounded-xl p-4 sm:p-6">
             {games.length === 0 ? (
-              <p className="text-gray-500 text-center py-16">No games scheduled yet.</p>
+              <p className="text-gray-400 text-center py-16">No games scheduled yet.</p>
             ) : (
               <div className="space-y-10">
                 {upcomingGroups.length > 0 && (
@@ -1905,10 +1905,10 @@ export default async function EventDetailPage({
 
         {/* ──────────────── STANDINGS TAB ──────────────── */}
         {activeTab === 'standings' && (
-          <div>
+          <div className="bg-gray-900 rounded-xl p-4 sm:p-6">
             {/* Sub-tabs — only when BOTH regular season and pool play have recorded results */}
             {hasRegularSeasonGames && hasPoolGames && (
-              <div className="flex gap-1 mb-5 border-b">
+              <div className="flex gap-1 mb-5 border-b border-gray-700">
                 {(['regular', 'pool'] as const).map((view) => {
                   const label = view === 'regular' ? 'Regular Season' : 'Pool Play'
                   const href = `?tab=standings&standingsView=${view}`
@@ -1920,7 +1920,7 @@ export default async function EventDetailPage({
                       className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
                         active
                           ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]'
-                          : 'border-transparent text-gray-500 hover:text-gray-800'
+                          : 'border-transparent text-gray-400 hover:text-white'
                       }`}
                     >
                       {label}
@@ -1942,7 +1942,7 @@ export default async function EventDetailPage({
                   if (poolTeams.length === 0) return null
                   return (
                     <div key={pool.id}>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">{pool.name}</p>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-gray-300 mb-2">{pool.name}</p>
                       <StandingsTable teams={poolTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
                     </div>
                   )
@@ -1951,14 +1951,14 @@ export default async function EventDetailPage({
             ) : (
               /* Regular season standings (or empty state) */
               !hasRegularSeasonGames ? (
-                <p className="text-gray-500 text-center py-16">No games recorded yet.</p>
+                <p className="text-gray-400 text-center py-16">No games recorded yet.</p>
               ) : divisions.length > 0 ? (
                 <div className="space-y-8">
                   {divisions.map((div) => {
                     const divTeams = standingsTeams.filter((t) => t.division_id === div.id)
                     return (
                       <div key={div.id}>
-                        <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">{div.name}</p>
+                        <p className="text-xs font-semibold uppercase tracking-widest text-gray-300 mb-2">{div.name}</p>
                         <StandingsTable teams={divTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
                       </div>
                     )
@@ -1997,7 +1997,9 @@ export default async function EventDetailPage({
 
         {/* ──────────────── STATS TAB ──────────────── */}
         {activeTab === 'stats' && (
-          <StatsLeaderboard statDefs={statDefs} players={leaderboardPlayers} />
+          <div className="bg-gray-900 rounded-xl p-4 sm:p-6">
+            <StatsLeaderboard statDefs={statDefs} players={leaderboardPlayers} />
+          </div>
         )}
 
         {/* ──────────────── FORMAT TAB ──────────────── */}
