@@ -274,11 +274,12 @@ interface ScreenState {
 }
 
 function ScreenEditor({
-  state, onChange, onSave, onDelete, isSaving, isDirty, displayBaseUrl, pools, bracketTiers, leagueId,
+  state, onChange, onSave, onToggleEnabled, onDelete, isSaving, isDirty, displayBaseUrl, pools, bracketTiers, leagueId,
 }: {
   state: ScreenState
   onChange: (s: ScreenState) => void
   onSave: () => void
+  onToggleEnabled: (newEnabled: boolean) => void
   onDelete: () => void
   isSaving: boolean
   isDirty: boolean
@@ -347,8 +348,9 @@ function ScreenEditor({
                 type="button"
                 role="switch"
                 aria-checked={enabled}
-                onClick={() => onChange({ ...state, enabled: !enabled })}
-                className={`relative w-11 h-6 rounded-full transition-colors ${enabled ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                disabled={isSaving}
+                onClick={() => onToggleEnabled(!enabled)}
+                className={`relative w-11 h-6 rounded-full transition-colors disabled:opacity-60 ${enabled ? 'bg-emerald-500' : 'bg-gray-600'}`}
               >
                 <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
@@ -538,6 +540,21 @@ export function DisplayControlPanel({
     })
   }
 
+  // Toggling Display ON/OFF saves & applies immediately. The new enabled value
+  // is passed explicitly to avoid saving against stale React state.
+  function handleToggleEnabled(newEnabled: boolean) {
+    setError(null)
+    setSaved(false)
+    const current = screens.find((s) => s.screen === activeScreen)!
+    const updated = { ...current, enabled: newEnabled }
+    setScreens((prev) => prev.map((s) => s.screen === updated.screen ? updated : s))
+    startTransition(async () => {
+      const result = await saveDisplayConfig(leagueId, updated.screen, updated.config, newEnabled)
+      if (result.error) { setError(result.error) }
+      else { setSaved(true); setDirty(false) }
+    })
+  }
+
   function handleDelete() {
     if (!confirm(`Remove Screen ${activeScreen}? This cannot be undone.`)) return
     setError(null)
@@ -610,6 +627,7 @@ export function DisplayControlPanel({
         state={currentScreen}
         onChange={updateScreen}
         onSave={handleSave}
+        onToggleEnabled={handleToggleEnabled}
         onDelete={handleDelete}
         isSaving={isPending}
         isDirty={dirty}
