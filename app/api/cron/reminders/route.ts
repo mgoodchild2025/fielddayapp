@@ -46,7 +46,13 @@ export async function GET(req: NextRequest) {
 
   // 2. Game reminders — one email per player per day listing all their games tomorrow
   //    Groups multiple games on the same day into a single digest email.
-  const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+  //
+  //    Query window is 48 h so we always capture all of "tomorrow" regardless of what
+  //    time the cron fires. A midnight run would only reach 24 h (= start of tomorrow),
+  //    missing games later in the day. Per-org local-date filtering below narrows the
+  //    result to games whose calendar date in the org's timezone equals exactly tomorrow.
+  const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000)  // kept for SMS section
+  const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: reminderGames } = await (supabase as any)
     .from('games')
@@ -58,7 +64,7 @@ export async function GET(req: NextRequest) {
     `)
     .eq('status', 'scheduled')
     .gte('scheduled_at', now.toISOString())
-    .lte('scheduled_at', in24h.toISOString())
+    .lte('scheduled_at', in48h.toISOString())
 
   // Collect personalized game-reminder emails across all orgs; batch-send after the loop
   // to avoid Resend's 5 req/s rate limit.
@@ -98,13 +104,24 @@ export async function GET(req: NextRequest) {
       const tomorrowLocal = new Intl.DateTimeFormat('en-CA', { timeZone: timezone })
         .format(new Date(now.getTime() + 24 * 60 * 60 * 1000))
 
+      // Filter to only games whose LOCAL calendar date equals tomorrow.
+      // Without this, a midnight cron run would pick up same-day games
+      // (e.g. a 7pm game tonight falls within [now, now+48h] but its
+      // local date is today, not tomorrow).
+      const orgGamesTomorrow = orgGames.filter(g => {
+        const gameLocalDate = new Intl.DateTimeFormat('en-CA', { timeZone: timezone })
+          .format(new Date(g.scheduled_at))
+        return gameLocalDate === tomorrowLocal
+      })
+      if (orgGamesTomorrow.length === 0) continue
+
       const teamIds = [...new Set(
-        orgGames.flatMap(g => [g.home_team?.id, g.away_team?.id]).filter(Boolean) as string[]
+        orgGamesTomorrow.flatMap(g => [g.home_team?.id, g.away_team?.id]).filter(Boolean) as string[]
       )]
 
       // Pickup/drop-in games have no teams — recipients are league registrants instead
       const pickupLeagueIds = [...new Set(
-        orgGames
+        orgGamesTomorrow
           .filter(g => !g.home_team && !g.away_team && g.league_id)
           .map(g => g.league_id as string)
       )]
@@ -168,7 +185,7 @@ export async function GET(req: NextRequest) {
       }
 
       // Also include confirmed game subs for tomorrow's games
-      const orgGameIds = orgGames.map(g => g.id as string)
+      const orgGameIds = orgGamesTomorrow.map(g => g.id as string)
       if (orgGameIds.length > 0) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: subRows } = await (supabase as any)
@@ -205,7 +222,7 @@ export async function GET(req: NextRequest) {
       for (const [userId, player] of rgPlayerMap) {
         if (rgAlreadySent.has(userId)) continue
 
-        const myGames = orgGames.filter(g => {
+        const myGames = orgGamesTomorrow.filter(g => {
           const isPickup = !g.home_team && !g.away_team
           if (isPickup) return g.league_id ? player.pickupLeagueIds.has(g.league_id) : false
           return (g.home_team?.id && player.teamIds.has(g.home_team.id)) ||
