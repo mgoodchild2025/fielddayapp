@@ -4,6 +4,7 @@ import { getResend, FROM_EMAIL } from '@/lib/resend'
 import { sendSms } from '@/lib/twilio'
 import { deliverAnnouncementEmails } from '@/actions/messages'
 import { formatCourtLabel } from '@/lib/venue-label'
+import { sendPlatformAlert } from '@/actions/platform-settings'
 
 function authorized(req: NextRequest) {
   const secret = process.env.CRON_SECRET
@@ -914,6 +915,62 @@ export async function GET(req: NextRequest) {
     await (resend.batch as any).send(waiverReminderEmails)
       .catch((e: unknown) => results.push(`waiver reminder batch error: ${e}`))
     results.push(`waiver reminder batch: ${waiverReminderEmails.length} email(s) dispatched`)
+  }
+
+  // 7. Trial expiring alerts — fire once when trial_end is exactly 3 days away
+  //    Uses a platform_settings log key to ensure we alert only once per org.
+  const trialAlertThresholdMs = 3 * 24 * 60 * 60 * 1000  // 3 days
+  const trialWindowStart = new Date(now.getTime() + trialAlertThresholdMs - 15 * 60 * 1000) // ±15min cron window
+  const trialWindowEnd   = new Date(now.getTime() + trialAlertThresholdMs + 15 * 60 * 1000)
+
+  const { data: expiringTrials } = await supabase
+    .from('subscriptions')
+    .select('organization_id, trial_end')
+    .eq('status', 'trialing')
+    .gte('trial_end', trialWindowStart.toISOString())
+    .lte('trial_end', trialWindowEnd.toISOString())
+
+  for (const trial of expiringTrials ?? []) {
+    // Dedup: skip if we already sent an alert for this org's trial
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existing } = await (supabase as any)
+      .from('platform_settings')
+      .select('value')
+      .eq('key', `trial_alert_sent_${trial.organization_id}`)
+      .single()
+    if (existing) continue
+
+    // Fetch org name for the alert
+    const { data: orgRow } = await supabase
+      .from('organizations')
+      .select('name, slug')
+      .eq('id', trial.organization_id)
+      .single()
+
+    const trialEnd = trial.trial_end
+      ? new Date(trial.trial_end).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+      : 'soon'
+    const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+    const orgUrl = `https://app.${PLATFORM_DOMAIN}/super/orgs/${trial.organization_id}`
+
+    await sendPlatformAlert(
+      'trial_expiring',
+      `Trial expiring in 3 days: ${orgRow?.name ?? trial.organization_id}`,
+      `<div style="font-family:sans-serif;max-width:560px;color:#111;">
+        <h2 style="font-size:18px;">Trial expiring soon</h2>
+        <p><strong>${orgRow?.name ?? 'Unknown org'}</strong> (${orgRow?.slug ?? ''}) has a trial that expires on <strong>${trialEnd}</strong> (3 days from now).</p>
+        <p>If they haven't subscribed by then, their account will drop to the Free plan limits.</p>
+        <a href="${orgUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px;">View in Super Console →</a>
+      </div>`
+    )
+
+    // Mark as sent so we don't fire again on the next cron run
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
+      .from('platform_settings')
+      .upsert({ key: `trial_alert_sent_${trial.organization_id}`, value: now.toISOString(), updated_at: now.toISOString() }, { onConflict: 'key' })
+
+    results.push(`trial expiry alert sent for org ${trial.organization_id}`)
   }
 
   return NextResponse.json({ ok: true, processed: results, sms_diagnostics })

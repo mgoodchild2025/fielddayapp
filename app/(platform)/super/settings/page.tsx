@@ -1,17 +1,17 @@
-import { getSignupsEnabled, getNewOrgNotificationEmail, getGlobalMaintenance } from '@/actions/platform-settings'
+import { getSignupsEnabled, getGlobalMaintenance, getPlatformAlerts } from '@/actions/platform-settings'
 import { ToggleSignups } from './toggle-signups'
-import { NewOrgNotificationForm } from './new-org-notification-form'
 import { GlobalMaintenanceForm } from '@/components/platform/global-maintenance-form'
+import { PlatformAlertsForm } from './platform-alerts-form'
 
 export const metadata = { title: 'Platform Settings — Fieldday' }
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
 export default async function PlatformSettingsPage() {
-  const [signupsEnabled, newOrgNotificationEmail, globalMaintenance] = await Promise.all([
+  const [signupsEnabled, globalMaintenance, platformAlerts] = await Promise.all([
     getSignupsEnabled(),
-    getNewOrgNotificationEmail(),
     getGlobalMaintenance(),
+    getPlatformAlerts(),
   ])
   const signupUrl = `https://app.${PLATFORM_DOMAIN}/signup`
 
@@ -64,15 +64,15 @@ export default async function PlatformSettingsPage() {
           </div>
         </div>
 
-        {/* New org notification */}
+        {/* Platform alerts */}
         <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
           <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-widest mb-1">
-            New Organization Notifications
+            Platform Alerts
           </h2>
-          <p className="text-xs text-gray-500 mb-4">
-            Send an email whenever someone registers a new organization on the platform.
+          <p className="text-xs text-gray-500 mb-5">
+            Choose which events trigger an email alert to your team.
           </p>
-          <NewOrgNotificationForm current={newOrgNotificationEmail} />
+          <PlatformAlertsForm initial={platformAlerts} />
         </div>
 
         {/* Platform info */}

@@ -3,7 +3,7 @@
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getResend, FROM_EMAIL } from '@/lib/resend'
-import { getNewOrgNotificationEmail } from './platform-settings'
+import { sendPlatformAlert } from './platform-settings'
 import { getTenantConsentDocs, writeAcceptanceRows } from './tenant-consent'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
@@ -200,41 +200,15 @@ export async function orgSignup(input: z.infer<typeof signupSchema>) {
     }).catch(() => {})
   }
 
-  // ── Notify platform admins of the new signup ──────────────────────────────
-  // Recipient priority:
-  //   1. Configured notification email in platform_settings (Super → Settings)
-  //   2. All profiles with platform_role = 'platform_admin'
-  //   3. Nothing (silent if neither is set)
-  try {
+  // ── Notify platform admins of the new signup ─────────────────────────────
+  {
     const platformDomain2 = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
     const orgUrl = `https://app.${platformDomain2}/super`
-
-    const configuredEmail = await getNewOrgNotificationEmail()
-
-    let recipients: string[] = []
-    if (configuredEmail) {
-      recipients = [configuredEmail]
-    } else {
-      const { data: adminProfiles } = await service
-        .from('profiles')
-        .select('email')
-        .eq('platform_role', 'platform_admin')
-      recipients = (adminProfiles ?? [])
-        .map((a: { email: string | null }) => a.email)
-        .filter((e): e is string => !!e)
-    }
-
-    if (recipients.length > 0) {
-      await resend.emails.send({
-        from: FROM_EMAIL,
-        to: recipients,
-        subject: `New organization signed up: ${orgName}`,
-        html: buildNewOrgEmail({ orgName, slug, fullName, email, plan, orgUrl, platformDomain: platformDomain2 }),
-      })
-    }
-  } catch (err) {
-    // Non-fatal — log and continue; org was already created successfully
-    console.error('[orgSignup] failed to send platform admin notification:', err)
+    await sendPlatformAlert(
+      'new_org',
+      `New organization signed up: ${orgName}`,
+      buildNewOrgEmail({ orgName, slug, fullName, email, plan, orgUrl, platformDomain: platformDomain2 }),
+    )
   }
 
   return { error: null, slug }

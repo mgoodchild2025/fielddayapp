@@ -7,6 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getStripe } from '@/lib/stripe'
 import { getCurrentOrg } from '@/lib/tenant'
 import { sendEmail } from '@/lib/email'
+import { sendPlatformAlert } from '@/actions/platform-settings'
 
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? 'support@fielddayapp.ca'
 
@@ -138,6 +139,12 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
       console.error('[billing] switchToFreePlan DB error:', updateError)
       return { error: updateError.message }
     }
+
+    await sendPlatformAlert(
+      'subscription_change',
+      `Subscription changed: ${org.name} → Free`,
+      `<p><strong>${org.name}</strong> (${org.id}) downgraded to the <strong>Free</strong> plan.</p>`,
+    )
 
     return { error: null }
   } catch (err) {
@@ -297,6 +304,12 @@ export async function hibernateSubscription(
       })
       .eq('organization_id', org.id)
 
+    await sendPlatformAlert(
+      'subscription_change',
+      `Subscription changed: ${org.name} → Hibernating`,
+      `<p><strong>${org.name}</strong> (${org.id}) has hibernated their account (was on <strong>${sub.plan_tier}</strong> plan).${hibernateUntil ? ` Auto-resume: ${hibernateUntil}.` : ''}</p>`,
+    )
+
     return { error: null }
   } catch (err) {
     console.error('[billing] hibernateSubscription error:', err)
@@ -352,6 +365,12 @@ export async function resumeFromHibernation(): Promise<{ error: string | null }>
       })
       .eq('organization_id', org.id)
 
+    await sendPlatformAlert(
+      'subscription_change',
+      `Subscription changed: ${org.name} → ${restoreTier} (resumed)`,
+      `<p><strong>${org.name}</strong> (${org.id}) has resumed from hibernation and is back on the <strong>${restoreTier}</strong> plan.</p>`,
+    )
+
     return { error: null }
   } catch (err) {
     console.error('[billing] resumeFromHibernation error:', err)
@@ -384,38 +403,26 @@ export async function requestAccountDeletion(
 
     const orgUrl = `https://app.fielddayapp.ca/super/orgs` // link to super console
 
-    await sendEmail({
-      to: SUPPORT_EMAIL,
-      subject: `Account deletion request — ${org.name}`,
-      html: `
-        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#111;">
-          <h2 style="font-size:18px;margin-bottom:4px;">Account deletion request</h2>
-          <p style="color:#6b7280;font-size:14px;margin-top:0;">Submitted by ${user.email}</p>
-
-          <table style="width:100%;border-collapse:collapse;font-size:14px;margin:20px 0;">
-            <tr><td style="padding:6px 0;color:#6b7280;width:140px;">Organization</td><td style="padding:6px 0;font-weight:600;">${org.name}</td></tr>
-            <tr><td style="padding:6px 0;color:#6b7280;">Org ID</td><td style="padding:6px 0;font-family:monospace;">${org.id}</td></tr>
-            <tr><td style="padding:6px 0;color:#6b7280;">Current plan</td><td style="padding:6px 0;">${sub?.plan_tier ?? 'unknown'} / ${sub?.status ?? 'unknown'}</td></tr>
-            <tr><td style="padding:6px 0;color:#6b7280;">Requested by</td><td style="padding:6px 0;">${user.email}</td></tr>
-            <tr><td style="padding:6px 0;color:#6b7280;">Requested at</td><td style="padding:6px 0;">${new Date().toUTCString()}</td></tr>
-          </table>
-
-          ${reason ? `
-          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin-bottom:20px;">
-            <p style="font-size:13px;font-weight:600;color:#374151;margin:0 0 6px;">Reason provided:</p>
-            <p style="font-size:14px;color:#4b5563;margin:0;">${reason.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
-          </div>` : ''}
-
-          <a href="${orgUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px;">
-            View in Super Console →
-          </a>
-
-          <p style="font-size:12px;color:#9ca3af;margin-top:24px;">
-            To complete deletion: suspend the org first, then delete. All data will be permanently removed.
-          </p>
-        </div>
-      `,
-    })
+    const deletionHtml = `
+      <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#111;">
+        <h2 style="font-size:18px;margin-bottom:4px;">Account deletion request</h2>
+        <p style="color:#6b7280;font-size:14px;margin-top:0;">Submitted by ${user.email}</p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;margin:20px 0;">
+          <tr><td style="padding:6px 0;color:#6b7280;width:140px;">Organization</td><td style="padding:6px 0;font-weight:600;">${org.name}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280;">Org ID</td><td style="padding:6px 0;font-family:monospace;">${org.id}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280;">Current plan</td><td style="padding:6px 0;">${sub?.plan_tier ?? 'unknown'} / ${sub?.status ?? 'unknown'}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280;">Requested by</td><td style="padding:6px 0;">${user.email}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280;">Requested at</td><td style="padding:6px 0;">${new Date().toUTCString()}</td></tr>
+        </table>
+        ${reason ? `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin-bottom:20px;"><p style="font-size:13px;font-weight:600;color:#374151;margin:0 0 6px;">Reason:</p><p style="font-size:14px;color:#4b5563;margin:0;">${reason.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p></div>` : ''}
+        <a href="${orgUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px;">View in Super Console →</a>
+        <p style="font-size:12px;color:#9ca3af;margin-top:24px;">To complete deletion: suspend the org first, then delete.</p>
+      </div>
+    `
+    // Send via platform alert system (respects the account_deletion toggle + recipient setting)
+    await sendPlatformAlert('account_deletion', `Account deletion request — ${org.name}`, deletionHtml)
+    // Also always cc SUPPORT_EMAIL as a safety net
+    if (SUPPORT_EMAIL) await sendEmail({ to: SUPPORT_EMAIL, subject: `Account deletion request — ${org.name}`, html: deletionHtml })
 
     console.log(`[billing] account deletion requested for org ${org.id} (${org.name}) by ${user.email}`)
     return { error: null }
