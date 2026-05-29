@@ -223,45 +223,60 @@ function SportsRow() {
 
 const PLANS = [
   {
+    id: 'free',
+    name: 'Free',
+    price: 0,
+    features: ['1 active league', 'Up to 50 players', '2% platform fee on payments'],
+    popular: false,
+    cta: 'Get started free',
+    ctaHref: '/signup?plan=free',
+  },
+  {
     id: 'starter',
     name: 'Starter',
-    price: 49,
+    price: 39,
     features: ['3 active leagues', 'Up to 200 players', 'Custom branding & nav links'],
     popular: false,
+    cta: 'Start free trial →',
+    ctaHref: '/signup?plan=starter',
   },
   {
     id: 'pro',
     name: 'Pro',
-    price: 99,
+    price: 89,
     features: ['10 active leagues', 'Up to 1,000 players', 'SMS, merch shop & check-in'],
     popular: true,
+    cta: 'Start free trial →',
+    ctaHref: '/signup?plan=pro',
   },
   {
     id: 'club',
     name: 'Club',
-    price: 199,
+    price: 179,
     features: ['Unlimited leagues & players', 'Custom domain', 'Dedicated account manager'],
     popular: false,
+    cta: 'Start free trial →',
+    ctaHref: '/signup?plan=club',
   },
 ] as const
 
 function Pricing() {
   return (
     <section id="pricing" className="bg-gray-50 px-6 py-20 sm:py-24">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="text-center mb-14">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight mb-4">
             Simple, transparent pricing
           </h2>
           <p className="text-lg text-gray-500">
-            Start your 15-day free trial on any plan. No credit card required.
+            Start for free, or trial any paid plan free for 15 days. No credit card required.
           </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {PLANS.map((plan) => (
             <div
               key={plan.id}
-              className={`relative flex flex-col rounded-2xl p-8 ${
+              className={`relative flex flex-col rounded-2xl p-7 ${
                 plan.popular
                   ? 'border-2 border-emerald-500 bg-white shadow-xl shadow-emerald-100'
                   : 'border border-gray-200 bg-white'
@@ -277,8 +292,14 @@ function Pricing() {
               <div className="mb-6">
                 <h3 className="text-lg font-bold text-gray-900">{plan.name}</h3>
                 <div className="mt-3">
-                  <span className="text-4xl font-extrabold text-gray-900">${plan.price}</span>
-                  <span className="text-gray-400 text-sm ml-1">/month</span>
+                  {plan.price === 0 ? (
+                    <span className="text-4xl font-extrabold text-gray-900">Free</span>
+                  ) : (
+                    <>
+                      <span className="text-4xl font-extrabold text-gray-900">${plan.price}</span>
+                      <span className="text-gray-400 text-sm ml-1">/month</span>
+                    </>
+                  )}
                 </div>
               </div>
               <ul className="space-y-3 mb-8 flex-1">
@@ -292,20 +313,22 @@ function Pricing() {
                 ))}
               </ul>
               <Link
-                href={`/signup?plan=${plan.id}`}
+                href={plan.ctaHref}
                 className={`block text-center py-3 rounded-xl text-sm font-semibold transition-colors ${
                   plan.popular
                     ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm'
+                    : plan.id === 'free'
+                    ? 'bg-white hover:bg-gray-50 text-gray-900 border border-gray-300'
                     : 'bg-gray-900 hover:bg-gray-800 text-white'
                 }`}
               >
-                Start free trial →
+                {plan.cta}
               </Link>
             </div>
           ))}
         </div>
         <p className="text-center text-sm text-gray-400 mt-8">
-          All plans include a 15-day free trial. Cancel anytime.{' '}
+          Paid plans include a 15-day free trial. Cancel anytime.{' '}
           <a href="#features" className="text-emerald-600 hover:underline font-medium">
             Compare all features ↓
           </a>
@@ -334,53 +357,54 @@ type Cell = 'check' | 'dash' | string
 const MATRIX: Array<{
   section?: string
   label?: string
+  free?: Cell
   starter?: Cell
   pro?: Cell
   club?: Cell
 }> = [
   { section: 'Events' },
-  { label: 'Active events',              starter: '3',          pro: '10',         club: 'Unlimited' },
-  { label: 'Registered players',         starter: '200',        pro: '1,000',      club: 'Unlimited' },
-  { label: 'Leagues & tournaments',      starter: 'check',      pro: 'check',      club: 'check' },
-  { label: 'Drop-in events',             starter: 'dash',       pro: 'check',      club: 'check' },
-  { label: 'Recurring sessions',         starter: 'dash',       pro: 'check',      club: 'check' },
-  { label: 'QR code check-in',           starter: 'dash',       pro: 'check',      club: 'check' },
+  { label: 'Active events',              free: '1',             starter: '3',          pro: '10',         club: 'Unlimited' },
+  { label: 'Registered players',         free: '50',            starter: '200',        pro: '1,000',      club: 'Unlimited' },
+  { label: 'Leagues & tournaments',      free: 'check',         starter: 'check',      pro: 'check',      club: 'check' },
+  { label: 'Drop-in events',             free: 'dash',          starter: 'dash',       pro: 'check',      club: 'check' },
+  { label: 'Recurring sessions',         free: 'dash',          starter: 'dash',       pro: 'check',      club: 'check' },
+  { label: 'QR code check-in',           free: 'dash',          starter: 'dash',       pro: 'check',      club: 'check' },
 
   { section: 'Scheduling' },
-  { label: 'Game schedule builder',              starter: 'check', pro: 'check', club: 'check' },
-  { label: 'Single-elimination brackets',        starter: 'check', pro: 'check', club: 'check' },
-  { label: 'Double-elimination brackets',        starter: 'dash',  pro: 'check', club: 'check' },
-  { label: 'Pools & divisions',                  starter: 'dash',  pro: 'check', club: 'check' },
-  { label: 'Game substitute management',         starter: 'check', pro: 'check', club: 'check' },
-  { label: 'CSV schedule import',                starter: 'dash',  pro: 'dash',  club: 'check' },
-  { label: 'Print scoresheets',                  starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Game schedule builder',              free: 'check',  starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Single-elimination brackets',        free: 'check',  starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Double-elimination brackets',        free: 'dash',   starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Pools & divisions',                  free: 'dash',   starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Game substitute management',         free: 'check',  starter: 'check', pro: 'check', club: 'check' },
+  { label: 'CSV schedule import',                free: 'dash',   starter: 'dash',  pro: 'dash',  club: 'check' },
+  { label: 'Print scoresheets',                  free: 'dash',   starter: 'dash',  pro: 'check', club: 'check' },
 
   { section: 'Registration & Payments' },
-  { label: 'Online registration',                starter: 'check', pro: 'check', club: 'check' },
-  { label: 'Team or individual registration',    starter: 'check', pro: 'check', club: 'check' },
-  { label: 'Stripe payments (you keep 100%)',    starter: 'check', pro: 'check', club: 'check' },
-  { label: 'Digital waivers + QR signing',       starter: 'check', pro: 'check', club: 'check' },
-  { label: 'Early bird pricing',                 starter: 'dash',  pro: 'check', club: 'check' },
-  { label: 'Discount / promo codes',             starter: 'dash',  pro: 'check', club: 'check' },
-  { label: 'Merchandise shop',                   starter: 'dash',  pro: 'check', club: 'check' },
-  { label: 'Payment plans (installments)',        starter: 'dash',  pro: 'dash',  club: 'check' },
+  { label: 'Online registration',                free: 'check',  starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Team or individual registration',    free: 'check',  starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Stripe payments',                    free: '2% fee', starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Digital waivers + QR signing',       free: 'check',  starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Early bird pricing',                 free: 'dash',   starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Discount / promo codes',             free: 'dash',   starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Merchandise shop',                   free: 'dash',   starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Payment plans (installments)',        free: 'dash',   starter: 'dash',  pro: 'dash',  club: 'check' },
 
   { section: 'Stats & Communications' },
-  { label: 'Live standings',                     starter: 'check', pro: 'check', club: 'check' },
-  { label: 'Captain score submission',           starter: 'check', pro: 'check', club: 'check' },
-  { label: 'Player stats & leaderboards',        starter: 'dash',  pro: 'check', club: 'check' },
-  { label: 'Email notifications',                starter: 'check', pro: 'check', club: 'check' },
-  { label: 'SMS reminders',                      starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Live standings',                     free: 'check',  starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Captain score submission',           free: 'check',  starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Player stats & leaderboards',        free: 'dash',   starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Email notifications',                free: 'check',  starter: 'check', pro: 'check', club: 'check' },
+  { label: 'SMS reminders',                      free: 'dash',   starter: 'dash',  pro: 'check', club: 'check' },
 
   { section: 'Customisation' },
-  { label: 'Custom branding (logo, colours)',    starter: 'check', pro: 'check', club: 'check' },
-  { label: 'Custom navigation links',            starter: 'check', pro: 'check', club: 'check' },
-  { label: 'Photo gallery & media page',         starter: 'dash',  pro: 'check', club: 'check' },
-  { label: 'Event rules templates',              starter: 'dash',  pro: 'check', club: 'check' },
-  { label: 'Custom player positions',            starter: 'dash',  pro: 'check', club: 'check' },
-  { label: 'Co-organizer accounts',              starter: 'dash',  pro: 'check', club: 'check' },
-  { label: 'Custom favicon',                     starter: 'dash',  pro: 'dash',  club: 'check' },
-  { label: 'Custom domain',                      starter: 'dash',  pro: 'dash',  club: 'check' },
+  { label: 'Custom branding (logo, colours)',    free: 'check',  starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Custom navigation links',            free: 'check',  starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Photo gallery & media page',         free: 'dash',   starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Event rules templates',              free: 'dash',   starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Custom player positions',            free: 'dash',   starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Co-organizer accounts',              free: 'dash',   starter: 'dash',  pro: 'check', club: 'check' },
+  { label: 'Custom favicon',                     free: 'dash',   starter: 'dash',  pro: 'dash',  club: 'check' },
+  { label: 'Custom domain',                      free: 'dash',   starter: 'dash',  pro: 'dash',  club: 'check' },
 ]
 
 function CellValue({ value }: { value: Cell | undefined }) {
@@ -403,13 +427,14 @@ function FeatureMatrix() {
         </div>
 
         <div className="rounded-2xl border border-gray-200 overflow-hidden">
-          {/* Sticky column headers */}
-          <div className="grid grid-cols-4 bg-gray-50 border-b border-gray-200">
+          {/* Column headers */}
+          <div className="grid grid-cols-5 bg-gray-50 border-b border-gray-200">
             <div className="px-5 py-4" />
             {[
-              { name: 'Starter', price: '$49', popular: false },
-              { name: 'Pro',     price: '$99', popular: true  },
-              { name: 'Club',    price: '$199', popular: false },
+              { name: 'Free',    price: 'Free',  popular: false },
+              { name: 'Starter', price: '$39',   popular: false },
+              { name: 'Pro',     price: '$89',   popular: true  },
+              { name: 'Club',    price: '$179',  popular: false },
             ].map((plan) => (
               <div key={plan.name} className={`px-3 py-4 text-center border-l border-gray-200 ${plan.popular ? 'bg-emerald-50' : ''}`}>
                 {plan.popular && (
@@ -418,7 +443,7 @@ function FeatureMatrix() {
                   </span>
                 )}
                 <p className={`font-bold text-sm ${plan.popular ? 'text-emerald-700' : 'text-gray-900'}`}>{plan.name}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{plan.price}/mo</p>
+                <p className="text-xs text-gray-400 mt-0.5">{plan.price === 'Free' ? 'Free forever' : `${plan.price}/mo`}</p>
               </div>
             ))}
           </div>
@@ -427,19 +452,22 @@ function FeatureMatrix() {
           {MATRIX.map((row, i) => {
             if (row.section) {
               return (
-                <div key={row.section} className={`grid grid-cols-4 bg-gray-50 border-t border-gray-200 ${i === 0 ? '' : 'border-t-2'}`}>
-                  <div className="col-span-4 px-5 py-2.5">
+                <div key={row.section} className={`grid grid-cols-5 bg-gray-50 border-t border-gray-200 ${i === 0 ? '' : 'border-t-2'}`}>
+                  <div className="col-span-5 px-5 py-2.5">
                     <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">{row.section}</span>
                   </div>
                 </div>
               )
             }
             return (
-              <div key={row.label} className="grid grid-cols-4 border-t border-gray-100 hover:bg-gray-50/50 transition-colors">
+              <div key={row.label} className="grid grid-cols-5 border-t border-gray-100 hover:bg-gray-50/50 transition-colors">
                 <div className="px-5 py-3.5 flex items-center">
                   <span className="text-sm text-gray-700">{row.label}</span>
                 </div>
-                <div className={`px-3 py-3.5 flex items-center justify-center border-l border-gray-100`}>
+                <div className="px-3 py-3.5 flex items-center justify-center border-l border-gray-100">
+                  <CellValue value={row.free} />
+                </div>
+                <div className="px-3 py-3.5 flex items-center justify-center border-l border-gray-100">
                   <CellValue value={row.starter} />
                 </div>
                 <div className="px-3 py-3.5 flex items-center justify-center border-l border-gray-100 bg-emerald-50/40">
@@ -453,19 +481,26 @@ function FeatureMatrix() {
           })}
 
           {/* CTA row */}
-          <div className="grid grid-cols-4 border-t-2 border-gray-200 bg-gray-50">
+          <div className="grid grid-cols-5 border-t-2 border-gray-200 bg-gray-50">
             <div className="px-5 py-5" />
-            {(['starter', 'pro', 'club'] as const).map((plan) => (
-              <div key={plan} className={`px-3 py-5 border-l border-gray-200 ${plan === 'pro' ? 'bg-emerald-50' : ''}`}>
+            {([
+              { id: 'free',    label: 'Get started free', popular: false },
+              { id: 'starter', label: 'Start free trial', popular: false },
+              { id: 'pro',     label: 'Start free trial', popular: true  },
+              { id: 'club',    label: 'Start free trial', popular: false },
+            ] as const).map((plan) => (
+              <div key={plan.id} className={`px-3 py-5 border-l border-gray-200 ${plan.popular ? 'bg-emerald-50' : ''}`}>
                 <Link
-                  href={`/signup?plan=${plan}`}
+                  href={`/signup?plan=${plan.id}`}
                   className={`block text-center py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                    plan === 'pro'
+                    plan.popular
                       ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                      : plan.id === 'free'
+                      ? 'bg-white hover:bg-gray-50 text-gray-900 border border-gray-300'
                       : 'bg-gray-900 hover:bg-gray-800 text-white'
                   }`}
                 >
-                  Get started
+                  {plan.label}
                 </Link>
               </div>
             ))}
