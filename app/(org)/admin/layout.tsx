@@ -130,7 +130,7 @@ export default async function AdminLayout({
 
   return (
     <div
-      className={`h-screen flex flex-col overflow-hidden pt-14 print:pt-0 ${isImpersonating ? 'lg:pt-10' : 'lg:pt-0'}`}
+      className={`h-screen flex flex-col overflow-hidden pt-14 print:pt-0 print:h-auto print:overflow-visible print:block ${isImpersonating ? 'lg:pt-10' : 'lg:pt-0'}`}
       style={{ backgroundColor: '#F8F8F8' }}
     >
       {isImpersonating && <div className="print:hidden"><ImpersonationBanner orgName={org.name} /></div>}
