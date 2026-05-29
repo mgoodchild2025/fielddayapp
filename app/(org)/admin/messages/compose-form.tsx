@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { sendAnnouncement } from '@/actions/messages'
+import { UpgradeBadge } from '@/components/ui/upgrade-prompt'
 
 interface League {
   id: string
@@ -10,7 +11,7 @@ interface League {
 
 type Channel = 'email' | 'sms' | 'both'
 
-export function ComposeMessageForm({ leagues }: { leagues: League[] }) {
+export function ComposeMessageForm({ leagues, canSms = false }: { leagues: League[]; canSms?: boolean }) {
   const [isPending, startTransition] = useTransition()
   const [audienceType, setAudienceType] = useState<'org' | 'league'>('org')
   const [channel, setChannel] = useState<Channel>('email')
@@ -89,35 +90,74 @@ export function ComposeMessageForm({ leagues }: { leagues: League[] }) {
 
       {/* Delivery channel */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Send via</label>
-        <div className="flex gap-2">
-          {(['email', 'sms', 'both'] as const).map((ch) => (
-            <label
-              key={ch}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm cursor-pointer select-none transition-colors ${
-                channel === ch
-                  ? 'border-transparent text-white'
-                  : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}
-              style={channel === ch ? { backgroundColor: 'var(--brand-primary)' } : {}}
-            >
-              <input
-                type="radio"
-                name="channel"
-                value={ch}
-                checked={channel === ch}
-                onChange={() => setChannel(ch)}
-                className="sr-only"
-              />
-              {ch === 'email' && '✉️ Email'}
-              {ch === 'sms' && '💬 SMS'}
-              {ch === 'both' && '✉️💬 Both'}
-            </label>
-          ))}
+        <div className="flex items-center gap-2 mb-2">
+          <label className="block text-sm font-medium text-gray-700">Send via</label>
+          {!canSms && <UpgradeBadge requiredTier="pro" />}
         </div>
-        {channel === 'sms' || channel === 'both' ? (
+        <div className="flex gap-2 flex-wrap">
+          {/* Email — always available */}
+          <label
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm cursor-pointer select-none transition-colors ${
+              channel === 'email' ? 'border-transparent text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}
+            style={channel === 'email' ? { backgroundColor: 'var(--brand-primary)' } : {}}
+          >
+            <input type="radio" name="channel" value="email" checked={channel === 'email'} onChange={() => setChannel('email')} className="sr-only" />
+            ✉️ Email
+          </label>
+
+          {/* SMS — gated */}
+          <label
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm select-none transition-colors ${
+              !canSms
+                ? 'border-gray-100 text-gray-300 cursor-not-allowed bg-gray-50'
+                : channel === 'sms'
+                ? 'border-transparent text-white cursor-pointer'
+                : 'border-gray-200 text-gray-600 hover:bg-gray-50 cursor-pointer'
+            }`}
+            style={canSms && channel === 'sms' ? { backgroundColor: 'var(--brand-primary)' } : {}}
+          >
+            <input
+              type="radio"
+              name="channel"
+              value="sms"
+              checked={channel === 'sms'}
+              onChange={() => canSms && setChannel('sms')}
+              disabled={!canSms}
+              className="sr-only"
+            />
+            💬 SMS
+          </label>
+
+          {/* Both — gated */}
+          <label
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm select-none transition-colors ${
+              !canSms
+                ? 'border-gray-100 text-gray-300 cursor-not-allowed bg-gray-50'
+                : channel === 'both'
+                ? 'border-transparent text-white cursor-pointer'
+                : 'border-gray-200 text-gray-600 hover:bg-gray-50 cursor-pointer'
+            }`}
+            style={canSms && channel === 'both' ? { backgroundColor: 'var(--brand-primary)' } : {}}
+          >
+            <input
+              type="radio"
+              name="channel"
+              value="both"
+              checked={channel === 'both'}
+              onChange={() => canSms && setChannel('both')}
+              disabled={!canSms}
+              className="sr-only"
+            />
+            ✉️💬 Both
+          </label>
+        </div>
+        {(channel === 'sms' || channel === 'both') && canSms ? (
           <p className="text-xs text-gray-400 mt-1.5">SMS is sent only to members who have opted in and have a phone number on file.</p>
         ) : null}
+        {!canSms && (
+          <p className="text-xs text-gray-400 mt-1.5">Upgrade to Pro to send SMS notifications.</p>
+        )}
       </div>
 
       {/* CC options */}

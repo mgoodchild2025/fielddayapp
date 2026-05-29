@@ -2,15 +2,17 @@ import Link from 'next/link'
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
+import { canAccess } from '@/lib/features'
 import { getNavLinks } from '@/actions/nav-links'
 import { NavLinkManager } from '@/components/settings/nav-link-manager'
+import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 
 export default async function NavLinksPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin'])
 
-  const links = await getNavLinks(org.id)
+  const canNavLinks = await canAccess(org.id, 'custom_nav_links')
 
   return (
     <div className="max-w-2xl">
@@ -23,7 +25,11 @@ export default async function NavLinksPage() {
       <p className="text-sm text-gray-500 mb-6">
         Add up to 5 custom links to your public navigation bar. Links can point to a URL or an uploaded PDF document (eg. Social media site, Policy statement, Game video archive, etc.).
       </p>
-      <NavLinkManager initialLinks={links} />
+      {canNavLinks ? (
+        <NavLinkManager initialLinks={await getNavLinks(org.id)} />
+      ) : (
+        <UpgradePrompt feature="Custom navigation links" requiredTier="starter" />
+      )}
     </div>
   )
 }

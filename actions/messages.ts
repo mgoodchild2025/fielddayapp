@@ -8,6 +8,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { getResend, FROM_EMAIL } from '@/lib/resend'
 import { sendSms, toE164 } from '@/lib/twilio'
+import { canAccess } from '@/lib/features'
 
 const sendSchema = z.object({
   title: z.string().min(1, 'Subject required'),
@@ -226,11 +227,17 @@ async function deliverAnnouncement(
 
   // ── 5. SMS ────────────────────────────────────────────────────────────────
   if (sendSmsChannel) {
-    const smsBody = `${orgName}\n\n${data.title}\n\n${data.body}\n\nReply STOP to unsubscribe.`
-    const smsRecipients = recipients.filter((r) => r.phone && r.sms_opted_in)
-    await Promise.allSettled(
-      smsRecipients.map((r) => sendSms(toE164(r.phone!), smsBody))
-    )
+    // Server-side feature gate — prevents bypass via direct API calls
+    const smsAllowed = await canAccess(orgId, 'sms_notifications')
+    if (!smsAllowed) {
+      console.warn(`[messages] org ${orgId} attempted SMS send without sms_notifications access`)
+    } else {
+      const smsBody = `${orgName}\n\n${data.title}\n\n${data.body}\n\nReply STOP to unsubscribe.`
+      const smsRecipients = recipients.filter((r) => r.phone && r.sms_opted_in)
+      await Promise.allSettled(
+        smsRecipients.map((r) => sendSms(toE164(r.phone!), smsBody))
+      )
+    }
   }
 }
 

@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { canAccess } from '@/lib/features'
 import { ComposeMessageForm } from './compose-form'
 import { DeleteAnnouncementButton } from './delete-button'
 
@@ -8,6 +9,7 @@ export default async function AdminMessagesPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
+  const canSms = await canAccess(org.id, 'sms_notifications')
 
   // Load leagues for audience selection
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -61,7 +63,7 @@ export default async function AdminMessagesPage() {
       {/* Compose */}
       <div className="bg-white rounded-lg border p-6 mb-8">
         <h2 className="text-base font-semibold mb-4">Compose Announcement</h2>
-        <ComposeMessageForm leagues={leagues ?? []} />
+        <ComposeMessageForm leagues={leagues ?? []} canSms={canSms} />
       </div>
 
       {/* History */}
