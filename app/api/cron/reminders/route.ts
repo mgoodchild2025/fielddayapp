@@ -722,7 +722,7 @@ export async function GET(req: NextRequest) {
           ? `🏆 It's Game Day, ${player.name.split(' ')[0] || 'there'}!`
           : `🏆 It's Game Day, ${player.name.split(' ')[0] || 'there'}! You've got ${myGames.length} games today.`
 
-        const smsBody = `${orgName}\n\n${intro}\n\n${gameLines.join('\n')}\n\nView your schedule: ${scheduleUrl}\n\nReply STOP to unsubscribe.`
+        const smsBody = `${orgName}\n\n${intro}\n\n${gameLines.join('\n\n')}\n\nView your schedule: ${scheduleUrl}\n\nReply STOP to unsubscribe.`
 
         try {
           await sendSms(player.phone, smsBody)
