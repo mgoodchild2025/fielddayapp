@@ -458,6 +458,7 @@ function BracketDiagram({
   swapMode,
   swapSlotA,
   onSwapSlotClick,
+  champion = null,
 }: {
   matches: BracketMatchData[]
   bracketId: string
@@ -472,6 +473,8 @@ function BracketDiagram({
   swapMode?: boolean
   swapSlotA?: SwapSlot | null
   onSwapSlotClick?: (matchId: string, slot: 1 | 2) => void
+  /** When set, the champion is rendered inline to the right of the final match */
+  champion?: string | null
 }) {
   const roundNumbers = Array.from(new Set(matches.map((m) => m.roundNumber)))
     .sort((a, b) => roundSortAscending ? a - b : b - a)
@@ -484,9 +487,11 @@ function BracketDiagram({
       .sort((a, b) => a.matchNumber - b.matchNumber)
   }
 
+  const CHAMPION_WIDTH = 150
+
   return (
     <div className="overflow-x-auto pb-2 -mx-4 px-4">
-      <div style={{ minWidth: roundNumbers.length * ROUND_WIDTH + 32 }}>
+      <div style={{ minWidth: roundNumbers.length * ROUND_WIDTH + 32 + (champion ? CHAMPION_WIDTH : 0) }}>
         {/* Round labels */}
         <div className="flex mb-3">
           {roundNumbers.map((rn) => (
@@ -513,8 +518,8 @@ function BracketDiagram({
 
                   return (
                     <div key={match.id} style={{ position: 'absolute', top, left: 8, right: 8 }}>
-                      {/* Right horizontal connector */}
-                      {!isLastCol && (
+                      {/* Right horizontal connector — between rounds, or final → champion */}
+                      {(!isLastCol || (isLastCol && !!champion)) && (
                         <div style={{
                           position: 'absolute', right: -8, top: MATCH_HEIGHT / 2,
                           width: 8, height: 1, backgroundColor: '#4b5563',
@@ -542,6 +547,22 @@ function BracketDiagram({
               </div>
             )
           })}
+
+          {/* Champion — vertically centered with the final match, to its right */}
+          {champion && (
+            <div
+              style={{ width: CHAMPION_WIDTH, height: totalHeight }}
+              className="flex flex-col justify-center shrink-0 pl-3"
+            >
+              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Champion</p>
+              <p
+                className="text-lg font-bold leading-tight"
+                style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-primary)' }}
+              >
+                🏆 {champion}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -993,6 +1014,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
                 swapMode={swapMode}
                 swapSlotA={swapSlotA}
                 onSwapSlotClick={onSwapSlotClick}
+                champion={champion}
               />
 
               {/* 3rd place match */}
@@ -1015,8 +1037,8 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
             </>
           )}
 
-          {/* Champion callout */}
-          {champion && (
+          {/* Champion callout — DE only (SE renders it inline to the right of the final match) */}
+          {champion && isDE && (
             <div className="mt-6 text-center">
               <p className="text-xs uppercase tracking-widest text-gray-500 mb-1">Champion</p>
               <p className="text-2xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-primary)' }}>
