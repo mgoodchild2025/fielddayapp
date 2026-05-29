@@ -170,6 +170,9 @@ export async function updateLeagueStatus(leagueId: string, status: LeagueStatus)
   if (error) return { data: null, error: error.message }
 
   revalidatePath(`/admin/events/${leagueId}`)
+  // Bust public caches so archive/restore reflects immediately on the
+  // public homepage, events list, and event detail pages.
+  revalidatePath('/', 'layout')
   return { data: null, error: null }
 }
 

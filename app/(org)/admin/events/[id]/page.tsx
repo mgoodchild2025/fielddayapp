@@ -25,6 +25,7 @@ const statusFlow: Record<string, { next: LeagueStatus; label: string }> = {
   registration_open: { next: 'active', label: 'Start Season' },
   active: { next: 'completed', label: 'Complete Season' },
   completed: { next: 'archived', label: 'Archive League' },
+  archived: { next: 'completed', label: 'Restore Event' },
 }
 
 export default async function EventOverviewPage({ params }: { params: Promise<{ id: string }> }) {

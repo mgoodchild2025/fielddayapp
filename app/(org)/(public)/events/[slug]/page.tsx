@@ -578,7 +578,7 @@ export default async function EventDetailPage({
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: league }, { data: branding }] = await Promise.all([
-    (db as any).from('leagues').select('*').eq('organization_id', org.id).eq('slug', slug).neq('status', 'draft').single(),
+    (db as any).from('leagues').select('*').eq('organization_id', org.id).eq('slug', slug).not('status', 'in', '(draft,archived)').single(),
     (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
   ])
 

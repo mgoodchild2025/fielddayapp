@@ -22,7 +22,7 @@ export default async function EventsPage() {
       .from('leagues')
       .select('id, name, slug, status, event_type, sport, logo_url, price_cents, currency, season_start_date, max_teams, payment_mode, skill_level, days_of_week')
       .eq('organization_id', org.id)
-      .neq('status', 'draft')
+      .not('status', 'in', '(draft,archived)')
       .order('created_at', { ascending: false }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
