@@ -14,7 +14,7 @@ const createOrgSchema = z.object({
   slug: z.string().min(2).regex(/^[a-z0-9-]+$/, 'Only lowercase letters, numbers, and hyphens'),
   sport: z.string().default('multi'),
   city: z.string().optional(),
-  plan_tier: z.enum(['starter', 'pro', 'club', 'internal']).default('starter'),
+  plan_tier: z.enum(['free', 'starter', 'pro', 'club', 'internal']).default('free'),
 })
 
 export async function createOrganization(input: z.infer<typeof createOrgSchema> & { adminEmail?: string }) {
@@ -50,7 +50,8 @@ export async function createOrganization(input: z.infer<typeof createOrgSchema> 
   // Bootstrap branding + subscription records
   await Promise.all([
     supabase.from('org_branding').insert({ organization_id: org.id }),
-    supabase.from('subscriptions').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any).from('subscriptions').insert({
       organization_id: org.id,
       plan_tier: parsed.data.plan_tier,
       status: 'trialing',
@@ -109,7 +110,7 @@ export async function updateOrganization(input: z.infer<typeof updateOrgSchema>)
 
 const updateSubscriptionSchema = z.object({
   orgId: z.string().uuid(),
-  plan_tier: z.enum(['starter', 'pro', 'club', 'internal']),
+  plan_tier: z.enum(['free', 'starter', 'pro', 'club', 'internal']),
   status: z.enum(['trialing', 'active', 'past_due', 'canceled', 'paused']),
   trial_end: z.string().optional(),
 })
@@ -120,7 +121,8 @@ export async function updateSubscription(input: z.infer<typeof updateSubscriptio
 
   const supabase = createServiceRoleClient()
 
-  const { error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
     .from('subscriptions')
     .upsert(
       {

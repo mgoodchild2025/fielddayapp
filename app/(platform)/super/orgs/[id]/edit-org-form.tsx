@@ -32,7 +32,7 @@ export function EditOrgForm({ org, subscription }: { org: Org; subscription: Sub
   const [orgSuccess, setOrgSuccess] = useState(false)
 
   const [subForm, setSubForm] = useState({
-    plan_tier: (subscription?.plan_tier ?? 'starter') as 'starter' | 'pro' | 'club' | 'internal',
+    plan_tier: (subscription?.plan_tier ?? 'starter') as 'free' | 'starter' | 'pro' | 'club' | 'internal',
     status: (subscription?.status ?? 'trialing') as 'trialing' | 'active' | 'past_due' | 'canceled' | 'paused',
     trial_end: subscription?.trial_end ? subscription.trial_end.slice(0, 10) : '',
   })
@@ -179,6 +179,7 @@ export function EditOrgForm({ org, subscription }: { org: Org; subscription: Sub
                 onChange={e => setSubForm(f => ({ ...f, plan_tier: e.target.value as typeof subForm.plan_tier }))}
                 className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
               >
+                <option value="free">Free</option>
                 <option value="starter">Starter</option>
                 <option value="pro">Pro</option>
                 <option value="club">Club</option>
