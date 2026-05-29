@@ -129,11 +129,6 @@ export default async function AdminLayout({
   ])
 
   return (
-    {/*
-      pt-14: clears the fixed mobile top bar (h-14 = 56px) on mobile.
-      lg:pt-10 / lg:pt-0: on desktop the mobile bar is hidden, but the
-      impersonation banner (fixed, 40px) still needs clearance when active.
-    */}
     <div
       className={`h-screen flex flex-col overflow-hidden pt-14 print:pt-0 ${isImpersonating ? 'lg:pt-10' : 'lg:pt-0'}`}
       style={{ backgroundColor: '#F8F8F8' }}
