@@ -425,8 +425,8 @@ export function BillingPageClient({ subscription, successRedirect, canceledRedir
       {isActive && hasStripeSubscription && !isFree && (
         <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
           <h2 className="text-sm font-semibold text-gray-700 mb-1">Manage Subscription</h2>
-          <p className="text-sm text-gray-500 mb-4">
-            Upgrade, downgrade, update your payment method, or cancel through the Stripe customer portal.
+          <p className="text-sm text-gray-500 mb-3">
+            Update your payment method, switch plans, or cancel your subscription — all through the Stripe billing portal.
           </p>
           <button
             onClick={handleManage}
@@ -435,6 +435,9 @@ export function BillingPageClient({ subscription, successRedirect, canceledRedir
           >
             {pendingAction === 'portal' ? 'Opening portal…' : 'Open billing portal →'}
           </button>
+          <p className="mt-3 text-xs text-gray-400">
+            To cancel, open the billing portal and select <strong className="text-gray-500">Cancel plan</strong>. Your subscription stays active until the end of the current billing period.
+          </p>
         </div>
       )}
 
