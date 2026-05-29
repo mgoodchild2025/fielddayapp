@@ -81,13 +81,20 @@ export async function GET(req: NextRequest) {
     }
     const rgOrgIds = [...new Set((reminderGames as RGGame[]).map(g => g.organization_id))]
     const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
-    const [{ data: rgBranding }, { data: rgOrgs }] = await Promise.all([
+    const [{ data: rgBranding }, { data: rgOrgs }, { data: rgNotifSettings }] = await Promise.all([
       supabase.from('org_branding').select('organization_id, timezone').in('organization_id', rgOrgIds),
       supabase.from('organizations').select('id, name, slug').in('id', rgOrgIds),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any)
+        .from('org_notification_settings')
+        .select('organization_id, email_game_reminders_enabled, email_reminder_hours_before')
+        .in('organization_id', rgOrgIds) as Promise<{ data: { organization_id: string; email_game_reminders_enabled: boolean; email_reminder_hours_before: number }[] | null }>,
     ])
     const rgTimezoneByOrg = new Map((rgBranding ?? []).map(b => [b.organization_id, b.timezone ?? 'America/Toronto']))
     const rgOrgNameById = new Map((rgOrgs ?? []).map(o => [o.id, o.name]))
     const rgOrgSlugById = new Map((rgOrgs ?? []).map(o => [o.id, o.slug]))
+    const rgEmailEnabledByOrg = new Map((rgNotifSettings ?? []).map(s => [s.organization_id, s.email_game_reminders_enabled ?? true]))
+    const rgEmailHoursByOrg   = new Map((rgNotifSettings ?? []).map(s => [s.organization_id, s.email_reminder_hours_before ?? 24]))
 
     // Group games by org
     const rgGamesByOrg = new Map<string, RGGame[]>()
@@ -97,194 +104,180 @@ export async function GET(req: NextRequest) {
     }
 
     for (const [orgId, orgGames] of rgGamesByOrg) {
+      // Skip if org has disabled email game reminders
+      if (rgEmailEnabledByOrg.get(orgId) === false) continue
+
       const timezone = rgTimezoneByOrg.get(orgId) ?? 'America/Toronto'
       const orgName = rgOrgNameById.get(orgId) ?? 'Fieldday'
+      const hoursWindow = rgEmailHoursByOrg.get(orgId) ?? 24
+      const msWindow = hoursWindow * 60 * 60 * 1000
 
-      // "Tomorrow" date in org timezone (the date the games are on)
-      const tomorrowLocal = new Intl.DateTimeFormat('en-CA', { timeZone: timezone })
-        .format(new Date(now.getTime() + 24 * 60 * 60 * 1000))
-
-      // Filter to only games whose LOCAL calendar date equals tomorrow.
-      // Without this, a midnight cron run would pick up same-day games
-      // (e.g. a 7pm game tonight falls within [now, now+48h] but its
-      // local date is today, not tomorrow).
-      const orgGamesTomorrow = orgGames.filter(g => {
-        const gameLocalDate = new Intl.DateTimeFormat('en-CA', { timeZone: timezone })
-          .format(new Date(g.scheduled_at))
-        return gameLocalDate === tomorrowLocal
+      // Filter to games within the org's configured timing window
+      const orgGamesInWindow = orgGames.filter(g => {
+        const msUntilGame = new Date(g.scheduled_at).getTime() - now.getTime()
+        return msUntilGame >= 0 && msUntilGame <= msWindow
       })
-      if (orgGamesTomorrow.length === 0) continue
+      if (orgGamesInWindow.length === 0) continue
 
-      const teamIds = [...new Set(
-        orgGamesTomorrow.flatMap(g => [g.home_team?.id, g.away_team?.id]).filter(Boolean) as string[]
-      )]
+      // Group in-window games by local calendar date.
+      // A 48-hour window can span two calendar dates; we send a separate
+      // digest per date so players get one email per game day.
+      const gamesByDate = new Map<string, RGGame[]>()
+      for (const g of orgGamesInWindow) {
+        const d = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(g.scheduled_at))
+        if (!gamesByDate.has(d)) gamesByDate.set(d, [])
+        gamesByDate.get(d)!.push(g)
+      }
 
-      // Pickup/drop-in games have no teams — recipients are league registrants instead
-      const pickupLeagueIds = [...new Set(
-        orgGamesTomorrow
-          .filter(g => !g.home_team && !g.away_team && g.league_id)
-          .map(g => g.league_id as string)
-      )]
+      // Build the player map ONCE for all in-window games (avoids repeated DB fetches per date)
+      const allTeamIds = [...new Set(orgGamesInWindow.flatMap(g => [g.home_team?.id, g.away_team?.id]).filter(Boolean) as string[])]
+      const allPickupLeagueIds = [...new Set(orgGamesInWindow.filter(g => !g.home_team && !g.away_team && g.league_id).map(g => g.league_id as string))]
+      if (allTeamIds.length === 0 && allPickupLeagueIds.length === 0) continue
 
-      if (teamIds.length === 0 && pickupLeagueIds.length === 0) continue
-
-      // Fetch team members (regular games) and pickup registrants in parallel
       const [{ data: rgMembers }, { data: pickupRegs }] = await Promise.all([
-        teamIds.length > 0
+        allTeamIds.length > 0
           ? supabase
               .from('team_members')
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               .select('user_id, team_id, profiles!team_members_user_id_fkey(email, full_name, email_reminders_enabled)' as any)
-              .in('team_id', teamIds)
+              .in('team_id', allTeamIds)
           : Promise.resolve({ data: [] as unknown[] }),
-        pickupLeagueIds.length > 0
+        allPickupLeagueIds.length > 0
           ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (supabase as any)
               .from('registrations')
               .select('user_id, league_id')
-              .in('league_id', pickupLeagueIds)
+              .in('league_id', allPickupLeagueIds)
               .in('status', ['active', 'pending'])
           : Promise.resolve({ data: [] as unknown[] }),
       ])
 
-      // Build map: user_id → { email, name, teamIds, subGameIds, pickupLeagueIds }
       type RGPlayer = { email: string; name: string; teamIds: Set<string>; subGameIds: Set<string>; pickupLeagueIds: Set<string> }
       const rgPlayerMap = new Map<string, RGPlayer>()
 
       for (const m of (rgMembers ?? []) as { user_id?: string; team_id?: string; profiles?: unknown }[]) {
         const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles as { email?: string; full_name?: string; email_reminders_enabled?: boolean } | null
-        // Skip if no email or opted out (null = not yet set, treat as opted in)
         if (!p?.email || p?.email_reminders_enabled === false) continue
         if (!m.user_id || !m.team_id) continue
-        if (!rgPlayerMap.has(m.user_id)) {
-          rgPlayerMap.set(m.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
-        }
+        if (!rgPlayerMap.has(m.user_id)) rgPlayerMap.set(m.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
         rgPlayerMap.get(m.user_id)!.teamIds.add(m.team_id)
       }
 
-      // For pickup registrants, fetch profiles separately then add to map
-      if (pickupLeagueIds.length > 0 && (pickupRegs ?? []).length > 0) {
+      if (allPickupLeagueIds.length > 0 && (pickupRegs ?? []).length > 0) {
         const pickupUserIds = [...new Set((pickupRegs as { user_id: string; league_id: string }[]).map(r => r.user_id).filter(Boolean))]
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: pickupProfiles } = await (supabase as any)
-          .from('profiles')
-          .select('id, email, full_name, email_reminders_enabled')
-          .in('id', pickupUserIds)
+          .from('profiles').select('id, email, full_name, email_reminders_enabled').in('id', pickupUserIds)
         type PickupProfile = { id: string; email?: string; full_name?: string; email_reminders_enabled?: boolean }
         const profileById = new Map<string, PickupProfile>((pickupProfiles ?? []).map((p: PickupProfile) => [p.id, p]))
-
         for (const r of (pickupRegs as { user_id: string; league_id: string }[]) ?? []) {
           if (!r.user_id || !r.league_id) continue
           const p = profileById.get(r.user_id)
           if (!p?.email || p?.email_reminders_enabled === false) continue
-          if (!rgPlayerMap.has(r.user_id)) {
-            rgPlayerMap.set(r.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
-          }
+          if (!rgPlayerMap.has(r.user_id)) rgPlayerMap.set(r.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
           rgPlayerMap.get(r.user_id)!.pickupLeagueIds.add(r.league_id)
         }
       }
 
-      // Also include confirmed game subs for tomorrow's games
-      const orgGameIds = orgGamesTomorrow.map(g => g.id as string)
-      if (orgGameIds.length > 0) {
+      // Add confirmed game subs across all in-window games
+      const allOrgGameIds = orgGamesInWindow.map(g => g.id as string)
+      if (allOrgGameIds.length > 0) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: subRows } = await (supabase as any)
           .from('game_subs')
           .select('user_id, game_id, profiles!game_subs_user_id_fkey(email, full_name, email_reminders_enabled)')
-          .eq('organization_id', orgId)
-          .eq('status', 'confirmed')
-          .not('user_id', 'is', null)
-          .in('game_id', orgGameIds)
+          .eq('organization_id', orgId).eq('status', 'confirmed').not('user_id', 'is', null).in('game_id', allOrgGameIds)
         for (const s of subRows ?? []) {
           const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles as { email?: string; full_name?: string; email_reminders_enabled?: boolean } | null
-          if (!p?.email || p?.email_reminders_enabled === false) continue
-          if (!s.user_id || !s.game_id) continue
-          if (!rgPlayerMap.has(s.user_id)) {
-            rgPlayerMap.set(s.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
-          }
+          if (!p?.email || p?.email_reminders_enabled === false || !s.user_id || !s.game_id) continue
+          if (!rgPlayerMap.has(s.user_id)) rgPlayerMap.set(s.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
           rgPlayerMap.get(s.user_id)!.subGameIds.add(s.game_id)
         }
       }
 
       if (rgPlayerMap.size === 0) continue
 
-      // Check already-sent logs for tomorrow's date
-      const rgUserIds = [...rgPlayerMap.keys()]
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: rgSentToday } = await (supabase as any)
-        .from('player_email_reminder_logs')
-        .select('user_id')
-        .eq('organization_id', orgId)
-        .eq('log_date', tomorrowLocal)
-        .in('user_id', rgUserIds)
-      const rgAlreadySent = new Set((rgSentToday ?? []).map((r: { user_id: string }) => r.user_id))
-
-      for (const [userId, player] of rgPlayerMap) {
-        if (rgAlreadySent.has(userId)) continue
-
-        const myGames = orgGamesTomorrow.filter(g => {
-          const isPickup = !g.home_team && !g.away_team
-          if (isPickup) return g.league_id ? player.pickupLeagueIds.has(g.league_id) : false
-          return (g.home_team?.id && player.teamIds.has(g.home_team.id)) ||
-            (g.away_team?.id && player.teamIds.has(g.away_team.id)) ||
-            player.subGameIds.has(g.id as string)
-        }).sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
-
-        if (myGames.length === 0) continue
-
-        // Claim send slot atomically — PK conflict on UNIQUE(user_id, organization_id, log_date) prevents duplicates
+      // Process each local date group separately — one digest email per player per date
+      for (const [gameLocalDate, gamesForDate] of gamesByDate) {
+        const rgUserIds = [...rgPlayerMap.keys()]
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: rgClaimErr } = await (supabase as any)
+        const { data: rgSentForDate } = await (supabase as any)
           .from('player_email_reminder_logs')
-          .insert({ user_id: userId, organization_id: orgId, log_date: tomorrowLocal })
-        if (rgClaimErr) {
-          if (rgClaimErr.code === '23505') continue // concurrent run already claimed
-          results.push(`email reminder log error for ${userId}: ${rgClaimErr.message}`)
-          continue
-        }
+          .select('user_id')
+          .eq('organization_id', orgId)
+          .eq('log_date', gameLocalDate)
+          .in('user_id', rgUserIds)
+        const rgAlreadySent = new Set((rgSentForDate ?? []).map((r: { user_id: string }) => r.user_id))
 
-        const firstName = player.name.split(' ')[0] || 'there'
-        const orgSlug = rgOrgSlugById.get(orgId) ?? ''
-        const profileUrl = orgSlug
-          ? `https://${orgSlug}.${PLATFORM_DOMAIN}/profile`
-          : `https://app.${PLATFORM_DOMAIN}/profile`
-        // Derive the date label from the actual game date, not now+24h.
-        // If the cron runs in the early morning, now+24h can land on the wrong calendar day.
         const dateLabel = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' })
-          .format(new Date(myGames[0].scheduled_at))
+          .format(new Date(gamesForDate[0].scheduled_at))
+        // "tomorrow" / "today" / specific date label for the subject line
+        const todayLocal = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(now)
+        const dayLabel = gameLocalDate === new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(now.getTime() + 86400000))
+          ? 'tomorrow'
+          : gameLocalDate === todayLocal ? 'today' : `on ${dateLabel}`
 
-        const gameRows = myGames.map(g => {
-          const league = Array.isArray(g.leagues) ? g.leagues[0] : g.leagues
-          const myTeamIsHome = g.home_team?.id && player.teamIds.has(g.home_team.id)
-          const opponent = myTeamIsHome ? g.away_team?.name : g.home_team?.name
-          const time = new Date(g.scheduled_at).toLocaleTimeString('en-CA', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })
-          const courtLabel = formatCourtLabel(g.court, league?.sport)
-          const venue = courtLabel ? `<br><span style="color:#666;font-size:13px">${courtLabel}</span>` : ''
-          const leagueLabel = league?.name ? `<span style="color:#666;font-size:13px">${league.name}</span><br>` : ''
-          const vsLabel = opponent ? ` vs ${opponent}` : ''
-          return `<tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0">${leagueLabel}<strong>${time}${vsLabel}</strong>${venue}</td></tr>`
-        }).join('')
+        const orgSlug = rgOrgSlugById.get(orgId) ?? ''
+        const profileUrl = orgSlug ? `https://${orgSlug}.${PLATFORM_DOMAIN}/profile` : `https://app.${PLATFORM_DOMAIN}/profile`
 
-        const subject = myGames.length === 1
-          ? `Game reminder: you have a game tomorrow`
-          : `Game reminder: you have ${myGames.length} games tomorrow`
+        for (const [userId, player] of rgPlayerMap) {
+          if (rgAlreadySent.has(userId)) continue
 
-        reminderEmailBatch.push({
-          from: FROM_EMAIL,
-          to: player.email,
-          subject,
-          html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-            <h2 style="margin-top:0">Hi ${firstName}, you have ${myGames.length === 1 ? 'a game' : `${myGames.length} games`} tomorrow!</h2>
-            <p style="color:#555;margin-bottom:16px">${dateLabel}</p>
-            <table style="width:100%;border-collapse:collapse">${gameRows}</table>
-            <p style="margin-top:24px;font-size:12px;color:#999;border-top:1px solid #f3f4f6;padding-top:16px;line-height:1.6;">
-              You&rsquo;re receiving this because you&rsquo;re registered with <strong>${orgName}</strong>, powered by Fieldday.<br>
-              To stop receiving game reminders, update your <a href="${profileUrl}" style="color:#999">notification preferences</a> in your profile.
-            </p>
-          </div>`,
-        })
+          const myGames = gamesForDate.filter(g => {
+            const isPickup = !g.home_team && !g.away_team
+            if (isPickup) return g.league_id ? player.pickupLeagueIds.has(g.league_id) : false
+            return (g.home_team?.id && player.teamIds.has(g.home_team.id)) ||
+              (g.away_team?.id && player.teamIds.has(g.away_team.id)) ||
+              player.subGameIds.has(g.id as string)
+          }).sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
 
-        results.push(`email reminder queued for ${userId} (${myGames.length} game${myGames.length !== 1 ? 's' : ''})`)
+          if (myGames.length === 0) continue
+
+          // Claim send slot atomically — PK conflict on UNIQUE(user_id, organization_id, log_date) prevents duplicates
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { error: rgClaimErr } = await (supabase as any)
+            .from('player_email_reminder_logs')
+            .insert({ user_id: userId, organization_id: orgId, log_date: gameLocalDate })
+          if (rgClaimErr) {
+            if (rgClaimErr.code === '23505') continue // concurrent run already claimed
+            results.push(`email reminder log error for ${userId}: ${rgClaimErr.message}`)
+            continue
+          }
+
+          const firstName = player.name.split(' ')[0] || 'there'
+          const gameRows = myGames.map(g => {
+            const league = Array.isArray(g.leagues) ? g.leagues[0] : g.leagues
+            const myTeamIsHome = g.home_team?.id && player.teamIds.has(g.home_team.id)
+            const opponent = myTeamIsHome ? g.away_team?.name : g.home_team?.name
+            const time = new Date(g.scheduled_at).toLocaleTimeString('en-CA', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })
+            const courtLabel = formatCourtLabel(g.court, league?.sport)
+            const venue = courtLabel ? `<br><span style="color:#666;font-size:13px">${courtLabel}</span>` : ''
+            const leagueLabel = league?.name ? `<span style="color:#666;font-size:13px">${league.name}</span><br>` : ''
+            const vsLabel = opponent ? ` vs ${opponent}` : ''
+            return `<tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0">${leagueLabel}<strong>${time}${vsLabel}</strong>${venue}</td></tr>`
+          }).join('')
+
+          const subject = myGames.length === 1
+            ? `Game reminder: you have a game ${dayLabel}`
+            : `Game reminder: you have ${myGames.length} games ${dayLabel}`
+
+          reminderEmailBatch.push({
+            from: FROM_EMAIL,
+            to: player.email,
+            subject,
+            html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+              <h2 style="margin-top:0">Hi ${firstName}, you have ${myGames.length === 1 ? 'a game' : `${myGames.length} games`} ${dayLabel}!</h2>
+              <p style="color:#555;margin-bottom:16px">${dateLabel}</p>
+              <table style="width:100%;border-collapse:collapse">${gameRows}</table>
+              <p style="margin-top:24px;font-size:12px;color:#999;border-top:1px solid #f3f4f6;padding-top:16px;line-height:1.6;">
+                You&rsquo;re receiving this because you&rsquo;re registered with <strong>${orgName}</strong>, powered by Fieldday.<br>
+                To stop receiving game reminders, update your <a href="${profileUrl}" style="color:#999">notification preferences</a> in your profile.
+              </p>
+            </div>`,
+          })
+
+          results.push(`email reminder queued for ${userId} (${myGames.length} game${myGames.length !== 1 ? 's' : ''} on ${gameLocalDate})`)
+        }
       }
     }
   }

@@ -1,5 +1,12 @@
 export const MAX_MESSAGE_CHARS = 100
 
+export const EMAIL_TIMING_OPTIONS = [
+  { hours: 4,  label: '4 hours before game (same day)' },
+  { hours: 12, label: '12 hours before game (morning of)' },
+  { hours: 24, label: '24 hours before game (night before)' },
+  { hours: 48, label: '48 hours before game (two days before)' },
+]
+
 export const TIMING_OPTIONS = [
   { minutes: 15,   label: '15 minutes before' },
   { minutes: 30,   label: '30 minutes before' },

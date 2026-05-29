@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { saveNotificationSettings, type NotificationSettings, type SmsReminder } from '@/actions/notification-settings'
-import { TIMING_OPTIONS, DEFAULT_MESSAGES, MAX_MESSAGE_CHARS } from '@/lib/notification-settings-constants'
+import { TIMING_OPTIONS, DEFAULT_MESSAGES, MAX_MESSAGE_CHARS, EMAIL_TIMING_OPTIONS } from '@/lib/notification-settings-constants'
 
 type ReminderDraft = Omit<SmsReminder, 'id'> & { key: number }
 
@@ -30,6 +30,8 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 export function NotificationSettingsForm({ initial }: { initial: NotificationSettings }) {
   const [smsEnabled, setSmsEnabled] = useState(initial.smsGameRemindersEnabled)
+  const [emailEnabled, setEmailEnabled] = useState(initial.emailGameRemindersEnabled)
+  const [emailHoursBefore, setEmailHoursBefore] = useState(initial.emailReminderHoursBefore)
   const [reminders, setReminders] = useState<ReminderDraft[]>(() =>
     initial.reminders.map((r) => ({ key: nextKey++, minutesBefore: r.minutesBefore, messageTemplate: r.messageTemplate, enabled: r.enabled }))
   )
@@ -82,6 +84,8 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
           messageTemplate,
           enabled,
         })),
+        emailGameRemindersEnabled: emailEnabled,
+        emailReminderHoursBefore: emailHoursBefore,
         registrationNotificationsEnabled: regNotifEnabled,
         registrationNotificationEmail: regNotifEmail.trim() || null,
       })
@@ -232,6 +236,42 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
           </p>
         </>
       )}
+
+      {/* ── Email game reminders ─────────────────────────────────────────── */}
+      <div className="bg-white rounded-lg border divide-y">
+        <div className="flex items-start justify-between gap-4 p-5">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-lg leading-none">✉️</span>
+              <p className="font-medium text-gray-900">Email Game Reminders</p>
+            </div>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Send each player a digest email listing all their upcoming games for a given day.
+              One email per player per game day — players with multiple games receive a single combined email.
+            </p>
+          </div>
+          <Toggle checked={emailEnabled} onChange={setEmailEnabled} />
+        </div>
+
+        {emailEnabled && (
+          <div className="px-5 py-4 space-y-1.5">
+            <label className="block text-sm font-medium text-gray-700">Send timing</label>
+            <select
+              value={emailHoursBefore}
+              onChange={(e) => setEmailHoursBefore(Number(e.target.value))}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] focus:border-transparent bg-white"
+            >
+              {EMAIL_TIMING_OPTIONS.map((o) => (
+                <option key={o.hours} value={o.hours}>{o.label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400">
+              Players can opt out of email reminders in their profile under{' '}
+              <span className="italic">Notification Preferences</span>.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* ── Admin registration notifications ───────────────────────────── */}
       <div className="bg-white rounded-lg border divide-y">

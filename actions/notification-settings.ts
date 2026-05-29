@@ -18,6 +18,8 @@ export type SmsReminder = {
 export type NotificationSettings = {
   smsGameRemindersEnabled: boolean
   reminders: SmsReminder[]
+  emailGameRemindersEnabled: boolean
+  emailReminderHoursBefore: number
   registrationNotificationsEnabled: boolean
   /** Custom recipient email. When null, notifications go to all org_admin members. */
   registrationNotificationEmail: string | null
@@ -25,6 +27,8 @@ export type NotificationSettings = {
 
 type OrgNotifRow = {
   sms_game_reminders_enabled: boolean
+  email_game_reminders_enabled: boolean
+  email_reminder_hours_before: number
   registration_notifications_enabled: boolean
   registration_notification_email: string | null
 } | null
@@ -45,7 +49,7 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
   const [{ data: notif }, { data: reminders }] = await Promise.all([
     (db as any)
       .from('org_notification_settings')
-      .select('sms_game_reminders_enabled, registration_notifications_enabled, registration_notification_email')
+      .select('sms_game_reminders_enabled, email_game_reminders_enabled, email_reminder_hours_before, registration_notifications_enabled, registration_notification_email')
       .eq('organization_id', org.id)
       .single() as Promise<{ data: OrgNotifRow }>,
     (db as any)
@@ -63,6 +67,8 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
       messageTemplate: r.message_template,
       enabled: r.enabled,
     })),
+    emailGameRemindersEnabled: (notif as OrgNotifRow)?.email_game_reminders_enabled ?? true,
+    emailReminderHoursBefore: (notif as OrgNotifRow)?.email_reminder_hours_before ?? 24,
     registrationNotificationsEnabled: (notif as OrgNotifRow)?.registration_notifications_enabled ?? false,
     registrationNotificationEmail: (notif as OrgNotifRow)?.registration_notification_email ?? null,
   }
@@ -103,6 +109,8 @@ export async function saveNotificationSettings(
       {
         organization_id: org.id,
         sms_game_reminders_enabled: settings.smsGameRemindersEnabled,
+        email_game_reminders_enabled: settings.emailGameRemindersEnabled,
+        email_reminder_hours_before: settings.emailReminderHoursBefore,
         registration_notifications_enabled: settings.registrationNotificationsEnabled,
         registration_notification_email: settings.registrationNotificationEmail?.trim() || null,
         updated_at: new Date().toISOString(),
