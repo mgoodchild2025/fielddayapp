@@ -167,7 +167,7 @@ function AccordionSection({
 }) {
   return (
     <div
-      className={`bg-white rounded-lg border overflow-hidden transition-colors ${
+      className={`bg-white rounded-lg border overflow-hidden md:overflow-visible transition-colors ${
         hasErrors ? 'border-red-300' : 'border-gray-200'
       }`}
     >
