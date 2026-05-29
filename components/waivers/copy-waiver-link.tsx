@@ -35,35 +35,42 @@ export function CopyWaiverLink({ url, compact = false }: Props) {
   }
 
   return (
-    <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
       <div className="flex items-start gap-4">
         {/* QR code */}
-        <div className="shrink-0 bg-white border border-blue-100 rounded-lg p-2">
+        <div className="shrink-0 bg-white border border-amber-200 rounded-lg p-2">
           <QRCode value={url} size={96} />
         </div>
 
         {/* Text + actions */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-blue-900 mb-0.5">Shareable Waiver Link</p>
-          <p className="text-xs text-blue-600 mb-3">
-            Send this link or let players scan the QR code to sign without creating an account.
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="text-amber-600 text-sm">⚠</span>
+            <p className="text-sm font-semibold text-amber-900">Last Resort — Waiver Signing Only</p>
+          </div>
+          <p className="text-xs text-amber-800 mb-1 leading-relaxed">
+            Use this <strong>only</strong> for players who are unable to complete online registration.
+            Scanning this QR code signs the waiver but <strong>does not create a registration</strong> — the player will not appear in your registrations list or have a Fieldday account.
+          </p>
+          <p className="text-xs text-amber-700 mb-3">
+            Encourage all players to register at your event page instead.
           </p>
           <div className="flex items-center gap-2 flex-wrap">
-            <code className="text-xs bg-white border border-blue-200 rounded px-2 py-1 text-blue-800 truncate max-w-full">
+            <code className="text-xs bg-white border border-amber-200 rounded px-2 py-1 text-amber-900 truncate max-w-full">
               {url}
             </code>
             <button
               onClick={handleCopy}
-              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors shrink-0"
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md font-medium bg-amber-600 text-white hover:bg-amber-700 transition-colors shrink-0"
             >
               {copied ? <Check className="w-3.5 h-3.5" /> : <Link className="w-3.5 h-3.5" />}
-              {copied ? 'Copied!' : 'Copy'}
+              {copied ? 'Copied!' : 'Copy link'}
             </button>
             <a
               href={printHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md font-medium border border-blue-300 text-blue-700 hover:bg-blue-100 transition-colors shrink-0"
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md font-medium border border-amber-300 text-amber-800 hover:bg-amber-100 transition-colors shrink-0"
             >
               <Printer className="w-3.5 h-3.5" />
               Print QR Poster
