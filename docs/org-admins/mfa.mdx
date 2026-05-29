@@ -1,0 +1,88 @@
+---
+title: Two-Factor Authentication (2FA)
+description: Secure your admin account with a second verification step.
+---
+
+## Required for org admins
+
+Org admins must set up two-factor authentication. When you first log in as an org admin, a **14-day grace period** begins. A banner in the admin panel counts down the remaining days.
+
+After the grace period, you'll be redirected to set up 2FA on every login until you complete enrollment.
+
+## Optional for players
+
+Players and league admins can optionally enable 2FA for extra account security. Find the option in your profile under **Security**.
+
+---
+
+## Set up 2FA
+
+<Steps>
+  <Step title="Open the setup page">
+    Go to `/mfa/setup` directly, or click **Set up now** in the grace period banner in your admin panel.
+  </Step>
+  <Step title="Scan the QR code">
+    Open your authenticator app and scan the QR code shown on screen. Any TOTP-compatible app works — see [Authenticator apps](#authenticator-apps) below.
+  </Step>
+  <Step title="Enter the 6-digit code">
+    Type the current code from your authenticator app to confirm the setup worked.
+  </Step>
+  <Step title="Save your backup codes">
+    Download or copy your backup codes and store them somewhere safe. Each code can only be used once.
+  </Step>
+</Steps>
+
+---
+
+## Authenticator apps
+
+Any TOTP-compatible authenticator app works with Fieldday 2FA.
+
+**Recommended options:**
+- Google Authenticator
+- Authy
+- 1Password
+
+<Tip>
+  Use an authenticator app that syncs across devices (like Authy or 1Password) so you're not locked out if you lose your phone.
+</Tip>
+
+---
+
+## Backup codes
+
+When you enroll in 2FA, Fieldday generates **8 single-use backup codes**. Download or copy them and keep them somewhere safe — a password manager is ideal.
+
+**Important:**
+- Each backup code can only be used once.
+- If you use a backup code to log in, your TOTP factor is removed and you'll need to re-enroll in 2FA.
+- If you lose both your authenticator access and your backup codes, contact Fieldday support to recover your account.
+
+---
+
+## Verify 2FA on login
+
+After entering your password, you'll be prompted for your second factor.
+
+- Open your authenticator app and enter the current **6-digit code**. The code refreshes every 30 seconds.
+- If you don't have access to your authenticator, click **Use a backup code** and enter one of your saved codes.
+
+---
+
+## Remove 2FA
+
+<Steps>
+  <Step title="Go to your profile">
+    Open **Profile → Security**.
+  </Step>
+  <Step title="Click Remove authenticator">
+    Find the authenticator section and click **Remove authenticator**.
+  </Step>
+  <Step title="Confirm with your current code">
+    Enter the current 6-digit code from your authenticator app to confirm removal.
+  </Step>
+</Steps>
+
+<Warning>
+  Org admins who remove their authenticator will need to re-enroll within 14 days. After the grace period, you'll be redirected to set up 2FA again on each login.
+</Warning>

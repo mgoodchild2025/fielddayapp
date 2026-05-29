@@ -7,46 +7,124 @@ description: Manage your Fieldday plan, trial, and payment method.
 
 **Admin → Settings → Billing**
 
+---
+
 ## Free trial
 
-Every new organization starts with a **15-day free trial** on their chosen plan. No credit card is required to start.
+Every new organization starts with a **15-day free trial**. No credit card required to start.
 
-At the end of your trial, you'll need to subscribe to keep your account active. If you don't subscribe, your account will become read-only — your data is safe, but you won't be able to create new events or accept registrations.
+At the end of your trial, you'll need to subscribe to keep your account active. If you don't subscribe, your account becomes read-only — your data is safe, but you won't be able to create new events or accept registrations.
 
 <Tip>
-  A reminder banner will appear in your admin panel when your trial has 7 days remaining. You'll also receive an email reminder 3 days before it expires.
+  A reminder banner appears in your admin panel when your trial has 7 days remaining. You'll also receive an email reminder 3 days before it expires.
 </Tip>
+
+---
+
+## Plans at a glance
+
+| | Free | Starter | Pro | Club |
+|---|---|---|---|---|
+| **Price** | Free | $39/mo | $89/mo | $179/mo |
+| **Active events** | 1 | 3 | 10 | Unlimited |
+| **Players** | 50 | 150 | 500 | Unlimited |
+| **SMS reminders** | — | — | ✓ | ✓ |
+| **Custom domain** | — | — | — | ✓ |
+
+See the [full feature comparison](https://fielddayapp.ca#features) for a complete breakdown.
+
+---
 
 ## Subscribe
 
-1. Go to **Admin → Settings → Billing**
-2. Choose a plan — **Starter** ($49/mo), **Pro** ($99/mo), or **Club** ($199/mo)
-3. Click **Choose [plan name]**
-4. Complete checkout via Stripe
+<Steps>
+  <Step title="Go to Billing">
+    Open **Admin → Settings → Billing**.
+  </Step>
+  <Step title="Choose a plan">
+    Review the plan options and click **Choose [plan name]** on the one that fits your org.
+  </Step>
+  <Step title="Complete checkout">
+    You'll be taken to a Stripe checkout page. Enter your payment details and confirm.
+  </Step>
+  <Step title="You're subscribed">
+    Your subscription starts immediately and renews automatically each month.
+  </Step>
+</Steps>
 
-Your subscription starts immediately and renews automatically each month.
+---
 
-## Change or cancel your plan
+## Free plan
 
-Once subscribed, click **Open billing portal** on the billing page. This opens the Stripe customer portal where you can:
+The Free plan is always available — no expiry, no credit card needed. It includes 1 active event and up to 50 players.
+
+You can switch to Free at any time from the billing portal, as long as your org is within the Free plan limits. If you're over limits, an amber warning shows the specific counts and advises you to archive excess data first before switching.
+
+---
+
+## Manage your subscription
+
+Once subscribed, click **Open billing portal →** on the billing page. From the Stripe portal you can:
 
 - Upgrade or downgrade your plan
 - Update your payment method
 - Download invoices
 - Cancel your subscription
 
-## What happens if payment fails
+---
 
-If a payment fails, your account status changes to **past due**. A banner will appear in your admin panel. Stripe will automatically retry the charge — you'll receive an email with a link to update your payment method if retries continue to fail.
+## Hibernate for the off-season
 
-## Plans at a glance
+If you're a paid subscriber and your league isn't running, you can hibernate your account instead of cancelling. Hibernation pauses your league activities and reduces billing to **$9/month** while keeping all your data, settings, and player profiles intact.
 
-| | Starter | Pro | Club |
-|---|---|---|---|
-| Price | $49/mo | $99/mo | $199/mo |
-| Active events | 3 | 10 | Unlimited |
-| Players | 200 | 1,000 | Unlimited |
-| SMS reminders | — | ✓ | ✓ |
-| Custom domain | — | — | ✓ |
+**What happens during hibernation:**
+- Your public site shows an off-season message to visitors
+- Players can still log in and view past results
+- You can't create new events or accept registrations while hibernated
+- Set an optional **auto-resume date**, or resume manually any time
 
-See the [full feature comparison](https://fielddayapp.ca#features) for a complete breakdown.
+**To hibernate:** go to **Admin → Settings → Billing → "Hibernate for the off-season"**.
+
+<Tip>
+  Hibernating is a good alternative to cancelling if you run seasonal leagues. You keep your data and your org URL without paying the full subscription rate between seasons.
+</Tip>
+
+---
+
+## What happens when payment fails
+
+If a payment fails, your account status changes to **past due**. A banner appears in your admin panel. Stripe automatically retries the charge — if retries continue to fail, you'll receive an email with a link to update your payment method.
+
+---
+
+## What happens when a subscription is cancelled
+
+When you cancel, your account drops to Free plan limits (1 active event, 50 players). Pro and Club features are locked. All your data is preserved. You can reactivate at any time via the billing portal.
+
+---
+
+## Close your account
+
+Closing your account permanently deletes your organization and all associated data — leagues, player data, scores, and files. This cannot be undone.
+
+<Warning>
+  Account deletion is permanent. All leagues, player data, scores, and uploaded files are deleted and cannot be recovered.
+</Warning>
+
+<Steps>
+  <Step title="Cancel your Stripe subscription">
+    Open the billing portal and cancel your subscription first. This stops any future charges.
+  </Step>
+  <Step title="Go to Close Account">
+    Scroll to the **Close Account** section at the bottom of **Admin → Settings → Billing**.
+  </Step>
+  <Step title="Type your organization name">
+    Enter your organization name exactly as shown to confirm you understand this is permanent.
+  </Step>
+  <Step title="Optionally provide a reason">
+    You can leave a note for the Fieldday team — this is optional.
+  </Step>
+  <Step title="Submit the request">
+    Click **Submit deletion request**. The Fieldday team will action the deletion within 1–2 business days and confirm via email.
+  </Step>
+</Steps>

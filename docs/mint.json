@@ -63,7 +63,12 @@
         "org-admins/billing",
         "org-admins/connect-stripe",
         "org-admins/custom-domain",
-        "org-admins/managing-admins"
+        "org-admins/managing-admins",
+        "org-admins/mfa",
+        "org-admins/merchandise-shop",
+        "org-admins/custom-nav-links",
+        "org-admins/media-page",
+        "org-admins/maintenance-mode"
       ]
     },
     {
@@ -74,7 +79,8 @@
         "running-events/build-schedule",
         "running-events/brackets",
         "running-events/pools-divisions",
-        "running-events/drop-in-sessions"
+        "running-events/drop-in-sessions",
+        "running-events/game-substitutes"
       ]
     },
     {
@@ -106,7 +112,8 @@
         "players/view-schedule",
         "players/submit-scores",
         "players/add-to-calendar",
-        "players/profile"
+        "players/profile",
+        "players/game-matchup"
       ]
     },
     {

@@ -7,6 +7,45 @@ description: Add games, assign courts, and set game times for your event.
 
 **Admin → Events → [Your event] → Schedule**
 
+---
+
+## Generate a schedule automatically
+
+The schedule toolbar includes three generator modes. Choose the one that fits your format.
+
+<Tabs>
+  <Tab title="Weekly League">
+    Best for season-long leagues. Generates a full round-robin across multiple weeks.
+
+    ### Settings
+
+    | Setting | Description |
+    |---------|-------------|
+    | **Days of week** | Which days games are played (e.g. Tuesday + Thursday) |
+    | **Start / End date** | The date range for the season |
+    | **Time slots** | One or more game start times per night (e.g. 7:00 pm, 8:15 pm) |
+    | **Courts** | Number of simultaneous courts per time slot |
+    | **Game duration** | Used for estimating finish times (informational only) |
+    | **Repeat schedule** | When on, the round-robin repeats after all teams have played each other — useful for long seasons |
+
+    A live preview shows the total number of games that will be created before you confirm.
+  </Tab>
+  <Tab title="Pickup / Drop-in">
+    Creates recurring blank time slots with no teams assigned. Use this when you want to publish a schedule of open-play sessions that players can drop into.
+
+    Uses the same settings as Weekly League (days of week, start/end date, time slots, courts) — but slots are created empty with no team assignment.
+  </Tab>
+  <Tab title="Single Day">
+    For one-off tournaments or single-session events.
+
+    Set a date, start time, number of courts, and game/break durations. The generator fills in back-to-back games for the day automatically.
+  </Tab>
+</Tabs>
+
+After generating your schedule, individual games can still be edited, moved, or deleted manually.
+
+---
+
 ## Add games manually
 
 1. Click **Add game**
@@ -15,6 +54,8 @@ description: Add games, assign courts, and set game times for your event.
 4. Click **Save**
 
 Repeat for each game. Games appear in the schedule sorted by date and time.
+
+---
 
 ## Import from CSV
 
@@ -30,9 +71,13 @@ If you've built your schedule in a spreadsheet, you can import it all at once.
 
 The CSV template includes columns for date, time, court, home team, and away team.
 
+---
+
 ## Edit or delete a game
 
 Click the pencil icon on any game row to edit its time, court, or teams. Click the trash icon to delete it.
+
+---
 
 ## Game statuses
 
@@ -44,6 +89,8 @@ Click the pencil icon on any game row to edit its time, court, or teams. Click t
 | **Postponed** | Game rescheduled for a later date |
 
 To cancel or postpone a game — or to restore one — see [Cancel, Postpone & Restore Games](/game-day/manage-game-status).
+
+---
 
 ## Notify players
 

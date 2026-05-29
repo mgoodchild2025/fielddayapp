@@ -1,0 +1,60 @@
+---
+title: Merchandise Shop
+description: Sell merchandise to your members year-round, outside of event registration.
+---
+
+## Overview
+
+The shop lets members browse and purchase merchandise at any time — it's not tied to a specific event or registration. Use it to sell jerseys, hats, or other org gear between seasons or alongside your active leagues.
+
+<Info>
+  The merchandise shop requires the **Starter plan** or higher.
+</Info>
+
+## Where to find it
+
+- **Admin → Shop** — view and manage orders
+- **Admin → Settings → Merchandise** — manage items, prices, and variants
+
+---
+
+## Enable items in the shop
+
+Each merchandise item has a **Show in shop** toggle. When turned on (and the item is marked active), the item appears on the public `/shop` page for logged-in org members.
+
+Items that are not shop-enabled can still be offered during event registration — shop visibility is separate from registration merchandise.
+
+---
+
+## How members buy
+
+Members go to `[yourleague]/shop`, browse shop-enabled items, select variants if applicable (e.g. size, colour), add to cart, and check out via Stripe. Members must be logged in to purchase.
+
+---
+
+## Managing shop orders
+
+**Admin → Shop** shows all standalone shop orders. These are separate from registration merchandise orders, which appear on the event's Registrations page.
+
+<Info>
+  Shop orders and event registration merchandise are tracked separately. Event merch appears on the event's Registrations page; shop orders appear under Admin → Shop.
+</Info>
+
+Filter orders by status:
+
+| Status | Meaning |
+|--------|---------|
+| **Pending** | Payment not yet completed |
+| **Paid** | Payment confirmed, awaiting fulfillment |
+| **Fulfilled** | Order shipped or handed off |
+
+---
+
+## Fulfilling orders
+
+Once you've shipped or delivered an order, mark it fulfilled so you can track what's been sent.
+
+- Click **Mark fulfilled** on an individual order to update it.
+- Click **Fulfill all** to mark all paid orders as fulfilled at once.
+
+Orders marked fulfilled are moved to the fulfilled filter view and removed from the active queue.

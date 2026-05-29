@@ -1,6 +1,6 @@
 ---
 title: Notifications
-description: How in-app and SMS notifications work for players and organizers — and how to configure SMS game reminders.
+description: How in-app notifications, email reminders, and SMS reminders work for players and organizers.
 ---
 
 ## Player notifications
@@ -30,13 +30,9 @@ Once a notification is actioned or dismissed it is removed from the unread list.
 
 ---
 
-## Admin: SMS game reminders
+## Email game reminders
 
-Organizers can send automated SMS reminders to players before their games.
-
-<Info>
-  SMS reminders require a valid phone number on the player's profile and the player must have opted in to SMS. Reminders are only sent to players who have opted in.
-</Info>
+Fieldday can automatically email players before their games. Each player receives one digest email per game day listing all their games for that day — not one email per game.
 
 ### Where to configure
 
@@ -46,29 +42,86 @@ Organizers can send automated SMS reminders to players before their games.
 
 | Setting | Description |
 |---------|-------------|
-| **Enable SMS game reminders** | Master toggle — turns the feature on or off for your entire organization |
-| **Reminder timing** | How far in advance to send the reminder (e.g. 1 hour, 2 hours, 24 hours before game time) |
-| **Message template** | The SMS message text sent to players. Use the provided variables to personalize it. |
+| **Enable email reminders** | Master toggle — turns email reminders on or off for your entire organization |
+| **Timing** | How far in advance to send the reminder |
 
-### Message template variables
+### Timing options
 
-You can include the following in your message template:
+| Option | When the email is sent |
+|--------|------------------------|
+| **4 hours before** | Same day as the game |
+| **12 hours before** | Morning of game day |
+| **24 hours before** | Night before the game (default) |
+| **48 hours before** | Two days before the game |
 
-| Variable | Replaced with |
-|----------|--------------|
-| `{home_team}` | Home team name |
-| `{away_team}` | Away team name |
-| `{time}` | Game time |
-| `{court}` | Court or field name |
+### How it works
 
-A 160-character counter is shown while editing the template to help keep messages within standard SMS length.
+- Each player gets one email per game day, listing all their games that day in a single digest.
+- Reminders are not sent for cancelled or postponed games.
+- Players can opt out in their profile under **Notification Preferences → Email reminders**.
+
+---
+
+## SMS game reminders (pre-game)
+
+Send automated SMS messages to players before each game. You can configure multiple reminders per game — for example, one at 2 hours out and another at 30 minutes.
+
+<Info>
+  SMS reminders require a valid phone number on the player's profile. Players must have SMS enabled in their Notification Preferences to receive texts. Reminders are only sent to opted-in players.
+</Info>
+
+<Info>
+  SMS reminders require the **Pro plan** or higher.
+</Info>
+
+### Where to configure
+
+**Admin → Settings → Notifications**
+
+### Set up reminders
+
+The master toggle at the top of the SMS section enables the feature for your org. Once enabled, click **Add reminder** to create your first reminder. Add as many as you need.
+
+### Per-reminder settings
+
+| Setting | Description |
+|---------|-------------|
+| **Timing** | How far before the game to send this reminder. Options: 15 min, 30 min, 1 hr, 2 hr, 3 hr, 6 hr, 12 hr, 24 hr |
+| **Enable toggle** | Turn individual reminders on or off without deleting them |
+| **Message template** | Your custom message text (max 100 characters) |
+
+### Message format
+
+Messages are sent to players as:
+
+> **[Org Name] – [League Name] · [your message] · Reply STOP to unsubscribe**
 
 <Tip>
-  Keep messages short and direct. Something like: "Reminder: {home_team} vs {away_team} today at {time} on {court}. Good luck!" works well.
+  Keep your message short and action-oriented. Something like "You've got a game tonight — see you on the court!" works well within the 100-character limit.
 </Tip>
 
 ### How reminders are sent
 
-When SMS game reminders are enabled, the system automatically sends the configured message to all eligible players on both teams at the configured time before each scheduled game.
+When SMS reminders are enabled, the system automatically sends each configured reminder to all eligible players on both teams at the scheduled time before each game. Reminders are **not** sent for cancelled or postponed games.
 
-Reminders are **not** sent for games that are cancelled or postponed.
+---
+
+## Game-Day Morning SMS
+
+The Game-Day Morning SMS is a daily digest sent on game day (after 7 am local time) listing all of a player's games for that day in one message.
+
+This is different from pre-game reminders — it's player-controlled, not configured by the org. No setup is needed on the admin side.
+
+### How players enable it
+
+Players go to their profile and turn on **Notification Preferences → Game Day SMS**. They need a phone number saved on their profile to receive it.
+
+### What the message includes
+
+One SMS per game day listing every game the player has that day — date, time, and court (if set) for each game.
+
+---
+
+## Announcements
+
+For one-off messages outside of automated reminders, org admins can send email or SMS announcements directly to players via **Admin → Messages**. Use this for schedule changes, event news, or anything time-sensitive that doesn't fit the automated reminder flow.
