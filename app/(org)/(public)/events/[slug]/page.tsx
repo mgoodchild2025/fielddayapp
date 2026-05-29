@@ -1384,9 +1384,11 @@ export default async function EventDetailPage({
 
         {/* ──────────────── OVERVIEW TAB ──────────────── */}
         {activeTab === 'overview' && (
-          <div className="space-y-5">
+          <div className="space-y-5 bg-gray-900 rounded-xl p-4 sm:p-6">
             {league.description && (
-              <RichTextContent content={league.description} className="text-gray-700" />
+              <div className="bg-white rounded-lg border p-5">
+                <RichTextContent content={league.description} className="text-gray-700" />
+              </div>
             )}
 
             {/* Info grid */}
@@ -1689,7 +1691,7 @@ export default async function EventDetailPage({
             {isSessionBased && (
               <div>
                 <div className="flex items-center gap-3 mb-3">
-                  <h2 className="font-bold text-lg" style={{ fontFamily: 'var(--brand-heading-font)' }}>Upcoming Sessions</h2>
+                  <h2 className="font-bold text-lg text-white" style={{ fontFamily: 'var(--brand-heading-font)' }}>Upcoming Sessions</h2>
                   {isSeasonPickup && (
                     <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Season pass</span>
                   )}
@@ -1789,7 +1791,7 @@ export default async function EventDetailPage({
             {/* Teams list (open registration) */}
             {canJoinTeam && teams && teams.length > 0 && (
               <div>
-                <h2 className="font-bold text-lg mb-3" style={{ fontFamily: 'var(--brand-heading-font)' }}>Teams</h2>
+                <h2 className="font-bold text-lg mb-3 text-white" style={{ fontFamily: 'var(--brand-heading-font)' }}>Teams</h2>
                 <div className="space-y-2">
                   {teams.map((team) => {
                     const isMember = myTeamIds.has(team.id)
