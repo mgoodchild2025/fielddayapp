@@ -102,7 +102,16 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
   // Close mobile sidebar on route change
   useEffect(() => { setMobileOpen(false) }, [pathname])
 
-  // Prevent body scroll + iOS right-edge viewport expansion when open
+  // Lock html/body scroll for the entire admin panel — all scrolling
+  // happens within <main> (overflow-y-auto). Restored when navigating away.
+  useEffect(() => {
+    document.documentElement.style.overflow = 'hidden'
+    return () => {
+      document.documentElement.style.overflow = ''
+    }
+  }, [])
+
+  // Prevent body scroll + iOS right-edge viewport expansion when mobile drawer open
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : ''
     document.documentElement.style.overflowX = mobileOpen ? 'hidden' : ''
