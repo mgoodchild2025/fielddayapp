@@ -973,6 +973,97 @@ export async function GET(req: NextRequest) {
     results.push(`trial expiry alert sent for org ${trial.organization_id}`)
   }
 
+  // 8. Trial expiry enforcement — downgrade orgs whose trial has ended without subscribing.
+  //    Runs on every cron tick; the update is idempotent so duplicate runs are harmless.
+  const { data: expiredTrials } = await supabase
+    .from('subscriptions')
+    .select('organization_id, plan_tier, trial_end')
+    .eq('status', 'trialing')
+    .lt('trial_end', now.toISOString())
+
+  for (const trial of expiredTrials ?? []) {
+    // Downgrade to free plan
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: downgradeErr } = await (supabase as any)
+      .from('subscriptions')
+      .update({
+        plan_tier: 'free',
+        status: 'active',
+        trial_end: null,
+        updated_at: now.toISOString(),
+      })
+      .eq('organization_id', trial.organization_id)
+
+    if (downgradeErr) {
+      results.push(`trial expiry downgrade error for ${trial.organization_id}: ${downgradeErr.message}`)
+      continue
+    }
+
+    const { data: orgRow } = await supabase
+      .from('organizations')
+      .select('name, slug')
+      .eq('id', trial.organization_id)
+      .single()
+
+    const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+    const orgName = orgRow?.name ?? 'Your organization'
+    const orgSlug = orgRow?.slug ?? ''
+    const billingUrl = `https://${orgSlug}.${PLATFORM_DOMAIN}/admin/settings/billing`
+    const orgUrl    = `https://app.${PLATFORM_DOMAIN}/super/orgs/${trial.organization_id}`
+
+    // Notify the org's admin(s)
+    const { data: orgAdmins } = await supabase
+      .from('org_members')
+      .select('profiles!org_members_user_id_fkey(email, full_name)')
+      .eq('organization_id', trial.organization_id)
+      .eq('role', 'org_admin')
+      .eq('status', 'active')
+
+    const adminEmails = (orgAdmins ?? [])
+      .flatMap((m: { profiles: unknown }) => Array.isArray(m.profiles) ? m.profiles : [m.profiles])
+      .filter((p): p is { email: string; full_name: string } => !!p && !!(p as { email?: string }).email)
+
+    for (const admin of adminEmails) {
+      await resend.emails.send({
+        from: FROM_EMAIL,
+        to: admin.email,
+        subject: `Your Fieldday trial has ended — ${orgName}`,
+        html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111;">
+          <h2 style="margin-top:0;">Your free trial has ended</h2>
+          <p>Hi ${admin.full_name?.split(' ')[0] || 'there'},</p>
+          <p>Your 15-day free trial for <strong>${orgName}</strong> has ended. Your account has been moved to the <strong>Free plan</strong>, which includes:</p>
+          <ul style="color:#374151;line-height:1.8;">
+            <li>1 active league</li>
+            <li>Up to 50 players</li>
+            <li>Online registration &amp; payments</li>
+            <li>Schedule, standings &amp; RSVP</li>
+          </ul>
+          <p>Your data is fully preserved. To restore access to all your leagues and paid features, subscribe from your billing page.</p>
+          <a href="${billingUrl}" style="display:inline-block;background:#10b981;color:#fff;text-decoration:none;font-size:15px;font-weight:600;padding:12px 24px;border-radius:8px;margin:8px 0;">
+            Choose a plan →
+          </a>
+          <p style="font-size:12px;color:#9ca3af;margin-top:24px;border-top:1px solid #f3f4f6;padding-top:16px;">
+            Questions? Reply to this email or visit <a href="https://fielddayapp.ca" style="color:#9ca3af;">fielddayapp.ca</a>.
+          </p>
+        </div>`,
+      }).catch(() => {})
+    }
+
+    // Alert platform admins
+    await sendPlatformAlert(
+      'subscription_change',
+      `Trial ended — ${orgName} moved to Free`,
+      `<div style="font-family:sans-serif;max-width:560px;color:#111;">
+        <h2>Trial expired — downgraded to Free</h2>
+        <p><strong>${orgName}</strong> (${orgSlug}) did not subscribe before their trial ended. They have been automatically moved to the <strong>Free plan</strong>.</p>
+        <p style="color:#6b7280;font-size:13px;">Previous plan: ${trial.plan_tier}</p>
+        <a href="${orgUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px;">View in Super Console →</a>
+      </div>`
+    )
+
+    results.push(`trial expired — ${trial.organization_id} (${orgName}) downgraded to free`)
+  }
+
   return NextResponse.json({ ok: true, processed: results, sms_diagnostics })
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err), stack: err instanceof Error ? err.stack : undefined }, { status: 500 })
