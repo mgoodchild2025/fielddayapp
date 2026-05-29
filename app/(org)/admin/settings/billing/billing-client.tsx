@@ -7,6 +7,7 @@ import {
   hibernateSubscription,
   resumeFromHibernation,
   switchToFreePlan,
+  requestAccountDeletion,
 } from '@/actions/billing'
 import type { SubscriptionRow } from '@/actions/billing'
 import { HelpLink } from '@/components/ui/help-link'
@@ -101,12 +102,16 @@ function minResumeDate(): string {
   return d.toISOString().slice(0, 10)
 }
 
-export function BillingPageClient({ subscription, successRedirect, canceledRedirect, activeLeagueCount = 0, playerCount = 0 }: Props) {
+export function BillingPageClient({ org, subscription, successRedirect, canceledRedirect, activeLeagueCount = 0, playerCount = 0 }: Props) {
   const [isPending, startTransition] = useTransition()
   const [pendingAction, setPendingAction] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showHibernateForm, setShowHibernateForm] = useState(false)
   const [hibernateResumeDate, setHibernateResumeDate] = useState('')
+  const [showCloseAccount, setShowCloseAccount] = useState(false)
+  const [closeReason, setCloseReason] = useState('')
+  const [closeConfirmName, setCloseConfirmName] = useState('')
+  const [closeSent, setCloseSent] = useState(false)
 
   const status  = subscription?.status ?? 'trialing'
   const tier    = subscription?.plan_tier ?? 'free'
@@ -161,6 +166,16 @@ export function BillingPageClient({ subscription, successRedirect, canceledRedir
       const result = await resumeFromHibernation()
       if (result.error) { setError(result.error); setPendingAction(null) }
       else { window.location.reload() }
+    })
+  }
+
+  function handleRequestDeletion() {
+    setError(null)
+    setPendingAction('delete')
+    startTransition(async () => {
+      const result = await requestAccountDeletion(closeReason || undefined)
+      if (result.error) { setError(result.error); setPendingAction(null) }
+      else { setCloseSent(true); setPendingAction(null) }
     })
   }
 
@@ -503,6 +518,106 @@ export function BillingPageClient({ subscription, successRedirect, canceledRedir
           )}
         </div>
       )}
+      {/* ── Close account ────────────────────────────────────────────────────── */}
+      <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
+        <h2 className="text-sm font-semibold text-gray-700 mb-1">Close Account</h2>
+        <p className="text-sm text-gray-500 mb-3">
+          Permanently delete your organization and all associated data — leagues, teams, players, scores, and payments history.
+        </p>
+
+        {closeSent ? (
+          <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
+            ✓ Your request has been received. Our team will be in touch within 1–2 business days to confirm deletion.
+          </div>
+        ) : !showCloseAccount ? (
+          <button
+            onClick={() => setShowCloseAccount(true)}
+            className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors"
+          >
+            I want to close my account →
+          </button>
+        ) : (
+          <div className="space-y-4 border border-red-200 rounded-lg p-4 bg-red-50">
+            {/* Blocker: active paid subscription */}
+            {hasStripeSubscription && isActive && (
+              <div className="flex items-start gap-2 text-sm text-red-700">
+                <span className="mt-0.5 shrink-0">⚠</span>
+                <span>
+                  You have an active subscription. Please{' '}
+                  <button onClick={handleManage} className="underline font-medium">cancel it via the billing portal</button>
+                  {' '}first, then return here to close your account.
+                </span>
+              </div>
+            )}
+
+            {/* What gets deleted */}
+            <div>
+              <p className="text-xs font-semibold text-red-800 uppercase tracking-wide mb-2">What will be permanently deleted</p>
+              <ul className="space-y-1">
+                {[
+                  'All leagues, schedules, and game results',
+                  'All team and player registrations',
+                  'All payment and waiver records',
+                  'Your organization profile and branding',
+                  'All uploaded files and media',
+                ].map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-xs text-red-700">
+                    <span className="shrink-0">✕</span>{item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Optional reason */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                Reason for leaving <span className="text-gray-400 font-normal">(optional — helps us improve)</span>
+              </label>
+              <textarea
+                value={closeReason}
+                onChange={(e) => setCloseReason(e.target.value)}
+                placeholder="e.g. Switching to another platform, shutting down our league, etc."
+                rows={3}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-red-400 focus:border-transparent resize-none"
+              />
+            </div>
+
+            {/* Confirm by typing org name */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                Type <strong className="text-gray-900">{org.name}</strong> to confirm
+              </label>
+              <input
+                type="text"
+                value={closeConfirmName}
+                onChange={(e) => setCloseConfirmName(e.target.value)}
+                placeholder={org.name}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-red-400 focus:border-transparent"
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleRequestDeletion}
+                disabled={isPending || closeConfirmName !== org.name || (hasStripeSubscription && isActive)}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {pendingAction === 'delete' ? 'Submitting…' : 'Request account deletion'}
+              </button>
+              <button
+                onClick={() => { setShowCloseAccount(false); setCloseReason(''); setCloseConfirmName('') }}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-500">
+              This submits a deletion request to our team. We&apos;ll confirm via email and complete the deletion within 1–2 business days. This action cannot be undone.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
