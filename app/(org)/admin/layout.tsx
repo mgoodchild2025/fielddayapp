@@ -129,7 +129,15 @@ export default async function AdminLayout({
   ])
 
   return (
-    <div className={`h-screen flex flex-col overflow-hidden ${isImpersonating ? 'pt-10' : ''}`} style={{ backgroundColor: '#F8F8F8' }}>
+    {/*
+      pt-14: clears the fixed mobile top bar (h-14 = 56px) on mobile.
+      lg:pt-10 / lg:pt-0: on desktop the mobile bar is hidden, but the
+      impersonation banner (fixed, 40px) still needs clearance when active.
+    */}
+    <div
+      className={`h-screen flex flex-col overflow-hidden pt-14 print:pt-0 ${isImpersonating ? 'lg:pt-10' : 'lg:pt-0'}`}
+      style={{ backgroundColor: '#F8F8F8' }}
+    >
       {isImpersonating && <div className="print:hidden"><ImpersonationBanner orgName={org.name} /></div>}
       {mfaGraceDaysLeft !== null && (
         <div className="print:hidden">
@@ -157,8 +165,7 @@ export default async function AdminLayout({
       <div className="flex flex-1 min-h-0 overflow-hidden print:block print:overflow-visible">
         <div className="print:hidden"><AdminSidebar org={org} role={memberRole} /></div>
         <main className="flex-1 overflow-y-auto print:overflow-visible">
-          {/* pt-14 on mobile accounts for the fixed top bar; removed on lg where sidebar is visible */}
-          <div className="pt-14 lg:pt-0 p-4 lg:p-6 max-w-6xl mx-auto print:p-0 print:max-w-none">{children}</div>
+          <div className="p-4 lg:p-6 max-w-6xl mx-auto print:p-0 print:max-w-none">{children}</div>
         </main>
       </div>
     </div>
