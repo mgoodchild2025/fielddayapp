@@ -140,5 +140,7 @@ export interface DisplayData {
   pools:     { id: string; name: string }[]
   games:     DisplayGame[]
   standings: DisplayStanding[]
+  /** Pool-play-only standings (games where game.pool_id IS set), ranked within each pool. */
+  poolStandings: DisplayStanding[]
   bracket:   { tiers: { name: string | null; matches: DisplayBracketMatch[] }[] } | null
 }

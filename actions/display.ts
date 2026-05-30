@@ -191,19 +191,24 @@ export async function getDisplayData(
 
   // ── Standings ───────────────────────────────────────────────────────────────
   let standings: DisplayStanding[] = []
+  let poolStandings: DisplayStanding[] = []
   if (needsStandings) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [{ data: teamsData }, { data: resultsData }] = await Promise.all([
       (db as any).from('teams').select('id, name, color, logo_url, pool_id')
         .eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
       (db as any).from('game_results')
-        .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status)')
+        .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
         .eq('organization_id', orgId)
         .eq('status', 'confirmed'),
     ])
 
     const stat = () => ({ played: 0, won: 0, lost: 0, drawn: 0, gf: 0, ga: 0 })
-    const records: Record<string, ReturnType<typeof stat>> = {}
+    // Two separate record maps — regular-season games (pool_id IS NULL) and
+    // pool-play games (pool_id IS set) — matching the public standings tab,
+    // so pool standings on the display don't include regular-season results.
+    const regularRecords: Record<string, ReturnType<typeof stat>> = {}
+    const poolRecords: Record<string, ReturnType<typeof stat>> = {}
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const teamIds = new Set<string>((teamsData ?? []).map((t: any) => t.id as string))
 
@@ -213,6 +218,8 @@ export async function getDisplayData(
       if (!g || g.league_id !== leagueId) continue
       const { home_team_id: ht, away_team_id: at } = g
       if (!ht || !at || !teamIds.has(ht) || !teamIds.has(at)) continue
+
+      const records = g.pool_id ? poolRecords : regularRecords
       if (!records[ht]) records[ht] = stat()
       if (!records[at]) records[at] = stat()
       const hs = r.home_score ?? 0
@@ -225,21 +232,44 @@ export async function getDisplayData(
       else                { records[ht].drawn++; records[at].drawn++ }
     }
 
+    const sortFn = (a: DisplayStanding, b: DisplayStanding) =>
+      b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf
+
+    // ── Regular-season standings (all teams) ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const raw = (teamsData ?? []).map((t: any) => {
-      const s = records[t.id] ?? stat()
+      const s = regularRecords[t.id] ?? stat()
       return {
         rank: 0, team_id: t.id, name: t.name, color: t.color ?? null,
-        logo_url: t.logo_url ?? null,
-        pool_id: t.pool_id ?? null,
+        logo_url: t.logo_url ?? null, pool_id: t.pool_id ?? null,
         ...s, pts: s.won * 3 + s.drawn,
       } satisfies DisplayStanding
     })
-
-    raw.sort((a: DisplayStanding, b: DisplayStanding) =>
-      b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf
-    )
+    raw.sort(sortFn)
     standings = raw.map((t: DisplayStanding, i: number) => ({ ...t, rank: i + 1 }))
+
+    // ── Pool-play standings (pool teams only, pool games only) ──
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const poolRaw = (teamsData ?? []).filter((t: any) => t.pool_id).map((t: any) => {
+      const s = poolRecords[t.id] ?? stat()
+      return {
+        rank: 0, team_id: t.id, name: t.name, color: t.color ?? null,
+        logo_url: t.logo_url ?? null, pool_id: t.pool_id ?? null,
+        ...s, pts: s.won * 3 + s.drawn,
+      } satisfies DisplayStanding
+    })
+    // Rank within each pool
+    const byPool = new Map<string, DisplayStanding[]>()
+    for (const t of poolRaw) {
+      if (!byPool.has(t.pool_id!)) byPool.set(t.pool_id!, [])
+      byPool.get(t.pool_id!)!.push(t)
+    }
+    poolStandings = []
+    for (const group of byPool.values()) {
+      group.sort(sortFn)
+      group.forEach((t, i) => { t.rank = i + 1 })
+      poolStandings.push(...group)
+    }
   }
 
   // ── Bracket ─────────────────────────────────────────────────────────────────
@@ -344,6 +374,7 @@ export async function getDisplayData(
     pools:    (poolsData ?? []) as { id: string; name: string }[],
     games,
     standings,
+    poolStandings,
     bracket,
   }
 }

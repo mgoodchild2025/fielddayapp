@@ -28,24 +28,25 @@ function TeamBadge({ logoUrl, color, name }: { logoUrl: string | null; color: st
 
 interface Props {
   standings: DisplayStanding[]
+  poolStandings?: DisplayStanding[]
   config: Extract<ZoneConfig, { type: 'standings' }>
   theme: 'dark' | 'light'
   pools: { id: string; name: string }[]
 }
 
-export function StandingsZone({ standings, config, theme, pools }: Props) {
+export function StandingsZone({ standings, poolStandings = [], config, theme, pools }: Props) {
   const isDark = theme === 'dark'
 
   const poolName = config.pool_id
     ? pools.find((p) => p.id === config.pool_id)?.name
     : null
 
-  const visible = config.pool_id
-    ? standings.filter((s) => s.pool_id === config.pool_id)
+  // When a pool is selected, use the pool-play-only standings (already ranked
+  // within each pool) so the numbers match the public Pool Play tab. Otherwise
+  // use the regular-season standings.
+  const ranked = config.pool_id
+    ? poolStandings.filter((s) => s.pool_id === config.pool_id)
     : standings
-
-  // Re-rank after pool filter
-  const ranked = visible.map((s, i) => ({ ...s, rank: i + 1 }))
 
   const headerText = poolName ? `Standings — ${poolName}` : 'Standings'
 

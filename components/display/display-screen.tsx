@@ -62,6 +62,7 @@ function ZoneRenderer({
       return (
         <StandingsZone
           standings={data.standings}
+          poolStandings={data.poolStandings}
           config={config}
           theme={theme}
           pools={data.pools}
