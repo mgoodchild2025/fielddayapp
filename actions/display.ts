@@ -106,7 +106,7 @@ export async function getDisplayData(
   // Base queries always needed
   const [{ data: leagueRow }, { data: brandingRow }, { data: poolsData }, { data: orgRow }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('id, name, sport, standings_pts_method, standings_volleyball_mode').eq('id', leagueId).single(),
+    (db as any).from('leagues').select('id, name, sport, standings_pts_method, volleyball_standings_mode').eq('id', leagueId).single(),
     db.from('org_branding').select('logo_url').eq('organization_id', orgId).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('pools').select('id, name, sort_order')
@@ -196,7 +196,7 @@ export async function getDisplayData(
 
   // ── Standings ───────────────────────────────────────────────────────────────
   const ptsMethod: PtsMethod = ((leagueRow as { standings_pts_method?: string } | null)?.standings_pts_method ?? 'wins') as PtsMethod
-  const volleyballMode: VolleyballMode = ((leagueRow as { standings_volleyball_mode?: string } | null)?.standings_volleyball_mode ?? 'match_based') as VolleyballMode
+  const volleyballMode: VolleyballMode = ((leagueRow as { volleyball_standings_mode?: string } | null)?.volleyball_standings_mode ?? 'match_based') as VolleyballMode
   const sport = leagueRow?.sport ?? ''
   const isVb = isVolleyballSport(sport)
 
