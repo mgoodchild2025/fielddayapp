@@ -398,13 +398,14 @@ export async function GET(req: NextRequest) {
   if (remindersByOrg.size === 0) {
     sms_diagnostics.skipped_reason = 'No enabled reminder configs found in org_sms_reminders. Go to Admin → Settings → Notifications to add reminders.'
   } else {
-    // Fetch org names for all orgs that have reminders configured
+    // Fetch org names + timezones for all orgs that have reminders configured
     const orgIds = [...remindersByOrg.keys()]
-    const { data: orgRows } = await supabase
-      .from('organizations')
-      .select('id, name')
-      .in('id', orgIds)
+    const [{ data: orgRows }, { data: smsBranding }] = await Promise.all([
+      supabase.from('organizations').select('id, name').in('id', orgIds),
+      supabase.from('org_branding').select('organization_id, timezone').in('organization_id', orgIds),
+    ])
     const orgNameById = new Map((orgRows ?? []).map(o => [o.id, o.name]))
+    const orgTimezoneById = new Map((smsBranding ?? []).map(b => [b.organization_id, b.timezone ?? 'America/Toronto']))
 
     // Fetch all upcoming games in the next 24h (widest possible reminder window)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -455,7 +456,8 @@ export async function GET(req: NextRequest) {
       const league = game.leagues
       const orgName = orgNameById.get(orgId) ?? 'Fieldday'
       const leagueName = league?.name ?? 'Game'
-      const gameTime = new Date(game.scheduled_at).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
+      const timezone = orgTimezoneById.get(orgId) ?? 'America/Toronto'
+      const gameTime = new Date(game.scheduled_at).toLocaleTimeString('en-CA', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })
       const courtLabel = formatCourtLabel(game.court, league?.sport)
       const venue = courtLabel ? ` · ${courtLabel}` : ''
 
