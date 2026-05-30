@@ -11,14 +11,51 @@ export default async function AdminMessagesPage() {
   const db = createServiceRoleClient()
   const canSms = await canAccess(org.id, 'sms_notifications')
 
-  // Load leagues for audience selection
+  // Load leagues, teams, and players for audience selection
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: leagues } = await (db as any)
-    .from('leagues')
-    .select('id, name')
-    .eq('organization_id', org.id)
-    .neq('status', 'archived')
-    .order('created_at', { ascending: false })
+  const [{ data: leagues }, { data: teamsRaw }, { data: membersRaw }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
+      .from('leagues')
+      .select('id, name')
+      .eq('organization_id', org.id)
+      .neq('status', 'archived')
+      .order('created_at', { ascending: false }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
+      .from('teams')
+      .select('id, name, league:leagues!teams_league_id_fkey(name)')
+      .eq('organization_id', org.id)
+      .eq('status', 'active')
+      .order('name', { ascending: true }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
+      .from('org_members')
+      .select('user_id, profile:profiles!org_members_user_id_fkey(full_name, email)')
+      .eq('organization_id', org.id)
+      .eq('status', 'active')
+      .not('user_id', 'is', null),
+  ])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const teams = ((teamsRaw ?? []) as any[]).map((t) => {
+    const league = Array.isArray(t.league) ? t.league[0] : t.league
+    return { id: t.id as string, name: t.name as string, leagueName: (league?.name as string) ?? null }
+  })
+
+  // Build a deduplicated player list (an org member appears once)
+  const playerMap = new Map<string, { userId: string; name: string; email: string }>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const m of (membersRaw ?? []) as any[]) {
+    if (!m.user_id || playerMap.has(m.user_id)) continue
+    const p = Array.isArray(m.profile) ? m.profile[0] : m.profile
+    playerMap.set(m.user_id, {
+      userId: m.user_id,
+      name: p?.full_name ?? p?.email ?? 'Unknown',
+      email: p?.email ?? '',
+    })
+  }
+  const players = [...playerMap.values()].sort((a, b) => a.name.localeCompare(b.name))
 
   type AnnouncementRow = {
     id: string
@@ -27,7 +64,9 @@ export default async function AdminMessagesPage() {
     audience_type: string
     created_at: string
     sent_at: string | null
+    recipient_user_ids: string[] | null
     league: { name: string } | { name: string }[] | null
+    team: { name: string } | { name: string }[] | null
     sender: { full_name: string } | { full_name: string }[] | null
   }
 
@@ -36,8 +75,9 @@ export default async function AdminMessagesPage() {
   const { data: announcements } = await (db as any)
     .from('announcements')
     .select(`
-      id, title, body, audience_type, created_at, sent_at,
+      id, title, body, audience_type, created_at, sent_at, recipient_user_ids,
       league:leagues!announcements_league_id_fkey(name),
+      team:teams!announcements_team_id_fkey(name),
       sender:profiles!announcements_sent_by_fkey(full_name)
     `)
     .eq('organization_id', org.id)
@@ -46,9 +86,19 @@ export default async function AdminMessagesPage() {
 
   const audienceLabel = (a: AnnouncementRow) => {
     if (a.audience_type === 'org') return 'All Members'
-    const league = Array.isArray(a.league) ? a.league[0] : a.league
-    if (a.audience_type === 'league' && league) return `League: ${(league as {name:string}).name}`
-    return a.audience_type === 'org' ? 'All Members' : a.audience_type
+    if (a.audience_type === 'league') {
+      const league = Array.isArray(a.league) ? a.league[0] : a.league
+      return league ? `League: ${league.name}` : 'League'
+    }
+    if (a.audience_type === 'team') {
+      const team = Array.isArray(a.team) ? a.team[0] : a.team
+      return team ? `Team: ${team.name}` : 'Team'
+    }
+    if (a.audience_type === 'players') {
+      const n = a.recipient_user_ids?.length ?? 0
+      return `${n} player${n !== 1 ? 's' : ''}`
+    }
+    return a.audience_type
   }
 
   return (
@@ -56,14 +106,14 @@ export default async function AdminMessagesPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Messages & Announcements</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Send announcements to your entire org, specific leagues, or teams.
+          Send announcements to your entire org, a specific league or team, or individual players.
         </p>
       </div>
 
       {/* Compose */}
       <div className="bg-white rounded-lg border p-6 mb-8">
         <h2 className="text-base font-semibold mb-4">Compose Announcement</h2>
-        <ComposeMessageForm leagues={leagues ?? []} canSms={canSms} />
+        <ComposeMessageForm leagues={leagues ?? []} teams={teams} players={players} canSms={canSms} />
       </div>
 
       {/* History */}

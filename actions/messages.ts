@@ -13,9 +13,10 @@ import { canAccess } from '@/lib/features'
 const sendSchema = z.object({
   title: z.string().min(1, 'Subject required'),
   body: z.string().min(1, 'Message body required'),
-  audience_type: z.enum(['org', 'league', 'team']).default('org'),
+  audience_type: z.enum(['org', 'league', 'team', 'players']).default('org'),
   league_id: z.string().uuid().optional(),
   team_id: z.string().uuid().optional(),
+  user_ids: z.array(z.string().uuid()).optional(),
   scheduled_for: z.string().optional().nullable(),
   channel: z.enum(['email', 'sms', 'both']).default('email'),
   cc_self: z.boolean().default(false),
@@ -23,12 +24,20 @@ const sendSchema = z.object({
 })
 
 export async function sendAnnouncement(input: FormData) {
+  // user_ids arrives as a JSON-encoded array from the form
+  let userIds: string[] | undefined
+  const rawUserIds = input.get('user_ids') as string | null
+  if (rawUserIds) {
+    try { userIds = JSON.parse(rawUserIds) } catch { userIds = undefined }
+  }
+
   const raw = {
     title:         input.get('title') as string,
     body:          input.get('body') as string,
     audience_type: (input.get('audience_type') as string) || 'org',
     league_id:     (input.get('league_id') as string) || undefined,
     team_id:       (input.get('team_id') as string) || undefined,
+    user_ids:      userIds,
     scheduled_for: (input.get('scheduled_for') as string) || null,
     channel:       (input.get('channel') as string) || 'email',
     cc_self:       input.get('cc_self') === 'on',
@@ -37,6 +46,17 @@ export async function sendAnnouncement(input: FormData) {
 
   const parsed = sendSchema.safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid input' }
+
+  // Validate audience-specific requirements
+  if (parsed.data.audience_type === 'league' && !parsed.data.league_id) {
+    return { error: 'Please select a league.' }
+  }
+  if (parsed.data.audience_type === 'team' && !parsed.data.team_id) {
+    return { error: 'Please select a team.' }
+  }
+  if (parsed.data.audience_type === 'players' && (!parsed.data.user_ids || parsed.data.user_ids.length === 0)) {
+    return { error: 'Please select at least one player.' }
+  }
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -61,19 +81,21 @@ export async function sendAnnouncement(input: FormData) {
   const scheduledFor = parsed.data.scheduled_for ? new Date(parsed.data.scheduled_for) : null
   const isImmediate = !scheduledFor || scheduledFor <= new Date()
 
-  const { data: announcement, error } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: announcement, error } = await (db as any)
     .from('announcements')
     .insert({
-      organization_id: org.id,
-      title:           parsed.data.title,
-      body:            parsed.data.body,
-      audience_type:   parsed.data.audience_type,
-      league_id:       parsed.data.league_id ?? null,
-      team_id:         parsed.data.team_id ?? null,
-      sent_by:         user.id,
-      sent_at:         isImmediate ? new Date().toISOString() : null,
-      scheduled_for:   scheduledFor?.toISOString() ?? null,
-      email_sent:      false,
+      organization_id:    org.id,
+      title:              parsed.data.title,
+      body:               parsed.data.body,
+      audience_type:      parsed.data.audience_type,
+      league_id:          parsed.data.league_id ?? null,
+      team_id:            parsed.data.team_id ?? null,
+      recipient_user_ids: parsed.data.audience_type === 'players' ? (parsed.data.user_ids ?? []) : null,
+      sent_by:            user.id,
+      sent_at:            isImmediate ? new Date().toISOString() : null,
+      scheduled_for:      scheduledFor?.toISOString() ?? null,
+      email_sent:         false,
     })
     .select('id')
     .single()
@@ -96,6 +118,7 @@ type DeliveryData = {
   audience_type: string
   league_id?: string
   team_id?: string
+  user_ids?: string[]
   channel?: 'email' | 'sms' | 'both'
   cc_self?: boolean
   cc_admins?: boolean
@@ -161,6 +184,16 @@ async function deliverAnnouncement(
       .eq('team_id', data.team_id)
       .eq('organization_id', orgId)
       .eq('status', 'active')
+    for (const m of members ?? []) if (m.user_id) userIds.add(m.user_id)
+
+  } else if (data.audience_type === 'players' && data.user_ids && data.user_ids.length > 0) {
+    // Verify each selected user is actually a member of this org (scope safety)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: members } = await (service as any)
+      .from('org_members')
+      .select('user_id')
+      .eq('organization_id', orgId)
+      .in('user_id', data.user_ids)
     for (const m of members ?? []) if (m.user_id) userIds.add(m.user_id)
   }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useMemo, useTransition } from 'react'
 import { sendAnnouncement } from '@/actions/messages'
 import { UpgradeBadge } from '@/components/ui/upgrade-prompt'
 
@@ -9,17 +9,63 @@ interface League {
   name: string
 }
 
-type Channel = 'email' | 'sms' | 'both'
+interface Team {
+  id: string
+  name: string
+  leagueName: string | null
+}
 
-export function ComposeMessageForm({ leagues, canSms = false }: { leagues: League[]; canSms?: boolean }) {
+interface Player {
+  userId: string
+  name: string
+  email: string
+}
+
+type Channel = 'email' | 'sms' | 'both'
+type AudienceType = 'org' | 'league' | 'team' | 'players'
+
+export function ComposeMessageForm({
+  leagues,
+  teams = [],
+  players = [],
+  canSms = false,
+}: {
+  leagues: League[]
+  teams?: Team[]
+  players?: Player[]
+  canSms?: boolean
+}) {
   const [isPending, startTransition] = useTransition()
-  const [audienceType, setAudienceType] = useState<'org' | 'league'>('org')
+  const [audienceType, setAudienceType] = useState<AudienceType>('org')
   const [channel, setChannel] = useState<Channel>('email')
+  const [selectedPlayers, setSelectedPlayers] = useState<Set<string>>(new Set())
+  const [playerSearch, setPlayerSearch] = useState('')
   const [result, setResult] = useState<{ error?: string; success?: boolean } | null>(null)
+
+  const filteredPlayers = useMemo(() => {
+    const q = playerSearch.trim().toLowerCase()
+    if (!q) return players
+    return players.filter((p) =>
+      p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q)
+    )
+  }, [players, playerSearch])
+
+  function togglePlayer(userId: string) {
+    setSelectedPlayers((prev) => {
+      const next = new Set(prev)
+      if (next.has(userId)) next.delete(userId)
+      else next.add(userId)
+      return next
+    })
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+    // Inject the selected player IDs as a JSON-encoded field
+    if (audienceType === 'players') {
+      fd.set('user_ids', JSON.stringify([...selectedPlayers]))
+    }
     setResult(null)
 
     startTransition(async () => {
@@ -31,6 +77,8 @@ export function ComposeMessageForm({ leagues, canSms = false }: { leagues: Leagu
         ;(e.target as HTMLFormElement).reset()
         setAudienceType('org')
         setChannel('email')
+        setSelectedPlayers(new Set())
+        setPlayerSearch('')
       }
     })
   }
@@ -44,11 +92,13 @@ export function ComposeMessageForm({ leagues, canSms = false }: { leagues: Leagu
           <select
             name="audience_type"
             value={audienceType}
-            onChange={(e) => setAudienceType(e.target.value as 'org' | 'league')}
+            onChange={(e) => setAudienceType(e.target.value as AudienceType)}
             className="w-full border rounded-md px-3 py-2 text-sm"
           >
             <option value="org">All Members</option>
             <option value="league">Specific League</option>
+            <option value="team">Specific Team</option>
+            <option value="players">Individual Player(s)</option>
           </select>
         </div>
         {audienceType === 'league' && (
@@ -62,7 +112,71 @@ export function ComposeMessageForm({ leagues, canSms = false }: { leagues: Leagu
             </select>
           </div>
         )}
+        {audienceType === 'team' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Team</label>
+            <select name="team_id" required className="w-full border rounded-md px-3 py-2 text-sm">
+              <option value="">Select team…</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}{t.leagueName ? ` — ${t.leagueName}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
+
+      {/* Player multi-select */}
+      {audienceType === 'players' && (
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium text-gray-700">Players</label>
+            <span className="text-xs text-gray-400">
+              {selectedPlayers.size} selected
+            </span>
+          </div>
+          <input
+            type="text"
+            value={playerSearch}
+            onChange={(e) => setPlayerSearch(e.target.value)}
+            placeholder="Search by name or email…"
+            className="w-full border rounded-md px-3 py-2 text-sm mb-2"
+          />
+          <div className="border rounded-md max-h-64 overflow-y-auto divide-y">
+            {filteredPlayers.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-6">No players found.</p>
+            ) : (
+              filteredPlayers.map((p) => (
+                <label
+                  key={p.userId}
+                  className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 select-none"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedPlayers.has(p.userId)}
+                    onChange={() => togglePlayer(p.userId)}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-gray-800 block truncate">{p.name}</span>
+                    {p.email && <span className="text-xs text-gray-400 block truncate">{p.email}</span>}
+                  </span>
+                </label>
+              ))
+            )}
+          </div>
+          {selectedPlayers.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedPlayers(new Set())}
+              className="mt-1.5 text-xs text-gray-400 hover:text-gray-600"
+            >
+              Clear selection
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Subject */}
       <div>
