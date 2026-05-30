@@ -214,9 +214,12 @@ export async function getDisplayData(
     ])
 
     const stat = () => ({ played: 0, won: 0, lost: 0, drawn: 0, gf: 0, ga: 0, setWins: 0, setLosses: 0 })
-    // Separate record maps for regular-season (pool_id NULL) and pool-play games,
-    // matching the public standings tab.
-    const regularRecords: Record<string, ReturnType<typeof stat>> = {}
+    // Two record maps:
+    //   combinedRecords → ALL games (regular + pool). Drives the "all teams"
+    //     overall standings, matching the Event standings page's Overall table.
+    //   poolRecords → pool-play games only. Drives per-pool standings, matching
+    //     the public Pool Play tab.
+    const combinedRecords: Record<string, ReturnType<typeof stat>> = {}
     const poolRecords: Record<string, ReturnType<typeof stat>> = {}
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const teamIds = new Set<string>((teamsData ?? []).map((t: any) => t.id as string))
@@ -228,27 +231,31 @@ export async function getDisplayData(
       const { home_team_id: ht, away_team_id: at } = g
       if (!ht || !at || !teamIds.has(ht) || !teamIds.has(at)) continue
 
-      const records = g.pool_id ? poolRecords : regularRecords
-      if (!records[ht]) records[ht] = stat()
-      if (!records[at]) records[at] = stat()
       const hs = r.home_score ?? 0
       const as_ = r.away_score ?? 0
-      records[ht].played++; records[at].played++
-      if (hs > as_)       { records[ht].won++;   records[at].lost++ }
-      else if (as_ > hs)  { records[at].won++;   records[ht].lost++ }
-      else                { records[ht].drawn++; records[at].drawn++ }
 
-      // Volleyball: accumulate set-level points + set wins/losses; otherwise use match scores
-      if (isVb && Array.isArray(r.sets)) {
-        for (const s of r.sets as { home: number; away: number }[]) {
-          records[ht].gf += s.home; records[ht].ga += s.away
-          records[at].gf += s.away; records[at].ga += s.home
-          if (s.home > s.away)      { records[ht].setWins++; records[at].setLosses++ }
-          else if (s.away > s.home) { records[at].setWins++; records[ht].setLosses++ }
+      // Accumulate into the combined record always; into pool record for pool games.
+      const targets = g.pool_id ? [combinedRecords, poolRecords] : [combinedRecords]
+      for (const records of targets) {
+        if (!records[ht]) records[ht] = stat()
+        if (!records[at]) records[at] = stat()
+        records[ht].played++; records[at].played++
+        if (hs > as_)       { records[ht].won++;   records[at].lost++ }
+        else if (as_ > hs)  { records[at].won++;   records[ht].lost++ }
+        else                { records[ht].drawn++; records[at].drawn++ }
+
+        // Volleyball: accumulate set-level points + set wins/losses; otherwise match scores
+        if (isVb && Array.isArray(r.sets)) {
+          for (const s of r.sets as { home: number; away: number }[]) {
+            records[ht].gf += s.home; records[ht].ga += s.away
+            records[at].gf += s.away; records[at].ga += s.home
+            if (s.home > s.away)      { records[ht].setWins++; records[at].setLosses++ }
+            else if (s.away > s.home) { records[at].setWins++; records[ht].setLosses++ }
+          }
+        } else {
+          records[ht].gf += hs; records[ht].ga += as_
+          records[at].gf += as_; records[at].ga += hs
         }
-      } else {
-        records[ht].gf += hs; records[ht].ga += as_
-        records[at].gf += as_; records[at].ga += hs
       }
     }
 
@@ -274,9 +281,10 @@ export async function getDisplayData(
       sortStandings(items.map(toStat), sport, volleyballMode, ptsMethod)
         .map((s, i) => ({ ...s._d, rank: i + 1 }))
 
-    // ── Regular-season standings (all teams) ──
+    // ── Overall standings (all teams, all games) — matches the Event
+    //    standings page's Overall table; used by the "all teams" zone. ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    standings = rankSorted((teamsData ?? []).map((t: any) => build(t, regularRecords[t.id] ?? stat())))
+    standings = rankSorted((teamsData ?? []).map((t: any) => build(t, combinedRecords[t.id] ?? stat())))
 
     // ── Pool-play standings (pool teams only, pool games only), ranked within each pool ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
