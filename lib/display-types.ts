@@ -114,8 +114,10 @@ export interface DisplayStanding {
   lost:     number
   drawn:    number
   pts:      number
-  gf:       number
-  ga:       number
+  gf:       number      // points for (set-level for volleyball)
+  ga:       number      // points against (set-level for volleyball)
+  setWins:  number
+  setLosses: number
 }
 
 export interface DisplayBracketMatch {
@@ -142,5 +144,7 @@ export interface DisplayData {
   standings: DisplayStanding[]
   /** Pool-play-only standings (games where game.pool_id IS set), ranked within each pool. */
   poolStandings: DisplayStanding[]
+  /** Standings display settings — drives which columns the standings zone shows. */
+  standingsConfig: { ptsMethod: string; volleyballMode: string }
   bracket:   { tiers: { name: string | null; matches: DisplayBracketMatch[] }[] } | null
 }

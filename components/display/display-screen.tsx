@@ -66,6 +66,8 @@ function ZoneRenderer({
           config={config}
           theme={theme}
           pools={data.pools}
+          sport={data.league.sport}
+          standingsConfig={data.standingsConfig}
         />
       )
     case 'bracket':

@@ -9,6 +9,10 @@ import type {
   DisplayConfig, DisplayData, DisplayGame, DisplayStanding, DisplayBracketMatch,
 } from '@/lib/display-types'
 import { defaultConfig, ZONE_COUNT } from '@/lib/display-types'
+import {
+  sortStandings, isVolleyballSport,
+  type PtsMethod, type VolleyballMode, type TeamStat,
+} from '@/lib/standings'
 
 // ── Config persistence ────────────────────────────────────────────────────────
 
@@ -101,7 +105,8 @@ export async function getDisplayData(
 
   // Base queries always needed
   const [{ data: leagueRow }, { data: brandingRow }, { data: poolsData }, { data: orgRow }] = await Promise.all([
-    db.from('leagues').select('id, name, sport').eq('id', leagueId).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('leagues').select('id, name, sport, standings_pts_method, standings_volleyball_mode').eq('id', leagueId).single(),
     db.from('org_branding').select('logo_url').eq('organization_id', orgId).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('pools').select('id, name, sort_order')
@@ -190,6 +195,11 @@ export async function getDisplayData(
   }
 
   // ── Standings ───────────────────────────────────────────────────────────────
+  const ptsMethod: PtsMethod = ((leagueRow as { standings_pts_method?: string } | null)?.standings_pts_method ?? 'wins') as PtsMethod
+  const volleyballMode: VolleyballMode = ((leagueRow as { standings_volleyball_mode?: string } | null)?.standings_volleyball_mode ?? 'match_based') as VolleyballMode
+  const sport = leagueRow?.sport ?? ''
+  const isVb = isVolleyballSport(sport)
+
   let standings: DisplayStanding[] = []
   let poolStandings: DisplayStanding[] = []
   if (needsStandings) {
@@ -198,15 +208,14 @@ export async function getDisplayData(
       (db as any).from('teams').select('id, name, color, logo_url, pool_id')
         .eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
       (db as any).from('game_results')
-        .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
+        .select('home_score, away_score, status, sets, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
         .eq('organization_id', orgId)
         .eq('status', 'confirmed'),
     ])
 
-    const stat = () => ({ played: 0, won: 0, lost: 0, drawn: 0, gf: 0, ga: 0 })
-    // Two separate record maps — regular-season games (pool_id IS NULL) and
-    // pool-play games (pool_id IS set) — matching the public standings tab,
-    // so pool standings on the display don't include regular-season results.
+    const stat = () => ({ played: 0, won: 0, lost: 0, drawn: 0, gf: 0, ga: 0, setWins: 0, setLosses: 0 })
+    // Separate record maps for regular-season (pool_id NULL) and pool-play games,
+    // matching the public standings tab.
     const regularRecords: Record<string, ReturnType<typeof stat>> = {}
     const poolRecords: Record<string, ReturnType<typeof stat>> = {}
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -225,40 +234,53 @@ export async function getDisplayData(
       const hs = r.home_score ?? 0
       const as_ = r.away_score ?? 0
       records[ht].played++; records[at].played++
-      records[ht].gf += hs; records[ht].ga += as_
-      records[at].gf += as_; records[at].ga += hs
       if (hs > as_)       { records[ht].won++;   records[at].lost++ }
       else if (as_ > hs)  { records[at].won++;   records[ht].lost++ }
       else                { records[ht].drawn++; records[at].drawn++ }
+
+      // Volleyball: accumulate set-level points + set wins/losses; otherwise use match scores
+      if (isVb && Array.isArray(r.sets)) {
+        for (const s of r.sets as { home: number; away: number }[]) {
+          records[ht].gf += s.home; records[ht].ga += s.away
+          records[at].gf += s.away; records[at].ga += s.home
+          if (s.home > s.away)      { records[ht].setWins++; records[at].setLosses++ }
+          else if (s.away > s.home) { records[at].setWins++; records[ht].setLosses++ }
+        }
+      } else {
+        records[ht].gf += hs; records[ht].ga += as_
+        records[at].gf += as_; records[at].ga += hs
+      }
     }
 
-    const sortFn = (a: DisplayStanding, b: DisplayStanding) =>
-      b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf
+    // Build a DisplayStanding for a team from its accumulated record
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const build = (t: any, s: ReturnType<typeof stat>): DisplayStanding => ({
+      rank: 0, team_id: t.id, name: t.name, color: t.color ?? null,
+      logo_url: t.logo_url ?? null, pool_id: t.pool_id ?? null,
+      played: s.played, won: s.won, lost: s.lost, drawn: s.drawn,
+      gf: s.gf, ga: s.ga, setWins: s.setWins, setLosses: s.setLosses,
+      pts: s.won * 3 + s.drawn,
+    })
+
+    // Map a DisplayStanding to the shared TeamStat shape for sorting
+    const toStat = (d: DisplayStanding): TeamStat & { _d: DisplayStanding } => ({
+      id: d.team_id, name: d.name,
+      matchesPlayed: d.played, wins: d.won, losses: d.lost, ties: d.drawn,
+      pointsFor: d.gf, pointsAgainst: d.ga, setWins: d.setWins, setLosses: d.setLosses,
+      _d: d,
+    })
+
+    const rankSorted = (items: DisplayStanding[]): DisplayStanding[] =>
+      sortStandings(items.map(toStat), sport, volleyballMode, ptsMethod)
+        .map((s, i) => ({ ...s._d, rank: i + 1 }))
 
     // ── Regular-season standings (all teams) ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const raw = (teamsData ?? []).map((t: any) => {
-      const s = regularRecords[t.id] ?? stat()
-      return {
-        rank: 0, team_id: t.id, name: t.name, color: t.color ?? null,
-        logo_url: t.logo_url ?? null, pool_id: t.pool_id ?? null,
-        ...s, pts: s.won * 3 + s.drawn,
-      } satisfies DisplayStanding
-    })
-    raw.sort(sortFn)
-    standings = raw.map((t: DisplayStanding, i: number) => ({ ...t, rank: i + 1 }))
+    standings = rankSorted((teamsData ?? []).map((t: any) => build(t, regularRecords[t.id] ?? stat())))
 
-    // ── Pool-play standings (pool teams only, pool games only) ──
+    // ── Pool-play standings (pool teams only, pool games only), ranked within each pool ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const poolRaw = (teamsData ?? []).filter((t: any) => t.pool_id).map((t: any) => {
-      const s = poolRecords[t.id] ?? stat()
-      return {
-        rank: 0, team_id: t.id, name: t.name, color: t.color ?? null,
-        logo_url: t.logo_url ?? null, pool_id: t.pool_id ?? null,
-        ...s, pts: s.won * 3 + s.drawn,
-      } satisfies DisplayStanding
-    })
-    // Rank within each pool
+    const poolRaw = (teamsData ?? []).filter((t: any) => t.pool_id).map((t: any) => build(t, poolRecords[t.id] ?? stat()))
     const byPool = new Map<string, DisplayStanding[]>()
     for (const t of poolRaw) {
       if (!byPool.has(t.pool_id!)) byPool.set(t.pool_id!, [])
@@ -266,9 +288,7 @@ export async function getDisplayData(
     }
     poolStandings = []
     for (const group of byPool.values()) {
-      group.sort(sortFn)
-      group.forEach((t, i) => { t.rank = i + 1 })
-      poolStandings.push(...group)
+      poolStandings.push(...rankSorted(group))
     }
   }
 
@@ -375,6 +395,7 @@ export async function getDisplayData(
     games,
     standings,
     poolStandings,
+    standingsConfig: { ptsMethod, volleyballMode },
     bracket,
   }
 }
