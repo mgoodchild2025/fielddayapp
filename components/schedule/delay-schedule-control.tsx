@@ -18,6 +18,7 @@ const PRESETS = [10, 15, 30]
 export function DelayScheduleControl({ leagueId, mode }: Props) {
   const router = useRouter()
   const [minutes, setMinutes] = useState(15)
+  const [notify, setNotify] = useState(true)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<{ error?: string; message?: string } | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -28,8 +29,8 @@ export function DelayScheduleControl({ leagueId, mode }: Props) {
     setLoading(true)
     setResult(null)
     const res = mode === 'bracket'
-      ? await delayRemainingBracketMatches({ leagueId, minutes })
-      : await delayRemainingGames({ leagueId, minutes })
+      ? await delayRemainingBracketMatches({ leagueId, minutes, notify })
+      : await delayRemainingGames({ leagueId, minutes, notify })
     setLoading(false)
     setConfirming(false)
 
@@ -92,6 +93,19 @@ export function DelayScheduleControl({ leagueId, mode }: Props) {
           className="w-20 border rounded px-2 py-1 text-sm"
         />
       </div>
+
+      {/* Notify teams */}
+      <label className="flex items-center gap-2 mb-3 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={notify}
+          onChange={e => setNotify(e.target.checked)}
+          className="rounded border-gray-300"
+        />
+        <span className="text-xs text-gray-600">
+          Notify affected teams of their new times (email + in-app)
+        </span>
+      </label>
 
       {!confirming ? (
         <button

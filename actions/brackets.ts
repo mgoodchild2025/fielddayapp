@@ -8,6 +8,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { parseLocalToUtc, formatGameTime } from '@/lib/format-time'
+import { notifyScheduleDelay } from '@/lib/notify-schedule-delay'
 import {
   generateSingleEliminationSpec,
   generateDoubleEliminationSpec,
@@ -803,6 +804,7 @@ export async function updateMatchSchedule(input: {
 export async function delayRemainingBracketMatches(input: {
   leagueId: string
   minutes: number
+  notify?: boolean
 }): Promise<{ error: string | null; count: number; sample?: { from: string; to: string } }> {
   if (!input.leagueId || !input.minutes || input.minutes === 0) {
     return { error: 'Invalid input', count: 0 }
@@ -829,7 +831,7 @@ export async function delayRemainingBracketMatches(input: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: matches, error: fetchError } = await (db as any)
     .from('bracket_matches')
-    .select('id, scheduled_at')
+    .select('id, scheduled_at, team1_id, team2_id, court')
     .in('bracket_id', bracketIds)
     .eq('organization_id', org.id)
     .not('scheduled_at', 'is', null)
@@ -856,6 +858,26 @@ export async function delayRemainingBracketMatches(input: {
   const earliest = (matches as any[])[0]
   const oldT = formatGameTime(earliest.scheduled_at, timezone).time
   const newT = formatGameTime(new Date(new Date(earliest.scheduled_at).getTime() + shiftMs).toISOString(), timezone).time
+
+  // Notify affected teams of their new times (org timezone)
+  if (input.notify) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: leagueRow } = await (db as any)
+      .from('leagues').select('name').eq('id', input.leagueId).single()
+    await notifyScheduleDelay({
+      orgId: org.id,
+      leagueName: leagueRow?.name ?? '',
+      minutes: input.minutes,
+      timezone,
+      kind: 'match',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      entries: (matches as any[]).map((m: any) => ({
+        teamIds: [m.team1_id, m.team2_id].filter(Boolean) as string[],
+        newIso: new Date(new Date(m.scheduled_at).getTime() + shiftMs).toISOString(),
+        court: m.court ?? null,
+      })),
+    }).catch((e) => console.error('[delayRemainingBracketMatches] notify error:', e))
+  }
 
   revalidatePath(`/admin/events/${input.leagueId}/bracket`)
   revalidatePath('/events/[slug]', 'page')

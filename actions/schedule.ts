@@ -9,6 +9,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { parseLocalToUtc, formatGameTime } from '@/lib/format-time'
 import { FROM_EMAIL } from '@/lib/resend'
 import { sendEmailBatch } from '@/lib/email'
+import { notifyScheduleDelay } from '@/lib/notify-schedule-delay'
 
 // ── Notification helpers ────────────────────────────────────────────────────
 
@@ -468,6 +469,7 @@ export async function insertBreak(input: {
 export async function delayRemainingGames(input: {
   leagueId: string
   minutes: number
+  notify?: boolean
 }): Promise<{ error: string | null; count: number; sample?: { from: string; to: string } }> {
   if (!input.leagueId || !input.minutes || input.minutes === 0) {
     return { error: 'Invalid input', count: 0 }
@@ -501,7 +503,7 @@ export async function delayRemainingGames(input: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: candidates, error: fetchError } = await (db as any)
     .from('games')
-    .select('id, scheduled_at')
+    .select('id, scheduled_at, home_team_id, away_team_id, court')
     .eq('league_id', input.leagueId)
     .eq('organization_id', org.id)
     .gte('scheduled_at', startOfTodayUtc)
@@ -542,6 +544,26 @@ export async function delayRemainingGames(input: {
   const earliest = toShift[0]
   const oldT = formatGameTime(earliest.scheduled_at, timezone).time
   const newT = formatGameTime(new Date(new Date(earliest.scheduled_at).getTime() + shiftMs).toISOString(), timezone).time
+
+  // Notify affected teams of their new times (org timezone)
+  if (input.notify) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: leagueRow } = await (db as any)
+      .from('leagues').select('name').eq('id', input.leagueId).single()
+    await notifyScheduleDelay({
+      orgId: org.id,
+      leagueName: leagueRow?.name ?? '',
+      minutes: input.minutes,
+      timezone,
+      kind: 'game',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      entries: toShift.map((g: any) => ({
+        teamIds: [g.home_team_id, g.away_team_id].filter(Boolean) as string[],
+        newIso: new Date(new Date(g.scheduled_at).getTime() + shiftMs).toISOString(),
+        court: g.court ?? null,
+      })),
+    }).catch((e) => console.error('[delayRemainingGames] notify error:', e))
+  }
 
   revalidatePath(`/admin/events/${input.leagueId}/schedule`)
   revalidatePath('/events/[slug]', 'page')
