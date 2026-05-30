@@ -340,7 +340,7 @@ function DateGroup({
 }) {
   return (
     <div>
-      <p className={`text-sm font-semibold mb-2 ${isPast ? 'text-gray-400' : 'text-gray-700'}`}>{date}</p>
+      <p className={`text-sm font-semibold mb-2 ${isPast ? 'text-gray-400' : 'text-gray-100'}`}>{date}</p>
       <div className="space-y-2">
         {games.map((game) => {
           const homeTeam = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team
