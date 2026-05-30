@@ -12,6 +12,7 @@ interface League {
 interface Team {
   id: string
   name: string
+  leagueId: string | null
   leagueName: string | null
 }
 
@@ -38,9 +39,16 @@ export function ComposeMessageForm({
   const [isPending, startTransition] = useTransition()
   const [audienceType, setAudienceType] = useState<AudienceType>('org')
   const [channel, setChannel] = useState<Channel>('email')
+  const [teamLeagueFilter, setTeamLeagueFilter] = useState('')
   const [selectedPlayers, setSelectedPlayers] = useState<Set<string>>(new Set())
   const [playerSearch, setPlayerSearch] = useState('')
   const [result, setResult] = useState<{ error?: string; success?: boolean } | null>(null)
+
+  // Teams shown in the picker, narrowed by the selected league filter
+  const filteredTeams = useMemo(() => {
+    if (!teamLeagueFilter) return teams
+    return teams.filter((t) => t.leagueId === teamLeagueFilter)
+  }, [teams, teamLeagueFilter])
 
   const filteredPlayers = useMemo(() => {
     const q = playerSearch.trim().toLowerCase()
@@ -77,6 +85,7 @@ export function ComposeMessageForm({
         ;(e.target as HTMLFormElement).reset()
         setAudienceType('org')
         setChannel('email')
+        setTeamLeagueFilter('')
         setSelectedPlayers(new Set())
         setPlayerSearch('')
       }
@@ -114,18 +123,40 @@ export function ComposeMessageForm({
         )}
         {audienceType === 'team' && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Team</label>
-            <select name="team_id" required className="w-full border rounded-md px-3 py-2 text-sm">
-              <option value="">Select team…</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}{t.leagueName ? ` — ${t.leagueName}` : ''}
-                </option>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Filter by League <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <select
+              value={teamLeagueFilter}
+              onChange={(e) => setTeamLeagueFilter(e.target.value)}
+              className="w-full border rounded-md px-3 py-2 text-sm"
+            >
+              <option value="">All leagues</option>
+              {leagues.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
               ))}
             </select>
           </div>
         )}
       </div>
+
+      {/* Team picker — narrowed by the league filter above */}
+      {audienceType === 'team' && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Team</label>
+          <select name="team_id" required key={teamLeagueFilter} className="w-full border rounded-md px-3 py-2 text-sm">
+            <option value="">Select team…</option>
+            {filteredTeams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}{!teamLeagueFilter && t.leagueName ? ` — ${t.leagueName}` : ''}
+              </option>
+            ))}
+          </select>
+          {filteredTeams.length === 0 && (
+            <p className="text-xs text-gray-400 mt-1">No active teams in this league.</p>
+          )}
+        </div>
+      )}
 
       {/* Player multi-select */}
       {audienceType === 'players' && (

@@ -24,7 +24,7 @@ export default async function AdminMessagesPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)
       .from('teams')
-      .select('id, name, league:leagues!teams_league_id_fkey(name)')
+      .select('id, name, league_id, league:leagues!teams_league_id_fkey(name)')
       .eq('organization_id', org.id)
       .eq('status', 'active')
       .order('name', { ascending: true }),
@@ -40,7 +40,12 @@ export default async function AdminMessagesPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const teams = ((teamsRaw ?? []) as any[]).map((t) => {
     const league = Array.isArray(t.league) ? t.league[0] : t.league
-    return { id: t.id as string, name: t.name as string, leagueName: (league?.name as string) ?? null }
+    return {
+      id: t.id as string,
+      name: t.name as string,
+      leagueId: (t.league_id as string) ?? null,
+      leagueName: (league?.name as string) ?? null,
+    }
   })
 
   // Build a deduplicated player list (an org member appears once)
