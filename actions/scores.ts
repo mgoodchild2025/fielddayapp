@@ -157,6 +157,115 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
   return { data: null, error: null }
 }
 
+const VOLLEYBALL_SPORTS = new Set(['volleyball', 'beach_volleyball'])
+
+const recordForfeitSchema = z.object({
+  gameId: z.string().uuid(),
+  leagueId: z.string().uuid().optional(),
+  /** 'home' | 'away' = that side forfeited; 'both' = double forfeit */
+  forfeitSide: z.enum(['home', 'away', 'both']),
+})
+
+/**
+ * Record a forfeit. Assigns a sport-appropriate default score:
+ *   - volleyball/beach: winner takes it 2 sets to 0 (25–0, 25–0)
+ *   - all other sports: 1–0
+ * Double forfeit is recorded 0–0 with no winner (counts as a loss for both
+ * via the is_forfeit flag in the standings computations).
+ */
+export async function recordForfeit(input: z.infer<typeof recordForfeitSchema>) {
+  const parsed = recordForfeitSchema.safeParse(input)
+  if (!parsed.success) return { data: null, error: 'Invalid input' }
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const db = createServiceRoleClient()
+  const { data: adminMember } = await db
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+  if (!adminMember) return { data: null, error: 'Admin access required' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: game } = await (db as any)
+    .from('games')
+    .select('id, league_id, home_team_id, away_team_id, league:leagues!games_league_id_fkey(sport)')
+    .eq('id', parsed.data.gameId)
+    .eq('organization_id', org.id)
+    .single()
+  if (!game) return { data: null, error: 'Game not found' }
+
+  const league = Array.isArray(game.league) ? game.league[0] : game.league
+  const isVolleyball = VOLLEYBALL_SPORTS.has(league?.sport ?? '')
+
+  // Build the default forfeit score, oriented to home/away
+  let homeScore = 0, awayScore = 0
+  let sets: { home: number; away: number }[] | null = null
+  let forfeitTeamId: string | null = null
+
+  if (parsed.data.forfeitSide === 'both') {
+    homeScore = 0; awayScore = 0; sets = null; forfeitTeamId = null
+  } else {
+    const homeForfeited = parsed.data.forfeitSide === 'home'
+    forfeitTeamId = homeForfeited ? (game.home_team_id ?? null) : (game.away_team_id ?? null)
+    if (isVolleyball) {
+      // Winner 2 sets to 0, 25–0 each
+      homeScore = homeForfeited ? 0 : 2
+      awayScore = homeForfeited ? 2 : 0
+      sets = homeForfeited
+        ? [{ home: 0, away: 25 }, { home: 0, away: 25 }]
+        : [{ home: 25, away: 0 }, { home: 25, away: 0 }]
+    } else {
+      homeScore = homeForfeited ? 0 : 1
+      awayScore = homeForfeited ? 1 : 0
+    }
+  }
+
+  const { error: upsertError } = await (db as any)
+    .from('game_results')
+    .upsert(
+      {
+        organization_id: org.id,
+        game_id: parsed.data.gameId,
+        home_score: homeScore,
+        away_score: awayScore,
+        sets,
+        is_forfeit: true,
+        forfeit_team_id: forfeitTeamId,
+        submitted_by: user.id,
+        confirmed_by: user.id,
+        confirmed_at: new Date().toISOString(),
+        status: 'confirmed',
+      },
+      { onConflict: 'game_id' }
+    )
+  if (upsertError) return { data: null, error: upsertError.message }
+
+  await (db as any).from('games').update({ status: 'completed' }).eq('id', parsed.data.gameId)
+
+  const leagueId = parsed.data.leagueId ?? game.league_id
+  if (leagueId) revalidatePath(`/admin/events/${leagueId}/schedule`)
+  revalidatePath('/events/[slug]', 'page')
+
+  // Advance bracket if applicable (double forfeit has no winner → skip advance)
+  if (parsed.data.forfeitSide !== 'both') {
+    try {
+      await advanceBracketFromScore(parsed.data.gameId, homeScore, awayScore, org.id)
+    } catch {
+      console.error('[recordForfeit] advanceBracketFromScore failed silently')
+    }
+  }
+
+  return { data: null, error: null }
+}
+
 export async function adminClearScore(gameId: string): Promise<{ error: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)

@@ -314,12 +314,16 @@ type GameRow = {
     status: string
     submitted_by: string | null
     sets?: SetScore[] | null
+    is_forfeit?: boolean | null
+    forfeit_team_id?: string | null
   } | {
     home_score: number | null
     away_score: number | null
     status: string
     submitted_by: string | null
     sets?: SetScore[] | null
+    is_forfeit?: boolean | null
+    forfeit_team_id?: string | null
   }[] | null
 }
 
@@ -372,6 +376,8 @@ function DateGroup({
           const homeWon = hasScore && result!.home_score! > result!.away_score!
           const awayWon = hasScore && result!.away_score! > result!.home_score!
           const isTie   = hasScore && !homeWon && !awayWon
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const isForfeit = !!(result as any)?.is_forfeit
 
           return (
             <div key={game.id} className={`bg-white rounded-lg border p-4 ${isPast ? 'opacity-80' : ''}`}>
@@ -383,6 +389,7 @@ function DateGroup({
                   <span className="font-medium text-gray-500">{gameTime}</span>
                   {game.court && <><span>·</span><span>Court {game.court}</span></>}
                   {game.week_number && showWeek && <><span>·</span><span>Wk {game.week_number}</span></>}
+                  {isForfeit && <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 not-italic">Forfeit</span>}
                 </div>
                 {/* Teams + scores */}
                 <div className="space-y-1">
@@ -464,6 +471,7 @@ function DateGroup({
                     </p>
                     {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
                     {game.status === 'postponed' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
+                    {isForfeit && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Forfeit</span>}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
                     {game.court && <span>Court {game.court}</span>}
@@ -953,7 +961,7 @@ export default async function EventDetailPage({
         home_team_label, away_team_label,
         home_team:teams!games_home_team_id_fkey(id, name),
         away_team:teams!games_away_team_id_fkey(id, name),
-        game_results(home_score, away_score, status, submitted_by, sets)
+        game_results(home_score, away_score, status, submitted_by, sets, is_forfeit, forfeit_team_id)
       `)
       .eq('organization_id', org.id)
       .eq('league_id', league.id)
@@ -1069,7 +1077,7 @@ export default async function EventDetailPage({
       (db as any).from('divisions').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
       (db as any).from('pools').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
       (db as any).from('game_results')
-        .select('home_score, away_score, status, sets, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
+        .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
         .eq('organization_id', org.id)
         .eq('status', 'confirmed'),
     ])
@@ -1098,7 +1106,9 @@ export default async function EventDetailPage({
       target[at].matchesPlayed++
       const hs = r.home_score ?? 0
       const as_ = r.away_score ?? 0
-      if (hs > as_) { target[ht].wins++; target[at].losses++ }
+      // Double forfeit (flagged, no forfeiting team) = loss for both
+      if (r.is_forfeit && !r.forfeit_team_id) { target[ht].losses++; target[at].losses++ }
+      else if (hs > as_) { target[ht].wins++; target[at].losses++ }
       else if (as_ > hs) { target[at].wins++; target[ht].losses++ }
       else { target[ht].ties++; target[at].ties++ }
       if (isVolleyballLeague && Array.isArray(r.sets)) {

@@ -206,7 +206,7 @@ export default async function AdminStandingsPage({
     (db as any).from('pools').select('id, name, sort_order').eq('league_id', id).eq('organization_id', org.id).order('sort_order'),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('game_results')
-      .select('home_score, away_score, status, sets, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
+      .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
       .eq('organization_id', org.id)
       .eq('status', 'confirmed'),
   ])
@@ -244,7 +244,9 @@ export default async function AdminStandingsPage({
       rec[at].matchesPlayed++
       const hs = r.home_score ?? 0
       const as_ = r.away_score ?? 0
-      if (hs > as_) { rec[ht].wins++; rec[at].losses++ }
+      // Double forfeit (flagged, no forfeiting team) = loss for both
+      if (r.is_forfeit && !r.forfeit_team_id) { rec[ht].losses++; rec[at].losses++ }
+      else if (hs > as_) { rec[ht].wins++; rec[at].losses++ }
       else if (as_ > hs) { rec[at].wins++; rec[ht].losses++ }
       else { rec[ht].ties++; rec[at].ties++ }
       if (isVolleyball && Array.isArray(r.sets)) {

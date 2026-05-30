@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { adminSetScore, adminClearScore } from '@/actions/scores'
+import { adminSetScore, adminClearScore, recordForfeit } from '@/actions/scores'
 
 const SET_SPORTS    = new Set(['volleyball', 'beach_volleyball'])
 const PERIOD_SPORTS = new Set(['hockey'])
@@ -117,6 +117,16 @@ function ScoreEntrySheet({
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [confirmClear, setConfirmClear] = useState(false)
+  const [forfeitOpen, setForfeitOpen] = useState(false)
+
+  function applyForfeit(forfeitSide: 'home' | 'away' | 'both') {
+    setError(null)
+    startTransition(async () => {
+      const result = await recordForfeit({ gameId, leagueId, forfeitSide })
+      if (result.error) setError(result.error)
+      else onClose()
+    })
+  }
 
   // Lock body scroll while sheet is open
   useEffect(() => {
@@ -334,6 +344,34 @@ function ScoreEntrySheet({
               className="flex-1 py-3 rounded-xl text-sm border text-gray-600 hover:bg-gray-50">
               Cancel
             </button>
+          </div>
+
+          {/* Forfeit — for a no-show. Auto-fills a default win/loss score. */}
+          <div className="border-t pt-3">
+            {!forfeitOpen ? (
+              <button type="button" onClick={() => { setForfeitOpen(true); setError(null) }}
+                className="text-xs font-medium text-gray-500 hover:text-gray-700">
+                A team didn&apos;t show? Record a forfeit →
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-gray-500">Who forfeited?</p>
+                <button type="button" onClick={() => applyForfeit('home')} disabled={isPending}
+                  className="w-full py-2 rounded-lg text-sm font-medium border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50 text-left px-3">
+                  {homeTeamName} forfeited <span className="text-amber-500">— {awayTeamName} wins</span>
+                </button>
+                <button type="button" onClick={() => applyForfeit('away')} disabled={isPending}
+                  className="w-full py-2 rounded-lg text-sm font-medium border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50 text-left px-3">
+                  {awayTeamName} forfeited <span className="text-amber-500">— {homeTeamName} wins</span>
+                </button>
+                <button type="button" onClick={() => applyForfeit('both')} disabled={isPending}
+                  className="w-full py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-left px-3">
+                  Double forfeit <span className="text-gray-400">— loss for both, no winner</span>
+                </button>
+                <button type="button" onClick={() => setForfeitOpen(false)}
+                  className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+              </div>
+            )}
           </div>
 
           {hasExistingScore && (

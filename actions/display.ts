@@ -208,7 +208,7 @@ export async function getDisplayData(
       (db as any).from('teams').select('id, name, color, logo_url, pool_id')
         .eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
       (db as any).from('game_results')
-        .select('home_score, away_score, status, sets, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
+        .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
         .eq('organization_id', orgId)
         .eq('status', 'confirmed'),
     ])
@@ -240,7 +240,9 @@ export async function getDisplayData(
         if (!records[ht]) records[ht] = stat()
         if (!records[at]) records[at] = stat()
         records[ht].played++; records[at].played++
-        if (hs > as_)       { records[ht].won++;   records[at].lost++ }
+        // Double forfeit (flagged, no forfeiting team) = loss for both
+        if (r.is_forfeit && !r.forfeit_team_id) { records[ht].lost++; records[at].lost++ }
+        else if (hs > as_)  { records[ht].won++;   records[at].lost++ }
         else if (as_ > hs)  { records[at].won++;   records[ht].lost++ }
         else                { records[ht].drawn++; records[at].drawn++ }
 
