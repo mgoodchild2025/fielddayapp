@@ -93,7 +93,11 @@ export function ScheduleClient({ games, timezone, isDark, scrollSpeed }: Props) 
     return () => clearInterval(t)
   }, [])
 
-  // Detect content overflow → enable scroll
+  // Detect content overflow → enable scroll.
+  // Re-checks on resize, fullscreen enter/exit, and content changes. Fullscreen
+  // transitions fire before the layout settles, so we also re-measure on the
+  // next animation frame (and a short timeout) to read the final dimensions —
+  // otherwise a transient mis-measurement can leave scrolling stuck off.
   useEffect(() => {
     const outer  = outerRef.current
     const single = singleRef.current
@@ -102,12 +106,33 @@ export function ScheduleClient({ games, timezone, isDark, scrollSpeed }: Props) 
     const check = () => {
       setShouldScroll((single.scrollHeight ?? 0) > (outer.clientHeight ?? 0))
     }
-    check()
+
+    // Measure now, after the next paint, and after a short delay (covers the
+    // multi-step fullscreen transition where height changes more than once).
+    const checkDeferred = () => {
+      check()
+      requestAnimationFrame(check)
+      setTimeout(check, 250)
+    }
+
+    checkDeferred()
+
     const obs = new ResizeObserver(check)
     obs.observe(outer)
     obs.observe(single)
-    return () => obs.disconnect()
-  }, [])
+
+    window.addEventListener('resize', checkDeferred)
+    document.addEventListener('fullscreenchange', checkDeferred)
+    // Safari prefixes the fullscreen event
+    document.addEventListener('webkitfullscreenchange', checkDeferred)
+
+    return () => {
+      obs.disconnect()
+      window.removeEventListener('resize', checkDeferred)
+      document.removeEventListener('fullscreenchange', checkDeferred)
+      document.removeEventListener('webkitfullscreenchange', checkDeferred)
+    }
+  }, [games])
 
   // ── Group games into time slots ───────────────────────────────────────────────
 
