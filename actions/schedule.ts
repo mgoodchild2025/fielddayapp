@@ -459,6 +459,95 @@ export async function insertBreak(input: {
   return { error: null, count: gamesAfter.length }
 }
 
+/**
+ * Delay all of today's remaining (unplayed) games forward by N minutes.
+ * Use during a live event when running behind. Shifts every game scheduled
+ * on or after the start of the current local day that has no confirmed score
+ * and isn't cancelled/postponed. All courts shift equally.
+ */
+export async function delayRemainingGames(input: {
+  leagueId: string
+  minutes: number
+}): Promise<{ error: string | null; count: number; sample?: { from: string; to: string } }> {
+  if (!input.leagueId || !input.minutes || input.minutes === 0) {
+    return { error: 'Invalid input', count: 0 }
+  }
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated', count: 0 }
+
+  const db = createServiceRoleClient()
+  const { data: adminMember } = await db
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+  if (!adminMember) return { error: 'Admin access required', count: 0 }
+
+  // Start of today in the org's timezone → UTC bound
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: branding } = await (db as any)
+    .from('org_branding').select('timezone').eq('organization_id', org.id).single()
+  const timezone = branding?.timezone ?? 'America/Toronto'
+  const todayLocal = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date())
+  const startOfTodayUtc = parseLocalToUtc(todayLocal, '00:00', timezone)
+
+  // Candidate games: today onward, not cancelled/postponed
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: candidates, error: fetchError } = await (db as any)
+    .from('games')
+    .select('id, scheduled_at')
+    .eq('league_id', input.leagueId)
+    .eq('organization_id', org.id)
+    .gte('scheduled_at', startOfTodayUtc)
+    .not('status', 'in', '(cancelled,postponed)')
+    .order('scheduled_at', { ascending: true })
+
+  if (fetchError) return { error: fetchError.message, count: 0 }
+  if (!candidates || candidates.length === 0) return { error: null, count: 0 }
+
+  // Exclude games that already have a confirmed result (already played)
+  const candidateIds = (candidates as { id: string }[]).map(g => g.id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: playedRows } = await (db as any)
+    .from('game_results')
+    .select('game_id')
+    .in('game_id', candidateIds)
+    .eq('status', 'confirmed')
+  const playedIds = new Set((playedRows ?? []).map((r: { game_id: string }) => r.game_id))
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const toShift = (candidates as any[]).filter(g => !playedIds.has(g.id))
+  if (toShift.length === 0) return { error: null, count: 0 }
+
+  const shiftMs = input.minutes * 60 * 1000
+  const updates = toShift.map(g =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
+      .from('games')
+      .update({ scheduled_at: new Date(new Date(g.scheduled_at).getTime() + shiftMs).toISOString() })
+      .eq('id', g.id)
+      .eq('organization_id', org.id)
+  )
+  const results = await Promise.all(updates)
+  const firstError = results.find(r => r.error)
+  if (firstError?.error) return { error: firstError.error.message, count: 0 }
+
+  // Sample: earliest shifted game's old → new time, for the confirmation message
+  const earliest = toShift[0]
+  const oldT = formatGameTime(earliest.scheduled_at, timezone).time
+  const newT = formatGameTime(new Date(new Date(earliest.scheduled_at).getTime() + shiftMs).toISOString(), timezone).time
+
+  revalidatePath(`/admin/events/${input.leagueId}/schedule`)
+  revalidatePath('/events/[slug]', 'page')
+  return { error: null, count: toShift.length, sample: { from: oldT, to: newT } }
+}
+
 // ── Game status actions ─────────────────────────────────────────────────────
 
 /** Shared admin auth check + game fetch. Returns org, db, game data, or error. */

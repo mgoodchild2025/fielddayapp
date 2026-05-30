@@ -7,6 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
+import { parseLocalToUtc, formatGameTime } from '@/lib/format-time'
 import {
   generateSingleEliminationSpec,
   generateDoubleEliminationSpec,
@@ -791,6 +792,74 @@ export async function updateMatchSchedule(input: {
 
   revalidatePath(`/admin/events/${input.leagueId}/bracket`)
   return { error: null }
+}
+
+/**
+ * Delay all of today's remaining (unplayed) playoff matches forward by N minutes.
+ * Shifts bracket matches across all of the league's brackets that are scheduled
+ * on or after the start of the current local day and aren't completed/byes.
+ * Independent from the regular-schedule delay.
+ */
+export async function delayRemainingBracketMatches(input: {
+  leagueId: string
+  minutes: number
+}): Promise<{ error: string | null; count: number; sample?: { from: string; to: string } }> {
+  if (!input.leagueId || !input.minutes || input.minutes === 0) {
+    return { error: 'Invalid input', count: 0 }
+  }
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  // Org timezone → start of today UTC bound
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: branding } = await (db as any)
+    .from('org_branding').select('timezone').eq('organization_id', org.id).single()
+  const timezone = branding?.timezone ?? 'America/Toronto'
+  const todayLocal = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date())
+  const startOfTodayUtc = parseLocalToUtc(todayLocal, '00:00', timezone)
+
+  // All brackets for this league
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: brackets } = await (db as any)
+    .from('brackets').select('id').eq('league_id', input.leagueId).eq('organization_id', org.id)
+  const bracketIds = (brackets ?? []).map((b: { id: string }) => b.id)
+  if (bracketIds.length === 0) return { error: null, count: 0 }
+
+  // Today's remaining, unplayed matches with a scheduled time
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: matches, error: fetchError } = await (db as any)
+    .from('bracket_matches')
+    .select('id, scheduled_at')
+    .in('bracket_id', bracketIds)
+    .eq('organization_id', org.id)
+    .not('scheduled_at', 'is', null)
+    .gte('scheduled_at', startOfTodayUtc)
+    .not('status', 'in', '(completed,bye)')
+    .order('scheduled_at', { ascending: true })
+
+  if (fetchError) return { error: fetchError.message, count: 0 }
+  if (!matches || matches.length === 0) return { error: null, count: 0 }
+
+  const shiftMs = input.minutes * 60 * 1000
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updates = (matches as any[]).map(m =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('bracket_matches')
+      .update({ scheduled_at: new Date(new Date(m.scheduled_at).getTime() + shiftMs).toISOString() })
+      .eq('id', m.id).eq('organization_id', org.id)
+  )
+  const results = await Promise.all(updates)
+  const firstError = results.find(r => r.error)
+  if (firstError?.error) return { error: firstError.error.message, count: 0 }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const earliest = (matches as any[])[0]
+  const oldT = formatGameTime(earliest.scheduled_at, timezone).time
+  const newT = formatGameTime(new Date(new Date(earliest.scheduled_at).getTime() + shiftMs).toISOString(), timezone).time
+
+  revalidatePath(`/admin/events/${input.leagueId}/bracket`)
+  revalidatePath('/events/[slug]', 'page')
+  return { error: null, count: (matches as unknown[]).length, sample: { from: oldT, to: newT } }
 }
 
 // ── overrideBracketSlot ───────────────────────────────────────────────────────

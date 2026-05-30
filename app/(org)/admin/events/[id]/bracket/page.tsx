@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { canAccess } from '@/lib/features'
 import { PlayoffConfigWizard } from '@/components/bracket/playoff-config-wizard'
+import { DelayScheduleControl } from '@/components/schedule/delay-schedule-control'
 import { recommendBracket, seedFromStandings, seedFromDivisionStandings, seedFromPoolStandings, type TeamStanding } from '@/lib/bracket'
 import type { BracketData, BracketMatchData, TeamRef } from '@/components/bracket/bracket-view'
 import type { ExistingConfig } from '@/components/bracket/playoff-config-wizard'
@@ -240,6 +241,12 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
           <p className="text-sm text-gray-500 mt-1">{league?.name}</p>
         </div>
       </div>
+
+      {scope.isOrgAdmin && existingConfig && (
+        <div className="max-w-sm mb-6">
+          <DelayScheduleControl leagueId={leagueId} mode="bracket" />
+        </div>
+      )}
 
       <PlayoffConfigWizard
         leagueId={leagueId}

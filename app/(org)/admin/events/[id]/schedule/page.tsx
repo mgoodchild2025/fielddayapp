@@ -6,6 +6,7 @@ import { canAccess } from '@/lib/features'
 import { AddGameForm } from '@/components/schedule/add-game-form'
 import { AssignSlotsCard } from '@/components/schedule/assign-slots-card'
 import { InsertBreakForm } from '@/components/schedule/insert-break-form'
+import { DelayScheduleControl } from '@/components/schedule/delay-schedule-control'
 import { ScheduleImport } from '@/components/schedule/schedule-import'
 import { RoundRobinGenerator } from '@/components/schedule/round-robin-generator'
 import { ScheduleTable } from '@/components/schedule/schedule-table'
@@ -155,6 +156,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
           <AssignSlotsCard leagueId={id} slotLabels={slotLabels} teams={teams ?? []} />
           <RoundRobinGenerator leagueId={id} teamCount={(teams ?? []).length} maxTeams={maxParticipants} sport={sport} />
           <AddGameForm leagueId={id} sport={sport} teams={teams ?? []} pools={pools ?? []} />
+          <DelayScheduleControl leagueId={id} mode="games" />
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <InsertBreakForm leagueId={id} gameTimes={(mappedGames as any[]).map((g: any) => g.scheduledAt as string).filter(Boolean)} />
           {canImportCsv
