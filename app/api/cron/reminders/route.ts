@@ -5,6 +5,7 @@ import { sendSms } from '@/lib/twilio'
 import { deliverAnnouncementEmails } from '@/actions/messages'
 import { formatCourtLabel } from '@/lib/venue-label'
 import { sendPlatformAlert } from '@/actions/platform-settings'
+import { buildCaptainPrepEmail, type PrepPlayer } from '@/lib/emails/captain-prep'
 
 function authorized(req: NextRequest) {
   const secret = process.env.CRON_SECRET
@@ -919,6 +920,182 @@ export async function GET(req: NextRequest) {
     await (resend.batch as any).send(waiverReminderEmails)
       .catch((e: unknown) => results.push(`waiver reminder batch error: ${e}`))
     results.push(`waiver reminder batch: ${waiverReminderEmails.length} email(s) dispatched`)
+  }
+
+  // 6b. Captain prep email — 48 h before event start.
+  //     Emails captains/coaches a full roster-status digest (registered, needs
+  //     waiver, not registered, invited-pending) plus invite instructions.
+  //     One email per team per league, deduped via league_captain_prep_logs.
+  //     Only fires for orgs that have captain_prep_email_enabled = true.
+  const prepEmails: Array<{ from: string; to: string; subject: string; html: string }> = []
+
+  // 48h-ahead query window, widened to cover all timezones; narrowed per-org below.
+  const cp48Start = new Date(now.getTime() + 42 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const cp48End   = new Date(now.getTime() + 54 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: cpLeagues } = await (supabase as any)
+    .from('leagues')
+    .select('id, name, slug, organization_id, season_start_date, waiver_version_id, venue_name, venue_address')
+    .in('status', ['active', 'registration_open'])
+    .not('season_start_date', 'is', null)
+    .gte('season_start_date', cp48Start)
+    .lte('season_start_date', cp48End)
+
+  if ((cpLeagues ?? []).length > 0) {
+    const cpOrgIds = [...new Set((cpLeagues as { organization_id: string }[]).map(l => l.organization_id))]
+
+    const [{ data: cpBranding }, { data: cpOrgs }, { data: cpNotif }] = await Promise.all([
+      supabase.from('org_branding').select('organization_id, timezone').in('organization_id', cpOrgIds),
+      supabase.from('organizations').select('id, name, slug').in('id', cpOrgIds),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any)
+        .from('org_notification_settings')
+        .select('organization_id, captain_prep_email_enabled')
+        .in('organization_id', cpOrgIds),
+    ])
+
+    const cpTzByOrg   = new Map((cpBranding ?? []).map(b => [b.organization_id, b.timezone ?? 'America/Toronto']))
+    const cpOrgById   = new Map((cpOrgs ?? []).map(o => [o.id, { name: o.name, slug: o.slug }]))
+    const cpEnabledByOrg = new Map((cpNotif ?? []).map((s: { organization_id: string; captain_prep_email_enabled: boolean }) => [s.organization_id, s.captain_prep_email_enabled]))
+
+    type CPLeague = {
+      id: string; name: string; slug: string; organization_id: string
+      season_start_date: string; waiver_version_id: string | null
+      venue_name: string | null; venue_address: string | null
+    }
+
+    for (const league of (cpLeagues as CPLeague[]) ?? []) {
+      // Org must have the prep email enabled
+      if (cpEnabledByOrg.get(league.organization_id) !== true) continue
+
+      const timezone = cpTzByOrg.get(league.organization_id) ?? 'America/Toronto'
+
+      // Fire only when the event start is exactly 2 days away in the org's local timezone
+      const twoDaysOut = new Intl.DateTimeFormat('en-CA', { timeZone: timezone })
+        .format(new Date(now.getTime() + 48 * 60 * 60 * 1000))
+      if (league.season_start_date !== twoDaysOut) continue
+
+      const orgInfo = cpOrgById.get(league.organization_id)
+      const orgName = orgInfo?.name ?? 'Fieldday'
+      const orgSlug = orgInfo?.slug ?? ''
+      const requiresWaiver = !!league.waiver_version_id
+
+      const dateLabel = new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric',
+      }).format(new Date(`${league.season_start_date}T12:00:00`))
+
+      // Teams in this league
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: cpTeams } = await (supabase as any)
+        .from('teams').select('id, name')
+        .eq('league_id', league.id).eq('organization_id', league.organization_id).eq('status', 'active')
+      if (!cpTeams || cpTeams.length === 0) continue
+      const teamIds = (cpTeams as { id: string; name: string }[]).map(t => t.id)
+
+      // Members, registrations (with waiver status), pending invitations, and prior logs
+      const [{ data: cpMembers }, { data: cpRegs }, { data: cpInvites }, { data: cpLogs }] = await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).from('team_members')
+          .select('team_id, user_id, role, profiles!team_members_user_id_fkey(full_name, email)')
+          .in('team_id', teamIds).eq('status', 'active'),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).from('registrations')
+          .select('user_id, status, waiver_signature_id')
+          .eq('league_id', league.id).eq('organization_id', league.organization_id)
+          .in('status', ['active', 'pending']),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).from('team_invitations')
+          .select('team_id, invited_email, role, status')
+          .in('team_id', teamIds).eq('status', 'pending'),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).from('league_captain_prep_logs')
+          .select('team_id').eq('league_id', league.id).in('team_id', teamIds),
+      ])
+
+      // registration lookup: user_id → { signed }
+      const regByUser = new Map<string, { signed: boolean }>()
+      for (const r of (cpRegs ?? []) as { user_id: string; waiver_signature_id: string | null }[]) {
+        if (r.user_id) regByUser.set(r.user_id, { signed: !!r.waiver_signature_id })
+      }
+
+      const alreadySent = new Set((cpLogs ?? []).map((l: { team_id: string }) => l.team_id))
+
+      type CPMember = { team_id: string; user_id: string; role: string; profiles: { full_name?: string; email?: string } | { full_name?: string; email?: string }[] | null }
+      const membersByTeam = new Map<string, CPMember[]>()
+      for (const m of (cpMembers ?? []) as CPMember[]) {
+        if (!membersByTeam.has(m.team_id)) membersByTeam.set(m.team_id, [])
+        membersByTeam.get(m.team_id)!.push(m)
+      }
+      const invitesByTeam = new Map<string, { invited_email: string }[]>()
+      for (const inv of (cpInvites ?? []) as { team_id: string; invited_email: string }[]) {
+        if (!invitesByTeam.has(inv.team_id)) invitesByTeam.set(inv.team_id, [])
+        invitesByTeam.get(inv.team_id)!.push({ invited_email: inv.invited_email })
+      }
+
+      for (const team of (cpTeams as { id: string; name: string }[])) {
+        if (alreadySent.has(team.id)) continue
+
+        const members = membersByTeam.get(team.id) ?? []
+        const leaders = members.filter(m => ['captain', 'coach'].includes(m.role))
+        if (leaders.length === 0) continue
+
+        const registered: PrepPlayer[] = []
+        const needsWaiver: PrepPlayer[] = []
+        const notRegistered: PrepPlayer[] = []
+
+        for (const m of members) {
+          const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
+          const player: PrepPlayer = { name: p?.full_name ?? p?.email ?? 'Unknown Player', email: p?.email ?? null }
+          const reg = m.user_id ? regByUser.get(m.user_id) : undefined
+          if (!reg) {
+            notRegistered.push(player)
+          } else if (requiresWaiver && !reg.signed) {
+            needsWaiver.push(player)
+          } else {
+            registered.push(player)
+          }
+        }
+
+        const invitedPending: PrepPlayer[] = (invitesByTeam.get(team.id) ?? [])
+          .map(inv => ({ name: inv.invited_email, email: null }))
+
+        // Claim the send slot (dedup) before building/sending
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: logErr } = await (supabase as any)
+          .from('league_captain_prep_logs')
+          .insert({ league_id: league.id, team_id: team.id })
+        if (logErr) {
+          if (logErr.code === '23505') continue
+          results.push(`captain prep log error team ${team.id}: ${logErr.message}`)
+          continue
+        }
+
+        const { subject, html } = buildCaptainPrepEmail({
+          orgName, orgSlug, platformDomain,
+          leagueName: league.name, leagueSlug: league.slug,
+          teamName: team.name, teamId: team.id,
+          dateLabel,
+          venueName: league.venue_name, venueAddress: league.venue_address,
+          registered, needsWaiver, notRegistered, invitedPending,
+        })
+
+        for (const leader of leaders) {
+          const p = Array.isArray(leader.profiles) ? leader.profiles[0] : leader.profiles
+          if (!p?.email) continue
+          prepEmails.push({ from: FROM_EMAIL, to: p.email, subject, html })
+        }
+        results.push(`captain prep queued for team ${team.id} (${leaders.length} leader${leaders.length !== 1 ? 's' : ''})`)
+      }
+    }
+  }
+
+  // Flush captain prep batch
+  if (prepEmails.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (resend.batch as any).send(prepEmails)
+      .catch((e: unknown) => results.push(`captain prep batch error: ${e}`))
+    results.push(`captain prep batch: ${prepEmails.length} email(s) dispatched`)
   }
 
   // 7. Trial expiring alerts — fire once when trial_end is exactly 3 days away

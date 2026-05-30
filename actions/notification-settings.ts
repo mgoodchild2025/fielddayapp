@@ -5,8 +5,11 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { createServerClient } from '@/lib/supabase/server'
 import { requireOrgMember } from '@/lib/auth'
 import { MAX_MESSAGE_CHARS } from '@/lib/notification-settings-constants'
+import { getResend, FROM_EMAIL } from '@/lib/resend'
+import { buildCaptainPrepEmail, sampleCaptainPrepData } from '@/lib/emails/captain-prep'
 
 export type SmsReminder = {
   id?: string
@@ -20,6 +23,7 @@ export type NotificationSettings = {
   reminders: SmsReminder[]
   emailGameRemindersEnabled: boolean
   emailReminderHoursBefore: number
+  captainPrepEmailEnabled: boolean
   registrationNotificationsEnabled: boolean
   /** Custom recipient email. When null, notifications go to all org_admin members. */
   registrationNotificationEmail: string | null
@@ -29,6 +33,7 @@ type OrgNotifRow = {
   sms_game_reminders_enabled: boolean
   email_game_reminders_enabled: boolean
   email_reminder_hours_before: number
+  captain_prep_email_enabled: boolean
   registration_notifications_enabled: boolean
   registration_notification_email: string | null
 } | null
@@ -49,7 +54,7 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
   const [{ data: notif }, { data: reminders }] = await Promise.all([
     (db as any)
       .from('org_notification_settings')
-      .select('sms_game_reminders_enabled, email_game_reminders_enabled, email_reminder_hours_before, registration_notifications_enabled, registration_notification_email')
+      .select('sms_game_reminders_enabled, email_game_reminders_enabled, email_reminder_hours_before, captain_prep_email_enabled, registration_notifications_enabled, registration_notification_email')
       .eq('organization_id', org.id)
       .single() as Promise<{ data: OrgNotifRow }>,
     (db as any)
@@ -69,6 +74,7 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
     })),
     emailGameRemindersEnabled: (notif as OrgNotifRow)?.email_game_reminders_enabled ?? true,
     emailReminderHoursBefore: (notif as OrgNotifRow)?.email_reminder_hours_before ?? 24,
+    captainPrepEmailEnabled: (notif as OrgNotifRow)?.captain_prep_email_enabled ?? false,
     registrationNotificationsEnabled: (notif as OrgNotifRow)?.registration_notifications_enabled ?? false,
     registrationNotificationEmail: (notif as OrgNotifRow)?.registration_notification_email ?? null,
   }
@@ -111,6 +117,7 @@ export async function saveNotificationSettings(
         sms_game_reminders_enabled: settings.smsGameRemindersEnabled,
         email_game_reminders_enabled: settings.emailGameRemindersEnabled,
         email_reminder_hours_before: settings.emailReminderHoursBefore,
+        captain_prep_email_enabled: settings.captainPrepEmailEnabled,
         registration_notifications_enabled: settings.registrationNotificationsEnabled,
         registration_notification_email: settings.registrationNotificationEmail?.trim() || null,
         updated_at: new Date().toISOString(),
@@ -147,4 +154,42 @@ export async function saveNotificationSettings(
 
   revalidatePath('/admin/settings/notifications')
   return { error: null }
+}
+
+const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+
+/**
+ * Send a sample captain prep email to the org admin who clicked the button,
+ * so they can preview what captains/coaches will receive.
+ */
+export async function sendCaptainPrepTestEmail(): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  await requireOrgMember(org, ['org_admin'])
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user?.email) return { error: 'Could not determine your email address.' }
+
+  const { subject, html } = buildCaptainPrepEmail(
+    sampleCaptainPrepData({
+      orgName: org.name ?? 'Your Organization',
+      orgSlug: org.slug ?? '',
+      platformDomain: PLATFORM_DOMAIN,
+    })
+  )
+
+  try {
+    const resend = getResend()
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: user.email,
+      subject: `[TEST] ${subject}`,
+      html,
+    })
+    return { error: null }
+  } catch (err) {
+    console.error('[notifications] captain prep test email error:', err)
+    return { error: 'Failed to send test email. Please try again.' }
+  }
 }

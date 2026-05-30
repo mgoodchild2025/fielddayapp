@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { saveNotificationSettings, type NotificationSettings, type SmsReminder } from '@/actions/notification-settings'
+import { saveNotificationSettings, sendCaptainPrepTestEmail, type NotificationSettings, type SmsReminder } from '@/actions/notification-settings'
 import { TIMING_OPTIONS, DEFAULT_MESSAGES, MAX_MESSAGE_CHARS, EMAIL_TIMING_OPTIONS } from '@/lib/notification-settings-constants'
 
 type ReminderDraft = Omit<SmsReminder, 'id'> & { key: number }
@@ -32,6 +32,9 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
   const [smsEnabled, setSmsEnabled] = useState(initial.smsGameRemindersEnabled)
   const [emailEnabled, setEmailEnabled] = useState(initial.emailGameRemindersEnabled)
   const [emailHoursBefore, setEmailHoursBefore] = useState(initial.emailReminderHoursBefore)
+  const [captainPrepEnabled, setCaptainPrepEnabled] = useState(initial.captainPrepEmailEnabled)
+  const [testState, setTestState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [testError, setTestError] = useState<string | null>(null)
   const [reminders, setReminders] = useState<ReminderDraft[]>(() =>
     initial.reminders.map((r) => ({ key: nextKey++, minutesBefore: r.minutesBefore, messageTemplate: r.messageTemplate, enabled: r.enabled }))
   )
@@ -86,6 +89,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
         })),
         emailGameRemindersEnabled: emailEnabled,
         emailReminderHoursBefore: emailHoursBefore,
+        captainPrepEmailEnabled: captainPrepEnabled,
         registrationNotificationsEnabled: regNotifEnabled,
         registrationNotificationEmail: regNotifEmail.trim() || null,
       })
@@ -96,6 +100,19 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
         setTimeout(() => setSaved(false), 3000)
       }
     })
+  }
+
+  async function handleSendTest() {
+    setTestState('sending')
+    setTestError(null)
+    const res = await sendCaptainPrepTestEmail()
+    if (res.error) {
+      setTestState('error')
+      setTestError(res.error)
+    } else {
+      setTestState('sent')
+      setTimeout(() => setTestState('idle'), 4000)
+    }
   }
 
   return (
@@ -271,6 +288,45 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
             </p>
           </div>
         )}
+      </div>
+
+      {/* ── Captain/coach prep email (48h before event) ──────────────────── */}
+      <div className="bg-white rounded-lg border divide-y">
+        <div className="flex items-start justify-between gap-4 p-5">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-lg leading-none">📋</span>
+              <p className="font-medium text-gray-900">Captain Prep Email</p>
+            </div>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Sent to team captains and coaches <strong>48 hours before</strong> an event starts.
+              Includes the event details and a roster status breakdown — who&apos;s registered,
+              who still needs to sign the waiver, who hasn&apos;t registered, and who&apos;s been
+              invited but hasn&apos;t joined — plus instructions for inviting players.
+            </p>
+          </div>
+          <Toggle checked={captainPrepEnabled} onChange={setCaptainPrepEnabled} />
+        </div>
+
+        <div className="px-5 py-4 flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={handleSendTest}
+            disabled={testState === 'sending'}
+            className="px-3 py-1.5 rounded-md text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            {testState === 'sending' ? 'Sending…' : 'Send test email to me'}
+          </button>
+          {testState === 'sent' && (
+            <span className="text-sm text-green-600">✓ Sample sent — check your inbox</span>
+          )}
+          {testState === 'error' && (
+            <span className="text-sm text-red-600">{testError ?? 'Failed to send'}</span>
+          )}
+          {testState === 'idle' && (
+            <span className="text-xs text-gray-400">Sends a sample to your admin email address.</span>
+          )}
+        </div>
       </div>
 
       {/* ── Admin registration notifications ───────────────────────────── */}
