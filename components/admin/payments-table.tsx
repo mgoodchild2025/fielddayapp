@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { MarkPaidForm } from '@/components/payments/mark-paid-form'
+
+const PAGE_SIZE = 25
 
 type PaymentRecord = {
   id: string
@@ -68,6 +70,7 @@ export function PaymentsTable({ rows, stats, isOrgAdmin = true }: { rows: Row[];
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [eventFilter, setEventFilter] = useState('all')
+  const [page, setPage] = useState(1)
 
   const events = useMemo(() => {
     const map = new Map<string, string>()
@@ -96,6 +99,12 @@ export function PaymentsTable({ rows, stats, isOrgAdmin = true }: { rows: Row[];
   }, [rows, search, statusFilter, eventFilter])
 
   const hasFilters = search || statusFilter !== 'all' || eventFilter !== 'all'
+
+  // Reset to page 1 whenever the filters change so stale pages don't linger
+  useEffect(() => { setPage(1) }, [search, statusFilter, eventFilter])
+
+  const visible = filtered.slice(0, page * PAGE_SIZE)
+  const hasMore = visible.length < filtered.length
 
   return (
     <>
@@ -180,7 +189,7 @@ export function PaymentsTable({ rows, stats, isOrgAdmin = true }: { rows: Row[];
               </tr>
             </thead>
             <tbody>
-              {filtered.map(r => (
+              {visible.map(r => (
                 <tr key={r.id} className="border-b last:border-0 align-top">
                   <td className="px-4 py-3">
                     <p className="font-medium">{r.player?.full_name ?? '—'}</p>
@@ -243,7 +252,7 @@ export function PaymentsTable({ rows, stats, isOrgAdmin = true }: { rows: Row[];
             {hasFilters ? 'No registrations match your search.' : 'No registrations found.'}
           </div>
         ) : (
-          filtered.map(r => (
+          visible.map(r => (
             <div key={r.id} className="bg-white rounded-lg border p-4">
               {/* Top row: name + status badge */}
               <div className="flex items-start justify-between gap-3 mb-1">
@@ -293,6 +302,23 @@ export function PaymentsTable({ rows, stats, isOrgAdmin = true }: { rows: Row[];
           ))
         )}
       </div>
+
+      {/* Load more */}
+      {hasMore && (
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => setPage(p => p + 1)}
+            className="px-4 py-2 rounded-md text-sm font-medium border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors bg-white"
+          >
+            Load more ({filtered.length - visible.length} remaining)
+          </button>
+        </div>
+      )}
+      {filtered.length > PAGE_SIZE && (
+        <p className="mt-2 text-center text-xs text-gray-400">
+          Showing {visible.length} of {filtered.length}
+        </p>
+      )}
     </>
   )
 }
