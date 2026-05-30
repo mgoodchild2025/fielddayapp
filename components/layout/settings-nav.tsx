@@ -16,6 +16,7 @@ const CATEGORIES = [
   { href: '/admin/settings/discounts',     label: 'Discount Codes',  description: 'Create and manage promo / discount codes.' },
   { href: '/admin/settings/data',          label: 'Data & Privacy',  description: 'Export player data and manage data retention settings.' },
   { href: '/admin/settings/agreements',    label: 'Legal Agreements', description: 'View the Fieldday agreements your organization has accepted.' },
+  { href: '/admin/settings/audit',         label: 'Audit Log',       description: 'A record of important actions taken in your organization.' },
 ]
 
 export function SettingsNav() {

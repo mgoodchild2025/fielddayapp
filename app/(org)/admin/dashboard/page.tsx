@@ -31,13 +31,13 @@ export default async function AdminDashboardPage() {
     { data: branding },
   ] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).neq('status', 'archived'),
+    (db as any).from('leagues').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).is('deleted_at', null).neq('status', 'archived'),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('org_members').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).eq('status', 'active'),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('payments').select('amount_cents, currency, status, created_at, user_id').eq('organization_id', org.id).order('created_at', { ascending: false }).limit(5),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('id, name, slug, status').eq('organization_id', org.id).in('status', ['registration_open', 'active']).limit(5),
+    (db as any).from('leagues').select('id, name, slug, status').eq('organization_id', org.id).is('deleted_at', null).in('status', ['registration_open', 'active']).limit(5),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('org_branding').select('logo_url, onboarding_dismissed_at, website_configured_at').eq('organization_id', org.id).maybeSingle(),
   ])

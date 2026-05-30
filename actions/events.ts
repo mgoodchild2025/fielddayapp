@@ -9,6 +9,8 @@ import { getLimit, getActiveLeagueCount } from '@/lib/features'
 import { assertOrgAdmin, requireOrgMember } from '@/lib/auth'
 import { convertToWebP } from '@/lib/image-utils'
 import { optionalPhone } from '@/lib/validation'
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
+import { purgeLeagueData } from '@/lib/purge-league'
 import type { Database } from '@/types/database'
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
@@ -176,6 +178,18 @@ export async function updateLeagueStatus(leagueId: string, status: LeagueStatus)
   return { data: null, error: null }
 }
 
+/** Fetch the acting admin's display label (name or email) for audit snapshots. */
+async function getActorLabel(userId: string): Promise<string | null> {
+  const db = createServiceRoleClient()
+  const { data } = await db.from('profiles').select('full_name, email').eq('id', userId).single()
+  return data?.full_name || data?.email || null
+}
+
+/**
+ * Soft-delete an event — moves it to the Trash (recoverable). The event and all
+ * its data are preserved; it's just flagged deleted and hidden from listings.
+ * Permanent removal happens via purgeLeague (or the auto-purge cron after 30 days).
+ */
 export async function deleteLeague(leagueId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -183,44 +197,86 @@ export async function deleteLeague(leagueId: string) {
   if (auth.error) return { error: auth.error }
   const db = createServiceRoleClient()
 
-  // Delete child records in safe order (cascade may not cover everything)
-  await db.from('team_members').delete().eq('organization_id', org.id)
-    // only members belonging to teams in this league
-    .in('team_id',
-      (await db.from('teams').select('id').eq('league_id', leagueId).eq('organization_id', org.id))
-        .data?.map((t) => t.id) ?? []
-    )
-
-  // bracket_matches reference teams — must go before teams
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: brackets } = await (db as any).from('brackets').select('id').eq('league_id', leagueId).eq('organization_id', org.id)
-  if (brackets && brackets.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('bracket_matches').delete().in('bracket_id', brackets.map((b: { id: string }) => b.id))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('brackets').delete().eq('league_id', leagueId).eq('organization_id', org.id)
-  }
+  const { data: league } = await (db as any)
+    .from('leagues').select('name').eq('id', leagueId).eq('organization_id', org.id).single()
 
-  await db.from('game_results').delete().eq('organization_id', org.id)
-    .in('game_id',
-      (await db.from('games').select('id').eq('league_id', leagueId).eq('organization_id', org.id))
-        .data?.map((g) => g.id) ?? []
-    )
-  await db.from('teams').delete().eq('league_id', leagueId).eq('organization_id', org.id)
-  await db.from('registrations').delete().eq('league_id', leagueId).eq('organization_id', org.id)
-  await db.from('games').delete().eq('league_id', leagueId).eq('organization_id', org.id)
-  await db.from('payments').delete().eq('league_id', leagueId).eq('organization_id', org.id)
-  await db.from('announcements').delete().eq('league_id', leagueId).eq('organization_id', org.id)
-
-  const { error } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
     .from('leagues')
-    .delete()
+    .update({ deleted_at: new Date().toISOString(), deleted_by: auth.userId! })
     .eq('id', leagueId)
     .eq('organization_id', org.id)
 
   if (error) return { error: error.message }
 
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: auth.userId!,
+    actorLabel: await getActorLabel(auth.userId!),
+    action: AUDIT_ACTIONS.EVENT_DELETED,
+    targetType: 'league',
+    targetId: leagueId,
+    targetLabel: league?.name ?? null,
+  })
+
   revalidatePath('/admin/events')
+  revalidatePath('/', 'layout')
+  return { error: null }
+}
+
+/** Restore a soft-deleted event from the Trash. */
+export async function restoreLeague(leagueId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await assertOrgAdmin(org, ['org_admin'])
+  if (auth.error) return { error: auth.error }
+  const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: league } = await (db as any)
+    .from('leagues').select('name').eq('id', leagueId).eq('organization_id', org.id).single()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
+    .from('leagues')
+    .update({ deleted_at: null, deleted_by: null })
+    .eq('id', leagueId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: auth.userId!,
+    actorLabel: await getActorLabel(auth.userId!),
+    action: AUDIT_ACTIONS.EVENT_RESTORED,
+    targetType: 'league',
+    targetId: leagueId,
+    targetLabel: league?.name ?? null,
+  })
+
+  revalidatePath('/admin/events')
+  revalidatePath('/admin/events/trash')
+  revalidatePath('/', 'layout')
+  return { error: null }
+}
+
+/**
+ * Permanently delete an event and all its data. Irreversible. Used by the
+ * "Delete permanently" button in the Trash.
+ */
+export async function purgeLeague(leagueId: string) {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await assertOrgAdmin(org, ['org_admin'])
+  if (auth.error) return { error: auth.error }
+
+  const res = await purgeLeagueData(org.id, leagueId, auth.userId!, await getActorLabel(auth.userId!))
+  if (res.error) return res
+
+  revalidatePath('/admin/events')
+  revalidatePath('/admin/events/trash')
   return { error: null }
 }
 

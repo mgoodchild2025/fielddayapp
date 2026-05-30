@@ -6,6 +6,7 @@ import { deliverAnnouncementEmails } from '@/actions/messages'
 import { formatCourtLabel } from '@/lib/venue-label'
 import { sendPlatformAlert } from '@/actions/platform-settings'
 import { buildCaptainPrepEmail, type PrepPlayer } from '@/lib/emails/captain-prep'
+import { purgeLeagueData } from '@/lib/purge-league'
 
 function authorized(req: NextRequest) {
   const secret = process.env.CRON_SECRET
@@ -1243,6 +1244,21 @@ export async function GET(req: NextRequest) {
     )
 
     results.push(`trial expired — ${trial.organization_id} (${orgName}) downgraded to free`)
+  }
+
+  // 9. Auto-purge events soft-deleted more than 30 days ago
+  const purgeCutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: toPurge } = await (supabase as any)
+    .from('leagues')
+    .select('id, organization_id, name')
+    .not('deleted_at', 'is', null)
+    .lte('deleted_at', purgeCutoff)
+  for (const lg of toPurge ?? []) {
+    const res = await purgeLeagueData(lg.organization_id, lg.id, null, 'System (auto-purge)')
+      .catch((e: unknown) => ({ error: String(e) }))
+    if (res?.error) results.push(`auto-purge error for league ${lg.id}: ${res.error}`)
+    else results.push(`auto-purged trashed event ${lg.id} (${lg.name})`)
   }
 
   return NextResponse.json({ ok: true, processed: results, sms_diagnostics })

@@ -21,6 +21,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
     (db as any).from('leagues')
       .select('id, name, slug, event_type, sport, logo_url, status, season_start_date, price_cents, currency, max_teams, max_participants, payment_mode, skill_level, days_of_week')
       .eq('organization_id', orgId)
+      .is('deleted_at', null)
       .neq('status', 'draft')
       .neq('status', 'archived')
       .order('season_start_date', { ascending: true })
