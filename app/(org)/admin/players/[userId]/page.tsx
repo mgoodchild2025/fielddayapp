@@ -11,6 +11,7 @@ import { TeamRoleSelect } from '@/components/players/team-role-select'
 import { SendNotificationForm } from '@/components/players/send-notification-form'
 import { CollapsiblePast } from '@/components/players/collapsible-past'
 import { removePlayerFromLeague, removePlayerFromTeam } from '@/actions/players'
+import { getMarketingConsent, getPlayerConsentSummary } from '@/actions/player-consents'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 
 const PAST_STATUSES = new Set(['completed', 'archived'])
@@ -257,6 +258,57 @@ export default async function PlayerManagementPage({
               </dl>
             )}
           </div>
+
+          {/* Consent & Communications */}
+          {await (async () => {
+            const [marketing, consentSummary] = await Promise.all([
+              getMarketingConsent(org.id, userId),
+              getPlayerConsentSummary(org.id, userId),
+            ])
+            const latest = (t: string) => consentSummary.find((c) => c.consent_type === t)
+            const privacy = latest('privacy_policy')
+            const waiver = latest('waiver')
+            const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })
+            const Pill = ({ on }: { on: boolean }) => (
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${on ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                {on ? 'Opted in' : 'Opted out'}
+              </span>
+            )
+            return (
+              <div className="bg-white rounded-lg border p-6">
+                <h2 className="text-base font-semibold mb-4">Consent &amp; Communications</h2>
+                <dl className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <dt className="text-gray-500">Privacy Policy</dt>
+                    <dd className="text-gray-800">
+                      {privacy
+                        ? <>Accepted {privacy.document_version ? `v${privacy.document_version} · ` : ''}{fmt(privacy.consented_at)}</>
+                        : <span className="text-gray-400">Not on record</span>}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-gray-500">League Waiver</dt>
+                    <dd className="text-gray-800">
+                      {waiver
+                        ? <>Signed {waiver.document_version ? `v${waiver.document_version} · ` : ''}{fmt(waiver.consented_at)}</>
+                        : <span className="text-gray-400">Not on record</span>}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-gray-500">Marketing email</dt>
+                    <dd><Pill on={marketing.email} /></dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-gray-500">Marketing SMS</dt>
+                    <dd><Pill on={marketing.sms} /></dd>
+                  </div>
+                </dl>
+                <p className="text-xs text-gray-400 mt-3">
+                  Marketing consent is per-organization and player-controlled. Waiver signatures are also viewable under Settings → Signed Waivers.
+                </p>
+              </div>
+            )
+          })()}
 
           {/* Leagues */}
           <div className="bg-white rounded-lg border p-6">
