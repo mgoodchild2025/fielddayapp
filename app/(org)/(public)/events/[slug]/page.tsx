@@ -29,6 +29,7 @@ import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
 import type { StatDef } from '@/actions/stats'
 import { RichTextContent } from '@/components/ui/rich-text-content'
 import { PdfViewerButton } from '@/components/ui/pdf-viewer-button'
+import { getCurrentLiveStream } from '@/actions/live'
 
 // ── Tab nav ───────────────────────────────────────────────────────────────────
 
@@ -1288,9 +1289,25 @@ export default async function EventDetailPage({
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  // This event's live stream (event-specific only; org-wide is shown by the nav)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const eventLive = await getCurrentLiveStream(org.id, (league as any).id)
+  const eventLiveStream = eventLive && eventLive.league_id ? eventLive : null
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+
+      {eventLiveStream && (
+        <a href={eventLiveStream.url} target="_blank" rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 bg-red-600 text-white text-sm font-semibold py-1.5 px-4 hover:bg-red-700 transition-colors">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
+          </span>
+          🔴 This event is live{eventLiveStream.title ? ` — ${eventLiveStream.title}` : ''} · Watch →
+        </a>
+      )}
 
       {/* ── Event header ── */}
       <div style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}>

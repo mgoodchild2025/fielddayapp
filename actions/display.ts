@@ -114,17 +114,23 @@ export async function getDisplayData(
     db.from('organizations').select('name').eq('id', orgId).single(),
   ])
 
-  // Current live stream for the org (manual Go Live)
+  // Current live stream — prefer one tied to THIS event, else the org-wide stream
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: liveRow } = await (db as any)
+  const { data: eventLive } = await (db as any)
     .from('live_streams')
     .select('platform, title, url, embed_url')
-    .eq('organization_id', orgId)
-    .eq('status', 'live')
-    .order('started_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  const liveStream = (liveRow as { platform: string; title: string | null; url: string; embed_url: string | null } | null) ?? null
+    .eq('organization_id', orgId).eq('league_id', leagueId).eq('status', 'live')
+    .order('started_at', { ascending: false }).limit(1).maybeSingle()
+  let liveStream = (eventLive as { platform: string; title: string | null; url: string; embed_url: string | null } | null) ?? null
+  if (!liveStream) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: orgLive } = await (db as any)
+      .from('live_streams')
+      .select('platform, title, url, embed_url')
+      .eq('organization_id', orgId).is('league_id', null).eq('status', 'live')
+      .order('started_at', { ascending: false }).limit(1).maybeSingle()
+    liveStream = (orgLive as typeof liveStream) ?? null
+  }
 
   // Team lookup by name — used to enrich label-based games (no FK) with color/logo
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

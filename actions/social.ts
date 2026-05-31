@@ -72,7 +72,7 @@ export async function connectYouTube(input: string): Promise<{ error: string | n
     )
   if (upErr) return { error: upErr.message }
 
-  revalidatePath('/admin/live')
+  revalidatePath('/admin/settings/integrations')
   return { error: null }
 }
 
@@ -83,7 +83,7 @@ export async function disconnectYouTube(): Promise<{ error: string | null }> {
   const db = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (db as any).from('social_connections').delete().eq('organization_id', org.id).eq('platform', 'youtube')
-  revalidatePath('/admin/live')
+  revalidatePath('/admin/settings/integrations')
   return { error: null }
 }
 
@@ -113,7 +113,7 @@ export async function setItemApproval(itemId: string, approved: boolean): Promis
     .eq('id', itemId)
     .eq('organization_id', org.id)
   if (error) return { error: error.message }
-  revalidatePath('/admin/live')
+  revalidatePath('/admin/settings/integrations')
   revalidatePath('/gallery')
   return { error: null }
 }

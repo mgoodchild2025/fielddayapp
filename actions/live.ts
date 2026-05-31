@@ -16,6 +16,8 @@ export type LiveStream = {
   embed_url: string | null
   status: 'live' | 'ended'
   started_at: string
+  league_id: string | null
+  detected_via?: 'manual' | 'api'
 }
 
 /** Extract a YouTube video ID from watch/live/share/embed URLs. */
@@ -34,25 +36,49 @@ function youTubeId(url: string): string | null {
   return null
 }
 
-/** Public read — the current live stream for an org (or null). */
-export async function getCurrentLiveStream(orgId: string): Promise<LiveStream | null> {
+/**
+ * The live stream to show in a given context:
+ *   - If leagueId is provided: that event's stream, else the org-wide stream.
+ *   - If not: the org-wide stream only (league_id IS NULL).
+ */
+export async function getCurrentLiveStream(orgId: string, leagueId?: string | null): Promise<LiveStream | null> {
+  const db = createServiceRoleClient()
+  const cols = 'id, platform, title, url, embed_url, status, started_at, league_id'
+
+  if (leagueId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: eventStream } = await (db as any)
+      .from('live_streams').select(cols)
+      .eq('organization_id', orgId).eq('league_id', leagueId).eq('status', 'live')
+      .order('started_at', { ascending: false }).limit(1).maybeSingle()
+    if (eventStream) return eventStream as LiveStream
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: orgStream } = await (db as any)
+    .from('live_streams').select(cols)
+    .eq('organization_id', orgId).is('league_id', null).eq('status', 'live')
+    .order('started_at', { ascending: false }).limit(1).maybeSingle()
+  return (orgStream as LiveStream | null) ?? null
+}
+
+/** All currently-live streams for an org (admin management). */
+export async function getActiveLiveStreams(orgId: string): Promise<LiveStream[]> {
   const db = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = await (db as any)
     .from('live_streams')
-    .select('id, platform, title, url, embed_url, status, started_at')
-    .eq('organization_id', orgId)
-    .eq('status', 'live')
+    .select('id, platform, title, url, embed_url, status, started_at, league_id, detected_via')
+    .eq('organization_id', orgId).eq('status', 'live')
     .order('started_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  return (data as LiveStream | null) ?? null
+  return (data ?? []) as LiveStream[]
 }
 
 const goLiveSchema = z.object({
   platform: z.enum(['youtube', 'instagram', 'other']),
   url: z.string().url('Enter a valid URL'),
   title: z.string().max(120).optional(),
+  leagueId: z.string().uuid().optional().nullable(),
 })
 
 export async function goLive(input: z.infer<typeof goLiveSchema>): Promise<{ error: string | null }> {
@@ -62,14 +88,13 @@ export async function goLive(input: z.infer<typeof goLiveSchema>): Promise<{ err
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin', 'league_admin'])
-
   if (!await canAccess(org.id, 'social_integration')) {
     return { error: 'Live streaming is available on the Pro plan and above.' }
   }
 
   const db = createServiceRoleClient()
+  const leagueId = parsed.data.leagueId ?? null
 
-  // Derive an embeddable URL for YouTube; Instagram Live can't be iframe-embedded
   let embedUrl: string | null = null
   if (parsed.data.platform === 'youtube') {
     const vid = youTubeId(parsed.data.url)
@@ -77,19 +102,22 @@ export async function goLive(input: z.infer<typeof goLiveSchema>): Promise<{ err
     embedUrl = `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1`
   }
 
-  // End any existing live stream first (one live stream at a time)
+  // End only the prior stream with the SAME scope (this event, or org-wide).
+  // Other events' streams keep running.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+  let endQuery = (db as any)
     .from('live_streams')
     .update({ status: 'ended', ended_at: new Date().toISOString() })
-    .eq('organization_id', org.id)
-    .eq('status', 'live')
+    .eq('organization_id', org.id).eq('status', 'live')
+  endQuery = leagueId ? endQuery.eq('league_id', leagueId) : endQuery.is('league_id', null)
+  await endQuery
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (db as any)
     .from('live_streams')
     .insert({
       organization_id: org.id,
+      league_id: leagueId,
       platform: parsed.data.platform,
       title: parsed.data.title?.trim() || null,
       url: parsed.data.url,
@@ -105,7 +133,8 @@ export async function goLive(input: z.infer<typeof goLiveSchema>): Promise<{ err
   return { error: null }
 }
 
-export async function endLive(): Promise<{ error: string | null }> {
+/** End a specific live stream by id. */
+export async function endLiveStream(id: string): Promise<{ error: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin', 'league_admin'])
@@ -115,11 +144,9 @@ export async function endLive(): Promise<{ error: string | null }> {
   const { error } = await (db as any)
     .from('live_streams')
     .update({ status: 'ended', ended_at: new Date().toISOString() })
-    .eq('organization_id', org.id)
-    .eq('status', 'live')
+    .eq('id', id).eq('organization_id', org.id).eq('status', 'live')
 
   if (error) return { error: error.message }
-
   revalidatePath('/', 'layout')
   revalidatePath('/admin/live')
   return { error: null }
