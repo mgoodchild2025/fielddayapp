@@ -43,8 +43,17 @@ export default async function ProfilePage() {
           <MfaSettings isEnrolled={mfa.hasTotp} factorId={mfa.factorId} />
         </div>
 
-        {/* Privacy & Data rights link */}
-        <div className="mt-8 pt-6 border-t">
+        {/* Account links */}
+        <div className="mt-8 pt-6 border-t flex flex-col gap-3">
+          <Link
+            href="/profile/communications"
+            className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            Communication Preferences
+          </Link>
           <Link
             href="/profile/privacy"
             className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
