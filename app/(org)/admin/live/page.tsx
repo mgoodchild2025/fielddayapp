@@ -4,7 +4,9 @@ import { requireOrgMember } from '@/lib/auth'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { getCurrentLiveStream } from '@/actions/live'
+import { getYouTubeConnection, listSyncedItems } from '@/actions/social'
 import { GoLivePanel } from './go-live-panel'
+import { YouTubeSyncPanel } from './youtube-sync-panel'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Go Live — Fieldday' }
@@ -24,7 +26,13 @@ export default async function LivePage() {
       </div>
 
       {await canAccess(org.id, 'social_integration') ? (
-        <GoLivePanel current={await getCurrentLiveStream(org.id)} />
+        <div className="space-y-6">
+          <GoLivePanel current={await getCurrentLiveStream(org.id)} />
+          <YouTubeSyncPanel
+            connection={await getYouTubeConnection(org.id)}
+            items={await listSyncedItems(org.id)}
+          />
+        </div>
       ) : (
         <UpgradePrompt feature="Live streaming" requiredTier="pro" />
       )}

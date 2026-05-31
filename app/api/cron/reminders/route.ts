@@ -7,6 +7,7 @@ import { formatCourtLabel } from '@/lib/venue-label'
 import { sendPlatformAlert } from '@/actions/platform-settings'
 import { buildCaptainPrepEmail, type PrepPlayer } from '@/lib/emails/captain-prep'
 import { purgeLeagueData } from '@/lib/purge-league'
+import { fetchRecentUploads, youTubeWatchUrl, youTubeEmbedUrl } from '@/lib/youtube'
 
 function authorized(req: NextRequest) {
   const secret = process.env.CRON_SECRET
@@ -1259,6 +1260,94 @@ export async function GET(req: NextRequest) {
       .catch((e: unknown) => ({ error: String(e) }))
     if (res?.error) results.push(`auto-purge error for league ${lg.id}: ${res.error}`)
     else results.push(`auto-purged trashed event ${lg.id} (${lg.name})`)
+  }
+
+  // 10. YouTube auto-sync — uploads → moderation queue, + live detection.
+  //     Cheap quota usage (~2 units/channel/run via playlistItems + videos).
+  if (process.env.YOUTUBE_API_KEY) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: ytConns } = await (supabase as any)
+      .from('social_connections')
+      .select('id, organization_id, external_account_id, uploads_playlist_id, sync_enabled, live_sync_enabled')
+      .eq('platform', 'youtube')
+      .eq('sync_enabled', true)
+
+    for (const conn of ytConns ?? []) {
+      if (!conn.uploads_playlist_id) continue
+      const videos = await fetchRecentUploads(conn.uploads_playlist_id, 15)
+      if (videos.length === 0) continue
+
+      // Upsert each upload into the moderation queue (approved=false on first sight)
+      for (const v of videos) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+          .from('social_media_items')
+          .upsert(
+            {
+              organization_id: conn.organization_id,
+              connection_id: conn.id,
+              platform: 'youtube',
+              external_id: v.videoId,
+              type: 'video',
+              media_url: youTubeWatchUrl(v.videoId),
+              embed_url: youTubeEmbedUrl(v.videoId),
+              thumbnail_url: v.thumbnailUrl,
+              caption: v.title,
+              posted_at: v.publishedAt,
+            },
+            { onConflict: 'organization_id,platform,external_id', ignoreDuplicates: true }
+          )
+      }
+
+      // Live detection — a currently-live broadcast shows liveBroadcastContent='live'
+      if (conn.live_sync_enabled) {
+        const liveVid = videos.find(v => v.liveBroadcastContent === 'live')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: existingApiLive } = await (supabase as any)
+          .from('live_streams')
+          .select('id, url')
+          .eq('organization_id', conn.organization_id)
+          .eq('status', 'live')
+          .eq('detected_via', 'api')
+          .maybeSingle()
+
+        if (liveVid) {
+          const watch = youTubeWatchUrl(liveVid.videoId)
+          if (!existingApiLive) {
+            // Don't override a manual live stream that's currently active
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: manualLive } = await (supabase as any)
+              .from('live_streams').select('id').eq('organization_id', conn.organization_id)
+              .eq('status', 'live').eq('detected_via', 'manual').maybeSingle()
+            if (!manualLive) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              await (supabase as any).from('live_streams').insert({
+                organization_id: conn.organization_id,
+                platform: 'youtube',
+                title: liveVid.title,
+                url: watch,
+                embed_url: `${youTubeEmbedUrl(liveVid.videoId)}?autoplay=1`,
+                status: 'live',
+                detected_via: 'api',
+              })
+              results.push(`youtube live detected for org ${conn.organization_id}`)
+            }
+          }
+        } else if (existingApiLive) {
+          // Stream ended → clear the api-detected live row
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase as any).from('live_streams')
+            .update({ status: 'ended', ended_at: now.toISOString() })
+            .eq('id', existingApiLive.id)
+          results.push(`youtube live ended for org ${conn.organization_id}`)
+        }
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from('social_connections')
+        .update({ last_synced_at: now.toISOString() }).eq('id', conn.id)
+      results.push(`youtube synced ${videos.length} video(s) for org ${conn.organization_id}`)
+    }
   }
 
   return NextResponse.json({ ok: true, processed: results, sms_diagnostics })
