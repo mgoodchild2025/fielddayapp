@@ -8,6 +8,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { sendRegistrationConfirmation, sendRegistrationAdminNotification } from './emails'
 import { acceptDropInInvite, acceptPickupInvite } from './invites'
+import { recordConsents, consentRequestMeta, type ConsentRow } from './player-consents'
 
 const createRegistrationSchema = z.object({
   leagueId: z.string().uuid(),
@@ -16,6 +17,13 @@ const createRegistrationSchema = z.object({
   position: z.string().optional(),
   registration_type: z.enum(['season', 'drop_in']).default('season'),
   session_id: z.string().uuid().optional().nullable(),
+  // ── Consent capture (PIPEDA + CASL) — all optional for backward compatibility
+  consent: z.object({
+    privacyAccepted: z.boolean().optional(),   // required consents checkbox ticked
+    marketingEmail: z.boolean().optional(),    // opt-in, default false
+    marketingSms: z.boolean().optional(),      // opt-in, default false
+    waiverId: z.string().uuid().optional(),    // the waiver consented to (if any)
+  }).optional(),
 })
 
 export async function createRegistration(input: z.infer<typeof createRegistrationSchema>) {
@@ -104,6 +112,65 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
     .single()
 
   if (error) return { data: null, error: error.message }
+
+  // ── Consent capture (append-only ledger) ──────────────────────────────────
+  // Additive: the waiver itself is still recorded in waiver_signatures (above
+  // via waiverSignatureId). Here we also log the consent ledger rows.
+  if (parsed.data.consent) {
+    const c = parsed.data.consent
+    const meta = await consentRequestMeta()
+    const rows: ConsentRow[] = []
+
+    // Privacy policy (required) — link to the current published 'privacy' version
+    if (c.privacyAccepted) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: privDoc } = await (db as any)
+        .from('legal_documents').select('id, slug').eq('slug', 'privacy').maybeSingle()
+      let legalVersionId: string | null = null
+      let versionLabel: string | null = null
+      if (privDoc) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: ver } = await (db as any)
+          .from('legal_document_versions')
+          .select('id, version')
+          .eq('document_id', privDoc.id)
+          .order('published_at', { ascending: false })
+          .limit(1).maybeSingle()
+        legalVersionId = ver?.id ?? null
+        versionLabel = ver?.version ?? null
+      }
+      rows.push({
+        organization_id: org.id, user_id: user.id, league_id: parsed.data.leagueId,
+        consent_type: 'privacy_policy', consent_given: true,
+        document_slug: 'privacy', document_version: versionLabel,
+        legal_document_version_id: legalVersionId,
+        ip_address: meta.ip, user_agent: meta.userAgent,
+      })
+    }
+
+    // (Waiver consent is logged by signWaiver, where the signature is created —
+    //  it happens in a later step after the registration already exists.)
+
+    // Marketing email — opt-in, recorded either way (opt-out is a real record)
+    rows.push({
+      organization_id: org.id, user_id: user.id, league_id: parsed.data.leagueId,
+      consent_type: 'marketing_email', consent_given: !!c.marketingEmail,
+      ip_address: meta.ip, user_agent: meta.userAgent,
+    })
+    // Marketing SMS — only when the player provided a phone (flag implies it)
+    if (c.marketingSms !== undefined) {
+      rows.push({
+        organization_id: org.id, user_id: user.id, league_id: parsed.data.leagueId,
+        consent_type: 'marketing_sms', consent_given: !!c.marketingSms,
+        ip_address: meta.ip, user_agent: meta.userAgent,
+      })
+    }
+
+    const consentRes = await recordConsents(rows)
+    if (consentRes.error) {
+      console.error('[createRegistration] consent capture failed:', consentRes.error)
+    }
+  }
 
   // Mark the invite as accepted
   if (user.email) {

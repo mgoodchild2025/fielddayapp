@@ -8,6 +8,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createRateLimiter } from '@/lib/rate-limit'
 import { assertOrgAdmin } from '@/lib/auth'
+import { recordConsents } from './player-consents'
 
 // 5 waiver signing attempts per 10 minutes per IP — enough for any legitimate
 // player, tight enough to prevent automated bulk signing.
@@ -290,6 +291,26 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
       .eq('id', parsed.data.registrationId)
       .eq('organization_id', org.id)
       .eq('user_id', user.id)
+  }
+
+  // Append a waiver consent row to the ledger (additive; waiver_signatures
+  // remains the authoritative record). Only on a fresh signature.
+  if (!existing) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: waiverRow } = await (db as any)
+      .from('waivers').select('version').eq('id', parsed.data.waiverId).maybeSingle()
+    await recordConsents([{
+      organization_id: org.id,
+      user_id: user.id,
+      league_id: parsed.data.leagueId ?? null,
+      consent_type: 'waiver',
+      consent_given: true,
+      waiver_id: parsed.data.waiverId,
+      waiver_signature_id: signatureId,
+      document_version: waiverRow?.version != null ? String(waiverRow.version) : null,
+      ip_address: ipAddress,
+      user_agent: headersList.get('user-agent') ?? null,
+    }]).catch(() => {})
   }
 
   return { data: { signatureId }, error: null }

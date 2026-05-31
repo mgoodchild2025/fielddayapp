@@ -70,6 +70,11 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ── Consent (PIPEDA privacy + CASL marketing) ──
+  const [privacyAccepted, setPrivacyAccepted] = useState(false)
+  const [marketingEmail, setMarketingEmail] = useState(false)
+  const [marketingSms, setMarketingSms] = useState(false)
+
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -106,12 +111,27 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
       return
     }
 
+    if (!privacyAccepted) {
+      setError('Please agree to the Privacy Policy to continue.')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
     await updateProfile({ ...data, orgId: org.id })
 
-    const result = await createRegistration({ leagueId: league.id, position: selectedPosition || undefined, registration_type: registrationType, session_id: sessionId ?? undefined })
+    const result = await createRegistration({
+      leagueId: league.id,
+      position: selectedPosition || undefined,
+      registration_type: registrationType,
+      session_id: sessionId ?? undefined,
+      consent: {
+        privacyAccepted,
+        marketingEmail,
+        marketingSms,
+      },
+    })
     if (result.error) {
       setError(result.error === 'EVENT_FULL'
         ? 'Sorry, this event is full — no more spots are available.'
@@ -247,10 +267,65 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
         </label>
       </div>
 
+      {/* ── Review and consent ── */}
+      <div className="bg-white rounded-lg border p-5 space-y-4">
+        <h2 className="font-semibold">Review &amp; Consent</h2>
+
+        {/* Required consent — privacy policy */}
+        <div className="space-y-2">
+          <p className="text-sm text-gray-600">To continue, please review and agree to the following.</p>
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={privacyAccepted}
+              onChange={(e) => setPrivacyAccepted(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300"
+            />
+            <span className="text-sm text-gray-700">
+              I have read and agree to the{' '}
+              <a href="https://fielddayapp.ca/privacy" target="_blank" rel="noopener noreferrer"
+                className="underline text-blue-600 hover:text-blue-800">Fieldday Privacy Policy</a>.
+              <span className="block text-xs text-gray-400 mt-0.5">
+                You&apos;ll review and sign the league waiver on the next step.
+              </span>
+            </span>
+          </label>
+        </div>
+
+        {/* Optional marketing — unbundled, unticked (CASL) */}
+        <div className="pt-3 border-t space-y-2">
+          <p className="text-xs text-gray-500">
+            Optional. You can change these any time in your account settings. Game reminders and
+            confirmations are sent regardless and aren&apos;t affected by these choices.
+          </p>
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={marketingEmail}
+              onChange={(e) => setMarketingEmail(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300"
+            />
+            <span className="text-sm text-gray-700">Send me promotional emails about leagues, events, and news.</span>
+          </label>
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={marketingSms}
+              onChange={(e) => setMarketingSms(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300"
+            />
+            <span className="text-sm text-gray-700">
+              Send me promotional SMS messages.
+              <span className="block text-xs text-gray-400 mt-0.5">Standard message rates may apply. Reply STOP to unsubscribe.</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
       <button
         type="submit"
-        disabled={loading}
-        className="w-full py-3 rounded-md font-semibold text-white disabled:opacity-60"
+        disabled={loading || !privacyAccepted}
+        className="w-full py-3 rounded-md font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed"
         style={{ backgroundColor: 'var(--brand-primary)' }}
       >
         {loading ? 'Saving…' : 'Continue to Waiver →'}
