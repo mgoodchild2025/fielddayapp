@@ -439,11 +439,12 @@ function MatchCard({
 // ── Bracket diagram (reusable for both WB and LB sections) ───────────────────
 
 // MATCH_HEIGHT must accommodate the tallest possible card:
-//   court/time header (~24px) + 2 team rows (~72px) + score+edit buttons (~50px)
-// Extra headroom prevents overlap when court/time is populated.
-const MATCH_HEIGHT = 148
-const MATCH_GAP = 24
-const ROUND_WIDTH = 224
+//   court/time header (~24px) + 2 team rows (~72px) + score row + "Edit Match"
+//   link (~70px). Generous headroom keeps the Edit link clear of the card below
+//   once a score is entered.
+const MATCH_HEIGHT = 184
+const MATCH_GAP = 40
+const ROUND_WIDTH = 264
 
 function BracketDiagram({
   matches,
