@@ -24,6 +24,7 @@ export type BooleanFeature =
   | 'custom_nav_links'
   | 'player_check_in'
   | 'media_gallery'
+  | 'social_integration'
 
 export type LimitFeature =
   | 'max_leagues'   // null = unlimited
@@ -94,6 +95,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       { key: 'custom_positions',      label: 'Custom sport positions',   description: 'Define custom player positions per sport', type: 'boolean' },
       { key: 'custom_nav_links',      label: 'Custom navigation links',  description: 'Add up to 5 custom links (URLs or PDF documents) to the public nav bar', type: 'boolean' },
       { key: 'media_gallery',         label: 'Photo gallery & media page', description: 'Upload photos and embed YouTube videos or Instagram posts on a public media page', type: 'boolean' },
+      { key: 'social_integration',    label: 'Live stream & social',     description: 'Go live on YouTube/Instagram and surface the stream on your site and TV display', type: 'boolean' },
       { key: 'favicon',               label: 'Custom favicon',           description: 'Upload a custom browser favicon', type: 'boolean' },
       { key: 'custom_domain',         label: 'Custom domain',            description: 'Serve the org site from a custom domain name', type: 'boolean' },
     ],

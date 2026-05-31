@@ -51,6 +51,7 @@ const ZONE_TYPES: { value: ZoneConfig['type']; label: string; icon: string }[] =
   { value: 'message',   label: 'Message',    icon: '💬' },
   { value: 'clock',     label: 'Clock',      icon: '🕐' },
   { value: 'logo',      label: 'Logo',       icon: '🎨' },
+  { value: 'live',      label: 'Live Stream', icon: '🔴' },
   { value: 'empty',     label: 'Empty',      icon: '⬜' },
 ]
 
@@ -74,6 +75,7 @@ function ZoneEditor({
       case 'message':   return { type, title: '', body: 'Welcome!', font_size: 'lg' as const }
       case 'clock':     return { type }
       case 'logo':      return { type }
+      case 'live':      return { type }
       case 'empty':     return { type }
     }
   }

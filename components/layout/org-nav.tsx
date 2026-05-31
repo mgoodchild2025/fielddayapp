@@ -6,6 +6,7 @@ import { NavUserMenu } from './nav-user-menu'
 import { MobileNav } from './mobile-nav'
 import { NotificationBell } from './notification-bell'
 import { CartNavIcon } from '@/components/shop/cart-nav-icon'
+import { getCurrentLiveStream } from '@/actions/live'
 import type { OrgContext } from '@/lib/tenant'
 import type { NavLink } from '@/actions/nav-links'
 
@@ -49,6 +50,9 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
 
   const customLinks: NavLink[] = (navLinksResult.data ?? []) as NavLink[]
 
+  // Current live stream (if any) → "Live now" banner
+  const liveStream = await getCurrentLiveStream(org.id)
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sectionItems: { key: string; visible: boolean }[] = (sectionLayoutResult?.data as any)?.content?.sections ?? []
   const photosSection = sectionItems.find((s) => s.key === 'photos')
@@ -71,6 +75,20 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
       className="sticky top-0 z-40 border-b border-white/10"
       style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
     >
+      {liveStream && (
+        <a
+          href={liveStream.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 bg-red-600 text-white text-sm font-semibold py-1.5 px-4 hover:bg-red-700 transition-colors"
+        >
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
+          </span>
+          🔴 Live now{liveStream.title ? ` — ${liveStream.title}` : ''} · Watch →
+        </a>
+      )}
       <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
 
         {/* Left: logo (if uploaded) + org name */}

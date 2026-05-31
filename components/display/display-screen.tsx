@@ -10,6 +10,7 @@ import { QrZone }        from './zones/qr-zone'
 import { MessageZone }   from './zones/message-zone'
 import { ClockZone }     from './zones/clock-zone'
 import { LogoZone }      from './zones/logo-zone'
+import { LiveZone }      from './zones/live-zone'
 
 // ── Layout grid styles ────────────────────────────────────────────────────────
 
@@ -80,6 +81,8 @@ function ZoneRenderer({
       return <ClockZone timezone={data.timezone} theme={theme} />
     case 'logo':
       return <LogoZone orgName={data.org.name} logoUrl={data.org.logo_url} theme={theme} />
+    case 'live':
+      return <LiveZone live={data.live} theme={theme} />
     case 'empty':
     default:
       return null

@@ -20,6 +20,7 @@ const orgAdminNav = [
   { label: 'Players', href: '/admin/players', icon: '🏃' },
   { label: 'Waivers', href: '/admin/settings/waivers/signatures', icon: '📋' },
   { label: 'Gallery', href: '/admin/gallery', icon: '🖼️' },
+  { label: 'Live', href: '/admin/live', icon: '🔴' },
   { label: 'Messages', href: '/admin/messages', icon: '✉️' },
   { label: 'Settings', href: '/admin/settings', icon: '⚙️' },
 ]

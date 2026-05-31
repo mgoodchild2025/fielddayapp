@@ -114,6 +114,18 @@ export async function getDisplayData(
     db.from('organizations').select('name').eq('id', orgId).single(),
   ])
 
+  // Current live stream for the org (manual Go Live)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: liveRow } = await (db as any)
+    .from('live_streams')
+    .select('platform, title, url, embed_url')
+    .eq('organization_id', orgId)
+    .eq('status', 'live')
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const liveStream = (liveRow as { platform: string; title: string | null; url: string; embed_url: string | null } | null) ?? null
+
   // Team lookup by name — used to enrich label-based games (no FK) with color/logo
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: allTeamsData } = await (db as any)
@@ -407,6 +419,7 @@ export async function getDisplayData(
     poolStandings,
     standingsConfig: { ptsMethod, volleyballMode },
     bracket,
+    live: liveStream,
   }
 }
 

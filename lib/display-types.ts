@@ -22,6 +22,7 @@ export type ZoneConfig =
   | { type: 'message';  title?: string; body: string; font_size: 'sm' | 'md' | 'lg' | 'xl' }
   | { type: 'clock' }
   | { type: 'logo' }
+  | { type: 'live' }
   | { type: 'empty' }
 
 export interface DisplayConfig {
@@ -147,4 +148,6 @@ export interface DisplayData {
   /** Standings display settings — drives which columns the standings zone shows. */
   standingsConfig: { ptsMethod: string; volleyballMode: string }
   bracket:   { tiers: { name: string | null; matches: DisplayBracketMatch[] }[] } | null
+  /** Current live stream for the org (manual Go Live), or null. */
+  live:      { platform: string; title: string | null; url: string; embed_url: string | null } | null
 }
