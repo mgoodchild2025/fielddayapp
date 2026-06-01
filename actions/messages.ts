@@ -9,6 +9,8 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { getResend, FROM_EMAIL } from '@/lib/resend'
 import { sendSms, toE164 } from '@/lib/twilio'
 import { canAccess } from '@/lib/features'
+import { getMarketingConsentBatch } from '@/actions/player-consents'
+import { unsubscribeUrl } from '@/lib/unsubscribe'
 
 const sendSchema = z.object({
   title: z.string().min(1, 'Subject required'),
@@ -19,6 +21,9 @@ const sendSchema = z.object({
   user_ids: z.array(z.string().uuid()).optional(),
   scheduled_for: z.string().optional().nullable(),
   channel: z.enum(['email', 'sms', 'both']).default('email'),
+  // CASL: transactional = operational (sent to all); commercial = promotional
+  // (gated by per-recipient marketing consent + carries an unsubscribe link).
+  message_class: z.enum(['transactional', 'commercial']).default('transactional'),
   cc_self: z.boolean().default(false),
   cc_admins: z.boolean().default(false),
 })
@@ -40,6 +45,7 @@ export async function sendAnnouncement(input: FormData) {
     user_ids:      userIds,
     scheduled_for: (input.get('scheduled_for') as string) || null,
     channel:       (input.get('channel') as string) || 'email',
+    message_class: (input.get('message_class') as string) || 'transactional',
     cc_self:       input.get('cc_self') === 'on',
     cc_admins:     input.get('cc_admins') === 'on',
   }
@@ -92,6 +98,7 @@ export async function sendAnnouncement(input: FormData) {
       league_id:          parsed.data.league_id ?? null,
       team_id:            parsed.data.team_id ?? null,
       recipient_user_ids: parsed.data.audience_type === 'players' ? (parsed.data.user_ids ?? []) : null,
+      message_class:      parsed.data.message_class,
       sent_by:            user.id,
       sent_at:            isImmediate ? new Date().toISOString() : null,
       scheduled_for:      scheduledFor?.toISOString() ?? null,
@@ -120,11 +127,12 @@ type DeliveryData = {
   team_id?: string
   user_ids?: string[]
   channel?: 'email' | 'sms' | 'both'
+  message_class?: 'transactional' | 'commercial'
   cc_self?: boolean
   cc_admins?: boolean
 }
 
-type Recipient = { email: string | null; phone: string | null; sms_opted_in: boolean }
+type Recipient = { id: string; email: string | null; phone: string | null; sms_opted_in: boolean }
 
 async function deliverAnnouncement(
   announcementId: string,
@@ -222,37 +230,74 @@ async function deliverAnnouncement(
     .select('id, email, phone, sms_opted_in')
     .in('id', [...userIds])
 
-  const recipients: Recipient[] = (profiles ?? []).map((p: { email?: string; phone?: string; sms_opted_in?: boolean }) => ({
+  const recipients: Recipient[] = (profiles ?? []).map((p: { id: string; email?: string; phone?: string; sms_opted_in?: boolean }) => ({
+    id:           p.id,
     email:        p.email ?? null,
     phone:        p.phone ?? null,
     sms_opted_in: p.sms_opted_in ?? false,
   }))
 
   const channel = data.channel ?? 'email'
+  const isCommercial = data.message_class === 'commercial'
   const sendEmail = channel === 'email' || channel === 'both'
   const sendSmsChannel = channel === 'sms' || channel === 'both'
 
+  // ── CASL gate: for commercial messages, only recipients with active marketing
+  // consent may be contacted. Transactional (operational) messages are exempt.
+  let emailConsent: Set<string> | null = null
+  let smsConsent: Set<string> | null = null
+  if (isCommercial) {
+    const consent = await getMarketingConsentBatch(orgId, recipients.map((r) => r.id))
+    emailConsent = consent.email
+    smsConsent = consent.sms
+  }
+
+  const origin = process.env.NEXT_PUBLIC_APP_URL || 'https://fielddayapp.ca'
+
   // ── 4. Email ──────────────────────────────────────────────────────────────
   if (sendEmail) {
-    const emails = recipients.map((r) => r.email).filter(Boolean) as string[]
-    if (emails.length > 0) {
+    const emailRecipients = recipients.filter(
+      (r) => r.email && (!isCommercial || emailConsent!.has(r.id))
+    )
+    if (emailRecipients.length > 0) {
       const resend = getResend()
-      const BATCH_SIZE = 50
-      const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+      const renderHtml = (unsubLink: string | null) => `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
         <h2 style="font-size:20px;font-weight:bold">${data.title}</h2>
         <div style="white-space:pre-wrap;line-height:1.6">${data.body}</div>
         <p style="font-size:12px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:16px;margin-top:24px;line-height:1.6;">
           This message was sent to you by <strong>${orgName}</strong>, powered by Fieldday.<br>
-          You&rsquo;re receiving this because you&rsquo;re a member of this organization. To manage your notification preferences, log in and visit your profile settings.
+          ${
+            unsubLink
+              ? `You&rsquo;re receiving this promotional message because you opted in to marketing from this organization. <a href="${unsubLink}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe</a>.`
+              : `You&rsquo;re receiving this because you&rsquo;re a member of this organization. To manage your notification preferences, log in and visit your profile settings.`
+          }
         </p>
       </div>`
-      for (let i = 0; i < emails.length; i += BATCH_SIZE) {
-        await resend.emails.send({
-          from: FROM_EMAIL,
-          to: emails.slice(i, i + BATCH_SIZE),
-          subject: data.title,
-          html,
-        })
+
+      if (isCommercial) {
+        // Personalised unsubscribe link per recipient → must send individually
+        await Promise.allSettled(
+          emailRecipients.map((r) =>
+            resend.emails.send({
+              from: FROM_EMAIL,
+              to: r.email!,
+              subject: data.title,
+              html: renderHtml(unsubscribeUrl(origin, orgId, r.id, 'marketing_email')),
+            })
+          )
+        )
+      } else {
+        const emails = emailRecipients.map((r) => r.email!) as string[]
+        const BATCH_SIZE = 50
+        const html = renderHtml(null)
+        for (let i = 0; i < emails.length; i += BATCH_SIZE) {
+          await resend.emails.send({
+            from: FROM_EMAIL,
+            to: emails.slice(i, i + BATCH_SIZE),
+            subject: data.title,
+            html,
+          })
+        }
       }
       await service.from('announcements').update({ email_sent: true }).eq('id', announcementId)
     }
@@ -266,7 +311,9 @@ async function deliverAnnouncement(
       console.warn(`[messages] org ${orgId} attempted SMS send without sms_notifications access`)
     } else {
       const smsBody = `${orgName}\n\n${data.title}\n\n${data.body}\n\nReply STOP to unsubscribe.`
-      const smsRecipients = recipients.filter((r) => r.phone && r.sms_opted_in)
+      const smsRecipients = recipients.filter(
+        (r) => r.phone && r.sms_opted_in && (!isCommercial || smsConsent!.has(r.id))
+      )
       await Promise.allSettled(
         smsRecipients.map((r) => sendSms(toE164(r.phone!), smsBody))
       )

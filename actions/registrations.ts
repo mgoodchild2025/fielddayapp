@@ -125,7 +125,7 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
     if (c.privacyAccepted) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: privDoc } = await (db as any)
-        .from('legal_documents').select('id, slug').eq('slug', 'privacy').maybeSingle()
+        .from('legal_documents').select('id, slug').eq('slug', 'privacy-policy').maybeSingle()
       let legalVersionId: string | null = null
       let versionLabel: string | null = null
       if (privDoc) {
@@ -142,7 +142,7 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
       rows.push({
         organization_id: org.id, user_id: user.id, league_id: parsed.data.leagueId,
         consent_type: 'privacy_policy', consent_given: true,
-        document_slug: 'privacy', document_version: versionLabel,
+        document_slug: 'privacy-policy', document_version: versionLabel,
         legal_document_version_id: legalVersionId,
         ip_address: meta.ip, user_agent: meta.userAgent,
       })

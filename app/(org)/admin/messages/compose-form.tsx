@@ -24,6 +24,7 @@ interface Player {
 
 type Channel = 'email' | 'sms' | 'both'
 type AudienceType = 'org' | 'league' | 'team' | 'players'
+type MessageClass = 'transactional' | 'commercial'
 
 export function ComposeMessageForm({
   leagues,
@@ -39,6 +40,7 @@ export function ComposeMessageForm({
   const [isPending, startTransition] = useTransition()
   const [audienceType, setAudienceType] = useState<AudienceType>('org')
   const [channel, setChannel] = useState<Channel>('email')
+  const [messageClass, setMessageClass] = useState<MessageClass>('transactional')
   const [teamLeagueFilter, setTeamLeagueFilter] = useState('')
   const [selectedPlayers, setSelectedPlayers] = useState<Set<string>>(new Set())
   const [playerSearch, setPlayerSearch] = useState('')
@@ -85,6 +87,7 @@ export function ComposeMessageForm({
         ;(e.target as HTMLFormElement).reset()
         setAudienceType('org')
         setChannel('email')
+        setMessageClass('transactional')
         setTeamLeagueFilter('')
         setSelectedPlayers(new Set())
         setPlayerSearch('')
@@ -231,6 +234,50 @@ export function ComposeMessageForm({
           placeholder="Write your announcement here…"
           className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2"
         />
+      </div>
+
+      {/* Message type (CASL) */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Message type</label>
+        <input type="hidden" name="message_class" value={messageClass} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setMessageClass('transactional')}
+            className={`text-left rounded-md border px-3 py-2.5 transition-colors ${
+              messageClass === 'transactional'
+                ? 'border-transparent ring-2'
+                : 'border-gray-200 hover:bg-gray-50'
+            }`}
+            style={messageClass === 'transactional' ? { boxShadow: '0 0 0 2px var(--brand-primary)' } : {}}
+          >
+            <span className="block text-sm font-medium text-gray-800">Transactional</span>
+            <span className="block text-xs text-gray-500 mt-0.5">
+              Operational updates — schedules, results, account notices. Sent to all recipients.
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMessageClass('commercial')}
+            className={`text-left rounded-md border px-3 py-2.5 transition-colors ${
+              messageClass === 'commercial'
+                ? 'border-transparent ring-2'
+                : 'border-gray-200 hover:bg-gray-50'
+            }`}
+            style={messageClass === 'commercial' ? { boxShadow: '0 0 0 2px var(--brand-primary)' } : {}}
+          >
+            <span className="block text-sm font-medium text-gray-800">Promotional</span>
+            <span className="block text-xs text-gray-500 mt-0.5">
+              Marketing &amp; offers. Sent only to recipients who opted in, with an unsubscribe link (CASL).
+            </span>
+          </button>
+        </div>
+        {messageClass === 'commercial' && (
+          <p className="text-xs text-amber-600 mt-1.5">
+            Promotional messages are delivered only to members who have opted in to marketing. Recipients
+            without consent are automatically skipped.
+          </p>
+        )}
       </div>
 
       {/* Delivery channel */}
