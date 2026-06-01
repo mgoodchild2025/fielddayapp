@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: due } = await (supabase as any)
     .from('announcements')
-    .select('id, organization_id, title, body, audience_type, league_id, team_id, recipient_user_ids')
+    .select('id, organization_id, title, body, audience_type, league_id, team_id, recipient_user_ids, channel, message_class')
     .is('sent_at', null)
     .eq('email_sent', false)
     .lte('scheduled_for', now.toISOString())
@@ -40,6 +40,8 @@ export async function GET(req: NextRequest) {
       league_id: ann.league_id ?? undefined,
       team_id: ann.team_id ?? undefined,
       user_ids: ann.recipient_user_ids ?? undefined,
+      channel: ann.channel ?? 'email',
+      message_class: ann.message_class ?? 'transactional',
     }).catch((e: unknown) => results.push(`ann ${ann.id} error: ${e}`))
 
     await supabase

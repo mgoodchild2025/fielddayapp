@@ -11,6 +11,7 @@ import { sendSms, toE164 } from '@/lib/twilio'
 import { canAccess } from '@/lib/features'
 import { getMarketingConsentBatch } from '@/actions/player-consents'
 import { unsubscribeUrl } from '@/lib/unsubscribe'
+import { parseLocalToUtc } from '@/lib/format-time'
 
 const sendSchema = z.object({
   title: z.string().min(1, 'Subject required'),
@@ -84,7 +85,25 @@ export async function sendAnnouncement(input: FormData) {
     return { error: 'Unauthorized' }
   }
 
-  const scheduledFor = parsed.data.scheduled_for ? new Date(parsed.data.scheduled_for) : null
+  // The datetime-local value ("YYYY-MM-DDTHH:MM") is wall-clock time in the org's
+  // local timezone. Interpret it in that zone — NOT the server's (UTC) — otherwise
+  // a future local time can resolve to a past UTC instant and send immediately.
+  let scheduledFor: Date | null = null
+  if (parsed.data.scheduled_for) {
+    const [datePart, timePart] = parsed.data.scheduled_for.split('T')
+    if (datePart && timePart) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: branding } = await (db as any)
+        .from('org_branding')
+        .select('timezone')
+        .eq('organization_id', org.id)
+        .maybeSingle()
+      const tz = branding?.timezone || 'America/Toronto'
+      scheduledFor = new Date(parseLocalToUtc(datePart, timePart.slice(0, 5), tz))
+    } else {
+      scheduledFor = new Date(parsed.data.scheduled_for)
+    }
+  }
   const isImmediate = !scheduledFor || scheduledFor <= new Date()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -99,6 +118,7 @@ export async function sendAnnouncement(input: FormData) {
       team_id:            parsed.data.team_id ?? null,
       recipient_user_ids: parsed.data.audience_type === 'players' ? (parsed.data.user_ids ?? []) : null,
       message_class:      parsed.data.message_class,
+      channel:            parsed.data.channel,
       sent_by:            user.id,
       sent_at:            isImmediate ? new Date().toISOString() : null,
       scheduled_for:      scheduledFor?.toISOString() ?? null,
