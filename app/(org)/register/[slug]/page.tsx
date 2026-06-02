@@ -8,6 +8,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getPositionsForSport } from '@/actions/positions'
 import { getLeagueMerchandise } from '@/actions/merchandise'
 import type { MerchItemForStep } from '@/components/registration/step-addons'
+import { resolveLeagueMethods } from '@/lib/payment-methods'
 
 export default async function RegisterLeaguePage({
   params,
@@ -138,7 +139,15 @@ export default async function RegisterLeaguePage({
   const registrationPaymentMode = (connectAccount as any)?.registration_payment_mode ?? 'stripe'
   const hasOnlinePayments = !!connectAccount?.stripe_secret_key && registrationPaymentMode !== 'manual'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const manualPaymentInstructions: string | null = (connectAccount as any)?.registration_manual_instructions ?? null
+  const orgManualInstructions: string | null = (connectAccount as any)?.registration_manual_instructions ?? null
+
+  // Per-league accepted methods (resolved, with legacy org fallback). When the
+  // league has no explicit config this returns ['card'] or ['etransfer','cash'].
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const acceptedMethods = resolveLeagueMethods((league as any).payment_methods, connectAccount as any)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const offlineInstructions: string | null = ((league as any).payment_instructions?.trim() || null) ?? orgManualInstructions
+  const manualPaymentInstructions: string | null = orgManualInstructions
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dropInPriceCents: number | null = (league as any).drop_in_price_cents ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -270,14 +279,17 @@ export default async function RegisterLeaguePage({
 
     // 'paid' = Stripe payment confirmed; 'manual' = offline payment acknowledged in-flow
     const paymentComplete = !!completedPayment
+    // An offline method selected at checkout reserves the spot immediately
+    // (registration set active, payment left pending for the admin to reconcile).
+    // Treat an active registration as settled so the player isn't re-prompted.
+    const reserved = existingReg.status === 'active'
     const now = new Date()
     const earlyBirdActive = !isDropIn && earlyBirdPriceCents != null && earlyBirdDeadline != null && now < new Date(earlyBirdDeadline)
     const effectivePrice = isDropIn ? (dropInPriceCents ?? 0) : (earlyBirdActive ? earlyBirdPriceCents! : league.price_cents)
-    const needsPayment = effectivePrice > 0 && hasOnlinePayments && !paymentComplete
+    const needsPayment = effectivePrice > 0 && hasOnlinePayments && !paymentComplete && !reserved
     // Manual payment: price set but no Stripe — player must see payment instructions
-    // before we activate them. There's no DB record for offline payments, so we
-    // always show the step until the player explicitly clicks "Complete Registration".
-    const needsManualPayment = effectivePrice > 0 && !hasOnlinePayments && !paymentComplete
+    // before we activate them.
+    const needsManualPayment = effectivePrice > 0 && !hasOnlinePayments && !paymentComplete && !reserved
 
     // Per-team captain: if registration is active but no payment record exists,
     // the captain was activated before payment was collected (old bug or fresh invite).
@@ -342,6 +354,8 @@ export default async function RegisterLeaguePage({
       leagueMerch={leagueMerch}
       initialTeamCode={initialTeamCode}
       manualPaymentInstructions={manualPaymentInstructions}
+      acceptedMethods={acceptedMethods}
+      offlineInstructions={offlineInstructions}
       dropInSessions={dropInSessions}
       preselectedSessionId={preselectedSessionId}
     />

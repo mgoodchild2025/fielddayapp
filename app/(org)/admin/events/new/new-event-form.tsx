@@ -7,6 +7,8 @@ import { z } from 'zod'
 import { createLeague } from '@/actions/events'
 import { useRouter } from 'next/navigation'
 import { RichTextEditor } from '@/components/ui/rich-text-editor'
+import { PaymentMethodsField } from '@/components/events/payment-methods-field'
+import type { PaymentMethod } from '@/lib/payment-methods'
 
 function Field({
   label,
@@ -88,6 +90,8 @@ const schema = z.object({
   age_group: z.string().optional(),
   price_cents: z.number().min(0).default(0),
   payment_mode: z.enum(['per_player', 'per_team']).default('per_player'),
+  payment_methods: z.array(z.enum(['card', 'etransfer', 'cash', 'cheque'])).optional(),
+  payment_instructions: z.string().optional(),
   max_teams: z.number().optional(),
   max_participants: z.number().optional(),
   min_team_size: z.number().default(4),
@@ -273,6 +277,8 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
   const ageGroup = watch('age_group')
   const priceCents = watch('price_cents')
   const paymentMode = watch('payment_mode')
+  const paymentMethods = (watch('payment_methods') ?? []) as PaymentMethod[]
+  const paymentInstructions = watch('payment_instructions') ?? ''
   const teamJoinPolicy = watch('team_join_policy')
   const pickupJoinPolicy = watch('pickup_join_policy')
   const registrationMode = watch('registration_mode')
@@ -660,6 +666,16 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                 </Field>
               )}
             </div>
+
+            {/* Accepted payment methods (only meaningful for paid events) */}
+            {(priceCents ?? 0) > 0 && (
+              <PaymentMethodsField
+                value={paymentMethods}
+                onChange={(m) => setValue('payment_methods', m, { shouldValidate: false })}
+                instructions={paymentInstructions}
+                onInstructionsChange={(v) => setValue('payment_instructions', v, { shouldValidate: false })}
+              />
+            )}
 
             {/* Early bird pricing — feature-gated */}
             {hasEarlyBird && !isPickup && (

@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { updateLeague } from '@/actions/events'
 import { RichTextEditor } from '@/components/ui/rich-text-editor'
+import { PaymentMethodsField } from '@/components/events/payment-methods-field'
+import { sanitizeMethods, type PaymentMethod } from '@/lib/payment-methods'
 
 interface League {
   id: string
@@ -14,6 +16,8 @@ interface League {
   registration_mode: string
   price_cents: number
   drop_in_price_cents: number | null
+  payment_methods: string[] | null
+  payment_instructions: string | null
   currency: string
   payment_mode: string
   min_team_size: number | null
@@ -131,6 +135,8 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
   const [selectedOfficiated, setSelectedOfficiated] = useState<string>(league.officiated ?? '')
   const [checkinEnabled, setCheckinEnabled] = useState<boolean>(league.checkin_enabled)
   const [selectedSport, setSelectedSport] = useState<string>(league.sport ?? '')
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(sanitizeMethods(league.payment_methods))
+  const [paymentInstructions, setPaymentInstructions] = useState<string>(league.payment_instructions ?? '')
   const [volleyballMode, setVolleyballMode] = useState<string>(league.volleyball_standings_mode ?? 'match_based')
   const [ptsMethod, setPtsMethod] = useState<string>(league.standings_pts_method ?? 'wins')
 
@@ -155,6 +161,8 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
 
       price_cents: Math.round(Number(fd.get('price_cents') || 0) * 100),
       payment_mode: (fd.get('payment_mode') as 'per_player' | 'per_team') || 'per_player',
+      payment_methods: paymentMethods,
+      payment_instructions: paymentInstructions,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       drop_in_price_cents: fd.get('drop_in_price_cents') ? Math.round(Number(fd.get('drop_in_price_cents')) * 100) : null as any,
       min_team_size: Number(fd.get('min_team_size')),
@@ -325,6 +333,16 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
               </select>
             </Field>
           </div>
+        )}
+
+        {/* Accepted payment methods (paid events only) */}
+        {league.price_cents > 0 && (
+          <PaymentMethodsField
+            value={paymentMethods}
+            onChange={setPaymentMethods}
+            instructions={paymentInstructions}
+            onInstructionsChange={setPaymentInstructions}
+          />
         )}
 
         {/* Early bird pricing — feature-gated, not shown for pickup/drop-in */}

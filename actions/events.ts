@@ -23,6 +23,8 @@ const createLeagueSchema = z.object({
   sport: z.string().default('beach_volleyball'),
   price_cents: z.coerce.number().min(0).default(0),
   payment_mode: z.enum(['per_player', 'per_team']).default('per_player'),
+  payment_methods: z.array(z.enum(['card', 'etransfer', 'cash', 'cheque'])).optional(),
+  payment_instructions: z.string().optional(),
   max_teams: z.coerce.number().optional(),
   max_participants: z.coerce.number().optional(),
   min_team_size: z.coerce.number().default(4),
@@ -95,6 +97,8 @@ export async function createLeague(
       organization_id: org.id,
       league_type,
       ...parsed.data,
+      payment_methods: parsed.data.payment_methods?.length ? parsed.data.payment_methods : null,
+      payment_instructions: parsed.data.payment_instructions?.trim() || null,
       season_start_date: parsed.data.season_start_date || null,
       season_end_date: parsed.data.season_end_date || null,
       registration_opens_at: parsed.data.registration_opens_at || null,
@@ -295,6 +299,13 @@ export async function updateLeague(
   const org = await getCurrentOrg(headersList)
   const auth = await assertOrgAdmin(org)
   if (auth.error) return { error: auth.error }
+
+  // Normalize payment method config: empty array → null (= legacy fallback),
+  // blank instructions → null.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const u = updates as any
+  if (Array.isArray(u.payment_methods) && u.payment_methods.length === 0) u.payment_methods = null
+  if (typeof u.payment_instructions === 'string') u.payment_instructions = u.payment_instructions.trim() || null
 
   const db = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

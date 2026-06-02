@@ -13,6 +13,7 @@ import type { TeamOption } from './step-team-join'
 import type { MerchItemForStep, MerchSelection } from './step-addons'
 import { activateRegistration } from '@/actions/registrations'
 import type { Database } from '@/types/database'
+import type { PaymentMethod } from '@/lib/payment-methods'
 
 type League = Database['public']['Tables']['leagues']['Row']
 type Waiver = Database['public']['Tables']['waivers']['Row']
@@ -52,6 +53,11 @@ interface Props {
    * step with these instructions before completing the registration.
    */
   manualPaymentInstructions?: string | null
+  /** Per-league accepted payment methods (resolved). When set, the payment step
+   *  lets the player choose; offline methods reserve the spot + create a pending payment. */
+  acceptedMethods?: PaymentMethod[]
+  /** Offline payment instructions (per-league, falling back to org). */
+  offlineInstructions?: string | null
   /** Upcoming sessions for drop-in registration — player picks one before step 1 */
   dropInSessions?: { id: string; scheduled_at: string; capacity: number | null; registered_count: number }[]
   /** Session pre-selected from the event page "Register to join" button — skips the picker */
@@ -90,6 +96,8 @@ export function RegistrationFlow({
   leagueMerch = [],
   initialTeamCode = null,
   manualPaymentInstructions = null,
+  acceptedMethods = [],
+  offlineInstructions = null,
   dropInSessions = [],
   preselectedSessionId = null,
 }: Props) {
@@ -98,13 +106,20 @@ export function RegistrationFlow({
   const earlyBirdActive = !isDropIn && earlyBirdPriceCents != null && earlyBirdDeadline != null && new Date() < new Date(earlyBirdDeadline)
   const effectivePriceCents = isDropIn ? (dropInPriceCents ?? 0) : (earlyBirdActive ? earlyBirdPriceCents! : league.price_cents)
   const isPerTeam = (league as unknown as { payment_mode?: string }).payment_mode === 'per_team'
-  const showPaymentStep = effectivePriceCents > 0 && hasOnlinePayments && !isPerTeam
-  // Manual payment: price is set but Stripe is not configured/enabled.
-  // Show an informational step with the org's offline payment instructions.
-  const showManualPaymentStep = effectivePriceCents > 0 && !hasOnlinePayments && !isPerTeam
-  // Show add-ons whenever merch exists and online payments are available —
-  // independent of whether the base registration fee is non-zero.
-  const showAddOnsStep = leagueMerch.length > 0 && hasOnlinePayments && !isPerTeam
+
+  // Per-league method choice. When acceptedMethods is set, the unified Step3Payment
+  // handles all methods (card + offline). Otherwise fall back to the legacy split
+  // between a Stripe step and a manual-instructions step.
+  const hasMethodChoice = acceptedMethods.length > 0
+  const hasCard = hasMethodChoice ? acceptedMethods.includes('card') : hasOnlinePayments
+
+  const showPaymentStep =
+    effectivePriceCents > 0 && !isPerTeam && (hasMethodChoice ? acceptedMethods.length > 0 : hasOnlinePayments)
+  // Legacy manual step — only when there's no explicit per-league method config.
+  const showManualPaymentStep =
+    effectivePriceCents > 0 && !isPerTeam && !hasMethodChoice && !hasOnlinePayments
+  // Add-ons (merch) require online card payment.
+  const showAddOnsStep = leagueMerch.length > 0 && !isPerTeam && hasCard
 
   // When an admin pre-assigns a captain to a team (captainTeamId is already set),
   // the team fee hasn't been paid yet. Route through an inline payment step so the
@@ -465,6 +480,9 @@ export function RegistrationFlow({
             merchSelections={merchSelections}
             leagueMerch={leagueMerch}
             onBack={() => advanceStep(showAddOnsStep ? 3 : (waiver ? 2 : 1))}
+            acceptedMethods={showCaptainPaymentStep ? [] : acceptedMethods}
+            offlineInstructions={offlineInstructions}
+            onComplete={() => completeRegistration(registrationId)}
           />
         )}
 
