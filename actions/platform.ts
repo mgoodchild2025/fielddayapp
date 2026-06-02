@@ -253,7 +253,10 @@ export async function deleteOrganization(orgId: string): Promise<{ error: string
   // Clean up storage objects for this org (non-fatal if bucket doesn't exist yet)
   await supabase.storage.from('org-branding').remove([`${orgId}/logo.png`, `${orgId}/logo.jpg`, `${orgId}/logo.webp`, `${orgId}/logo.svg`, `${orgId}/logo.gif`]).catch(() => {})
 
-  const { error } = await supabase.from('organizations').delete().eq('id', orgId)
+  // Purge via RPC so the org delete + its ON DELETE CASCADE (including the
+  // append-only tenant_acceptances rows) happen atomically with the purge flag.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).rpc('purge_organization', { p_org_id: orgId })
   if (error) return { error: error.message }
 
   revalidatePath('/super')
