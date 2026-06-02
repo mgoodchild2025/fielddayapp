@@ -27,6 +27,8 @@ export type NotificationSettings = {
   registrationNotificationsEnabled: boolean
   /** Custom recipient email. When null, notifications go to all org_admin members. */
   registrationNotificationEmail: string | null
+  /** Alert org admins when a Stripe payment fails. */
+  paymentFailureNotificationsEnabled: boolean
 }
 
 type OrgNotifRow = {
@@ -36,6 +38,7 @@ type OrgNotifRow = {
   captain_prep_email_enabled: boolean
   registration_notifications_enabled: boolean
   registration_notification_email: string | null
+  payment_failure_notifications_enabled: boolean
 } | null
 type OrgSmsReminderRow = {
   id: string
@@ -54,7 +57,7 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
   const [{ data: notif }, { data: reminders }] = await Promise.all([
     (db as any)
       .from('org_notification_settings')
-      .select('sms_game_reminders_enabled, email_game_reminders_enabled, email_reminder_hours_before, captain_prep_email_enabled, registration_notifications_enabled, registration_notification_email')
+      .select('sms_game_reminders_enabled, email_game_reminders_enabled, email_reminder_hours_before, captain_prep_email_enabled, registration_notifications_enabled, registration_notification_email, payment_failure_notifications_enabled')
       .eq('organization_id', org.id)
       .single() as Promise<{ data: OrgNotifRow }>,
     (db as any)
@@ -77,6 +80,7 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
     captainPrepEmailEnabled: (notif as OrgNotifRow)?.captain_prep_email_enabled ?? false,
     registrationNotificationsEnabled: (notif as OrgNotifRow)?.registration_notifications_enabled ?? false,
     registrationNotificationEmail: (notif as OrgNotifRow)?.registration_notification_email ?? null,
+    paymentFailureNotificationsEnabled: (notif as OrgNotifRow)?.payment_failure_notifications_enabled ?? true,
   }
 }
 
@@ -120,6 +124,7 @@ export async function saveNotificationSettings(
         captain_prep_email_enabled: settings.captainPrepEmailEnabled,
         registration_notifications_enabled: settings.registrationNotificationsEnabled,
         registration_notification_email: settings.registrationNotificationEmail?.trim() || null,
+        payment_failure_notifications_enabled: settings.paymentFailureNotificationsEnabled,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'organization_id' }

@@ -379,8 +379,17 @@ export async function POST(request: NextRequest) {
 
     // Notify org admins — in-app + email. Never let this break the webhook.
     try {
+      // Respect the per-org toggle (default on when no settings row exists).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const adminRows = (admins ?? []) as Array<{ user_id: string; profile: any }>
+      const { data: notifSettings } = await (supabase as any)
+        .from('org_notification_settings')
+        .select('payment_failure_notifications_enabled')
+        .eq('organization_id', failOrgId ?? '')
+        .maybeSingle()
+      const alertsEnabled = notifSettings?.payment_failure_notifications_enabled ?? true
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const adminRows = alertsEnabled ? ((admins ?? []) as Array<{ user_id: string; profile: any }>) : []
       const notifBody = `${playerName ?? 'A player'}'s payment for ${leagueName} failed${amountLabel ? ` (${amountLabel})` : ''}.`
 
       const notifRows = adminRows
