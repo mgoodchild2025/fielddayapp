@@ -158,8 +158,10 @@ export async function selectOfflinePayment(
     }
   }
 
-  // Reserve the spot immediately.
-  await db.from('registrations').update({ status: 'active' }).eq('id', reg.id)
+  // NOTE: we intentionally do NOT activate the registration here. The flow's
+  // "Done" button activates it (activateRegistration) and routes to /success.
+  // Activating here would trigger the register page's active-registration
+  // redirect on the Server Action refresh, flashing past the instructions.
 
   const instructions =
     (league.payment_instructions?.trim() || null) ??

@@ -165,7 +165,8 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
             )}
           </div>
           <p className="text-xs text-gray-400">
-            Your spot is reserved. The organizer will mark your payment as received once it arrives.
+            Make a note of these instructions. Click below to finish — the organizer will mark your
+            payment as received once it arrives.
           </p>
           <button
             type="button"
@@ -173,7 +174,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
             className="w-full py-3 rounded-md font-semibold text-white"
             style={{ backgroundColor: 'var(--brand-primary)' }}
           >
-            Done →
+            Finish registration →
           </button>
         </div>
       </div>
