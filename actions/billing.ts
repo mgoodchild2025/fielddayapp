@@ -167,6 +167,9 @@ export async function createSubscriptionCheckout(
       return { error: `Price ID for "${tier}" plan is not configured. Please contact support.` }
     }
 
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return { error: 'Billing is not configured (missing Stripe key). Please contact support.' }
+    }
     const stripe = getStripe()
     const supabase = createServiceRoleClient()
 
@@ -176,7 +179,7 @@ export async function createSubscriptionCheckout(
       .from('subscriptions')
       .select('stripe_customer_id')
       .eq('organization_id', org.id)
-      .single()
+      .maybeSingle()
 
     customerId = sub?.stripe_customer_id ?? null
 
@@ -211,7 +214,19 @@ export async function createSubscriptionCheckout(
     return { url: session.url }
   } catch (err) {
     console.error('[billing] createSubscriptionCheckout error:', err)
-    return { error: 'An unexpected error occurred. Please try again.' }
+    // Surface the underlying reason — this is an org-admin-only action, and a
+    // generic message makes Stripe misconfiguration (e.g. a test-mode price ID
+    // used with a live key → "No such price") impossible to diagnose.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const e = err as any
+    if (e?.type === 'StripeInvalidRequestError' && typeof e.message === 'string') {
+      return { error: `Stripe rejected the request: ${e.message}` }
+    }
+    if (e?.type === 'StripeAuthenticationError') {
+      return { error: 'Stripe authentication failed — the Stripe API key is invalid for this mode.' }
+    }
+    const msg = err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.'
+    return { error: msg }
   }
 }
 
