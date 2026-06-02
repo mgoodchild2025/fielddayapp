@@ -37,6 +37,24 @@ export default async function PlatformSuperPage() {
     memberCounts[row.organization_id] = (memberCounts[row.organization_id] ?? 0) + 1
   }
 
+  // Org admins (name) per org
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: adminRows } = await (supabase as any)
+    .from('org_members')
+    .select('organization_id, profile:profiles!org_members_user_id_fkey(full_name, email)')
+    .eq('role', 'org_admin')
+    .eq('status', 'active')
+    .in('organization_id', orgIds)
+
+  const orgAdmins: Record<string, { name: string; extra: number }> = {}
+  for (const row of (adminRows ?? []) as { organization_id: string; profile: { full_name?: string; email?: string } | { full_name?: string; email?: string }[] | null }[]) {
+    const p = Array.isArray(row.profile) ? row.profile[0] : row.profile
+    const name = p?.full_name || p?.email
+    if (!name) continue
+    if (!orgAdmins[row.organization_id]) orgAdmins[row.organization_id] = { name, extra: 0 }
+    else orgAdmins[row.organization_id].extra += 1
+  }
+
   const total = orgs?.length ?? 0
   const active = orgs?.filter(o => o.status === 'active').length ?? 0
   const trial = orgs?.filter(o => o.status === 'trial').length ?? 0
@@ -69,7 +87,7 @@ export default async function PlatformSuperPage() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {['Name', 'Slug', 'Sport', 'City', 'Status', 'Plan', 'Members', 'Created', ''].map(h => (
+              {['Name', 'Admin', 'Slug', 'Sport', 'City', 'Status', 'Plan', 'Members', 'Created', ''].map(h => (
                 <th key={h} className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   {h}
                 </th>
@@ -82,6 +100,10 @@ export default async function PlatformSuperPage() {
               return (
                 <tr key={org.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-5 py-3 font-medium text-gray-900 whitespace-nowrap">{org.name}</td>
+                  <td className="px-5 py-3 text-gray-600 whitespace-nowrap text-sm">
+                    {orgAdmins[org.id]?.name ?? <span className="text-gray-300">—</span>}
+                    {orgAdmins[org.id]?.extra ? <span className="text-gray-400"> +{orgAdmins[org.id].extra}</span> : null}
+                  </td>
                   <td className="px-5 py-3 text-gray-500 whitespace-nowrap text-sm">{org.slug}</td>
                   <td className="px-5 py-3 text-gray-500 whitespace-nowrap text-sm capitalize">
                     {org.sport?.replace('_', ' ') ?? '—'}
@@ -116,7 +138,7 @@ export default async function PlatformSuperPage() {
             })}
             {(!orgs || orgs.length === 0) && (
               <tr>
-                <td colSpan={9} className="px-5 py-10 text-center text-sm text-gray-400">
+                <td colSpan={10} className="px-5 py-10 text-center text-sm text-gray-400">
                   No organizations yet. Create one to get started.
                 </td>
               </tr>
