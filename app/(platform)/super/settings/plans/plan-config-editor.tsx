@@ -93,17 +93,70 @@ export function PlanConfigEditor({ tiers, featureGroups, configMap }: Props) {
     })
   }
 
+  // Shared control (toggle or limit input) — reused by the desktop matrix and
+  // the mobile stacked layout.
+  function renderControl(tier: string, feat: FeatureGroup['features'][number]) {
+    const cell = local[tier]?.[feat.key] ?? { enabled: false, limit_value: null }
+
+    if (feat.type === 'limit') {
+      const isUnlimited = !cell.enabled || cell.limit_value === null
+      return (
+        <div className="flex flex-col items-center gap-1">
+          <label className="flex items-center gap-1 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isUnlimited}
+              onChange={(e) => setUnlimited(tier, feat.key, e.target.checked)}
+              className="w-3 h-3 rounded accent-emerald-500"
+            />
+            <span className="text-[10px] text-gray-400">∞</span>
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={isUnlimited ? '' : (cell.limit_value ?? '')}
+            onChange={(e) => setLimit(tier, feat.key, e.target.value)}
+            disabled={isUnlimited}
+            placeholder="—"
+            className="w-16 text-center text-xs bg-gray-700 border border-gray-600 rounded px-1 py-1 text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          />
+          {feat.unit === 'bps' && !isUnlimited && (
+            <span className="text-[10px] text-gray-500">{((cell.limit_value ?? 0) / 100).toFixed(1)}%</span>
+          )}
+        </div>
+      )
+    }
+
+    return (
+      <button
+        type="button"
+        role="switch"
+        aria-checked={cell.enabled}
+        onClick={() => setEnabled(tier, feat.key, !cell.enabled)}
+        className={`relative w-9 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-800 ${
+          cell.enabled ? 'bg-emerald-500' : 'bg-gray-600'
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+            cell.enabled ? 'translate-x-4' : 'translate-x-0'
+          }`}
+        />
+      </button>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {featureGroups.map((group) => (
         <div key={group.label} className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
           {/* Group header */}
-          <div className="px-5 py-3 border-b border-gray-700 flex items-center">
+          <div className="px-4 sm:px-5 py-3 border-b border-gray-700 flex items-center">
             <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest flex-1">
               {group.label}
             </h2>
-            {/* Tier column headers — only on first group or repeat */}
-            <div className="flex gap-0">
+            {/* Tier column headers — desktop matrix only */}
+            <div className="hidden md:flex gap-0">
               {tiers.map((tier) => (
                 <div key={tier} className={`w-24 text-center text-xs font-bold ${TIER_COLORS[tier]}`}>
                   {TIER_LABELS[tier]}
@@ -116,72 +169,38 @@ export function PlanConfigEditor({ tiers, featureGroups, configMap }: Props) {
           {group.features.map((feat, idx) => (
             <div
               key={feat.key}
-              className={`flex items-center px-5 py-3 ${idx < group.features.length - 1 ? 'border-b border-gray-700/50' : ''}`}
+              className={`px-4 sm:px-5 py-3 ${idx < group.features.length - 1 ? 'border-b border-gray-700/50' : ''}`}
             >
-              {/* Label + description */}
-              <div className="flex-1 min-w-0 pr-4">
-                <p className="text-sm font-medium text-gray-200">{feat.label}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{feat.description}</p>
+              {/* ── Desktop matrix row ─────────────────────────────── */}
+              <div className="hidden md:flex items-center">
+                <div className="flex-1 min-w-0 pr-4">
+                  <p className="text-sm font-medium text-gray-200">{feat.label}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{feat.description}</p>
+                </div>
+                <div className="flex gap-0 shrink-0">
+                  {tiers.map((tier) => (
+                    <div key={tier} className="w-24 flex items-center justify-center">
+                      {renderControl(tier, feat)}
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {/* Tier cells */}
-              <div className="flex gap-0 shrink-0">
-                {tiers.map((tier) => {
-                  const cell = local[tier]?.[feat.key] ?? { enabled: false, limit_value: null }
-
-                  if (feat.type === 'limit') {
-                    // For limit features: "Unlimited" checkbox + number input
-                    const isUnlimited = !cell.enabled || cell.limit_value === null
-                    return (
-                      <div key={tier} className="w-24 flex flex-col items-center gap-1">
-                        <label className="flex items-center gap-1 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={isUnlimited}
-                            onChange={(e) => setUnlimited(tier, feat.key, e.target.checked)}
-                            className="w-3 h-3 rounded accent-emerald-500"
-                          />
-                          <span className="text-[10px] text-gray-400">∞</span>
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          value={isUnlimited ? '' : (cell.limit_value ?? '')}
-                          onChange={(e) => setLimit(tier, feat.key, e.target.value)}
-                          disabled={isUnlimited}
-                          placeholder="—"
-                          className="w-16 text-center text-xs bg-gray-700 border border-gray-600 rounded px-1 py-1 text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
-                        {feat.unit === 'bps' && !isUnlimited && (
-                          <span className="text-[10px] text-gray-500">
-                            {((cell.limit_value ?? 0) / 100).toFixed(1)}%
-                          </span>
-                        )}
-                      </div>
-                    )
-                  }
-
-                  // Boolean toggle
-                  return (
-                    <div key={tier} className="w-24 flex items-center justify-center">
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={cell.enabled}
-                        onClick={() => setEnabled(tier, feat.key, !cell.enabled)}
-                        className={`relative w-9 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-800 ${
-                          cell.enabled ? 'bg-emerald-500' : 'bg-gray-600'
-                        }`}
-                      >
-                        <span
-                          className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                            cell.enabled ? 'translate-x-4' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
+              {/* ── Mobile stacked layout ──────────────────────────── */}
+              <div className="md:hidden">
+                <p className="text-sm font-medium text-gray-200">{feat.label}</p>
+                <p className="text-xs text-gray-500 mt-0.5 mb-2.5">{feat.description}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {tiers.map((tier) => (
+                    <div
+                      key={tier}
+                      className="flex items-center justify-between gap-2 bg-gray-900/40 rounded-lg px-3 py-2"
+                    >
+                      <span className={`text-xs font-semibold ${TIER_COLORS[tier]}`}>{TIER_LABELS[tier]}</span>
+                      {renderControl(tier, feat)}
                     </div>
-                  )
-                })}
+                  ))}
+                </div>
               </div>
             </div>
           ))}
@@ -189,7 +208,7 @@ export function PlanConfigEditor({ tiers, featureGroups, configMap }: Props) {
       ))}
 
       {/* Save bar */}
-      <div className="sticky bottom-6 flex items-center justify-between bg-gray-900 border border-gray-700 rounded-xl px-5 py-3 shadow-2xl">
+      <div className="sticky bottom-4 sm:bottom-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-gray-900 border border-gray-700 rounded-xl px-4 sm:px-5 py-3 shadow-2xl">
         <div className="text-sm">
           {error && <span className="text-red-400">{error}</span>}
           {saved && !error && <span className="text-emerald-400">✓ Changes saved</span>}
@@ -198,7 +217,7 @@ export function PlanConfigEditor({ tiers, featureGroups, configMap }: Props) {
         <button
           onClick={handleSave}
           disabled={isPending}
-          className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
+          className="w-full sm:w-auto px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
         >
           {isPending ? 'Saving…' : 'Save Changes'}
         </button>
