@@ -123,10 +123,20 @@ export default async function OrgLayout({
   )
   const globalOn = settingsMap.get('maintenance_mode_all') === 'true'
   const orgOn = orgRow?.maintenance_mode === true
+  const isHibernating = subscriptionRow?.status === 'hibernating'
 
-  // Check platform_role for bypass — only needed when in maintenance
+  // Admin/auth/api routes must stay reachable when an org is hibernating so the
+  // org admin can log in and resume the account (and so client/server actions
+  // still work). Public pages still show the off-season page.
+  const pathname = headersList.get('x-pathname') ?? ''
+  const isPrivilegedRoute =
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/api')
+
+  // Check platform_role for bypass — needed for maintenance and hibernation gates
   let isPlatformAdmin = false
-  if ((globalOn || orgOn) && user) {
+  if ((globalOn || orgOn || isHibernating) && user) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: profile } = await (db2 as any)
       .from('profiles')
@@ -162,11 +172,10 @@ export default async function OrgLayout({
   }
 
   // ── Hibernate gate ──────────────────────────────────────────────────────────
-  // Hibernating orgs show a seasonal off-season page to all public visitors.
-  // Platform admins and org admins can still access the admin panel directly
-  // (the admin layout handles its own auth); this gate only affects public pages.
-  const isHibernating = subscriptionRow?.status === 'hibernating'
-  if (isHibernating && !isPlatformAdmin) {
+  // Hibernating orgs show a seasonal off-season page to public visitors. Admin,
+  // login, and API routes are exempt so an org admin can sign in and resume the
+  // account (the admin layout handles its own auth). Platform admins bypass entirely.
+  if (isHibernating && !isPlatformAdmin && !isPrivilegedRoute) {
     const timezone = (branding as OrgBranding | null)?.timezone ?? 'America/Toronto'
     return (
       <>
