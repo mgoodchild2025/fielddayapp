@@ -12,6 +12,7 @@ import { headers } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 
 const RATE_LIMIT_MAX = 3
 const RATE_LIMIT_WINDOW_HOURS = 24
@@ -79,6 +80,16 @@ export async function POST(req: NextRequest) {
       console.error('[export/request] failed to create job:', jobError)
       return NextResponse.json({ error: 'Failed to create export job' }, { status: 500 })
     }
+
+    await recordAuditLog({
+      orgId: org.id,
+      actorUserId: user.id,
+      actorLabel: user.email ?? null,
+      action: AUDIT_ACTIONS.DATA_EXPORT_GENERATED,
+      targetType: 'export_job',
+      targetId: job.id,
+      metadata: { ip: ip ?? null },
+    })
 
     // Fire-and-forget: trigger the process endpoint
     // Works on Railway (persistent server) — the fetch runs independently

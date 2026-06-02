@@ -136,6 +136,17 @@ export async function createLeague(
 
   if (error) return { data: null, error: error.message }
 
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: auth.userId,
+    actorLabel: auth.userId ? await getActorLabel(auth.userId) : null,
+    action: AUDIT_ACTIONS.EVENT_CREATED,
+    targetType: 'league',
+    targetId: data.id,
+    targetLabel: parsed.data.name,
+    metadata: { event_type: parsed.data.event_type, price_cents: parsed.data.price_cents },
+  })
+
   // Auto-add the creator as the first event organizer
   const { data: creatorProfile } = await db
     .from('profiles')
@@ -332,6 +343,20 @@ export async function updateLeague(
     .eq('organization_id', org.id)
 
   if (error) return { data: null, error: error.message }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: lg } = await (db as any)
+    .from('leagues').select('name').eq('id', leagueId).eq('organization_id', org.id).single()
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: auth.userId,
+    actorLabel: auth.userId ? await getActorLabel(auth.userId) : null,
+    action: AUDIT_ACTIONS.EVENT_UPDATED,
+    targetType: 'league',
+    targetId: leagueId,
+    targetLabel: lg?.name ?? null,
+    metadata: { fields: Object.keys(updates) },
+  })
 
   revalidatePath(`/admin/events/${leagueId}`)
   return { data: null, error: null }

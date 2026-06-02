@@ -25,6 +25,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 
 const EXPORT_WINDOW_DAYS = 30
 const DEIDENTIFY_AFTER_DAYS = 90  // 30 (export) + 60 (de-id window)
@@ -202,5 +203,17 @@ async function deidentifyOrg(db: any, orgId: string, orgName: string) {
     triggered_by_user: null,
     player_count: playerCount,
     notes: `Automatic de-identification completed for org "${orgName}" — ${playerCount} player(s) processed.`,
+  })
+
+  // Also surface it in the org-facing audit log (system actor).
+  await recordAuditLog({
+    orgId,
+    actorUserId: null,
+    actorLabel: 'System (retention)',
+    action: AUDIT_ACTIONS.DATA_RETENTION_PURGE,
+    targetType: 'organization',
+    targetId: orgId,
+    targetLabel: orgName,
+    metadata: { player_count: playerCount },
   })
 }

@@ -8,6 +8,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { convertToWebP } from '@/lib/image-utils'
 import { addRailwayCustomDomain, removeRailwayCustomDomain, getRailwayDomainStatus, isRailwayConfigured, type RailwayDnsRecord } from '@/lib/railway'
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 import { verifyCnameRecords } from '@/lib/dns-check'
 
 const brandingSchema = z.object({
@@ -129,6 +130,27 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
         railway_txt_value:   dnsRecords.find((r) => r.recordType === 'TXT')?.requiredValue ?? null,
       })
       .eq('organization_id', orgId)
+  }
+
+  await recordAuditLog({
+    orgId,
+    actorUserId: user.id,
+    actorLabel: user.email ?? null,
+    action: AUDIT_ACTIONS.BRANDING_UPDATED,
+    targetType: 'organization',
+    targetId: orgId,
+  })
+  if (domainChanged) {
+    await recordAuditLog({
+      orgId,
+      actorUserId: user.id,
+      actorLabel: user.email ?? null,
+      action: AUDIT_ACTIONS.DOMAIN_CHANGED,
+      targetType: 'organization',
+      targetId: orgId,
+      targetLabel: newDomain ?? oldDomain ?? null,
+      metadata: { from: oldDomain, to: newDomain },
+    })
   }
 
   revalidatePath('/admin/settings/branding')

@@ -34,6 +34,16 @@ export const AUDIT_ACTIONS = {
   REGISTRATION_REMOVED:  'registration.removed',
   EVENT_STATUS_CHANGED:  'event.status_changed',
   MESSAGE_SENT:          'message.sent',
+
+  // ── Tier 3: configuration & compliance ─────────────────────────────────────
+  EVENT_CREATED:           'event.created',
+  EVENT_UPDATED:           'event.updated',
+  PAYMENT_SETTINGS_UPDATED:'payment_settings.updated',
+  WAIVER_PUBLISHED:        'waiver.published',
+  BRANDING_UPDATED:        'branding.updated',
+  DOMAIN_CHANGED:          'domain.changed',
+  DATA_EXPORT_GENERATED:   'data.export_generated',
+  DATA_RETENTION_PURGE:    'data.retention_purge',
 } as const
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS] | (string & {})
@@ -115,6 +125,15 @@ export function auditActionLabel(action: string): string {
     'registration.removed':  'Registration removed',
     'event.status_changed':  'Event status changed',
     'message.sent':          'Message sent',
+    // Tier 3
+    'event.created':            'Event created',
+    'event.updated':            'Event updated',
+    'payment_settings.updated': 'Payment settings updated',
+    'waiver.published':         'Waiver published',
+    'branding.updated':         'Branding updated',
+    'domain.changed':           'Custom domain changed',
+    'data.export_generated':    'Data export generated',
+    'data.retention_purge':     'Data retention purge',
   }
   return map[action] ?? action
 }
