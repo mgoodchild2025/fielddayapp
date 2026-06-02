@@ -10,6 +10,34 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { recordAuditLog, type AuditAction } from '@/lib/audit'
+
+/**
+ * MFA is account-level, but admins manage it from within an org. Log the event
+ * to the current org's audit trail when an org context is present; skip silently
+ * otherwise (e.g. on the platform/super domain). Never throws.
+ */
+async function logMfaAudit(
+  action: AuditAction,
+  user: { id: string; email?: string | null }
+): Promise<void> {
+  try {
+    const { headers } = await import('next/headers')
+    const { getCurrentOrg } = await import('@/lib/tenant')
+    const org = await getCurrentOrg(await headers())
+    await recordAuditLog({
+      orgId: org.id,
+      actorUserId: user.id,
+      actorLabel: user.email ?? null,
+      action,
+      targetType: 'user',
+      targetId: user.id,
+      targetLabel: user.email ?? null,
+    })
+  } catch {
+    // no org context (or other) — MFA still succeeded; skip the audit entry
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Backup code helpers
@@ -112,6 +140,8 @@ export async function verifyEnrollment(
     )
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (db as any).from('mfa_backup_codes').insert(rows)
+
+    await logMfaAudit('mfa.enrolled', user)
   }
 
   return { backupCodes: plaintextCodes }
@@ -179,6 +209,7 @@ export async function unenrollMfa(
     const db = createServiceRoleClient()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (db as any).from('mfa_backup_codes').delete().eq('user_id', user.id)
+    await logMfaAudit('mfa.disabled', user)
   }
 
   return { success: true }
@@ -236,6 +267,8 @@ export async function verifyBackupCode(
     .from('profiles')
     .update({ mfa_grace_until: new Date(Date.now() + 60 * 60 * 1000).toISOString() })
     .eq('id', user.id)
+
+  await logMfaAudit('mfa.backup_code_used', user)
 
   return { success: true }
 }

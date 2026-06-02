@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
 
 const IMPERSONATE_COOKIE = 'fieldday_impersonate_org_id'
 
@@ -168,6 +169,19 @@ export async function setOrgAdmin(orgId: string, email: string) {
     )
 
   if (error) return { error: error.message }
+
+  const actor = await getAuditActor()
+  await recordAuditLog({
+    orgId,
+    actorUserId: actor.actorUserId,
+    actorLabel: actor.actorLabel,
+    action: AUDIT_ACTIONS.MEMBER_ROLE_CHANGED,
+    targetType: 'member',
+    targetId: profile.id,
+    targetLabel: profile.full_name ?? email,
+    metadata: { to: 'org_admin', via: 'platform_console' },
+  })
+
   revalidatePath(`/super/orgs/${orgId}`)
   return { error: null, name: profile.full_name }
 }
@@ -183,12 +197,39 @@ export async function startImpersonation(orgId: string): Promise<{ redirect: str
     path: '/',
     maxAge: 60 * 60, // 1 hour
   })
+
+  const actor = await getAuditActor()
+  await recordAuditLog({
+    orgId,
+    actorUserId: actor.actorUserId,
+    actorLabel: actor.actorLabel,
+    action: AUDIT_ACTIONS.IMPERSONATION_STARTED,
+    targetType: 'organization',
+    targetId: orgId,
+    metadata: { via: 'platform_console' },
+  })
+
   return { redirect: '/admin/dashboard' }
 }
 
 export async function exitImpersonation(): Promise<{ redirect: string }> {
   const jar = await cookies()
+  const orgId = jar.get(IMPERSONATE_COOKIE)?.value
   jar.delete(IMPERSONATE_COOKIE)
+
+  if (orgId) {
+    const actor = await getAuditActor()
+    await recordAuditLog({
+      orgId,
+      actorUserId: actor.actorUserId,
+      actorLabel: actor.actorLabel,
+      action: AUDIT_ACTIONS.IMPERSONATION_ENDED,
+      targetType: 'organization',
+      targetId: orgId,
+      metadata: { via: 'platform_console' },
+    })
+  }
+
   return { redirect: '/super' }
 }
 
