@@ -30,6 +30,59 @@ export default async function RegistrationSuccessPage({
     (db as any).from('leagues').select('id, name, sport, season_start_date, event_type, checkin_enabled').eq('organization_id', org.id).eq('slug', slug).single(),
   ])
 
+  // Verify-on-return fallback: if Stripe redirected back with a session_id but the
+  // webhook hasn't fired yet (or isn't configured — common in sandbox), confirm the
+  // payment directly so it doesn't sit "pending". Mirrors the team page fallback.
+  if (sessionId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: pay } = await (db as any)
+      .from('payments')
+      .select('id, status, registration_id')
+      .eq('organization_id', org.id)
+      .eq('stripe_checkout_session_id', sessionId)
+      .maybeSingle()
+
+    if (pay && pay.status !== 'paid') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: ps } = await (db as any)
+        .from('org_payment_settings')
+        .select('stripe_secret_key')
+        .eq('organization_id', org.id)
+        .maybeSingle()
+
+      if (ps?.stripe_secret_key) {
+        try {
+          const Stripe = (await import('stripe')).default
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const orgStripe = new Stripe(ps.stripe_secret_key, { apiVersion: '2026-04-22.dahlia' as any })
+          const session = await orgStripe.checkout.sessions.retrieve(sessionId)
+          if (session.payment_status === 'paid') {
+            const paidAt = new Date((session.created ?? Math.floor(Date.now() / 1000)) * 1000).toISOString()
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (db as any).from('payments').update({
+              status: 'paid',
+              paid_at: paidAt,
+              stripe_payment_intent_id: (session.payment_intent as string) ?? null,
+            }).eq('id', pay.id)
+
+            if (pay.registration_id) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              await (db as any).from('registrations').update({ status: 'active' }).eq('id', pay.registration_id)
+            }
+
+            const merchIds = (session.metadata?.merchOrderIds ?? '').split(',').filter(Boolean)
+            if (merchIds.length > 0) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              await (db as any).from('merchandise_orders').update({ status: 'paid' }).in('id', merchIds)
+            }
+          }
+        } catch (err) {
+          console.error('[register/success] session verify failed:', err)
+        }
+      }
+    }
+  }
+
   // Fetch the player's registration to get their check-in token
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: registration } = user && league
