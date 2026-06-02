@@ -5,12 +5,14 @@ import {
   createSubscriptionCheckout,
   createCustomerPortalSession,
   changeSubscriptionPlan,
+  cancelScheduledDowngrade,
   hibernateSubscription,
   resumeFromHibernation,
   switchToFreePlan,
   requestAccountDeletion,
 } from '@/actions/billing'
 import type { SubscriptionRow } from '@/actions/billing'
+import { isUpgrade, tierLabel } from '@/lib/plan-tiers'
 import { HelpLink } from '@/components/ui/help-link'
 
 const PLANS = [
@@ -125,6 +127,9 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
   const isHibernating = status === 'hibernating'
   const isFree        = tier === 'free' && isActive
   const hasStripeSubscription = !!subscription?.stripe_subscription_id
+  // Scheduled (period-end) downgrade, if any.
+  const pendingTier = subscription?.pending_plan_tier ?? null
+  const pendingEffective = subscription?.pending_plan_effective ?? subscription?.current_period_end ?? null
 
   // Tiers that can upgrade via Stripe checkout (not free, not internal)
   const upgradeableTiers = ['starter', 'pro', 'club'] as const
@@ -201,6 +206,16 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
     })
   }
 
+  function handleCancelDowngrade() {
+    setError(null)
+    setPendingAction('cancel-downgrade')
+    startTransition(async () => {
+      const result = await cancelScheduledDowngrade()
+      if (result.error) { setError(result.error); setPendingAction(null) }
+      else { window.location.reload() }
+    })
+  }
+
   // Whether the org exceeds free tier limits (blocks downgrade to free)
   const exceedsFreeLimit = activeLeagueCount > 1 || playerCount > 50
 
@@ -232,6 +247,31 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
       )}
       {error && (
         <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
+      )}
+
+      {/* ── Scheduled downgrade banner ────────────────────────────────────── */}
+      {pendingTier && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-5 py-4">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-sm font-semibold text-amber-900">
+                Plan change scheduled
+              </p>
+              <p className="text-sm text-amber-800 mt-0.5">
+                You&apos;ll switch from <strong>{tierLabel(tier)}</strong> to <strong>{tierLabel(pendingTier)}</strong>
+                {pendingEffective ? <> on <strong>{formatDate(pendingEffective)}</strong></> : ' at the end of your billing period'}.
+                You keep {tierLabel(tier)} until then.
+              </p>
+            </div>
+            <button
+              onClick={handleCancelDowngrade}
+              disabled={isPending}
+              className="shrink-0 px-3 py-1.5 rounded-md bg-white border border-amber-300 text-amber-800 text-sm font-medium hover:bg-amber-100 disabled:opacity-50"
+            >
+              {pendingAction === 'cancel-downgrade' ? 'Canceling…' : 'Keep my current plan'}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ── Current plan card ─────────────────────────────────────────────── */}
@@ -289,7 +329,7 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
               <span className="text-gray-600">Next renewal</span>
               <span className="text-gray-900 font-medium">{formatDate(subscription.current_period_end)}</span>
             </div>
-            {subscription.cancel_at_period_end && (
+            {subscription.cancel_at_period_end && !pendingTier && (
               <p className="mt-1 text-xs text-amber-600">
                 ⚠ Your subscription will cancel on {formatDate(subscription.current_period_end)} and will not renew.
               </p>
@@ -392,6 +432,10 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
                       <div className="w-full rounded-lg py-2 text-sm font-semibold text-center text-green-700 bg-green-50 border border-green-200">
                         Your current plan
                       </div>
+                    ) : pendingTier === 'free' ? (
+                      <div className="w-full rounded-lg py-2 text-sm font-medium text-center text-amber-700 bg-amber-50 border border-amber-200">
+                        Scheduled{pendingEffective ? ` · ${formatDate(pendingEffective)}` : ''}
+                      </div>
                     ) : exceedsFreeLimit ? (
                       <div className="space-y-1.5">
                         <div className="w-full rounded-lg py-2 text-sm font-medium text-center text-amber-700 bg-amber-50 border border-amber-200 cursor-not-allowed">
@@ -407,7 +451,7 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
                       <div className="space-y-2">
                         <p className="text-xs text-gray-600 leading-snug">
                           {hasStripeSubscription
-                            ? 'This cancels your paid subscription immediately and moves you to Free.'
+                            ? `You'll keep your paid plan until ${subscription?.current_period_end ? formatDate(subscription.current_period_end) : 'the end of your billing period'}, then switch to Free.`
                             : 'Switch to the Free plan?'}
                         </p>
                         <div className="flex gap-2">
@@ -436,26 +480,42 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
                         {hasStripeSubscription ? 'Switch to Free' : 'Continue with Free'}
                       </button>
                     )
+                  ) : pendingTier === plan.tier ? (
+                    <div className="w-full rounded-lg py-2 text-sm font-medium text-center text-amber-700 bg-amber-50 border border-amber-200">
+                      Scheduled{pendingEffective ? ` · ${formatDate(pendingEffective)}` : ''}
+                    </div>
                   ) : (
-                    <button
-                      // Existing subscribers switch paid plans in-app (prorated);
-                      // new subscribers start Stripe Checkout.
-                      onClick={() => (isCurrent ? undefined : hasStripeSubscription ? handleChangePlan(plan.tier) : handleUpgrade(plan.tier))}
-                      disabled={isPending || isCurrent}
-                      className={`w-full rounded-lg py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${
-                        isCurrent
-                          ? 'bg-gray-100 text-gray-400 cursor-default'
-                          : plan.tier === 'pro'
-                          ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                          : 'bg-gray-900 hover:bg-gray-700 text-white'
-                      }`}
-                    >
-                      {isCurrent
-                        ? 'Current plan'
-                        : hasStripeSubscription
-                        ? (pendingAction === `change-${plan.tier}` ? 'Switching…' : `Switch to ${plan.name}`)
-                        : (isPending && pendingAction === `upgrade-${plan.tier}` ? 'Redirecting…' : `Choose ${plan.name}`)}
-                    </button>
+                    (() => {
+                      const upgrade = hasStripeSubscription && isUpgrade(tier, plan.tier)
+                      const downgrade = hasStripeSubscription && !upgrade
+                      return (
+                        <button
+                          // Upgrades apply immediately (prorated); downgrades are
+                          // scheduled for period end; new subscribers go to Checkout.
+                          onClick={() => (isCurrent ? undefined : hasStripeSubscription ? handleChangePlan(plan.tier) : handleUpgrade(plan.tier))}
+                          disabled={isPending || isCurrent}
+                          className={`w-full rounded-lg py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${
+                            isCurrent
+                              ? 'bg-gray-100 text-gray-400 cursor-default'
+                              : downgrade
+                              ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                              : plan.tier === 'pro'
+                              ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                              : 'bg-gray-900 hover:bg-gray-700 text-white'
+                          }`}
+                        >
+                          {pendingAction === `change-${plan.tier}`
+                            ? (upgrade ? 'Upgrading…' : 'Scheduling…')
+                            : isPending && pendingAction === `upgrade-${plan.tier}`
+                            ? 'Redirecting…'
+                            : upgrade
+                            ? `Upgrade to ${plan.name}`
+                            : downgrade
+                            ? `Switch to ${plan.name}`
+                            : `Choose ${plan.name}`}
+                        </button>
+                      )
+                    })()
                   )}
                 </div>
               )
