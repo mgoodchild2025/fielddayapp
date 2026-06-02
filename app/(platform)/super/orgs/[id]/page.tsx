@@ -98,15 +98,15 @@ export default async function PlatformOrgDetailPage({
         <Link href="/super" className="text-sm text-gray-400 hover:text-white mb-3 inline-block">
           ← All Organizations
         </Link>
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">{org.name}</h1>
-            <p className="text-gray-400 text-sm mt-0.5">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-white break-words">{org.name}</h1>
+            <p className="text-gray-400 text-sm mt-0.5 break-words">
               {org.slug}.fielddayapp.ca
               {branding?.custom_domain && <span className="ml-2">· {branding.custom_domain}</span>}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
             <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${STATUS_STYLES[org.status] ?? 'bg-gray-100 text-gray-700'}`}>
               {org.status}
             </span>
@@ -130,7 +130,7 @@ export default async function PlatformOrgDetailPage({
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
         {[
           { label: 'Members', value: members.length },
           { label: 'Admins', value: adminCount },
