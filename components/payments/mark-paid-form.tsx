@@ -13,7 +13,7 @@ interface Props {
 
 export function MarkPaidForm({ registrationId, userId, leagueId, amountCents, currency }: Props) {
   const [open, setOpen] = useState(false)
-  const [method, setMethod] = useState<'cash' | 'etransfer'>('etransfer')
+  const [method, setMethod] = useState<'cash' | 'etransfer' | 'cheque'>('etransfer')
   const [amount, setAmount] = useState((amountCents / 100).toFixed(2))
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -53,11 +53,12 @@ export function MarkPaidForm({ registrationId, userId, leagueId, amountCents, cu
       <div className="flex gap-2">
         <select
           value={method}
-          onChange={e => setMethod(e.target.value as 'cash' | 'etransfer')}
+          onChange={e => setMethod(e.target.value as 'cash' | 'etransfer' | 'cheque')}
           className="border rounded px-2 py-1 text-xs flex-1"
         >
           <option value="etransfer">e-Transfer</option>
           <option value="cash">Cash</option>
+          <option value="cheque">Cheque / Other</option>
         </select>
         <input
           type="number"

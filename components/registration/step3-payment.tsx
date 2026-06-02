@@ -3,6 +3,12 @@
 import { useState } from 'react'
 import type { Database } from '@/types/database'
 import type { MerchSelection, MerchItemForStep } from './step-addons'
+import { selectOfflinePayment, selectOfflineTeamPayment } from '@/actions/payments'
+import {
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_METHOD_ICON,
+  type PaymentMethod,
+} from '@/lib/payment-methods'
 
 type League = Database['public']['Tables']['leagues']['Row']
 
@@ -15,12 +21,23 @@ interface Props {
   merchSelections?: MerchSelection[]
   leagueMerch?: MerchItemForStep[]
   onBack?: () => void
+  /** Methods the player may choose from. When unset/empty, falls back to the
+   *  legacy single "Pay" button (Stripe, with manual fallback from the API). */
+  acceptedMethods?: PaymentMethod[]
+  /** Offline payment instructions (per-league with org fallback). */
+  offlineInstructions?: string | null
+  /** Called after an offline method is confirmed (registration already reserved). */
+  onComplete?: () => void
+  /** When set, this is a per-team captain paying the team fee: card uses the team
+   *  checkout, offline reserves the whole team. */
+  teamId?: string | null
 }
 
-export function Step3Payment({ org, league, userId, registrationId, priceCents, merchSelections = [], leagueMerch = [], onBack }: Props) {
+export function Step3Payment({ org, league, userId, registrationId, priceCents, merchSelections = [], leagueMerch = [], onBack, acceptedMethods = [], offlineInstructions = null, onComplete, teamId = null }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [manualInstructions, setManualInstructions] = useState<string | null>(null)
+  const [offlineDone, setOfflineDone] = useState<{ instructions: string | null; label: string } | null>(null)
 
   const registrationPriceCents = priceCents ?? league.price_cents
   const currency = league.currency.toUpperCase()
@@ -44,6 +61,42 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
     0
   )
   const totalCents = registrationPriceCents + merchTotalCents
+
+  // ── Payment method selection ────────────────────────────────────────────────
+  // Merchandise can only be charged online, so offline methods are hidden when
+  // the cart has merch.
+  const merchBlocksOffline = merchTotalCents > 0
+  const choice = acceptedMethods.length > 0
+  const selectableMethods: PaymentMethod[] = choice
+    ? acceptedMethods.filter((m) => m === 'card' || !merchBlocksOffline)
+    : ['card']
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>(
+    () => (selectableMethods.includes('card') ? 'card' : (selectableMethods[0] ?? 'card'))
+  )
+
+  async function handleOffline(method: PaymentMethod) {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = teamId
+        ? await selectOfflineTeamPayment({ teamId, leagueId: league.id, method: method as 'etransfer' | 'cash' | 'cheque' })
+        : await selectOfflinePayment({ registrationId, leagueId: league.id, method: method as 'etransfer' | 'cash' | 'cheque' })
+      if (res.error) {
+        setError(res.error)
+        setLoading(false)
+      } else {
+        setOfflineDone({ instructions: res.instructions ?? offlineInstructions, label: res.methodLabel })
+      }
+    } catch {
+      setError('Something went wrong. Please try again.')
+      setLoading(false)
+    }
+  }
+
+  function handleContinue() {
+    if (selectedMethod === 'card') handleCheckout()
+    else handleOffline(selectedMethod)
+  }
 
   async function handleCheckout() {
     setLoading(true)
@@ -87,6 +140,45 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
   }
 
   const registrationPrice = registrationPriceCents / 100
+
+  // Offline method confirmed — spot reserved, show payment instructions
+  if (offlineDone) {
+    return (
+      <div className="space-y-4">
+        <div className="bg-white rounded-lg border p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-600">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+            <h2 className="font-semibold text-lg">You&apos;re registered!</h2>
+          </div>
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 space-y-1">
+            <p className="text-sm font-semibold text-amber-900">
+              Pay by {offlineDone.label} — ${(registrationPriceCents / 100).toFixed(2)} {currency}
+            </p>
+            {offlineDone.instructions ? (
+              <p className="text-sm text-amber-800 whitespace-pre-wrap">{offlineDone.instructions}</p>
+            ) : (
+              <p className="text-sm text-amber-700">Please contact the organizer to arrange payment.</p>
+            )}
+          </div>
+          <p className="text-xs text-gray-400">
+            Your spot is reserved. The organizer will mark your payment as received once it arrives.
+          </p>
+          <button
+            type="button"
+            onClick={() => onComplete?.()}
+            className="w-full py-3 rounded-md font-semibold text-white"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
+          >
+            Done →
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   // Manual payment — show instructions instead of Stripe button
   if (manualInstructions !== null) {
@@ -176,20 +268,62 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
           )}
         </div>
 
+        {/* Payment method chooser — shown when the league accepts more than one */}
+        {choice && selectableMethods.length > 1 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-gray-700">Choose how to pay</p>
+            <div className="grid gap-2">
+              {selectableMethods.map((m) => {
+                const active = selectedMethod === m
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setSelectedMethod(m)}
+                    className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors ${
+                      active ? 'border-transparent ring-2' : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                    style={active ? { boxShadow: '0 0 0 2px var(--brand-primary)' } : {}}
+                  >
+                    <span className="text-xl">{PAYMENT_METHOD_ICON[m]}</span>
+                    <span className="flex-1">
+                      <span className="block text-sm font-medium text-gray-900">{PAYMENT_METHOD_LABELS[m]}</span>
+                      <span className="block text-xs text-gray-500">
+                        {m === 'card' ? 'Pay now by card' : 'Reserve your spot, pay the organizer directly'}
+                      </span>
+                    </span>
+                    <span
+                      className={`w-4 h-4 rounded-full border-2 ${active ? 'border-transparent' : 'border-gray-300'}`}
+                      style={active ? { backgroundColor: 'var(--brand-primary)' } : {}}
+                    />
+                  </button>
+                )
+              })}
+            </div>
+            {merchBlocksOffline && (
+              <p className="text-xs text-gray-400">Merchandise must be paid online by card.</p>
+            )}
+          </div>
+        )}
+
         <button
-          onClick={handleCheckout}
+          onClick={choice ? handleContinue : handleCheckout}
           disabled={loading}
           className="w-full py-3 rounded-md font-semibold text-white disabled:opacity-60"
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >
           {loading
-            ? 'Redirecting to checkout…'
-            : `Pay $${(totalCents / 100).toFixed(0)} ${currency} →`}
+            ? (selectedMethod === 'card' ? 'Redirecting to checkout…' : 'Saving…')
+            : selectedMethod === 'card'
+              ? `Pay $${(totalCents / 100).toFixed(0)} ${currency} →`
+              : `Register & pay by ${PAYMENT_METHOD_LABELS[selectedMethod]} →`}
         </button>
 
-        <p className="text-xs text-center text-gray-400">
-          Secure checkout powered by Stripe. Your payment info is never stored on our servers.
-        </p>
+        {selectedMethod === 'card' && (
+          <p className="text-xs text-center text-gray-400">
+            Secure checkout powered by Stripe. Your payment info is never stored on our servers.
+          </p>
+        )}
       </div>
     </div>
   )
