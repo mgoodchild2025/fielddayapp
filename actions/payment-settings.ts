@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
+import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
 
 const schema = z.object({
   stripeSecretKey: z
@@ -40,6 +41,21 @@ export async function savePaymentSettings(input: { stripeSecretKey: string; stri
     )
 
   if (error) return { error: error.message }
+
+  const actor = await getAuditActor()
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: actor.actorUserId,
+    actorLabel: actor.actorLabel,
+    action: AUDIT_ACTIONS.PAYMENT_SETTINGS_UPDATED,
+    targetType: 'organization',
+    targetId: org.id,
+    // Never log secret values — just whether they are now set.
+    metadata: {
+      has_secret_key: !!parsed.data.stripeSecretKey,
+      has_webhook_secret: !!parsed.data.stripeWebhookSecret,
+    },
+  })
 
   revalidatePath('/admin/settings/payments')
   return { error: null }

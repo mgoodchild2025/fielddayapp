@@ -9,6 +9,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createRateLimiter } from '@/lib/rate-limit'
 import { assertOrgAdmin } from '@/lib/auth'
 import { recordConsents } from './player-consents'
+import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
 
 // 5 waiver signing attempts per 10 minutes per IP — enough for any legitimate
 // player, tight enough to prevent automated bulk signing.
@@ -54,6 +55,15 @@ export async function upsertWaiver(input: z.infer<typeof upsertWaiverSchema>) {
       .single()
 
     if (error) return { data: null, error: error.message }
+
+    const actor = await getAuditActor()
+    await recordAuditLog({
+      orgId: org.id, actorUserId: actor.actorUserId, actorLabel: actor.actorLabel,
+      action: AUDIT_ACTIONS.WAIVER_PUBLISHED,
+      targetType: 'waiver', targetId: parsed.data.id, targetLabel: parsed.data.title,
+      metadata: { version: (current?.version ?? 1) + 1, change: 'updated' },
+    })
+
     revalidatePath('/admin/settings')
     return { data, error: null }
   }
@@ -79,6 +89,15 @@ export async function upsertWaiver(input: z.infer<typeof upsertWaiverSchema>) {
     .single()
 
   if (error) return { data: null, error: error.message }
+
+  const actor = await getAuditActor()
+  await recordAuditLog({
+    orgId: org.id, actorUserId: actor.actorUserId, actorLabel: actor.actorLabel,
+    action: AUDIT_ACTIONS.WAIVER_PUBLISHED,
+    targetType: 'waiver', targetId: data?.id ?? null, targetLabel: parsed.data.title,
+    metadata: { version: 1, change: 'created' },
+  })
+
   revalidatePath('/admin/settings')
   return { data, error: null }
 }
