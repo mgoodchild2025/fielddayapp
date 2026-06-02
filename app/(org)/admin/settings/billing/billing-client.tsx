@@ -109,6 +109,7 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
   const [error, setError] = useState<string | null>(null)
   const [showHibernateForm, setShowHibernateForm] = useState(false)
   const [hibernateResumeDate, setHibernateResumeDate] = useState('')
+  const [confirmingFree, setConfirmingFree] = useState(false)
   const [showCloseAccount, setShowCloseAccount] = useState(false)
   const [closeReason, setCloseReason] = useState('')
   const [closeConfirmName, setCloseConfirmName] = useState('')
@@ -391,10 +392,6 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
                       <div className="w-full rounded-lg py-2 text-sm font-semibold text-center text-green-700 bg-green-50 border border-green-200">
                         Your current plan
                       </div>
-                    ) : hasStripeSubscription ? (
-                      <div className="w-full rounded-lg py-2 text-sm font-medium text-center text-gray-400 bg-gray-50 border border-gray-200">
-                        Cancel subscription first
-                      </div>
                     ) : exceedsFreeLimit ? (
                       <div className="space-y-1.5">
                         <div className="w-full rounded-lg py-2 text-sm font-medium text-center text-amber-700 bg-amber-50 border border-amber-200 cursor-not-allowed">
@@ -406,13 +403,37 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
                           Archive excess data to downgrade.
                         </p>
                       </div>
+                    ) : confirmingFree ? (
+                      <div className="space-y-2">
+                        <p className="text-xs text-gray-600 leading-snug">
+                          {hasStripeSubscription
+                            ? 'This cancels your paid subscription immediately and moves you to Free.'
+                            : 'Switch to the Free plan?'}
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleSwitchToFree}
+                            disabled={isPending}
+                            className="flex-1 rounded-lg py-2 text-sm font-semibold bg-gray-900 hover:bg-gray-700 text-white disabled:opacity-50"
+                          >
+                            {isPending && pendingAction === 'free' ? 'Switching…' : 'Confirm'}
+                          </button>
+                          <button
+                            onClick={() => setConfirmingFree(false)}
+                            disabled={isPending}
+                            className="flex-1 rounded-lg py-2 text-sm font-medium border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
                     ) : (
                       <button
-                        onClick={handleSwitchToFree}
+                        onClick={() => setConfirmingFree(true)}
                         disabled={isPending}
                         className="w-full rounded-lg py-2 text-sm font-semibold transition-colors disabled:opacity-50 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300"
                       >
-                        {isPending && pendingAction === 'free' ? 'Switching…' : 'Continue with Free'}
+                        {hasStripeSubscription ? 'Switch to Free' : 'Continue with Free'}
                       </button>
                     )
                   ) : (

@@ -98,13 +98,10 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
         .eq('status', 'active'),
     ])
 
-    if (sub?.stripe_subscription_id) {
-      return { error: 'You have an active Stripe subscription. Cancel it via the billing portal before switching to the free plan.' }
-    }
-
     const leagues = activeLeagueCount ?? 0
     const players = playerCount ?? 0
 
+    // Enforce free-tier limits BEFORE touching Stripe.
     if (leagues > 1) {
       return {
         error: `Your account has ${leagues} active events. The free plan allows 1. Please archive or delete extra events before downgrading.`,
@@ -117,12 +114,32 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
       }
     }
 
+    // Cancel the active Stripe subscription immediately (if any), so the org
+    // drops to Free right away rather than at the end of the billing period.
+    if (sub?.stripe_subscription_id) {
+      try {
+        const { stripe } = await getPlatformStripe()
+        await stripe.subscriptions.cancel(sub.stripe_subscription_id)
+      } catch (err) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const e = err as any
+        // Already canceled / not found → fine to proceed; otherwise surface.
+        if (e?.code !== 'resource_missing') {
+          console.error('[billing] switchToFreePlan cancel error:', err)
+          return { error: `Could not cancel the Stripe subscription: ${e?.message ?? 'unknown error'}` }
+        }
+      }
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: updateError } = await (supabase as any)
       .from('subscriptions')
       .update({
         plan_tier: 'free',
         status: 'active',
+        stripe_subscription_id: null,
+        current_period_end: null,
+        cancel_at_period_end: false,
         trial_end: null,
         updated_at: new Date().toISOString(),
       })

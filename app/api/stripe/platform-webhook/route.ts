@@ -257,10 +257,20 @@ export async function POST(request: NextRequest) {
         .single() as { data: { organization_id: string; plan_tier: string } | null }
 
       if (sub) {
+        // Subscription is gone in Stripe — drop the org cleanly to Free so the
+        // billing page reflects it and stripe_subscription_id no longer gates
+        // the Free plan.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (db as any)
           .from('subscriptions')
-          .update({ status: 'canceled', updated_at: new Date().toISOString() })
+          .update({
+            status: 'active',
+            plan_tier: 'free',
+            stripe_subscription_id: null,
+            current_period_end: null,
+            cancel_at_period_end: false,
+            updated_at: new Date().toISOString(),
+          })
           .eq('organization_id', sub.organization_id)
 
         const { data: org } = await db.from('organizations').select('name, slug').eq('id', sub.organization_id).single()

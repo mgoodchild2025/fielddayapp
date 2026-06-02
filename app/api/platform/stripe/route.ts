@@ -170,19 +170,20 @@ export async function POST(request: NextRequest) {
         const orgId = sub.metadata?.organization_id
         if (!orgId) break
 
+        // Cancelled subscription → drop the org to the Free plan (not suspended),
+        // and clear the Stripe IDs so the billing page reflects it cleanly.
         await db.from('subscriptions')
           .update({
-            status: 'canceled',
-            canceled_at: new Date().toISOString(),
+            status: 'active',
+            plan_tier: 'free',
+            stripe_subscription_id: null,
+            current_period_end: null,
+            cancel_at_period_end: false,
             updated_at: new Date().toISOString(),
           })
           .eq('organization_id', orgId)
 
-        await db.from('organizations')
-          .update({ status: 'suspended', updated_at: new Date().toISOString() })
-          .eq('id', orgId)
-
-        console.log(`[platform/stripe] Subscription deleted for org ${orgId}`)
+        console.log(`[platform/stripe] Subscription deleted for org ${orgId} → moved to Free`)
         break
       }
 
