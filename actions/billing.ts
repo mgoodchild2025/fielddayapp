@@ -9,6 +9,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { sendEmail } from '@/lib/email'
 import { sendPlatformAlert } from '@/actions/platform-settings'
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
+import { isUpgrade, tierLabel } from '@/lib/plan-tiers'
 
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? 'support@fielddayapp.ca'
 
@@ -27,6 +28,8 @@ export type SubscriptionRow = {
   cancel_at_period_end: boolean | null
   hibernate_until: string | null
   pre_hibernate_tier: string | null
+  pending_plan_tier: string | null
+  pending_plan_effective: string | null
   created_at: string
 }
 
@@ -81,7 +84,7 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
     ] = await Promise.all([
       supabase
         .from('subscriptions')
-        .select('stripe_subscription_id, status')
+        .select('stripe_subscription_id, status, current_period_end')
         .eq('organization_id', org.id)
         .single(),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -98,13 +101,10 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
         .eq('status', 'active'),
     ])
 
-    if (sub?.stripe_subscription_id) {
-      return { error: 'You have an active Stripe subscription. Cancel it via the billing portal before switching to the free plan.' }
-    }
-
     const leagues = activeLeagueCount ?? 0
     const players = playerCount ?? 0
 
+    // Enforce free-tier limits BEFORE touching Stripe.
     if (leagues > 1) {
       return {
         error: `Your account has ${leagues} active events. The free plan allows 1. Please archive or delete extra events before downgrading.`,
@@ -117,12 +117,56 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
       }
     }
 
+    // Active paid subscription → SCHEDULE the downgrade to Free for period end,
+    // so the org keeps its paid tier until then (webhook drops to Free on delete).
+    if (sub?.stripe_subscription_id) {
+      try {
+        const { stripe } = await getPlatformStripe()
+        await stripe.subscriptions.update(sub.stripe_subscription_id, { cancel_at_period_end: true })
+      } catch (err) {
+        console.error('[billing] switchToFreePlan schedule error:', err)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return { error: `Could not schedule the downgrade: ${(err as any)?.message ?? 'unknown error'}` }
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from('subscriptions')
+        .update({
+          cancel_at_period_end: true,
+          pending_plan_tier: 'free',
+          pending_plan_effective: sub.current_period_end ?? null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('organization_id', org.id)
+
+      await recordAuditLog({
+        orgId: org.id, actorUserId: user.id, actorLabel: user.email ?? null,
+        action: AUDIT_ACTIONS.SUBSCRIPTION_CHANGED, targetType: 'subscription',
+        targetId: org.id, targetLabel: org.name ?? null,
+        metadata: { to: 'free', via: 'in_app', kind: 'downgrade_scheduled', effective: sub.current_period_end },
+      })
+      await sendPlatformAlert(
+        'subscription_change',
+        `Downgrade scheduled: ${org.name} → Free`,
+        `<p><strong>${org.name}</strong> scheduled a downgrade to <strong>Free</strong>, effective ${sub.current_period_end ?? 'period end'}.</p>`,
+      ).catch(() => {})
+
+      return { error: null }
+    }
+
+    // No Stripe subscription (trial / canceled / already free) → switch now.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: updateError } = await (supabase as any)
       .from('subscriptions')
       .update({
         plan_tier: 'free',
         status: 'active',
+        stripe_subscription_id: null,
+        current_period_end: null,
+        cancel_at_period_end: false,
+        pending_plan_tier: null,
+        pending_plan_effective: null,
         trial_end: null,
         updated_at: new Date().toISOString(),
       })
@@ -266,13 +310,15 @@ export async function createCustomerPortalSession(): Promise<{ url: string } | {
 }
 
 /**
- * Switch an existing paid subscription to a different paid tier in-app.
- * Swaps the Stripe price (prorated immediately); the webhook syncs the DB, and
- * we also update plan_tier right away so the page reflects it on reload.
+ * Change an existing paid subscription to another paid tier.
+ *  - Upgrade  → applied immediately (prorated).
+ *  - Downgrade → scheduled for the end of the current billing period; the org
+ *    keeps its current tier until then, and the webhook re-subscribes at the
+ *    lower tier when the period ends.
  */
 export async function changeSubscriptionPlan(
   tier: 'starter' | 'pro' | 'club'
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; scheduledFor?: string | null }> {
   try {
     const { org, user } = await requireOrgAdmin()
     const supabase = createServiceRoleClient()
@@ -280,9 +326,9 @@ export async function changeSubscriptionPlan(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: sub } = await (supabase as any)
       .from('subscriptions')
-      .select('stripe_subscription_id, plan_tier, status')
+      .select('stripe_subscription_id, plan_tier, status, current_period_end')
       .eq('organization_id', org.id)
-      .single() as { data: { stripe_subscription_id: string | null; plan_tier: string; status: string } | null }
+      .single() as { data: { stripe_subscription_id: string | null; plan_tier: string; status: string; current_period_end: string | null } | null }
 
     if (!sub?.stripe_subscription_id) {
       return { error: 'No active subscription to change. Choose a plan to subscribe first.' }
@@ -300,40 +346,76 @@ export async function changeSubscriptionPlan(
       return { error: `Price ID for "${tier}" is not configured. Please contact support.` }
     }
 
-    const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id)
-    const itemId = stripeSub.items.data[0]?.id
-    if (!itemId) return { error: 'Could not locate the subscription item in Stripe.' }
+    const upgrade = isUpgrade(sub.plan_tier, tier)
 
-    await stripe.subscriptions.update(sub.stripe_subscription_id, {
-      items: [{ id: itemId, price: newPriceId }],
-      proration_behavior: 'always_invoice',
-      metadata: { plan_tier: tier },
-    })
+    if (upgrade) {
+      // Immediate, prorated upgrade. Also clear any previously-scheduled downgrade.
+      const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id)
+      const itemId = stripeSub.items.data[0]?.id
+      if (!itemId) return { error: 'Could not locate the subscription item in Stripe.' }
+
+      await stripe.subscriptions.update(sub.stripe_subscription_id, {
+        items: [{ id: itemId, price: newPriceId }],
+        proration_behavior: 'always_invoice',
+        cancel_at_period_end: false,
+        metadata: { plan_tier: tier },
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from('subscriptions')
+        .update({
+          plan_tier: tier,
+          status: 'active',
+          cancel_at_period_end: false,
+          pending_plan_tier: null,
+          pending_plan_effective: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('organization_id', org.id)
+
+      await recordAuditLog({
+        orgId: org.id, actorUserId: user.id, actorLabel: user.email ?? null,
+        action: AUDIT_ACTIONS.SUBSCRIPTION_CHANGED, targetType: 'subscription',
+        targetId: org.id, targetLabel: org.name ?? null,
+        metadata: { from: sub.plan_tier, to: tier, via: 'in_app', kind: 'upgrade' },
+      })
+      await sendPlatformAlert(
+        'subscription_change',
+        `Subscription changed: ${org.name} → ${tier}`,
+        `<p><strong>${org.name}</strong> upgraded from <strong>${sub.plan_tier}</strong> to <strong>${tier}</strong>.</p>`,
+      ).catch(() => {})
+
+      return { error: null, scheduledFor: null }
+    }
+
+    // Downgrade → schedule for period end (keep current tier until then).
+    await stripe.subscriptions.update(sub.stripe_subscription_id, { cancel_at_period_end: true })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase as any)
       .from('subscriptions')
-      .update({ plan_tier: tier, status: 'active', updated_at: new Date().toISOString() })
+      .update({
+        cancel_at_period_end: true,
+        pending_plan_tier: tier,
+        pending_plan_effective: sub.current_period_end ?? null,
+        updated_at: new Date().toISOString(),
+      })
       .eq('organization_id', org.id)
 
     await recordAuditLog({
-      orgId: org.id,
-      actorUserId: user.id,
-      actorLabel: user.email ?? null,
-      action: AUDIT_ACTIONS.SUBSCRIPTION_CHANGED,
-      targetType: 'subscription',
-      targetId: org.id,
-      targetLabel: org.name ?? null,
-      metadata: { from: sub.plan_tier, to: tier, via: 'in_app' },
+      orgId: org.id, actorUserId: user.id, actorLabel: user.email ?? null,
+      action: AUDIT_ACTIONS.SUBSCRIPTION_CHANGED, targetType: 'subscription',
+      targetId: org.id, targetLabel: org.name ?? null,
+      metadata: { from: sub.plan_tier, to: tier, via: 'in_app', kind: 'downgrade_scheduled', effective: sub.current_period_end },
     })
-
     await sendPlatformAlert(
       'subscription_change',
-      `Subscription changed: ${org.name} → ${tier}`,
-      `<p><strong>${org.name}</strong> (${org.id}) switched plan from <strong>${sub.plan_tier}</strong> to <strong>${tier}</strong>.</p>`,
+      `Downgrade scheduled: ${org.name} → ${tier}`,
+      `<p><strong>${org.name}</strong> scheduled a downgrade from <strong>${tierLabel(sub.plan_tier)}</strong> to <strong>${tierLabel(tier)}</strong>, effective ${sub.current_period_end ?? 'period end'}.</p>`,
     ).catch(() => {})
 
-    return { error: null }
+    return { error: null, scheduledFor: sub.current_period_end ?? null }
   } catch (err) {
     console.error('[billing] changeSubscriptionPlan error:', err)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -341,6 +423,50 @@ export async function changeSubscriptionPlan(
     if (e?.type === 'StripeInvalidRequestError' && typeof e.message === 'string') {
       return { error: `Stripe rejected the change: ${e.message}` }
     }
+    return { error: err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.' }
+  }
+}
+
+/** Cancel a scheduled (period-end) downgrade — keep the current plan. */
+export async function cancelScheduledDowngrade(): Promise<{ error: string | null }> {
+  try {
+    const { org, user } = await requireOrgAdmin()
+    const supabase = createServiceRoleClient()
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: sub } = await (supabase as any)
+      .from('subscriptions')
+      .select('stripe_subscription_id, pending_plan_tier, plan_tier')
+      .eq('organization_id', org.id)
+      .single() as { data: { stripe_subscription_id: string | null; pending_plan_tier: string | null; plan_tier: string } | null }
+
+    if (!sub?.pending_plan_tier) return { error: 'No scheduled change to cancel.' }
+    if (!sub.stripe_subscription_id) return { error: 'No active subscription found.' }
+
+    const { stripe } = await getPlatformStripe()
+    await stripe.subscriptions.update(sub.stripe_subscription_id, { cancel_at_period_end: false })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
+      .from('subscriptions')
+      .update({
+        cancel_at_period_end: false,
+        pending_plan_tier: null,
+        pending_plan_effective: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('organization_id', org.id)
+
+    await recordAuditLog({
+      orgId: org.id, actorUserId: user.id, actorLabel: user.email ?? null,
+      action: AUDIT_ACTIONS.SUBSCRIPTION_CHANGED, targetType: 'subscription',
+      targetId: org.id, targetLabel: org.name ?? null,
+      metadata: { kept: sub.plan_tier, canceled_downgrade_to: sub.pending_plan_tier, via: 'in_app' },
+    })
+
+    return { error: null }
+  } catch (err) {
+    console.error('[billing] cancelScheduledDowngrade error:', err)
     return { error: err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.' }
   }
 }

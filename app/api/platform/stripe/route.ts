@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { constructPlatformEvent, platformEnvFor } from '@/lib/stripe-platform'
+import { applySubscriptionDeletion } from '@/lib/billing-downgrade'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { Resend } from 'resend'
 
@@ -167,22 +168,10 @@ export async function POST(request: NextRequest) {
       // ── Subscription deleted (canceled immediately) ───────────────────────
       case 'customer.subscription.deleted': {
         const sub = event.data.object as Stripe.Subscription
-        const orgId = sub.metadata?.organization_id
-        if (!orgId) break
-
-        await db.from('subscriptions')
-          .update({
-            status: 'canceled',
-            canceled_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('organization_id', orgId)
-
-        await db.from('organizations')
-          .update({ status: 'suspended', updated_at: new Date().toISOString() })
-          .eq('id', orgId)
-
-        console.log(`[platform/stripe] Subscription deleted for org ${orgId}`)
+        // Apply the scheduled change: re-subscribe at a pending lower paid tier,
+        // or drop cleanly to Free (not suspended).
+        const outcome = await applySubscriptionDeletion(sub, event.livemode ? 'live' : 'test')
+        console.log(`[platform/stripe] Subscription deleted → ${outcome.result} (${outcome.tier})`)
         break
       }
 

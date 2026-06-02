@@ -22,6 +22,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { sendPlatformAlert } from '@/actions/platform-settings'
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 import { constructPlatformEvent, platformEnvFor } from '@/lib/stripe-platform'
+import { applySubscriptionDeletion } from '@/lib/billing-downgrade'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
@@ -93,6 +94,12 @@ async function syncSubscriptionRow(db: any, subscription: Stripe.Subscription) {
   // dedicated action (pre_hibernate_tier), so don't clobber plan_tier for it.
   if (tier === 'starter' || tier === 'pro' || tier === 'club') {
     update.plan_tier = tier
+  }
+  // If the subscription is no longer set to cancel, any scheduled downgrade was
+  // undone (e.g. via the Stripe portal) — clear the pending fields.
+  if (!subscription.cancel_at_period_end) {
+    update.pending_plan_tier = null
+    update.pending_plan_effective = null
   }
 
   await db.from('subscriptions').update(update).eq('stripe_customer_id', customerId)
@@ -257,21 +264,23 @@ export async function POST(request: NextRequest) {
         .single() as { data: { organization_id: string; plan_tier: string } | null }
 
       if (sub) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (db as any)
-          .from('subscriptions')
-          .update({ status: 'canceled', updated_at: new Date().toISOString() })
-          .eq('organization_id', sub.organization_id)
+        // Apply the scheduled change: re-subscribe at a pending lower paid tier,
+        // or drop cleanly to Free.
+        const outcome = await applySubscriptionDeletion(subscription, event.livemode ? 'live' : 'test')
 
         const { data: org } = await db.from('organizations').select('name, slug').eq('id', sub.organization_id).single()
         const orgUrl = `https://app.${PLATFORM_DOMAIN}/super/orgs/${sub.organization_id}`
 
+        const landed = outcome.result === 'resubscribed'
+          ? `re-subscribed at the <strong>${outcome.tier}</strong> plan`
+          : 'dropped to <strong>Free</strong> plan limits'
+
         await sendPlatformAlert(
           'subscription_change',
-          `Subscription cancelled: ${org?.name ?? sub.organization_id}`,
+          `Subscription ended: ${org?.name ?? sub.organization_id} → ${outcome.tier}`,
           `<div style="font-family:sans-serif;max-width:560px;color:#111;">
-            <h2>Subscription cancelled</h2>
-            <p><strong>${org?.name ?? 'Unknown org'}</strong> (${org?.slug ?? ''}) cancelled their <strong>${sub.plan_tier}</strong> subscription. Their account will drop to Free plan limits.</p>
+            <h2>Subscription period ended</h2>
+            <p><strong>${org?.name ?? 'Unknown org'}</strong> (${org?.slug ?? ''}) ended their <strong>${sub.plan_tier}</strong> subscription and ${landed}.</p>
             <a href="${orgUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px;">View in Super Console →</a>
           </div>`
         )
@@ -279,12 +288,12 @@ export async function POST(request: NextRequest) {
         await recordAuditLog({
           orgId: sub.organization_id,
           actorUserId: null,
-          actorLabel: 'Stripe (portal)',
+          actorLabel: 'Stripe',
           action: AUDIT_ACTIONS.SUBSCRIPTION_CHANGED,
           targetType: 'subscription',
           targetId: sub.organization_id,
           targetLabel: org?.name ?? null,
-          metadata: { from: sub.plan_tier, to: 'canceled', via: 'stripe_portal' },
+          metadata: { from: sub.plan_tier, to: outcome.tier, via: 'scheduled_downgrade' },
         })
       }
     }
