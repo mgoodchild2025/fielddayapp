@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { selectOfflineTeamPayment } from '@/actions/payments'
+import { PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ICON, type PaymentMethod } from '@/lib/payment-methods'
 
 interface Props {
   teamId: string
@@ -14,6 +16,9 @@ interface Props {
   paidAt?: string | null
   timezone?: string
   captainRegistrationStatus?: string // 'none' | 'pending' | 'active' | ...
+  /** Per-league accepted methods. When >1, the captain chooses; offline reserves the team. */
+  acceptedMethods?: PaymentMethod[]
+  offlineInstructions?: string | null
 }
 
 export function TeamPaymentPanel({
@@ -28,10 +33,44 @@ export function TeamPaymentPanel({
   paidAt,
   timezone = 'UTC',
   captainRegistrationStatus = 'none',
+  acceptedMethods = [],
+  offlineInstructions = null,
 }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [manualInstructions, setManualInstructions] = useState<string | null>(null)
+
+  const choice = acceptedMethods.length > 0
+  const selectableMethods: PaymentMethod[] = choice ? acceptedMethods : ['card']
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>(
+    () => (selectableMethods.includes('card') ? 'card' : (selectableMethods[0] ?? 'card'))
+  )
+
+  async function handleOfflineTeam(method: PaymentMethod) {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await selectOfflineTeamPayment({
+        teamId,
+        leagueId,
+        method: method as 'etransfer' | 'cash' | 'cheque',
+      })
+      if (res.error) {
+        setError(res.error)
+        setLoading(false)
+      } else {
+        setManualInstructions(res.instructions ?? offlineInstructions ?? '')
+      }
+    } catch {
+      setError('Something went wrong. Please try again.')
+      setLoading(false)
+    }
+  }
+
+  function handlePrimary() {
+    if (!choice || selectedMethod === 'card') handleCheckout()
+    else handleOfflineTeam(selectedMethod)
+  }
 
   async function handleCheckout() {
     setLoading(true)
@@ -164,18 +203,59 @@ export function TeamPaymentPanel({
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">{error}</div>
             )}
 
+            {/* Method chooser — when the league accepts more than one */}
+            {choice && selectableMethods.length > 1 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-700">Choose how to pay</p>
+                <div className="grid gap-2">
+                  {selectableMethods.map((m) => {
+                    const active = selectedMethod === m
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setSelectedMethod(m)}
+                        className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors ${
+                          active ? 'border-transparent ring-2' : 'border-gray-200 hover:bg-gray-50'
+                        }`}
+                        style={active ? { boxShadow: '0 0 0 2px var(--brand-primary)' } : {}}
+                      >
+                        <span className="text-xl">{PAYMENT_METHOD_ICON[m]}</span>
+                        <span className="flex-1">
+                          <span className="block text-sm font-medium text-gray-900">{PAYMENT_METHOD_LABELS[m]}</span>
+                          <span className="block text-xs text-gray-500">
+                            {m === 'card' ? 'Pay now by card' : 'Reserve your team, pay the organizer directly'}
+                          </span>
+                        </span>
+                        <span
+                          className={`w-4 h-4 rounded-full border-2 ${active ? 'border-transparent' : 'border-gray-300'}`}
+                          style={active ? { backgroundColor: 'var(--brand-primary)' } : {}}
+                        />
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             <button
-              onClick={handleCheckout}
+              onClick={handlePrimary}
               disabled={loading}
               className="w-full py-3 rounded-md font-semibold text-white disabled:opacity-60 transition-opacity"
               style={{ backgroundColor: 'var(--brand-primary)' }}
             >
-              {loading ? 'Redirecting to checkout…' : `Pay $${price.toFixed(0)} ${curr} for Team →`}
+              {loading
+                ? (selectedMethod === 'card' ? 'Redirecting to checkout…' : 'Saving…')
+                : selectedMethod === 'card'
+                  ? `Pay $${price.toFixed(0)} ${curr} for Team →`
+                  : `Reserve team & pay by ${PAYMENT_METHOD_LABELS[selectedMethod]} →`}
             </button>
 
-            <p className="text-xs text-center text-gray-400">
-              Secure checkout via Stripe. Once payment is complete, all team members&apos; registrations will be activated automatically.
-            </p>
+            {selectedMethod === 'card' && (
+              <p className="text-xs text-center text-gray-400">
+                Secure checkout via Stripe. Once payment is complete, all team members&apos; registrations will be activated automatically.
+              </p>
+            )}
           </>
         )}
       </div>

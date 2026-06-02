@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { Database } from '@/types/database'
 import type { MerchSelection, MerchItemForStep } from './step-addons'
-import { selectOfflinePayment } from '@/actions/payments'
+import { selectOfflinePayment, selectOfflineTeamPayment } from '@/actions/payments'
 import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_METHOD_ICON,
@@ -28,9 +28,12 @@ interface Props {
   offlineInstructions?: string | null
   /** Called after an offline method is confirmed (registration already reserved). */
   onComplete?: () => void
+  /** When set, this is a per-team captain paying the team fee: card uses the team
+   *  checkout, offline reserves the whole team. */
+  teamId?: string | null
 }
 
-export function Step3Payment({ org, league, userId, registrationId, priceCents, merchSelections = [], leagueMerch = [], onBack, acceptedMethods = [], offlineInstructions = null, onComplete }: Props) {
+export function Step3Payment({ org, league, userId, registrationId, priceCents, merchSelections = [], leagueMerch = [], onBack, acceptedMethods = [], offlineInstructions = null, onComplete, teamId = null }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [manualInstructions, setManualInstructions] = useState<string | null>(null)
@@ -75,11 +78,9 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
     setLoading(true)
     setError(null)
     try {
-      const res = await selectOfflinePayment({
-        registrationId,
-        leagueId: league.id,
-        method: method as 'etransfer' | 'cash' | 'cheque',
-      })
+      const res = teamId
+        ? await selectOfflineTeamPayment({ teamId, leagueId: league.id, method: method as 'etransfer' | 'cash' | 'cheque' })
+        : await selectOfflinePayment({ registrationId, leagueId: league.id, method: method as 'etransfer' | 'cash' | 'cheque' })
       if (res.error) {
         setError(res.error)
         setLoading(false)

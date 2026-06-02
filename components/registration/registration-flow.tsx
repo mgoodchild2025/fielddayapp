@@ -480,9 +480,10 @@ export function RegistrationFlow({
             merchSelections={merchSelections}
             leagueMerch={leagueMerch}
             onBack={() => advanceStep(showAddOnsStep ? 3 : (waiver ? 2 : 1))}
-            acceptedMethods={showCaptainPaymentStep ? [] : acceptedMethods}
+            acceptedMethods={acceptedMethods}
             offlineInstructions={offlineInstructions}
             onComplete={() => completeRegistration(registrationId)}
+            teamId={showCaptainPaymentStep ? newCaptainTeamId : null}
           />
         )}
 

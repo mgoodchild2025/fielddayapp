@@ -12,6 +12,7 @@ import { AdminEditTeamForm } from '@/components/teams/admin-edit-team-form'
 import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
 import { TeamPaymentPanel } from '@/components/teams/team-payment-panel'
 import { getPositionsForSport } from '@/actions/positions'
+import { resolveLeagueMethods } from '@/lib/payment-methods'
 import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { TeamAvatar } from '@/components/ui/team-avatar'
@@ -47,7 +48,7 @@ export default async function TeamDetailPage({
       .from('teams')
       .select(`
         id, name, color, logo_url, team_code, league_id, calendar_token,
-        league:leagues!teams_league_id_fkey(id, name, slug, sport, payment_mode, price_cents, currency),
+        league:leagues!teams_league_id_fkey(id, name, slug, sport, payment_mode, price_cents, currency, payment_methods, payment_instructions),
         team_members(
           id, role, status, user_id, position,
           profile:profiles!team_members_user_id_fkey(full_name, email, phone, avatar_url, show_contact_info)
@@ -248,6 +249,25 @@ export default async function TeamDetailPage({
     ((waiverSigsResult as { data: Array<{ user_id: string }> | null }).data ?? []).map((s) => s.user_id)
   )
   const leagueHasWaiver = !!(leagueWaiverResult as { data: { id: string } | null }).data
+
+  // Per-league payment methods for the team payment panel (captain/coach choice).
+  let teamAcceptedMethods: ReturnType<typeof resolveLeagueMethods> = []
+  let teamOfflineInstructions: string | null = null
+  if (isManager && isPerTeam) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: orgPay } = await (db as any)
+      .from('org_payment_settings')
+      .select('stripe_secret_key, registration_payment_mode, registration_manual_instructions')
+      .eq('organization_id', org.id)
+      .maybeSingle()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    teamAcceptedMethods = resolveLeagueMethods((league as any)?.payment_methods, orgPay)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    teamOfflineInstructions =
+      ((league as any)?.payment_instructions?.trim() || null) ??
+      (orgPay?.registration_manual_instructions ?? null)
+  }
+
   const inviterMap = Object.fromEntries(
     ((inviterProfilesResult as { data: Array<{ id: string; full_name: string | null }> | null }).data ?? []).map((p) => [p.id, p.full_name])
   )
@@ -434,6 +454,8 @@ export default async function TeamDetailPage({
                 ? (myLeagueRegistration.status as string)
                 : 'none'
             }
+            acceptedMethods={teamAcceptedMethods}
+            offlineInstructions={teamOfflineInstructions}
           />
         )}
 
