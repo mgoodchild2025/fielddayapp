@@ -56,6 +56,16 @@ export function HibernatePage({ orgName, resumeAt, branding, timezone = 'America
           </div>
         )}
 
+        {/* Organizer sign-in — lets an admin reach the panel to resume the account */}
+        <p className="text-sm pt-2">
+          <a
+            href="/login?redirect=/admin/settings/billing"
+            className="text-gray-400 underline hover:text-gray-600 transition-colors"
+          >
+            Organizer? Sign in
+          </a>
+        </p>
+
         {/* Footer */}
         <p className="text-xs text-gray-400 pt-4">
           Powered by{' '}
