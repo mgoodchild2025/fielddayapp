@@ -40,6 +40,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
   )
   const [regNotifEnabled, setRegNotifEnabled] = useState(initial.registrationNotificationsEnabled)
   const [regNotifEmail, setRegNotifEmail] = useState(initial.registrationNotificationEmail ?? '')
+  const [paymentFailEnabled, setPaymentFailEnabled] = useState(initial.paymentFailureNotificationsEnabled)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -92,6 +93,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
         captainPrepEmailEnabled: captainPrepEnabled,
         registrationNotificationsEnabled: regNotifEnabled,
         registrationNotificationEmail: regNotifEmail.trim() || null,
+        paymentFailureNotificationsEnabled: paymentFailEnabled,
       })
       if (res.error) {
         setError(res.error)
@@ -362,6 +364,20 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
             </p>
           </div>
         )}
+      </div>
+
+      {/* ── Payment failure alerts ─────────────────────────────────────── */}
+      <div className="bg-white rounded-lg border">
+        <div className="flex items-start justify-between gap-4 p-5">
+          <div>
+            <p className="font-medium text-gray-900">Payment Failure Alerts</p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Notify Org Admins (in-app and by email) whenever a player&apos;s or team&apos;s
+              Stripe payment fails.
+            </p>
+          </div>
+          <Toggle checked={paymentFailEnabled} onChange={setPaymentFailEnabled} />
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
