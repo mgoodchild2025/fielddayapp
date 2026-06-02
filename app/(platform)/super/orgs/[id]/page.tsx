@@ -81,6 +81,14 @@ export default async function PlatformOrgDetailPage({
     ? `https://${branding.custom_domain}`
     : `https://${org.slug}.fielddayapp.ca`
 
+  // Stripe deep links — test vs live inferred from the platform key prefix.
+  const stripeTest = (process.env.STRIPE_SECRET_KEY ?? '').startsWith('sk_test_')
+  const stripeBase = `https://dashboard.stripe.com/${stripeTest ? 'test/' : ''}`
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const subAny = sub as any
+  const stripeCustomerId: string | null = subAny?.stripe_customer_id ?? null
+  const stripeSubscriptionId: string | null = subAny?.stripe_subscription_id ?? null
+
   return (
     <div>
       {/* Header */}
@@ -158,6 +166,75 @@ export default async function PlatformOrgDetailPage({
 
         {/* Right col: members + leagues */}
         <div className="space-y-6">
+          {/* Stripe subscription */}
+          <div className="bg-white rounded-lg border p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold">Stripe Subscription</h2>
+              {stripeTest && (
+                <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Test mode</span>
+              )}
+            </div>
+            {sub ? (
+              <div className="space-y-2.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">Plan</span>
+                  <span className="font-medium capitalize">{sub.plan_tier ?? '—'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">Status</span>
+                  <span className="font-medium capitalize">{sub.status ?? '—'}</span>
+                </div>
+                {subAny?.status === 'hibernating' && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500">Pre-hibernate</span>
+                    <span className="font-medium capitalize">
+                      {subAny?.pre_hibernate_tier ?? '—'}
+                      {subAny?.hibernate_until ? ` · resumes ${new Date(subAny.hibernate_until).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+                    </span>
+                  </div>
+                )}
+                {subAny?.current_period_end && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500">Renews</span>
+                    <span className="font-medium">{new Date(subAny.current_period_end).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  </div>
+                )}
+
+                <div className="pt-2 mt-1 border-t space-y-2">
+                  {stripeCustomerId ? (
+                    <a
+                      href={`${stripeBase}customers/${stripeCustomerId}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center justify-between text-blue-600 hover:text-blue-800"
+                    >
+                      <span>View customer in Stripe ↗</span>
+                      <code className="text-[11px] text-gray-400 font-mono truncate max-w-[120px]">{stripeCustomerId}</code>
+                    </a>
+                  ) : (
+                    <p className="text-xs text-gray-400">No Stripe customer (free plan or never subscribed).</p>
+                  )}
+                  {stripeSubscriptionId ? (
+                    <a
+                      href={`${stripeBase}subscriptions/${stripeSubscriptionId}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center justify-between text-blue-600 hover:text-blue-800"
+                    >
+                      <span>View subscription in Stripe ↗</span>
+                      <code className="text-[11px] text-gray-400 font-mono truncate max-w-[120px]">{stripeSubscriptionId}</code>
+                    </a>
+                  ) : (
+                    <p className="text-xs text-gray-400">No active Stripe subscription.</p>
+                  )}
+                </div>
+                <p className="text-[11px] text-gray-400 pt-1">
+                  Plan/status above are Fieldday&apos;s synced copy. Open Stripe to confirm the live state.
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">No subscription record.</p>
+            )}
+          </div>
+
           {/* Members */}
           <div className="bg-white rounded-lg border p-5">
             <h2 className="font-semibold mb-3">Members <span className="text-gray-400 font-normal text-sm">({members.length})</span></h2>
