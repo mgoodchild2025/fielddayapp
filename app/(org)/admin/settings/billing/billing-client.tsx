@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import {
   createSubscriptionCheckout,
   createCustomerPortalSession,
+  changeSubscriptionPlan,
   hibernateSubscription,
   resumeFromHibernation,
   switchToFreePlan,
@@ -189,13 +190,23 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
     })
   }
 
+  function handleChangePlan(planTier: UpgradeableTier) {
+    setError(null)
+    setPendingAction(`change-${planTier}`)
+    startTransition(async () => {
+      const result = await changeSubscriptionPlan(planTier)
+      if (result.error) { setError(result.error); setPendingAction(null) }
+      else { window.location.reload() }
+    })
+  }
+
   // Whether the org exceeds free tier limits (blocks downgrade to free)
   const exceedsFreeLimit = activeLeagueCount > 1 || playerCount > 50
 
-  // Which plans to show in the upgrade grid
-  // For free/trialing/canceled orgs: show all paid plans
-  // For active paid orgs: handled via Stripe portal
-  const showPlanGrid = isTrialing || isCanceled || isFree || (isActive && !hasStripeSubscription)
+  // Show the plan grid in every state except hibernating (resume first).
+  // Existing subscribers see all plans with their current one highlighted;
+  // switching between paid plans routes through the Stripe billing portal.
+  const showPlanGrid = !isHibernating
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -248,15 +259,6 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
                 <span className="inline-flex items-center rounded-full bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5">Canceled</span>
               )}
             </div>
-            {hasStripeSubscription && !isHibernating && (
-              <button
-                onClick={handleManage}
-                disabled={isPending}
-                className="text-sm text-orange-600 hover:text-orange-700 font-medium disabled:opacity-50"
-              >
-                {pendingAction === 'portal' ? 'Opening…' : 'Manage subscription →'}
-              </button>
-            )}
           </div>
         </div>
 
@@ -343,9 +345,11 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
           <h2 className="text-sm font-semibold text-gray-700 mb-3">
             {isTrialing
               ? 'Choose a plan to continue after your trial'
-              : isFree
-              ? 'Upgrade to unlock more leagues, players, and features'
-              : 'Subscribe to reactivate your account'}
+              : isCanceled
+              ? 'Subscribe to reactivate your account'
+              : hasStripeSubscription
+              ? 'Change your plan'
+              : 'Upgrade to unlock more leagues, players, and features'}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {PLANS.map((plan) => {
@@ -413,7 +417,9 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
                     )
                   ) : (
                     <button
-                      onClick={() => handleUpgrade(plan.tier)}
+                      // Existing subscribers switch paid plans in-app (prorated);
+                      // new subscribers start Stripe Checkout.
+                      onClick={() => (isCurrent ? undefined : hasStripeSubscription ? handleChangePlan(plan.tier) : handleUpgrade(plan.tier))}
                       disabled={isPending || isCurrent}
                       className={`w-full rounded-lg py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${
                         isCurrent
@@ -423,7 +429,11 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
                           : 'bg-gray-900 hover:bg-gray-700 text-white'
                       }`}
                     >
-                      {isPending && pendingAction === `upgrade-${plan.tier}` ? 'Redirecting…' : isCurrent ? 'Current plan' : `Choose ${plan.name}`}
+                      {isCurrent
+                        ? 'Current plan'
+                        : hasStripeSubscription
+                        ? (pendingAction === `change-${plan.tier}` ? 'Switching…' : `Switch to ${plan.name}`)
+                        : (isPending && pendingAction === `upgrade-${plan.tier}` ? 'Redirecting…' : `Choose ${plan.name}`)}
                     </button>
                   )}
                 </div>
@@ -439,9 +449,10 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
       {/* ── Active subscriber manage button ───────────────────────────────────── */}
       {isActive && hasStripeSubscription && !isFree && (
         <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
-          <h2 className="text-sm font-semibold text-gray-700 mb-1">Manage Subscription</h2>
+          <h2 className="text-sm font-semibold text-gray-700 mb-1">Payment &amp; Cancellation</h2>
           <p className="text-sm text-gray-500 mb-3">
-            Update your payment method, switch plans, or cancel your subscription — all through the Stripe billing portal.
+            Update your payment method, view invoices, or cancel your subscription through the Stripe billing portal.
+            To change plans, use the options above.
           </p>
           <button
             onClick={handleManage}

@@ -266,6 +266,86 @@ export async function createCustomerPortalSession(): Promise<{ url: string } | {
 }
 
 /**
+ * Switch an existing paid subscription to a different paid tier in-app.
+ * Swaps the Stripe price (prorated immediately); the webhook syncs the DB, and
+ * we also update plan_tier right away so the page reflects it on reload.
+ */
+export async function changeSubscriptionPlan(
+  tier: 'starter' | 'pro' | 'club'
+): Promise<{ error: string | null }> {
+  try {
+    const { org, user } = await requireOrgAdmin()
+    const supabase = createServiceRoleClient()
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: sub } = await (supabase as any)
+      .from('subscriptions')
+      .select('stripe_subscription_id, plan_tier, status')
+      .eq('organization_id', org.id)
+      .single() as { data: { stripe_subscription_id: string | null; plan_tier: string; status: string } | null }
+
+    if (!sub?.stripe_subscription_id) {
+      return { error: 'No active subscription to change. Choose a plan to subscribe first.' }
+    }
+    if (sub.status === 'hibernating') {
+      return { error: 'Resume from hibernation before changing plans.' }
+    }
+    if (sub.plan_tier === tier) {
+      return { error: 'You are already on this plan.' }
+    }
+
+    const { stripe, prices } = await getPlatformStripe()
+    const newPriceId = prices[tier]
+    if (!newPriceId) {
+      return { error: `Price ID for "${tier}" is not configured. Please contact support.` }
+    }
+
+    const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id)
+    const itemId = stripeSub.items.data[0]?.id
+    if (!itemId) return { error: 'Could not locate the subscription item in Stripe.' }
+
+    await stripe.subscriptions.update(sub.stripe_subscription_id, {
+      items: [{ id: itemId, price: newPriceId }],
+      proration_behavior: 'always_invoice',
+      metadata: { plan_tier: tier },
+    })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
+      .from('subscriptions')
+      .update({ plan_tier: tier, status: 'active', updated_at: new Date().toISOString() })
+      .eq('organization_id', org.id)
+
+    await recordAuditLog({
+      orgId: org.id,
+      actorUserId: user.id,
+      actorLabel: user.email ?? null,
+      action: AUDIT_ACTIONS.SUBSCRIPTION_CHANGED,
+      targetType: 'subscription',
+      targetId: org.id,
+      targetLabel: org.name ?? null,
+      metadata: { from: sub.plan_tier, to: tier, via: 'in_app' },
+    })
+
+    await sendPlatformAlert(
+      'subscription_change',
+      `Subscription changed: ${org.name} → ${tier}`,
+      `<p><strong>${org.name}</strong> (${org.id}) switched plan from <strong>${sub.plan_tier}</strong> to <strong>${tier}</strong>.</p>`,
+    ).catch(() => {})
+
+    return { error: null }
+  } catch (err) {
+    console.error('[billing] changeSubscriptionPlan error:', err)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const e = err as any
+    if (e?.type === 'StripeInvalidRequestError' && typeof e.message === 'string') {
+      return { error: `Stripe rejected the change: ${e.message}` }
+    }
+    return { error: err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.' }
+  }
+}
+
+/**
  * Hibernate the org's subscription.
  * Switches the Stripe subscription to the $9/mo hibernate price,
  * sets status = 'hibernating', stores the original tier for later restoration,
