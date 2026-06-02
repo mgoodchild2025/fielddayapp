@@ -1,17 +1,19 @@
-import { getSignupsEnabled, getGlobalMaintenance, getPlatformAlerts } from '@/actions/platform-settings'
+import { getSignupsEnabled, getGlobalMaintenance, getPlatformAlerts, getPlatformStripeModeInfo } from '@/actions/platform-settings'
 import { ToggleSignups } from './toggle-signups'
 import { GlobalMaintenanceForm } from '@/components/platform/global-maintenance-form'
 import { PlatformAlertsForm } from './platform-alerts-form'
+import { StripeModeForm } from './stripe-mode-form'
 
 export const metadata = { title: 'Platform Settings — Fieldday' }
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
 export default async function PlatformSettingsPage() {
-  const [signupsEnabled, globalMaintenance, platformAlerts] = await Promise.all([
+  const [signupsEnabled, globalMaintenance, platformAlerts, stripeModeInfo] = await Promise.all([
     getSignupsEnabled(),
     getGlobalMaintenance(),
     getPlatformAlerts(),
+    getPlatformStripeModeInfo(),
   ])
   const signupUrl = `https://app.${PLATFORM_DOMAIN}/signup`
 
@@ -30,6 +32,9 @@ export default async function PlatformSettingsPage() {
       )}
 
       <div className="space-y-4">
+        {/* Platform Stripe mode */}
+        <StripeModeForm initial={stripeModeInfo} />
+
         {/* Global maintenance */}
         <div className={`bg-gray-800 rounded-xl p-6 ${globalMaintenance.enabled ? 'border-2 border-amber-500/50' : 'border border-gray-700'}`}>
           <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-widest mb-1">

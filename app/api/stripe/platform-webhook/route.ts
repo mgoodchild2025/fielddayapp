@@ -21,15 +21,9 @@ import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { sendPlatformAlert } from '@/actions/platform-settings'
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
+import { constructPlatformEvent, platformEnvFor } from '@/lib/stripe-platform'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
-
-function getPlatformStripe() {
-  const key = process.env.STRIPE_SECRET_KEY
-  if (!key) throw new Error('STRIPE_SECRET_KEY not configured')
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return new Stripe(key, { apiVersion: '2026-04-22.dahlia' as any })
-}
 
 /** Map a Stripe price ID back to a plan tier label */
 function priceTierLabel(priceId: string | null | undefined): string {
@@ -105,27 +99,23 @@ async function syncSubscriptionRow(db: any, subscription: Stripe.Subscription) {
 }
 
 export async function POST(request: NextRequest) {
-  const webhookSecret = process.env.STRIPE_PLATFORM_WEBHOOK_SECRET
-  if (!webhookSecret) {
-    console.warn('[platform-webhook] STRIPE_PLATFORM_WEBHOOK_SECRET not set — skipping')
-    return NextResponse.json({ received: true })
-  }
-
   const body = await request.text()
   const sig  = request.headers.get('stripe-signature')
   if (!sig) return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
 
-  let event: Stripe.Event
-  try {
-    const stripe = getPlatformStripe()
-    event = stripe.webhooks.constructEvent(body, sig, webhookSecret)
-  } catch (err) {
-    console.error('[platform-webhook] signature verification failed:', err)
+  // Verify against BOTH live + test signing secrets so events validate
+  // regardless of the active platform Stripe mode.
+  const event = constructPlatformEvent(body, sig)
+  if (!event) {
+    console.error('[platform-webhook] signature verification failed (no matching secret)')
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
   const db = createServiceRoleClient()
-  const stripe = getPlatformStripe()
+  // Use the key matching THIS event's mode (test vs live), so subscription
+  // retrieves work regardless of the active toggle.
+  const eventEnv = platformEnvFor(event.livemode ? 'live' : 'test')
+  const stripe = new Stripe(eventEnv.secretKey ?? 'sk_placeholder', { apiVersion: '2026-04-22.dahlia' as const })
 
   // ── checkout.session.completed ────────────────────────────────────────────
   // Fires when an org admin finishes paying for a plan via Stripe Checkout.

@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { getPlatformStripeMode } from '@/lib/stripe-platform'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { EditOrgForm } from './edit-org-form'
@@ -81,8 +82,9 @@ export default async function PlatformOrgDetailPage({
     ? `https://${branding.custom_domain}`
     : `https://${org.slug}.fielddayapp.ca`
 
-  // Stripe deep links — test vs live inferred from the platform key prefix.
-  const stripeTest = (process.env.STRIPE_SECRET_KEY ?? '').startsWith('sk_test_')
+  // Stripe deep links — test vs live follows the active platform Stripe mode.
+  const stripeMode = await getPlatformStripeMode()
+  const stripeTest = stripeMode === 'test'
   const stripeBase = `https://dashboard.stripe.com/${stripeTest ? 'test/' : ''}`
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const subAny = sub as any

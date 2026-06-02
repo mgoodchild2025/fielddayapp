@@ -2,7 +2,85 @@
 
 import { revalidatePath } from 'next/cache'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { createServerClient } from '@/lib/supabase/server'
 import { sendEmail } from '@/lib/email'
+import { platformEnvFor, type StripeMode } from '@/lib/stripe-platform'
+
+/** Throw unless the current session belongs to a platform admin. */
+async function requirePlatformAdmin(): Promise<{ userId: string; email: string | null }> {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile } = await (db as any)
+    .from('profiles').select('platform_role').eq('id', user.id).single()
+  if (profile?.platform_role !== 'platform_admin') throw new Error('Platform admin required')
+  return { userId: user.id, email: user.email ?? null }
+}
+
+// ── Platform Stripe mode (test / live) ──────────────────────────────────────
+
+export interface PlatformStripeModeInfo {
+  mode: StripeMode
+  liveConfigured: boolean
+  testConfigured: boolean
+}
+
+/** Current mode + whether each mode's keys are present in env. */
+export async function getPlatformStripeModeInfo(): Promise<PlatformStripeModeInfo> {
+  const service = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (service as any)
+    .from('platform_settings').select('value').eq('key', 'platform_stripe_mode').maybeSingle()
+  const live = platformEnvFor('live')
+  const test = platformEnvFor('test')
+  return {
+    mode: data?.value === 'test' ? 'test' : 'live',
+    liveConfigured: !!live.secretKey,
+    testConfigured: !!test.secretKey,
+  }
+}
+
+/** Flip the platform Stripe mode. Platform-admin only; alerts + (best-effort) guards. */
+export async function setPlatformStripeMode(mode: StripeMode): Promise<{ error: string | null }> {
+  if (mode !== 'test' && mode !== 'live') return { error: 'Invalid mode' }
+  let actor: { userId: string; email: string | null }
+  try {
+    actor = await requirePlatformAdmin()
+  } catch {
+    return { error: 'Platform admin required' }
+  }
+
+  // Refuse to switch into a mode whose secret key isn't configured.
+  const target = platformEnvFor(mode)
+  if (!target.secretKey) {
+    return { error: `Cannot switch to ${mode} mode — STRIPE_SECRET_KEY_${mode.toUpperCase()} is not set in the environment.` }
+  }
+
+  const service = createServiceRoleClient()
+  await service
+    .from('platform_settings')
+    .upsert(
+      { key: 'platform_stripe_mode', value: mode, updated_at: new Date().toISOString() },
+      { onConflict: 'key' }
+    )
+
+  // Alert the platform team that billing mode changed.
+  await sendPlatformAlert(
+    'subscription_change',
+    `Platform Stripe mode → ${mode.toUpperCase()}`,
+    `<div style="font-family:sans-serif;max-width:560px;color:#111;">
+       <h2>Platform Stripe mode changed</h2>
+       <p>Fieldday subscription billing is now operating in <strong>${mode.toUpperCase()}</strong> mode.</p>
+       <p style="color:#6b7280;font-size:13px;">Changed by ${actor.email ?? actor.userId}. ${mode === 'test' ? 'No real charges will be processed while in test mode.' : 'Live charges are now active.'}</p>
+     </div>`,
+  ).catch(() => {})
+
+  revalidatePath('/super/settings')
+  revalidatePath('/', 'layout')
+  return { error: null }
+}
 
 // ── Global maintenance mode ───────────────────────────────────────────────────
 

@@ -4,7 +4,7 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { getStripe } from '@/lib/stripe'
+import { getPlatformStripe } from '@/lib/stripe-platform'
 import { getCurrentOrg } from '@/lib/tenant'
 import { sendEmail } from '@/lib/email'
 import { sendPlatformAlert } from '@/actions/platform-settings'
@@ -13,14 +13,6 @@ import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? 'support@fielddayapp.ca'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
-
-// Price IDs come from env — set these after creating products in Stripe dashboard
-const PRICE_IDS: Record<string, string | undefined> = {
-  starter:   process.env.STRIPE_PRICE_STARTER_MONTHLY,
-  pro:       process.env.STRIPE_PRICE_PRO_MONTHLY,
-  club:      process.env.STRIPE_PRICE_CLUB_MONTHLY,
-  hibernate: process.env.STRIPE_PRICE_HIBERNATE_MONTHLY,  // $9/mo data-retention price
-}
 
 export type SubscriptionRow = {
   id: string
@@ -174,15 +166,12 @@ export async function createSubscriptionCheckout(
 ): Promise<{ url: string } | { error: string }> {
   try {
     const { org, user } = await requireOrgAdmin()
-    const priceId = PRICE_IDS[tier]
+    const { stripe, prices } = await getPlatformStripe()
+    const priceId = prices[tier]
     if (!priceId) {
       return { error: `Price ID for "${tier}" plan is not configured. Please contact support.` }
     }
 
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return { error: 'Billing is not configured (missing Stripe key). Please contact support.' }
-    }
-    const stripe = getStripe()
     const supabase = createServiceRoleClient()
 
     // Get or create a Stripe customer for this org
@@ -261,7 +250,7 @@ export async function createCustomerPortalSession(): Promise<{ url: string } | {
       return { error: 'No billing account found. Please subscribe first.' }
     }
 
-    const stripe = getStripe()
+    const { stripe } = await getPlatformStripe()
     const orgBase = `https://${org.slug}.${PLATFORM_DOMAIN}`
 
     const session = await stripe.billingPortal.sessions.create({
@@ -306,14 +295,15 @@ export async function hibernateSubscription(
     const hibernateUntil = resumeAt ? new Date(resumeAt).toISOString() : null
 
     // If there's a Stripe subscription, switch to the hibernate price
-    if (sub.stripe_subscription_id && PRICE_IDS.hibernate) {
-      const stripe = getStripe()
+    const { stripe: hibStripe, prices: hibPrices } = await getPlatformStripe()
+    if (sub.stripe_subscription_id && hibPrices.hibernate) {
+      const stripe = hibStripe
       const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id)
       const currentItemId = stripeSub.items.data[0]?.id
 
       if (currentItemId) {
         await stripe.subscriptions.update(sub.stripe_subscription_id, {
-          items: [{ id: currentItemId, price: PRICE_IDS.hibernate }],
+          items: [{ id: currentItemId, price: hibPrices.hibernate }],
           proration_behavior: 'always_invoice',
           metadata: { hibernating: 'true', original_tier: sub.plan_tier },
         })
@@ -375,10 +365,11 @@ export async function resumeFromHibernation(): Promise<{ error: string | null }>
     if (sub.status !== 'hibernating') return { error: 'Subscription is not currently hibernating.' }
 
     const restoreTier = (sub.pre_hibernate_tier ?? 'starter') as 'starter' | 'pro' | 'club'
-    const restorePriceId = PRICE_IDS[restoreTier]
+    const { stripe: resStripe, prices: resPrices } = await getPlatformStripe()
+    const restorePriceId = resPrices[restoreTier]
 
     if (sub.stripe_subscription_id && restorePriceId) {
-      const stripe = getStripe()
+      const stripe = resStripe
       const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id)
       const currentItemId = stripeSub.items.data[0]?.id
 
