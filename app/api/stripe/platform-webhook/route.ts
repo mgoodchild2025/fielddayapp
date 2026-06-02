@@ -41,6 +41,68 @@ function priceTierLabel(priceId: string | null | undefined): string {
   return priceId ? (map[priceId] ?? priceId) : 'Unknown'
 }
 
+/** Map a Stripe price ID to our DB plan_tier value (or null if unrecognized). */
+function priceToPlanTier(priceId: string | null | undefined): 'starter' | 'pro' | 'club' | 'hibernate' | null {
+  const map: Record<string, 'starter' | 'pro' | 'club' | 'hibernate'> = {
+    [process.env.STRIPE_PRICE_STARTER_MONTHLY  ?? '']: 'starter',
+    [process.env.STRIPE_PRICE_PRO_MONTHLY      ?? '']: 'pro',
+    [process.env.STRIPE_PRICE_CLUB_MONTHLY     ?? '']: 'club',
+    [process.env.STRIPE_PRICE_HIBERNATE_MONTHLY ?? '']: 'hibernate',
+  }
+  return priceId ? (map[priceId] ?? null) : null
+}
+
+/** Map a Stripe subscription status to our DB status enum. */
+function mapStripeStatus(s: Stripe.Subscription.Status): string {
+  switch (s) {
+    case 'trialing':           return 'trialing'
+    case 'active':             return 'active'
+    case 'past_due':
+    case 'unpaid':
+    case 'incomplete':         return 'past_due'
+    case 'canceled':
+    case 'incomplete_expired': return 'canceled'
+    case 'paused':             return 'paused'
+    default:                   return 'active'
+  }
+}
+
+/**
+ * Write the current state of a Stripe subscription back into our subscriptions
+ * row (matched by stripe_customer_id). This is the source of truth for what the
+ * billing page shows — without it, plan changes made via Checkout or the Stripe
+ * portal never reflect in the app.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function syncSubscriptionRow(db: any, subscription: Stripe.Subscription) {
+  const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id
+  if (!customerId) return
+
+  const priceId = subscription.items.data[0]?.price?.id
+  const tier = priceToPlanTier(priceId)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const periodEndRaw = (subscription.items.data[0] as any)?.current_period_end
+    ?? (subscription as any).current_period_end
+  const interval = subscription.items.data[0]?.price?.recurring?.interval ?? null
+
+  const update: Record<string, unknown> = {
+    stripe_subscription_id: subscription.id,
+    status: mapStripeStatus(subscription.status),
+    trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
+    current_period_end: periodEndRaw ? new Date(periodEndRaw * 1000).toISOString() : null,
+    cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+    billing_interval: interval,
+    updated_at: new Date().toISOString(),
+  }
+  // Only set plan_tier for the recognized paid plans. Hibernate is managed by a
+  // dedicated action (pre_hibernate_tier), so don't clobber plan_tier for it.
+  if (tier === 'starter' || tier === 'pro' || tier === 'club') {
+    update.plan_tier = tier
+  }
+
+  await db.from('subscriptions').update(update).eq('stripe_customer_id', customerId)
+}
+
 export async function POST(request: NextRequest) {
   const webhookSecret = process.env.STRIPE_PLATFORM_WEBHOOK_SECRET
   if (!webhookSecret) {
@@ -62,6 +124,30 @@ export async function POST(request: NextRequest) {
   }
 
   const db = createServiceRoleClient()
+  const stripe = getPlatformStripe()
+
+  // ── checkout.session.completed ────────────────────────────────────────────
+  // Fires when an org admin finishes paying for a plan via Stripe Checkout.
+  // This is what makes a newly-chosen plan show up on the billing page.
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object as Stripe.Checkout.Session
+    if (session.mode === 'subscription' && session.subscription) {
+      const subId = typeof session.subscription === 'string' ? session.subscription : session.subscription.id
+      try {
+        const subscription = await stripe.subscriptions.retrieve(subId)
+        await syncSubscriptionRow(db, subscription)
+      } catch (err) {
+        console.error('[platform-webhook] checkout.session.completed sync failed:', err)
+      }
+    }
+    return NextResponse.json({ received: true })
+  }
+
+  // ── customer.subscription.created ─────────────────────────────────────────
+  if (event.type === 'customer.subscription.created') {
+    await syncSubscriptionRow(db, event.data.object as Stripe.Subscription)
+    return NextResponse.json({ received: true })
+  }
 
   // ── invoice.payment_failed ────────────────────────────────────────────────
   if (event.type === 'invoice.payment_failed') {
@@ -117,6 +203,9 @@ export async function POST(request: NextRequest) {
     const subscription = event.data.object as Stripe.Subscription
     const previousAttributes = event.data.previous_attributes as Partial<Stripe.Subscription> | undefined
     const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id
+
+    // Always persist the latest state (plan tier, status, period end, cancel flag)
+    await syncSubscriptionRow(db, subscription)
 
     if (customerId) {
       const newPriceId = subscription.items.data[0]?.price?.id
