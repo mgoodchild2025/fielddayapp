@@ -179,6 +179,52 @@ export async function sendRegistrationAdminNotification({
   })
 }
 
+/** Alert sent to org admins when a player's Stripe payment fails. */
+export async function sendAdminPaymentFailedAlert({
+  to,
+  playerName,
+  playerEmail,
+  leagueName,
+  amountLabel,
+  orgName,
+  adminUrl,
+}: {
+  to: string[]
+  playerName: string | null
+  playerEmail: string | null
+  leagueName: string
+  amountLabel: string | null
+  orgName: string
+  adminUrl: string
+}) {
+  if (to.length === 0) return
+  await getResend().emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: `Payment failed — ${playerName ?? 'a player'} · ${leagueName}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+        <h1 style="font-size: 22px; font-weight: bold; margin-bottom: 8px;">A payment failed</h1>
+        <p style="color: #444; font-size: 15px;">
+          A Stripe payment for <strong>${esc(leagueName)}</strong> did not go through.
+        </p>
+        <table style="width:100%; border-collapse:collapse; font-size:14px; margin:16px 0;">
+          <tr><td style="padding:6px 0; color:#6b7280; width:120px;">Player</td><td>${esc(playerName ?? '—')}</td></tr>
+          <tr><td style="padding:6px 0; color:#6b7280;">Email</td><td>${esc(playerEmail ?? '—')}</td></tr>
+          ${amountLabel ? `<tr><td style="padding:6px 0; color:#6b7280;">Amount</td><td>${esc(amountLabel)}</td></tr>` : ''}
+        </table>
+        <p style="color:#6b7280; font-size:13px;">
+          The player's spot is not confirmed. They've been prompted to retry. No action is required unless you want to follow up.
+        </p>
+        <a href="${adminUrl}" style="display:inline-block; background:#111; color:#fff; text-decoration:none; font-size:14px; font-weight:600; padding:10px 20px; border-radius:8px; margin-top:8px;">View payments →</a>
+        <p style="color:#9ca3af; font-size:12px; text-align:center; margin:24px 0 0; border-top:1px solid #f3f4f6; padding-top:16px;">
+          Sent to admins of <strong>${esc(orgName)}</strong>, powered by Fieldday.
+        </p>
+      </div>
+    `,
+  })
+}
+
 export async function sendPaymentFailedEmail({
   email,
   name,
