@@ -10,13 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { getStripe } from '@/lib/stripe'
-
-const PRICE_IDS: Record<string, string | undefined> = {
-  starter: process.env.STRIPE_PRICE_STARTER_MONTHLY,
-  pro:     process.env.STRIPE_PRICE_PRO_MONTHLY,
-  club:    process.env.STRIPE_PRICE_CLUB_MONTHLY,
-}
+import { getPlatformStripe } from '@/lib/stripe-platform'
 
 type SubRow = {
   organization_id: string
@@ -51,12 +45,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ resumed: 0, results: ['No subscriptions to resume.'] })
     }
 
-    const stripe = getStripe()
+    const { stripe, prices } = await getPlatformStripe()
 
     for (const sub of toResume) {
       try {
         const restoreTier = (sub.pre_hibernate_tier ?? 'starter') as 'starter' | 'pro' | 'club'
-        const restorePriceId = PRICE_IDS[restoreTier]
+        const restorePriceId = prices[restoreTier]
 
         // Switch Stripe subscription back to original tier price
         if (sub.stripe_subscription_id && restorePriceId) {

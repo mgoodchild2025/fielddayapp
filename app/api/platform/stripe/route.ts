@@ -17,11 +17,10 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { getStripe } from '@/lib/stripe'
+import { constructPlatformEvent, platformEnvFor } from '@/lib/stripe-platform'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { Resend } from 'resend'
 
-const WEBHOOK_SECRET = process.env.STRIPE_PLATFORM_WEBHOOK_SECRET ?? ''
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'hello@fielddayapp.ca'
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
@@ -59,20 +58,21 @@ export async function POST(request: NextRequest) {
   const body = await request.text()
   const sig = request.headers.get('stripe-signature')
 
-  if (!sig || !WEBHOOK_SECRET) {
-    console.error('[platform/stripe] Missing signature or webhook secret')
+  if (!sig) {
+    console.error('[platform/stripe] Missing signature')
     return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
   }
 
-  const stripe = getStripe()
-  let event: Stripe.Event
-
-  try {
-    event = stripe.webhooks.constructEvent(body, sig, WEBHOOK_SECRET)
-  } catch (err) {
-    console.error('[platform/stripe] Signature verification failed:', err)
+  // Verify against both live + test signing secrets (mode-agnostic).
+  const event = constructPlatformEvent(body, sig)
+  if (!event) {
+    console.error('[platform/stripe] Signature verification failed (no matching secret)')
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
+
+  // Stripe client keyed to THIS event's mode for any subscription retrieves.
+  const eventEnv = platformEnvFor(event.livemode ? 'live' : 'test')
+  const stripe = new Stripe(eventEnv.secretKey ?? 'sk_placeholder', { apiVersion: '2026-04-22.dahlia' as const })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = createServiceRoleClient() as any
