@@ -20,6 +20,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { sendPlatformAlert } from '@/actions/platform-settings'
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
@@ -236,6 +237,17 @@ export async function POST(request: NextRequest) {
               <a href="${orgUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px;">View in Super Console →</a>
             </div>`
           )
+
+          await recordAuditLog({
+            orgId: sub.organization_id,
+            actorUserId: null,
+            actorLabel: 'Stripe (portal)',
+            action: AUDIT_ACTIONS.SUBSCRIPTION_CHANGED,
+            targetType: 'subscription',
+            targetId: sub.organization_id,
+            targetLabel: org?.name ?? null,
+            metadata: { from: oldTier, to: newTier, via: 'stripe_portal' },
+          })
         }
       }
     }
@@ -273,6 +285,17 @@ export async function POST(request: NextRequest) {
             <a href="${orgUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px;">View in Super Console →</a>
           </div>`
         )
+
+        await recordAuditLog({
+          orgId: sub.organization_id,
+          actorUserId: null,
+          actorLabel: 'Stripe (portal)',
+          action: AUDIT_ACTIONS.SUBSCRIPTION_CHANGED,
+          targetType: 'subscription',
+          targetId: sub.organization_id,
+          targetLabel: org?.name ?? null,
+          metadata: { from: sub.plan_tier, to: 'canceled', via: 'stripe_portal' },
+        })
       }
     }
   }

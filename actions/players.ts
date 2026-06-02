@@ -8,6 +8,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentOrg } from '@/lib/tenant'
 import { sendSms as twilioSendSms, toE164 } from '@/lib/twilio'
 import { optionalPhone, nullablePhone } from '@/lib/validation'
+import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
 
 async function requireOrgAdmin() {
   const headersList = await headers()
@@ -75,12 +76,33 @@ export async function updateOrgMemberRole(
   const { error, org, db } = await requireOrgAdmin()
   if (error) return { error }
 
+  // Snapshot prior role + name for the audit entry
+  const { data: prior } = await db
+    .from('org_members')
+    .select('role, profile:profiles!org_members_user_id_fkey(full_name, email)')
+    .eq('user_id', userId).eq('organization_id', org.id).maybeSingle()
+
   const { error: e } = await db
     .from('org_members')
     .update({ role })
     .eq('user_id', userId)
     .eq('organization_id', org.id)
   if (e) return { error: e.message }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pp: any = prior ? (Array.isArray((prior as any).profile) ? (prior as any).profile[0] : (prior as any).profile) : null
+  const actor = await getAuditActor()
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: actor.actorUserId,
+    actorLabel: actor.actorLabel,
+    action: AUDIT_ACTIONS.MEMBER_ROLE_CHANGED,
+    targetType: 'member',
+    targetId: userId,
+    targetLabel: pp?.full_name ?? pp?.email ?? null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    metadata: { from: (prior as any)?.role ?? null, to: role },
+  })
 
   revalidatePath(`/admin/players/${userId}`)
   return { error: null }

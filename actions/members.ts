@@ -6,8 +6,23 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 
 type OrgRole = 'org_admin' | 'league_admin' | 'captain' | 'player'
+
+/** Fetch a member's user_id + display label + role (for audit snapshots). */
+async function memberSnapshot(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any, orgId: string, memberId: string
+): Promise<{ userId: string | null; label: string | null; role: string | null }> {
+  const { data } = await db
+    .from('org_members')
+    .select('user_id, role, profile:profiles!org_members_user_id_fkey(full_name, email)')
+    .eq('id', memberId).eq('organization_id', orgId).maybeSingle()
+  if (!data) return { userId: null, label: null, role: null }
+  const p = Array.isArray(data.profile) ? data.profile[0] : data.profile
+  return { userId: data.user_id, label: p?.full_name ?? p?.email ?? null, role: data.role ?? null }
+}
 
 /** Change an org member's role. Only org_admin can do this. */
 export async function changeMemberRole(memberId: string, newRole: OrgRole) {
@@ -29,6 +44,8 @@ export async function changeMemberRole(memberId: string, newRole: OrgRole) {
     .single()
 
   if (!caller || caller.role !== 'org_admin') return { error: 'Unauthorized' }
+
+  const snap = await memberSnapshot(db, org.id, memberId)
   const { error } = await db
     .from('org_members')
     .update({ role: newRole })
@@ -36,6 +53,17 @@ export async function changeMemberRole(memberId: string, newRole: OrgRole) {
     .eq('organization_id', org.id)
 
   if (error) return { error: error.message }
+
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: user.id,
+    actorLabel: user.email ?? null,
+    action: AUDIT_ACTIONS.MEMBER_ROLE_CHANGED,
+    targetType: 'member',
+    targetId: snap.userId,
+    targetLabel: snap.label,
+    metadata: { from: snap.role, to: newRole },
+  })
 
   revalidatePath('/admin/players')
   return { error: null }
@@ -140,6 +168,7 @@ export async function deleteMember(memberId: string) {
   if (!member) return { error: 'Member not found' }
 
   const targetUserId = member.user_id
+  const snap = await memberSnapshot(serviceClient, org.id, memberId)
 
   // Remove from all teams in this org
   await serviceClient
@@ -156,6 +185,18 @@ export async function deleteMember(memberId: string) {
     .eq('organization_id', org.id)
 
   if (error) return { error: error.message }
+
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: user.id,
+    actorLabel: user.email ?? null,
+    action: AUDIT_ACTIONS.MEMBER_REMOVED,
+    targetType: 'member',
+    targetId: targetUserId,
+    targetLabel: snap.label,
+    metadata: { role: snap.role, hard_delete: true },
+  })
+
   const { count } = await serviceClient
     .from('org_members')
     .select('id', { count: 'exact', head: true })

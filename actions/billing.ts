@@ -8,6 +8,7 @@ import { getStripe } from '@/lib/stripe'
 import { getCurrentOrg } from '@/lib/tenant'
 import { sendEmail } from '@/lib/email'
 import { sendPlatformAlert } from '@/actions/platform-settings'
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? 'support@fielddayapp.ca'
 
@@ -78,7 +79,7 @@ export async function getSubscription(): Promise<SubscriptionRow | null> {
  */
 export async function switchToFreePlan(): Promise<{ error: string | null }> {
   try {
-    const { org } = await requireOrgAdmin()
+    const { org, user } = await requireOrgAdmin()
     const supabase = createServiceRoleClient()
 
     const [
@@ -145,6 +146,17 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
       `Subscription changed: ${org.name} → Free`,
       `<p><strong>${org.name}</strong> (${org.id}) downgraded to the <strong>Free</strong> plan.</p>`,
     )
+
+    await recordAuditLog({
+      orgId: org.id,
+      actorUserId: user.id,
+      actorLabel: user.email ?? null,
+      action: AUDIT_ACTIONS.SUBSCRIPTION_CHANGED,
+      targetType: 'subscription',
+      targetId: org.id,
+      targetLabel: org.name ?? null,
+      metadata: { to: 'free' },
+    })
 
     return { error: null }
   } catch (err) {
@@ -276,7 +288,7 @@ export async function hibernateSubscription(
   resumeAt: string | null
 ): Promise<{ error: string | null }> {
   try {
-    const { org } = await requireOrgAdmin()
+    const { org, user } = await requireOrgAdmin()
     const supabase = createServiceRoleClient()
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -325,6 +337,17 @@ export async function hibernateSubscription(
       `<p><strong>${org.name}</strong> (${org.id}) has hibernated their account (was on <strong>${sub.plan_tier}</strong> plan).${hibernateUntil ? ` Auto-resume: ${hibernateUntil}.` : ''}</p>`,
     )
 
+    await recordAuditLog({
+      orgId: org.id,
+      actorUserId: user.id,
+      actorLabel: user.email ?? null,
+      action: AUDIT_ACTIONS.SUBSCRIPTION_HIBERNATED,
+      targetType: 'subscription',
+      targetId: org.id,
+      targetLabel: org.name ?? null,
+      metadata: { from_tier: sub.plan_tier, resume_at: hibernateUntil },
+    })
+
     return { error: null }
   } catch (err) {
     console.error('[billing] hibernateSubscription error:', err)
@@ -338,7 +361,7 @@ export async function hibernateSubscription(
  */
 export async function resumeFromHibernation(): Promise<{ error: string | null }> {
   try {
-    const { org } = await requireOrgAdmin()
+    const { org, user } = await requireOrgAdmin()
     const supabase = createServiceRoleClient()
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -385,6 +408,17 @@ export async function resumeFromHibernation(): Promise<{ error: string | null }>
       `Subscription changed: ${org.name} → ${restoreTier} (resumed)`,
       `<p><strong>${org.name}</strong> (${org.id}) has resumed from hibernation and is back on the <strong>${restoreTier}</strong> plan.</p>`,
     )
+
+    await recordAuditLog({
+      orgId: org.id,
+      actorUserId: user.id,
+      actorLabel: user.email ?? null,
+      action: AUDIT_ACTIONS.SUBSCRIPTION_RESUMED,
+      targetType: 'subscription',
+      targetId: org.id,
+      targetLabel: org.name ?? null,
+      metadata: { to_tier: restoreTier },
+    })
 
     return { error: null }
   } catch (err) {
@@ -440,6 +474,18 @@ export async function requestAccountDeletion(
     if (SUPPORT_EMAIL) await sendEmail({ to: SUPPORT_EMAIL, subject: `Account deletion request — ${org.name}`, html: deletionHtml })
 
     console.log(`[billing] account deletion requested for org ${org.id} (${org.name}) by ${user.email}`)
+
+    await recordAuditLog({
+      orgId: org.id,
+      actorUserId: user.id,
+      actorLabel: user.email ?? null,
+      action: AUDIT_ACTIONS.ACCOUNT_CLOSURE_REQUESTED,
+      targetType: 'organization',
+      targetId: org.id,
+      targetLabel: org.name ?? null,
+      metadata: { reason: reason ?? null },
+    })
+
     return { error: null }
   } catch (err) {
     console.error('[billing] requestAccountDeletion error:', err)

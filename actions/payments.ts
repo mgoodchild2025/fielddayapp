@@ -7,6 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { resolveLeagueMethods, isOfflineMethod, PAYMENT_METHOD_LABELS, type PaymentMethod } from '@/lib/payment-methods'
+import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
 
 const recordManualPaymentSchema = z.object({
   registrationId: z.string().uuid(),
@@ -67,6 +68,23 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
 
   // Activate the registration
   await db.from('registrations').update({ status: 'active' }).eq('id', parsed.data.registrationId)
+
+  const actor = await getAuditActor()
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: actor.actorUserId,
+    actorLabel: actor.actorLabel,
+    action: AUDIT_ACTIONS.PAYMENT_MANUAL_RECORDED,
+    targetType: 'registration',
+    targetId: parsed.data.registrationId,
+    metadata: {
+      user_id: parsed.data.userId,
+      league_id: parsed.data.leagueId,
+      amount_cents: parsed.data.amountCents,
+      currency: parsed.data.currency,
+      method: parsed.data.method,
+    },
+  })
 
   revalidatePath('/admin/payments')
   return { data: null, error: null }
