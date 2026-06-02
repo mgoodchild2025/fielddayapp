@@ -24,6 +24,16 @@ export const AUDIT_ACTIONS = {
   SUBSCRIPTION_RESUMED:      'subscription.resumed',
   PAYMENT_MANUAL_RECORDED:   'payment.manual_recorded',
   ACCOUNT_CLOSURE_REQUESTED: 'account.closure_requested',
+
+  // ── Tier 2: operational integrity (dispute resolution) ─────────────────────
+  SCORE_OVERRIDDEN:      'score.overridden',
+  FORFEIT_RECORDED:      'forfeit.recorded',
+  GAME_CANCELLED:        'game.cancelled',
+  GAME_POSTPONED:        'game.postponed',
+  GAME_RESTORED:         'game.restored',
+  REGISTRATION_REMOVED:  'registration.removed',
+  EVENT_STATUS_CHANGED:  'event.status_changed',
+  MESSAGE_SENT:          'message.sent',
 } as const
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS] | (string & {})
@@ -96,6 +106,15 @@ export function auditActionLabel(action: string): string {
     'subscription.resumed':      'Subscription resumed',
     'payment.manual_recorded':   'Manual payment recorded',
     'account.closure_requested': 'Account closure requested',
+    // Tier 2
+    'score.overridden':      'Score overridden by admin',
+    'forfeit.recorded':      'Forfeit recorded',
+    'game.cancelled':        'Game cancelled',
+    'game.postponed':        'Game postponed',
+    'game.restored':         'Game restored',
+    'registration.removed':  'Registration removed',
+    'event.status_changed':  'Event status changed',
+    'message.sent':          'Message sent',
   }
   return map[action] ?? action
 }

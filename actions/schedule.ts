@@ -10,6 +10,7 @@ import { parseLocalToUtc, formatGameTime } from '@/lib/format-time'
 import { FROM_EMAIL } from '@/lib/resend'
 import { sendEmailBatch } from '@/lib/email'
 import { notifyScheduleDelay } from '@/lib/notify-schedule-delay'
+import { recordAuditLog, getAuditActor } from '@/lib/audit'
 
 // ── Notification helpers ────────────────────────────────────────────────────
 
@@ -665,6 +666,21 @@ export async function cancelGame(input: {
     })
   }
 
+  {
+    const names = resolveGameNames(game)
+    const actor = await getAuditActor()
+    await recordAuditLog({
+      orgId: org.id,
+      actorUserId: actor.actorUserId,
+      actorLabel: actor.actorLabel,
+      action: 'game.cancelled',
+      targetType: 'game',
+      targetId: input.gameId,
+      targetLabel: `${names.homeName} vs ${names.awayName}`,
+      metadata: { league_id: input.leagueId, reason: input.reason ?? null, notified: input.notify },
+    })
+  }
+
   revalidatePath(`/admin/events/${input.leagueId}/schedule`)
   revalidatePath('/events/[slug]', 'page')
   return { error: null }
@@ -720,6 +736,21 @@ export async function postponeGame(input: {
     })
   }
 
+  {
+    const names = resolveGameNames(game)
+    const actor = await getAuditActor()
+    await recordAuditLog({
+      orgId: org.id,
+      actorUserId: actor.actorUserId,
+      actorLabel: actor.actorLabel,
+      action: 'game.postponed',
+      targetType: 'game',
+      targetId: input.gameId,
+      targetLabel: `${names.homeName} vs ${names.awayName}`,
+      metadata: { league_id: input.leagueId, reason: input.reason ?? null, notified: input.notify },
+    })
+  }
+
   revalidatePath(`/admin/events/${input.leagueId}/schedule`)
   revalidatePath('/events/[slug]', 'page')
   return { error: null }
@@ -768,6 +799,21 @@ export async function restoreGame(input: {
           see you <strong>${dateLabel} at ${timeLabel}</strong>.
         </p>
       `,
+    })
+  }
+
+  {
+    const names = resolveGameNames(game)
+    const actor = await getAuditActor()
+    await recordAuditLog({
+      orgId: org.id,
+      actorUserId: actor.actorUserId,
+      actorLabel: actor.actorLabel,
+      action: 'game.restored',
+      targetType: 'game',
+      targetId: input.gameId,
+      targetLabel: `${names.homeName} vs ${names.awayName}`,
+      metadata: { league_id: input.leagueId, notified: input.notify },
     })
   }
 

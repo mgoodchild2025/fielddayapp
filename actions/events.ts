@@ -167,6 +167,11 @@ export async function updateLeagueStatus(leagueId: string, status: LeagueStatus)
   if (auth.error) return { data: null, error: auth.error }
 
   const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: prior } = await (db as any)
+    .from('leagues').select('name, status').eq('id', leagueId).eq('organization_id', org.id).single()
+
   const { error } = await db
     .from('leagues')
     .update({ status })
@@ -174,6 +179,17 @@ export async function updateLeagueStatus(leagueId: string, status: LeagueStatus)
     .eq('organization_id', org.id)
 
   if (error) return { data: null, error: error.message }
+
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: auth.userId,
+    actorLabel: auth.userId ? await getActorLabel(auth.userId) : null,
+    action: 'event.status_changed',
+    targetType: 'league',
+    targetId: leagueId,
+    targetLabel: prior?.name ?? null,
+    metadata: { from: prior?.status ?? null, to: status },
+  })
 
   revalidatePath(`/admin/events/${leagueId}`)
   // Bust public caches so archive/restore reflects immediately on the

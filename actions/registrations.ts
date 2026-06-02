@@ -9,6 +9,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { sendRegistrationConfirmation, sendRegistrationAdminNotification } from './emails'
 import { acceptDropInInvite, acceptPickupInvite } from './invites'
 import { recordConsents, consentRequestMeta, type ConsentRow } from './player-consents'
+import { recordAuditLog, getAuditActor } from '@/lib/audit'
 
 const createRegistrationSchema = z.object({
   leagueId: z.string().uuid(),
@@ -192,9 +193,10 @@ export async function removeRegistration(registrationId: string, leagueId: strin
   const db = createServiceRoleClient()
 
   // Fetch the registration to get the user_id before deleting
-  const { data: reg, error: fetchError } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: reg, error: fetchError } = await (db as any)
     .from('registrations')
-    .select('user_id')
+    .select('user_id, profiles:profiles!registrations_user_id_fkey(full_name, email)')
     .eq('id', registrationId)
     .eq('organization_id', org.id)
     .single()
@@ -232,6 +234,20 @@ export async function removeRegistration(registrationId: string, leagueId: strin
     .eq('organization_id', org.id)
 
   if (error) return { error: error.message }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const prof: any = Array.isArray((reg as any).profiles) ? (reg as any).profiles[0] : (reg as any).profiles
+  const actor = await getAuditActor()
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: actor.actorUserId,
+    actorLabel: actor.actorLabel,
+    action: 'registration.removed',
+    targetType: 'registration',
+    targetId: registrationId,
+    targetLabel: prof?.full_name ?? prof?.email ?? null,
+    metadata: { league_id: leagueId, user_id: (reg as { user_id: string }).user_id },
+  })
 
   revalidatePath(`/admin/events/${leagueId}/registrations`)
   revalidatePath(`/admin/events/${leagueId}/teams`)

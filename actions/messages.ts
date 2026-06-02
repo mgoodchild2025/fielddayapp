@@ -12,6 +12,7 @@ import { canAccess } from '@/lib/features'
 import { getMarketingConsentBatch } from '@/actions/player-consents'
 import { unsubscribeUrl } from '@/lib/unsubscribe'
 import { parseLocalToUtc } from '@/lib/format-time'
+import { recordAuditLog } from '@/lib/audit'
 
 const sendSchema = z.object({
   title: z.string().min(1, 'Subject required'),
@@ -132,6 +133,22 @@ export async function sendAnnouncement(input: FormData) {
   if (isImmediate && announcement) {
     await deliverAnnouncement(announcement.id, org.id, org.name ?? '', user.id, parsed.data).catch(() => {})
   }
+
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: user.id,
+    actorLabel: user.email ?? null,
+    action: 'message.sent',
+    targetType: 'announcement',
+    targetId: announcement?.id ?? null,
+    targetLabel: parsed.data.title,
+    metadata: {
+      audience_type: parsed.data.audience_type,
+      channel: parsed.data.channel,
+      message_class: parsed.data.message_class,
+      scheduled: !isImmediate,
+    },
+  })
 
   revalidatePath('/admin/messages')
   return { error: null }
