@@ -7,6 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { advanceBracketFromScore, reverseBracketAdvancement } from '@/actions/brackets'
+import { recordAuditLog } from '@/lib/audit'
 
 const submitScoreSchema = z.object({
   gameId: z.string().uuid(),
@@ -144,6 +145,17 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
   await supabase.from('games').update({ status: 'completed' }).eq('id', parsed.data.gameId)
 
   const leagueId = parsed.data.leagueId ?? game.league_id
+
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: user.id,
+    actorLabel: user.email ?? null,
+    action: 'score.overridden',
+    targetType: 'game',
+    targetId: parsed.data.gameId,
+    metadata: { league_id: leagueId, home_score: parsed.data.homeScore, away_score: parsed.data.awayScore },
+  })
+
   if (leagueId) revalidatePath(`/admin/events/${leagueId}/schedule`)
   revalidatePath('/events/[slug]', 'page')
 
@@ -251,6 +263,17 @@ export async function recordForfeit(input: z.infer<typeof recordForfeitSchema>) 
   await (db as any).from('games').update({ status: 'completed' }).eq('id', parsed.data.gameId)
 
   const leagueId = parsed.data.leagueId ?? game.league_id
+
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: user.id,
+    actorLabel: user.email ?? null,
+    action: 'forfeit.recorded',
+    targetType: 'game',
+    targetId: parsed.data.gameId,
+    metadata: { league_id: leagueId, forfeit_side: parsed.data.forfeitSide, forfeit_team_id: forfeitTeamId, home_score: homeScore, away_score: awayScore },
+  })
+
   if (leagueId) revalidatePath(`/admin/events/${leagueId}/schedule`)
   revalidatePath('/events/[slug]', 'page')
 
