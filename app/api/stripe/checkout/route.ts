@@ -100,6 +100,9 @@ export async function POST(request: NextRequest) {
         },
       ],
       metadata: { teamId, leagueId, orgId, paymentType: 'team' },
+      payment_intent_data: {
+        metadata: { teamId, leagueId, orgId, paymentType: 'team' },
+      },
       success_url: `${origin}/teams/${teamId}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/teams/${teamId}`,
     })
@@ -338,6 +341,12 @@ export async function POST(request: NextRequest) {
       orgId,
       paymentType: 'player',
       ...(merchOrderIds.length > 0 ? { merchOrderIds: merchOrderIds.join(',') } : {}),
+    },
+    // Copy context onto the PaymentIntent too, so payment_intent.payment_failed
+    // events carry registration/league/org info (Checkout does NOT propagate
+    // session metadata to the PaymentIntent automatically).
+    payment_intent_data: {
+      metadata: { registrationId, leagueId, userId, orgId, paymentType: 'player' },
     },
     success_url: `${origin}/register/${leagueSlug}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/register/${leagueSlug}`,

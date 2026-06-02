@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { sendRegistrationConfirmation, sendPaymentFailedEmail } from '@/actions/emails'
+import { sendRegistrationConfirmation, sendPaymentFailedEmail, sendAdminPaymentFailedAlert } from '@/actions/emails'
 import { checkAndNotifyLowStock } from '@/actions/merchandise'
 
 export async function POST(request: NextRequest) {
@@ -338,7 +338,9 @@ export async function POST(request: NextRequest) {
 
   if (event.type === 'payment_intent.payment_failed') {
     const pi = event.data.object as Stripe.PaymentIntent
-    const { registrationId, userId, leagueId } = pi.metadata ?? {}
+    const md = pi.metadata ?? {}
+    const { registrationId, userId, leagueId } = md
+    const failOrgId = md.orgId || orgId
 
     if (registrationId) {
       await supabase
@@ -347,15 +349,74 @@ export async function POST(request: NextRequest) {
         .eq('stripe_payment_intent_id', pi.id)
     }
 
-    if (userId && leagueId) {
-      const [{ data: profile }, { data: league }] = await Promise.all([
-        supabase.from('profiles').select('full_name, email').eq('id', userId).single(),
-        supabase.from('leagues').select('name').eq('id', leagueId).single(),
-      ])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [{ data: league }, { data: profile }, { data: org }, { data: admins }] = await Promise.all([
+      leagueId
+        ? supabase.from('leagues').select('name').eq('id', leagueId).single()
+        : Promise.resolve({ data: null }),
+      userId
+        ? supabase.from('profiles').select('full_name, email').eq('id', userId).single()
+        : Promise.resolve({ data: null }),
+      supabase.from('organizations').select('name').eq('id', failOrgId ?? '').single(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any)
+        .from('org_members')
+        .select('user_id, profile:profiles!org_members_user_id_fkey(email, full_name)')
+        .eq('organization_id', failOrgId ?? '')
+        .in('role', ['org_admin', 'league_admin'])
+        .eq('status', 'active'),
+    ])
 
-      if (profile?.email && league?.name) {
-        await sendPaymentFailedEmail({ email: profile.email, name: profile.full_name, leagueName: league.name })
+    const leagueName = (league as { name?: string } | null)?.name ?? 'an event'
+    const playerName = (profile as { full_name?: string } | null)?.full_name ?? null
+    const playerEmail = (profile as { email?: string } | null)?.email ?? null
+    const amountLabel = pi.amount ? `$${(pi.amount / 100).toFixed(2)} ${(pi.currency ?? '').toUpperCase()}`.trim() : null
+
+    // Notify the player (existing behaviour)
+    if (playerEmail && (league as { name?: string } | null)?.name) {
+      await sendPaymentFailedEmail({ email: playerEmail, name: playerName ?? '', leagueName })
+    }
+
+    // Notify org admins — in-app + email. Never let this break the webhook.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const adminRows = (admins ?? []) as Array<{ user_id: string; profile: any }>
+      const notifBody = `${playerName ?? 'A player'}'s payment for ${leagueName} failed${amountLabel ? ` (${amountLabel})` : ''}.`
+
+      const notifRows = adminRows
+        .filter((a) => a.user_id)
+        .map((a) => ({
+          organization_id: failOrgId,
+          user_id: a.user_id,
+          type: 'payment_failed',
+          title: 'Payment failed',
+          body: notifBody,
+          data: { leagueId: leagueId ?? null, registrationId: registrationId ?? null, userId: userId ?? null },
+        }))
+      if (notifRows.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any).from('notifications').insert(notifRows)
       }
+
+      const adminEmails = adminRows.flatMap((a) => {
+        const p = Array.isArray(a.profile) ? a.profile[0] : a.profile
+        return p?.email ? [p.email as string] : []
+      })
+      if (adminEmails.length > 0) {
+        const host = request.headers.get('host')
+        const origin = host ? `https://${host}` : (process.env.NEXT_PUBLIC_APP_URL ?? '')
+        await sendAdminPaymentFailedAlert({
+          to: adminEmails,
+          playerName,
+          playerEmail,
+          leagueName,
+          amountLabel,
+          orgName: (org as { name?: string } | null)?.name ?? '',
+          adminUrl: `${origin}/admin/payments`,
+        })
+      }
+    } catch (err) {
+      console.error('[webhook] admin payment-failure notification failed:', err)
     }
   }
 
