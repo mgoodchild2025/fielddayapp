@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { selectOfflineTeamPayment } from '@/actions/payments'
+import { validateDiscountCode, incrementDiscountUse } from '@/actions/discounts'
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ICON, type PaymentMethod } from '@/lib/payment-methods'
 
 interface Props {
@@ -40,11 +41,41 @@ export function TeamPaymentPanel({
   const [error, setError] = useState<string | null>(null)
   const [manualInstructions, setManualInstructions] = useState<string | null>(null)
 
+  // Discount code
+  const [discountInput, setDiscountInput] = useState('')
+  const [discountLoading, setDiscountLoading] = useState(false)
+  const [discountError, setDiscountError] = useState<string | null>(null)
+  const [appliedDiscount, setAppliedDiscount] = useState<{
+    id: string; code: string; type: 'percent' | 'fixed'; value: number
+  } | null>(null)
+  const [showDiscountInput, setShowDiscountInput] = useState(false)
+
+  const discountAmountCents = appliedDiscount
+    ? appliedDiscount.type === 'percent'
+      ? Math.round(priceCents * appliedDiscount.value / 100)
+      : Math.min(appliedDiscount.value * 100, priceCents)
+    : 0
+  const discountedPriceCents = priceCents - discountAmountCents
+
   const choice = acceptedMethods.length > 0
   const selectableMethods: PaymentMethod[] = choice ? acceptedMethods : ['card']
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>(
     () => (selectableMethods.includes('card') ? 'card' : (selectableMethods[0] ?? 'card'))
   )
+
+  async function handleApplyDiscount() {
+    const code = discountInput.trim()
+    if (!code) return
+    setDiscountLoading(true)
+    setDiscountError(null)
+    const result = await validateDiscountCode(code, orgId, 'leagues')
+    setDiscountLoading(false)
+    if (result.valid && result.discount) {
+      setAppliedDiscount(result.discount)
+    } else {
+      setDiscountError(result.error ?? 'Invalid code')
+    }
+  }
 
   async function handleOfflineTeam(method: PaymentMethod) {
     setLoading(true)
@@ -59,6 +90,7 @@ export function TeamPaymentPanel({
         setError(res.error)
         setLoading(false)
       } else {
+        if (appliedDiscount) await incrementDiscountUse(appliedDiscount.id)
         setManualInstructions(res.instructions ?? offlineInstructions ?? '')
       }
     } catch {
@@ -79,7 +111,10 @@ export function TeamPaymentPanel({
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leagueId, leagueSlug, teamId, orgId }),
+        body: JSON.stringify({
+          leagueId, leagueSlug, teamId, orgId,
+          ...(appliedDiscount ? { discountId: appliedDiscount.id } : {}),
+        }),
       })
       const data = await res.json()
       if (data.manual) {
@@ -189,15 +224,78 @@ export function TeamPaymentPanel({
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between py-3 border rounded-md px-4">
-              <div>
-                <p className="font-medium text-sm">Team registration fee</p>
-                <p className="text-xs text-gray-400 mt-0.5">{memberCount} player{memberCount !== 1 ? 's' : ''} currently on the roster</p>
+            <div className="border rounded-md divide-y">
+              <div className="flex items-center justify-between py-3 px-4">
+                <div>
+                  <p className="font-medium text-sm">Team registration fee</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{memberCount} player{memberCount !== 1 ? 's' : ''} currently on the roster</p>
+                </div>
+                <p className={`font-bold text-lg tabular-nums ${appliedDiscount ? 'line-through text-gray-400' : ''}`} style={appliedDiscount ? {} : { color: 'var(--brand-primary)' }}>
+                  ${price.toFixed(0)} {curr}
+                </p>
               </div>
-              <p className="font-bold text-lg" style={{ color: 'var(--brand-primary)' }}>
-                ${price.toFixed(0)} {curr}
-              </p>
+
+              {appliedDiscount && discountAmountCents > 0 && (
+                <div className="flex justify-between items-center px-4 py-3 bg-green-50">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-green-800">Discount: {appliedDiscount.code}</span>
+                    <span className="text-xs text-green-600 bg-green-100 rounded px-1.5 py-0.5">
+                      {appliedDiscount.type === 'percent' ? `${appliedDiscount.value}% off` : `$${appliedDiscount.value} off`}
+                    </span>
+                    <button type="button" onClick={() => { setAppliedDiscount(null); setDiscountInput('') }} className="text-xs text-green-600 hover:text-red-500 underline">
+                      Remove
+                    </button>
+                  </div>
+                  <span className="font-semibold text-green-700 tabular-nums">−${(discountAmountCents / 100).toFixed(2)} {curr}</span>
+                </div>
+              )}
+
+              {appliedDiscount && (
+                <div className="flex justify-between items-center px-4 py-3">
+                  <span className="text-sm text-gray-600">After discount</span>
+                  <span className="font-bold text-lg tabular-nums" style={{ color: 'var(--brand-primary)' }}>
+                    ${(discountedPriceCents / 100).toFixed(2)} {curr}
+                  </span>
+                </div>
+              )}
             </div>
+
+            {/* Discount code */}
+            {!appliedDiscount && (
+              <div>
+                {!showDiscountInput ? (
+                  <button type="button" onClick={() => setShowDiscountInput(true)} className="text-sm text-gray-400 hover:text-gray-600 underline underline-offset-2">
+                    Have a discount code?
+                  </button>
+                ) : (
+                  <div className="space-y-1.5">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={discountInput}
+                        onChange={(e) => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(null) }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleApplyDiscount() } }}
+                        placeholder="Enter code"
+                        className="flex-1 border rounded-md px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:ring-2"
+                        style={{ focusRingColor: 'var(--brand-primary)' } as React.CSSProperties}
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyDiscount}
+                        disabled={discountLoading || !discountInput.trim()}
+                        className="px-4 py-2 rounded-md text-sm font-medium text-white disabled:opacity-50"
+                        style={{ backgroundColor: 'var(--brand-primary)' }}
+                      >
+                        {discountLoading ? '…' : 'Apply'}
+                      </button>
+                      <button type="button" onClick={() => { setShowDiscountInput(false); setDiscountInput(''); setDiscountError(null) }} className="px-3 py-2 rounded-md text-sm text-gray-400 hover:text-gray-600">✕</button>
+                    </div>
+                    {discountError && <p className="text-xs text-red-600">{discountError}</p>}
+                  </div>
+                )}
+              </div>
+            )}
 
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">{error}</div>
@@ -247,7 +345,7 @@ export function TeamPaymentPanel({
               {loading
                 ? (selectedMethod === 'card' ? 'Redirecting to checkout…' : 'Saving…')
                 : selectedMethod === 'card'
-                  ? `Pay $${price.toFixed(0)} ${curr} for Team →`
+                  ? `Pay $${(discountedPriceCents / 100).toFixed(appliedDiscount ? 2 : 0)} ${curr} for Team →`
                   : `Reserve team & pay by ${PAYMENT_METHOD_LABELS[selectedMethod]} →`}
             </button>
 
