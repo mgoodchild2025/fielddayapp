@@ -796,6 +796,10 @@ export async function getShopItems(orgId: string): Promise<ShopItem[]> {
 
   return (items as ShopItem[]).map((item) => ({
     ...item,
+    // Collapse all whitespace (incl. newlines) so the shop card description can't
+    // render blank lines as tall white space. Done server-side so it applies no
+    // matter which client bundle is being served.
+    description: item.description ? (item.description.replace(/\s+/g, ' ').trim() || null) : null,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     additional_images: (item as any).additional_images ?? [],
     variants: variantsByItem.get(item.id) ?? [],
