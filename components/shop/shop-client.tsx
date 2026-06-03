@@ -28,7 +28,8 @@ export function ShopClient({ items }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+    // Mobile: cards size to content (no stretch gap). Desktop: equal height.
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 items-start sm:items-stretch">
       {items.map((item) => (
         <ShopItemCard
           key={item.id}
