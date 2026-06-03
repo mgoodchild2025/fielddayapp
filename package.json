@@ -36,6 +36,7 @@
     "@react-pdf/renderer": "^4.5.1",
     "@supabase/ssr": "0.10.2",
     "@supabase/supabase-js": "2.104.1",
+    "@tabler/icons-react": "^3.44.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tiptap/extension-image": "^3.22.5",
     "@tiptap/extension-link": "^3.22.5",
