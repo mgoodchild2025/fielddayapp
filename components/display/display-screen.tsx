@@ -11,6 +11,8 @@ import { MessageZone }   from './zones/message-zone'
 import { ClockZone }     from './zones/clock-zone'
 import { LogoZone }      from './zones/logo-zone'
 import { LiveZone }      from './zones/live-zone'
+import { SponsorsZone }  from './zones/sponsors-zone'
+import { SponsorBanner } from './sponsor-banner'
 
 // ── Layout grid styles ────────────────────────────────────────────────────────
 
@@ -83,6 +85,8 @@ function ZoneRenderer({
       return <LogoZone orgName={data.org.name} logoUrl={data.org.logo_url} theme={theme} />
     case 'live':
       return <LiveZone live={data.live} theme={theme} />
+    case 'sponsors':
+      return <SponsorsZone sponsors={data.sponsors} theme={theme} />
     case 'empty':
     default:
       return null
@@ -112,6 +116,12 @@ export function DisplayScreen({ config, data, screen }: Props) {
   const border = isDark ? '#27272a' : '#e5e7eb'
   const text   = isDark ? '#ffffff' : '#111827'
   const subtle = isDark ? '#3f3f46' : '#d1d5db'
+
+  const banner = config.sponsor_banner
+  const showBanner = banner?.enabled === true && data.sponsors.length > 0
+  const bannerEl = showBanner
+    ? <SponsorBanner sponsors={data.sponsors} speed={banner!.speed ?? 'normal'} theme={config.theme} />
+    : null
 
   return (
     <div
@@ -147,6 +157,9 @@ export function DisplayScreen({ config, data, screen }: Props) {
         </div>
       )}
 
+      {/* Sponsor banner — top */}
+      {showBanner && banner!.position === 'top' && bannerEl}
+
       {/* Zone grid */}
       <div className="flex-1 overflow-hidden" style={gridStyle(config.layout)}>
         {config.zones.map((zone, i) => (
@@ -163,6 +176,9 @@ export function DisplayScreen({ config, data, screen }: Props) {
           </div>
         ))}
       </div>
+
+      {/* Sponsor banner — bottom (default) */}
+      {showBanner && banner!.position !== 'top' && bannerEl}
 
       {/* Subtle updated-at footer */}
       <div

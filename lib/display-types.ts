@@ -23,7 +23,15 @@ export type ZoneConfig =
   | { type: 'clock' }
   | { type: 'logo' }
   | { type: 'live' }
+  | { type: 'sponsors' }
   | { type: 'empty' }
+
+export interface SponsorBannerConfig {
+  enabled:  boolean
+  position: 'bottom' | 'top'
+  speed:    'slow' | 'normal' | 'fast'
+  source:   'org' | 'event' | 'both'
+}
 
 export interface DisplayConfig {
   layout:          LayoutId
@@ -31,6 +39,8 @@ export interface DisplayConfig {
   theme:           'dark' | 'light'
   show_header:     boolean
   refresh_seconds: number
+  /** Optional running sponsor banner that overlays the bottom/top of the screen. */
+  sponsor_banner?: SponsorBannerConfig
 }
 
 export const ZONE_COUNT: Record<LayoutId, number> = {
@@ -136,9 +146,18 @@ export interface DisplayBracketMatch {
   court:         string | null
 }
 
+export interface DisplaySponsor {
+  id:          string
+  name:        string
+  logo_url:    string | null
+  tier:        'gold' | 'silver' | 'bronze' | 'standard'
+}
+
 export interface DisplayData {
   league:    { id: string; name: string; sport: string }
   org:       { name: string; logo_url: string | null }
+  /** Sponsors to advertise on the banner / sponsors zone (empty if none configured). */
+  sponsors:  DisplaySponsor[]
   timezone:  string
   pools:     { id: string; name: string }[]
   games:     DisplayGame[]

@@ -9,6 +9,7 @@ import type {
   DisplayConfig, DisplayData, DisplayGame, DisplayStanding, DisplayBracketMatch,
 } from '@/lib/display-types'
 import { defaultConfig, ZONE_COUNT } from '@/lib/display-types'
+import { getEventSponsors } from '@/actions/event-sponsors'
 import {
   sortStandings, isVolleyballSport,
   type PtsMethod, type VolleyballMode, type TeamStat,
@@ -102,6 +103,7 @@ export async function getDisplayData(
   const needsSchedule  = zoneTypes.has('schedule')
   const needsStandings = zoneTypes.has('standings')
   const needsBracket   = zoneTypes.has('bracket')
+  const needsSponsors  = zoneTypes.has('sponsors') || config.sponsor_banner?.enabled === true
 
   // Base queries always needed
   const [{ data: leagueRow }, { data: brandingRow }, { data: poolsData }, { data: orgRow }] = await Promise.all([
@@ -415,9 +417,19 @@ export async function getDisplayData(
     }
   }
 
+  // ── Sponsors (banner / sponsors zone) ────────────────────────────────────────
+  let sponsors: DisplayData['sponsors'] = []
+  if (needsSponsors) {
+    const resolved = await getEventSponsors(leagueId, orgId)
+    sponsors = resolved
+      .filter((s) => s.logo_url)  // banner/zone show logos
+      .map((s) => ({ id: s.id, name: s.name, logo_url: s.logo_url, tier: s.tier }))
+  }
+
   return {
     league:   { id: leagueRow?.id ?? leagueId, name: leagueRow?.name ?? '', sport: leagueRow?.sport ?? '' },
     org:      { name: orgRow?.name ?? '', logo_url: brandingRow?.logo_url ?? null },
+    sponsors,
     timezone,
     pools:    (poolsData ?? []) as { id: string; name: string }[],
     games,

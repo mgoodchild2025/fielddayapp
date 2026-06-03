@@ -52,6 +52,7 @@ const ZONE_TYPES: { value: ZoneConfig['type']; label: string; icon: string }[] =
   { value: 'clock',     label: 'Clock',      icon: '🕐' },
   { value: 'logo',      label: 'Logo',       icon: '🎨' },
   { value: 'live',      label: 'Live Stream', icon: '🔴' },
+  { value: 'sponsors',  label: 'Sponsors',   icon: '📣' },
   { value: 'empty',     label: 'Empty',      icon: '⬜' },
 ]
 
@@ -76,6 +77,7 @@ function ZoneEditor({
       case 'clock':     return { type }
       case 'logo':      return { type }
       case 'live':      return { type }
+      case 'sponsors':  return { type }
       case 'empty':     return { type }
     }
   }
@@ -437,6 +439,59 @@ function ScreenEditor({
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Sponsor banner */}
+        <div className="pt-2 border-t border-gray-700 space-y-3">
+          <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-300">
+            <input
+              type="checkbox"
+              checked={config.sponsor_banner?.enabled ?? false}
+              onChange={(e) => setConfig({
+                sponsor_banner: {
+                  enabled: e.target.checked,
+                  position: config.sponsor_banner?.position ?? 'bottom',
+                  speed: config.sponsor_banner?.speed ?? 'normal',
+                  source: config.sponsor_banner?.source ?? 'both',
+                },
+              })}
+              className="rounded accent-orange-500"
+            />
+            📣 Running sponsor banner
+          </label>
+          {config.sponsor_banner?.enabled && (
+            <div className="pl-6 flex flex-wrap gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">Position</span>
+                {(['bottom', 'top'] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setConfig({ sponsor_banner: { ...config.sponsor_banner!, position: p } })}
+                    className={`px-2.5 py-1 rounded text-xs font-medium capitalize ${config.sponsor_banner?.position === p ? 'bg-orange-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">Speed</span>
+                {(['slow', 'normal', 'fast'] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setConfig({ sponsor_banner: { ...config.sponsor_banner!, speed: s } })}
+                    className={`px-2.5 py-1 rounded text-xs font-medium capitalize ${config.sponsor_banner?.speed === s ? 'bg-orange-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <p className="pl-6 text-xs text-gray-500">
+            Sponsors come from the event&rsquo;s Sponsors tab (and your org sponsors). Logos required.
+          </p>
         </div>
 
         <div className="flex items-center gap-3">

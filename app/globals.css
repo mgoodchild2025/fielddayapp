@@ -82,3 +82,10 @@
     font-family: var(--brand-heading-font);
   }
 }
+
+/* Sponsor banner marquee (event TV display). Translates one full logo row
+   (50% of the duplicated track) for a seamless infinite loop. */
+@keyframes sponsor-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
