@@ -48,6 +48,11 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
   const itemsRef = useRef<StoredItem[]>([])
   useEffect(() => { itemsRef.current = items }, [items])
 
+  // Set when the cart is explicitly cleared (e.g. on the post-checkout success
+  // page). Prevents the mount-time load effect from re-fetching and re-populating
+  // the cart after a clear — the race that left purchased items lingering.
+  const clearedRef = useRef(false)
+
   // Single shared browser-client instance
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const db = useCallback(() => createClient(), [])()
@@ -120,6 +125,8 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
 
   useEffect(() => {
     if (!isLoading) return  // only run when loading flag is set
+    // If the cart was just cleared (success page), don't reload stale rows.
+    if (clearedRef.current) { setIsLoading(false); return }
     let cancelled = false
     ;(async () => {
       try {
@@ -174,6 +181,7 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
             }
           })
 
+        if (cancelled || clearedRef.current) return
         setItems(loaded)
       } finally {
         if (!cancelled) setIsLoading(false)
@@ -187,6 +195,7 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
   // ── addItem ────────────────────────────────────────────────────────────────
 
   const addItem = useCallback((newItem: CartItem) => {
+    clearedRef.current = false  // adding re-enables loading/sync after a prior clear
     const key = `${newItem.itemId}:${newItem.variantId ?? 'none'}`
     const current = itemsRef.current
     const idx = current.findIndex(c => `${c.itemId}:${c.variantId ?? 'none'}` === key)
@@ -229,6 +238,7 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
   // ── clearCart ──────────────────────────────────────────────────────────────
 
   const clearCart = useCallback(() => {
+    clearedRef.current = true
     setItems([])
     dbClear().catch(console.error)
   }, [dbClear])

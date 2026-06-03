@@ -132,6 +132,18 @@ export async function POST(request: NextRequest) {
         // Check and notify admins if any item/variant is now low on stock
         await checkAndNotifyLowStock(orgId, shopOrderIds)
       }
+
+      // Empty the buyer's cart now that payment succeeded. Durable backstop for the
+      // client-side clear on the success page (covers users who close the tab, and
+      // avoids the purchased items lingering on next load).
+      if (userId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+          .from('cart_items')
+          .delete()
+          .eq('user_id', userId)
+          .eq('organization_id', orgId)
+      }
       return NextResponse.json({ received: true })
     }
 
