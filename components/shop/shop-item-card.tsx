@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import type { ShopItem } from '@/actions/merchandise'
 import type { CartItem } from './cart-provider'
 
@@ -19,6 +20,9 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedImageIdx, setSelectedImageIdx] = useState(0)
   const modalRef = useRef<HTMLDivElement>(null)
+  // Portal target — only available after mount (client only).
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
 
   // All images: primary + gallery
   const allImages = [item.image_url, ...(item.additional_images ?? [])].filter(Boolean) as string[]
@@ -194,8 +198,9 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
         </div>
       </div>
 
-      {/* Modal */}
-      {modalOpen && (
+      {/* Modal — portaled to <body> so it escapes any card stacking context
+          and reliably sits above the fixed bottom nav. */}
+      {modalOpen && mounted && createPortal(
         <div
           className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4"
           role="dialog"
@@ -344,7 +349,8 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
