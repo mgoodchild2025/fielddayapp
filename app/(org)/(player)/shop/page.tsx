@@ -52,7 +52,9 @@ export default async function ShopPage() {
           >
             Shop
           </h1>
-          <p className="text-sm opacity-70">{org.name} merchandise</p>
+          <p className="text-sm opacity-70">
+            {org.name} merchandise{items.length > 0 && ` · ${items.length} ${items.length === 1 ? 'item' : 'items'}`}
+          </p>
         </div>
       </div>
 
