@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { sendRegistrationConfirmation, sendPaymentFailedEmail, sendAdminPaymentFailedAlert } from '@/actions/emails'
+import { calendarSubscribeUrls, ensureCalendarToken } from '@/lib/calendar-feed'
+import { buildCalendarCtaHtml } from '@/lib/email'
 import { checkAndNotifyLowStock } from '@/actions/merchandise'
 
 export async function POST(request: NextRequest) {
@@ -195,8 +197,8 @@ export async function POST(request: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [{ data: profile }, { data: league }, { data: org }, { data: reg }] = await Promise.all([
         supabase.from('profiles').select('full_name, email').eq('id', userId).single(),
-        (supabase as any).from('leagues').select('name, sport, event_type, checkin_enabled, payment_mode, price_cents, currency').eq('id', leagueId ?? '').single(),
-        supabase.from('organizations').select('name').eq('id', orgId).single(),
+        (supabase as any).from('leagues').select('id, name, slug, sport, event_type, checkin_enabled, payment_mode, price_cents, currency, calendar_token').eq('id', leagueId ?? '').single(),
+        supabase.from('organizations').select('name, slug').eq('id', orgId).single(),
         (supabase as any).from('registrations').select('user_id, checkin_token').eq('id', registrationId).single(),
       ])
 
@@ -205,6 +207,28 @@ export async function POST(request: NextRequest) {
         const token = (reg as unknown as { checkin_token?: string } | null)?.checkin_token
         const checkinEnabled = (league as { checkin_enabled?: boolean } | null)?.checkin_enabled === true
         const checkinUrl = (checkinEnabled && token) ? `${origin}/checkin/${token}` : null
+
+        // For pickup/drop-in events, offer a "subscribe to schedule" calendar CTA
+        let calendarCtaHtml: string | undefined
+        const eventType = (league as { event_type?: string } | null)?.event_type ?? ''
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const leagueSlug = (league as any)?.slug as string | undefined
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const orgSlug = (org as any)?.slug as string | undefined
+        if (['pickup', 'drop_in'].includes(eventType) && leagueSlug && orgSlug) {
+          const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+          const calHost = `${orgSlug}.${platformDomain}`
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const calToken = await ensureCalendarToken(supabase as any, 'leagues', leagueId ?? '', (league as any)?.calendar_token)
+          if (calToken) {
+            const { webcalUrl, googleUrl } = calendarSubscribeUrls(calHost, `/api/events/${leagueSlug}/calendar.ics?token=${calToken}`)
+            calendarCtaHtml = buildCalendarCtaHtml({
+              webcalUrl, googleUrl,
+              subtext: 'Stay in sync automatically as sessions are added, moved, or cancelled.',
+            })
+          }
+        }
+
         await sendRegistrationConfirmation({
           email: profile.email,
           name: profile.full_name,
@@ -213,6 +237,7 @@ export async function POST(request: NextRequest) {
           sport: (league as { sport?: string } | null)?.sport ?? null,
           eventType: (league as { event_type?: string } | null)?.event_type ?? null,
           checkinUrl,
+          calendarCtaHtml,
         })
       }
 
