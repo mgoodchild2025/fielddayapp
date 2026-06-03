@@ -143,7 +143,11 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
             >
               <h3 className="font-semibold text-gray-900 text-sm leading-snug hover:underline line-clamp-2">{item.name}</h3>
               {item.description && (
-                <p className="text-xs text-gray-400 mt-0.5 line-clamp-2 leading-relaxed whitespace-pre-wrap">{item.description}</p>
+                // No whitespace-pre-wrap here: combined with line-clamp it fails to
+                // cap the height on iOS Safari when the text contains newlines,
+                // leaving a tall blank area. The full description (with line breaks)
+                // is shown in the modal. break-words guards against long tokens.
+                <p className="text-xs text-gray-400 mt-0.5 line-clamp-2 leading-relaxed break-words">{item.description}</p>
               )}
             </button>
             <p className="text-base font-bold mt-1.5" style={{ color: 'var(--brand-primary)' }}>
