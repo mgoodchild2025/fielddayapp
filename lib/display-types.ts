@@ -33,6 +33,12 @@ export interface SponsorBannerConfig {
   source:   'org' | 'event' | 'both'
 }
 
+export interface SponsorInterstitialConfig {
+  enabled:          boolean
+  every_seconds:    number   // how often an interstitial appears
+  duration_seconds: number   // how long each interstitial stays up
+}
+
 export interface DisplayConfig {
   layout:          LayoutId
   zones:           ZoneConfig[]
@@ -41,6 +47,8 @@ export interface DisplayConfig {
   refresh_seconds: number
   /** Optional running sponsor banner that overlays the bottom/top of the screen. */
   sponsor_banner?: SponsorBannerConfig
+  /** Optional full-screen sponsor interstitial (ad creative) shown periodically. */
+  sponsor_interstitial?: SponsorInterstitialConfig
 }
 
 export const ZONE_COUNT: Record<LayoutId, number> = {
@@ -147,10 +155,11 @@ export interface DisplayBracketMatch {
 }
 
 export interface DisplaySponsor {
-  id:          string
-  name:        string
-  logo_url:    string | null
-  tier:        'gold' | 'silver' | 'bronze' | 'standard'
+  id:           string
+  name:         string
+  logo_url:     string | null
+  ad_image_url: string | null
+  tier:         'gold' | 'silver' | 'bronze' | 'standard'
 }
 
 export interface DisplayData {

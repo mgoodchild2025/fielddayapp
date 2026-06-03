@@ -32,6 +32,7 @@ export default async function EventSponsorsPage({
         links={data.links}
         orgSponsors={data.orgSponsors}
         linkedSponsorIds={data.linkedSponsorIds}
+        stats={data.stats}
       />
     </div>
   )

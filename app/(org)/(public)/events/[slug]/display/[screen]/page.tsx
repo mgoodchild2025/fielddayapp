@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { getDisplayConfig, getDisplayData } from '@/actions/display'
+import { recordSponsorImpressions } from '@/actions/event-sponsors'
 import { defaultConfig } from '@/lib/display-types'
 import { DisplayScreen } from '@/components/display/display-screen'
 
@@ -68,6 +69,12 @@ export default async function DisplayPage({
 
   // Fetch all data needed for the configured zones
   const data = await getDisplayData(league.id, org.id, config, timezone)
+
+  // Record one impression per displayed sponsor (per-day aggregate). The display
+  // re-renders on each refresh, so this also captures "still on screen". Best-effort.
+  if (data.sponsors.length > 0) {
+    await recordSponsorImpressions(org.id, league.id, data.sponsors.map((s) => s.id))
+  }
 
   return <DisplayScreen config={config} data={data} screen={screen} />
 }

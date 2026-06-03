@@ -494,6 +494,52 @@ function ScreenEditor({
           </p>
         </div>
 
+        {/* Sponsor interstitial (full-screen ad) */}
+        <div className="pt-2 border-t border-gray-700 space-y-3">
+          <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-300">
+            <input
+              type="checkbox"
+              checked={config.sponsor_interstitial?.enabled ?? false}
+              onChange={(e) => setConfig({
+                sponsor_interstitial: {
+                  enabled: e.target.checked,
+                  every_seconds: config.sponsor_interstitial?.every_seconds ?? 120,
+                  duration_seconds: config.sponsor_interstitial?.duration_seconds ?? 8,
+                },
+              })}
+              className="rounded accent-orange-500"
+            />
+            🖼️ Full-screen sponsor ad (interstitial)
+          </label>
+          {config.sponsor_interstitial?.enabled && (
+            <div className="pl-6 flex flex-wrap gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">Every</span>
+                <input
+                  type="number" min={15} max={1800}
+                  value={config.sponsor_interstitial?.every_seconds ?? 120}
+                  onChange={(e) => setConfig({ sponsor_interstitial: { ...config.sponsor_interstitial!, every_seconds: Math.max(15, parseInt(e.target.value) || 120) } })}
+                  className="w-20 bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white text-right"
+                />
+                <span className="text-xs text-gray-400">sec</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">For</span>
+                <input
+                  type="number" min={3} max={60}
+                  value={config.sponsor_interstitial?.duration_seconds ?? 8}
+                  onChange={(e) => setConfig({ sponsor_interstitial: { ...config.sponsor_interstitial!, duration_seconds: Math.max(3, parseInt(e.target.value) || 8) } })}
+                  className="w-20 bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white text-right"
+                />
+                <span className="text-xs text-gray-400">sec</span>
+              </div>
+            </div>
+          )}
+          <p className="pl-6 text-xs text-gray-500">
+            Shows sponsors that have an ad image uploaded on the Sponsors tab. Gold tier appears more often.
+          </p>
+        </div>
+
         <div className="flex items-center gap-3">
           <label className="text-sm text-gray-200 w-32 shrink-0">Refresh every</label>
           <div className="flex items-center gap-2">
