@@ -1,42 +1,55 @@
 import Image from 'next/image'
+import {
+  IconBallVolleyball,
+  IconBallFootball,
+  IconBallBasketball,
+  IconBallBaseball,
+  IconBallAmericanFootball,
+  IconBallTennis,
+  IconRugby,
+  IconDiscGolf,
+  IconTrophy,
+} from '@tabler/icons-react'
+import type { Icon as TablerIcon } from '@tabler/icons-react'
 
-// Sport → emoji fallback
-const sportEmoji: Record<string, string> = {
-  volleyball: '🏐',
-  beach_volleyball: '🏐',
-  soccer: '⚽',
-  basketball: '🏀',
-  hockey: '🏒',
-  baseball: '⚾',
-  softball: '🥎',
-  football: '🏈',
-  flag_football: '🏈',
-  rugby: '🏉',
-  tennis: '🎾',
-  pickleball: '🏓',
-  badminton: '🏸',
-  lacrosse: '🥍',
-  ultimate: '🥏',
+// Sport → Tabler icon.  Sports without a specific icon fall back to IconTrophy.
+const sportIcons: Record<string, TablerIcon> = {
+  volleyball:        IconBallVolleyball,
+  beach_volleyball:  IconBallVolleyball,
+  soccer:            IconBallFootball,
+  basketball:        IconBallBasketball,
+  hockey:            IconTrophy,          // no hockey-specific icon in Tabler
+  baseball:          IconBallBaseball,
+  softball:          IconBallBaseball,
+  football:          IconBallAmericanFootball,
+  flag_football:     IconBallAmericanFootball,
+  rugby:             IconRugby,
+  tennis:            IconBallTennis,
+  pickleball:        IconBallTennis,      // closest racquet-sport icon
+  badminton:         IconBallTennis,      // closest racquet-sport icon
+  lacrosse:          IconTrophy,          // no lacrosse icon in Tabler
+  ultimate_frisbee:  IconDiscGolf,        // disc sport
+  kickball:          IconBallFootball,
+  dodgeball:         IconBallFootball,
 }
 
-function getSportEmoji(sport: string | null | undefined): string {
-  if (!sport) return '🏆'
-  return sportEmoji[sport.toLowerCase()] ?? '🏆'
+function getSportIcon(sport: string | null | undefined): TablerIcon {
+  if (!sport) return IconTrophy
+  return sportIcons[sport.toLowerCase()] ?? IconTrophy
 }
+
+// Icon stroke-width by size for best visual balance at each scale
+const iconSize = { sm: 20, md: 28, lg: 48, xl: 64 } as const
+const iconStroke = { sm: 1.75, md: 1.5, lg: 1.25, xl: 1.25 } as const
 
 const sizeClasses = {
-  sm:  'w-8 h-8 text-base',
-  md:  'w-12 h-12 text-xl',
-  lg:  'w-20 h-20 text-4xl',
-  xl:  'w-28 h-28 text-5xl',
+  sm:  'w-8 h-8',
+  md:  'w-12 h-12',
+  lg:  'w-20 h-20',
+  xl:  'w-28 h-28',
 } as const
 
-const sizePx = {
-  sm:  32,
-  md:  48,
-  lg:  80,
-  xl:  112,
-} as const
+const sizePx = { sm: 32, md: 48, lg: 80, xl: 112 } as const
 
 type Size = keyof typeof sizeClasses
 
@@ -68,11 +81,18 @@ export function EventAvatar({ logoUrl, name, sport, size = 'sm', className = '' 
     )
   }
 
+  const SportIcon = getSportIcon(sport)
+
   return (
     <div
       className={`${sizeClass} rounded-lg shrink-0 flex items-center justify-center bg-white/20 ${className}`}
+      aria-label={sport ?? 'event'}
     >
-      <span role="img" aria-label={sport ?? 'event'}>{getSportEmoji(sport)}</span>
+      <SportIcon
+        size={iconSize[size]}
+        stroke={iconStroke[size]}
+        className="text-white/80"
+      />
     </div>
   )
 }

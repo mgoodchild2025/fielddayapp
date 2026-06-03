@@ -6,6 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { saveWebsiteSettings } from '@/actions/website'
 import Link from 'next/link'
+import { Home, Trophy, Zap } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 type Theme = 'community' | 'club' | 'pro'
 type SectionItem = { key: string; label: string; visible: boolean }
@@ -21,27 +23,27 @@ const schema = z.object({
 })
 type FormData = z.infer<typeof schema>
 
-const THEMES: { id: Theme; label: string; description: string; available: boolean; icon: string }[] = [
+const THEMES: { id: Theme; label: string; description: string; available: boolean; icon: LucideIcon }[] = [
   {
     id: 'community',
     label: 'Community',
     description: 'Warm and welcoming. Great for rec leagues, community groups, and neighbourhood sports.',
     available: true,
-    icon: '🏘️',
+    icon: Home,
   },
   {
     id: 'club',
     label: 'Club',
     description: 'Clean and membership-focused. Highlights events, standings, and sponsors with a structured layout.',
     available: true,
-    icon: '🏆',
+    icon: Trophy,
   },
   {
     id: 'pro',
     label: 'Pro',
     description: 'Bold and competitive. Dark hero, recent match results, and tiered sponsor section.',
     available: true,
-    icon: '⚡',
+    icon: Zap,
   },
 ]
 
@@ -240,7 +242,7 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
                     </svg>
                   </span>
                 )}
-                <div className="text-2xl mb-2">{theme.icon}</div>
+                <div className="mb-2"><theme.icon className="w-6 h-6" /></div>
                 <p className="font-semibold text-sm">{theme.label}</p>
                 <p className="text-xs text-gray-500 mt-1 leading-snug">{theme.description}</p>
               </button>
