@@ -7,6 +7,8 @@ import { Footer } from '@/components/layout/footer'
 import { JoinTeamByCode } from '@/components/teams/join-team-by-code'
 import { SessionJoinButton } from '@/components/sessions/session-join-button'
 import { EventCalendarSubscribeButton } from '@/components/events/event-calendar-subscribe-button'
+import { getEventSponsors } from '@/actions/event-sponsors'
+import { EventSponsorStrip } from '@/components/sponsors/event-sponsor-strip'
 import { CaptainScoreEntry } from '@/components/scores/captain-score-entry'
 import { GameRsvpButton } from '@/components/schedule/game-rsvp-button'
 import { GameAttendancePanel } from '@/components/schedule/game-attendance-panel'
@@ -603,6 +605,9 @@ export default async function EventDetailPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dropInPriceCents: number | null = (league as any).drop_in_price_cents ?? null
   const hasDropIn = dropInPriceCents !== null
+
+  // Sponsors to advertise on this event (org sponsors + event-specific)
+  const eventSponsors = await getEventSponsors(league.id, org.id)
 
   // Lazy-generate the event's calendar subscription token (pickup/session events only).
   // One-time write; subsequent views reuse it. Surfaced to registered players below.
@@ -1434,6 +1439,8 @@ export default async function EventDetailPage({
                 <RichTextContent content={league.description} className="text-gray-700" />
               </div>
             )}
+
+            <EventSponsorStrip sponsors={eventSponsors} />
 
             {/* Info grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
