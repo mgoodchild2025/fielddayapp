@@ -1414,6 +1414,158 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // Session reminders — pickup/drop-in event sessions (day before)
+  //   event_sessions are NOT games, so none of the game-reminder paths above
+  //   cover them. Sends one email + SMS per registered player per session, the
+  //   day before (org-local date). Deduped via session_reminder_logs.
+  // ──────────────────────────────────────────────────────────────────────────
+  {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sdb = supabase as any
+    const SESSION_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+    const sessionWindowEnd = new Date(now.getTime() + 48 * 60 * 60 * 1000)
+
+    const { data: upcomingSessions } = await sdb
+      .from('event_sessions')
+      .select('id, league_id, organization_id, scheduled_at, location_override, leagues(name, sport)')
+      .eq('status', 'open')
+      .gte('scheduled_at', now.toISOString())
+      .lte('scheduled_at', sessionWindowEnd.toISOString())
+
+    type SessionRow = {
+      id: string; league_id: string; organization_id: string; scheduled_at: string
+      location_override: string | null
+      leagues: { name: string; sport?: string | null } | { name: string; sport?: string | null }[] | null
+    }
+    const sessions = (upcomingSessions ?? []) as SessionRow[]
+
+    if (sessions.length > 0) {
+      const sOrgIds = [...new Set(sessions.map(s => s.organization_id))]
+      const [{ data: sBranding }, { data: sOrgs }, { data: sNotif }] = await Promise.all([
+        sdb.from('org_branding').select('organization_id, timezone').in('organization_id', sOrgIds),
+        sdb.from('organizations').select('id, name, slug').in('id', sOrgIds),
+        sdb.from('org_notification_settings')
+          .select('organization_id, email_game_reminders_enabled, sms_game_reminders_enabled')
+          .in('organization_id', sOrgIds),
+      ])
+      const sTzByOrg = new Map<string, string>((sBranding ?? []).map((b: { organization_id: string; timezone: string | null }) => [b.organization_id, b.timezone ?? 'America/Toronto']))
+      const sNameByOrg = new Map<string, string>((sOrgs ?? []).map((o: { id: string; name: string }) => [o.id, o.name]))
+      const sSlugByOrg = new Map<string, string>((sOrgs ?? []).map((o: { id: string; slug: string }) => [o.id, o.slug]))
+      const sEmailOnByOrg = new Map<string, boolean>((sNotif ?? []).map((s: { organization_id: string; email_game_reminders_enabled: boolean | null }) => [s.organization_id, s.email_game_reminders_enabled ?? true]))
+      const sSmsOnByOrg = new Map<string, boolean>((sNotif ?? []).map((s: { organization_id: string; sms_game_reminders_enabled: boolean | null }) => [s.organization_id, s.sms_game_reminders_enabled ?? true]))
+
+      // Keep only sessions whose local (org tz) calendar date is "tomorrow"
+      const tomorrowSessions = sessions.filter(s => {
+        const tz = sTzByOrg.get(s.organization_id) ?? 'America/Toronto'
+        const localDate = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(s.scheduled_at))
+        const tomorrowLocal = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(now.getTime() + 86400000))
+        return localDate === tomorrowLocal
+      })
+
+      const sessionEmailBatch: Array<{ from: string; to: string; subject: string; html: string }> = []
+
+      for (const session of tomorrowSessions) {
+        const orgId = session.organization_id
+        const tz = sTzByOrg.get(orgId) ?? 'America/Toronto'
+        const orgName = sNameByOrg.get(orgId) ?? 'Fieldday'
+        const orgSlug = sSlugByOrg.get(orgId) ?? ''
+        const emailOn = sEmailOnByOrg.get(orgId) !== false
+        const smsOn = sSmsOnByOrg.get(orgId) !== false
+        const league = Array.isArray(session.leagues) ? session.leagues[0] : session.leagues
+        const eventName = league?.name ?? 'Pickup session'
+        const profileUrl = orgSlug ? `https://${orgSlug}.${SESSION_DOMAIN}/profile` : `https://app.${SESSION_DOMAIN}/profile`
+
+        const sessDate = new Date(session.scheduled_at)
+        const timeLabel = sessDate.toLocaleTimeString('en-CA', { timeZone: tz, hour: '2-digit', minute: '2-digit' })
+        const dateLabel = new Intl.DateTimeFormat('en-CA', { timeZone: tz, weekday: 'long', month: 'long', day: 'numeric' }).format(sessDate)
+        const locationLabel = session.location_override || formatCourtLabel(null, league?.sport) || ''
+
+        // Registered players for this session
+        const { data: regRows } = await sdb
+          .from('session_registrations')
+          .select('user_id')
+          .eq('session_id', session.id)
+          .eq('status', 'registered')
+        const userIds = [...new Set((regRows ?? []).map((r: { user_id: string }) => r.user_id).filter(Boolean))] as string[]
+        if (userIds.length === 0) continue
+
+        // Who has already been reminded for this session
+        const { data: sentRows } = await sdb
+          .from('session_reminder_logs')
+          .select('user_id')
+          .eq('session_id', session.id)
+          .in('user_id', userIds)
+        const alreadySent = new Set((sentRows ?? []).map((r: { user_id: string }) => r.user_id))
+
+        const { data: sProfiles } = await sdb
+          .from('profiles')
+          .select('id, email, full_name, email_reminders_enabled, phone, sms_opted_in')
+          .in('id', userIds)
+        type SProfile = { id: string; email?: string | null; full_name?: string | null; email_reminders_enabled?: boolean | null; phone?: string | null; sms_opted_in?: boolean | null }
+
+        for (const p of (sProfiles ?? []) as SProfile[]) {
+          if (alreadySent.has(p.id)) continue
+
+          // Claim the slot atomically — UNIQUE(session_id, user_id) prevents dup sends across runs
+          const { error: claimErr } = await sdb
+            .from('session_reminder_logs')
+            .insert({ session_id: session.id, user_id: p.id })
+          if (claimErr) {
+            if (claimErr.code === '23505') continue // already claimed by a concurrent run
+            results.push(`session reminder log error for ${p.id}: ${claimErr.message}`)
+            continue
+          }
+
+          const firstName = (p.full_name ?? '').split(' ')[0] || 'there'
+          const venueLine = locationLabel ? ` · ${locationLabel}` : ''
+
+          // Email
+          if (emailOn && p.email && p.email_reminders_enabled !== false) {
+            sessionEmailBatch.push({
+              from: FROM_EMAIL,
+              to: p.email,
+              subject: `Reminder: ${eventName} tomorrow`,
+              html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+                <h2 style="margin-top:0">Hi ${firstName}, you're signed up for ${eventName} tomorrow!</h2>
+                <p style="color:#555;margin-bottom:16px">${dateLabel}</p>
+                <table style="width:100%;border-collapse:collapse">
+                  <tr><td style="padding:10px 0;border-bottom:1px solid #f0f0f0"><strong>${timeLabel}</strong>${locationLabel ? `<br><span style="color:#666;font-size:13px">${locationLabel}</span>` : ''}</td></tr>
+                </table>
+                <p style="margin-top:24px;font-size:12px;color:#999;border-top:1px solid #f3f4f6;padding-top:16px;line-height:1.6;">
+                  You&rsquo;re receiving this because you&rsquo;re registered with <strong>${orgName}</strong>, powered by Fieldday.<br>
+                  To stop receiving reminders, update your <a href="${profileUrl}" style="color:#999">notification preferences</a> in your profile.
+                </p>
+              </div>`,
+            })
+            results.push(`session email queued for ${p.id} (session ${session.id})`)
+          }
+
+          // SMS
+          if (smsOn && p.phone && p.sms_opted_in) {
+            const smsBody = `${orgName} – ${eventName}\n\nReminder: you're signed up for tomorrow${venueLine} · ${timeLabel}\n\nReply STOP to unsubscribe.`
+            try {
+              await sendSms(p.phone, smsBody)
+              results.push(`session sms sent to ${p.id} (session ${session.id})`)
+            } catch (e) {
+              results.push(`session sms error for ${p.id}: ${e}`)
+            }
+          }
+        }
+      }
+
+      if (sessionEmailBatch.length > 0) {
+        const EMAIL_BATCH_SIZE = 100
+        for (let i = 0; i < sessionEmailBatch.length; i += EMAIL_BATCH_SIZE) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (resend.batch as any).send(sessionEmailBatch.slice(i, i + EMAIL_BATCH_SIZE))
+            .catch((e: unknown) => results.push(`session email batch error: ${e}`))
+        }
+        results.push(`session reminder batch: ${sessionEmailBatch.length} email(s) dispatched`)
+      }
+    }
+  }
+
   return NextResponse.json({ ok: true, processed: results, sms_diagnostics })
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err), stack: err instanceof Error ? err.stack : undefined }, { status: 500 })
