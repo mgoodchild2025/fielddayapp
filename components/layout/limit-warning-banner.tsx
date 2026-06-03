@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { AlertTriangle } from 'lucide-react'
 
 type Props = {
   playerCount: number
@@ -22,8 +23,9 @@ export function LimitWarningBanner({ playerCount, playerLimit, leagueCount, leag
   if (playerLimit !== null && playerCount >= playerLimit) {
     return (
       <div className="w-full px-4 py-2 text-sm bg-red-600 text-white flex items-center justify-between gap-4">
-        <span>
-          ⚠ You&apos;ve reached your player limit ({playerCount}/{playerLimit}).
+        <span className="flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          You&apos;ve reached your player limit ({playerCount}/{playerLimit}).
           New players cannot register until you upgrade.
         </span>
         <Link
@@ -39,8 +41,9 @@ export function LimitWarningBanner({ playerCount, playerLimit, leagueCount, leag
   if (leagueLimit !== null && leagueCount >= leagueLimit) {
     return (
       <div className="w-full px-4 py-2 text-sm bg-red-600 text-white flex items-center justify-between gap-4">
-        <span>
-          ⚠ You&apos;ve reached your active league limit ({leagueCount}/{leagueLimit}).
+        <span className="flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          You&apos;ve reached your active league limit ({leagueCount}/{leagueLimit}).
           Archive a league or upgrade to create more.
         </span>
         <Link
