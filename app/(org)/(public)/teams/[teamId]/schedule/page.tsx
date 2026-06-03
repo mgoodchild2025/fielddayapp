@@ -6,8 +6,8 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
-import { PastGamesToggle } from '@/components/schedule/past-games-toggle'
-import { formatGameTime } from '@/lib/format-time'
+import { MyGamesClient } from '../../../schedule/_client'
+import type { GameSub } from '@/actions/game-subs'
 
 export default async function TeamSchedulePage({
   params,
@@ -23,8 +23,8 @@ export default async function TeamSchedulePage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Parallel: branding, team info, user's team membership, org admin check
-  const [{ data: branding }, { data: team }, { data: myMembership }, { data: orgMember }] = await Promise.all([
+  // Parallel: branding, team info, viewer's team memberships, org admin check
+  const [{ data: branding }, { data: team }, { data: myTeams }, { data: orgMember }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,11 +35,10 @@ export default async function TeamSchedulePage({
       .single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('team_members')
-      .select('id')
-      .eq('team_id', teamId)
+      .select('team_id, role')
+      .eq('organization_id', org.id)
       .eq('user_id', user.id)
-      .eq('status', 'active')
-      .maybeSingle(),
+      .eq('status', 'active'),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('org_members')
       .select('role')
@@ -50,9 +49,15 @@ export default async function TeamSchedulePage({
 
   if (!team) notFound()
 
-  // Must be a team member or org/league admin
+  // Viewer's team memberships → drives RSVP/bolding (same semantics as My Games)
+  const myTeamIds = new Set<string>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (myTeams ?? []).map((m: any) => m.team_id as string).filter(Boolean)
+  )
+
+  // Must be a member of this team or an org/league admin
   const isOrgAdmin = ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
-  if (!myMembership && !isOrgAdmin) notFound()
+  if (!myTeamIds.has(teamId) && !isOrgAdmin) notFound()
 
   const timezone = branding?.timezone ?? 'America/Toronto'
   const pastBound = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()
@@ -64,8 +69,8 @@ export default async function TeamSchedulePage({
     .from('games')
     .select(`
       id, scheduled_at, court, week_number, status,
-      home_team:teams!games_home_team_id_fkey(id, name, color),
-      away_team:teams!games_away_team_id_fkey(id, name, color),
+      home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
+      away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
       league:leagues!games_league_id_fkey(name, slug, schedule_published, event_type)
     `)
     .eq('organization_id', org.id)
@@ -80,75 +85,101 @@ export default async function TeamSchedulePage({
     return league?.schedule_published !== false
   })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const upcomingGames = games.filter((g: any) => g.scheduled_at >= nowIso)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pastGames = games.filter((g: any) => g.scheduled_at < nowIso).reverse()
+  // ── RSVP + captain attendance + game subs (mirrors /schedule page) ──────────
+  let myRsvps: { gameId: string; status: 'in' | 'out' }[] = []
+  let captainTeamIds: string[] = []
+  let captainAttendance: { gameId: string; in: number; out: number; total: number }[] = []
+  let mySubGameIds: string[] = []
+  let captainGameSubs: { gameId: string; teamId: string; subs: GameSub[] }[] = []
 
-  // ── Game card renderer ────────────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function renderGame(g: any) {
-    const homeTeam = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
-    const awayTeam = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
-    const league   = Array.isArray(g.league)    ? g.league[0]    : g.league
-    const { date: gameDate, time: gameTime } = formatGameTime(g.scheduled_at, timezone)
-    const homeColor = homeTeam?.color as string | null | undefined
-    const awayColor = awayTeam?.color as string | null | undefined
-    // Bold whichever side is this team
-    const isHomeThisTeam = homeTeam?.id === teamId
-    const isAwayThisTeam = awayTeam?.id === teamId
-    const isCancelled = g.status === 'cancelled' || g.status === 'postponed'
+  if (games.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const gameIds = games.map((g: any) => g.id as string)
 
-    return (
-      <div
-        key={g.id}
-        className={`relative border rounded-md p-3 transition-shadow hover:shadow-md bg-white${isCancelled ? ' opacity-60' : ''}`}
-      >
-        {league?.slug && (
-          <Link
-            href={`/events/${league.slug}`}
-            className="absolute inset-0 rounded-md"
-            aria-label={`View ${league.name ?? 'event'}`}
-          />
-        )}
-        <div className="flex items-start justify-between gap-2">
-          <p className="text-sm text-gray-500">
-            {gameDate} · {gameTime}
-            {g.court ? ` · Court ${g.court}` : ''}
-          </p>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {isCancelled ? (
-              <span className="text-xs font-medium text-red-500 bg-red-50 rounded px-1.5 py-0.5 leading-tight">
-                {g.status === 'postponed' ? 'Postponed' : 'Cancelled'}
-              </span>
-            ) : g.week_number != null && league?.event_type !== 'tournament' ? (
-              <span className="text-xs font-medium text-gray-500 bg-gray-100 rounded px-1.5 py-0.5 leading-tight">
-                Wk {g.week_number}
-              </span>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex items-center gap-1 flex-wrap mt-0.5">
-          {homeColor && (
-            <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: homeColor }} />
-          )}
-          <span className={isHomeThisTeam ? 'font-semibold' : 'font-medium'}>
-            {homeTeam?.name ?? 'TBD'}
-          </span>
-          <span className="text-gray-400 text-sm mx-0.5">vs</span>
-          {awayColor && (
-            <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: awayColor }} />
-          )}
-          <span className={isAwayThisTeam ? 'font-semibold' : 'font-medium'}>
-            {awayTeam?.name ?? 'TBD'}
-          </span>
-        </div>
-        {league?.name && (
-          <p className="text-xs text-gray-400 mt-0.5">{league.name}</p>
-        )}
-      </div>
-    )
+    const [{ data: captainships }, { data: rsvpData }, { data: mySubRows }] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('team_members').select('team_id').eq('user_id', user.id).eq('role', 'captain').eq('status', 'active'),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('game_rsvps').select('game_id, status').eq('user_id', user.id).in('game_id', gameIds),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('game_subs').select('game_id').eq('user_id', user.id).eq('organization_id', org.id).eq('status', 'confirmed').in('game_id', gameIds),
+    ])
+
+    captainTeamIds = (captainships ?? []).map((c: { team_id: string }) => c.team_id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    myRsvps = (rsvpData ?? []).map((r: any) => ({ gameId: r.game_id, status: r.status as 'in' | 'out' }))
+    mySubGameIds = (mySubRows ?? []).map((r: { game_id: string }) => r.game_id)
+
+    if (captainTeamIds.length > 0) {
+      const captainTeamIdSet = new Set(captainTeamIds)
+      const [{ data: teamMemberRows }, { data: teamRsvpRows }, { data: captainSubRows }] = await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any).from('team_members').select('team_id').in('team_id', captainTeamIds).eq('status', 'active'),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any).from('game_rsvps').select('game_id, team_id, status').in('team_id', captainTeamIds).in('game_id', gameIds),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any).from('game_subs').select(`
+          id, game_id, team_id, user_id, invited_email, status, message, expires_at, created_at,
+          inviter:profiles!game_subs_invited_by_fkey(full_name)
+        `).in('team_id', captainTeamIds).in('game_id', gameIds).in('status', ['invited', 'confirmed']),
+      ])
+
+      const teamSizeMap = new Map<string, number>()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const row of (teamMemberRows ?? []) as any[]) {
+        teamSizeMap.set(row.team_id, (teamSizeMap.get(row.team_id) ?? 0) + 1)
+      }
+
+      const rsvpByGame = new Map<string, { in: number; out: number }>()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const r of (teamRsvpRows ?? []) as any[]) {
+        if (!rsvpByGame.has(r.game_id)) rsvpByGame.set(r.game_id, { in: 0, out: 0 })
+        const e = rsvpByGame.get(r.game_id)!
+        if (r.status === 'in') e.in++
+        else if (r.status === 'out') e.out++
+      }
+
+      const subsByGame = new Map<string, GameSub[]>()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const row of (captainSubRows ?? []) as any[]) {
+        const inviter = Array.isArray(row.inviter) ? row.inviter[0] : row.inviter
+        const sub: GameSub = {
+          id: row.id,
+          gameId: row.game_id,
+          teamId: row.team_id,
+          userId: row.user_id ?? null,
+          invitedEmail: row.invited_email,
+          status: row.status,
+          inviterName: inviter?.full_name ?? null,
+          message: row.message ?? null,
+          expiresAt: row.expires_at,
+          createdAt: row.created_at,
+        }
+        if (!subsByGame.has(row.game_id)) subsByGame.set(row.game_id, [])
+        subsByGame.get(row.game_id)!.push(sub)
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const game of games as any[]) {
+        const homeTeam = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team
+        const awayTeam = Array.isArray(game.away_team) ? game.away_team[0] : game.away_team
+        const hId = homeTeam?.id ?? ''
+        const aId = awayTeam?.id ?? ''
+        const captainTeamId = captainTeamIdSet.has(hId) ? hId : captainTeamIdSet.has(aId) ? aId : null
+        if (!captainTeamId) continue
+        const total = teamSizeMap.get(captainTeamId) ?? 0
+        const counts = rsvpByGame.get(game.id) ?? { in: 0, out: 0 }
+        captainAttendance.push({ gameId: game.id, in: counts.in, out: counts.out, total })
+        captainGameSubs.push({ gameId: game.id, teamId: captainTeamId, subs: subsByGame.get(game.id) ?? [] })
+      }
+    }
   }
+
+  // ── Build items in the MyGamesClient shape ─────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allItems = (games as any[]).map((g) => ({ _type: 'game' as const, scheduled_at: g.scheduled_at as string, data: g }))
+  const upcomingItems = allItems.filter((i) => i.scheduled_at >= nowIso)
+  const pastItems     = allItems.filter((i) => i.scheduled_at <  nowIso).reverse()
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
@@ -180,26 +211,18 @@ export default async function TeamSchedulePage({
           Schedule
         </h1>
 
-        {/* Upcoming games */}
-        <div className="space-y-2">
-          {upcomingGames.length > 0
-            ? upcomingGames.map(renderGame)
-            : (
-              <div className="border rounded-md p-6 text-center text-sm text-gray-400 bg-white">
-                No upcoming games scheduled yet.
-              </div>
-            )
-          }
-        </div>
-
-        {/* Past games — collapsed by default */}
-        {pastGames.length > 0 && (
-          <PastGamesToggle count={pastGames.length} label="games">
-            <div className="space-y-2">
-              {pastGames.map(renderGame)}
-            </div>
-          </PastGamesToggle>
-        )}
+        <MyGamesClient
+          upcomingItems={upcomingItems}
+          pastItems={pastItems}
+          myTeamIds={Array.from(myTeamIds)}
+          captainTeamIds={captainTeamIds}
+          myRsvps={myRsvps}
+          captainAttendance={captainAttendance}
+          mySubGameIds={mySubGameIds}
+          captainGameSubs={captainGameSubs}
+          userId={user.id}
+          timezone={timezone}
+        />
 
       </div>
       <Footer org={org} />
