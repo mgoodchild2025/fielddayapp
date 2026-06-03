@@ -6,6 +6,7 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { JoinTeamByCode } from '@/components/teams/join-team-by-code'
 import { SessionJoinButton } from '@/components/sessions/session-join-button'
+import { EventCalendarSubscribeButton } from '@/components/events/event-calendar-subscribe-button'
 import { CaptainScoreEntry } from '@/components/scores/captain-score-entry'
 import { GameRsvpButton } from '@/components/schedule/game-rsvp-button'
 import { GameAttendancePanel } from '@/components/schedule/game-attendance-panel'
@@ -602,6 +603,22 @@ export default async function EventDetailPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dropInPriceCents: number | null = (league as any).drop_in_price_cents ?? null
   const hasDropIn = dropInPriceCents !== null
+
+  // Lazy-generate the event's calendar subscription token (pickup/session events only).
+  // One-time write; subsequent views reuse it. Surfaced to registered players below.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let calendarToken: string | null = (league as any).calendar_token ?? null
+  if ((isPickupEvent || isSessionBased) && !calendarToken) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: updatedLeague } = await (db as any)
+      .from('leagues')
+      .update({ calendar_token: crypto.randomUUID() })
+      .eq('id', league.id)
+      .select('calendar_token')
+      .single()
+    calendarToken = updatedLeague?.calendar_token ?? null
+  }
+  const calendarHost = headersList.get('host') ?? ''
 
   // Check if logged-in user has a valid season invite for this private event
   const hasSeasonInvite = (isPrivatePickup && user)
@@ -1712,6 +1729,11 @@ export default async function EventDetailPage({
                   </Link>
                 )}
               </div>
+            )}
+
+            {/* Calendar subscription — registered players of pickup/session events */}
+            {(isPickupEvent || isSessionBased) && calendarToken && (mySeasonRegistration || myPaidSessionIds.size > 0 || mySessionIds.size > 0) && (
+              <EventCalendarSubscribeButton slug={league.slug} calendarToken={calendarToken} host={calendarHost} />
             )}
 
             {/* Sessions (drop-in events only) */}
