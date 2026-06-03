@@ -115,8 +115,8 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
     setError(null)
     try {
       const res = teamId
-        ? await selectOfflineTeamPayment({ teamId, leagueId: league.id, method: method as 'etransfer' | 'cash' | 'cheque' })
-        : await selectOfflinePayment({ registrationId, leagueId: league.id, method: method as 'etransfer' | 'cash' | 'cheque' })
+        ? await selectOfflineTeamPayment({ teamId, leagueId: league.id, method: method as 'etransfer' | 'cash' | 'cheque', discountedAmountCents: appliedDiscount ? discountedRegistrationCents : undefined })
+        : await selectOfflinePayment({ registrationId, leagueId: league.id, method: method as 'etransfer' | 'cash' | 'cheque', discountedAmountCents: appliedDiscount ? discountedRegistrationCents : undefined })
       if (res.error) {
         setError(res.error)
         setLoading(false)

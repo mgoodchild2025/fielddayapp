@@ -94,6 +94,8 @@ const selectOfflinePaymentSchema = z.object({
   registrationId: z.string().uuid(),
   leagueId: z.string().uuid(),
   method: z.enum(['etransfer', 'cash', 'cheque']),
+  /** Discounted amount in cents. When provided, used instead of league.price_cents. */
+  discountedAmountCents: z.number().int().nonnegative().optional(),
 })
 
 /**
@@ -141,7 +143,9 @@ export async function selectOfflinePayment(
     return { instructions: null, methodLabel: '', error: 'That payment method is not accepted for this event.' }
   }
 
-  const amountCents = league.price_cents ?? 0
+  // Use the discounted amount when the player applied a discount code;
+  // fall back to the league price so free registrations still work.
+  const amountCents = parsed.data.discountedAmountCents ?? league.price_cents ?? 0
   const currency = league.currency ?? 'cad'
 
   // Record a pending payment (skip when free) — reuse any existing row.
@@ -193,6 +197,8 @@ const selectOfflineTeamPaymentSchema = z.object({
   teamId: z.string().uuid(),
   leagueId: z.string().uuid(),
   method: z.enum(['etransfer', 'cash', 'cheque']),
+  /** Discounted amount in cents. When provided, used instead of league.price_cents. */
+  discountedAmountCents: z.number().int().nonnegative().optional(),
 })
 
 /**
@@ -247,7 +253,7 @@ export async function selectOfflineTeamPayment(
     return { instructions: null, methodLabel: '', error: 'That payment method is not accepted for this event.' }
   }
 
-  const amountCents = league.price_cents ?? 0
+  const amountCents = parsed.data.discountedAmountCents ?? league.price_cents ?? 0
   const currency = league.currency ?? 'cad'
 
   // Pending team payment (reuse existing team payment row if present).
