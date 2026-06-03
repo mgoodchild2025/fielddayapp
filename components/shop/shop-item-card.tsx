@@ -132,8 +132,10 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
           )}
         </button>
 
-        {/* Content */}
-        <div className="p-3 sm:p-4 flex flex-col gap-2.5">
+        {/* Content — flex-1 lets it fill an equal-height (desktop) card so the
+            qty/add row can sit at the bottom (mt-auto). On mobile the card is
+            content-height, so flex-1/mt-auto have no effect. */}
+        <div className="p-3 sm:p-4 flex flex-col gap-2.5 flex-1">
           {/* Name + truncated description */}
           <div>
             <button
@@ -191,8 +193,9 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
             </select>
           )}
 
-          {/* Qty + add button */}
-          <div className="flex items-center gap-2">
+          {/* Qty + add button — pinned to the bottom so buttons align across
+              equal-height cards on desktop. */}
+          <div className="flex items-center gap-2 mt-auto">
             <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden shrink-0">
               <button
                 type="button"
