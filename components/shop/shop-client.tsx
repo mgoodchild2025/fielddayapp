@@ -28,8 +28,8 @@ export function ShopClient({ items }: Props) {
   }
 
   return (
-    // Mobile: content-height (no stretch gap). Desktop: equal-height cards.
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 items-start sm:items-stretch">
+    // Equal-height cards at every breakpoint for a uniform grid.
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 items-stretch">
       {items.map((item) => (
         <ShopItemCard
           key={item.id}
