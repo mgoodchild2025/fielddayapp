@@ -289,17 +289,18 @@ export async function activateRegistration(registrationId: string) {
       ? `${origin}/checkin/${reg.checkin_token}`
       : null
 
-    // Offer a "subscribe to schedule" calendar CTA for all event types — the
-    // ICS feed supports both event_sessions (pickup/drop-in) and games (league/tournament).
+    // Calendar CTA for pickup/drop-in only — for league/tournament events the
+    // player hasn't joined a team yet, so the team calendar link (sent in the
+    // team-added / join-approved email) is more useful and timely.
     let calendarCtaHtml: string | undefined
-    if (league.slug) {
+    if (['pickup', 'drop_in'].includes(league.event_type ?? '') && league.slug) {
       const host = headersList.get('host') ?? ''
       const token = await ensureCalendarToken(db2, 'leagues', league.id, league.calendar_token)
       if (host && token) {
         const { webcalUrl, googleUrl } = calendarSubscribeUrls(host, `/api/events/${league.slug}/calendar.ics?token=${token}`)
         calendarCtaHtml = buildCalendarCtaHtml({
           webcalUrl, googleUrl,
-          subtext: 'Stay in sync automatically as games and sessions are added or updated.',
+          subtext: 'Stay in sync automatically as sessions are added, moved, or cancelled.',
         })
       }
     }

@@ -75,9 +75,11 @@ export async function POST(request: NextRequest) {
 
       // Send confirmation to each member
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [{ data: league }, { data: org }] = await Promise.all([
-        (supabase as any).from('leagues').select('name, slug, sport, event_type, checkin_enabled, calendar_token').eq('id', leagueId).single(),
-        supabase.from('organizations').select('name').eq('id', orgId).single(),
+      const [{ data: league }, { data: org }, { data: teamRow }] = await Promise.all([
+        (supabase as any).from('leagues').select('name, sport, event_type, checkin_enabled').eq('id', leagueId).single(),
+        supabase.from('organizations').select('name, slug').eq('id', orgId).single(),
+        // Fetch the team's calendar_token so we can send a team-specific calendar link
+        (supabase as any).from('teams').select('calendar_token').eq('id', teamId).single(),
       ])
 
       if (userIds.length > 0 && league?.name) {
@@ -101,22 +103,21 @@ export async function POST(request: NextRequest) {
         const origin = process.env.NEXT_PUBLIC_APP_URL ?? ''
         const checkinActive = (league as { checkin_enabled?: boolean } | null)?.checkin_enabled === true
 
-        // Calendar CTA for all event types
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const teamLeagueSlug = (league as any)?.slug as string | undefined
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // Team calendar CTA — players confirmed via team payment ARE on the team,
+        // so the team-specific feed (their games only) is the right link here.
         const teamOrgSlug = (org as any)?.slug as string | undefined
         let teamCalendarCtaHtml: string | undefined
-        if (teamLeagueSlug && teamOrgSlug) {
+        if (teamId && teamOrgSlug) {
           const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
           const calHost = `${teamOrgSlug}.${platformDomain}`
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const calToken = await ensureCalendarToken(supabase as any, 'leagues', leagueId ?? '', (league as any)?.calendar_token)
+          const calToken = await ensureCalendarToken(supabase as any, 'teams', teamId, (teamRow as any)?.calendar_token)
           if (calToken) {
-            const { webcalUrl, googleUrl } = calendarSubscribeUrls(calHost, `/api/events/${teamLeagueSlug}/calendar.ics?token=${calToken}`)
+            const { webcalUrl, googleUrl } = calendarSubscribeUrls(calHost, `/api/teams/${teamId}/calendar.ics?token=${calToken}`)
             teamCalendarCtaHtml = buildCalendarCtaHtml({
               webcalUrl, googleUrl,
-              subtext: 'Stay in sync automatically as games and sessions are added or updated.',
+              heading: 'Add your team schedule to your calendar',
+              subtext: 'Stay in sync automatically as games are added or updated.',
             })
           }
         }
@@ -230,14 +231,16 @@ export async function POST(request: NextRequest) {
         const checkinEnabled = (league as { checkin_enabled?: boolean } | null)?.checkin_enabled === true
         const checkinUrl = (checkinEnabled && token) ? `${origin}/checkin/${token}` : null
 
-        // Offer a calendar CTA for all event types — the ICS feed supports both
-        // event_sessions (pickup/drop-in) and games (league/tournament).
+        // Calendar CTA for pickup/drop-in only — for league/tournament events the
+        // player hasn't joined a team yet, so the team calendar (sent in the
+        // team-added / join-approved email) is more relevant.
         let calendarCtaHtml: string | undefined
+        const eventType = (league as { event_type?: string } | null)?.event_type ?? ''
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const leagueSlug = (league as any)?.slug as string | undefined
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const orgSlug = (org as any)?.slug as string | undefined
-        if (leagueSlug && orgSlug) {
+        if (['pickup', 'drop_in'].includes(eventType) && leagueSlug && orgSlug) {
           const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
           const calHost = `${orgSlug}.${platformDomain}`
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -246,7 +249,7 @@ export async function POST(request: NextRequest) {
             const { webcalUrl, googleUrl } = calendarSubscribeUrls(calHost, `/api/events/${leagueSlug}/calendar.ics?token=${calToken}`)
             calendarCtaHtml = buildCalendarCtaHtml({
               webcalUrl, googleUrl,
-              subtext: 'Stay in sync automatically as games and sessions are added or updated.',
+              subtext: 'Stay in sync automatically as games and sessions are added or updated.',  // team calendar
             })
           }
         }
