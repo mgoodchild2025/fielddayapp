@@ -148,7 +148,18 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
                 // height when the text contains newlines, so a description with
                 // blank lines left a tall empty area. The modal shows the full,
                 // line-break-preserved description.
-                <p className="text-xs text-gray-400 mt-0.5 line-clamp-2 leading-relaxed break-words overflow-hidden max-h-[2.5rem]">
+                <p
+                  className="text-xs text-gray-400 mt-0.5 leading-relaxed break-words"
+                  // Inline styles so the clamp/height cap apply regardless of how
+                  // Tailwind v4 generates (or doesn't generate) the utility classes.
+                  style={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    maxHeight: '2.5rem',
+                  }}
+                >
                   {item.description.replace(/\s+/g, ' ').trim()}
                 </p>
               )}
