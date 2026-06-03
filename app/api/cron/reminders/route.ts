@@ -361,7 +361,7 @@ export async function GET(req: NextRequest) {
   type ReminderConfig = { organization_id: string; minutes_before: number; message_template: string }
   type NotifSetting = { organization_id: string; sms_game_reminders_enabled: boolean }
   type GameRow = {
-    id: string; organization_id: string; scheduled_at: string
+    id: string; organization_id: string; scheduled_at: string; league_id: string | null
     home_team_id: string | null; away_team_id: string | null; court: string | null
     leagues: { name: string; sport?: string | null } | null
   }
@@ -418,7 +418,7 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: smsGames, error: gamesErr } = await (supabase as any)
       .from('games')
-      .select('id, organization_id, scheduled_at, home_team_id, away_team_id, court, leagues(name, sport)')
+      .select('id, organization_id, scheduled_at, league_id, home_team_id, away_team_id, court, leagues(name, sport)')
       .gte('scheduled_at', now.toISOString())
       .lte('scheduled_at', in24h.toISOString()) as { data: GameRow[] | null; error: unknown }
 
@@ -482,8 +482,10 @@ export async function GET(req: NextRequest) {
         }
 
         const teamIds = [game.home_team_id, game.away_team_id].filter(Boolean) as string[]
-        if (teamIds.length === 0) {
-          // No teams assigned — skip the log insert so it retries when teams are added
+        // Pickup/drop-in games have no teams — recipients come from league registrations instead.
+        const isPickup = teamIds.length === 0
+        if (isPickup && !game.league_id) {
+          // No teams and no league — skip the log insert so it retries when teams are added
           skipReasons.push(`${reminder.minutes_before}min:no_teams_assigned`)
           continue
         }
@@ -507,14 +509,36 @@ export async function GET(req: NextRequest) {
         }
         sentSet.add(logKey)
 
-        const { data: members } = await supabase
-          .from('team_members')
-          .select('profiles!team_members_user_id_fkey(phone, sms_opted_in)')
-          .in('team_id', teamIds)
+        let allPlayers: ({ phone?: string | null; sms_opted_in?: boolean | null } | null)[]
+        if (isPickup) {
+          // Pickup game: gather opted-in registrants of the game's league
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: pickupRegRows } = await (supabase as any)
+            .from('registrations')
+            .select('user_id')
+            .eq('league_id', game.league_id)
+            .in('status', ['active', 'pending'])
+          const pickupUserIds = [...new Set((pickupRegRows ?? []).map((r: { user_id: string }) => r.user_id).filter(Boolean))]
+          if (pickupUserIds.length === 0) {
+            skipReasons.push(`${reminder.minutes_before}min:no_pickup_registrants`)
+            continue
+          }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: pickupProfiles } = await (supabase as any)
+            .from('profiles')
+            .select('phone, sms_opted_in')
+            .in('id', pickupUserIds)
+          allPlayers = (pickupProfiles ?? []) as ({ phone?: string | null; sms_opted_in?: boolean | null })[]
+        } else {
+          const { data: members } = await supabase
+            .from('team_members')
+            .select('profiles!team_members_user_id_fkey(phone, sms_opted_in)')
+            .in('team_id', teamIds)
 
-        const allPlayers = (members ?? [])
-          .flatMap(m => (Array.isArray(m.profiles) ? m.profiles : [m.profiles]))
-          .filter(Boolean)
+          allPlayers = (members ?? [])
+            .flatMap(m => (Array.isArray(m.profiles) ? m.profiles : [m.profiles]))
+            .filter(Boolean)
+        }
 
         // Deduplicate by phone — a player on both home and away team would appear twice otherwise
         const seenPhones = new Set<string>()
@@ -570,7 +594,7 @@ export async function GET(req: NextRequest) {
   const { data: gameDayGames, error: gameDayGamesErr } = await (supabase as any)
     .from('games')
     .select(`
-      id, organization_id, scheduled_at, court,
+      id, organization_id, scheduled_at, court, league_id,
       home_team:teams!games_home_team_id_fkey(id, name),
       away_team:teams!games_away_team_id_fkey(id, name),
       leagues(name, sport)
@@ -596,7 +620,7 @@ export async function GET(req: NextRequest) {
 
     // Group games by org
     type GDGame = {
-      id: string; organization_id: string; scheduled_at: string; court: string | null
+      id: string; organization_id: string; scheduled_at: string; court: string | null; league_id: string | null
       home_team: { id: string; name: string } | null
       away_team: { id: string; name: string } | null
       leagues: { name: string; sport?: string | null } | { name: string; sport?: string | null }[] | null
@@ -622,28 +646,64 @@ export async function GET(req: NextRequest) {
       const teamIds = [...new Set(
         orgGames.flatMap(g => [g.home_team?.id, g.away_team?.id]).filter(Boolean) as string[]
       )]
-      if (teamIds.length === 0) continue
+      // Pickup/drop-in games have no teams — recipients come from league registrations instead.
+      const pickupLeagueIds = [...new Set(
+        orgGames.filter(g => !g.home_team && !g.away_team && g.league_id).map(g => g.league_id as string)
+      )]
+      if (teamIds.length === 0 && pickupLeagueIds.length === 0) continue
+
+      // Build map: user_id → { phone, name, teamIds[], subGameIds[], pickupLeagueIds[] }
+      type PlayerEntry = { phone: string; name: string; teamIds: Set<string>; subGameIds: Set<string>; pickupLeagueIds: Set<string> }
+      const playerMap = new Map<string, PlayerEntry>()
 
       // Get opted-in players with game-day SMS enabled
-      const { data: members } = await supabase
-        .from('team_members')
-        .select('user_id, team_id, profiles!team_members_user_id_fkey(phone, full_name, sms_opted_in, sms_game_day_enabled)')
-        .in('team_id', teamIds)
+      if (teamIds.length > 0) {
+        const { data: members } = await supabase
+          .from('team_members')
+          .select('user_id, team_id, profiles!team_members_user_id_fkey(phone, full_name, sms_opted_in, sms_game_day_enabled)')
+          .in('team_id', teamIds)
 
-      // Build map: user_id → { phone, name, teamIds[], subGameIds[] }
-      type PlayerEntry = { phone: string; name: string; teamIds: Set<string>; subGameIds: Set<string> }
-      const playerMap = new Map<string, PlayerEntry>()
-      for (const m of members ?? []) {
-        const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if (!p?.phone || !(p as any)?.sms_opted_in || !(p as any)?.sms_game_day_enabled) continue
-        if (!m.team_id || !m.user_id) continue
-        const userId = m.user_id
-        const teamId = m.team_id
-        if (!playerMap.has(userId)) {
-          playerMap.set(userId, { phone: p.phone, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set() })
+        for (const m of members ?? []) {
+          const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          if (!p?.phone || !(p as any)?.sms_opted_in || !(p as any)?.sms_game_day_enabled) continue
+          if (!m.team_id || !m.user_id) continue
+          const userId = m.user_id
+          const teamId = m.team_id
+          if (!playerMap.has(userId)) {
+            playerMap.set(userId, { phone: p.phone, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
+          }
+          playerMap.get(userId)!.teamIds.add(teamId)
         }
-        playerMap.get(userId)!.teamIds.add(teamId)
+      }
+
+      // Include opted-in registrants of pickup leagues with games today
+      if (pickupLeagueIds.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: pickupRegRows } = await (supabase as any)
+          .from('registrations')
+          .select('user_id, league_id')
+          .in('league_id', pickupLeagueIds)
+          .in('status', ['active', 'pending'])
+        const pickupUserIds = [...new Set((pickupRegRows ?? []).map((r: { user_id: string }) => r.user_id).filter(Boolean))]
+        if (pickupUserIds.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: pickupProfiles } = await (supabase as any)
+            .from('profiles')
+            .select('id, phone, full_name, sms_opted_in, sms_game_day_enabled')
+            .in('id', pickupUserIds)
+          type PProfile = { id: string; phone?: string | null; full_name?: string | null; sms_opted_in?: boolean | null; sms_game_day_enabled?: boolean | null }
+          const pProfileById = new Map<string, PProfile>((pickupProfiles ?? []).map((p: PProfile) => [p.id, p]))
+          for (const r of (pickupRegRows ?? []) as { user_id: string; league_id: string }[]) {
+            if (!r.user_id || !r.league_id) continue
+            const p = pProfileById.get(r.user_id)
+            if (!p?.phone || !p?.sms_opted_in || !p?.sms_game_day_enabled) continue
+            if (!playerMap.has(r.user_id)) {
+              playerMap.set(r.user_id, { phone: p.phone, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
+            }
+            playerMap.get(r.user_id)!.pickupLeagueIds.add(r.league_id)
+          }
+        }
       }
 
       // Include confirmed game subs for today's games
@@ -663,7 +723,7 @@ export async function GET(req: NextRequest) {
           if (!p?.phone || !(p as any)?.sms_opted_in || !(p as any)?.sms_game_day_enabled) continue
           if (!s.user_id || !s.game_id) continue
           if (!playerMap.has(s.user_id)) {
-            playerMap.set(s.user_id, { phone: p.phone, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set() })
+            playerMap.set(s.user_id, { phone: p.phone, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
           }
           playerMap.get(s.user_id)!.subGameIds.add(s.game_id)
         }
@@ -689,11 +749,13 @@ export async function GET(req: NextRequest) {
         if (alreadySentSet.has(userId)) continue
 
         // Find this player's games today (games where they're on the home or away team, or confirmed sub)
-        const myGames = orgGames.filter(g =>
-          (g.home_team?.id && player.teamIds.has(g.home_team.id)) ||
-          (g.away_team?.id && player.teamIds.has(g.away_team.id)) ||
-          player.subGameIds.has(g.id as string)
-        ).sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+        const myGames = orgGames.filter(g => {
+          const isPickupGame = !g.home_team && !g.away_team
+          if (isPickupGame) return g.league_id ? player.pickupLeagueIds.has(g.league_id) : false
+          return (g.home_team?.id && player.teamIds.has(g.home_team.id)) ||
+            (g.away_team?.id && player.teamIds.has(g.away_team.id)) ||
+            player.subGameIds.has(g.id as string)
+        }).sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
 
         if (myGames.length === 0) continue
 
