@@ -27,6 +27,16 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
   // All images: primary + gallery
   const allImages = [item.image_url, ...(item.additional_images ?? [])].filter(Boolean) as string[]
 
+  // Short, single-line description preview for the card. Truncating the TEXT
+  // (not relying on CSS line-clamp) avoids the iOS Safari bug where
+  // -webkit-line-clamp shows an ellipsis but doesn't cap the element height,
+  // leaving tall blank space. The modal shows the full description.
+  const descPreview = (() => {
+    const d = item.description?.replace(/\s+/g, ' ').trim()
+    if (!d) return null
+    return d.length > 110 ? d.slice(0, 110).trimEnd() + '…' : d
+  })()
+
   const hasVariants = item.variants.length > 0
   const needsVariantSelection = hasVariants && !selectedVariantId
   const selectedVariant = item.variants.find((v) => v.id === selectedVariantId) ?? null
@@ -143,27 +153,9 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
               onClick={() => openModal()}
               className="text-left focus:outline-none w-full"
             >
-              <h3 className="font-semibold text-gray-900 text-sm leading-snug hover:underline line-clamp-2">{item.name}</h3>
-              {item.description?.trim() && (
-                // Collapse ALL whitespace (incl. newlines) to single spaces for the
-                // 2-line preview. iOS Safari's -webkit-line-clamp doesn't cap the
-                // height when the text contains newlines, so a description with
-                // blank lines left a tall empty area. The modal shows the full,
-                // line-break-preserved description.
-                <p
-                  className="text-xs text-gray-400 mt-0.5 leading-relaxed break-words"
-                  // Inline styles so the clamp/height cap apply regardless of how
-                  // Tailwind v4 generates (or doesn't generate) the utility classes.
-                  style={{
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                    maxHeight: '2.5rem',
-                  }}
-                >
-                  {item.description.replace(/\s+/g, ' ').trim()}
-                </p>
+              <h3 className="font-semibold text-gray-900 text-sm leading-snug hover:underline">{item.name}</h3>
+              {descPreview && (
+                <p className="text-xs text-gray-400 mt-0.5 leading-relaxed break-words">{descPreview}</p>
               )}
             </button>
             <p className="text-base font-bold mt-1.5" style={{ color: 'var(--brand-primary)' }}>
