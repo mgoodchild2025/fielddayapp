@@ -142,12 +142,15 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
               className="text-left focus:outline-none w-full"
             >
               <h3 className="font-semibold text-gray-900 text-sm leading-snug hover:underline line-clamp-2">{item.name}</h3>
-              {item.description && (
-                // No whitespace-pre-wrap here: combined with line-clamp it fails to
-                // cap the height on iOS Safari when the text contains newlines,
-                // leaving a tall blank area. The full description (with line breaks)
-                // is shown in the modal. break-words guards against long tokens.
-                <p className="text-xs text-gray-400 mt-0.5 line-clamp-2 leading-relaxed break-words">{item.description}</p>
+              {item.description?.trim() && (
+                // Collapse ALL whitespace (incl. newlines) to single spaces for the
+                // 2-line preview. iOS Safari's -webkit-line-clamp doesn't cap the
+                // height when the text contains newlines, so a description with
+                // blank lines left a tall empty area. The modal shows the full,
+                // line-break-preserved description.
+                <p className="text-xs text-gray-400 mt-0.5 line-clamp-2 leading-relaxed break-words">
+                  {item.description.replace(/\s+/g, ' ').trim()}
+                </p>
               )}
             </button>
             <p className="text-base font-bold mt-1.5" style={{ color: 'var(--brand-primary)' }}>
