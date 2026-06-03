@@ -85,6 +85,7 @@ export function TeamPaymentPanel({
         teamId,
         leagueId,
         method: method as 'etransfer' | 'cash' | 'cheque',
+        discountedAmountCents: appliedDiscount ? discountedPriceCents : undefined,
       })
       if (res.error) {
         setError(res.error)
