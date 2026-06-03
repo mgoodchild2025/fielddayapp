@@ -55,7 +55,7 @@ const PLANS = [
       '10 active leagues',
       'Up to 500 players',
       'SMS game reminders',
-      'Payment installment plans',
+      'Merchandise shop',
       'Double elimination brackets',
       'Everything in Starter',
     ],
