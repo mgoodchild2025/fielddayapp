@@ -4,6 +4,11 @@ import { useState, useTransition } from 'react'
 import { saveDisplayConfig, deleteDisplayScreen } from '@/actions/display'
 import type { DisplayConfig, LayoutId, ZoneConfig } from '@/lib/display-types'
 import { ZONE_COUNT, ZONE_LABELS, defaultConfig, blankZone } from '@/lib/display-types'
+import {
+  Calendar, Trophy, Target, QrCode, MessageSquare,
+  Clock, Palette, Radio, Megaphone, Square,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 // ── Layout definitions ────────────────────────────────────────────────────────
 
@@ -43,17 +48,17 @@ function LayoutPrev({ cells, narrow }: { cells: [number,number,number,number][];
 
 // ── Zone type options ─────────────────────────────────────────────────────────
 
-const ZONE_TYPES: { value: ZoneConfig['type']; label: string; icon: string }[] = [
-  { value: 'schedule',  label: 'Schedule',   icon: '📅' },
-  { value: 'standings', label: 'Standings',  icon: '🏆' },
-  { value: 'bracket',   label: 'Bracket',    icon: '🎯' },
-  { value: 'qr_code',   label: 'QR Code',    icon: '⬛' },
-  { value: 'message',   label: 'Message',    icon: '💬' },
-  { value: 'clock',     label: 'Clock',      icon: '🕐' },
-  { value: 'logo',      label: 'Logo',       icon: '🎨' },
-  { value: 'live',      label: 'Live Stream', icon: '🔴' },
-  { value: 'sponsors',  label: 'Sponsors',   icon: '📣' },
-  { value: 'empty',     label: 'Empty',      icon: '⬜' },
+const ZONE_TYPES: { value: ZoneConfig['type']; label: string; icon: LucideIcon }[] = [
+  { value: 'schedule',  label: 'Schedule',    icon: Calendar },
+  { value: 'standings', label: 'Standings',   icon: Trophy },
+  { value: 'bracket',   label: 'Bracket',     icon: Target },
+  { value: 'qr_code',   label: 'QR Code',     icon: QrCode },
+  { value: 'message',   label: 'Message',     icon: MessageSquare },
+  { value: 'clock',     label: 'Clock',       icon: Clock },
+  { value: 'logo',      label: 'Logo',        icon: Palette },
+  { value: 'live',      label: 'Live Stream', icon: Radio },
+  { value: 'sponsors',  label: 'Sponsors',    icon: Megaphone },
+  { value: 'empty',     label: 'Empty',       icon: Square },
 ]
 
 // ── Zone editor ───────────────────────────────────────────────────────────────
@@ -101,7 +106,7 @@ function ZoneEditor({
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             }`}
           >
-            <span>{zt.icon}</span>
+            <zt.icon className="w-4 h-4" />
             <span className="leading-none">{zt.label}</span>
           </button>
         ))}

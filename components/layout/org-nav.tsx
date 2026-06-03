@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Radio } from 'lucide-react'
 import Image from 'next/image'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
@@ -86,7 +87,8 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
           </span>
-          🔴 Live now{liveStream.title ? ` — ${liveStream.title}` : ''} · Watch →
+          <Radio className="w-4 h-4 shrink-0" />
+          Live now{liveStream.title ? ` — ${liveStream.title}` : ''} · Watch →
         </a>
       )}
       <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between gap-4">

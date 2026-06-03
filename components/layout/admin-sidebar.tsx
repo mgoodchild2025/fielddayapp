@@ -3,35 +3,37 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import {
+  LayoutDashboard, Trophy, CreditCard, ShoppingBag, Users,
+  ClipboardList, Image, Radio, Mail, Settings, PersonStanding,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { OrgContext } from '@/lib/tenant'
 import { cn } from '@/lib/utils'
 
-interface AdminSidebarProps {
-  org: OrgContext
-  role: string
-}
+interface NavItem { label: string; href: string; icon: LucideIcon }
 
-const orgAdminNav = [
-  { label: 'Dashboard', href: '/admin/dashboard', icon: '▣' },
-  { label: 'Events', href: '/admin/events', icon: '🏆' },
-  { label: 'Payments', href: '/admin/payments', icon: '💳' },
-  { label: 'Shop', href: '/admin/shop', icon: '🛍️' },
-  { label: 'Teams', href: '/admin/teams', icon: '👥' },
-  { label: 'Players', href: '/admin/players', icon: '🏃' },
-  { label: 'Waivers', href: '/admin/settings/waivers/signatures', icon: '📋' },
-  { label: 'Gallery', href: '/admin/gallery', icon: '🖼️' },
-  { label: 'Live', href: '/admin/live', icon: '🔴' },
-  { label: 'Messages', href: '/admin/messages', icon: '✉️' },
-  { label: 'Settings', href: '/admin/settings', icon: '⚙️' },
+const orgAdminNav: NavItem[] = [
+  { label: 'Dashboard', href: '/admin/dashboard',                    icon: LayoutDashboard },
+  { label: 'Events',    href: '/admin/events',                       icon: Trophy },
+  { label: 'Payments',  href: '/admin/payments',                     icon: CreditCard },
+  { label: 'Shop',      href: '/admin/shop',                         icon: ShoppingBag },
+  { label: 'Teams',     href: '/admin/teams',                        icon: Users },
+  { label: 'Players',   href: '/admin/players',                      icon: PersonStanding },
+  { label: 'Waivers',   href: '/admin/settings/waivers/signatures',  icon: ClipboardList },
+  { label: 'Gallery',   href: '/admin/gallery',                      icon: Image },
+  { label: 'Live',      href: '/admin/live',                         icon: Radio },
+  { label: 'Messages',  href: '/admin/messages',                     icon: Mail },
+  { label: 'Settings',  href: '/admin/settings',                     icon: Settings },
 ]
 
-const leagueAdminNav = [
-  { label: 'Events', href: '/admin/events', icon: '🏆' },
-  { label: 'Teams', href: '/admin/teams', icon: '👥' },
-  { label: 'Players', href: '/admin/players', icon: '🏃' },
-  { label: 'Waivers', href: '/admin/settings/waivers/signatures', icon: '📋' },
-  { label: 'Payments', href: '/admin/payments', icon: '💳' },
-  { label: 'Messages', href: '/admin/messages', icon: '✉️' },
+const leagueAdminNav: NavItem[] = [
+  { label: 'Events',   href: '/admin/events',                      icon: Trophy },
+  { label: 'Teams',    href: '/admin/teams',                       icon: Users },
+  { label: 'Players',  href: '/admin/players',                     icon: PersonStanding },
+  { label: 'Waivers',  href: '/admin/settings/waivers/signatures', icon: ClipboardList },
+  { label: 'Payments', href: '/admin/payments',                    icon: CreditCard },
+  { label: 'Messages', href: '/admin/messages',                    icon: Mail },
 ]
 
 function SidebarContent({ org, role, onClose }: { org: OrgContext; role: string; onClose?: () => void }) {
@@ -59,6 +61,7 @@ function SidebarContent({ org, role, onClose }: { org: OrgContext; role: string;
       <nav className="flex-1 p-3 space-y-0.5">
         {navItems.map((item) => {
           const active = pathname.startsWith(item.href)
+          const Icon = item.icon
           return (
             <Link
               key={item.href}
@@ -69,7 +72,7 @@ function SidebarContent({ org, role, onClose }: { org: OrgContext; role: string;
                 active ? 'bg-white/15 font-semibold' : 'opacity-70 hover:opacity-100 hover:bg-white/10'
               )}
             >
-              <span className="text-base leading-none">{item.icon}</span>
+              <Icon className="w-4 h-4 shrink-0" />
               {item.label}
             </Link>
           )
@@ -96,23 +99,19 @@ function SidebarContent({ org, role, onClose }: { org: OrgContext; role: string;
   )
 }
 
+interface AdminSidebarProps { org: OrgContext; role: string }
+
 export function AdminSidebar({ org, role }: AdminSidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const pathname = usePathname()
 
-  // Close mobile sidebar on route change
   useEffect(() => { setMobileOpen(false) }, [pathname])
 
-  // Lock html/body scroll for the entire admin panel — all scrolling
-  // happens within <main> (overflow-y-auto). Restored when navigating away.
   useEffect(() => {
     document.documentElement.style.overflow = 'hidden'
-    return () => {
-      document.documentElement.style.overflow = ''
-    }
+    return () => { document.documentElement.style.overflow = '' }
   }, [])
 
-  // Prevent body scroll + iOS right-edge viewport expansion when mobile drawer open
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : ''
     document.documentElement.style.overflowX = mobileOpen ? 'hidden' : ''
@@ -124,7 +123,6 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
 
   return (
     <>
-      {/* Desktop sidebar — sticky so it stays in view on long pages */}
       <aside
         className="hidden lg:flex print:hidden w-56 shrink-0 flex-col h-full overflow-y-auto"
         style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
@@ -132,7 +130,6 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
         <SidebarContent org={org} role={role} />
       </aside>
 
-      {/* Mobile top bar */}
       <div
         className="lg:hidden print:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center justify-between px-4 border-b border-white/10"
         style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
@@ -151,7 +148,6 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
         </button>
       </div>
 
-      {/* Mobile backdrop */}
       {mobileOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50 lg:hidden print:hidden"
@@ -159,7 +155,6 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
         />
       )}
 
-      {/* Mobile drawer — slides from right */}
       <aside
         className={cn(
           'fixed top-0 right-0 h-full w-64 z-50 lg:hidden print:hidden transition-transform duration-200',
