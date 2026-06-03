@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { Database } from '@/types/database'
 import type { MerchSelection, MerchItemForStep } from './step-addons'
 import { selectOfflinePayment, selectOfflineTeamPayment } from '@/actions/payments'
+import { validateDiscountCode, incrementDiscountUse } from '@/actions/discounts'
 import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_METHOD_ICON,
@@ -39,6 +40,15 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
   const [manualInstructions, setManualInstructions] = useState<string | null>(null)
   const [offlineDone, setOfflineDone] = useState<{ instructions: string | null; label: string } | null>(null)
 
+  // Discount code
+  const [discountInput, setDiscountInput] = useState('')
+  const [discountLoading, setDiscountLoading] = useState(false)
+  const [discountError, setDiscountError] = useState<string | null>(null)
+  const [appliedDiscount, setAppliedDiscount] = useState<{
+    id: string; code: string; type: 'percent' | 'fixed'; value: number
+  } | null>(null)
+  const [showDiscountInput, setShowDiscountInput] = useState(false)
+
   const registrationPriceCents = priceCents ?? league.price_cents
   const currency = league.currency.toUpperCase()
 
@@ -60,7 +70,15 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
     (sum, li) => sum + li.unitPriceCents * li.quantity,
     0
   )
-  const totalCents = registrationPriceCents + merchTotalCents
+
+  // Discount
+  const discountAmountCents = appliedDiscount
+    ? appliedDiscount.type === 'percent'
+      ? Math.round(registrationPriceCents * appliedDiscount.value / 100)
+      : Math.min(appliedDiscount.value * 100, registrationPriceCents)
+    : 0
+  const discountedRegistrationCents = registrationPriceCents - discountAmountCents
+  const totalCents = discountedRegistrationCents + merchTotalCents
 
   // ── Payment method selection ────────────────────────────────────────────────
   // Merchandise can only be charged online, so offline methods are hidden when
@@ -74,6 +92,24 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
     () => (selectableMethods.includes('card') ? 'card' : (selectableMethods[0] ?? 'card'))
   )
 
+  async function handleApplyDiscount() {
+    const code = discountInput.trim()
+    if (!code) return
+    setDiscountLoading(true)
+    setDiscountError(null)
+    // Determine context: drop-in vs league
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ctx = ((league as any).event_type === 'drop_in' || (league as any).event_type === 'pickup' || league.league_type === 'dropin') ? 'dropins' : 'leagues'
+    const result = await validateDiscountCode(code, org.id, ctx)
+    setDiscountLoading(false)
+    if (result.valid && result.discount) {
+      setAppliedDiscount(result.discount)
+      setDiscountError(null)
+    } else {
+      setDiscountError(result.error ?? 'Invalid code')
+    }
+  }
+
   async function handleOffline(method: PaymentMethod) {
     setLoading(true)
     setError(null)
@@ -85,6 +121,8 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
         setError(res.error)
         setLoading(false)
       } else {
+        // Offline: increment discount use count now that the spot is reserved
+        if (appliedDiscount) await incrementDiscountUse(appliedDiscount.id)
         setOfflineDone({ instructions: res.instructions ?? offlineInstructions, label: res.methodLabel })
       }
     } catch {
@@ -108,6 +146,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
         userId,
         registrationId,
         orgId: org.id,
+        ...(appliedDiscount ? { discountId: appliedDiscount.id } : {}),
       }
 
       if (merchSelections.length > 0) {
@@ -233,8 +272,42 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
                 <span className="font-medium">{league.name}</span>
                 <p className="text-xs text-gray-400 mt-0.5">Registration fee</p>
               </div>
-              <span className="font-bold text-lg tabular-nums" style={{ color: 'var(--brand-primary)' }}>
+              <span className={`font-bold text-lg tabular-nums ${appliedDiscount ? 'line-through text-gray-400' : ''}`} style={appliedDiscount ? {} : { color: 'var(--brand-primary)' }}>
                 ${registrationPrice.toFixed(0)} {currency}
+              </span>
+            </div>
+          )}
+
+          {/* Discount line */}
+          {appliedDiscount && discountAmountCents > 0 && (
+            <div className="flex justify-between items-center px-4 py-3 bg-green-50">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-green-800">
+                  Discount: {appliedDiscount.code}
+                </span>
+                <span className="text-xs text-green-600 bg-green-100 rounded px-1.5 py-0.5">
+                  {appliedDiscount.type === 'percent' ? `${appliedDiscount.value}% off` : `$${appliedDiscount.value} off`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setAppliedDiscount(null); setDiscountInput('') }}
+                  className="text-xs text-green-600 hover:text-red-500 underline"
+                >
+                  Remove
+                </button>
+              </div>
+              <span className="font-semibold text-green-700 tabular-nums">
+                −${(discountAmountCents / 100).toFixed(2)} {currency}
+              </span>
+            </div>
+          )}
+
+          {/* Discounted registration total (when discount applied) */}
+          {appliedDiscount && registrationPriceCents > 0 && (
+            <div className="flex justify-between items-center px-4 py-3">
+              <span className="text-sm text-gray-600">After discount</span>
+              <span className="font-bold text-lg tabular-nums" style={{ color: 'var(--brand-primary)' }}>
+                ${(discountedRegistrationCents / 100).toFixed(2)} {currency}
               </span>
             </div>
           )}
@@ -268,6 +341,55 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
             </div>
           )}
         </div>
+
+        {/* Discount code — only when there's a registration fee and no discount applied yet */}
+        {registrationPriceCents > 0 && !appliedDiscount && (
+          <div>
+            {!showDiscountInput ? (
+              <button
+                type="button"
+                onClick={() => setShowDiscountInput(true)}
+                className="text-sm text-gray-400 hover:text-gray-600 underline underline-offset-2"
+              >
+                Have a discount code?
+              </button>
+            ) : (
+              <div className="space-y-1.5">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={discountInput}
+                    onChange={(e) => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(null) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleApplyDiscount() } }}
+                    placeholder="Enter code"
+                    className="flex-1 border rounded-md px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:ring-2"
+                    style={{ focusRingColor: 'var(--brand-primary)' } as React.CSSProperties}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyDiscount}
+                    disabled={discountLoading || !discountInput.trim()}
+                    className="px-4 py-2 rounded-md text-sm font-medium text-white disabled:opacity-50"
+                    style={{ backgroundColor: 'var(--brand-primary)' }}
+                  >
+                    {discountLoading ? '…' : 'Apply'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowDiscountInput(false); setDiscountInput(''); setDiscountError(null) }}
+                    className="px-3 py-2 rounded-md text-sm text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+                {discountError && (
+                  <p className="text-xs text-red-600">{discountError}</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Payment method chooser — shown when the league accepts more than one */}
         {choice && selectableMethods.length > 1 && (
