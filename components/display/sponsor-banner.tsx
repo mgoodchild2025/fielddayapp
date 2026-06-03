@@ -20,8 +20,15 @@ export function SponsorBanner({
   const isDark = theme === 'dark'
   const duration = SPEED_SECONDS[speed] ?? 40
 
+  // Each row is exactly 100vw wide so the -50% keyframe always scrolls one full
+  // screen width, regardless of how many/few sponsors there are. Logos are spread
+  // evenly across the row with justify-evenly.
   const row = (keyed: string) => (
-    <div className="flex shrink-0 items-center" style={{ gap: '4rem', paddingInline: '2rem' }} aria-hidden={keyed === 'b'}>
+    <div
+      className="flex shrink-0 items-center justify-evenly"
+      style={{ minWidth: '100vw', paddingInline: '3rem' }}
+      aria-hidden={keyed === 'b'}
+    >
       {sponsors.map((s) => (
         <div key={`${keyed}-${s.id}`} className="flex items-center shrink-0" style={{ height: s.tier === 'gold' ? '4.5rem' : '3.25rem' }}>
           {s.logo_url ? (
@@ -46,8 +53,8 @@ export function SponsorBanner({
       }}
     >
       <div
-        className="flex items-center shrink-0"
-        style={{ width: 'max-content', animation: `sponsor-marquee ${duration}s linear infinite`, willChange: 'transform' }}
+        className="flex items-center"
+        style={{ animation: `sponsor-marquee ${duration}s linear infinite`, willChange: 'transform' }}
       >
         {row('a')}
         {row('b')}
