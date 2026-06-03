@@ -10,6 +10,8 @@ import { sendRegistrationConfirmation, sendRegistrationAdminNotification } from 
 import { acceptDropInInvite, acceptPickupInvite } from './invites'
 import { recordConsents, consentRequestMeta, type ConsentRow } from './player-consents'
 import { recordAuditLog, getAuditActor } from '@/lib/audit'
+import { calendarSubscribeUrls, ensureCalendarToken } from '@/lib/calendar-feed'
+import { buildCalendarCtaHtml } from '@/lib/email'
 
 const createRegistrationSchema = z.object({
   leagueId: z.string().uuid(),
@@ -264,7 +266,7 @@ export async function activateRegistration(registrationId: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: reg, error: fetchError } = await (db2 as any)
     .from('registrations')
-    .select('*, checkin_token, profiles!registrations_user_id_fkey(full_name, email), leagues!registrations_league_id_fkey(name, sport, event_type, checkin_enabled)')
+    .select('*, checkin_token, profiles!registrations_user_id_fkey(full_name, email), leagues!registrations_league_id_fkey(id, name, slug, sport, event_type, checkin_enabled, calendar_token)')
     .eq('id', registrationId)
     .eq('organization_id', org.id)
     .single()
@@ -286,6 +288,21 @@ export async function activateRegistration(registrationId: string) {
     const checkinUrl = (reg.checkin_token && league?.checkin_enabled === true)
       ? `${origin}/checkin/${reg.checkin_token}`
       : null
+
+    // For pickup/drop-in events, offer a "subscribe to schedule" calendar CTA
+    let calendarCtaHtml: string | undefined
+    if (['pickup', 'drop_in'].includes(league.event_type ?? '') && league.slug) {
+      const host = headersList.get('host') ?? ''
+      const token = await ensureCalendarToken(db2, 'leagues', league.id, league.calendar_token)
+      if (host && token) {
+        const { webcalUrl, googleUrl } = calendarSubscribeUrls(host, `/api/events/${league.slug}/calendar.ics?token=${token}`)
+        calendarCtaHtml = buildCalendarCtaHtml({
+          webcalUrl, googleUrl,
+          subtext: 'Stay in sync automatically as sessions are added, moved, or cancelled.',
+        })
+      }
+    }
+
     await sendRegistrationConfirmation({
       email: profile.email,
       name: profile.full_name,
@@ -294,6 +311,7 @@ export async function activateRegistration(registrationId: string) {
       sport: league.sport ?? null,
       eventType: league.event_type ?? null,
       checkinUrl,
+      calendarCtaHtml,
     })
   }
 

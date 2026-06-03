@@ -14,6 +14,37 @@ function buildTransactionalFooter(orgName: string): string {
   </div>`
 }
 
+/**
+ * Two-button "add to calendar" block (Apple + Google) for transactional emails.
+ * Pass pre-built webcal + Google URLs (see lib/calendar-feed.ts).
+ */
+export function buildCalendarCtaHtml({
+  webcalUrl,
+  googleUrl,
+  heading = 'Add the schedule to your calendar',
+  subtext = 'Stay in sync automatically as games are added, moved, or cancelled.',
+}: {
+  webcalUrl: string
+  googleUrl: string
+  heading?: string
+  subtext?: string
+}): string {
+  return `<div style="margin:24px 0;padding:20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
+    <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#111827;">📅 ${heading}</p>
+    <p style="margin:0 0 14px;font-size:13px;color:#6b7280;line-height:1.5;">${subtext}</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:separate;">
+      <tr>
+        <td style="padding:0 4px 0 0;width:50%;">
+          <a href="${webcalUrl}" style="display:block;text-align:center;background:#fff;border:1px solid #d1d5db;color:#111827;text-decoration:none;padding:10px 8px;border-radius:8px;font-weight:600;font-size:13px;">Apple Calendar</a>
+        </td>
+        <td style="padding:0 0 0 4px;width:50%;">
+          <a href="${googleUrl}" style="display:block;text-align:center;background:#fff;border:1px solid #d1d5db;color:#111827;text-decoration:none;padding:10px 8px;border-radius:8px;font-weight:600;font-size:13px;">Google Calendar</a>
+        </td>
+      </tr>
+    </table>
+  </div>`
+}
+
 interface SendEmailOptions {
   to: string
   subject: string
@@ -110,10 +141,12 @@ export function buildJoinApprovedEmail({
   teamName,
   orgName,
   teamUrl,
+  calendarCtaHtml = '',
 }: {
   teamName: string
   orgName: string
   teamUrl: string
+  calendarCtaHtml?: string
 }): string {
   return `<!DOCTYPE html>
 <html>
@@ -134,6 +167,7 @@ export function buildJoinApprovedEmail({
           View Your Team →
         </a>
       </div>
+      ${calendarCtaHtml}
       ${buildTransactionalFooter(orgName)}
     </div>
   </div>
@@ -302,12 +336,14 @@ export function buildTeamAddedEmail({
   leagueName,
   role,
   teamUrl,
+  calendarCtaHtml = '',
 }: {
   teamName: string
   orgName: string
   leagueName: string
   role: string
   teamUrl: string
+  calendarCtaHtml?: string
 }): string {
   return `<!DOCTYPE html>
 <html>
@@ -328,6 +364,7 @@ export function buildTeamAddedEmail({
           View Team
         </a>
       </div>
+      ${calendarCtaHtml}
       ${buildTransactionalFooter(orgName)}
     </div>
   </div>

@@ -36,6 +36,7 @@ export async function sendRegistrationConfirmation({
   sport,
   eventType,
   checkinUrl,
+  calendarCtaHtml,
 }: {
   email: string
   name: string
@@ -44,6 +45,7 @@ export async function sendRegistrationConfirmation({
   sport?: string | null
   eventType?: string | null
   checkinUrl?: string | null
+  calendarCtaHtml?: string | null
 }) {
   const sportEmoji = (sport && SPORT_EMOJI[sport]) ?? '🎉'
   const showCheckin = !!checkinUrl
@@ -75,6 +77,7 @@ export async function sendRegistrationConfirmation({
         <p style="color: #444; font-size: 16px;">
           Log in to view your schedule, team info, and more.
         </p>
+        ${calendarCtaHtml ?? ''}
         ${checkinBlock}
         <div style="margin-top: 32px; padding: 16px; background: #f9f9f9; border-radius: 8px; font-size: 14px; color: #666;">
           Questions? Reply to this email and we'll get back to you.

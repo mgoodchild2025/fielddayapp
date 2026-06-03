@@ -6,7 +6,8 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
-import { sendEmail, buildJoinRequestEmail, buildJoinApprovedEmail, buildJoinDeclinedEmail, buildCaptainAssignedEmail, buildTeamAddedEmail, buildRosterReminderEmail } from '@/lib/email'
+import { sendEmail, buildJoinRequestEmail, buildJoinApprovedEmail, buildJoinDeclinedEmail, buildCaptainAssignedEmail, buildTeamAddedEmail, buildRosterReminderEmail, buildCalendarCtaHtml } from '@/lib/email'
+import { calendarSubscribeUrls, ensureCalendarToken } from '@/lib/calendar-feed'
 import { convertToWebP } from '@/lib/image-utils'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -553,13 +554,23 @@ export async function adminAddTeamMember(input: z.infer<typeof adminAddMemberSch
 
     // Notify the player they've been added
     const [{ data: teamRow }, { data: leagueRow }] = await Promise.all([
-      db.from('teams').select('name').eq('id', parsed.data.teamId).single(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('teams').select('name, calendar_token').eq('id', parsed.data.teamId).single(),
       db.from('leagues').select('name').eq('id', parsed.data.leagueId).single(),
     ])
     if (teamRow && leagueRow) {
       const host = headersList.get('host') ?? ''
       const proto = headersList.get('x-forwarded-proto') ?? 'http'
       const teamUrl = `${proto}://${host}/teams/${parsed.data.teamId}`
+
+      // "Subscribe to your team's schedule" calendar CTA
+      let calendarCtaHtml = ''
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const teamCalToken = host ? await ensureCalendarToken(db as any, 'teams', parsed.data.teamId, (teamRow as any).calendar_token) : null
+      if (host && teamCalToken) {
+        const { webcalUrl, googleUrl } = calendarSubscribeUrls(host, `/api/teams/${parsed.data.teamId}/calendar.ics?token=${teamCalToken}`)
+        calendarCtaHtml = buildCalendarCtaHtml({ webcalUrl, googleUrl, heading: 'Add your team schedule to your calendar' })
+      }
 
       // In-app notification
       await db.from('notifications').insert({
@@ -581,6 +592,7 @@ export async function adminAddTeamMember(input: z.infer<typeof adminAddMemberSch
           leagueName: leagueRow.name,
           role: parsed.data.role,
           teamUrl,
+          calendarCtaHtml,
         }),
       })
     }
@@ -792,13 +804,24 @@ export async function approveJoinRequest(requestId: string) {
 
   // Fetch team name + player email for notification
   const [{ data: teamDetails }, { data: playerProfile }] = await Promise.all([
-    db.from('teams').select('name').eq('id', req.team_id).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('teams').select('name, calendar_token').eq('id', req.team_id).single(),
     db.from('profiles').select('full_name, email').eq('id', req.user_id).single(),
   ])
 
   const teamName = teamDetails?.name ?? team?.league_id ? 'your team' : 'the team'
   const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
   const teamUrl = `https://${org.slug}.${platformDomain}/teams/${req.team_id}`
+
+  // "Subscribe to your team's schedule" calendar CTA
+  let approvedCalendarCta = ''
+  const approvedCalHost = `${org.slug}.${platformDomain}`
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const approvedCalToken = await ensureCalendarToken(db as any, 'teams', req.team_id, (teamDetails as any)?.calendar_token)
+  if (approvedCalToken) {
+    const { webcalUrl, googleUrl } = calendarSubscribeUrls(approvedCalHost, `/api/teams/${req.team_id}/calendar.ics?token=${approvedCalToken}`)
+    approvedCalendarCta = buildCalendarCtaHtml({ webcalUrl, googleUrl, heading: 'Add your team schedule to your calendar' })
+  }
 
   // In-app notification
   await db.from('notifications').insert({
@@ -815,7 +838,7 @@ export async function approveJoinRequest(requestId: string) {
     await sendEmail({
       to: playerProfile.email,
       subject: `You've been approved to join ${teamName}`,
-      html: buildJoinApprovedEmail({ teamName, orgName: org.name, teamUrl }),
+      html: buildJoinApprovedEmail({ teamName, orgName: org.name, teamUrl, calendarCtaHtml: approvedCalendarCta }),
     })
   }
 
