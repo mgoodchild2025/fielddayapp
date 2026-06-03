@@ -22,6 +22,7 @@ const teamSchema = z.object({
   leagueSlug: z.string(),
   teamId: z.string().uuid(),
   orgId: z.string().uuid(),
+  discountId: z.string().uuid().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
   // ── Team payment ──────────────────────────────────────────────────────────
   const teamParsed = teamSchema.safeParse(body)
   if (teamParsed.success && 'teamId' in body && !('registrationId' in body)) {
-    const { leagueId, leagueSlug, teamId, orgId } = teamParsed.data
+    const { leagueId, leagueSlug, teamId, orgId, discountId: teamDiscountId } = teamParsed.data
 
     const [{ data: league }, { data: team }, { data: paymentSettings }] = await Promise.all([
       db.from('leagues').select('name, price_cents, currency, max_teams').eq('id', leagueId).single(),
@@ -43,10 +44,37 @@ export async function POST(request: NextRequest) {
     if (!league) return NextResponse.json({ error: 'League not found' }, { status: 404 })
     if (!team) return NextResponse.json({ error: 'Team not found' }, { status: 404 })
 
+    // Apply discount server-side
+    let teamPriceCents: number = league.price_cents
+    let teamDiscountApplied: { id: string } | null = null
+    if (teamDiscountId && teamPriceCents > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: dr } = await (db as any)
+        .from('discount_codes')
+        .select('id, type, value, active, expires_at, max_uses, use_count, applies_to')
+        .eq('id', teamDiscountId).eq('organization_id', orgId).single()
+      if (
+        dr && dr.active &&
+        (!dr.expires_at || new Date(dr.expires_at) > new Date()) &&
+        (!dr.max_uses || dr.use_count < dr.max_uses) &&
+        (dr.applies_to === 'all' || dr.applies_to === 'leagues')
+      ) {
+        const reduction = dr.type === 'percent'
+          ? Math.round(teamPriceCents * dr.value / 100)
+          : Math.min(dr.value * 100, teamPriceCents)
+        teamPriceCents = Math.max(0, teamPriceCents - reduction)
+        teamDiscountApplied = { id: dr.id }
+      }
+    }
+
     // ── Manual payment mode — skip Stripe entirely ───────────────────────────
     const isManual = paymentSettings?.registration_payment_mode === 'manual' || !paymentSettings?.stripe_secret_key
     if (isManual) {
       const instructions = paymentSettings?.registration_manual_instructions ?? null
+      if (teamDiscountApplied) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (db as any).rpc('increment_discount_use', { discount_id: teamDiscountApplied.id })
+      }
       return NextResponse.json({ manual: true, instructions })
     }
 
@@ -94,7 +122,7 @@ export async function POST(request: NextRequest) {
         {
           price_data: {
             currency: league.currency,
-            unit_amount: league.price_cents,
+            unit_amount: teamPriceCents,
             product_data: { name: `${league.name} — ${team.name} (Team)` },
           },
           quantity: 1,
@@ -115,7 +143,7 @@ export async function POST(request: NextRequest) {
         .from('payments')
         .update({
           stripe_checkout_session_id: session.id,
-          amount_cents: league.price_cents,
+          amount_cents: teamPriceCents,
           status: 'pending',
         })
         .eq('id', existing.id)
@@ -128,11 +156,16 @@ export async function POST(request: NextRequest) {
           team_id: teamId,
           league_id: leagueId,
           stripe_checkout_session_id: session.id,
-          amount_cents: league.price_cents,
+          amount_cents: teamPriceCents,
           currency: league.currency,
           status: 'pending',
           payment_type: 'team',
         })
+    }
+
+    if (teamDiscountApplied) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any).rpc('increment_discount_use', { discount_id: teamDiscountApplied.id })
     }
 
     return NextResponse.json({ url: session.url })
