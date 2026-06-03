@@ -1,27 +1,34 @@
 'use client'
 
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useMemo } from 'react'
 import type { DisplaySponsor, SponsorBannerConfig } from '@/lib/display-types'
 
 const SPEED_SECONDS: Record<SponsorBannerConfig['speed'], number> = {
   slow: 60, normal: 40, fast: 24,
 }
 
-/** Gap between logos (px) — also applied as padding-right on each copy so
- *  the seam between copy A and copy B matches every other gap exactly. */
-const GAP = 128 // 8rem at 16px base
+/** Gap between every logo (px). Same value applied as padding-right on each
+ *  copy so the gap at the seam always equals every other gap. */
+const GAP = 128 // 8rem
+
+/**
+ * Number of times to tile the full sponsor list inside each copy.
+ * Ensures the copy is always wider than the screen so logos fill the viewport
+ * from edge to edge. Formula: at least enough tiles so (logos × ~300px avg)
+ * exceeds a typical TV/monitor width, with a minimum of 3.
+ */
+function tileCount(sponsorCount: number): number {
+  return Math.max(3, Math.ceil(8 / sponsorCount))
+}
 
 /**
  * A horizontal auto-scrolling marquee of sponsor logos.
  *
- * Two identical copies of the logo list are placed side by side. We measure
- * the pixel width of the first copy (via useRef) and use that as the
- * translateX distance — so the animation always scrolls by exactly one copy
- * width, the seam is seamless, and spacing between logos is always uniform
- * regardless of how many sponsors there are.
- *
- * The gap between logos is a fixed GAP px, with the same value applied as
- * padding-right on each copy, so the gap at the seam equals every other gap.
+ * Approach: tile the sponsor list enough times inside each "copy" so that one
+ * copy is always wider than the screen. Then duplicate the copy (A + B).
+ * We measure copy A's pixel width and inject a scoped @keyframes that translates
+ * by exactly that many px. The seam between A and B is seamless (gap = GAP px on
+ * both sides), logos fill the full width at all times, and spacing is uniform.
  */
 export function SponsorBanner({
   sponsors, speed, theme,
@@ -32,51 +39,58 @@ export function SponsorBanner({
 }) {
   const isDark = theme === 'dark'
   const duration = SPEED_SECONDS[speed] ?? 40
-  const halfRef = useRef<HTMLDivElement>(null)
+  const copyRef = useRef<HTMLDivElement>(null)
   const [copyWidth, setCopyWidth] = useState<number>(0)
+
+  const tiles = useMemo(
+    () => Array.from({ length: tileCount(sponsors.length) }),
+    [sponsors.length],
+  )
 
   useEffect(() => {
     const measure = () => {
-      if (halfRef.current) setCopyWidth(halfRef.current.offsetWidth)
+      if (copyRef.current) setCopyWidth(copyRef.current.offsetWidth)
     }
     measure()
-    // Re-measure if logos load and change the width
     const ro = new ResizeObserver(measure)
-    if (halfRef.current) ro.observe(halfRef.current)
+    if (copyRef.current) ro.observe(copyRef.current)
     return () => ro.disconnect()
-  }, [sponsors])
+  }, [sponsors, tiles.length])
 
   if (sponsors.length === 0) return null
 
-  const logoList = (ref?: React.Ref<HTMLDivElement>, hidden?: boolean) => (
+  // One "copy" = all sponsors repeated `tiles.length` times, with GAP between
+  // every logo and GAP padding-right so the seam gap matches all others.
+  const renderCopy = (ref?: React.Ref<HTMLDivElement>, hidden?: boolean) => (
     <div
       ref={ref}
       className="flex shrink-0 items-center"
-      // padding-right = GAP so the gap at the seam equals all other gaps
-      style={{ gap: `${GAP}px`, paddingRight: `${GAP}px`, paddingLeft: '3rem' }}
+      style={{ gap: `${GAP}px`, paddingRight: `${GAP}px` }}
       aria-hidden={hidden}
     >
-      {sponsors.map((s) => (
-        <div
-          key={s.id}
-          className="flex items-center shrink-0"
-          style={{ height: s.tier === 'gold' ? '4.5rem' : '3.25rem' }}
-        >
-          {s.logo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={s.logo_url}
-              alt={s.name}
-              className="h-full w-auto object-contain"
-              style={{ maxWidth: '16rem' }}
-            />
-          ) : (
-            <span className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              {s.name}
-            </span>
-          )}
-        </div>
-      ))}
+      {tiles.flatMap((_, t) =>
+        sponsors.map((s) => (
+          <div
+            key={`${t}-${s.id}`}
+            className="flex items-center shrink-0"
+            style={{ height: s.tier === 'gold' ? '4.5rem' : '3.25rem' }}
+          >
+            {s.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={s.logo_url}
+                alt={s.name}
+                className="h-full w-auto object-contain"
+                style={{ maxWidth: '16rem' }}
+              />
+            ) : (
+              <span className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                {s.name}
+              </span>
+            )}
+          </div>
+        ))
+      )}
     </div>
   )
 
@@ -90,11 +104,9 @@ export function SponsorBanner({
         borderBottom: `1px solid ${isDark ? '#27272a' : '#e5e7eb'}`,
       }}
     >
-      {/* Inject a per-instance keyframe using the measured copy width so the
-          translate is always exactly one copy width — no gaps, no jumps. */}
       {copyWidth > 0 && (
         <style>{`
-          @keyframes sponsor-marquee-${copyWidth} {
+          @keyframes sm-${copyWidth} {
             from { transform: translateX(0); }
             to   { transform: translateX(-${copyWidth}px); }
           }
@@ -104,15 +116,11 @@ export function SponsorBanner({
         className="flex items-center"
         style={{
           willChange: 'transform',
-          animation: copyWidth > 0
-            ? `sponsor-marquee-${copyWidth} ${duration}s linear infinite`
-            : 'none',
+          animation: copyWidth > 0 ? `sm-${copyWidth} ${duration}s linear infinite` : 'none',
         }}
       >
-        {/* Copy A — measured to get the scroll distance */}
-        {logoList(halfRef)}
-        {/* Copy B — seamless repeat */}
-        {logoList(undefined, true)}
+        {renderCopy(copyRef)}
+        {renderCopy(undefined, true)}
       </div>
     </div>
   )
