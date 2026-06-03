@@ -133,7 +133,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
         </button>
 
         {/* Content */}
-        <div className="p-3 sm:p-4 flex flex-col flex-1 gap-2.5">
+        <div className="p-3 sm:p-4 flex flex-col gap-2.5">
           {/* Name + truncated description */}
           <div>
             <button
@@ -142,10 +142,9 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
               className="text-left focus:outline-none w-full"
             >
               <h3 className="font-semibold text-gray-900 text-sm leading-snug hover:underline line-clamp-2">{item.name}</h3>
-              {/* Reserve a consistent 2-line description slot on desktop only
-                  (equal-height grid). On mobile cards size to content, so no
-                  reserve — avoids empty white space. */}
-              <p className="text-xs text-gray-400 mt-0.5 line-clamp-2 leading-relaxed whitespace-pre-wrap sm:min-h-[2rem]">{item.description ?? ''}</p>
+              {item.description && (
+                <p className="text-xs text-gray-400 mt-0.5 line-clamp-2 leading-relaxed whitespace-pre-wrap">{item.description}</p>
+              )}
             </button>
             <p className="text-base font-bold mt-1.5" style={{ color: 'var(--brand-primary)' }}>
               ${(item.price_cents / 100).toFixed(2)}
@@ -175,7 +174,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
           )}
 
           {/* Qty + add button */}
-          <div className="flex items-center gap-2 mt-auto">
+          <div className="flex items-center gap-2">
             <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden shrink-0">
               <button
                 type="button"
