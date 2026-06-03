@@ -4,7 +4,8 @@ import { useState, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   setShowOrgSponsors, linkOrgSponsor, addEventOnlySponsor, removeEventSponsor,
-  type EventSponsorRow, type OrgSponsorOption, type SponsorTier,
+  uploadEventSponsorAd, removeEventSponsorAd,
+  type EventSponsorRow, type OrgSponsorOption, type SponsorTier, type SponsorStat,
 } from '@/actions/event-sponsors'
 
 const TIERS: SponsorTier[] = ['gold', 'silver', 'bronze', 'standard']
@@ -15,9 +16,10 @@ interface Props {
   links: EventSponsorRow[]
   orgSponsors: OrgSponsorOption[]
   linkedSponsorIds: string[]
+  stats: SponsorStat[]
 }
 
-export function EventSponsorManager({ leagueId, showOrgSponsors, links, orgSponsors, linkedSponsorIds }: Props) {
+export function EventSponsorManager({ leagueId, showOrgSponsors, links, orgSponsors, linkedSponsorIds, stats }: Props) {
   const router = useRouter()
   const [pending, start] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -31,6 +33,17 @@ export function EventSponsorManager({ leagueId, showOrgSponsors, links, orgSpons
     setError(null)
     start(async () => {
       const res = await fn()
+      if (res.error) setError(res.error)
+      else router.refresh()
+    })
+  }
+
+  function uploadAd(id: string, file: File) {
+    setError(null)
+    const fd = new FormData()
+    fd.set('ad', file)
+    start(async () => {
+      const res = await uploadEventSponsorAd(id, leagueId, fd)
       if (res.error) setError(res.error)
       else router.refresh()
     })
@@ -81,25 +94,49 @@ export function EventSponsorManager({ leagueId, showOrgSponsors, links, orgSpons
         ) : (
           <ul className="divide-y">
             {links.map((s) => (
-              <li key={s.id} className="flex items-center gap-3 px-4 py-3">
-                {s.logo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={s.logo_url} alt={s.name} className="h-8 w-16 object-contain shrink-0" />
-                ) : (
-                  <div className="h-8 w-16 rounded bg-gray-100 flex items-center justify-center text-[10px] text-gray-400 shrink-0">no logo</div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{s.name}</p>
-                  <p className="text-xs text-gray-400 capitalize">{s.tier}{s.sponsor_id ? ' · org sponsor' : ' · event-only'}</p>
+              <li key={s.id} className="px-4 py-3">
+                <div className="flex items-center gap-3">
+                  {s.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={s.logo_url} alt={s.name} className="h-8 w-16 object-contain shrink-0" />
+                  ) : (
+                    <div className="h-8 w-16 rounded bg-gray-100 flex items-center justify-center text-[10px] text-gray-400 shrink-0">no logo</div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{s.name}</p>
+                    <p className="text-xs text-gray-400 capitalize">{s.tier}{s.sponsor_id ? ' · org sponsor' : ' · event-only'}</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => run(() => removeEventSponsor(s.id, leagueId))}
+                    className="text-xs text-gray-400 hover:text-red-600 disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => run(() => removeEventSponsor(s.id, leagueId))}
-                  className="text-xs text-gray-400 hover:text-red-600 disabled:opacity-50"
-                >
-                  Remove
-                </button>
+                {/* Interstitial ad creative */}
+                <div className="mt-2 ml-[4.75rem] flex items-center gap-3">
+                  {s.ad_image_url ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={s.ad_image_url} alt="" className="h-9 w-16 object-cover rounded border" />
+                      <span className="text-xs text-emerald-600 font-medium">Ad creative ✓</span>
+                      <button type="button" disabled={pending} onClick={() => run(() => removeEventSponsorAd(s.id, leagueId))} className="text-xs text-gray-400 hover:text-red-600 disabled:opacity-50">
+                        Remove ad
+                      </button>
+                    </>
+                  ) : (
+                    <label className="text-xs text-[var(--brand-primary)] hover:underline cursor-pointer">
+                      + Add full-screen ad image
+                      <input
+                        type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                        disabled={pending}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAd(s.id, f); e.currentTarget.value = '' }}
+                      />
+                    </label>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
@@ -170,6 +207,45 @@ export function EventSponsorManager({ leagueId, showOrgSponsors, links, orgSpons
           </form>
         )}
       </div>
+
+      {/* Performance */}
+      {stats.length > 0 && (() => {
+        const orgName = new Map(orgSponsors.map((s) => [s.id, s.name]))
+        const linkName = new Map(links.map((l) => [l.id, l.name]))
+        const resolveName = (key: string) =>
+          key.startsWith('org-') ? (orgName.get(key.slice(4)) ?? 'Org sponsor') : (linkName.get(key) ?? 'Sponsor')
+        const rows = [...stats].sort((a, b) => b.impressions - a.impressions)
+        return (
+          <div className="rounded-lg border bg-white">
+            <div className="px-4 py-3 border-b">
+              <p className="text-sm font-semibold text-gray-900">Performance</p>
+              <p className="text-xs text-gray-400 mt-0.5">All-time impressions (display screens) and website clicks.</p>
+            </div>
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+                <tr>
+                  <th className="text-left font-medium px-4 py-2">Sponsor</th>
+                  <th className="text-right font-medium px-4 py-2">Impressions</th>
+                  <th className="text-right font-medium px-4 py-2">Clicks</th>
+                  <th className="text-right font-medium px-4 py-2">CTR</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {rows.map((r) => (
+                  <tr key={r.sponsor_key}>
+                    <td className="px-4 py-2 text-gray-900 truncate max-w-[12rem]">{resolveName(r.sponsor_key)}</td>
+                    <td className="px-4 py-2 text-right tabular-nums text-gray-700">{r.impressions.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right tabular-nums text-gray-700">{r.clicks.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right tabular-nums text-gray-400">
+                      {r.impressions > 0 ? `${((r.clicks / r.impressions) * 100).toFixed(1)}%` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      })()}
     </div>
   )
 }

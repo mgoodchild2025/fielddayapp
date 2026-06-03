@@ -4,9 +4,12 @@ import type { ResolvedSponsor } from '@/actions/event-sponsors'
  * "Presented by" sponsor strip for the public event page. Logos link out when a
  * website is set. Renders nothing when there are no sponsors with logos.
  */
-export function EventSponsorStrip({ sponsors }: { sponsors: ResolvedSponsor[] }) {
+export function EventSponsorStrip({ sponsors, leagueId }: { sponsors: ResolvedSponsor[]; leagueId: string }) {
   const withLogos = sponsors.filter((s) => s.logo_url)
   if (withLogos.length === 0) return null
+
+  const clickHref = (s: ResolvedSponsor) =>
+    `/api/sponsors/click?l=${encodeURIComponent(leagueId)}&k=${encodeURIComponent(s.id)}&u=${encodeURIComponent(s.website_url!)}`
 
   return (
     <div className="bg-white border rounded-xl px-5 py-5">
@@ -25,7 +28,7 @@ export function EventSponsorStrip({ sponsors }: { sponsors: ResolvedSponsor[] })
             />
           )
           return s.website_url ? (
-            <a key={s.id} href={s.website_url} target="_blank" rel="noopener noreferrer" title={s.name}>
+            <a key={s.id} href={clickHref(s)} target="_blank" rel="noopener noreferrer" title={s.name}>
               {logo}
             </a>
           ) : (

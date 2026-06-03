@@ -103,7 +103,7 @@ export async function getDisplayData(
   const needsSchedule  = zoneTypes.has('schedule')
   const needsStandings = zoneTypes.has('standings')
   const needsBracket   = zoneTypes.has('bracket')
-  const needsSponsors  = zoneTypes.has('sponsors') || config.sponsor_banner?.enabled === true
+  const needsSponsors  = zoneTypes.has('sponsors') || config.sponsor_banner?.enabled === true || config.sponsor_interstitial?.enabled === true
 
   // Base queries always needed
   const [{ data: leagueRow }, { data: brandingRow }, { data: poolsData }, { data: orgRow }] = await Promise.all([
@@ -422,8 +422,8 @@ export async function getDisplayData(
   if (needsSponsors) {
     const resolved = await getEventSponsors(leagueId, orgId)
     sponsors = resolved
-      .filter((s) => s.logo_url)  // banner/zone show logos
-      .map((s) => ({ id: s.id, name: s.name, logo_url: s.logo_url, tier: s.tier }))
+      .filter((s) => s.logo_url || s.ad_image_url)  // need at least a logo (banner/zone) or an ad (interstitial)
+      .map((s) => ({ id: s.id, name: s.name, logo_url: s.logo_url, ad_image_url: s.ad_image_url, tier: s.tier }))
   }
 
   return {

@@ -1,24 +1,27 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { DisplaySponsor } from '@/lib/display-types'
+import { buildWeightedPlaylist } from '@/lib/sponsor-weight'
 
 /**
  * Rotating sponsor spotlight — one logo at a time, large and centered.
- * Cycles every 6 seconds. Use in a zone for a premium, attention-grabbing
- * placement (complements the always-on running banner).
+ * Cycles every 6 seconds through a tier-weighted playlist, so gold sponsors
+ * appear more frequently. Complements the always-on running banner.
  */
 export function SponsorsZone({ sponsors, theme }: { sponsors: DisplaySponsor[]; theme: 'dark' | 'light' }) {
-  const [idx, setIdx] = useState(0)
   const isDark = theme === 'dark'
+  const withLogos = useMemo(() => sponsors.filter((s) => s.logo_url), [sponsors])
+  const playlist = useMemo(() => buildWeightedPlaylist(withLogos), [withLogos])
+  const [idx, setIdx] = useState(0)
 
   useEffect(() => {
-    if (sponsors.length <= 1) return
-    const id = setInterval(() => setIdx((i) => (i + 1) % sponsors.length), 6000)
+    if (playlist.length <= 1) return
+    const id = setInterval(() => setIdx((i) => (i + 1) % playlist.length), 6000)
     return () => clearInterval(id)
-  }, [sponsors.length])
+  }, [playlist.length])
 
-  if (sponsors.length === 0) {
+  if (playlist.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className={`text-xl ${isDark ? 'text-zinc-600' : 'text-gray-300'}`}>No sponsors yet</p>
@@ -26,7 +29,7 @@ export function SponsorsZone({ sponsors, theme }: { sponsors: DisplaySponsor[]; 
     )
   }
 
-  const s = sponsors[idx % sponsors.length]
+  const s = playlist[idx % playlist.length]
   return (
     <div className="flex flex-col items-center justify-center h-full gap-5 px-8">
       <p className={`text-sm font-semibold uppercase tracking-widest ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
@@ -38,13 +41,13 @@ export function SponsorsZone({ sponsors, theme }: { sponsors: DisplaySponsor[]; 
       ) : (
         <span className={`text-4xl font-bold text-center ${isDark ? 'text-white' : 'text-gray-900'}`}>{s.name}</span>
       )}
-      {sponsors.length > 1 && (
+      {withLogos.length > 1 && (
         <div className="flex gap-1.5">
-          {sponsors.map((sp, i) => (
+          {withLogos.map((sp) => (
             <span
               key={sp.id}
               className="w-2 h-2 rounded-full transition-colors"
-              style={{ backgroundColor: i === idx % sponsors.length ? (isDark ? '#fff' : '#111') : (isDark ? '#3f3f46' : '#d1d5db') }}
+              style={{ backgroundColor: sp.id === s.id ? (isDark ? '#fff' : '#111') : (isDark ? '#3f3f46' : '#d1d5db') }}
             />
           ))}
         </div>

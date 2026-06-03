@@ -1440,7 +1440,7 @@ export default async function EventDetailPage({
               </div>
             )}
 
-            <EventSponsorStrip sponsors={eventSponsors} />
+            <EventSponsorStrip sponsors={eventSponsors} leagueId={league.id} />
 
             {/* Info grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

@@ -13,6 +13,7 @@ import { LogoZone }      from './zones/logo-zone'
 import { LiveZone }      from './zones/live-zone'
 import { SponsorsZone }  from './zones/sponsors-zone'
 import { SponsorBanner } from './sponsor-banner'
+import { SponsorInterstitial } from './sponsor-interstitial'
 
 // ── Layout grid styles ────────────────────────────────────────────────────────
 
@@ -179,6 +180,11 @@ export function DisplayScreen({ config, data, screen }: Props) {
 
       {/* Sponsor banner — bottom (default) */}
       {showBanner && banner!.position !== 'top' && bannerEl}
+
+      {/* Full-screen sponsor interstitial overlay */}
+      {config.sponsor_interstitial?.enabled && data.sponsors.some((s) => s.ad_image_url) && (
+        <SponsorInterstitial sponsors={data.sponsors} config={config.sponsor_interstitial} theme={config.theme} />
+      )}
 
       {/* Subtle updated-at footer */}
       <div
