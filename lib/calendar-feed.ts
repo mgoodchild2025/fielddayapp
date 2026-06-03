@@ -5,7 +5,14 @@
  *   - Team:   /api/teams/[teamId]/calendar.ics?token=...
  */
 
-/** Build webcal (Apple) + Google Calendar subscribe URLs for a feed path. */
+/**
+ * Build calendar-subscribe URLs for use in EMAIL.
+ *
+ * The Apple link is an https://-> webcal:// handoff (see /api/calendar-handoff)
+ * rather than a raw `webcal://` URL, because email clients (e.g. Gmail) strip
+ * non-http(s) hrefs to "#". The handoff also rebuilds the webcal URL from the
+ * real request host at click time, so a stale/empty build-time host can't break it.
+ */
 export function calendarSubscribeUrls(
   host: string,
   feedPath: string,
@@ -13,7 +20,8 @@ export function calendarSubscribeUrls(
   const protocol = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https'
   const feedUrl = `${protocol}://${host}${feedPath}`
   return {
-    webcalUrl: `webcal://${host}${feedPath}`,
+    // https handoff (not raw webcal://) so the link survives email-client sanitizers
+    webcalUrl: `${protocol}://${host}/api/calendar-handoff?p=${encodeURIComponent(feedPath)}`,
     googleUrl: `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(feedUrl)}`,
   }
 }
