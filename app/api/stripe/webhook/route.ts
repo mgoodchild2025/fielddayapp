@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       // Send confirmation to each member
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [{ data: league }, { data: org }] = await Promise.all([
-        (supabase as any).from('leagues').select('name, sport, event_type, checkin_enabled').eq('id', leagueId).single(),
+        (supabase as any).from('leagues').select('name, slug, sport, event_type, checkin_enabled, calendar_token').eq('id', leagueId).single(),
         supabase.from('organizations').select('name').eq('id', orgId).single(),
       ])
 
@@ -100,6 +100,27 @@ export async function POST(request: NextRequest) {
 
         const origin = process.env.NEXT_PUBLIC_APP_URL ?? ''
         const checkinActive = (league as { checkin_enabled?: boolean } | null)?.checkin_enabled === true
+
+        // Calendar CTA for all event types
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const teamLeagueSlug = (league as any)?.slug as string | undefined
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const teamOrgSlug = (org as any)?.slug as string | undefined
+        let teamCalendarCtaHtml: string | undefined
+        if (teamLeagueSlug && teamOrgSlug) {
+          const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+          const calHost = `${teamOrgSlug}.${platformDomain}`
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const calToken = await ensureCalendarToken(supabase as any, 'leagues', leagueId ?? '', (league as any)?.calendar_token)
+          if (calToken) {
+            const { webcalUrl, googleUrl } = calendarSubscribeUrls(calHost, `/api/events/${teamLeagueSlug}/calendar.ics?token=${calToken}`)
+            teamCalendarCtaHtml = buildCalendarCtaHtml({
+              webcalUrl, googleUrl,
+              subtext: 'Stay in sync automatically as games and sessions are added or updated.',
+            })
+          }
+        }
+
         for (const profile of profiles ?? []) {
           if (profile.email) {
             const token = tokenByUserId.get((profile as unknown as { id?: string }).id ?? '')
@@ -112,6 +133,7 @@ export async function POST(request: NextRequest) {
               sport: (league as { sport?: string }).sport ?? null,
               eventType: (league as { event_type?: string }).event_type ?? null,
               checkinUrl,
+              calendarCtaHtml: teamCalendarCtaHtml,
             })
           }
         }
@@ -208,14 +230,14 @@ export async function POST(request: NextRequest) {
         const checkinEnabled = (league as { checkin_enabled?: boolean } | null)?.checkin_enabled === true
         const checkinUrl = (checkinEnabled && token) ? `${origin}/checkin/${token}` : null
 
-        // For pickup/drop-in events, offer a "subscribe to schedule" calendar CTA
+        // Offer a calendar CTA for all event types — the ICS feed supports both
+        // event_sessions (pickup/drop-in) and games (league/tournament).
         let calendarCtaHtml: string | undefined
-        const eventType = (league as { event_type?: string } | null)?.event_type ?? ''
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const leagueSlug = (league as any)?.slug as string | undefined
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const orgSlug = (org as any)?.slug as string | undefined
-        if (['pickup', 'drop_in'].includes(eventType) && leagueSlug && orgSlug) {
+        if (leagueSlug && orgSlug) {
           const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
           const calHost = `${orgSlug}.${platformDomain}`
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -224,7 +246,7 @@ export async function POST(request: NextRequest) {
             const { webcalUrl, googleUrl } = calendarSubscribeUrls(calHost, `/api/events/${leagueSlug}/calendar.ics?token=${calToken}`)
             calendarCtaHtml = buildCalendarCtaHtml({
               webcalUrl, googleUrl,
-              subtext: 'Stay in sync automatically as sessions are added, moved, or cancelled.',
+              subtext: 'Stay in sync automatically as games and sessions are added or updated.',
             })
           }
         }
