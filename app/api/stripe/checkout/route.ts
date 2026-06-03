@@ -9,6 +9,7 @@ const playerSchema = z.object({
   userId: z.string().uuid(),
   registrationId: z.string().uuid(),
   orgId: z.string().uuid(),
+  discountId: z.string().uuid().optional(),   // validated discount code id
   merchSelections: z.array(z.object({
     itemId: z.string().uuid(),
     variantId: z.string().uuid().nullable(),
@@ -143,7 +144,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const { leagueId, leagueSlug, userId, registrationId, orgId, merchSelections } = parsed.data
+  const { leagueId, leagueSlug, userId, registrationId, orgId, discountId, merchSelections } = parsed.data
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db2 = db as any
@@ -171,9 +172,33 @@ export async function POST(request: NextRequest) {
 
   const isDropIn = registration?.registration_type === 'drop_in'
   const earlyBirdActive = !isDropIn && league.early_bird_price_cents != null && league.early_bird_deadline != null && new Date() < new Date(league.early_bird_deadline)
-  const priceCents = isDropIn
+  let priceCents: number = isDropIn
     ? (league.drop_in_price_cents ?? league.price_cents)
     : (earlyBirdActive ? league.early_bird_price_cents : league.price_cents)
+
+  // Apply discount server-side (re-validate to prevent price tampering)
+  let discountApplied: { id: string; type: string; value: number } | null = null
+  if (discountId && priceCents > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: discountRow } = await (db2 as any)
+      .from('discount_codes')
+      .select('id, type, value, active, expires_at, max_uses, use_count, applies_to')
+      .eq('id', discountId)
+      .eq('organization_id', orgId)
+      .single()
+    if (
+      discountRow && discountRow.active &&
+      (!discountRow.expires_at || new Date(discountRow.expires_at) > new Date()) &&
+      (!discountRow.max_uses || discountRow.use_count < discountRow.max_uses) &&
+      (discountRow.applies_to === 'all' || discountRow.applies_to === (isDropIn ? 'dropins' : 'leagues'))
+    ) {
+      const reduction = discountRow.type === 'percent'
+        ? Math.round(priceCents * discountRow.value / 100)
+        : Math.min(discountRow.value * 100, priceCents)
+      priceCents = Math.max(0, priceCents - reduction)
+      discountApplied = { id: discountRow.id, type: discountRow.type, value: discountRow.value }
+    }
+  }
 
   // Manual payment mode — skip Stripe entirely and return instructions to the client
   const isManualRegistration =
@@ -210,6 +235,9 @@ export async function POST(request: NextRequest) {
         }),
       ] : []),
     ])
+    if (discountApplied) {
+      await db2.rpc('increment_discount_use', { discount_id: discountApplied.id })
+    }
     return NextResponse.json({ manual: true, instructions })
   }
 
@@ -364,6 +392,11 @@ export async function POST(request: NextRequest) {
     status: 'pending',
     payment_type: 'player',
   })
+
+  // Lock in discount use count now that a Stripe session is created
+  if (discountApplied) {
+    await db2.rpc('increment_discount_use', { discount_id: discountApplied.id })
+  }
 
   return NextResponse.json({ url: session.url })
 }
