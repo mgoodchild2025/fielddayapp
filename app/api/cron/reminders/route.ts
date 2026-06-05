@@ -120,26 +120,44 @@ export async function GET(req: NextRequest) {
       const hoursWindow = rgEmailHoursByOrg.get(orgId) ?? 24
       const msWindow = hoursWindow * 60 * 60 * 1000
 
-      // Filter to games within the org's configured timing window
+      // Use the time window to identify which LOCAL calendar dates need a reminder.
+      // Then expand to ALL future games on those same dates (not just the ones
+      // that happen to fall within the exact millisecond window). This prevents
+      // the common case where two games on the same day straddle the window
+      // boundary (e.g. 7 pm + 9 pm games when cron fires at 8 pm with a 24 h
+      // window) — without the expansion, only the earlier game would appear in
+      // the email, and the dedup log would then block any follow-up email.
       const orgGamesInWindow = orgGames.filter(g => {
         const msUntilGame = new Date(g.scheduled_at).getTime() - now.getTime()
         return msUntilGame >= 0 && msUntilGame <= msWindow
       })
       if (orgGamesInWindow.length === 0) continue
 
-      // Group in-window games by local calendar date.
-      // A 48-hour window can span two calendar dates; we send a separate
-      // digest per date so players get one email per game day.
+      // Which local dates have at least one in-window game?
+      const relevantDates = new Set(orgGamesInWindow.map(g =>
+        new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(g.scheduled_at))
+      ))
+
+      // All future games on those dates (may include games slightly outside the
+      // exact time window — that's intentional so the full day is shown).
+      const orgGamesForDates = orgGames.filter(g => {
+        const msUntilGame = new Date(g.scheduled_at).getTime() - now.getTime()
+        if (msUntilGame < 0) return false
+        const d = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(g.scheduled_at))
+        return relevantDates.has(d)
+      })
+
+      // Group by local calendar date (one digest email per date per player).
       const gamesByDate = new Map<string, RGGame[]>()
-      for (const g of orgGamesInWindow) {
+      for (const g of orgGamesForDates) {
         const d = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(g.scheduled_at))
         if (!gamesByDate.has(d)) gamesByDate.set(d, [])
         gamesByDate.get(d)!.push(g)
       }
 
-      // Build the player map ONCE for all in-window games (avoids repeated DB fetches per date)
-      const allTeamIds = [...new Set(orgGamesInWindow.flatMap(g => [g.home_team?.id, g.away_team?.id]).filter(Boolean) as string[])]
-      const allPickupLeagueIds = [...new Set(orgGamesInWindow.filter(g => !g.home_team && !g.away_team && g.league_id).map(g => g.league_id as string))]
+      // Build the player map for ALL games on relevant dates
+      const allTeamIds = [...new Set(orgGamesForDates.flatMap(g => [g.home_team?.id, g.away_team?.id]).filter(Boolean) as string[])]
+      const allPickupLeagueIds = [...new Set(orgGamesForDates.filter(g => !g.home_team && !g.away_team && g.league_id).map(g => g.league_id as string))]
       if (allTeamIds.length === 0 && allPickupLeagueIds.length === 0) continue
 
       const [{ data: rgMembers }, { data: pickupRegs }] = await Promise.all([
