@@ -298,3 +298,99 @@ export async function sendSignupConfirmation({
     `,
   })
 }
+
+export interface MerchOrderLine {
+  itemName: string
+  variantLabel: string | null
+  quantity: number
+  unitPriceCents: number
+  currency: string
+}
+
+/**
+ * Notify org admins that a new merchandise order needs to be fulfilled.
+ * Sent after Stripe confirms payment (or when an offline payment is recorded).
+ */
+export async function sendMerchOrderAdminNotification({
+  to,
+  buyerName,
+  buyerEmail,
+  orgName,
+  source,     // 'shop' | 'registration'
+  eventName,  // null for standalone shop orders
+  lines,
+  adminUrl,
+}: {
+  to: string | string[]
+  buyerName: string | null
+  buyerEmail: string | null
+  orgName: string
+  source: 'shop' | 'registration'
+  eventName: string | null
+  lines: MerchOrderLine[]
+  adminUrl: string
+}) {
+  const displayName = buyerName ?? buyerEmail ?? 'A customer'
+  const totalCents = lines.reduce((s, l) => s + l.unitPriceCents * l.quantity, 0)
+  const currency = lines[0]?.currency?.toUpperCase() ?? 'CAD'
+  const sourceLabel = source === 'shop' ? 'Shop' : `Event registration${eventName ? ` — ${esc(eventName)}` : ''}`
+
+  const lineRows = lines.map((l) =>
+    `<tr>
+      <td style="padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:#374151">
+        ${esc(l.itemName)}${l.variantLabel ? ` <span style="color:#6b7280">(${esc(l.variantLabel)})</span>` : ''}
+      </td>
+      <td style="padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:#374151;text-align:center">×${l.quantity}</td>
+      <td style="padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;color:#374151;text-align:right">
+        $${(l.unitPriceCents * l.quantity / 100).toFixed(2)}
+      </td>
+    </tr>`
+  ).join('')
+
+  await getResend().emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: `New merch order — ${orgName}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+        <h1 style="font-size:22px;font-weight:bold;margin-bottom:4px;">New Merchandise Order 🛍️</h1>
+        <p style="color:#555;font-size:15px;margin-top:0;">
+          A new order was placed and needs to be fulfilled.
+        </p>
+
+        <div style="margin:20px 0;padding:16px 20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
+          <p style="color:#444;font-size:15px;margin:4px 0;"><strong>Customer:</strong> ${esc(displayName)}</p>
+          ${buyerEmail ? `<p style="color:#444;font-size:15px;margin:4px 0;"><strong>Email:</strong> ${esc(buyerEmail)}</p>` : ''}
+          <p style="color:#444;font-size:15px;margin:4px 0;"><strong>Source:</strong> ${sourceLabel}</p>
+        </div>
+
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+          <thead>
+            <tr>
+              <th style="text-align:left;font-size:12px;color:#9ca3af;font-weight:600;text-transform:uppercase;padding-bottom:8px;border-bottom:2px solid #e5e7eb;">Item</th>
+              <th style="text-align:center;font-size:12px;color:#9ca3af;font-weight:600;text-transform:uppercase;padding-bottom:8px;border-bottom:2px solid #e5e7eb;">Qty</th>
+              <th style="text-align:right;font-size:12px;color:#9ca3af;font-weight:600;text-transform:uppercase;padding-bottom:8px;border-bottom:2px solid #e5e7eb;">Total</th>
+            </tr>
+          </thead>
+          <tbody>${lineRows}</tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2" style="padding-top:10px;font-weight:700;font-size:15px;color:#111;">Order Total</td>
+              <td style="padding-top:10px;font-weight:700;font-size:15px;color:#111;text-align:right;">$${(totalCents / 100).toFixed(2)} ${currency}</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <a href="${adminUrl}"
+          style="display:inline-block;margin-top:16px;padding:10px 22px;background:#111827;color:#fff;text-decoration:none;border-radius:7px;font-size:14px;font-weight:600;">
+          View &amp; Fulfil Order →
+        </a>
+
+        <p style="color:#aaa;font-size:12px;margin-top:32px;">
+          You&rsquo;re receiving this because merchandise order notifications are enabled for ${esc(orgName)}.
+          Turn them off in Admin → Settings → Notifications.
+        </p>
+      </div>
+    `,
+  })
+}
