@@ -41,6 +41,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
   const [regNotifEnabled, setRegNotifEnabled] = useState(initial.registrationNotificationsEnabled)
   const [regNotifEmail, setRegNotifEmail] = useState(initial.registrationNotificationEmail ?? '')
   const [paymentFailEnabled, setPaymentFailEnabled] = useState(initial.paymentFailureNotificationsEnabled)
+  const [merchOrderNotifEnabled, setMerchOrderNotifEnabled] = useState(initial.merchOrderNotificationsEnabled)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -94,6 +95,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
         registrationNotificationsEnabled: regNotifEnabled,
         registrationNotificationEmail: regNotifEmail.trim() || null,
         paymentFailureNotificationsEnabled: paymentFailEnabled,
+        merchOrderNotificationsEnabled: merchOrderNotifEnabled,
       })
       if (res.error) {
         setError(res.error)
@@ -377,6 +379,21 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
             </p>
           </div>
           <Toggle checked={paymentFailEnabled} onChange={setPaymentFailEnabled} />
+        </div>
+      </div>
+
+      {/* ── Merchandise order notifications ────────────────────────────── */}
+      <div className="bg-white rounded-lg border">
+        <div className="flex items-start justify-between gap-4 p-5">
+          <div>
+            <p className="font-medium text-gray-900">Merchandise Order Notifications</p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Send an email to admins whenever a merchandise order is paid — from the shop or
+              during event registration — so orders can be fulfilled promptly. Uses the same
+              recipient setting as Registration Notifications.
+            </p>
+          </div>
+          <Toggle checked={merchOrderNotifEnabled} onChange={setMerchOrderNotifEnabled} />
         </div>
       </div>
 

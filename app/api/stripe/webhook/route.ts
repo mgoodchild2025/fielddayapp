@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { sendRegistrationConfirmation, sendPaymentFailedEmail, sendAdminPaymentFailedAlert } from '@/actions/emails'
+import { sendRegistrationConfirmation, sendPaymentFailedEmail, sendAdminPaymentFailedAlert, sendMerchOrderAdminNotification, type MerchOrderLine } from '@/actions/emails'
 import { calendarSubscribeUrls, ensureCalendarToken } from '@/lib/calendar-feed'
 import { buildCalendarCtaHtml } from '@/lib/email'
 import { checkAndNotifyLowStock } from '@/actions/merchandise'
@@ -156,6 +156,9 @@ export async function POST(request: NextRequest) {
 
         // Check and notify admins if any item/variant is now low on stock
         await checkAndNotifyLowStock(orgId, shopOrderIds)
+
+        // Notify admins that a shop order needs fulfilment (fire-and-forget)
+        notifyMerchOrder(supabase, orgId, userId ?? null, shopOrderIds, 'shop', null).catch(() => {})
       }
 
       // Empty the buyer's cart now that payment succeeded. Durable backstop for the
@@ -214,6 +217,9 @@ export async function POST(request: NextRequest) {
 
           // Check and notify admins if any item/variant is now low on stock
           await checkAndNotifyLowStock(orgId, orderIds)
+
+          // Notify admins that a registration merch order needs fulfilment
+          notifyMerchOrder(supabase, orgId, userId, orderIds, 'registration', leagueId ?? null).catch(() => {})
         }
       }
 
@@ -492,4 +498,94 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ received: true })
+}
+
+// ── Merchandise order admin notification ─────────────────────────────────────
+
+/**
+ * Fire-and-forget: notify org admins that merchandise orders need fulfilment.
+ * Resolves admin recipient emails from org_notification_settings, then calls
+ * sendMerchOrderAdminNotification. Never throws — caller wraps in .catch().
+ */
+async function notifyMerchOrder(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  orgId: string,
+  buyerId: string | null,
+  orderIds: string[],
+  source: 'shop' | 'registration',
+  leagueId: string | null,
+): Promise<void> {
+  if (!orderIds.length) return
+
+  // Check if the org has merch order notifications enabled
+  const { data: notifSettings } = await db
+    .from('org_notification_settings')
+    .select('merch_order_notifications_enabled, registration_notification_email')
+    .eq('organization_id', orgId)
+    .maybeSingle()
+
+  if (!notifSettings?.merch_order_notifications_enabled) return
+
+  // Resolve recipient emails: custom override or all org_admins
+  let recipients: string[]
+  if (notifSettings.registration_notification_email) {
+    recipients = [notifSettings.registration_notification_email]
+  } else {
+    const { data: admins } = await db
+      .from('org_members')
+      .select('profile:profiles!org_members_user_id_fkey(email)')
+      .eq('organization_id', orgId)
+      .eq('role', 'org_admin')
+      .eq('status', 'active')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recipients = (admins ?? []).flatMap((a: any) => {
+      const email = Array.isArray(a.profile) ? a.profile[0]?.email : a.profile?.email
+      return email ? [email as string] : []
+    })
+  }
+  if (!recipients.length) return
+
+  // Fetch order lines and buyer profile in parallel
+  const [{ data: orders }, { data: buyerProfile }, { data: org }, { data: league }] = await Promise.all([
+    db.from('merchandise_orders')
+      .select('item_id, variant_id, quantity, merchandise_items(name, price_cents, currency), merchandise_variants(label)')
+      .in('id', orderIds),
+    buyerId ? db.from('profiles').select('full_name, email').eq('id', buyerId).single() : Promise.resolve({ data: null }),
+    db.from('organizations').select('name, slug').eq('id', orgId).single(),
+    leagueId ? db.from('leagues').select('name').eq('id', leagueId).single() : Promise.resolve({ data: null }),
+  ])
+
+  const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+  const orgSlug = (org as { slug?: string } | null)?.slug
+  const adminUrl = orgSlug
+    ? `https://${orgSlug}.${platformDomain}/admin/${source === 'shop' ? 'shop' : 'events'}`
+    : `https://${platformDomain}/admin`
+
+  const lines: MerchOrderLine[] = ((orders ?? []) as {
+    item_id: string; variant_id: string | null; quantity: number
+    merchandise_items: { name: string; price_cents: number; currency: string } | null
+    merchandise_variants: { label: string } | null
+  }[]).map((o) => {
+    const item = Array.isArray(o.merchandise_items) ? o.merchandise_items[0] : o.merchandise_items
+    const variant = Array.isArray(o.merchandise_variants) ? o.merchandise_variants[0] : o.merchandise_variants
+    return {
+      itemName: item?.name ?? 'Item',
+      variantLabel: variant?.label ?? null,
+      quantity: o.quantity,
+      unitPriceCents: item?.price_cents ?? 0,
+      currency: item?.currency ?? 'cad',
+    }
+  })
+
+  await sendMerchOrderAdminNotification({
+    to: recipients,
+    buyerName: (buyerProfile as { full_name?: string | null } | null)?.full_name ?? null,
+    buyerEmail: (buyerProfile as { email?: string | null } | null)?.email ?? null,
+    orgName: (org as { name?: string } | null)?.name ?? '',
+    source,
+    eventName: (league as { name?: string } | null)?.name ?? null,
+    lines,
+    adminUrl,
+  })
 }

@@ -29,6 +29,8 @@ export type NotificationSettings = {
   registrationNotificationEmail: string | null
   /** Alert org admins when a Stripe payment fails. */
   paymentFailureNotificationsEnabled: boolean
+  /** Notify org admins when a merchandise order is placed (needs fulfilment). */
+  merchOrderNotificationsEnabled: boolean
 }
 
 type OrgNotifRow = {
@@ -39,6 +41,7 @@ type OrgNotifRow = {
   registration_notifications_enabled: boolean
   registration_notification_email: string | null
   payment_failure_notifications_enabled: boolean
+  merch_order_notifications_enabled: boolean
 } | null
 type OrgSmsReminderRow = {
   id: string
@@ -81,6 +84,7 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
     registrationNotificationsEnabled: (notif as OrgNotifRow)?.registration_notifications_enabled ?? false,
     registrationNotificationEmail: (notif as OrgNotifRow)?.registration_notification_email ?? null,
     paymentFailureNotificationsEnabled: (notif as OrgNotifRow)?.payment_failure_notifications_enabled ?? true,
+    merchOrderNotificationsEnabled: (notif as OrgNotifRow)?.merch_order_notifications_enabled ?? false,
   }
 }
 
@@ -125,6 +129,7 @@ export async function saveNotificationSettings(
         registration_notifications_enabled: settings.registrationNotificationsEnabled,
         registration_notification_email: settings.registrationNotificationEmail?.trim() || null,
         payment_failure_notifications_enabled: settings.paymentFailureNotificationsEnabled,
+        merch_order_notifications_enabled: settings.merchOrderNotificationsEnabled,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'organization_id' }
