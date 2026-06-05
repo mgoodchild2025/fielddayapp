@@ -83,7 +83,26 @@ export async function login(input: { email: string; password: string; redirectTo
 
   // Only allow relative paths to prevent open redirect
   const safeRedirect = input.redirectTo?.startsWith('/') ? input.redirectTo : '/my-events'
-  const destination = orgId ? safeRedirect : '/super'
+
+  let destination: string
+  if (orgId) {
+    // Org-subdomain login — stay on that org's domain
+    destination = safeRedirect
+  } else {
+    // Platform-domain login (fielddayapp.ca) — route based on who the user is
+    const { data: { user } } = await supabase.auth.getUser()
+    const service = createServiceRoleClient()
+
+    // Platform admins → super console
+    const { data: profile } = await service
+      .from('profiles').select('platform_role').eq('id', user!.id).single()
+    if (profile?.platform_role === 'platform_admin') {
+      destination = '/super'
+    } else {
+      // Route org admins / members to their org(s); players with no org get a friendly page
+      destination = '/choose-org'
+    }
+  }
 
   // If the user has a TOTP factor enrolled, redirect to MFA verification
   // before granting access — applies to ALL roles (players, admins, platform admins).
