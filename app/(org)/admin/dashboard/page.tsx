@@ -4,6 +4,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import Link from 'next/link'
+import { CalendarDays } from 'lucide-react'
 import { OnboardingChecklist } from '@/components/admin/onboarding-checklist'
 
 export default async function AdminDashboardPage() {
@@ -23,12 +24,17 @@ export default async function AdminDashboardPage() {
     if (m?.role === 'league_admin') redirect('/admin/events')
   }
 
+  // Upcoming events window: now → 7 days out
+  const now7d = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+
   const [
     { count: leagueCount },
     { count: memberCount },
     { data: recentPayments },
     { data: activeLeagues },
     { data: branding },
+    { data: upcomingGames },
+    { data: upcomingSessions },
   ] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).is('deleted_at', null).neq('status', 'archived'),
@@ -39,8 +45,76 @@ export default async function AdminDashboardPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues').select('id, name, slug, status').eq('organization_id', org.id).is('deleted_at', null).in('status', ['registration_open', 'active']).limit(5),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url, onboarding_dismissed_at, website_configured_at').eq('organization_id', org.id).maybeSingle(),
+    (db as any).from('org_branding').select('logo_url, onboarding_dismissed_at, website_configured_at, timezone').eq('organization_id', org.id).maybeSingle(),
+    // Games in the next 7 days
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('games')
+      .select('id, scheduled_at, court, status, home_team:teams!games_home_team_id_fkey(name), away_team:teams!games_away_team_id_fkey(name), league:leagues!games_league_id_fkey(id, name)')
+      .eq('organization_id', org.id)
+      .eq('status', 'scheduled')
+      .gte('scheduled_at', new Date().toISOString())
+      .lte('scheduled_at', now7d.toISOString())
+      .order('scheduled_at', { ascending: true })
+      .limit(20),
+    // Sessions in the next 7 days
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('event_sessions')
+      .select('id, scheduled_at, duration_minutes, capacity, league:leagues!event_sessions_league_id_fkey(id, name)')
+      .eq('organization_id', org.id)
+      .eq('status', 'open')
+      .gte('scheduled_at', new Date().toISOString())
+      .lte('scheduled_at', now7d.toISOString())
+      .order('scheduled_at', { ascending: true })
+      .limit(10),
   ])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tz: string = (branding as any)?.timezone ?? 'America/Toronto'
+  const localDate = (iso: string) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(iso))
+  const timeStr = (iso: string) =>
+    new Intl.DateTimeFormat('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: tz })
+      .format(new Date(iso))
+
+  // Merge + group by local date
+  type UpcomingItem = { id: string; scheduled_at: string; localDate: string; type: 'game' | 'session'; label: string; sub: string; leagueId: string }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const upcomingItems: UpcomingItem[] = [
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...(upcomingGames ?? []).map((g: any) => {
+      const home = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
+      const away = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
+      const league = Array.isArray(g.league) ? g.league[0] : g.league
+      return {
+        id: g.id, scheduled_at: g.scheduled_at, localDate: localDate(g.scheduled_at),
+        type: 'game' as const,
+        label: `${home?.name ?? 'TBD'} vs ${away?.name ?? 'TBD'}`,
+        sub: `${timeStr(g.scheduled_at)}${g.court ? ` · ${g.court}` : ''} · ${league?.name ?? ''}`,
+        leagueId: league?.id ?? '',
+      }
+    }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...(upcomingSessions ?? []).map((s: any) => {
+      const league = Array.isArray(s.league) ? s.league[0] : s.league
+      return {
+        id: s.id, scheduled_at: s.scheduled_at, localDate: localDate(s.scheduled_at),
+        type: 'session' as const,
+        label: 'Pickup Session',
+        sub: `${timeStr(s.scheduled_at)}${s.capacity ? ` · ${s.capacity} spots` : ''} · ${league?.name ?? ''}`,
+        leagueId: league?.id ?? '',
+      }
+    }),
+  ].sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+
+  // Group by localDate, cap at 5 distinct dates
+  const upcomingByDate = new Map<string, UpcomingItem[]>()
+  for (const item of upcomingItems) {
+    if (!upcomingByDate.has(item.localDate)) upcomingByDate.set(item.localDate, [])
+    upcomingByDate.get(item.localDate)!.push(item)
+  }
+  const upcomingDates = [...upcomingByDate.keys()].slice(0, 5)
+
+  const todayLocalStr = localDate(new Date().toISOString())
 
   const totalRevenue = recentPayments?.filter((p) => p.status === 'paid').reduce((acc, p) => acc + p.amount_cents, 0) ?? 0
 
@@ -127,6 +201,84 @@ export default async function AdminDashboardPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* ── Upcoming schedule widget ────────────────────────────────────── */}
+      <div className="mt-6 bg-white rounded-lg border">
+        <div className="flex items-center justify-between px-5 py-4 border-b">
+          <div className="flex items-center gap-2">
+            <CalendarDays className="w-4 h-4 text-gray-500" />
+            <h2 className="font-semibold">Upcoming Schedule</h2>
+            <span className="text-xs text-gray-400">next 7 days</span>
+          </div>
+          <Link
+            href="/admin/calendar"
+            className="text-sm font-medium hover:underline flex items-center gap-1"
+            style={{ color: 'var(--brand-primary)' }}
+          >
+            Full calendar →
+          </Link>
+        </div>
+
+        {upcomingDates.length === 0 ? (
+          <p className="text-sm text-gray-400 py-8 text-center">
+            No games or sessions in the next 7 days.
+          </p>
+        ) : (
+          <div className="divide-y">
+            {upcomingDates.map((dateStr) => {
+              const items = upcomingByDate.get(dateStr) ?? []
+              const [y, m, d] = dateStr.split('-').map(Number)
+              const isToday = dateStr === todayLocalStr
+              const isTomorrow = dateStr === (() => {
+                const t = new Date(); t.setDate(t.getDate() + 1)
+                return localDate(t.toISOString())
+              })()
+              const dayLabel = isToday ? 'Today'
+                : isTomorrow ? 'Tomorrow'
+                : new Intl.DateTimeFormat('en-CA', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+                    .format(Date.UTC(y, m - 1, d))
+
+              // Calendar link for this date
+              const ym = `${y}-${String(m).padStart(2, '0')}`
+              const calLink = `/admin/calendar?month=${ym}&day=${dateStr}`
+
+              return (
+                <div key={dateStr} className="px-5 py-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Link href={calLink} className="text-xs font-semibold text-gray-500 uppercase tracking-wide hover:underline">
+                      {dayLabel}
+                    </Link>
+                    <span className="text-xs text-gray-300">·</span>
+                    <span className="text-xs text-gray-400">{items.length} event{items.length !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {items.slice(0, 3).map((item) => (
+                      <Link
+                        key={item.id}
+                        href={`/admin/events/${item.leagueId}/schedule`}
+                        className="flex items-center gap-3 group"
+                      >
+                        <span className={`shrink-0 w-1 h-full min-h-[1.5rem] rounded-full ${item.type === 'session' ? 'bg-orange-400' : 'bg-[var(--brand-primary)]'}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate group-hover:underline leading-tight">
+                            {item.label}
+                          </p>
+                          <p className="text-xs text-gray-400 truncate">{item.sub}</p>
+                        </div>
+                      </Link>
+                    ))}
+                    {items.length > 3 && (
+                      <Link href={calLink} className="text-xs text-gray-400 hover:underline pl-4">
+                        +{items.length - 3} more on this day →
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

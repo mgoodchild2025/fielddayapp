@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Trophy, CreditCard, ShoppingBag, Users,
-  ClipboardList, Image, Radio, Mail, Settings, PersonStanding,
+  ClipboardList, Image, Radio, Mail, Settings, PersonStanding, CalendarDays,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { OrgContext } from '@/lib/tenant'
@@ -15,6 +15,7 @@ interface NavItem { label: string; href: string; icon: LucideIcon }
 
 const orgAdminNav: NavItem[] = [
   { label: 'Dashboard', href: '/admin/dashboard',                    icon: LayoutDashboard },
+  { label: 'Calendar',  href: '/admin/calendar',                     icon: CalendarDays },
   { label: 'Events',    href: '/admin/events',                       icon: Trophy },
   { label: 'Payments',  href: '/admin/payments',                     icon: CreditCard },
   { label: 'Shop',      href: '/admin/shop',                         icon: ShoppingBag },
