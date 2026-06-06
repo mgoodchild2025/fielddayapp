@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { sendRegistrationConfirmation, sendPaymentFailedEmail, sendAdminPaymentFailedAlert, sendMerchOrderAdminNotification, type MerchOrderLine } from '@/actions/emails'
+import { sendRegistrationConfirmation, sendPaymentFailedEmail, sendAdminPaymentFailedAlert, sendMerchOrderAdminNotification, sendRegistrationAdminNotification, type MerchOrderLine } from '@/actions/emails'
 import { calendarSubscribeUrls, ensureCalendarToken } from '@/lib/calendar-feed'
 import { buildCalendarCtaHtml } from '@/lib/email'
 import { checkAndNotifyLowStock } from '@/actions/merchandise'
@@ -272,6 +272,11 @@ export async function POST(request: NextRequest) {
         })
       }
 
+      // Notify admins of paid card registration (fire-and-forget)
+      if (profile?.email && league?.name) {
+        notifyRegistrationAdminCard(supabase, orgId, userId ?? null, league.name, org?.name ?? '').catch(() => {})
+      }
+
       // ── Per-team captain paying via registration flow ──────────────────────
       // When an admin pre-assigns a captain and they pay via the registration
       // flow (per-player path), create a team payment record and activate all
@@ -498,6 +503,61 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ received: true })
+}
+
+// ── Registration admin notification (card payment) ──────────────────────────
+
+async function notifyRegistrationAdminCard(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  orgId: string,
+  userId: string | null,
+  leagueName: string,
+  orgName: string,
+): Promise<void> {
+  const { data: notifSettings } = await db
+    .from('org_notification_settings')
+    .select('registration_notifications_enabled, registration_notification_email')
+    .eq('organization_id', orgId)
+    .maybeSingle()
+
+  if (!notifSettings?.registration_notifications_enabled) return
+
+  let recipients: string[]
+  if (notifSettings.registration_notification_email) {
+    recipients = [notifSettings.registration_notification_email]
+  } else {
+    const { data: admins } = await db
+      .from('org_members')
+      .select('profile:profiles!org_members_user_id_fkey(email)')
+      .eq('organization_id', orgId).eq('role', 'org_admin').eq('status', 'active')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recipients = (admins ?? []).flatMap((a: any) => {
+      const email = Array.isArray(a.profile) ? a.profile[0]?.email : a.profile?.email
+      return email ? [email as string] : []
+    })
+  }
+  if (!recipients.length) return
+
+  const { data: profile } = userId
+    ? await db.from('profiles').select('full_name, email').eq('id', userId).single()
+    : { data: null }
+  const { data: org } = await db.from('organizations').select('slug').eq('id', orgId).single()
+  const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+  const orgSlug = (org as { slug?: string } | null)?.slug
+  const adminUrl = orgSlug
+    ? `https://${orgSlug}.${platformDomain}/admin/players`
+    : `https://${platformDomain}/admin/players`
+
+  await sendRegistrationAdminNotification({
+    to: recipients,
+    playerName: (profile as { full_name?: string | null } | null)?.full_name ?? null,
+    playerEmail: (profile as { email?: string | null } | null)?.email ?? null,
+    leagueName,
+    orgName,
+    adminUrl,
+    paymentMethod: 'card',
+  })
 }
 
 // ── Merchandise order admin notification ─────────────────────────────────────

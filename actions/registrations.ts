@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
-import { sendRegistrationConfirmation, sendRegistrationAdminNotification } from './emails'
+import { sendRegistrationConfirmation, sendRegistrationAdminNotification, type RegistrationPaymentMethod } from './emails'
 import { acceptDropInInvite, acceptPickupInvite } from './invites'
 import { recordConsents, consentRequestMeta, type ConsentRow } from './player-consents'
 import { recordAuditLog, getAuditActor } from '@/lib/audit'
@@ -266,7 +266,7 @@ export async function activateRegistration(registrationId: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: reg, error: fetchError } = await (db2 as any)
     .from('registrations')
-    .select('*, checkin_token, profiles!registrations_user_id_fkey(full_name, email), leagues!registrations_league_id_fkey(id, name, slug, sport, event_type, checkin_enabled, calendar_token)')
+    .select('*, checkin_token, profiles!registrations_user_id_fkey(full_name, email), leagues!registrations_league_id_fkey(id, name, slug, sport, event_type, checkin_enabled, calendar_token, price_cents, payment_mode)')
     .eq('id', registrationId)
     .eq('organization_id', org.id)
     .single()
@@ -318,52 +318,56 @@ export async function activateRegistration(registrationId: string) {
   }
 
   // ── Admin registration notification ───────────────────────────────────────
+  // For FREE leagues: notify now (payment is complete — it's free).
+  // For PAID leagues: skip here. The payment handler (Stripe webhook or
+  // selectOfflinePayment) sends the notification with the actual payment method
+  // once the player has chosen how they'll pay.
   // Fire-and-forget — never block the player's registration flow on this.
-  try {
-    const service = createServiceRoleClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: notifSettings } = await (service as any)
-      .from('org_notification_settings')
-      .select('registration_notifications_enabled, registration_notification_email')
-      .eq('organization_id', org.id)
-      .single()
+  const leaguePriceCents: number = league?.price_cents ?? 0
+  const isFreeLeague = leaguePriceCents === 0
+  if (isFreeLeague) {
+    try {
+      const service = createServiceRoleClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: notifSettings } = await (service as any)
+        .from('org_notification_settings')
+        .select('registration_notifications_enabled, registration_notification_email')
+        .eq('organization_id', org.id)
+        .single()
 
-    if (notifSettings?.registration_notifications_enabled) {
-      let recipients: string[]
-
-      if (notifSettings.registration_notification_email) {
-        // Custom override email
-        recipients = [notifSettings.registration_notification_email]
-      } else {
-        // Default: all org_admins' emails
-        const { data: admins } = await service
-          .from('org_members')
-          .select('profile:profiles!org_members_user_id_fkey(email)')
-          .eq('organization_id', org.id)
-          .eq('role', 'org_admin')
-          .eq('status', 'active')
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        recipients = (admins ?? []).flatMap((a: any) => {
-          const email = Array.isArray(a.profile) ? a.profile[0]?.email : a.profile?.email
-          return email ? [email as string] : []
-        })
+      if (notifSettings?.registration_notifications_enabled) {
+        let recipients: string[]
+        if (notifSettings.registration_notification_email) {
+          recipients = [notifSettings.registration_notification_email]
+        } else {
+          const { data: admins } = await service
+            .from('org_members')
+            .select('profile:profiles!org_members_user_id_fkey(email)')
+            .eq('organization_id', org.id)
+            .eq('role', 'org_admin')
+            .eq('status', 'active')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          recipients = (admins ?? []).flatMap((a: any) => {
+            const email = Array.isArray(a.profile) ? a.profile[0]?.email : a.profile?.email
+            return email ? [email as string] : []
+          })
+        }
+        if (recipients.length > 0) {
+          const origin = headersList.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
+          await sendRegistrationAdminNotification({
+            to: recipients,
+            playerName: profile?.full_name ?? null,
+            playerEmail: profile?.email ?? null,
+            leagueName: league?.name ?? 'an event',
+            orgName: org.name,
+            adminUrl: `${origin}/admin/players`,
+            paymentMethod: 'free',
+          })
+        }
       }
-
-      if (recipients.length > 0) {
-        const origin = headersList.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
-        await sendRegistrationAdminNotification({
-          to: recipients,
-          playerName: profile?.full_name ?? null,
-          playerEmail: profile?.email ?? null,
-          leagueName: league?.name ?? 'an event',
-          orgName: org.name,
-          adminUrl: `${origin}/admin/players`,
-        })
-      }
+    } catch (err) {
+      console.error('[confirmRegistration] admin notification failed:', err)
     }
-  } catch (err) {
-    // Non-fatal — log and continue
-    console.error('[activateRegistration] admin notification failed:', err)
   }
 
   revalidatePath('/dashboard')
