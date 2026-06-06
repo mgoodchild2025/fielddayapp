@@ -275,15 +275,24 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
                         href={`/admin/events/${league.id}/schedule`}
                         style={{ gridColumn: `${startCol} / span ${span}` }}
                         className={[
-                          'block text-[10px] sm:text-xs leading-none py-1 px-1.5 rounded-sm mb-0.5 truncate font-medium transition-opacity hover:opacity-80',
+                          'block text-[10px] sm:text-xs leading-tight py-1 px-1.5 rounded-sm mb-0.5 truncate font-medium transition-opacity hover:opacity-80',
                           p.chip,
                           !isStart ? 'rounded-l-none pl-1' : '',
                           !isEnd   ? 'rounded-r-none pr-1' : '',
                         ].join(' ')}
-                        title={league.name}
+                        title={`${league.name}${league.gameStartTime ? ` · ${fmtTime(league.gameStartTime)}${league.gameEndTime ? ` – ${fmtTime(league.gameEndTime)}` : ''}` : ''}`}
                       >
-                        {/* Show name only when the league starts in this row or at the first column */}
-                        {(isStart || startCol === 1) ? league.name : ''}
+                        {(isStart || startCol === 1) ? (
+                          <>
+                            {league.name}
+                            {league.gameStartTime && span >= 3 && (
+                              <span className="opacity-80 ml-1 hidden sm:inline">
+                                {fmtTime(league.gameStartTime)}
+                                {league.gameEndTime ? ` – ${fmtTime(league.gameEndTime)}` : ''}
+                              </span>
+                            )}
+                          </>
+                        ) : ''}
                       </Link>
                     )
                   })}
