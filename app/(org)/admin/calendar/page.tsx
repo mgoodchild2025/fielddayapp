@@ -43,7 +43,7 @@ export default async function AdminCalendarPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawLeagues } = await (db as any)
     .from('leagues')
-    .select('id, name, slug, status, event_type, season_start_date, season_end_date, game_start_time, game_end_time')
+    .select('id, name, slug, status, event_type, season_start_date, season_end_date, game_start_time, game_end_time, days_of_week')
     .eq('organization_id', org.id)
     .is('deleted_at', null)
     .in('status', ['registration_open', 'active', 'completed'])
@@ -53,6 +53,7 @@ export default async function AdminCalendarPage({
     id: string; name: string; slug: string; status: string
     event_type: string | null; season_start_date: string | null; season_end_date: string | null
     game_start_time: string | null; game_end_time: string | null
+    days_of_week: string[] | null
   }) => ({
     id: l.id,
     name: l.name,
@@ -63,6 +64,7 @@ export default async function AdminCalendarPage({
     endDate: l.season_end_date,
     gameStartTime: l.game_start_time,
     gameEndTime: l.game_end_time,
+    daysOfWeek: l.days_of_week,
   }))
 
   return (
