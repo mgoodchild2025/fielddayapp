@@ -13,8 +13,10 @@ export type CalendarLeague = {
   slug: string
   status: string
   eventType: string
-  startDate: string | null  // YYYY-MM-DD
-  endDate: string | null    // YYYY-MM-DD
+  startDate: string | null    // YYYY-MM-DD
+  endDate: string | null      // YYYY-MM-DD
+  gameStartTime: string | null  // HH:MM or HH:MM:SS
+  gameEndTime: string | null
 }
 
 // ── Colour palette ────────────────────────────────────────────────────────────
@@ -58,6 +60,14 @@ function labelDate(dateStr: string): string {
   return new Intl.DateTimeFormat('en-CA', {
     weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC',
   }).format(Date.UTC(y, m - 1, d))
+}
+
+/** Format HH:MM or HH:MM:SS as "7:00 PM" */
+function fmtTime(t: string): string {
+  const [h, m] = t.split(':').map(Number)
+  const period = h >= 12 ? 'PM' : 'AM'
+  const hr = h % 12 || 12
+  return `${hr}${m ? `:${String(m).padStart(2, '0')}` : ''} ${period}`
 }
 
 /** Short date like "Jun 2" */
@@ -407,6 +417,15 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
                       </div>
                       {dateRange && (
                         <p className="text-xs text-gray-400 mt-0.5">{dateRange}</p>
+                      )}
+                      {(l.gameStartTime || l.gameEndTime) && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {l.gameStartTime && l.gameEndTime
+                            ? `${fmtTime(l.gameStartTime)} – ${fmtTime(l.gameEndTime)}`
+                            : l.gameStartTime
+                              ? `From ${fmtTime(l.gameStartTime)}`
+                              : `Until ${fmtTime(l.gameEndTime!)}`}
+                        </p>
                       )}
                       <p className="text-xs font-medium mt-1.5 group-hover:underline" style={{ color: 'var(--brand-primary)' }}>
                         View schedule →
