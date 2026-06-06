@@ -46,6 +46,8 @@ interface League {
   bracket_visibility: string
   documents_visibility: string
   days_of_week: string[] | null
+  game_start_time: string | null
+  game_end_time: string | null
   skill_level: string | null
   officiated: string | null
   checkin_enabled: boolean
@@ -131,6 +133,9 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
   const [formatExpanded, setFormatExpanded] = useState(!!league.format_content)
   const [rulesExpanded, setRulesExpanded] = useState(!!league.rules_content)
   const [selectedDays, setSelectedDays] = useState<string[]>(league.days_of_week ?? [])
+  // HH:MM strings for the time inputs; trimmed to HH:MM from the DB's HH:MM:SS
+  const [gameStartTime, setGameStartTime] = useState<string>(league.game_start_time?.slice(0, 5) ?? '')
+  const [gameEndTime, setGameEndTime] = useState<string>(league.game_end_time?.slice(0, 5) ?? '')
   const [selectedSkill, setSelectedSkill] = useState<string>(league.skill_level ?? '')
   const [selectedOfficiated, setSelectedOfficiated] = useState<string>(league.officiated ?? '')
   const [checkinEnabled, setCheckinEnabled] = useState<boolean>(league.checkin_enabled)
@@ -195,6 +200,8 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
       standings_pts_method: (fd.get('standings_pts_method') as string) || 'wins',
       volleyball_standings_mode: volleyballMode,
       days_of_week: selectedDays.length ? selectedDays : undefined,
+      game_start_time: gameStartTime || undefined,
+      game_end_time: gameEndTime || undefined,
       skill_level: (selectedSkill as 'recreational' | 'intermediate' | 'competitive') || undefined,
       officiated: (selectedOfficiated as 'self_officiated' | 'referee') || undefined,
       checkin_enabled: checkinEnabled,
@@ -453,6 +460,26 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
                 })}
               </div>
             </Field>
+
+            {/* Game time window */}
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Game Start Time">
+                <input
+                  type="time"
+                  value={gameStartTime}
+                  onChange={(e) => setGameStartTime(e.target.value)}
+                  className="input w-full"
+                />
+              </Field>
+              <Field label="Game End Time">
+                <input
+                  type="time"
+                  value={gameEndTime}
+                  onChange={(e) => setGameEndTime(e.target.value)}
+                  className="input w-full"
+                />
+              </Field>
+            </div>
 
             {/* Skill level */}
             <Field label="Skill Level">

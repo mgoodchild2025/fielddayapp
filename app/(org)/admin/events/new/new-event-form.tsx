@@ -113,6 +113,8 @@ const schema = z.object({
   standings_visibility: z.enum(['public', 'participants']).default('public'),
   bracket_visibility: z.enum(['public', 'participants']).default('public'),
   days_of_week: z.array(z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])).optional().default([]),
+  game_start_time: z.string().optional(),
+  game_end_time: z.string().optional(),
   skill_level: z.enum(['recreational', 'intermediate', 'competitive']).optional(),
   officiated: z.enum(['self_officiated', 'referee']).optional(),
   early_bird_price_cents: z.number().min(0).optional(),
@@ -242,6 +244,8 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [openSection, setOpenSection] = useState<string | null>('basics')
   const [selectedDays, setSelectedDays] = useState<string[]>([])
+  const [gameStartTime, setGameStartTime] = useState<string>('')
+  const [gameEndTime, setGameEndTime] = useState<string>('')
   const [selectedSkill, setSelectedSkill] = useState<string>('')
   const [selectedOfficiated, setSelectedOfficiated] = useState<string>('')
   const [checkinEnabled, setCheckinEnabled] = useState<boolean>(false)
@@ -314,6 +318,8 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
       rules_content: rulesContent || undefined,
       format_content: formatContent || undefined,
       days_of_week: selectedDays.length ? (selectedDays as ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun')[]) : [],
+      game_start_time: gameStartTime || undefined,
+      game_end_time: gameEndTime || undefined,
       skill_level: (selectedSkill as 'recreational' | 'intermediate' | 'competitive') || undefined,
       officiated: (selectedOfficiated as 'self_officiated' | 'referee') || undefined,
       checkin_enabled: checkinEnabled,
@@ -920,6 +926,28 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                   </button>
                 )
               })}
+            </div>
+          </div>
+
+          {/* Game time window */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Game Start Time</label>
+              <input
+                type="time"
+                value={gameStartTime}
+                onChange={(e) => setGameStartTime(e.target.value)}
+                className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Game End Time</label>
+              <input
+                type="time"
+                value={gameEndTime}
+                onChange={(e) => setGameEndTime(e.target.value)}
+                className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              />
             </div>
           </div>
 
