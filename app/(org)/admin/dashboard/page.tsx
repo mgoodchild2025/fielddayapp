@@ -49,7 +49,7 @@ export default async function AdminDashboardPage() {
     // Games in the next 7 days
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('games')
-      .select('id, scheduled_at, court, status, home_team:teams!games_home_team_id_fkey(name), away_team:teams!games_away_team_id_fkey(name), league:leagues!games_league_id_fkey(id, name)')
+      .select('id, scheduled_at, court, status, home_team:teams!games_home_team_id_fkey(name), away_team:teams!games_away_team_id_fkey(name), league:leagues!games_league_id_fkey(id, name, game_start_time, game_end_time)')
       .eq('organization_id', org.id)
       .eq('status', 'scheduled')
       .gte('scheduled_at', new Date().toISOString())
@@ -59,7 +59,7 @@ export default async function AdminDashboardPage() {
     // Sessions in the next 7 days
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('event_sessions')
-      .select('id, scheduled_at, duration_minutes, capacity, league:leagues!event_sessions_league_id_fkey(id, name)')
+      .select('id, scheduled_at, duration_minutes, capacity, league:leagues!event_sessions_league_id_fkey(id, name, game_start_time, game_end_time)')
       .eq('organization_id', org.id)
       .eq('status', 'open')
       .gte('scheduled_at', new Date().toISOString())
@@ -76,6 +76,23 @@ export default async function AdminDashboardPage() {
     new Intl.DateTimeFormat('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: tz })
       .format(new Date(iso))
 
+  // Format HH:MM:SS time as "7:00 PM"
+  const fmtLeagueTime = (t: string) => {
+    const [h, m] = t.split(':').map(Number)
+    const period = h >= 12 ? 'PM' : 'AM'
+    const hr = h % 12 || 12
+    return `${hr}${m ? `:${String(m).padStart(2, '0')}` : ''} ${period}`
+  }
+  const leagueTimeRange = (league: { game_start_time?: string | null; game_end_time?: string | null } | null) => {
+    if (!league) return ''
+    const s = league.game_start_time
+    const e = league.game_end_time
+    if (s && e) return ` · ${fmtLeagueTime(s)} – ${fmtLeagueTime(e)}`
+    if (s) return ` · from ${fmtLeagueTime(s)}`
+    if (e) return ` · until ${fmtLeagueTime(e)}`
+    return ''
+  }
+
   // Merge + group by local date
   type UpcomingItem = { id: string; scheduled_at: string; localDate: string; type: 'game' | 'session'; label: string; sub: string; leagueId: string }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -89,7 +106,7 @@ export default async function AdminDashboardPage() {
         id: g.id, scheduled_at: g.scheduled_at, localDate: localDate(g.scheduled_at),
         type: 'game' as const,
         label: `${home?.name ?? 'TBD'} vs ${away?.name ?? 'TBD'}`,
-        sub: `${timeStr(g.scheduled_at)}${g.court ? ` · ${g.court}` : ''} · ${league?.name ?? ''}`,
+        sub: `${timeStr(g.scheduled_at)}${g.court ? ` · ${g.court}` : ''}${leagueTimeRange(league)} · ${league?.name ?? ''}`,
         leagueId: league?.id ?? '',
       }
     }),
@@ -100,7 +117,7 @@ export default async function AdminDashboardPage() {
         id: s.id, scheduled_at: s.scheduled_at, localDate: localDate(s.scheduled_at),
         type: 'session' as const,
         label: 'Pickup Session',
-        sub: `${timeStr(s.scheduled_at)}${s.capacity ? ` · ${s.capacity} spots` : ''} · ${league?.name ?? ''}`,
+        sub: `${timeStr(s.scheduled_at)}${s.capacity ? ` · ${s.capacity} spots` : ''}${leagueTimeRange(league)} · ${league?.name ?? ''}`,
         leagueId: league?.id ?? '',
       }
     }),

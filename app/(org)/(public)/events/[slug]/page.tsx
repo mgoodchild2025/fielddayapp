@@ -1559,6 +1559,26 @@ export default async function EventDetailPage({
                 </div>
               )}
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {((league as any).game_start_time || (league as any).game_end_time) && (() => {
+                const fmtT = (t: string) => {
+                  const [h, m] = t.split(':').map(Number)
+                  const period = h >= 12 ? 'PM' : 'AM'
+                  const hr = h % 12 || 12
+                  return `${hr}${m ? `:${String(m).padStart(2, '0')}` : ''} ${period}`
+                }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const s = (league as any).game_start_time as string | null
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const e = (league as any).game_end_time as string | null
+                const label = s && e ? `${fmtT(s)} – ${fmtT(e)}` : s ? `From ${fmtT(s)}` : `Until ${fmtT(e!)}`
+                return (
+                  <div className="bg-white rounded-lg border p-4">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Time</p>
+                    <p className="font-semibold mt-1">{label}</p>
+                  </div>
+                )
+              })()}
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {(league as any).skill_level && (
                 <div className="bg-white rounded-lg border p-4">
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Skill Level</p>
