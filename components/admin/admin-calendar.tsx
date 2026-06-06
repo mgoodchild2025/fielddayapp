@@ -13,10 +13,11 @@ export type CalendarLeague = {
   slug: string
   status: string
   eventType: string
-  startDate: string | null    // YYYY-MM-DD
-  endDate: string | null      // YYYY-MM-DD
+  startDate: string | null      // YYYY-MM-DD
+  endDate: string | null        // YYYY-MM-DD
   gameStartTime: string | null  // HH:MM or HH:MM:SS
   gameEndTime: string | null
+  daysOfWeek: string[] | null   // ['mon','tue',...] — which days the event runs
 }
 
 // ── Colour palette ────────────────────────────────────────────────────────────
@@ -136,6 +137,29 @@ function getWeekBands(
     })
 }
 
+const DOW_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
+
+/**
+ * Return leagues whose day schedule makes them active on a specific date:
+ * - Within the season (startDate ≤ date ≤ endDate)
+ * - The date's day-of-week matches one of the league's daysOfWeek
+ * Only called for leagues that HAVE daysOfWeek configured.
+ */
+function getActiveLeaguesForDay(
+  dateStr: string,
+  leagues: CalendarLeague[],
+): CalendarLeague[] {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dowKey = DOW_KEYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
+  const dayVal = toDays(dateStr)
+
+  return leagues.filter((l) => {
+    if (!l.startDate || !l.endDate) return false
+    if (dayVal < toDays(l.startDate) || dayVal > toDays(l.endDate)) return false
+    return l.daysOfWeek!.includes(dowKey)
+  })
+}
+
 // ── Status badge ──────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
@@ -180,16 +204,36 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
 
   const weekRows = useMemo(() => buildWeekRows(year, month), [year, month])
 
+  // Split leagues into two rendering modes:
+  // - dayScheduled: have daysOfWeek → appear as chips only on their specific days
+  // - spanning:     no daysOfWeek  → appear as a continuous band across the season
+  const dayScheduledLeagues = useMemo(
+    () => leagues.filter((l) => l.daysOfWeek && l.daysOfWeek.length > 0),
+    [leagues],
+  )
+  const spanningLeagues = useMemo(
+    () => leagues.filter((l) => !l.daysOfWeek || l.daysOfWeek.length === 0),
+    [leagues],
+  )
+
   // Leagues that have no start/end date set (warn about them)
   const undatedLeagues = leagues.filter((l) => !l.startDate || !l.endDate)
 
-  // Leagues active on the selected date
+  // Leagues active on the selected date (for day panel)
   const selectedLeagues = useMemo(() => {
     if (!selectedDate) return []
-    const sd = toDays(selectedDate)
-    return leagues.filter(
-      (l) => l.startDate && l.endDate && toDays(l.startDate) <= sd && toDays(l.endDate) >= sd
-    )
+    const [y, m, d] = selectedDate.split('-').map(Number)
+    const dowKey = DOW_KEYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
+    const dayVal = toDays(selectedDate)
+
+    return leagues.filter((l) => {
+      if (!l.startDate || !l.endDate) return false
+      if (dayVal < toDays(l.startDate) || dayVal > toDays(l.endDate)) return false
+      // day-scheduled: must match the day of week
+      if (l.daysOfWeek && l.daysOfWeek.length > 0) return l.daysOfWeek.includes(dowKey)
+      // spanning: active any day within season
+      return true
+    })
   }, [selectedDate, leagues])
 
   // Month navigation → server re-fetch via searchParam
@@ -258,13 +302,14 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
 
         {/* Week rows */}
         {weekRows.map((row, rowIdx) => {
-          const bands = getWeekBands(row, leagues)
+          // Spanning bands — only for leagues without daysOfWeek configured
+          const bands = getWeekBands(row, spanningLeagues)
           const isLastRow = rowIdx === weekRows.length - 1
 
           return (
             <div key={row[0].dateStr} className={isLastRow ? '' : 'border-b'}>
 
-              {/* League bands — span multiple columns using CSS grid */}
+              {/* Spanning bands (undated/unscheduled leagues) */}
               {bands.length > 0 && (
                 <div className="grid grid-cols-7 gap-x-0.5 px-0.5 pt-1 pb-0.5">
                   {bands.map(({ league, startCol, span, isStart, isEnd }) => {
@@ -280,57 +325,73 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
                           !isStart ? 'rounded-l-none pl-1' : '',
                           !isEnd   ? 'rounded-r-none pr-1' : '',
                         ].join(' ')}
-                        title={`${league.name}${league.gameStartTime ? ` · ${fmtTime(league.gameStartTime)}${league.gameEndTime ? ` – ${fmtTime(league.gameEndTime)}` : ''}` : ''}`}
+                        title={league.name}
                       >
-                        {(isStart || startCol === 1) ? (
-                          <>
-                            {league.name}
-                            {league.gameStartTime && span >= 3 && (
-                              <span className="opacity-80 ml-1 hidden sm:inline">
-                                {fmtTime(league.gameStartTime)}
-                                {league.gameEndTime ? ` – ${fmtTime(league.gameEndTime)}` : ''}
-                              </span>
-                            )}
-                          </>
-                        ) : ''}
+                        {(isStart || startCol === 1) ? league.name : ''}
                       </Link>
                     )
                   })}
                 </div>
               )}
 
-              {/* Day cells */}
+              {/* Day cells — contain chips for day-scheduled leagues */}
               <div className="grid grid-cols-7">
                 {row.map(({ dateStr, inMonth }, colIdx) => {
                   const isToday    = dateStr === todayStr
                   const isSelected = dateStr === selectedDate
                   const isLastCol  = colIdx === 6
+                  // Leagues that run on this specific day
+                  const dayChips = getActiveLeaguesForDay(dateStr, dayScheduledLeagues)
 
                   return (
-                    <button
+                    <div
                       key={dateStr}
-                      onClick={() => setSelectedDate(isSelected ? null : dateStr)}
                       className={[
-                        'h-8 sm:h-10 flex items-start justify-end p-1 transition-colors',
+                        'flex flex-col p-1 transition-colors cursor-pointer',
+                        'min-h-[3.5rem] sm:min-h-[5rem]',
                         isLastCol ? '' : 'border-r',
                         isSelected ? 'bg-gray-50 ring-1 ring-inset ring-[var(--brand-primary)]' : 'hover:bg-gray-50',
                         !inMonth ? 'opacity-25' : '',
                       ].join(' ')}
+                      onClick={() => setSelectedDate(isSelected ? null : dateStr)}
                     >
+                      {/* Day number */}
                       <span
                         className={[
-                          'inline-flex items-center justify-center w-6 h-6 text-xs sm:text-sm font-medium rounded-full',
-                          isToday
-                            ? 'text-white'
-                            : isSelected
-                              ? 'font-bold'
-                              : 'text-gray-600',
+                          'self-end inline-flex items-center justify-center w-6 h-6 text-xs sm:text-sm font-medium rounded-full mb-0.5',
+                          isToday ? 'text-white' : 'text-gray-600',
                         ].join(' ')}
                         style={isToday ? { backgroundColor: 'var(--brand-primary)', color: 'white' } : {}}
                       >
                         {dayNum(dateStr)}
                       </span>
-                    </button>
+
+                      {/* Day chips for scheduled leagues */}
+                      <div className="space-y-0.5 w-full">
+                        {dayChips.map((l) => {
+                          const p = palette(l.id)
+                          const timeLabel = l.gameStartTime
+                            ? (l.gameEndTime
+                              ? `${fmtTime(l.gameStartTime)} – ${fmtTime(l.gameEndTime)}`
+                              : fmtTime(l.gameStartTime))
+                            : null
+                          return (
+                            <Link
+                              key={l.id}
+                              href={`/admin/events/${l.id}/schedule`}
+                              onClick={(e) => e.stopPropagation()}
+                              className={`block text-[9px] sm:text-[10px] leading-snug px-1 py-0.5 rounded truncate font-medium transition-opacity hover:opacity-80 ${p.chip}`}
+                              title={`${l.name}${timeLabel ? ` · ${timeLabel}` : ''}`}
+                            >
+                              <span className="truncate">{l.name}</span>
+                              {timeLabel && (
+                                <span className="hidden sm:inline opacity-80 ml-1">{timeLabel}</span>
+                              )}
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    </div>
                   )
                 })}
               </div>
