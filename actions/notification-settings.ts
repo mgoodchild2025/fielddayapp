@@ -60,7 +60,7 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
   const [{ data: notif }, { data: reminders }] = await Promise.all([
     (db as any)
       .from('org_notification_settings')
-      .select('sms_game_reminders_enabled, email_game_reminders_enabled, email_reminder_hours_before, captain_prep_email_enabled, registration_notifications_enabled, registration_notification_email, payment_failure_notifications_enabled')
+      .select('sms_game_reminders_enabled, email_game_reminders_enabled, email_reminder_hours_before, captain_prep_email_enabled, registration_notifications_enabled, registration_notification_email, payment_failure_notifications_enabled, merch_order_notifications_enabled')
       .eq('organization_id', org.id)
       .single() as Promise<{ data: OrgNotifRow }>,
     (db as any)
