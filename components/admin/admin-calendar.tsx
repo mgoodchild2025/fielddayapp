@@ -3,72 +3,56 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, AlertCircle } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type CalendarEvent = {
+export type CalendarLeague = {
   id: string
-  type: 'game' | 'session'
-  scheduled_at: string
-  localDate: string           // YYYY-MM-DD in org timezone
-  court: string | null
+  name: string
+  slug: string
   status: string
-  home_team: { name: string } | null
-  away_team: { name: string } | null
-  capacity?: number | null
-  location_override?: string | null
-  league: { id: string; name: string; slug: string }
+  eventType: string
+  startDate: string | null  // YYYY-MM-DD
+  endDate: string | null    // YYYY-MM-DD
 }
 
-// ── Colour palette (one per league, cycles) ───────────────────────────────────
+// ── Colour palette ────────────────────────────────────────────────────────────
 
 const PALETTE = [
-  { chip: 'bg-blue-100 text-blue-700 border-blue-200',   dot: 'bg-blue-400'   },
-  { chip: 'bg-violet-100 text-violet-700 border-violet-200', dot: 'bg-violet-400' },
-  { chip: 'bg-emerald-100 text-emerald-700 border-emerald-200', dot: 'bg-emerald-400' },
-  { chip: 'bg-rose-100 text-rose-700 border-rose-200',   dot: 'bg-rose-400'   },
-  { chip: 'bg-amber-100 text-amber-700 border-amber-200', dot: 'bg-amber-400'  },
-  { chip: 'bg-cyan-100 text-cyan-700 border-cyan-200',   dot: 'bg-cyan-400'   },
-  { chip: 'bg-pink-100 text-pink-700 border-pink-200',   dot: 'bg-pink-400'   },
-  { chip: 'bg-teal-100 text-teal-700 border-teal-200',   dot: 'bg-teal-400'   },
+  { chip: 'bg-blue-500 text-white',        pill: 'bg-blue-100 text-blue-800 border-blue-200',   dot: 'bg-blue-500'   },
+  { chip: 'bg-violet-500 text-white',      pill: 'bg-violet-100 text-violet-800 border-violet-200', dot: 'bg-violet-500' },
+  { chip: 'bg-emerald-500 text-white',     pill: 'bg-emerald-100 text-emerald-800 border-emerald-200', dot: 'bg-emerald-500' },
+  { chip: 'bg-rose-500 text-white',        pill: 'bg-rose-100 text-rose-800 border-rose-200',   dot: 'bg-rose-500'   },
+  { chip: 'bg-amber-500 text-white',       pill: 'bg-amber-100 text-amber-800 border-amber-200', dot: 'bg-amber-500'  },
+  { chip: 'bg-cyan-500 text-white',        pill: 'bg-cyan-100 text-cyan-800 border-cyan-200',   dot: 'bg-cyan-500'   },
+  { chip: 'bg-pink-500 text-white',        pill: 'bg-pink-100 text-pink-800 border-pink-200',   dot: 'bg-pink-500'   },
+  { chip: 'bg-teal-500 text-white',        pill: 'bg-teal-100 text-teal-800 border-teal-200',   dot: 'bg-teal-500'   },
 ]
-// Sessions always get a distinct dashed style
-const SESSION_CHIP = 'bg-orange-50 text-orange-700 border-orange-200 italic'
-const SESSION_DOT  = 'bg-orange-400'
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Date helpers ──────────────────────────────────────────────────────────────
 
-/** All date cells to render in a month grid, including overflow from adj. months. */
-function buildGrid(year: number, month: number): { dateStr: string; inMonth: boolean }[] {
-  const firstOfMonth = new Date(year, month - 1, 1)
-  const lastOfMonth  = new Date(year, month, 0)
-
-  // Step back to the previous Sunday
-  const gridStart = new Date(firstOfMonth)
-  gridStart.setDate(1 - firstOfMonth.getDay())
-
-  // Step forward to the next Saturday
-  const gridEnd = new Date(lastOfMonth)
-  gridEnd.setDate(lastOfMonth.getDate() + ((6 - lastOfMonth.getDay() + 7) % 7))
-
-  const cells: { dateStr: string; inMonth: boolean }[] = []
-  const cursor = new Date(gridStart)
-
-  while (cursor <= gridEnd) {
-    const y = cursor.getFullYear()
-    const m = String(cursor.getMonth() + 1).padStart(2, '0')
-    const d = String(cursor.getDate()).padStart(2, '0')
-    cells.push({
-      dateStr: `${y}-${m}-${d}`,
-      inMonth: cursor.getMonth() === month - 1 && cursor.getFullYear() === year,
-    })
-    cursor.setDate(cursor.getDate() + 1)
-  }
-  return cells
+/** YYYY-MM-DD → integer days since epoch (UTC-safe) */
+function toDays(dateStr: string): number {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return Math.floor(Date.UTC(y, m - 1, d) / 86_400_000)
 }
 
-/** YYYY-MM-DD → { weekday, month day } label, UTC-safe. */
+/** Integer days since epoch → YYYY-MM-DD */
+function fromDays(days: number): string {
+  const d = new Date(days * 86_400_000)
+  const y = d.getUTCFullYear()
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/** Day-of-month number from YYYY-MM-DD (no timezone ambiguity) */
+function dayNum(dateStr: string): number {
+  return parseInt(dateStr.split('-')[2], 10)
+}
+
+/** Human-readable date label for the day panel header */
 function labelDate(dateStr: string): string {
   const [y, m, d] = dateStr.split('-').map(Number)
   return new Intl.DateTimeFormat('en-CA', {
@@ -76,27 +60,94 @@ function labelDate(dateStr: string): string {
   }).format(Date.UTC(y, m - 1, d))
 }
 
-/** Day-of-month number from YYYY-MM-DD, UTC-safe. */
-function dayNum(dateStr: string): number {
-  return parseInt(dateStr.split('-')[2], 10)
+/** Short date like "Jun 2" */
+function shortDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Intl.DateTimeFormat('en-CA', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+    .format(Date.UTC(y, m - 1, d))
 }
 
-/** Compact chip label for a calendar cell. */
-function chipLabel(ev: CalendarEvent, timezone: string): string {
-  const t = new Intl.DateTimeFormat('en-CA', {
-    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: timezone,
-  }).format(new Date(ev.scheduled_at)).replace(':00', '').replace(' ', '')
+/**
+ * Build the full month grid as week rows, each an array of 7 cells.
+ * Cells include overflow days from adjacent months.
+ */
+function buildWeekRows(year: number, month: number): { dateStr: string; inMonth: boolean }[][] {
+  const firstOfMonth = new Date(Date.UTC(year, month - 1, 1))
+  const lastOfMonthDate = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  const startDow = firstOfMonth.getUTCDay()          // 0 = Sun
 
-  if (ev.type === 'session') return `${t} · Pickup`
-  const h = ev.home_team?.name.split(' ').pop() ?? '?'
-  const a = ev.away_team?.name.split(' ').pop() ?? '?'
-  return `${t} · ${h} v ${a}`
+  const gridStartDays = toDays(`${year}-${String(month).padStart(2, '0')}-01`) - startDow
+  const totalCells = Math.ceil((startDow + lastOfMonthDate) / 7) * 7
+
+  const rows: { dateStr: string; inMonth: boolean }[][] = []
+  for (let row = 0; row < totalCells / 7; row++) {
+    const cells = []
+    for (let col = 0; col < 7; col++) {
+      const dayIndex = row * 7 + col
+      const dateStr = fromDays(gridStartDays + dayIndex)
+      const inMonth = dayIndex >= startDow && dayIndex < startDow + lastOfMonthDate
+      cells.push({ dateStr, inMonth })
+    }
+    rows.push(cells)
+  }
+  return rows
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+/**
+ * For a given week row, return the list of leagues that overlap with it,
+ * along with their CSS grid column positioning.
+ */
+function getWeekBands(
+  row: { dateStr: string }[],
+  leagues: CalendarLeague[],
+): { league: CalendarLeague; startCol: number; span: number; isStart: boolean; isEnd: boolean }[] {
+  const weekStartDays = toDays(row[0].dateStr)
+  const weekEndDays   = toDays(row[6].dateStr)
+
+  return leagues
+    .filter((l) => l.startDate && l.endDate)
+    .filter((l) => {
+      const s = toDays(l.startDate!)
+      const e = toDays(l.endDate!)
+      return s <= weekEndDays && e >= weekStartDays
+    })
+    .map((l) => {
+      const s = toDays(l.startDate!)
+      const e = toDays(l.endDate!)
+      const startCol = Math.max(1, s - weekStartDays + 1)   // 1-indexed
+      const endCol   = Math.min(7, e - weekStartDays + 1)
+      return {
+        league: l,
+        startCol,
+        span: endCol - startCol + 1,
+        isStart: s >= weekStartDays,  // league begins in this row
+        isEnd:   e <= weekEndDays,    // league ends in this row
+      }
+    })
+}
+
+// ── Status badge ──────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    active:            'bg-blue-100 text-blue-700',
+    registration_open: 'bg-green-100 text-green-700',
+    completed:         'bg-gray-100 text-gray-600',
+  }
+  const labels: Record<string, string> = {
+    active: 'In Season', registration_open: 'Open', completed: 'Completed',
+  }
+  return (
+    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${map[status] ?? 'bg-gray-100 text-gray-600'}`}>
+      {labels[status] ?? status}
+    </span>
+  )
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 interface Props {
-  events: CalendarEvent[]
+  leagues: CalendarLeague[]
   year: number
   month: number
   timezone: string
@@ -104,35 +155,32 @@ interface Props {
   initialDay: string | null
 }
 
-export function AdminCalendar({ events, year, month, timezone, currentYM, initialDay }: Props) {
+export function AdminCalendar({ leagues, year, month, timezone, currentYM, initialDay }: Props) {
   const router = useRouter()
   const [selectedDate, setSelectedDate] = useState<string | null>(initialDay)
 
-  // Assign a colour index to each unique league (stable per render)
+  // Assign a stable colour index per league
   const leaguePalette = useMemo(() => {
     const map = new Map<string, number>()
-    let idx = 0
-    for (const e of events) {
-      if (!map.has(e.league.id)) map.set(e.league.id, idx++)
-    }
+    leagues.forEach((l, i) => map.set(l.id, i))
     return map
-  }, [events])
+  }, [leagues])
 
   const palette = (leagueId: string) => PALETTE[(leaguePalette.get(leagueId) ?? 0) % PALETTE.length]
 
-  // Group events by localDate
-  const byDate = useMemo(() => {
-    const map = new Map<string, CalendarEvent[]>()
-    for (const e of events) {
-      if (!map.has(e.localDate)) map.set(e.localDate, [])
-      map.get(e.localDate)!.push(e)
-    }
-    return map
-  }, [events])
+  const weekRows = useMemo(() => buildWeekRows(year, month), [year, month])
 
-  const gridCells = useMemo(() => buildGrid(year, month), [year, month])
+  // Leagues that have no start/end date set (warn about them)
+  const undatedLeagues = leagues.filter((l) => !l.startDate || !l.endDate)
 
-  const selectedEvents = selectedDate ? (byDate.get(selectedDate) ?? []) : []
+  // Leagues active on the selected date
+  const selectedLeagues = useMemo(() => {
+    if (!selectedDate) return []
+    const sd = toDays(selectedDate)
+    return leagues.filter(
+      (l) => l.startDate && l.endDate && toDays(l.startDate) <= sd && toDays(l.endDate) >= sd
+    )
+  }, [selectedDate, leagues])
 
   // Month navigation → server re-fetch via searchParam
   function navigate(delta: number) {
@@ -144,11 +192,10 @@ export function AdminCalendar({ events, year, month, timezone, currentYM, initia
     router.push(`/admin/calendar?month=${ym}`)
   }
 
-  const thisYM = `${year}-${String(month).padStart(2, '0')}`
+  const thisYM     = `${year}-${String(month).padStart(2, '0')}`
   const monthLabel = new Intl.DateTimeFormat('en-CA', { month: 'long', year: 'numeric' })
     .format(new Date(Date.UTC(year, month - 1, 1)))
-
-  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date())
+  const todayStr   = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date())
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -169,7 +216,7 @@ export function AdminCalendar({ events, year, month, timezone, currentYM, initia
           </button>
 
           <div className="flex items-center gap-3">
-            <h2 className="font-semibold text-gray-900 text-sm sm:text-base">{monthLabel}</h2>
+            <h2 className="font-semibold text-gray-900">{monthLabel}</h2>
             {thisYM !== currentYM && (
               <button
                 onClick={() => { router.push('/admin/calendar'); setSelectedDate(null) }}
@@ -199,85 +246,115 @@ export function AdminCalendar({ events, year, month, timezone, currentYM, initia
           ))}
         </div>
 
-        {/* Day cells */}
-        <div className="grid grid-cols-7">
-          {gridCells.map(({ dateStr, inMonth }, i) => {
-            const dayEvents = byDate.get(dateStr) ?? []
-            const isToday    = dateStr === todayStr
-            const isSelected = dateStr === selectedDate
-            const chips      = dayEvents.slice(0, 2)
-            const overflow   = dayEvents.length - chips.length
+        {/* Week rows */}
+        {weekRows.map((row, rowIdx) => {
+          const bands = getWeekBands(row, leagues)
+          const isLastRow = rowIdx === weekRows.length - 1
 
-            return (
-              <button
-                key={dateStr}
-                onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-                className={[
-                  'relative min-h-[72px] sm:min-h-[96px] p-1 sm:p-2 text-left border-b border-r transition-colors',
-                  // last column: no right border
-                  (i + 1) % 7 === 0 ? 'border-r-0' : '',
-                  isSelected
-                    ? 'bg-[var(--brand-primary)]/5 ring-2 ring-inset ring-[var(--brand-primary)]'
-                    : 'hover:bg-gray-50',
-                  !inMonth ? 'opacity-30' : '',
-                ].join(' ')}
-              >
-                {/* Day number */}
-                <span className={[
-                  'inline-flex items-center justify-center w-6 h-6 text-xs sm:text-sm font-medium rounded-full mb-1',
-                  isToday
-                    ? 'text-white'
-                    : isSelected
-                      ? 'text-[var(--brand-primary)] font-bold'
-                      : 'text-gray-700',
-                ].join(' ')}
-                  style={isToday ? { backgroundColor: 'var(--brand-primary)' } : {}}
-                >
-                  {dayNum(dateStr)}
-                </span>
+          return (
+            <div key={row[0].dateStr} className={isLastRow ? '' : 'border-b'}>
 
-                {/* Event chips — max 2 on the grid */}
-                <div className="space-y-0.5">
-                  {chips.map((ev) => (
-                    <div
-                      key={ev.id}
+              {/* League bands — span multiple columns using CSS grid */}
+              {bands.length > 0 && (
+                <div className="grid grid-cols-7 gap-x-0.5 px-0.5 pt-1 pb-0.5">
+                  {bands.map(({ league, startCol, span, isStart, isEnd }) => {
+                    const p = palette(league.id)
+                    return (
+                      <Link
+                        key={league.id}
+                        href={`/admin/events/${league.id}/schedule`}
+                        style={{ gridColumn: `${startCol} / span ${span}` }}
+                        className={[
+                          'block text-[10px] sm:text-xs leading-none py-1 px-1.5 rounded-sm mb-0.5 truncate font-medium transition-opacity hover:opacity-80',
+                          p.chip,
+                          !isStart ? 'rounded-l-none pl-1' : '',
+                          !isEnd   ? 'rounded-r-none pr-1' : '',
+                        ].join(' ')}
+                        title={league.name}
+                      >
+                        {/* Show name only when the league starts in this row or at the first column */}
+                        {(isStart || startCol === 1) ? league.name : ''}
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Day cells */}
+              <div className="grid grid-cols-7">
+                {row.map(({ dateStr, inMonth }, colIdx) => {
+                  const isToday    = dateStr === todayStr
+                  const isSelected = dateStr === selectedDate
+                  const isLastCol  = colIdx === 6
+
+                  return (
+                    <button
+                      key={dateStr}
+                      onClick={() => setSelectedDate(isSelected ? null : dateStr)}
                       className={[
-                        'text-[9px] sm:text-[10px] leading-tight px-1 py-0.5 rounded border truncate',
-                        ev.type === 'session' ? SESSION_CHIP : palette(ev.league.id).chip,
+                        'h-8 sm:h-10 flex items-start justify-end p-1 transition-colors',
+                        isLastCol ? '' : 'border-r',
+                        isSelected ? 'bg-gray-50 ring-1 ring-inset ring-[var(--brand-primary)]' : 'hover:bg-gray-50',
+                        !inMonth ? 'opacity-25' : '',
                       ].join(' ')}
                     >
-                      {chipLabel(ev, timezone)}
-                    </div>
-                  ))}
-                  {overflow > 0 && (
-                    <div className="text-[9px] sm:text-[10px] text-gray-400 px-1 font-medium">
-                      +{overflow} more
-                    </div>
-                  )}
-                </div>
-              </button>
-            )
-          })}
-        </div>
+                      <span
+                        className={[
+                          'inline-flex items-center justify-center w-6 h-6 text-xs sm:text-sm font-medium rounded-full',
+                          isToday
+                            ? 'text-white'
+                            : isSelected
+                              ? 'font-bold'
+                              : 'text-gray-600',
+                        ].join(' ')}
+                        style={isToday ? { backgroundColor: 'var(--brand-primary)', color: 'white' } : {}}
+                      >
+                        {dayNum(dateStr)}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
 
         {/* Legend */}
-        {leaguePalette.size > 0 && (
-          <div className="px-4 py-3 border-t flex flex-wrap gap-x-4 gap-y-1.5">
-            {[...leaguePalette.entries()].map(([id, idx]) => {
-              const ev = events.find((e) => e.league.id === id)
-              if (!ev) return null
-              const p = PALETTE[idx % PALETTE.length]
-              return (
-                <span key={id} className="flex items-center gap-1.5 text-xs text-gray-600">
-                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${p.dot}`} />
-                  {ev.league.name}
-                </span>
-              )
-            })}
-            <span className="flex items-center gap-1.5 text-xs text-gray-600">
-              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${SESSION_DOT}`} />
-              Pickup sessions
-            </span>
+        {leagues.filter((l) => l.startDate && l.endDate).length > 0 && (
+          <div className="px-4 py-3 border-t flex flex-wrap gap-x-5 gap-y-1.5">
+            {leagues.filter((l) => l.startDate && l.endDate).map((l) => (
+              <Link
+                key={l.id}
+                href={`/admin/events/${l.id}`}
+                className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${palette(l.id).chip}`} />
+                {l.name}
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {/* Warning for leagues without dates */}
+        {undatedLeagues.length > 0 && (
+          <div className="px-4 py-3 border-t bg-amber-50 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-medium text-amber-800">
+                {undatedLeagues.length} event{undatedLeagues.length !== 1 ? 's' : ''} without season dates set:
+              </p>
+              <div className="flex flex-wrap gap-x-3 mt-1">
+                {undatedLeagues.map((l) => (
+                  <Link
+                    key={l.id}
+                    href={`/admin/events/${l.id}`}
+                    className="text-xs text-amber-700 hover:underline"
+                  >
+                    {l.name} →
+                  </Link>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -285,14 +362,13 @@ export function AdminCalendar({ events, year, month, timezone, currentYM, initia
       {/* ── Day panel ────────────────────────────────────────────────────── */}
       {selectedDate && (
         <div className="w-full lg:w-80 xl:w-96 shrink-0 bg-white rounded-xl border shadow-sm overflow-hidden">
-          {/* Panel header */}
           <div className="flex items-start justify-between gap-3 px-4 py-3 border-b">
             <div>
               <p className="font-semibold text-gray-900 text-sm leading-snug">{labelDate(selectedDate)}</p>
               <p className="text-xs text-gray-400 mt-0.5">
-                {selectedEvents.length === 0
-                  ? 'No events scheduled'
-                  : `${selectedEvents.length} event${selectedEvents.length !== 1 ? 's' : ''}`}
+                {selectedLeagues.length === 0
+                  ? 'No events on this day'
+                  : `${selectedLeagues.length} event${selectedLeagues.length !== 1 ? 's' : ''} in season`}
               </p>
             </div>
             <button
@@ -304,66 +380,36 @@ export function AdminCalendar({ events, year, month, timezone, currentYM, initia
             </button>
           </div>
 
-          {selectedEvents.length === 0 ? (
+          {selectedLeagues.length === 0 ? (
             <p className="text-sm text-gray-400 px-4 py-8 text-center">
-              No games or sessions on this day.
+              No events are scheduled on this day.
             </p>
           ) : (
-            <div className="divide-y overflow-y-auto max-h-[60vh] lg:max-h-[calc(100vh-220px)]">
-              {selectedEvents.map((ev) => {
-                const timeStr = new Intl.DateTimeFormat('en-CA', {
-                  hour: 'numeric', minute: '2-digit', hour12: true, timeZone: timezone,
-                }).format(new Date(ev.scheduled_at))
-
-                const p = ev.type === 'session'
-                  ? { dot: SESSION_DOT }
-                  : palette(ev.league.id)
-
+            <div className="divide-y">
+              {selectedLeagues.map((l) => {
+                const p = palette(l.id)
+                const dateRange = l.startDate && l.endDate
+                  ? `${shortDate(l.startDate)} – ${shortDate(l.endDate)}`
+                  : null
                 return (
                   <Link
-                    key={ev.id}
-                    href={`/admin/events/${ev.league.id}/schedule`}
-                    className="flex items-start gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors group"
+                    key={l.id}
+                    href={`/admin/events/${l.id}/schedule`}
+                    className="flex items-start gap-3 px-4 py-4 hover:bg-gray-50 transition-colors group"
                   >
-                    {/* Coloured left border */}
-                    <span className={`shrink-0 w-1 self-stretch rounded-full mt-0.5 ${p.dot}`} />
+                    {/* Colour dot */}
+                    <span className={`shrink-0 w-2.5 h-2.5 rounded-sm mt-1 ${p.chip}`} />
 
                     <div className="flex-1 min-w-0">
-                      {/* Time + court + status */}
-                      <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5">
-                        <span className="text-xs font-semibold tabular-nums text-gray-800">{timeStr}</span>
-                        {ev.court && (
-                          <span className="text-xs text-gray-400">{ev.court}</span>
-                        )}
-                        {ev.location_override && (
-                          <span className="text-xs text-gray-400">{ev.location_override}</span>
-                        )}
-                        {ev.status === 'postponed' && (
-                          <span className="text-[10px] bg-amber-100 text-amber-700 rounded px-1.5 py-0.5 font-medium">
-                            Postponed
-                          </span>
-                        )}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-gray-900 truncate">{l.name}</span>
+                        <StatusBadge status={l.status} />
                       </div>
-
-                      {/* Match-up or session label */}
-                      {ev.type === 'game' ? (
-                        <p className="text-sm font-medium text-gray-900 truncate mt-0.5">
-                          {ev.home_team?.name ?? 'TBD'}
-                          <span className="text-gray-400 font-normal mx-1">vs</span>
-                          {ev.away_team?.name ?? 'TBD'}
-                        </p>
-                      ) : (
-                        <p className="text-sm font-medium text-gray-900 mt-0.5">
-                          Pickup Session
-                          {ev.capacity != null && (
-                            <span className="text-gray-400 font-normal"> · {ev.capacity} spots</span>
-                          )}
-                        </p>
+                      {dateRange && (
+                        <p className="text-xs text-gray-400 mt-0.5">{dateRange}</p>
                       )}
-
-                      {/* League name + arrow */}
-                      <p className="text-xs text-gray-400 truncate mt-0.5 group-hover:text-gray-600 transition-colors">
-                        {ev.league.name} →
+                      <p className="text-xs font-medium mt-1.5 group-hover:underline" style={{ color: 'var(--brand-primary)' }}>
+                        View schedule →
                       </p>
                     </div>
                   </Link>
