@@ -133,6 +133,27 @@ export async function sendWaiverSigningRequest({
   })
 }
 
+/** Payment method values for admin registration notifications. */
+export type RegistrationPaymentMethod =
+  | 'free'        // no payment required
+  | 'card'        // paid via Stripe (credit/debit card)
+  | 'etransfer'   // offline — awaiting e-transfer
+  | 'cash'        // offline — awaiting cash
+  | 'cheque'      // offline — awaiting cheque
+
+function paymentMethodLine(method: RegistrationPaymentMethod | null | undefined): string {
+  if (!method) return ''
+  const MAP: Record<RegistrationPaymentMethod, { label: string; badge: string; color: string }> = {
+    free:      { label: 'Free — no payment required',       badge: '✓',  color: '#15803d' },
+    card:      { label: 'Paid by credit card',              badge: '✓',  color: '#15803d' },
+    etransfer: { label: 'Awaiting e-transfer from player',  badge: '⏳', color: '#b45309' },
+    cash:      { label: 'Awaiting cash from player',        badge: '⏳', color: '#b45309' },
+    cheque:    { label: 'Awaiting cheque from player',      badge: '⏳', color: '#b45309' },
+  }
+  const { label, badge, color } = MAP[method]
+  return `<p style="color:${color};font-size:15px;margin:4px 0;"><strong>Payment:</strong> ${badge} ${label}</p>`
+}
+
 export async function sendRegistrationAdminNotification({
   to,
   playerName,
@@ -140,6 +161,7 @@ export async function sendRegistrationAdminNotification({
   leagueName,
   orgName,
   adminUrl,
+  paymentMethod,
 }: {
   to: string | string[]
   playerName: string | null
@@ -147,6 +169,8 @@ export async function sendRegistrationAdminNotification({
   leagueName: string
   orgName: string
   adminUrl: string
+  /** When provided, shown so admins know if they need to collect payment. */
+  paymentMethod?: RegistrationPaymentMethod | null
 }) {
   const displayName = playerName ?? playerEmail ?? 'A player'
   const emailLine = playerEmail
@@ -166,6 +190,7 @@ export async function sendRegistrationAdminNotification({
           <p style="color:#444;font-size:15px;margin:4px 0;"><strong>Player:</strong> ${esc(displayName)}</p>
           ${emailLine}
           <p style="color:#444;font-size:15px;margin:4px 0;"><strong>Event:</strong> ${esc(leagueName)}</p>
+          ${paymentMethodLine(paymentMethod)}
         </div>
 
         <a href="${adminUrl}"
@@ -362,6 +387,7 @@ export async function sendMerchOrderAdminNotification({
           <p style="color:#444;font-size:15px;margin:4px 0;"><strong>Customer:</strong> ${esc(displayName)}</p>
           ${buyerEmail ? `<p style="color:#444;font-size:15px;margin:4px 0;"><strong>Email:</strong> ${esc(buyerEmail)}</p>` : ''}
           <p style="color:#444;font-size:15px;margin:4px 0;"><strong>Source:</strong> ${sourceLabel}</p>
+          <p style="color:#15803d;font-size:15px;margin:4px 0;"><strong>Payment:</strong> ✓ Paid by credit card</p>
         </div>
 
         <table style="width:100%;border-collapse:collapse;margin:16px 0;">

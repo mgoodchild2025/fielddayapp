@@ -7,6 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { resolveLeagueMethods, isOfflineMethod, PAYMENT_METHOD_LABELS, type PaymentMethod } from '@/lib/payment-methods'
+import { sendRegistrationAdminNotification, type RegistrationPaymentMethod } from './emails'
 import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
 
 const recordManualPaymentSchema = z.object({
@@ -189,6 +190,9 @@ export async function selectOfflinePayment(
     (league.payment_instructions?.trim() || null) ??
     (orgPay?.registration_manual_instructions ?? null)
 
+  // Notify admins so they know to follow up and collect payment (fire-and-forget)
+  notifyRegistrationAdmin(db, org.id, reg.user_id, league.id, league.name, method as RegistrationPaymentMethod).catch(() => {})
+
   revalidatePath('/admin/payments')
   return { instructions, methodLabel: PAYMENT_METHOD_LABELS[method], error: null }
 }
@@ -305,8 +309,72 @@ export async function selectOfflineTeamPayment(
     (league.payment_instructions?.trim() || null) ??
     (orgPay?.registration_manual_instructions ?? null)
 
+  // Notify admins of the offline team payment selection (fire-and-forget)
+  notifyRegistrationAdmin(db, org.id, user.id, league.id, league.name, method as RegistrationPaymentMethod).catch(() => {})
+
   revalidatePath('/admin/payments')
   return { instructions, methodLabel: PAYMENT_METHOD_LABELS[method], error: null }
+}
+
+// ── Shared admin notification helper ─────────────────────────────────────────
+
+/**
+ * Send a registration admin notification. Resolves recipients from
+ * org_notification_settings (custom email or all org_admins). Never throws —
+ * all callers should wrap in .catch(() => {}).
+ */
+async function notifyRegistrationAdmin(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  orgId: string,
+  userId: string,
+  leagueId: string,
+  leagueName: string,
+  paymentMethod: RegistrationPaymentMethod,
+): Promise<void> {
+  const { data: notifSettings } = await db
+    .from('org_notification_settings')
+    .select('registration_notifications_enabled, registration_notification_email')
+    .eq('organization_id', orgId)
+    .maybeSingle()
+
+  if (!notifSettings?.registration_notifications_enabled) return
+
+  let recipients: string[]
+  if (notifSettings.registration_notification_email) {
+    recipients = [notifSettings.registration_notification_email]
+  } else {
+    const { data: admins } = await db
+      .from('org_members')
+      .select('profile:profiles!org_members_user_id_fkey(email)')
+      .eq('organization_id', orgId)
+      .eq('role', 'org_admin')
+      .eq('status', 'active')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recipients = (admins ?? []).flatMap((a: any) => {
+      const email = Array.isArray(a.profile) ? a.profile[0]?.email : a.profile?.email
+      return email ? [email as string] : []
+    })
+  }
+  if (!recipients.length) return
+
+  const { data: profile } = await db.from('profiles').select('full_name, email').eq('id', userId).single()
+  const { data: org } = await db.from('organizations').select('name, slug').eq('id', orgId).single()
+  const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+  const orgSlug = (org as { slug?: string } | null)?.slug
+  const adminUrl = orgSlug
+    ? `https://${orgSlug}.${platformDomain}/admin/players`
+    : `https://${platformDomain}/admin/players`
+
+  await sendRegistrationAdminNotification({
+    to: recipients,
+    playerName: (profile as { full_name?: string | null } | null)?.full_name ?? null,
+    playerEmail: (profile as { email?: string | null } | null)?.email ?? null,
+    leagueName,
+    orgName: (org as { name?: string } | null)?.name ?? '',
+    adminUrl,
+    paymentMethod,
+  })
 }
 
 const updatePaymentStatusSchema = z.object({
