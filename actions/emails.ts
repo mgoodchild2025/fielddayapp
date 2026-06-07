@@ -87,7 +87,7 @@ export async function sendRegistrationConfirmation({
   daysOfWeek?: string[] | null
   venueName?: string | null
   venueAddress?: string | null
-  venueMapsUrl?: string | null
+  venueMapsUrl?: string | null   // retained for API compat; no longer used in email rendering
 }) {
   const sportEmoji = (sport && SPORT_EMOJI[sport]) ?? '🎉'
   const showCheckin = !!checkinUrl
@@ -127,36 +127,14 @@ export async function sendRegistrationConfirmation({
     </div>
   ` : ''
 
-  // ── Location block (venue + Google Maps) ────────────────────────────────────
+  // ── Location block — plain text so mobile devices auto-link to maps apps ────
   let locationBlock = ''
   if (venueName || venueAddress) {
-    // Google Maps search URL for the address
-    const mapsQuery = venueAddress ?? venueName ?? ''
-    const mapsSearchUrl = venueMapsUrl || `https://www.google.com/maps/search/?q=${encodeURIComponent(mapsQuery)}`
-
-    // Google Static Maps image (500×180, 15 zoom, single marker).
-    // Requires GOOGLE_MAPS_API_KEY env var — gracefully omitted if unset.
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY
-    const staticMapUrl = apiKey && mapsQuery
-      ? `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(mapsQuery)}&zoom=15&size=500x180&scale=2&maptype=roadmap&markers=color:red%7C${encodeURIComponent(mapsQuery)}&key=${apiKey}`
-      : null
-
     locationBlock = `
-      <div style="margin:24px 0;">
+      <div style="margin:24px 0;padding:16px 20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
         <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">Location</p>
-        <a href="${mapsSearchUrl}" target="_blank" rel="noopener noreferrer"
-          style="display:block;text-decoration:none;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
-          ${staticMapUrl ? `<img src="${staticMapUrl}" width="500" alt="Map of ${esc(mapsQuery)}"
-            style="display:block;width:100%;max-width:500px;height:auto;border-bottom:1px solid #e5e7eb;" />` : ''}
-          <div style="padding:14px 16px;display:flex;align-items:flex-start;gap:10px;">
-            <span style="font-size:20px;flex-shrink:0;line-height:1.4;">📍</span>
-            <div>
-              ${venueName ? `<p style="margin:0 0 2px;font-weight:600;color:#111827;font-size:14px;">${esc(venueName)}</p>` : ''}
-              ${venueAddress ? `<p style="margin:0 0 6px;color:#6b7280;font-size:13px;">${esc(venueAddress)}</p>` : ''}
-              <p style="margin:0;font-size:12px;color:#2563eb;font-weight:500;">View on Google Maps →</p>
-            </div>
-          </div>
-        </a>
+        ${venueName ? `<p style="margin:0 0 4px;font-weight:600;color:#111827;font-size:14px;">${esc(venueName)}</p>` : ''}
+        ${venueAddress ? `<p style="margin:0;color:#374151;font-size:13px;">${esc(venueAddress)}</p>` : ''}
       </div>
     `
   }
