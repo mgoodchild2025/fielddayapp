@@ -133,8 +133,13 @@ export async function sendRegistrationConfirmation({
     locationBlock = `
       <div style="margin:24px 0;padding:16px 20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
         <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">Location</p>
-        ${venueName ? `<p style="margin:0 0 4px;font-weight:600;color:#111827;font-size:14px;">${esc(venueName)}</p>` : ''}
-        ${venueAddress ? `<p style="margin:0;color:#374151;font-size:13px;">${esc(venueAddress)}</p>` : ''}
+        <div style="display:flex;align-items:flex-start;gap:8px;">
+          <span style="font-size:18px;line-height:1.3;flex-shrink:0;">📍</span>
+          <div>
+            ${venueName ? `<p style="margin:0 0 4px;font-weight:600;color:#111827;font-size:14px;">${esc(venueName)}</p>` : ''}
+            ${venueAddress ? `<p style="margin:0;color:#374151;font-size:13px;">${esc(venueAddress)}</p>` : ''}
+          </div>
+        </div>
       </div>
     `
   }
