@@ -266,7 +266,7 @@ export async function activateRegistration(registrationId: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: reg, error: fetchError } = await (db2 as any)
     .from('registrations')
-    .select('*, checkin_token, profiles!registrations_user_id_fkey(full_name, email), leagues!registrations_league_id_fkey(id, name, slug, sport, event_type, checkin_enabled, calendar_token, price_cents, payment_mode)')
+    .select('*, checkin_token, profiles!registrations_user_id_fkey(full_name, email), leagues!registrations_league_id_fkey(id, name, slug, sport, event_type, checkin_enabled, calendar_token, price_cents, payment_mode, season_start_date, game_start_time, game_end_time, days_of_week, venue_name, venue_address, venue_maps_url)')
     .eq('id', registrationId)
     .eq('organization_id', org.id)
     .single()
@@ -314,6 +314,19 @@ export async function activateRegistration(registrationId: string) {
       eventType: league.event_type ?? null,
       checkinUrl,
       calendarCtaHtml,
+      seasonStartDate: (league as { season_start_date?: string | null }).season_start_date ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      gameStartTime: (league as any).game_start_time ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      gameEndTime: (league as any).game_end_time ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      daysOfWeek: (league as any).days_of_week ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      venueName: (league as any).venue_name ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      venueAddress: (league as any).venue_address ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      venueMapsUrl: (league as any).venue_maps_url ?? null,
     })
   }
 

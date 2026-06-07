@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       // Send confirmation to each member
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [{ data: league }, { data: org }, { data: teamRow }] = await Promise.all([
-        (supabase as any).from('leagues').select('name, sport, event_type, checkin_enabled').eq('id', leagueId).single(),
+        (supabase as any).from('leagues').select('name, sport, event_type, checkin_enabled, season_start_date, game_start_time, game_end_time, days_of_week, venue_name, venue_address, venue_maps_url').eq('id', leagueId).single(),
         supabase.from('organizations').select('name, slug').eq('id', orgId).single(),
         // Fetch the team's calendar_token so we can send a team-specific calendar link
         (supabase as any).from('teams').select('calendar_token').eq('id', teamId).single(),
@@ -135,6 +135,20 @@ export async function POST(request: NextRequest) {
               eventType: (league as { event_type?: string }).event_type ?? null,
               checkinUrl,
               calendarCtaHtml: teamCalendarCtaHtml,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              seasonStartDate: (league as any)?.season_start_date ?? null,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              gameStartTime: (league as any)?.game_start_time ?? null,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              gameEndTime: (league as any)?.game_end_time ?? null,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              daysOfWeek: (league as any)?.days_of_week ?? null,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              venueName: (league as any)?.venue_name ?? null,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              venueAddress: (league as any)?.venue_address ?? null,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              venueMapsUrl: (league as any)?.venue_maps_url ?? null,
             })
           }
         }
@@ -226,7 +240,7 @@ export async function POST(request: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [{ data: profile }, { data: league }, { data: org }, { data: reg }] = await Promise.all([
         supabase.from('profiles').select('full_name, email').eq('id', userId).single(),
-        (supabase as any).from('leagues').select('id, name, slug, sport, event_type, checkin_enabled, payment_mode, price_cents, currency, calendar_token').eq('id', leagueId ?? '').single(),
+        (supabase as any).from('leagues').select('id, name, slug, sport, event_type, checkin_enabled, payment_mode, price_cents, currency, calendar_token, season_start_date, game_start_time, game_end_time, days_of_week, venue_name, venue_address, venue_maps_url').eq('id', leagueId ?? '').single(),
         supabase.from('organizations').select('name, slug').eq('id', orgId).single(),
         (supabase as any).from('registrations').select('user_id, checkin_token').eq('id', registrationId).single(),
       ])
@@ -269,6 +283,20 @@ export async function POST(request: NextRequest) {
           eventType: (league as { event_type?: string } | null)?.event_type ?? null,
           checkinUrl,
           calendarCtaHtml,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          seasonStartDate: (league as any)?.season_start_date ?? null,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          gameStartTime: (league as any)?.game_start_time ?? null,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          gameEndTime: (league as any)?.game_end_time ?? null,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          daysOfWeek: (league as any)?.days_of_week ?? null,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          venueName: (league as any)?.venue_name ?? null,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          venueAddress: (league as any)?.venue_address ?? null,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          venueMapsUrl: (league as any)?.venue_maps_url ?? null,
         })
       }
 
