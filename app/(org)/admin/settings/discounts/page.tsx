@@ -21,11 +21,30 @@ export default async function AdminDiscountsPage() {
   }
   const supabase = createServiceRoleClient()
 
-  const { data: codes } = await supabase
-    .from('discount_codes')
-    .select('*')
-    .eq('organization_id', org.id)
-    .order('created_at', { ascending: false })
+  const [{ data: rawCodes }, { data: leagues }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from('discount_codes')
+      .select('*, league:leagues!discount_codes_league_id_fkey(name)')
+      .eq('organization_id', org.id)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('leagues')
+      .select('id, name')
+      .eq('organization_id', org.id)
+      .is('deleted_at', null)
+      .not('status', 'in', '(archived,draft)')
+      .order('name'),
+  ])
+
+  // Flatten the joined league name onto each code row
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const codes = (rawCodes ?? []).map((c: any) => ({
+    ...c,
+    league_name: (Array.isArray(c.league) ? c.league[0] : c.league)?.name ?? null,
+    league: undefined,
+  }))
 
   return (
     <div className="max-w-3xl">
@@ -36,7 +55,7 @@ export default async function AdminDiscountsPage() {
 
       <div className="bg-white rounded-lg border p-5 mb-6">
         <h2 className="font-semibold mb-4">Create New Code</h2>
-        <DiscountForm />
+        <DiscountForm leagues={leagues ?? []} />
       </div>
 
       {(codes ?? []).length === 0 ? (
@@ -52,7 +71,8 @@ export default async function AdminDiscountsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {(codes ?? []).map(code => (
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {(codes ?? []).map((code: any) => (
                 <DiscountRow key={code.id} code={code} />
               ))}
             </tbody>

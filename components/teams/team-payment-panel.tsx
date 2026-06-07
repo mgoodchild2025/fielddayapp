@@ -68,7 +68,7 @@ export function TeamPaymentPanel({
     if (!code) return
     setDiscountLoading(true)
     setDiscountError(null)
-    const result = await validateDiscountCode(code, orgId, 'leagues')
+    const result = await validateDiscountCode(code, orgId, 'leagues', leagueId)
     setDiscountLoading(false)
     if (result.valid && result.discount) {
       setAppliedDiscount(result.discount)

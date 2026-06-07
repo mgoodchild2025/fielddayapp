@@ -100,7 +100,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
     // Determine context: drop-in vs league
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ctx = ((league as any).event_type === 'drop_in' || (league as any).event_type === 'pickup' || league.league_type === 'dropin') ? 'dropins' : 'leagues'
-    const result = await validateDiscountCode(code, org.id, ctx)
+    const result = await validateDiscountCode(code, org.id, ctx, league.id)
     setDiscountLoading(false)
     if (result.valid && result.discount) {
       setAppliedDiscount(result.discount)
