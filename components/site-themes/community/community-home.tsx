@@ -24,6 +24,21 @@ type League = {
   payment_mode: string | null
   skill_level: string | null
   days_of_week: string[] | null
+  game_start_time: string | null
+  game_end_time: string | null
+}
+
+function fmtTime(t: string): string {
+  const [h, m] = t.split(':').map(Number)
+  const period = h >= 12 ? 'PM' : 'AM'
+  const hr = h % 12 || 12
+  return `${hr}${m ? `:${String(m).padStart(2, '0')}` : ''} ${period}`
+}
+
+function timeRange(start: string | null, end: string | null): string | null {
+  if (!start && !end) return null
+  if (start && end) return `${fmtTime(start)} – ${fmtTime(end)}`
+  return start ? fmtTime(start) : fmtTime(end!)
 }
 
 type HeroContent = {
@@ -126,7 +141,7 @@ function EventCard({ league, spots }: { league: League; spots: { filled: number;
           })}
         </p>
       )}
-      {(league.skill_level || (league.days_of_week?.length ?? 0) > 0) && (
+      {(league.skill_level || (league.days_of_week?.length ?? 0) > 0 || league.game_start_time || league.game_end_time) && (
         <div className="flex flex-wrap gap-1.5 mt-2">
           {league.skill_level && (
             <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500 capitalize">
@@ -138,6 +153,11 @@ function EventCard({ league, spots }: { league: League; spots: { filled: number;
               {d}
             </span>
           ))}
+          {timeRange(league.game_start_time, league.game_end_time) && (
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500">
+              {timeRange(league.game_start_time, league.game_end_time)}
+            </span>
+          )}
         </div>
       )}
       <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>

@@ -11,8 +11,21 @@ type League = {
   sport: string | null; logo_url: string | null
   season_start_date: string | null; price_cents: number; currency: string | null
   max_teams: number | null; payment_mode: string | null; skill_level: string | null
-  days_of_week: string[] | null
+  days_of_week: string[] | null; game_start_time: string | null; game_end_time: string | null
 }
+
+function fmtTimePro(t: string): string {
+  const [h, m] = t.split(':').map(Number)
+  const period = h >= 12 ? 'PM' : 'AM'
+  const hr = h % 12 || 12
+  return `${hr}${m ? `:${String(m).padStart(2, '0')}` : ''} ${period}`
+}
+function timeRangePro(s: string | null, e: string | null): string | null {
+  if (!s && !e) return null
+  if (s && e) return `${fmtTimePro(s)} – ${fmtTimePro(e)}`
+  return s ? fmtTimePro(s) : fmtTimePro(e!)
+}
+
 type RecentResult = {
   id: string; home_score: number | null; away_score: number | null
   home_team_name: string; away_team_name: string
@@ -138,6 +151,7 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
                             <div className="flex items-center gap-2">
                               <span className="capitalize">{league.event_type ?? 'league'}</span>
                               {league.skill_level && <><span>·</span><span className="capitalize">{league.skill_level}</span></>}
+                              {timeRangePro(league.game_start_time, league.game_end_time) && <><span>·</span><span>{timeRangePro(league.game_start_time, league.game_end_time)}</span></>}
                             </div>
                             {atCapacity
                               ? <span className="text-amber-600 font-medium">{spots?.unit === 'team' ? 'Teams Full' : 'Full'}</span>
