@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useCart } from './cart-provider'
+import { validateDiscountCode, incrementDiscountUse } from '@/actions/discounts'
 
 interface Props {
   orgId: string
@@ -13,6 +14,15 @@ export function CartDrawer({ orgId }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Discount code
+  const [discountInput, setDiscountInput] = useState('')
+  const [discountLoading, setDiscountLoading] = useState(false)
+  const [discountError, setDiscountError] = useState<string | null>(null)
+  const [appliedDiscount, setAppliedDiscount] = useState<{
+    id: string; code: string; type: 'percent' | 'fixed'; value: number
+  } | null>(null)
+  const [showDiscountInput, setShowDiscountInput] = useState(false)
+
   // Lock body scroll when drawer is open
   useEffect(() => {
     if (isOpen) {
@@ -22,6 +32,28 @@ export function CartDrawer({ orgId }: Props) {
     }
     return () => { document.body.style.overflow = '' }
   }, [isOpen])
+
+  async function handleApplyDiscount() {
+    const code = discountInput.trim()
+    if (!code) return
+    setDiscountLoading(true)
+    setDiscountError(null)
+    const result = await validateDiscountCode(code, orgId, 'shop')
+    setDiscountLoading(false)
+    if (result.valid && result.discount) {
+      setAppliedDiscount(result.discount)
+    } else {
+      setDiscountError(result.error ?? 'Invalid code')
+    }
+  }
+
+  // Discount calculation on subtotal
+  const discountAmountCents = appliedDiscount
+    ? appliedDiscount.type === 'percent'
+      ? Math.round(totalCents * appliedDiscount.value / 100)
+      : Math.min(appliedDiscount.value * 100, totalCents)
+    : 0
+  const discountedTotalCents = totalCents - discountAmountCents
 
   async function handleCheckout() {
     if (items.length === 0) return
@@ -38,6 +70,7 @@ export function CartDrawer({ orgId }: Props) {
             variantId: c.variantId,
             quantity: c.quantity,
           })),
+          ...(appliedDiscount ? { discountId: appliedDiscount.id } : {}),
         }),
       })
       const data = await res.json()
@@ -46,6 +79,7 @@ export function CartDrawer({ orgId }: Props) {
         window.location.href = data.url
       } else if (data.manual) {
         // Manual payment — clear cart and go to success page
+        if (appliedDiscount) await incrementDiscountUse(appliedDiscount.id)
         clearCart()
         const params = new URLSearchParams({ manual: '1' })
         if (data.instructions) params.set('instructions', encodeURIComponent(data.instructions))
@@ -189,11 +223,88 @@ export function CartDrawer({ orgId }: Props) {
               <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</p>
             )}
 
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Subtotal</span>
-              <span className="font-bold text-lg text-gray-900">
-                ${(totalCents / 100).toFixed(2)} <span className="text-sm font-normal text-gray-500">{currency}</span>
-              </span>
+            {/* Discount code */}
+            {!appliedDiscount ? (
+              <div>
+                {!showDiscountInput ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowDiscountInput(true)}
+                    className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
+                  >
+                    Have a discount code?
+                  </button>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={discountInput}
+                        onChange={e => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(null) }}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleApplyDiscount() } }}
+                        placeholder="DISCOUNT CODE"
+                        className="flex-1 border rounded-lg px-3 py-2 text-xs font-mono uppercase focus:outline-none focus:ring-2"
+                        style={{ '--tw-ring-color': 'var(--brand-primary)' } as React.CSSProperties}
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyDiscount}
+                        disabled={discountLoading || !discountInput.trim()}
+                        className="px-3 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+                        style={{ backgroundColor: 'var(--brand-primary)' }}
+                      >
+                        {discountLoading ? '…' : 'Apply'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowDiscountInput(false); setDiscountInput(''); setDiscountError(null) }}
+                        className="px-2 text-gray-400 hover:text-gray-600 text-xs"
+                      >✕</button>
+                    </div>
+                    {discountError && <p className="text-xs text-red-600">{discountError}</p>}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center justify-between text-xs bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                <span className="text-green-700 font-medium">
+                  {appliedDiscount.code} —{' '}
+                  {appliedDiscount.type === 'percent'
+                    ? `${appliedDiscount.value}% off`
+                    : `$${appliedDiscount.value.toFixed(2)} off`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setAppliedDiscount(null); setDiscountInput('') }}
+                  className="text-green-600 hover:text-red-500 underline text-xs ml-2"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+
+            {/* Totals */}
+            <div className="space-y-1">
+              {appliedDiscount && discountAmountCents > 0 && (
+                <>
+                  <div className="flex items-center justify-between text-sm text-gray-500">
+                    <span>Subtotal</span>
+                    <span className="line-through">${(totalCents / 100).toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-green-700">
+                    <span>Discount</span>
+                    <span>−${(discountAmountCents / 100).toFixed(2)}</span>
+                  </div>
+                </>
+              )}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">{appliedDiscount ? 'Total' : 'Subtotal'}</span>
+                <span className="font-bold text-lg text-gray-900">
+                  ${(discountedTotalCents / 100).toFixed(2)}{' '}
+                  <span className="text-sm font-normal text-gray-500">{currency}</span>
+                </span>
+              </div>
             </div>
 
             <button

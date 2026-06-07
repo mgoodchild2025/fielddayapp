@@ -11,6 +11,7 @@ const shopCheckoutSchema = z.object({
     variantId: z.string().uuid().nullable(),
     quantity: z.number().int().min(1).max(10),
   })).min(1),
+  discountId: z.string().uuid().optional(),
 })
 
 type MerchItemRow    = { id: string; price_cents: number; name: string; is_active: boolean; shop_enabled: boolean; currency: string }
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const { orgId, items } = parsed.data
+  const { orgId, items, discountId } = parsed.data
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = createServiceRoleClient() as any
 
@@ -188,6 +189,25 @@ export async function POST(request: NextRequest) {
     })
   }
 
+  // ── Apply discount code server-side ──────────────────────────────────────
+  let discountApplied: { id: string; type: string; value: number } | null = null
+  if (discountId) {
+    const { data: dr } = await db
+      .from('discount_codes')
+      .select('id, type, value, active, expires_at, max_uses, use_count, applies_to')
+      .eq('id', discountId)
+      .eq('organization_id', orgId)
+      .single()
+    if (
+      dr && dr.active &&
+      (!dr.expires_at || new Date(dr.expires_at) > new Date()) &&
+      (!dr.max_uses || dr.use_count < dr.max_uses) &&
+      (dr.applies_to === 'all' || dr.applies_to === 'shop')
+    ) {
+      discountApplied = { id: dr.id, type: dr.type, value: dr.value }
+    }
+  }
+
   // ── Build Stripe line items ───────────────────────────────────────────────
   const lineItems = items.map((sel) => {
     const item    = itemMap.get(sel.itemId)!
@@ -202,6 +222,24 @@ export async function POST(request: NextRequest) {
       quantity: sel.quantity,
     }
   })
+
+  // If a discount applies, add a negative-amount line item (Stripe coupon alternative)
+  if (discountApplied) {
+    const subtotal = lineItems.reduce((s, li) => s + li.price_data.unit_amount * li.quantity, 0)
+    const reduction = discountApplied.type === 'percent'
+      ? Math.round(subtotal * discountApplied.value / 100)
+      : Math.min(discountApplied.value * 100, subtotal)
+    if (reduction > 0) {
+      lineItems.push({
+        price_data: {
+          currency,
+          unit_amount: -reduction,
+          product_data: { name: `Discount (${discountApplied.type === 'percent' ? `${discountApplied.value}%` : `$${discountApplied.value}`} off)` },
+        },
+        quantity: 1,
+      })
+    }
+  }
 
   // ── Create Stripe checkout session ────────────────────────────────────────
   const orgStripe = new Stripe(paymentSettings.stripe_secret_key, {
@@ -241,6 +279,11 @@ export async function POST(request: NextRequest) {
     await db.from('merchandise_orders').delete().in('id', orderIds)
     console.error('[shop-checkout] Stripe session creation failed:', err)
     return NextResponse.json({ error: 'Could not create checkout session. Please try again.' }, { status: 500 })
+  }
+
+  // Lock in discount use count
+  if (discountApplied) {
+    await db.rpc('increment_discount_use', { discount_id: discountApplied.id })
   }
 
   return NextResponse.json({ url: session.url })
