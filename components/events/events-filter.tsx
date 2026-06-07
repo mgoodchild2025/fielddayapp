@@ -20,6 +20,8 @@ export interface EventItem {
   payment_mode: string | null
   skill_level: string | null
   days_of_week: string[] | null
+  game_start_time: string | null
+  game_end_time: string | null
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -63,6 +65,20 @@ function formatPrice(cents: number, currency: string) {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+}
+
+function formatTime(t: string): string {
+  const [h, m] = t.split(':').map(Number)
+  const period = h >= 12 ? 'PM' : 'AM'
+  const hr = h % 12 || 12
+  return `${hr}${m ? `:${String(m).padStart(2, '0')}` : ''} ${period}`
+}
+
+function formatTimeRange(start: string | null, end: string | null): string | null {
+  if (!start && !end) return null
+  if (start && end) return `${formatTime(start)} – ${formatTime(end)}`
+  if (start) return formatTime(start)
+  return formatTime(end!)
 }
 
 function formatYear(iso: string) {
@@ -139,8 +155,8 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
           </div>
         </div>
 
-        {/* Metadata chips */}
-        {(event.skill_level || (event.days_of_week?.length ?? 0) > 0) && (
+        {/* Metadata chips — days, time, skill level */}
+        {(event.skill_level || (event.days_of_week?.length ?? 0) > 0 || event.game_start_time || event.game_end_time) && (
           <div className="flex flex-wrap gap-1.5 -mt-1">
             {event.skill_level && (
               <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500 capitalize">
@@ -152,6 +168,11 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
                 {d}
               </span>
             ))}
+            {formatTimeRange(event.game_start_time, event.game_end_time) && (
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500">
+                {formatTimeRange(event.game_start_time, event.game_end_time)}
+              </span>
+            )}
           </div>
         )}
 
@@ -209,9 +230,17 @@ function EventRow({ event, variant }: { event: EventItem; variant: 'inseason' | 
         </div>
       </div>
       <div className="flex items-center gap-3 shrink-0">
-        {event.season_start_date && (
-          <span className="text-xs text-gray-400 hidden sm:block">
-            {variant === 'past' ? formatYear(event.season_start_date) : formatDate(event.season_start_date)}
+        {(event.season_start_date || formatTimeRange(event.game_start_time, event.game_end_time)) && (
+          <span className="text-xs text-gray-400 hidden sm:block text-right">
+            {event.season_start_date && (
+              <span>{variant === 'past' ? formatYear(event.season_start_date) : formatDate(event.season_start_date)}</span>
+            )}
+            {event.season_start_date && formatTimeRange(event.game_start_time, event.game_end_time) && (
+              <span className="mx-1">·</span>
+            )}
+            {formatTimeRange(event.game_start_time, event.game_end_time) && (
+              <span>{formatTimeRange(event.game_start_time, event.game_end_time)}</span>
+            )}
           </span>
         )}
         <svg className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
