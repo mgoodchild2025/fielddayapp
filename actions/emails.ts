@@ -28,6 +28,34 @@ const SPORT_EMOJI: Record<string, string> = {
   dodgeball:       '🔴',
 }
 
+/** Format "HH:MM:SS" or "HH:MM" → "7:00 PM" */
+function fmtEmailTime(t: string): string {
+  const [h, m] = t.split(':').map(Number)
+  const period = h >= 12 ? 'PM' : 'AM'
+  const hr = h % 12 || 12
+  return `${hr}${m ? `:${String(m).padStart(2, '0')}` : ''} ${period}`
+}
+
+/** Format "YYYY-MM-DD" → "June 2, 2026" (UTC-safe, no timezone shift) */
+function fmtEmailDate(d: string): string {
+  const [y, m, day] = d.split('-').map(Number)
+  return new Intl.DateTimeFormat('en-CA', {
+    month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC',
+  }).format(Date.UTC(y, m - 1, day))
+}
+
+/** ['mon','tue','thu'] → "Mon, Tue & Thu" */
+function fmtDays(days: string[]): string {
+  const labels: Record<string, string> = {
+    mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun',
+  }
+  const order = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+  const sorted = [...days].sort((a, b) => order.indexOf(a) - order.indexOf(b))
+  const labelled = sorted.map(d => labels[d] ?? d)
+  if (labelled.length === 1) return labelled[0]
+  return `${labelled.slice(0, -1).join(', ')} & ${labelled[labelled.length - 1]}`
+}
+
 export async function sendRegistrationConfirmation({
   email,
   name,
@@ -37,6 +65,13 @@ export async function sendRegistrationConfirmation({
   eventType,
   checkinUrl,
   calendarCtaHtml,
+  seasonStartDate,
+  gameStartTime,
+  gameEndTime,
+  daysOfWeek,
+  venueName,
+  venueAddress,
+  venueMapsUrl,
 }: {
   email: string
   name: string
@@ -46,6 +81,13 @@ export async function sendRegistrationConfirmation({
   eventType?: string | null
   checkinUrl?: string | null
   calendarCtaHtml?: string | null
+  seasonStartDate?: string | null
+  gameStartTime?: string | null
+  gameEndTime?: string | null
+  daysOfWeek?: string[] | null
+  venueName?: string | null
+  venueAddress?: string | null
+  venueMapsUrl?: string | null
 }) {
   const sportEmoji = (sport && SPORT_EMOJI[sport]) ?? '🎉'
   const showCheckin = !!checkinUrl
@@ -53,6 +95,73 @@ export async function sendRegistrationConfirmation({
     ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(checkinUrl)}`
     : null
 
+  // ── Event details block (start date + schedule) ─────────────────────────────
+  const scheduleRows: string[] = []
+  if (seasonStartDate) {
+    scheduleRows.push(
+      `<tr><td style="padding:6px 0;color:#6b7280;font-size:13px;white-space:nowrap;padding-right:12px;">Season starts</td>` +
+      `<td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;">${fmtEmailDate(seasonStartDate)}</td></tr>`
+    )
+  }
+  const hasDays = daysOfWeek && daysOfWeek.length > 0
+  const hasTime = gameStartTime || gameEndTime
+  if (hasDays || hasTime) {
+    const dayLabel = hasDays ? fmtDays(daysOfWeek!) : ''
+    const timeLabel = gameStartTime && gameEndTime
+      ? `${fmtEmailTime(gameStartTime)} – ${fmtEmailTime(gameEndTime)}`
+      : gameStartTime ? `From ${fmtEmailTime(gameStartTime)}`
+      : gameEndTime  ? `Until ${fmtEmailTime(gameEndTime!)}` : ''
+    const scheduleVal = [dayLabel, timeLabel].filter(Boolean).join(' · ')
+    scheduleRows.push(
+      `<tr><td style="padding:6px 0;color:#6b7280;font-size:13px;white-space:nowrap;padding-right:12px;">Schedule</td>` +
+      `<td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;">${esc(scheduleVal)}</td></tr>`
+    )
+  }
+
+  const eventDetailsBlock = scheduleRows.length > 0 ? `
+    <div style="margin:24px 0;padding:16px 20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
+      <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">Event Details</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">
+        <tbody>${scheduleRows.join('')}</tbody>
+      </table>
+    </div>
+  ` : ''
+
+  // ── Location block (venue + Google Maps) ────────────────────────────────────
+  let locationBlock = ''
+  if (venueName || venueAddress) {
+    // Google Maps search URL for the address
+    const mapsQuery = venueAddress ?? venueName ?? ''
+    const mapsSearchUrl = venueMapsUrl || `https://www.google.com/maps/search/?q=${encodeURIComponent(mapsQuery)}`
+
+    // Google Static Maps image (500×180, 15 zoom, single marker).
+    // Requires GOOGLE_MAPS_API_KEY env var — gracefully omitted if unset.
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY
+    const staticMapUrl = apiKey && mapsQuery
+      ? `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(mapsQuery)}&zoom=15&size=500x180&scale=2&maptype=roadmap&markers=color:red%7C${encodeURIComponent(mapsQuery)}&key=${apiKey}`
+      : null
+
+    locationBlock = `
+      <div style="margin:24px 0;">
+        <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;">Location</p>
+        <a href="${mapsSearchUrl}" target="_blank" rel="noopener noreferrer"
+          style="display:block;text-decoration:none;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
+          ${staticMapUrl ? `<img src="${staticMapUrl}" width="500" alt="Map of ${esc(mapsQuery)}"
+            style="display:block;width:100%;max-width:500px;height:auto;border-bottom:1px solid #e5e7eb;" />` : ''}
+          <div style="padding:14px 16px;display:flex;align-items:flex-start;gap:10px;">
+            <span style="font-size:20px;flex-shrink:0;line-height:1.4;">📍</span>
+            <div>
+              ${venueName ? `<p style="margin:0 0 2px;font-weight:600;color:#111827;font-size:14px;">${esc(venueName)}</p>` : ''}
+              ${venueAddress ? `<p style="margin:0 0 6px;color:#6b7280;font-size:13px;">${esc(venueAddress)}</p>` : ''}
+              <p style="margin:0;font-size:12px;color:#2563eb;font-weight:500;">View on Google Maps →</p>
+            </div>
+          </div>
+        </a>
+      </div>
+    `
+  }
+
+  // ── Check-in QR block ────────────────────────────────────────────────────────
   const checkinBlock = showCheckin ? `
     <div style="margin-top: 32px; padding: 24px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; text-align: center;">
       <p style="font-size: 16px; font-weight: 600; color: #15803d; margin: 0 0 4px;">Your Check-in QR Code</p>
@@ -74,6 +183,8 @@ export async function sendRegistrationConfirmation({
         <p style="color: #444; font-size: 16px;">
           You're officially registered for <strong>${esc(leagueName)}</strong> with ${esc(orgName)}.
         </p>
+        ${eventDetailsBlock}
+        ${locationBlock}
         <p style="color: #444; font-size: 16px;">
           Log in to view your schedule, team info, and more.
         </p>
