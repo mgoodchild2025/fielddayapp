@@ -11,8 +11,21 @@ type League = {
   sport: string | null; logo_url: string | null
   season_start_date: string | null; price_cents: number; currency: string | null
   max_teams: number | null; payment_mode: string | null; skill_level: string | null
-  days_of_week: string[] | null
+  days_of_week: string[] | null; game_start_time: string | null; game_end_time: string | null
 }
+
+function fmtTimeClub(t: string): string {
+  const [h, m] = t.split(':').map(Number)
+  const period = h >= 12 ? 'PM' : 'AM'
+  const hr = h % 12 || 12
+  return `${hr}${m ? `:${String(m).padStart(2, '0')}` : ''} ${period}`
+}
+function timeRangeClub(s: string | null, e: string | null): string | null {
+  if (!s && !e) return null
+  if (s && e) return `${fmtTimeClub(s)} – ${fmtTimeClub(e)}`
+  return s ? fmtTimeClub(s) : fmtTimeClub(e!)
+}
+
 type Sponsor = { id: string; name: string; logo_url: string | null; website_url: string | null; tier: string }
 type StaffMember = { id: string; name: string; role: string | null; bio: string | null; avatar_url: string | null }
 
@@ -153,9 +166,11 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
                             <EventAvatar logoUrl={league.logo_url} name={league.name} sport={league.sport} size="sm" />
                             <h3 className="font-bold text-base leading-snug" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</h3>
                           </div>
-                          {league.season_start_date && (
+                          {(league.season_start_date || timeRangeClub(league.game_start_time, league.game_end_time)) && (
                             <p className="text-xs text-gray-400 mt-1">
-                              {new Date(league.season_start_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              {league.season_start_date && new Date(league.season_start_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              {league.season_start_date && timeRangeClub(league.game_start_time, league.game_end_time) && ' · '}
+                              {timeRangeClub(league.game_start_time, league.game_end_time)}
                             </p>
                           )}
                           <p className="mt-3 text-sm font-semibold group-hover:underline" style={{ color: 'var(--brand-primary)' }}>
