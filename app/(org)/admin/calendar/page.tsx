@@ -10,9 +10,11 @@ export const metadata = { title: 'Calendar' }
 export default async function AdminCalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string; day?: string }>
+  searchParams: Promise<{ month?: string; day?: string; drafts?: string }>
 }) {
-  const { month: monthParam, day: dayParam } = await searchParams
+  const { month: monthParam, day: dayParam, drafts: draftsParam } = await searchParams
+  const showDrafts = draftsParam === '1'
+
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org)
@@ -37,16 +39,16 @@ export default async function AdminCalendarPage({
     monthParam && /^\d{4}-\d{2}$/.test(monthParam) ? monthParam : currentYM
   const [year, month] = ym.split('-').map(Number)
 
-  // Fetch all non-archived, non-draft leagues with their season dates.
-  // We show every event (active, registration_open) regardless of whether
-  // games or sessions have been created yet — the bands span start→end date.
+  // Statuses to include: always show active events; include draft when toggled
+  const statuses = ['registration_open', 'active', 'completed', ...(showDrafts ? ['draft'] : [])]
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawLeagues } = await (db as any)
     .from('leagues')
     .select('id, name, slug, status, event_type, season_start_date, season_end_date, game_start_time, game_end_time, days_of_week')
     .eq('organization_id', org.id)
     .is('deleted_at', null)
-    .in('status', ['registration_open', 'active', 'completed'])
+    .in('status', statuses)
     .order('season_start_date', { ascending: true, nullsFirst: false })
 
   const leagues = (rawLeagues ?? []).map((l: {
@@ -77,6 +79,7 @@ export default async function AdminCalendarPage({
         timezone={timezone}
         currentYM={currentYM}
         initialDay={dayParam ?? null}
+        showDrafts={showDrafts}
       />
     </div>
   )

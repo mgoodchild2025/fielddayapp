@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, X, AlertCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, AlertCircle, Eye, EyeOff } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -187,9 +187,10 @@ interface Props {
   timezone: string
   currentYM: string
   initialDay: string | null
+  showDrafts: boolean
 }
 
-export function AdminCalendar({ leagues, year, month, timezone, currentYM, initialDay }: Props) {
+export function AdminCalendar({ leagues, year, month, timezone, currentYM, initialDay, showDrafts }: Props) {
   const router = useRouter()
   const [selectedDate, setSelectedDate] = useState<string | null>(initialDay)
 
@@ -236,18 +237,31 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
     })
   }, [selectedDate, leagues])
 
-  // Month navigation → server re-fetch via searchParam
-  function navigate(delta: number) {
-    let y = year, m = month + delta
+  // Build a URL that preserves current month + drafts state, plus an optional override
+  function calendarUrl(overrides: { delta?: number; drafts?: boolean } = {}) {
+    let y = year, m = month + (overrides.delta ?? 0)
     if (m > 12) { y++; m = 1 }
     if (m < 1)  { y--; m = 12 }
-    const ym = `${y}-${String(m).padStart(2, '0')}`
+    const monthYM = `${y}-${String(m).padStart(2, '0')}`
+    const draftsOn = overrides.drafts !== undefined ? overrides.drafts : showDrafts
+    return `/admin/calendar?month=${monthYM}${draftsOn ? '&drafts=1' : ''}`
+  }
+
+  // Month navigation → server re-fetch via searchParam
+  function navigate(delta: number) {
     setSelectedDate(null)
-    router.push(`/admin/calendar?month=${ym}`)
+    router.push(calendarUrl({ delta }))
+  }
+
+  function toggleDrafts() {
+    setSelectedDate(null)
+    router.push(calendarUrl({ drafts: !showDrafts }))
   }
 
   const thisYM     = `${year}-${String(month).padStart(2, '0')}`
-  const monthLabel = new Intl.DateTimeFormat('en-CA', { month: 'long', year: 'numeric' })
+  // Must specify timeZone:'UTC' — without it the browser's local tz is used,
+  // which shifts midnight-UTC dates to the previous month for timezones behind UTC.
+  const monthLabel = new Intl.DateTimeFormat('en-CA', { month: 'long', year: 'numeric', timeZone: 'UTC' })
     .format(new Date(Date.UTC(year, month - 1, 1)))
   const todayStr   = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date())
 
@@ -260,7 +274,7 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
       <div className="flex-1 min-w-0 bg-white rounded-xl border shadow-sm overflow-hidden">
 
         {/* Nav header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b">
+        <div className="flex items-center justify-between px-4 py-3 border-b gap-2">
           <button
             onClick={() => navigate(-1)}
             className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
@@ -273,7 +287,7 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
             <h2 className="font-semibold text-gray-900">{monthLabel}</h2>
             {thisYM !== currentYM && (
               <button
-                onClick={() => { router.push('/admin/calendar'); setSelectedDate(null) }}
+                onClick={() => { setSelectedDate(null); router.push(`/admin/calendar?month=${currentYM}${showDrafts ? '&drafts=1' : ''}`) }}
                 className="text-xs text-gray-500 hover:text-gray-700 border rounded px-2 py-0.5 transition-colors"
               >
                 Today
@@ -281,13 +295,30 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
             )}
           </div>
 
-          <button
-            onClick={() => navigate(1)}
-            className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
-            aria-label="Next month"
-          >
-            <ChevronRight className="w-4 h-4 text-gray-600" />
-          </button>
+          <div className="flex items-center gap-1">
+            {/* Draft events toggle */}
+            <button
+              onClick={toggleDrafts}
+              className={[
+                'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border transition-colors',
+                showDrafts
+                  ? 'bg-gray-800 text-white border-gray-800'
+                  : 'text-gray-500 border-gray-200 hover:bg-gray-50',
+              ].join(' ')}
+              title={showDrafts ? 'Hide draft events' : 'Show draft events'}
+            >
+              {showDrafts ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">Drafts</span>
+            </button>
+
+            <button
+              onClick={() => navigate(1)}
+              className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+              aria-label="Next month"
+            >
+              <ChevronRight className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
         </div>
 
         {/* Day-of-week headers */}
@@ -313,21 +344,26 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
               {bands.length > 0 && (
                 <div className="grid grid-cols-7 gap-x-0.5 px-0.5 pt-1 pb-0.5">
                   {bands.map(({ league, startCol, span, isStart, isEnd }) => {
+                    const isDraft = league.status === 'draft'
                     const p = palette(league.id)
                     return (
                       <Link
                         key={league.id}
-                        href={`/admin/events/${league.id}/schedule`}
+                        href={`/admin/events/${league.id}`}
                         style={{ gridColumn: `${startCol} / span ${span}` }}
                         className={[
                           'block text-[10px] sm:text-xs leading-tight py-1 px-1.5 rounded-sm mb-0.5 truncate font-medium transition-opacity hover:opacity-80',
-                          p.chip,
+                          isDraft
+                            ? 'border border-dashed border-gray-400 text-gray-500 bg-white'
+                            : p.chip,
                           !isStart ? 'rounded-l-none pl-1' : '',
                           !isEnd   ? 'rounded-r-none pr-1' : '',
                         ].join(' ')}
-                        title={league.name}
+                        title={`${isDraft ? '[Draft] ' : ''}${league.name}`}
                       >
-                        {(isStart || startCol === 1) ? league.name : ''}
+                        {(isStart || startCol === 1)
+                          ? <>{isDraft && <span className="opacity-60 mr-0.5">◌</span>}{league.name}</>
+                          : ''}
                       </Link>
                     )
                   })}
@@ -369,6 +405,7 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
                       {/* Day chips for scheduled leagues */}
                       <div className="space-y-0.5 w-full">
                         {dayChips.map((l) => {
+                          const isDraft = l.status === 'draft'
                           const p = palette(l.id)
                           const timeLabel = l.gameStartTime
                             ? (l.gameEndTime
@@ -378,13 +415,19 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
                           return (
                             <Link
                               key={l.id}
-                              href={`/admin/events/${l.id}/schedule`}
+                              href={`/admin/events/${l.id}`}
                               onClick={(e) => e.stopPropagation()}
-                              className={`block text-[9px] sm:text-[10px] leading-snug px-1 py-0.5 rounded truncate font-medium transition-opacity hover:opacity-80 ${p.chip}`}
-                              title={`${l.name}${timeLabel ? ` · ${timeLabel}` : ''}`}
+                              className={[
+                                'block text-[9px] sm:text-[10px] leading-snug px-1 py-0.5 rounded truncate font-medium transition-opacity hover:opacity-80',
+                                isDraft
+                                  ? 'border border-dashed border-gray-400 text-gray-500 bg-white'
+                                  : p.chip,
+                              ].join(' ')}
+                              title={`${isDraft ? '[Draft] ' : ''}${l.name}${timeLabel ? ` · ${timeLabel}` : ''}`}
                             >
+                              {isDraft && <span className="opacity-60 mr-0.5">◌</span>}
                               <span className="truncate">{l.name}</span>
-                              {timeLabel && (
+                              {timeLabel && !isDraft && (
                                 <span className="hidden sm:inline opacity-80 ml-1">{timeLabel}</span>
                               )}
                             </Link>
@@ -467,18 +510,24 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
           ) : (
             <div className="divide-y">
               {selectedLeagues.map((l) => {
+                const isDraft = l.status === 'draft'
                 const p = palette(l.id)
                 const dateRange = l.startDate && l.endDate
                   ? `${shortDate(l.startDate)} – ${shortDate(l.endDate)}`
                   : null
+                // Draft events link to overview (no schedule yet); published events link to schedule
+                const href = isDraft ? `/admin/events/${l.id}` : `/admin/events/${l.id}/schedule`
                 return (
                   <Link
                     key={l.id}
-                    href={`/admin/events/${l.id}/schedule`}
+                    href={href}
                     className="flex items-start gap-3 px-4 py-4 hover:bg-gray-50 transition-colors group"
                   >
-                    {/* Colour dot */}
-                    <span className={`shrink-0 w-2.5 h-2.5 rounded-sm mt-1 ${p.chip}`} />
+                    {/* Colour dot — dashed for drafts */}
+                    <span className={[
+                      'shrink-0 w-2.5 h-2.5 rounded-sm mt-1',
+                      isDraft ? 'border-2 border-dashed border-gray-400 bg-white' : p.chip,
+                    ].join(' ')} />
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
