@@ -156,8 +156,56 @@ export async function POST(request: NextRequest) {
     decremented.push({ variantId: sel.variantId, restoreTo: currentQty })
   }
 
+  // ── Resolve discount code before inserting orders ────────────────────────
+  // Must happen here (before insert) so we can store discount_cents on each row.
+  let discountApplied: { id: string; type: string; value: number } | null = null
+  if (discountId && !isManualMode) {
+    const { data: dr } = await db
+      .from('discount_codes')
+      .select('id, type, value, active, expires_at, max_uses, use_count, applies_to')
+      .eq('id', discountId)
+      .eq('organization_id', orgId)
+      .single()
+    if (
+      dr && dr.active &&
+      (!dr.expires_at || new Date(dr.expires_at) > new Date()) &&
+      (!dr.max_uses || dr.use_count < dr.max_uses) &&
+      (dr.applies_to === 'all' || dr.applies_to === 'shop')
+    ) {
+      discountApplied = { id: dr.id, type: dr.type, value: dr.value }
+    }
+  }
+
+  // Compute basket subtotal and total discount reduction
+  const subtotalCents = items.reduce((s, sel) => s + itemMap.get(sel.itemId)!.price_cents * sel.quantity, 0)
+  let totalReduction = 0
+  if (discountApplied) {
+    totalReduction = discountApplied.type === 'percent'
+      ? Math.round(subtotalCents * discountApplied.value / 100)
+      : Math.min(discountApplied.value * 100, subtotalCents)
+  }
+
+  // Pro-rate discount across order rows proportionally by (unit_price × qty).
+  // Remainder assigned to last row to avoid rounding drift.
+  const orderDiscounts: number[] = []
+  if (totalReduction > 0) {
+    let allocated = 0
+    for (let i = 0; i < items.length; i++) {
+      if (i === items.length - 1) {
+        orderDiscounts.push(totalReduction - allocated)
+      } else {
+        const lineCents = itemMap.get(items[i].itemId)!.price_cents * items[i].quantity
+        const share = Math.round(totalReduction * lineCents / subtotalCents)
+        orderDiscounts.push(share)
+        allocated += share
+      }
+    }
+  } else {
+    items.forEach(() => orderDiscounts.push(0))
+  }
+
   // ── Create pending merchandise_orders ─────────────────────────────────────
-  const orderRows = items.map((sel) => ({
+  const orderRows = items.map((sel, i) => ({
     organization_id: orgId,
     league_id:       null,
     registration_id: null,
@@ -166,6 +214,7 @@ export async function POST(request: NextRequest) {
     variant_id:      sel.variantId ?? null,
     quantity:        sel.quantity,
     unit_price_cents: itemMap.get(sel.itemId)!.price_cents,
+    discount_cents:  orderDiscounts[i] ?? 0,
     status:          'pending',
   }))
 
@@ -189,25 +238,6 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  // ── Apply discount code server-side ──────────────────────────────────────
-  let discountApplied: { id: string; type: string; value: number } | null = null
-  if (discountId) {
-    const { data: dr } = await db
-      .from('discount_codes')
-      .select('id, type, value, active, expires_at, max_uses, use_count, applies_to')
-      .eq('id', discountId)
-      .eq('organization_id', orgId)
-      .single()
-    if (
-      dr && dr.active &&
-      (!dr.expires_at || new Date(dr.expires_at) > new Date()) &&
-      (!dr.max_uses || dr.use_count < dr.max_uses) &&
-      (dr.applies_to === 'all' || dr.applies_to === 'shop')
-    ) {
-      discountApplied = { id: dr.id, type: dr.type, value: dr.value }
-    }
-  }
-
   // ── Build Stripe line items ───────────────────────────────────────────────
   const lineItems = items.map((sel) => {
     const item    = itemMap.get(sel.itemId)!
@@ -224,21 +254,15 @@ export async function POST(request: NextRequest) {
   })
 
   // If a discount applies, add a negative-amount line item (Stripe coupon alternative)
-  if (discountApplied) {
-    const subtotal = lineItems.reduce((s, li) => s + li.price_data.unit_amount * li.quantity, 0)
-    const reduction = discountApplied.type === 'percent'
-      ? Math.round(subtotal * discountApplied.value / 100)
-      : Math.min(discountApplied.value * 100, subtotal)
-    if (reduction > 0) {
-      lineItems.push({
-        price_data: {
-          currency,
-          unit_amount: -reduction,
-          product_data: { name: `Discount (${discountApplied.type === 'percent' ? `${discountApplied.value}%` : `$${discountApplied.value}`} off)` },
-        },
-        quantity: 1,
-      })
-    }
+  if (discountApplied && totalReduction > 0) {
+    lineItems.push({
+      price_data: {
+        currency,
+        unit_amount: -totalReduction,
+        product_data: { name: `Discount (${discountApplied.type === 'percent' ? `${discountApplied.value}%` : `$${discountApplied.value}`} off)` },
+      },
+      quantity: 1,
+    })
   }
 
   // ── Create Stripe checkout session ────────────────────────────────────────

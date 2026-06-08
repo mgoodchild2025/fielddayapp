@@ -136,7 +136,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
         o.variant_label ?? '',
         String(o.quantity),
         `$${(o.unit_price_cents / 100).toFixed(2)}`,
-        `$${((o.unit_price_cents * o.quantity) / 100).toFixed(2)}`,
+        `$${((o.unit_price_cents * o.quantity - (o.discount_cents ?? 0)) / 100).toFixed(2)}`,
         o.status,
       ]
       return showSource ? [o.league_name ?? 'Shop', ...base] : base
@@ -166,10 +166,10 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
     )
   }
 
-  const total = orders.reduce((sum, o) => sum + o.unit_price_cents * o.quantity, 0)
+  const total = orders.reduce((sum, o) => sum + o.unit_price_cents * o.quantity - (o.discount_cents ?? 0), 0)
   const paidTotal = orders
     .filter((o) => o.status === 'paid' || o.status === 'fulfilled')
-    .reduce((sum, o) => sum + o.unit_price_cents * o.quantity, 0)
+    .reduce((sum, o) => sum + o.unit_price_cents * o.quantity - (o.discount_cents ?? 0), 0)
 
   const colSpan = showSource ? 8 : 7
 
@@ -272,9 +272,20 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                     <span className="text-sm text-gray-800">{order.quantity}</span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <span className="text-sm font-medium text-gray-800">
-                      ${((order.unit_price_cents * order.quantity) / 100).toFixed(2)}
-                    </span>
+                    {(order.discount_cents ?? 0) > 0 ? (
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="text-xs text-gray-400 line-through">
+                          ${((order.unit_price_cents * order.quantity) / 100).toFixed(2)}
+                        </span>
+                        <span className="text-sm font-medium text-gray-800">
+                          ${((order.unit_price_cents * order.quantity - order.discount_cents) / 100).toFixed(2)}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-sm font-medium text-gray-800">
+                        ${((order.unit_price_cents * order.quantity) / 100).toFixed(2)}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={order.status} />
