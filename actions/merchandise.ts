@@ -89,6 +89,7 @@ export type MerchOrder = {
   payment_id: string | null
   created_at: string
   fulfilled_at: string | null
+  paid_at: string | null
   // joined fields
   player_name?: string | null
   player_email?: string | null
@@ -701,16 +702,34 @@ export async function markMerchandiseOrderPaid(
   }
 
   const db = createServiceRoleClient()
+
+  // Fetch current status so we know whether to advance it or leave it at fulfilled
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: current } = await (db as any)
+    .from('merchandise_orders')
+    .select('status')
+    .eq('id', orderId)
+    .eq('organization_id', org.id)
+    .single()
+
+  if (!current) return { error: 'Order not found' }
+  if (current.status === 'paid' || current.status === 'cancelled') {
+    return { error: null } // already paid or cancelled — no-op
+  }
+
+  // If already fulfilled, stay fulfilled; if pending, advance to paid
+  const newStatus = current.status === 'fulfilled' ? 'fulfilled' : 'paid'
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (db as any)
     .from('merchandise_orders')
     .update({
-      status: 'paid',
+      status: newStatus,
+      paid_at: new Date().toISOString(),
       notes: [notes?.trim(), method ? `Payment method: ${method}` : null].filter(Boolean).join(' · ') || null,
     })
     .eq('id', orderId)
     .eq('organization_id', org.id)
-    .eq('status', 'pending')
 
   if (error) return { error: error.message }
   revalidatePath('/admin/shop')

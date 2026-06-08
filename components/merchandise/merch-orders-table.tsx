@@ -111,7 +111,10 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
         setError(result.error)
       } else {
         setOrders((prev) =>
-          prev.map((o) => o.id === orderId ? { ...o, status: 'paid' } : o)
+          prev.map((o) => o.id === orderId
+            // fulfilled orders stay fulfilled; pending orders advance to paid
+            ? { ...o, status: o.status === 'fulfilled' ? 'fulfilled' : 'paid', paid_at: new Date().toISOString() }
+            : o)
         )
         setMarkPaidOpenId(null)
         setMarkPaidNotes('')
@@ -169,7 +172,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
 
   const total = orders.reduce((sum, o) => sum + o.unit_price_cents * o.quantity - (o.discount_cents ?? 0), 0)
   const paidTotal = orders
-    .filter((o) => o.status === 'paid' || o.status === 'fulfilled')
+    .filter((o) => o.status === 'paid' || (o.status === 'fulfilled' && !!o.paid_at))
     .reduce((sum, o) => sum + o.unit_price_cents * o.quantity - (o.discount_cents ?? 0), 0)
 
   const colSpan = showSource ? 9 : 8
@@ -302,7 +305,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                     <StatusBadge status={order.status} />
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {order.status === 'pending' && isManualPayment && (
+                    {(order.status === 'pending' || (order.status === 'fulfilled' && !order.paid_at)) && isManualPayment && (
                       markPaidOpenId === order.id ? (
                         <div className="flex flex-col gap-1.5 items-end min-w-[180px]">
                           <div className="flex gap-1.5">
@@ -362,9 +365,14 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                       </button>
                     )}
                     {order.status === 'fulfilled' && order.fulfilled_at && (
-                      <span className="text-xs text-gray-400">
-                        {new Date(order.fulfilled_at).toLocaleDateString()}
-                      </span>
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="text-xs text-gray-400">
+                          Fulfilled {new Date(order.fulfilled_at).toLocaleDateString()}
+                        </span>
+                        {!order.paid_at && (
+                          <span className="text-xs font-medium text-amber-600">Payment outstanding</span>
+                        )}
+                      </div>
                     )}
                   </td>
                 </tr>
