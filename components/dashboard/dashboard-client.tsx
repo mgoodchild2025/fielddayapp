@@ -502,7 +502,7 @@ export function DashboardClient({ firstName, timezone, nextItem, teams, pendingA
               Season Stats · {team.teamName}
             </h2>
             <div className="grid grid-cols-3 gap-3">
-              <div className="bg-white rounded-xl border p-4">
+              <Link href={`/teams/${team.teamId}/stats`} className="bg-white rounded-xl border p-4 hover:shadow-sm transition-shadow block">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Record</p>
                 <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-secondary)' }}>
                   <span>{team.record.wins}</span>
@@ -519,9 +519,9 @@ export function DashboardClient({ firstName, timezone, nextItem, teams, pendingA
                   )}
                 </p>
                 <p className="text-[11px] text-gray-400 mt-1.5">{team.record.played} played</p>
-              </div>
+              </Link>
 
-              <div className="bg-white rounded-xl border p-4">
+              <Link href={`/teams/${team.teamId}/stats`} className="bg-white rounded-xl border p-4 hover:shadow-sm transition-shadow block">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Standing</p>
                 {team.record.standing !== null ? (
                   <>
@@ -538,15 +538,15 @@ export function DashboardClient({ firstName, timezone, nextItem, teams, pendingA
                 ) : (
                   <p className="text-sm text-gray-400 mt-1">—</p>
                 )}
-              </div>
+              </Link>
 
-              <div className="bg-white rounded-xl border p-4">
+              <Link href={`/teams/${team.teamId}/stats`} className="bg-white rounded-xl border p-4 hover:shadow-sm transition-shadow block">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Points</p>
                 <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-primary)' }}>
                   {team.record.points}
                 </p>
                 <p className="text-[11px] text-gray-400 mt-1.5">3W · 1T · 0L</p>
-              </div>
+              </Link>
             </div>
           </section>
 

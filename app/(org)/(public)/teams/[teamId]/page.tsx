@@ -20,7 +20,7 @@ import { CalendarSubscribeButton } from '@/components/teams/calendar-subscribe-b
 import { RosterNotesSection } from '@/components/teams/roster-notes-section'
 import { getRosterNotes } from '@/actions/roster-notes'
 import Link from 'next/link'
-import { CalendarDays } from 'lucide-react'
+import { CalendarDays, BarChart3 } from 'lucide-react'
 
 export default async function TeamDetailPage({
   params,
@@ -304,6 +304,15 @@ export default async function TeamDetailPage({
             )}
           </div>
           <div className="shrink-0 flex items-center gap-1">
+            {/* Stats link — all team members */}
+            <Link
+              href={`/teams/${teamId}/stats`}
+              className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              aria-label="View team stats"
+              title="Team stats"
+            >
+              <BarChart3 className="w-5 h-5" />
+            </Link>
             {/* Edit team details — managers and org admins only */}
             {isManager && (
               <AdminEditTeamForm

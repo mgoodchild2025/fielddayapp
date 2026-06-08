@@ -194,7 +194,11 @@ function StandingsTable({
                   return (
                     <tr key={team.id} className="border-b last:border-0">
                       <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
-                      <td className="px-4 py-3 font-medium">{team.name}</td>
+                      <td className="px-4 py-3 font-medium">
+                        <Link href={`/teams/${team.id}/stats`} className="hover:underline">
+                          {team.name}
+                        </Link>
+                      </td>
                       <td className="px-3 py-3 text-center text-gray-500">{team.matchesPlayed}</td>
                       <td className="px-3 py-3 text-center font-semibold" style={{ color: 'var(--brand-primary)' }}>{team.setWins}</td>
                       <td className="px-3 py-3 text-center text-gray-500">{team.setLosses}</td>
@@ -267,7 +271,11 @@ function StandingsTable({
                 return (
                   <tr key={team.id} className="border-b last:border-0">
                     <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
-                    <td className="px-4 py-3 font-medium">{team.name}</td>
+                    <td className="px-4 py-3 font-medium">
+                      <Link href={`/teams/${team.id}/stats`} className="hover:underline">
+                        {team.name}
+                      </Link>
+                    </td>
                     <td className="px-3 py-3 text-center text-gray-500">{team.matchesPlayed}</td>
                     <td className="px-3 py-3 text-center font-semibold" style={{ color: 'var(--brand-primary)' }}>{team.wins}</td>
                     <td className="px-3 py-3 text-center text-gray-500">{team.losses}</td>
