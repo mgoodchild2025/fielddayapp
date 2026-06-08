@@ -585,10 +585,10 @@ export default async function EventDetailPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ tab?: string; invite?: string; mode?: string; standingsView?: string }>
+  searchParams: Promise<{ tab?: string; invite?: string; mode?: string; standingsView?: string; join?: string }>
 }) {
   const { slug } = await params
-  const { tab: rawTab, invite: inviteToken, mode: urlMode, standingsView } = await searchParams
+  const { tab: rawTab, invite: inviteToken, mode: urlMode, standingsView, join: joinParam } = await searchParams
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
@@ -879,6 +879,33 @@ export default async function EventDetailPage({
     : { data: null }
   const isOrgAdmin = ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
 
+  // ── Team join policy: can this user self-register? ────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const joinPolicy = (league as any).team_join_policy as string | null
+  // For captain_invite leagues: check if the user already has a membership or pending invitation
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let hasTeamAccess = false
+  if (user && !isOrgAdmin && joinPolicy === 'captain_invite' && teams) {
+    const tIds = teams.map((t: { id: string }) => t.id)
+    if (tIds.length > 0) {
+      const [{ data: mem }, { data: inv }] = await Promise.all([
+        db.from('team_members').select('id').eq('user_id', user.id).in('team_id', tIds).eq('status', 'active').limit(1).maybeSingle(),
+        user.email
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ? (db as any).from('team_invitations').select('id').in('team_id', tIds).eq('invited_email', user.email.toLowerCase()).eq('status', 'pending').limit(1).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ])
+      hasTeamAccess = !!(mem || inv)
+    }
+  }
+  // Self-registration is blocked when:
+  //   admin_only — no self-service at all (org admins bypass this)
+  //   captain_invite — blocked unless the user has an invite or existing membership
+  const selfRegBlocked = !isOrgAdmin && (
+    joinPolicy === 'admin_only' ||
+    (joinPolicy === 'captain_invite' && !hasTeamAccess && !!myTeamIds && myTeamIds.size === 0)
+  )
+
   // A participant is anyone with a registration OR a team membership in this league
   const isParticipant = isOrgAdmin || !!myRegistration || myTeamIds.size > 0 || !!mySeasonRegistration || mySessionIds.size > 0
 
@@ -966,7 +993,7 @@ export default async function EventDetailPage({
   // Sticky register bar — shown on mobile overview tab when registration is open and user isn't registered
   const stickyBar: { href: string; label: string } | null =
     activeTab === 'overview'
-      ? isTeamBased && !myRegistration && isOpen && !isFull
+      ? isTeamBased && !myRegistration && isOpen && !isFull && !selfRegBlocked
         ? teamsAtCapacity
           ? { href: `/register/${league.slug}`, label: 'Join a Team →' }
           : { href: `/register/${league.slug}`, label: 'Register Now' }
@@ -1954,6 +1981,16 @@ export default async function EventDetailPage({
                 <div className="w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide bg-red-50 border border-red-200 text-red-700" style={{ fontFamily: 'var(--brand-heading-font)' }}>
                   🔒 Event Full
                 </div>
+              ) : isOpen && joinPolicy === 'admin_only' && !isOrgAdmin ? (
+                <div className="w-full text-center px-5 py-4 rounded-md bg-gray-50 border border-gray-200">
+                  <p className="text-sm font-semibold text-gray-700">Roster managed by the organiser</p>
+                  <p className="text-xs text-gray-500 mt-1">Players are added directly by the league admin. Contact your organiser to be placed on a team.</p>
+                </div>
+              ) : isOpen && joinPolicy === 'captain_invite' && !hasTeamAccess && myTeamIds.size === 0 && !isOrgAdmin ? (
+                <div className="w-full text-center px-5 py-4 rounded-md bg-gray-50 border border-gray-200">
+                  <p className="text-sm font-semibold text-gray-700">Registration by invitation only</p>
+                  <p className="text-xs text-gray-500 mt-1">Your captain will send you an invite link when they&apos;re ready to build the roster.</p>
+                </div>
               ) : teamsAtCapacity && isOpen ? (
                 <Link
                   href={`/register/${league.slug}`}
@@ -1971,6 +2008,15 @@ export default async function EventDetailPage({
                   Register Now
                 </Link>
               ) : null
+            )}
+
+            {/* Redirect notice when someone tried to navigate directly to /register */}
+            {(joinParam === 'restricted' || joinParam === 'invite_required') && !myRegistration && (
+              <div className="mt-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+                {joinParam === 'restricted'
+                  ? '🔒 Registration for this league is managed by the organiser. Contact your league admin to be added to a team.'
+                  : '✉️ Registration for this league requires an invitation from your captain.'}
+              </div>
             )}
           </div>
         )}

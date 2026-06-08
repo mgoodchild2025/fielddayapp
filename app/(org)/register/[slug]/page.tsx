@@ -43,6 +43,40 @@ export default async function RegisterLeaguePage({
 
   if (!league) notFound()
 
+  // ── Team join policy enforcement ──────────────────────────────────────────
+  // Org admins bypass all policy gates
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: orgMemberCheck } = await (db as any)
+    .from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
+  const isOrgAdminCheck = ['org_admin', 'league_admin'].includes(orgMemberCheck?.role ?? '')
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const joinPolicy = (league as any).team_join_policy as string | null
+  if (!isOrgAdminCheck && joinPolicy === 'admin_only') {
+    redirect(`/events/${slug}?join=restricted`)
+  }
+  if (!isOrgAdminCheck && joinPolicy === 'captain_invite') {
+    // Allow if the user already has an active team membership or a pending invitation in this league
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: teamRows } = await (db as any)
+      .from('teams').select('id').eq('league_id', (league as any).id).eq('organization_id', org.id)
+    const teamIds = (teamRows ?? []).map((t: { id: string }) => t.id) as string[]
+
+    const [{ data: membership }, { data: invitation }] = teamIds.length > 0
+      ? await Promise.all([
+          db.from('team_members').select('id').eq('user_id', user.id).in('team_id', teamIds).eq('status', 'active').limit(1).maybeSingle(),
+          user.email
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ? (db as any).from('team_invitations').select('id').in('team_id', teamIds).eq('invited_email', user.email.toLowerCase()).eq('status', 'pending').limit(1).maybeSingle()
+            : Promise.resolve({ data: null }),
+        ])
+      : [{ data: null }, { data: null }]
+
+    if (!membership && !invitation) {
+      redirect(`/events/${slug}?join=invite_required`)
+    }
+  }
+
   // Verify drop-in invite — only required for private pickup events.
   // Public pickup events and drop_in event types allow open drop-in registration.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
