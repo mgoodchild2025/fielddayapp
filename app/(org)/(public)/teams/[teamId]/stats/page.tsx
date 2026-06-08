@@ -1,8 +1,7 @@
 import { headers } from 'next/headers'
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
-import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
@@ -24,12 +23,9 @@ export default async function TeamStatsPage({
   const { teamId } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
   const db = createServiceRoleClient()
 
-  // Auth: any logged-in player can view team stats
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  // Team stats are publicly viewable — no auth required
 
   // ── Fetch team + league info ──────────────────────────────────────────────
   const { data: team } = await (db as any).from('teams').select(`
@@ -241,8 +237,11 @@ export default async function TeamStatsPage({
       <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-8 flex-1 space-y-8 pb-24">
 
         {/* ── Back link ── */}
-        <Link href={`/teams/${teamId}`} className="text-sm text-gray-500 hover:underline">
-          ← {team.name as string}
+        <Link
+          href={league?.slug ? `/events/${league.slug as string}` : '/schedule'}
+          className="text-sm text-gray-500 hover:underline"
+        >
+          ← {league?.name ? (league.name as string) : 'Schedule'}
         </Link>
 
         {/* ── Header ── */}

@@ -214,6 +214,20 @@ export default async function TeamDetailPage({
     isManager ? getRosterNotes(team.id) : Promise.resolve([]),
   ])
 
+  // Filter out roster plan entries whose email already matches an active team member —
+  // they've joined the team so no need to show them as "unregistered" in the plan.
+  const activeMemberEmails = new Set(
+    activeMembers
+      .map((m) => {
+        const profile = Array.isArray(m.profile) ? m.profile[0] : m.profile
+        return profile?.email?.toLowerCase()
+      })
+      .filter((e): e is string => Boolean(e))
+  )
+  const filteredRosterNotes = rosterNotes.filter(
+    (note) => !note.email || !activeMemberEmails.has(note.email.toLowerCase())
+  )
+
   // For managers: fetch registration + waiver status for all active members
   const memberUserIds = activeMembers.map((m) => m.user_id).filter(Boolean) as string[]
   const [registrationsResult, waiverSigsResult, leagueWaiverResult, inviterProfilesResult] = isManager && leagueId && memberUserIds.length > 0
@@ -489,7 +503,7 @@ export default async function TeamDetailPage({
         {isManager && (
           <RosterNotesSection
             teamId={team.id}
-            initialNotes={rosterNotes}
+            initialNotes={filteredRosterNotes}
             leagueSlug={leagueSlug || null}
           />
         )}
