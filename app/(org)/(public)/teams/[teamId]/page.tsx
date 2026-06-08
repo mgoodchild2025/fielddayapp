@@ -19,6 +19,7 @@ import { TeamAvatar } from '@/components/ui/team-avatar'
 import { CalendarSubscribeButton } from '@/components/teams/calendar-subscribe-button'
 import { RosterNotesSection } from '@/components/teams/roster-notes-section'
 import { getRosterNotes } from '@/actions/roster-notes'
+import { TeamTutorial } from '@/components/teams/team-tutorial'
 import Link from 'next/link'
 import { CalendarDays, BarChart3 } from 'lucide-react'
 
@@ -304,7 +305,7 @@ export default async function TeamDetailPage({
         )}
 
         {/* Team header */}
-        <div className="mt-4 flex items-center gap-3">
+        <div className="mt-4 flex items-center gap-3" data-tutorial="team-header">
           <TeamAvatar logoUrl={team.logo_url ?? null} color={team.color} name={team.name} size="lg" />
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)' }}>{team.name}</h1>
@@ -549,6 +550,8 @@ export default async function TeamDetailPage({
         )}
       </div>
       <Footer org={org} />
+      {/* Captain/coach onboarding tutorial — client component, no-ops for players */}
+      <TeamTutorial teamId={team.id} isManager={isManager} />
     </div>
   )
 }

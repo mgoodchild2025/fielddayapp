@@ -306,7 +306,7 @@ export function RosterNotesSection({ teamId, initialNotes }: Props) {
   }
 
   return (
-    <div>
+    <div data-tutorial="roster-notes">
       <div className="px-4 pt-4 pb-2">
         <div className="flex items-start justify-between gap-3">
           <div>

@@ -197,7 +197,7 @@ export function RosterManager({
 
   return (
     <>
-      <div className="bg-white rounded-lg border overflow-hidden">
+      <div className="bg-white rounded-lg border overflow-hidden" data-tutorial="roster-section">
         <div className="px-5 py-4 border-b flex items-center gap-3">
           <h2 className="font-semibold">Active Roster</h2>
           <span className="text-xs text-gray-400">{totalCount} player{totalCount !== 1 ? 's' : ''}</span>
@@ -379,7 +379,7 @@ export function RosterManager({
 
         {/* ── Join code & link ── */}
         {(teamCode || joinUrl) && (
-          <div className="border-t bg-gray-50 px-5 py-4 space-y-3">
+          <div className="border-t bg-gray-50 px-5 py-4 space-y-3" data-tutorial="join-info">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
               Team Join Info
             </p>
