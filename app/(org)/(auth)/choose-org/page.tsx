@@ -16,7 +16,7 @@ export default async function ChooseOrgPage() {
   // If accessed on an org subdomain just go to the player home.
   const headersList = await headers()
   const orgId = headersList.get('x-org-id')
-  if (orgId) redirect('/my-events')
+  if (orgId) redirect('/dashboard')
 
   const db = createServiceRoleClient()
 
@@ -56,7 +56,7 @@ export default async function ChooseOrgPage() {
   if (orgs.length === 1) {
     const org = orgs[0]
     const isAdmin = ['org_admin', 'league_admin'].includes(org.role)
-    const dest = `https://${org.slug}.${PLATFORM_DOMAIN}${isAdmin ? '/admin/dashboard' : '/my-events'}`
+    const dest = `https://${org.slug}.${PLATFORM_DOMAIN}${isAdmin ? '/admin/dashboard' : '/dashboard'}`
     redirect(dest)
   }
 

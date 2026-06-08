@@ -74,7 +74,7 @@ function ResetForm() {
     }
 
     const isAppDomain = window.location.hostname.startsWith('app.')
-    router.push(isAppDomain ? '/super' : '/my-events')
+    router.push(isAppDomain ? '/super' : '/dashboard')
   }
 
   return (

@@ -82,7 +82,7 @@ export async function login(input: { email: string; password: string; redirectTo
   const orgId = headersList.get('x-org-id')
 
   // Only allow relative paths to prevent open redirect
-  const safeRedirect = input.redirectTo?.startsWith('/') ? input.redirectTo : '/my-events'
+  const safeRedirect = input.redirectTo?.startsWith('/') ? input.redirectTo : '/dashboard'
 
   let destination: string
   if (orgId) {
@@ -141,7 +141,7 @@ export async function signUp(input: { email: string; password: string; fullName:
   // Full absolute destination the user should land on after confirming.
   // Stored in user_metadata so it survives the Supabase redirect without
   // relying on query params (which Supabase strips) or cross-subdomain cookies.
-  const destination = `${origin}${safeRedirect || '/my-events'}`
+  const destination = `${origin}${safeRedirect || '/dashboard'}`
 
   // Use the service-role admin API to create the user and get action_link.
   const service = createServiceRoleClient()
@@ -238,7 +238,7 @@ export async function updatePassword(newPassword: string): Promise<{ error: stri
   const { error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) return { error: error.message }
   revalidatePath('/', 'layout')
-  redirect('/my-events')
+  redirect('/dashboard')
 }
 
 const updateProfileSchema = z.object({
