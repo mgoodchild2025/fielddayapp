@@ -190,6 +190,7 @@ export default async function DashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let pendingRegs: any[] = []
   let waiverSig: { id: string } | null = null
+  let orgHasActiveWaiver = false
 
   if (activeTeams.length > 0) {
     const [
@@ -200,6 +201,7 @@ export default async function DashboardPage() {
       { data: mrr },
       { data: pr },
       { data: ws },
+      { data: aw },
     ] = await Promise.all([
       // Upcoming scheduled games for any of user's teams
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -268,6 +270,13 @@ export default async function DashboardPage() {
         .eq('user_id', user.id)
         .limit(1)
         .maybeSingle(),
+
+      // Check whether org has an active waiver configured
+      db.from('waivers').select('id')
+        .eq('organization_id', org.id)
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle(),
     ])
 
     upcomingGames   = ug  ?? []
@@ -276,7 +285,8 @@ export default async function DashboardPage() {
     leagueTeams     = lt  ?? []
     myRsvpRows      = mrr ?? []
     pendingRegs     = pr  ?? []
-    waiverSig       = ws
+    waiverSig          = ws
+    orgHasActiveWaiver = !!aw
   }
 
   // ── RSVP counts for the globally soonest game ─────────────────────────────
@@ -474,8 +484,8 @@ export default async function DashboardPage() {
   // ── Pending actions ───────────────────────────────────────────────────────
   const pendingActions: PendingAction[] = []
 
-  // Unsigned waiver (if they have active registrations but no waiver sig for this org)
-  if (!waiverSig && activeTeams.length > 0) {
+  // Unsigned waiver — only show if the org has an active waiver AND the player hasn't signed it
+  if (!waiverSig && orgHasActiveWaiver && activeTeams.length > 0) {
     const firstLeague = activeTeams[0].league
     if (firstLeague?.slug) {
       pendingActions.push({
