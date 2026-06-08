@@ -206,16 +206,17 @@ export async function POST(request: NextRequest) {
 
   // ── Create pending merchandise_orders ─────────────────────────────────────
   const orderRows = items.map((sel, i) => ({
-    organization_id: orgId,
-    league_id:       null,
-    registration_id: null,
-    user_id:         user.id,
-    item_id:         sel.itemId,
-    variant_id:      sel.variantId ?? null,
-    quantity:        sel.quantity,
+    organization_id:  orgId,
+    league_id:        null,
+    registration_id:  null,
+    user_id:          user.id,
+    item_id:          sel.itemId,
+    variant_id:       sel.variantId ?? null,
+    quantity:         sel.quantity,
     unit_price_cents: itemMap.get(sel.itemId)!.price_cents,
-    discount_cents:  orderDiscounts[i] ?? 0,
-    status:          'pending',
+    discount_cents:   orderDiscounts[i] ?? 0,
+    discount_code_id: discountApplied ? discountApplied.id : null,
+    status:           'pending',
   }))
 
   const { data: insertedOrders, error: insertError } = await db
