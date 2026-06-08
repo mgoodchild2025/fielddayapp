@@ -83,6 +83,7 @@ export type MerchOrder = {
   quantity: number
   unit_price_cents: number
   discount_cents: number
+  discount_code_id: string | null
   status: 'pending' | 'paid' | 'fulfilled' | 'cancelled'
   notes: string | null
   payment_id: string | null
@@ -94,6 +95,7 @@ export type MerchOrder = {
   item_name?: string
   variant_label?: string | null
   league_name?: string | null
+  discount_code_label?: string | null
 }
 
 export type MerchOrderInput = {
@@ -256,14 +258,19 @@ export async function getMerchandiseOrders(leagueId: string): Promise<MerchOrder
   const userIds = [...new Set(typedOrders.map((o) => o.user_id))]
   const itemIds = [...new Set(typedOrders.map((o) => o.item_id))]
   const variantIds = typedOrders.map((o) => o.variant_id).filter(Boolean) as string[]
+  const discountCodeIds = typedOrders.map((o) => o.discount_code_id).filter(Boolean) as string[]
 
-  const [{ data: profiles }, { data: items }, { data: variantRows }] = await Promise.all([
+  const [{ data: profiles }, { data: items }, { data: variantRows }, { data: discountCodes }] = await Promise.all([
     db.from('profiles').select('id, full_name, email').in('id', userIds),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('merchandise_items').select('id, name').in('id', itemIds),
     variantIds.length > 0
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? (db as any).from('merchandise_variants').select('id, label').in('id', variantIds)
+      : Promise.resolve({ data: [] }),
+    discountCodeIds.length > 0
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (db as any).from('discount_codes').select('id, code').in('id', discountCodeIds)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -282,12 +289,18 @@ export async function getMerchandiseOrders(leagueId: string): Promise<MerchOrder
     variantMap.set(v.id, v.label)
   }
 
+  const discountCodeMap = new Map<string, string>()
+  for (const d of (discountCodes ?? []) as { id: string; code: string }[]) {
+    discountCodeMap.set(d.id, d.code)
+  }
+
   return typedOrders.map((order) => ({
     ...order,
     player_name: profileMap.get(order.user_id)?.full_name ?? null,
     player_email: profileMap.get(order.user_id)?.email ?? null,
     item_name: itemMap.get(order.item_id) ?? 'Unknown item',
     variant_label: order.variant_id ? (variantMap.get(order.variant_id) ?? null) : null,
+    discount_code_label: order.discount_code_id ? (discountCodeMap.get(order.discount_code_id) ?? null) : null,
   }))
 }
 
@@ -824,14 +837,19 @@ export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
   const userIds = [...new Set(typedOrders.map((o) => o.user_id))]
   const itemIds = [...new Set(typedOrders.map((o) => o.item_id))]
   const variantIds = typedOrders.map((o) => o.variant_id).filter(Boolean) as string[]
+  const discountCodeIds = typedOrders.map((o) => o.discount_code_id).filter(Boolean) as string[]
 
-  const [{ data: profiles }, { data: items }, { data: variantRows }] = await Promise.all([
+  const [{ data: profiles }, { data: items }, { data: variantRows }, { data: discountCodes }] = await Promise.all([
     db.from('profiles').select('id, full_name, email').in('id', userIds),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('merchandise_items').select('id, name').in('id', itemIds),
     variantIds.length > 0
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? (db as any).from('merchandise_variants').select('id, label').in('id', variantIds)
+      : Promise.resolve({ data: [] }),
+    discountCodeIds.length > 0
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (db as any).from('discount_codes').select('id, code').in('id', discountCodeIds)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -847,6 +865,10 @@ export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
   for (const v of (variantRows ?? []) as { id: string; label: string }[]) {
     variantMap.set(v.id, v.label)
   }
+  const discountCodeMap = new Map<string, string>()
+  for (const d of (discountCodes ?? []) as { id: string; code: string }[]) {
+    discountCodeMap.set(d.id, d.code)
+  }
 
   return typedOrders.map((order) => ({
     ...order,
@@ -854,6 +876,7 @@ export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
     player_email: profileMap.get(order.user_id)?.email ?? null,
     item_name: itemMap.get(order.item_id) ?? 'Unknown item',
     variant_label: order.variant_id ? (variantMap.get(order.variant_id) ?? null) : null,
+    discount_code_label: order.discount_code_id ? (discountCodeMap.get(order.discount_code_id) ?? null) : null,
   }))
 }
 
@@ -875,8 +898,9 @@ export async function getAllMerchandiseOrders(orgId: string): Promise<MerchOrder
   const itemIds = [...new Set(typedOrders.map((o) => o.item_id))]
   const variantIds = typedOrders.map((o) => o.variant_id).filter(Boolean) as string[]
   const leagueIds = typedOrders.map((o) => o.league_id).filter(Boolean) as string[]
+  const discountCodeIds = typedOrders.map((o) => o.discount_code_id).filter(Boolean) as string[]
 
-  const [{ data: profiles }, { data: items }, { data: variantRows }, { data: leagues }] = await Promise.all([
+  const [{ data: profiles }, { data: items }, { data: variantRows }, { data: leagues }, { data: discountCodes }] = await Promise.all([
     db.from('profiles').select('id, full_name, email').in('id', userIds),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('merchandise_items').select('id, name').in('id', itemIds),
@@ -886,6 +910,10 @@ export async function getAllMerchandiseOrders(orgId: string): Promise<MerchOrder
       : Promise.resolve({ data: [] }),
     leagueIds.length > 0
       ? db.from('leagues').select('id, name').in('id', leagueIds)
+      : Promise.resolve({ data: [] }),
+    discountCodeIds.length > 0
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (db as any).from('discount_codes').select('id, code').in('id', discountCodeIds)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -905,6 +933,10 @@ export async function getAllMerchandiseOrders(orgId: string): Promise<MerchOrder
   for (const l of (leagues ?? []) as { id: string; name: string }[]) {
     leagueMap.set(l.id, l.name)
   }
+  const discountCodeMap = new Map<string, string>()
+  for (const d of (discountCodes ?? []) as { id: string; code: string }[]) {
+    discountCodeMap.set(d.id, d.code)
+  }
 
   return typedOrders.map((order) => ({
     ...order,
@@ -913,6 +945,7 @@ export async function getAllMerchandiseOrders(orgId: string): Promise<MerchOrder
     item_name: itemMap.get(order.item_id) ?? 'Unknown item',
     variant_label: order.variant_id ? (variantMap.get(order.variant_id) ?? null) : null,
     league_name: order.league_id ? (leagueMap.get(order.league_id) ?? null) : null,
+    discount_code_label: order.discount_code_id ? (discountCodeMap.get(order.discount_code_id) ?? null) : null,
   }))
 }
 

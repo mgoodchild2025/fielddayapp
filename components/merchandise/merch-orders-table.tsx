@@ -125,8 +125,8 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
     if (exportable.length === 0) return
 
     const headerRow = showSource
-      ? ['Source', 'Player Name', 'Email', 'Item', 'Size / Variant', 'Qty', 'Unit Price', 'Total', 'Status']
-      : ['Player Name', 'Email', 'Item', 'Size / Variant', 'Qty', 'Unit Price', 'Total', 'Status']
+      ? ['Source', 'Player Name', 'Email', 'Item', 'Size / Variant', 'Qty', 'Unit Price', 'Total', 'Discount Code', 'Status']
+      : ['Player Name', 'Email', 'Item', 'Size / Variant', 'Qty', 'Unit Price', 'Total', 'Discount Code', 'Status']
 
     const rows = exportable.map((o) => {
       const base = [
@@ -137,6 +137,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
         String(o.quantity),
         `$${(o.unit_price_cents / 100).toFixed(2)}`,
         `$${((o.unit_price_cents * o.quantity - (o.discount_cents ?? 0)) / 100).toFixed(2)}`,
+        o.discount_code_label ?? '',
         o.status,
       ]
       return showSource ? [o.league_name ?? 'Shop', ...base] : base
@@ -171,7 +172,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
     .filter((o) => o.status === 'paid' || o.status === 'fulfilled')
     .reduce((sum, o) => sum + o.unit_price_cents * o.quantity - (o.discount_cents ?? 0), 0)
 
-  const colSpan = showSource ? 8 : 7
+  const colSpan = showSource ? 9 : 8
 
   return (
     <div className="space-y-4">
@@ -240,6 +241,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Size</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-400">Qty</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Price</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Discount</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Status</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Action</th>
               </tr>
@@ -285,6 +287,15 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                       <span className="text-sm font-medium text-gray-800">
                         ${((order.unit_price_cents * order.quantity) / 100).toFixed(2)}
                       </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {order.discount_code_label ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-violet-50 text-violet-700 border border-violet-200">
+                        {order.discount_code_label}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300 text-sm">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
