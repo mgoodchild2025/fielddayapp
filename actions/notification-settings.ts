@@ -81,10 +81,10 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
     emailGameRemindersEnabled: (notif as OrgNotifRow)?.email_game_reminders_enabled ?? true,
     emailReminderHoursBefore: (notif as OrgNotifRow)?.email_reminder_hours_before ?? 24,
     captainPrepEmailEnabled: (notif as OrgNotifRow)?.captain_prep_email_enabled ?? false,
-    registrationNotificationsEnabled: (notif as OrgNotifRow)?.registration_notifications_enabled ?? false,
+    registrationNotificationsEnabled: (notif as OrgNotifRow)?.registration_notifications_enabled ?? true,
     registrationNotificationEmail: (notif as OrgNotifRow)?.registration_notification_email ?? null,
     paymentFailureNotificationsEnabled: (notif as OrgNotifRow)?.payment_failure_notifications_enabled ?? true,
-    merchOrderNotificationsEnabled: (notif as OrgNotifRow)?.merch_order_notifications_enabled ?? false,
+    merchOrderNotificationsEnabled: (notif as OrgNotifRow)?.merch_order_notifications_enabled ?? true,
   }
 }
 
