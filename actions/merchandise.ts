@@ -82,6 +82,7 @@ export type MerchOrder = {
   variant_id: string | null
   quantity: number
   unit_price_cents: number
+  discount_cents: number
   status: 'pending' | 'paid' | 'fulfilled' | 'cancelled'
   notes: string | null
   payment_id: string | null
