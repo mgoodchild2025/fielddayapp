@@ -363,13 +363,15 @@ function ResultRow({ result, timezone }: { result: SeasonResult; timezone: strin
   const theirScore = result.isHome ? result.awayScore : result.homeScore
 
   return (
-    <Link
-      href={`/games/${result.gameId}`}
-      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors relative"
-    >
-      <span className="text-xs text-gray-400 w-16 shrink-0">{gameDate}</span>
+    // Outer div with relative positioning — absolute overlay handles game navigation,
+    // z-10 opponent link sits above it so clicks on the name go to team stats.
+    <div className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors relative">
+      {/* Overlay link to game detail — sits beneath z-10 elements */}
+      <Link href={`/games/${result.gameId}`} className="absolute inset-0" aria-label="View game" />
 
-      <div className="flex items-center gap-2 flex-1 min-w-0">
+      <span className="text-xs text-gray-400 w-16 shrink-0 relative z-10">{gameDate}</span>
+
+      <div className="flex items-center gap-2 flex-1 min-w-0 relative z-10">
         <TeamAvatar
           logoUrl={result.opponentLogoUrl}
           color={result.opponentColor}
@@ -379,8 +381,7 @@ function ResultRow({ result, timezone }: { result: SeasonResult; timezone: strin
         {result.opponentId ? (
           <Link
             href={`/teams/${result.opponentId}/stats`}
-            onClick={(e) => e.stopPropagation()}
-            className="text-sm font-medium text-gray-700 hover:underline truncate relative z-10"
+            className="text-sm font-medium text-gray-700 hover:underline truncate"
           >
             {result.opponentName}
           </Link>
@@ -390,13 +391,15 @@ function ResultRow({ result, timezone }: { result: SeasonResult; timezone: strin
       </div>
 
       {result.outcome !== 'upcoming' && myScore !== null && theirScore !== null && (
-        <span className="text-sm tabular-nums text-gray-600 shrink-0">
+        <span className="text-sm tabular-nums text-gray-600 shrink-0 relative z-10">
           {myScore}–{theirScore}
         </span>
       )}
 
-      <OutcomeBadge outcome={result.outcome} />
-    </Link>
+      <div className="relative z-10">
+        <OutcomeBadge outcome={result.outcome} />
+      </div>
+    </div>
   )
 }
 
