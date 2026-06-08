@@ -113,10 +113,11 @@ export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], show
               <div className="border-t border-white/10 my-4" />
 
               {[
-                { href: '/schedule',  label: 'My Games',   Icon: CalendarDays },
-                { href: '/my-events', label: 'My Events',  Icon: Trophy       },
-                { href: '/my-teams',  label: 'My Teams',   Icon: Users        },
-                { href: '/profile',   label: 'My Profile', Icon: CircleUser   },
+                { href: '/dashboard', label: 'Dashboard',  Icon: LayoutDashboard },
+                { href: '/schedule',  label: 'My Games',   Icon: CalendarDays    },
+                { href: '/my-events', label: 'My Events',  Icon: Trophy          },
+                { href: '/my-teams',  label: 'My Teams',   Icon: Users           },
+                { href: '/profile',   label: 'My Profile', Icon: CircleUser      },
               ].map(({ href, label, Icon }) => (
                 <Link
                   key={href}

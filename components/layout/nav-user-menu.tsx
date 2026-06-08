@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { CalendarDays, Trophy, Users, CircleUser, ShoppingBag } from 'lucide-react'
+import { CalendarDays, Trophy, Users, CircleUser, ShoppingBag, LayoutDashboard } from 'lucide-react'
 import { logout } from '@/actions/auth'
 
 interface Props {
@@ -11,10 +11,11 @@ interface Props {
 }
 
 const PRIMARY_NAV_ITEMS = [
-  { href: '/schedule',  label: 'My Games',   Icon: CalendarDays },
-  { href: '/my-events', label: 'My Events',  Icon: Trophy       },
-  { href: '/my-teams',  label: 'My Teams',   Icon: Users        },
-  { href: '/profile',   label: 'My Profile', Icon: CircleUser   },
+  { href: '/dashboard', label: 'Dashboard',  Icon: LayoutDashboard },
+  { href: '/schedule',  label: 'My Games',   Icon: CalendarDays    },
+  { href: '/my-events', label: 'My Events',  Icon: Trophy          },
+  { href: '/my-teams',  label: 'My Teams',   Icon: Users           },
+  { href: '/profile',   label: 'My Profile', Icon: CircleUser      },
 ] as const
 
 const SECONDARY_NAV_ITEMS = [
