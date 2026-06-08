@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
   // ── Resolve discount code before inserting orders ────────────────────────
   // Must happen here (before insert) so we can store discount_cents on each row.
   let discountApplied: { id: string; type: string; value: number } | null = null
-  if (discountId && !isManualMode) {
+  if (discountId) {
     const { data: dr } = await db
       .from('discount_codes')
       .select('id, type, value, active, expires_at, max_uses, use_count, applies_to')
@@ -233,6 +233,10 @@ export async function POST(request: NextRequest) {
 
   // ── Manual payment path — skip Stripe entirely ────────────────────────────
   if (isManualMode) {
+    // Still lock in discount use count for manual orders
+    if (discountApplied) {
+      await db.rpc('increment_discount_use', { discount_id: discountApplied.id })
+    }
     return NextResponse.json({
       manual: true,
       instructions: paymentSettings?.manual_payment_instructions ?? null,
