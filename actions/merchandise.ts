@@ -90,6 +90,8 @@ export type MerchOrder = {
   created_at: string
   fulfilled_at: string | null
   paid_at: string | null
+  payment_method: string | null
+  paid_by: string | null
   // joined fields
   player_name?: string | null
   player_email?: string | null
@@ -97,6 +99,7 @@ export type MerchOrder = {
   variant_label?: string | null
   league_name?: string | null
   discount_code_label?: string | null
+  paid_by_name?: string | null
 }
 
 export type MerchOrderInput = {
@@ -260,8 +263,9 @@ export async function getMerchandiseOrders(leagueId: string): Promise<MerchOrder
   const itemIds = [...new Set(typedOrders.map((o) => o.item_id))]
   const variantIds = typedOrders.map((o) => o.variant_id).filter(Boolean) as string[]
   const discountCodeIds = typedOrders.map((o) => o.discount_code_id).filter(Boolean) as string[]
+  const paidByIds = [...new Set(typedOrders.map((o) => o.paid_by).filter(Boolean) as string[])]
 
-  const [{ data: profiles }, { data: items }, { data: variantRows }, { data: discountCodes }] = await Promise.all([
+  const [{ data: profiles }, { data: items }, { data: variantRows }, { data: discountCodes }, { data: paidByProfiles }] = await Promise.all([
     db.from('profiles').select('id, full_name, email').in('id', userIds),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('merchandise_items').select('id, name').in('id', itemIds),
@@ -272,6 +276,9 @@ export async function getMerchandiseOrders(leagueId: string): Promise<MerchOrder
     discountCodeIds.length > 0
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? (db as any).from('discount_codes').select('id, code').in('id', discountCodeIds)
+      : Promise.resolve({ data: [] }),
+    paidByIds.length > 0
+      ? db.from('profiles').select('id, full_name').in('id', paidByIds)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -295,6 +302,11 @@ export async function getMerchandiseOrders(leagueId: string): Promise<MerchOrder
     discountCodeMap.set(d.id, d.code)
   }
 
+  const paidByMap = new Map<string, string>()
+  for (const p of (paidByProfiles ?? []) as { id: string; full_name: string | null }[]) {
+    if (p.full_name) paidByMap.set(p.id, p.full_name)
+  }
+
   return typedOrders.map((order) => ({
     ...order,
     player_name: profileMap.get(order.user_id)?.full_name ?? null,
@@ -302,6 +314,7 @@ export async function getMerchandiseOrders(leagueId: string): Promise<MerchOrder
     item_name: itemMap.get(order.item_id) ?? 'Unknown item',
     variant_label: order.variant_id ? (variantMap.get(order.variant_id) ?? null) : null,
     discount_code_label: order.discount_code_id ? (discountCodeMap.get(order.discount_code_id) ?? null) : null,
+    paid_by_name: order.paid_by ? (paidByMap.get(order.paid_by) ?? null) : null,
   }))
 }
 
@@ -693,7 +706,7 @@ export async function createMerchandiseOrders(
 export async function markMerchandiseOrderPaid(
   orderId: string,
   { method, notes }: { method?: string; notes?: string } = {}
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; collectedByName?: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const role = await getCallerRole(org.id)
@@ -701,6 +714,8 @@ export async function markMerchandiseOrderPaid(
     return { error: 'Unauthorized' }
   }
 
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
   const db = createServiceRoleClient()
 
   // Fetch current status so we know whether to advance it or leave it at fulfilled
@@ -726,14 +741,24 @@ export async function markMerchandiseOrderPaid(
     .update({
       status: newStatus,
       paid_at: new Date().toISOString(),
-      notes: [notes?.trim(), method ? `Payment method: ${method}` : null].filter(Boolean).join(' · ') || null,
+      payment_method: method ?? null,
+      paid_by: user?.id ?? null,
+      notes: notes?.trim() || null,
     })
     .eq('id', orderId)
     .eq('organization_id', org.id)
 
   if (error) return { error: error.message }
+
+  // Resolve the admin's name for the optimistic UI update
+  let collectedByName: string | null = null
+  if (user?.id) {
+    const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
+    collectedByName = profile?.full_name ?? null
+  }
+
   revalidatePath('/admin/shop')
-  return { error: null }
+  return { error: null, collectedByName }
 }
 
 /** Mark a single order as fulfilled. */
@@ -857,8 +882,9 @@ export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
   const itemIds = [...new Set(typedOrders.map((o) => o.item_id))]
   const variantIds = typedOrders.map((o) => o.variant_id).filter(Boolean) as string[]
   const discountCodeIds = typedOrders.map((o) => o.discount_code_id).filter(Boolean) as string[]
+  const paidByIds = [...new Set(typedOrders.map((o) => o.paid_by).filter(Boolean) as string[])]
 
-  const [{ data: profiles }, { data: items }, { data: variantRows }, { data: discountCodes }] = await Promise.all([
+  const [{ data: profiles }, { data: items }, { data: variantRows }, { data: discountCodes }, { data: paidByProfiles }] = await Promise.all([
     db.from('profiles').select('id, full_name, email').in('id', userIds),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('merchandise_items').select('id, name').in('id', itemIds),
@@ -869,6 +895,9 @@ export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
     discountCodeIds.length > 0
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? (db as any).from('discount_codes').select('id, code').in('id', discountCodeIds)
+      : Promise.resolve({ data: [] }),
+    paidByIds.length > 0
+      ? db.from('profiles').select('id, full_name').in('id', paidByIds)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -888,6 +917,10 @@ export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
   for (const d of (discountCodes ?? []) as { id: string; code: string }[]) {
     discountCodeMap.set(d.id, d.code)
   }
+  const paidByMap = new Map<string, string>()
+  for (const p of (paidByProfiles ?? []) as { id: string; full_name: string | null }[]) {
+    if (p.full_name) paidByMap.set(p.id, p.full_name)
+  }
 
   return typedOrders.map((order) => ({
     ...order,
@@ -896,6 +929,7 @@ export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
     item_name: itemMap.get(order.item_id) ?? 'Unknown item',
     variant_label: order.variant_id ? (variantMap.get(order.variant_id) ?? null) : null,
     discount_code_label: order.discount_code_id ? (discountCodeMap.get(order.discount_code_id) ?? null) : null,
+    paid_by_name: order.paid_by ? (paidByMap.get(order.paid_by) ?? null) : null,
   }))
 }
 
@@ -918,8 +952,9 @@ export async function getAllMerchandiseOrders(orgId: string): Promise<MerchOrder
   const variantIds = typedOrders.map((o) => o.variant_id).filter(Boolean) as string[]
   const leagueIds = typedOrders.map((o) => o.league_id).filter(Boolean) as string[]
   const discountCodeIds = typedOrders.map((o) => o.discount_code_id).filter(Boolean) as string[]
+  const paidByIds = [...new Set(typedOrders.map((o) => o.paid_by).filter(Boolean) as string[])]
 
-  const [{ data: profiles }, { data: items }, { data: variantRows }, { data: leagues }, { data: discountCodes }] = await Promise.all([
+  const [{ data: profiles }, { data: items }, { data: variantRows }, { data: leagues }, { data: discountCodes }, { data: paidByProfiles }] = await Promise.all([
     db.from('profiles').select('id, full_name, email').in('id', userIds),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('merchandise_items').select('id, name').in('id', itemIds),
@@ -933,6 +968,9 @@ export async function getAllMerchandiseOrders(orgId: string): Promise<MerchOrder
     discountCodeIds.length > 0
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? (db as any).from('discount_codes').select('id, code').in('id', discountCodeIds)
+      : Promise.resolve({ data: [] }),
+    paidByIds.length > 0
+      ? db.from('profiles').select('id, full_name').in('id', paidByIds)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -956,6 +994,10 @@ export async function getAllMerchandiseOrders(orgId: string): Promise<MerchOrder
   for (const d of (discountCodes ?? []) as { id: string; code: string }[]) {
     discountCodeMap.set(d.id, d.code)
   }
+  const paidByMap = new Map<string, string>()
+  for (const p of (paidByProfiles ?? []) as { id: string; full_name: string | null }[]) {
+    if (p.full_name) paidByMap.set(p.id, p.full_name)
+  }
 
   return typedOrders.map((order) => ({
     ...order,
@@ -965,6 +1007,7 @@ export async function getAllMerchandiseOrders(orgId: string): Promise<MerchOrder
     variant_label: order.variant_id ? (variantMap.get(order.variant_id) ?? null) : null,
     league_name: order.league_id ? (leagueMap.get(order.league_id) ?? null) : null,
     discount_code_label: order.discount_code_id ? (discountCodeMap.get(order.discount_code_id) ?? null) : null,
+    paid_by_name: order.paid_by ? (paidByMap.get(order.paid_by) ?? null) : null,
   }))
 }
 

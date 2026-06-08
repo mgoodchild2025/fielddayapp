@@ -20,15 +20,31 @@ const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-gray-100 text-gray-600',
   paid: 'bg-blue-100 text-blue-700',
   fulfilled: 'bg-green-100 text-green-700',
+  completed: 'bg-emerald-100 text-emerald-700',
   cancelled: 'bg-red-100 text-red-600',
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ order }: { order: MerchOrder }) {
+  const isCompleted = order.status === 'fulfilled' && !!order.paid_at
+  const label = isCompleted ? 'Completed' : order.status.charAt(0).toUpperCase() + order.status.slice(1)
+  const colorClass = isCompleted ? STATUS_COLORS.completed : (STATUS_COLORS[order.status] ?? 'bg-gray-100 text-gray-600')
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-600'}`}>
-      {status.charAt(0).toUpperCase() + status.slice(1)}
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
+      {label}
     </span>
   )
+}
+
+function formatShortDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function formatPaymentMethod(method: string | null | undefined): string {
+  if (!method) return 'Manual'
+  if (method === 'etransfer') return 'e-Transfer'
+  if (method === 'cash') return 'Cash'
+  if (method === 'stripe') return 'Stripe'
+  return method.charAt(0).toUpperCase() + method.slice(1)
 }
 
 function SourceBadge({ leagueName }: { leagueName?: string | null }) {
@@ -113,7 +129,13 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
         setOrders((prev) =>
           prev.map((o) => o.id === orderId
             // fulfilled orders stay fulfilled; pending orders advance to paid
-            ? { ...o, status: o.status === 'fulfilled' ? 'fulfilled' : 'paid', paid_at: new Date().toISOString() }
+            ? {
+                ...o,
+                status: o.status === 'fulfilled' ? 'fulfilled' : 'paid',
+                paid_at: new Date().toISOString(),
+                payment_method: markPaidMethod,
+                paid_by_name: result.collectedByName ?? o.paid_by_name ?? null,
+              }
             : o)
         )
         setMarkPaidOpenId(null)
@@ -302,7 +324,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <StatusBadge status={order.status} />
+                    <StatusBadge order={order} />
                   </td>
                   <td className="px-4 py-3 text-right">
                     {(order.status === 'pending' || (order.status === 'fulfilled' && !order.paid_at)) && isManualPayment && (
@@ -364,14 +386,34 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                         {fulfillPendingId === order.id ? 'Fulfilling…' : 'Fulfill'}
                       </button>
                     )}
-                    {order.status === 'fulfilled' && order.fulfilled_at && (
+                    {order.status === 'fulfilled' && order.fulfilled_at && order.paid_at && (
+                      <div className="flex flex-col items-end gap-1 min-w-[160px]">
+                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                          <svg className="w-3 h-3 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>Fulfilled {formatShortDate(order.fulfilled_at)}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                          <svg className="w-3 h-3 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+                          </svg>
+                          <span>Paid {formatShortDate(order.paid_at)}</span>
+                        </div>
+                        {order.payment_method && (
+                          <span className="text-xs text-gray-400">{formatPaymentMethod(order.payment_method)}</span>
+                        )}
+                        {order.paid_by_name && (
+                          <span className="text-xs text-gray-400">by {order.paid_by_name}</span>
+                        )}
+                      </div>
+                    )}
+                    {order.status === 'fulfilled' && order.fulfilled_at && !order.paid_at && (
                       <div className="flex flex-col items-end gap-0.5">
                         <span className="text-xs text-gray-400">
-                          Fulfilled {new Date(order.fulfilled_at).toLocaleDateString()}
+                          Fulfilled {formatShortDate(order.fulfilled_at)}
                         </span>
-                        {!order.paid_at && (
-                          <span className="text-xs font-medium text-amber-600">Payment outstanding</span>
-                        )}
+                        <span className="text-xs font-medium text-amber-600">Payment outstanding</span>
                       </div>
                     )}
                   </td>
