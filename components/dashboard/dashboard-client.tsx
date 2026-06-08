@@ -2,11 +2,30 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import {
+  CalendarDays,
+  Clock,
+  MapPin,
+  Trophy,
+  ShoppingBag,
+  ClipboardList,
+  Calendar,
+  ChevronRight,
+  BarChart3,
+  Users,
+} from 'lucide-react'
 import { upsertRsvp } from '@/actions/rsvp'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type NextGame = {
+/** The soonest upcoming team game across all the player's teams */
+export type NextGameItem = {
+  kind: 'game'
+  teamId: string
+  teamName: string
+  teamColor: string | null
+  teamLogoUrl: string | null
+  // Game details
   id: string
   scheduledAt: string
   court: string | null
@@ -18,9 +37,23 @@ export type NextGame = {
   leagueName: string
   rsvpIn: number
   rsvpOut: number
-  rsvpNoResponse: number
   myRsvp: 'in' | 'out' | null
 }
+
+/** The soonest upcoming pickup / drop-in / session event */
+export type NextSessionItem = {
+  kind: 'session'
+  id: string
+  scheduledAt: string
+  leagueName: string
+  leagueSlug: string
+  leagueSport: string | null
+  eventType: string   // 'pickup' | 'drop_in' | 'league' etc.
+  duration: number | null
+  location: string | null
+}
+
+export type NextItem = NextGameItem | NextSessionItem | null
 
 export type RecentResult = {
   gameId: string
@@ -32,6 +65,7 @@ export type RecentResult = {
   outcome: 'W' | 'L' | 'T'
 }
 
+/** Stats + recent results for a single team — drives the tabs section */
 export type DashboardTeam = {
   teamId: string
   teamName: string
@@ -42,7 +76,6 @@ export type DashboardTeam = {
   leagueName: string
   leagueSlug: string
   leagueSport: string | null
-  nextGame: NextGame | null
   record: {
     wins: number
     losses: number
@@ -65,6 +98,7 @@ export type PendingAction = {
 interface Props {
   firstName: string
   timezone: string
+  nextItem: NextItem
   teams: DashboardTeam[]
   pendingActions: PendingAction[]
   logoUrl: string | null
@@ -104,8 +138,22 @@ function greeting(): string {
 }
 
 function todayLabel(): string {
-  return new Date().toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  return new Date().toLocaleDateString('en-CA', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  })
 }
+
+function formatEventType(et: string): string {
+  return et.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return s[(v - 20) % 10] ?? s[v] ?? s[0]
+}
+
+// ── TeamCircle ────────────────────────────────────────────────────────────────
 
 function TeamCircle({
   name, color, logoUrl, size = 56,
@@ -125,102 +173,304 @@ function TeamCircle({
   )
 }
 
+// ── GameHero ─────────────────────────────────────────────────────────────────
+
+function GameHero({
+  item, timezone, rsvpIn, rsvpOut, myRsvp, onRsvp,
+}: {
+  item: NextGameItem
+  timezone: string
+  rsvpIn: number
+  rsvpOut: number
+  myRsvp: 'in' | 'out' | null
+  onRsvp: (status: 'in' | 'out') => void
+}) {
+  return (
+    <div className="bg-white rounded-2xl border overflow-hidden shadow-sm">
+      {/* Dark header */}
+      <div className="flex items-center justify-between px-5 py-2.5" style={{ backgroundColor: 'var(--brand-secondary)' }}>
+        <span className="text-xs font-bold uppercase tracking-widest text-white/50">
+          {item.weekNumber ? `Week ${item.weekNumber} · ${item.leagueName}` : item.leagueName}
+        </span>
+        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-emerald-400 bg-emerald-400/10 border border-emerald-400/20">
+          {daysUntil(item.scheduledAt)}
+        </span>
+      </div>
+
+      {/* Matchup */}
+      <div className="px-6 pt-6 pb-4">
+        <div className="flex items-center justify-center gap-4">
+          {/* My team */}
+          <div className="flex-1 flex flex-col items-center gap-2 text-center max-w-[160px]">
+            <TeamCircle name={item.teamName} color={item.teamColor} logoUrl={item.teamLogoUrl} size={64} />
+            <div>
+              <p className="font-bold text-gray-900 text-sm leading-tight">{item.teamName}</p>
+              <span
+                className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: 'color-mix(in srgb, var(--brand-primary) 15%, transparent)', color: 'var(--brand-primary)' }}
+              >
+                You
+              </span>
+            </div>
+          </div>
+
+          <span className="text-lg font-bold text-gray-200 shrink-0 w-8 text-center">vs</span>
+
+          {/* Opponent */}
+          <div className="flex-1 flex flex-col items-center gap-2 text-center max-w-[160px]">
+            <TeamCircle
+              name={item.opponentName}
+              color={item.opponentColor}
+              logoUrl={item.opponentLogoUrl}
+              size={64}
+            />
+            <div>
+              <p className="font-bold text-gray-900 text-sm leading-tight">{item.opponentName}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{item.leagueName}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Game meta */}
+        <div className="flex items-center justify-center gap-4 mt-5 pt-4 border-t border-gray-100 flex-wrap">
+          <div className="flex items-center gap-1.5 text-sm text-gray-600">
+            <CalendarDays className="w-4 h-4 text-gray-400 shrink-0" />
+            <span className="font-semibold text-gray-900">{formatDate(item.scheduledAt, timezone)}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-sm text-gray-600">
+            <Clock className="w-4 h-4 text-gray-400 shrink-0" />
+            <span className="font-semibold text-gray-900">{formatTime(item.scheduledAt, timezone)}</span>
+          </div>
+          {item.court && (
+            <div className="flex items-center gap-1.5 text-sm text-gray-600">
+              <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+              <span>{item.court}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* RSVP footer */}
+      <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-t border-gray-100">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+            {rsvpIn} in
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
+            {rsvpOut} out
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onRsvp('out')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+              myRsvp === 'out'
+                ? 'bg-red-50 border-red-200 text-red-600'
+                : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+            }`}
+          >
+            {myRsvp === 'out' ? '✗ Can\'t make it' : 'Can\'t make it'}
+          </button>
+          <button
+            onClick={() => onRsvp('in')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              myRsvp === 'in' ? 'opacity-100' : 'opacity-70 hover:opacity-100'
+            } text-white`}
+            style={{ backgroundColor: 'var(--brand-primary)' }}
+          >
+            {myRsvp === 'in' ? '✓ I\'m in' : 'I\'m in'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── SessionHero ───────────────────────────────────────────────────────────────
+
+function SessionHero({ item, timezone }: { item: NextSessionItem; timezone: string }) {
+  return (
+    <Link href={`/events/${item.leagueSlug}`} className="block bg-white rounded-2xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+      {/* Dark header */}
+      <div className="flex items-center justify-between px-5 py-2.5" style={{ backgroundColor: 'var(--brand-secondary)' }}>
+        <span className="text-xs font-bold uppercase tracking-widest text-white/50">
+          {formatEventType(item.eventType)}
+        </span>
+        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-emerald-400 bg-emerald-400/10 border border-emerald-400/20">
+          {daysUntil(item.scheduledAt)}
+        </span>
+      </div>
+
+      <div className="px-6 pt-6 pb-5">
+        {/* Event name */}
+        <div className="flex flex-col items-center gap-3 text-center mb-5">
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center"
+            style={{ backgroundColor: 'color-mix(in srgb, var(--brand-primary) 12%, transparent)' }}
+          >
+            <CalendarDays className="w-8 h-8" style={{ color: 'var(--brand-primary)' }} />
+          </div>
+          <div>
+            <p className="font-bold text-gray-900 text-lg leading-tight">{item.leagueName}</p>
+            {item.leagueSport && (
+              <p className="text-sm text-gray-400 mt-0.5">
+                {item.leagueSport.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Session meta */}
+        <div className="flex items-center justify-center gap-4 pt-4 border-t border-gray-100 flex-wrap">
+          <div className="flex items-center gap-1.5 text-sm text-gray-600">
+            <CalendarDays className="w-4 h-4 text-gray-400 shrink-0" />
+            <span className="font-semibold text-gray-900">{formatDate(item.scheduledAt, timezone)}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-sm text-gray-600">
+            <Clock className="w-4 h-4 text-gray-400 shrink-0" />
+            <span className="font-semibold text-gray-900">{formatTime(item.scheduledAt, timezone)}</span>
+          </div>
+          {item.location && (
+            <div className="flex items-center gap-1.5 text-sm text-gray-600">
+              <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+              <span>{item.location}</span>
+            </div>
+          )}
+          {item.duration && (
+            <div className="flex items-center gap-1.5 text-sm text-gray-500">
+              <Clock className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+              <span>{item.duration} min</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-end">
+        <span className="text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--brand-primary)' }}>
+          View event details <ChevronRight className="w-3.5 h-3.5" />
+        </span>
+      </div>
+    </Link>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function DashboardClient({ firstName, timezone, teams, pendingActions }: Props) {
+export function DashboardClient({ firstName, timezone, nextItem, teams, pendingActions }: Props) {
   const [activeIdx, setActiveIdx] = useState(0)
-  const [rsvpStatus, setRsvpStatus] = useState<Record<string, 'in' | 'out' | null>>(
-    Object.fromEntries(teams.map((t) => [t.teamId, t.nextGame?.myRsvp ?? null]))
-  )
-  const [rsvpCounts, setRsvpCounts] = useState<Record<string, { in: number; out: number; noResponse: number }>>(
-    Object.fromEntries(teams.map((t) => [t.teamId, {
-      in: t.nextGame?.rsvpIn ?? 0,
-      out: t.nextGame?.rsvpOut ?? 0,
-      noResponse: t.nextGame?.rsvpNoResponse ?? 0,
-    }]))
-  )
+
+  // RSVP state — only relevant when nextItem is a game
+  const initialRsvp = nextItem?.kind === 'game' ? nextItem.myRsvp : null
+  const initialIn   = nextItem?.kind === 'game' ? nextItem.rsvpIn  : 0
+  const initialOut  = nextItem?.kind === 'game' ? nextItem.rsvpOut : 0
+  const [myRsvp, setMyRsvp] = useState<'in' | 'out' | null>(initialRsvp)
+  const [rsvpIn,  setRsvpIn]  = useState(initialIn)
+  const [rsvpOut, setRsvpOut] = useState(initialOut)
   const [, startTransition] = useTransition()
 
-  const team = teams[activeIdx]
+  const team = teams[activeIdx] ?? null
 
   function handleRsvp(gameId: string, teamId: string, status: 'in' | 'out') {
-    const prev = rsvpStatus[teamId]
-    if (prev === status) return // no-op
-
+    if (myRsvp === status) return
+    const prev = myRsvp
     // Optimistic update
-    setRsvpStatus((s) => ({ ...s, [teamId]: status }))
-    setRsvpCounts((counts) => {
-      const c = { ...counts[teamId] }
-      // Remove old vote
-      if (prev === 'in') c.in = Math.max(0, c.in - 1)
-      else if (prev === 'out') c.out = Math.max(0, c.out - 1)
-      else c.noResponse = Math.max(0, c.noResponse - 1)
-      // Add new vote
-      if (status === 'in') c.in++
-      else c.out++
-      return { ...counts, [teamId]: c }
-    })
-
+    setMyRsvp(status)
+    setRsvpIn((n)  => status === 'in'  ? n + 1 : prev === 'in'  ? Math.max(0, n - 1) : n)
+    setRsvpOut((n) => status === 'out' ? n + 1 : prev === 'out' ? Math.max(0, n - 1) : n)
     startTransition(async () => {
       const result = await upsertRsvp(gameId, teamId, status)
       if (result.error) {
-        // Roll back
-        setRsvpStatus((s) => ({ ...s, [teamId]: prev }))
-        setRsvpCounts((counts) => {
-          const c = { ...counts[teamId] }
-          if (status === 'in') c.in = Math.max(0, c.in - 1)
-          else c.out = Math.max(0, c.out - 1)
-          if (prev === 'in') c.in++
-          else if (prev === 'out') c.out++
-          else c.noResponse++
-          return { ...counts, [teamId]: c }
-        })
+        setMyRsvp(prev)
+        setRsvpIn((n)  => status === 'in'  ? Math.max(0, n - 1) : prev === 'in'  ? n + 1 : n)
+        setRsvpOut((n) => status === 'out' ? Math.max(0, n - 1) : prev === 'out' ? n + 1 : n)
       }
     })
   }
 
-  if (teams.length === 0) {
+  // ── Empty state (no active teams AND no upcoming sessions) ────────────────
+  if (teams.length === 0 && !nextItem) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-        <div className="text-5xl mb-4">🏅</div>
-        <h2 className="text-xl font-bold text-gray-800 mb-2">You&apos;re not on any active teams yet</h2>
+        <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center bg-gray-100">
+          <Trophy className="w-8 h-8 text-gray-400" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-800 mb-2">Nothing on your schedule yet</h2>
         <p className="text-gray-500 text-sm mb-6">Register for an event to get started.</p>
         <Link
           href="/events"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white"
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >
-          Browse Events →
+          Browse Events
+          <ChevronRight className="w-4 h-4" />
         </Link>
       </div>
     )
   }
 
-  const myRsvp = team ? (rsvpStatus[team.teamId] ?? null) : null
-  const counts = team ? (rsvpCounts[team.teamId] ?? { in: 0, out: 0, noResponse: 0 }) : { in: 0, out: 0, noResponse: 0 }
-
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 pb-16 space-y-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 pb-24 space-y-8">
 
       {/* ── Greeting ── */}
       <div>
         <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">{todayLabel()}</p>
         <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-          {greeting()}, {firstName} 👋
+          {greeting()}, {firstName}
         </h1>
       </div>
 
       {/* ── Action banners ── */}
       {pendingActions.map((action) => (
-        <Link key={action.href} href={action.href} className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5 hover:bg-amber-100 transition-colors">
-          <span className="text-xl shrink-0">📋</span>
+        <Link
+          key={action.href}
+          href={action.href}
+          className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5 hover:bg-amber-100 transition-colors"
+        >
+          <ClipboardList className="w-5 h-5 text-amber-500 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-amber-900">{action.label}</p>
             <p className="text-xs text-amber-700 mt-0.5">{action.sublabel}</p>
           </div>
-          <span className="text-xs font-bold text-amber-700 shrink-0">Complete →</span>
+          <span className="text-xs font-bold text-amber-700 shrink-0 flex items-center gap-0.5">
+            Complete <ChevronRight className="w-3.5 h-3.5" />
+          </span>
         </Link>
       ))}
+
+      {/* ── What's Next hero (global — game or session, whichever is sooner) ── */}
+      <section>
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">
+            {nextItem?.kind === 'session' ? 'Next Session' : 'Next Game'}
+          </h2>
+          <Link href="/schedule" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
+            Full schedule →
+          </Link>
+        </div>
+
+        {nextItem?.kind === 'game' ? (
+          <GameHero
+            item={nextItem}
+            timezone={timezone}
+            rsvpIn={rsvpIn}
+            rsvpOut={rsvpOut}
+            myRsvp={myRsvp}
+            onRsvp={(status) => handleRsvp(nextItem.id, nextItem.teamId, status)}
+          />
+        ) : nextItem?.kind === 'session' ? (
+          <SessionHero item={nextItem} timezone={timezone} />
+        ) : (
+          <div className="bg-white rounded-2xl border p-10 text-center">
+            <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center bg-gray-50">
+              <Calendar className="w-6 h-6 text-gray-300" />
+            </div>
+            <p className="text-sm font-medium text-gray-500">No upcoming games or sessions</p>
+            <p className="text-xs text-gray-400 mt-1">Check back soon — your schedule will appear here.</p>
+          </div>
+        )}
+      </section>
 
       {/* ── Team tabs (only when multiple active teams) ── */}
       {teams.length > 1 && (
@@ -243,149 +493,15 @@ export function DashboardClient({ firstName, timezone, teams, pendingActions }: 
         </div>
       )}
 
+      {/* ── Per-team stats + results (only when user has active teams) ── */}
       {team && (
         <>
-          {/* ── Next Game hero ── */}
-          <section>
-            <div className="flex items-baseline justify-between mb-3">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">Next Game</h2>
-              <Link href="/schedule" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
-                Full schedule →
-              </Link>
-            </div>
-
-            {team.nextGame ? (
-              <div className="bg-white rounded-2xl border overflow-hidden shadow-sm">
-                {/* Dark header bar */}
-                <div className="flex items-center justify-between px-5 py-2.5" style={{ backgroundColor: 'var(--brand-secondary)' }}>
-                  <span className="text-xs font-bold uppercase tracking-widest text-white/50">
-                    {team.nextGame.weekNumber ? `Week ${team.nextGame.weekNumber}` : team.nextGame.leagueName}
-                  </span>
-                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-emerald-400 bg-emerald-400/10 border border-emerald-400/20">
-                    {daysUntil(team.nextGame.scheduledAt)}
-                  </span>
-                </div>
-
-                {/* Matchup */}
-                <div className="px-6 pt-6 pb-4">
-                  <div className="flex items-center justify-center gap-4">
-                    {/* My team */}
-                    <div className="flex-1 flex flex-col items-center gap-2 text-center max-w-[160px]">
-                      <TeamCircle name={team.teamName} color={team.teamColor} logoUrl={team.teamLogoUrl} size={64} />
-                      <div>
-                        <p className="font-bold text-gray-900 text-sm leading-tight">{team.teamName}</p>
-                        <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: 'color-mix(in srgb, var(--brand-primary) 15%, transparent)', color: 'var(--brand-primary)' }}>
-                          You
-                        </span>
-                      </div>
-                    </div>
-
-                    <span className="text-lg font-bold text-gray-200 shrink-0 w-8 text-center">vs</span>
-
-                    {/* Opponent */}
-                    <div className="flex-1 flex flex-col items-center gap-2 text-center max-w-[160px]">
-                      <TeamCircle
-                        name={team.nextGame.opponentName}
-                        color={team.nextGame.opponentColor}
-                        logoUrl={team.nextGame.opponentLogoUrl}
-                        size={64}
-                      />
-                      <div>
-                        <p className="font-bold text-gray-900 text-sm leading-tight">{team.nextGame.opponentName}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{team.nextGame.leagueName}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Game meta */}
-                  <div className="flex items-center justify-center gap-4 mt-5 pt-4 border-t border-gray-100 flex-wrap">
-                    <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                      <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <span className="font-semibold text-gray-900">{formatDate(team.nextGame.scheduledAt, timezone)}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                      <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span className="font-semibold text-gray-900">{formatTime(team.nextGame.scheduledAt, timezone)}</span>
-                    </div>
-                    {team.nextGame.court && (
-                      <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                        <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        <span>{team.nextGame.court}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* RSVP footer */}
-                <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-t border-gray-100">
-                  {/* RSVP counts */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                      {counts.in} in
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
-                      {counts.out} out
-                    </div>
-                    {counts.noResponse > 0 && (
-                      <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                        <span className="w-2 h-2 rounded-full bg-gray-300 shrink-0" />
-                        {counts.noResponse} TBD
-                      </div>
-                    )}
-                  </div>
-
-                  {/* RSVP buttons */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleRsvp(team.nextGame!.id, team.teamId, 'out')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                        myRsvp === 'out'
-                          ? 'bg-red-50 border-red-200 text-red-600'
-                          : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                      }`}
-                    >
-                      {myRsvp === 'out' ? '✗ Can\'t make it' : 'Can\'t make it'}
-                    </button>
-                    <button
-                      onClick={() => handleRsvp(team.nextGame!.id, team.teamId, 'in')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                        myRsvp === 'in'
-                          ? 'text-white'
-                          : 'text-white opacity-70 hover:opacity-100'
-                      }`}
-                      style={{ backgroundColor: 'var(--brand-primary)' }}
-                    >
-                      {myRsvp === 'in' ? '✓ I\'m in' : 'I\'m in'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl border p-10 text-center">
-                <p className="text-3xl mb-3">📅</p>
-                <p className="text-sm font-medium text-gray-500">No games scheduled yet</p>
-                <p className="text-xs text-gray-400 mt-1">Check back soon — your next game will appear here.</p>
-              </div>
-            )}
-          </section>
-
-          {/* ── Season stats ── */}
+          {/* Season stats */}
           <section>
             <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
               Season Stats · {team.teamName}
             </h2>
             <div className="grid grid-cols-3 gap-3">
-              {/* Record */}
               <div className="bg-white rounded-xl border p-4">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Record</p>
                 <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-secondary)' }}>
@@ -405,13 +521,14 @@ export function DashboardClient({ firstName, timezone, teams, pendingActions }: 
                 <p className="text-[11px] text-gray-400 mt-1.5">{team.record.played} played</p>
               </div>
 
-              {/* Standing */}
               <div className="bg-white rounded-xl border p-4">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Standing</p>
                 {team.record.standing !== null ? (
                   <>
                     <p className="text-2xl font-extrabold tracking-tight leading-none">
-                      <span style={{ color: 'var(--brand-primary)' }}>{team.record.standing}{ordinal(team.record.standing)}</span>
+                      <span style={{ color: 'var(--brand-primary)' }}>
+                        {team.record.standing}{ordinal(team.record.standing)}
+                      </span>
                       {team.record.totalTeams !== null && (
                         <span className="text-sm font-semibold text-gray-400 ml-0.5"> / {team.record.totalTeams}</span>
                       )}
@@ -423,20 +540,17 @@ export function DashboardClient({ firstName, timezone, teams, pendingActions }: 
                 )}
               </div>
 
-              {/* Points */}
               <div className="bg-white rounded-xl border p-4">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Points</p>
                 <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-primary)' }}>
                   {team.record.points}
                 </p>
-                <p className="text-[11px] text-gray-400 mt-1.5">
-                  {team.record.wins * 3 + team.record.ties} pts (3/1/0)
-                </p>
+                <p className="text-[11px] text-gray-400 mt-1.5">3W · 1T · 0L</p>
               </div>
             </div>
           </section>
 
-          {/* ── Two-column: Recent results + quick links ── */}
+          {/* Two-column: Recent results + team card + quick links */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
 
             {/* Recent Results */}
@@ -465,7 +579,9 @@ export function DashboardClient({ firstName, timezone, teams, pendingActions }: 
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">
-                          {r.isHome ? `${team.teamName} vs ${r.opponentName}` : `${r.opponentName} vs ${team.teamName}`}
+                          {r.isHome
+                            ? `${team.teamName} vs ${r.opponentName}`
+                            : `${r.opponentName} vs ${team.teamName}`}
                         </p>
                         <p className="text-xs text-gray-400">
                           {r.isHome ? `${r.homeScore} – ${r.awayScore}` : `${r.awayScore} – ${r.homeScore}`}
@@ -478,7 +594,7 @@ export function DashboardClient({ firstName, timezone, teams, pendingActions }: 
               )}
             </section>
 
-            {/* My Team card */}
+            {/* Team card + quick links */}
             <section>
               <div className="flex items-baseline justify-between mb-3">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">My Team</h2>
@@ -489,53 +605,75 @@ export function DashboardClient({ firstName, timezone, teams, pendingActions }: 
                 )}
               </div>
 
-              <Link href={`/teams/${team.teamId}`} className="flex items-center gap-4 bg-white border rounded-xl px-4 py-4 hover:shadow-md transition-shadow group">
+              <Link
+                href={`/teams/${team.teamId}`}
+                className="flex items-center gap-4 bg-white border rounded-xl px-4 py-4 hover:shadow-md transition-shadow group mb-3"
+              >
                 <TeamCircle name={team.teamName} color={team.teamColor} logoUrl={team.teamLogoUrl} size={48} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-bold text-gray-900">{team.teamName}</p>
                     {team.role === 'captain' && (
-                      <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
-                        style={{ backgroundColor: 'color-mix(in srgb, var(--brand-primary) 12%, transparent)', color: 'var(--brand-primary)' }}>
+                      <span
+                        className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: 'color-mix(in srgb, var(--brand-primary) 12%, transparent)', color: 'var(--brand-primary)' }}
+                      >
                         Captain
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5 truncate">{team.leagueName}</p>
                 </div>
-                <svg className="w-4 h-4 text-gray-300 group-hover:text-gray-400 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                </svg>
+                <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-400 transition-colors shrink-0" />
               </Link>
 
-              {/* Quick nav links below the team card */}
-              <div className="grid grid-cols-2 gap-2 mt-3">
-                {[
-                  { href: '/events',    icon: '🏅', label: 'Browse Events' },
-                  { href: '/standings', icon: '🏆', label: 'Standings'     },
-                  { href: '/schedule',  icon: '📅', label: 'Schedule'      },
-                  { href: '/shop',      icon: '🛍️', label: 'Shop'          },
-                ].map(({ href, icon, label }) => (
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { href: '/events',    Icon: Trophy,       label: 'Browse Events' },
+                  { href: '/standings', Icon: BarChart3,    label: 'Standings'     },
+                  { href: '/schedule',  Icon: CalendarDays, label: 'Schedule'      },
+                  { href: '/shop',      Icon: ShoppingBag,  label: 'Shop'          },
+                ] as const).map(({ href, Icon, label }) => (
                   <Link
                     key={href}
                     href={href}
                     className="flex items-center gap-2.5 bg-white border rounded-xl px-3 py-3 hover:shadow-sm transition-shadow group"
                   >
-                    <span className="text-base shrink-0">{icon}</span>
+                    <Icon className="w-4 h-4 shrink-0 text-gray-400 group-hover:text-gray-600 transition-colors" />
                     <span className="text-sm font-medium text-gray-600 group-hover:text-gray-900 transition-colors">{label}</span>
                   </Link>
                 ))}
               </div>
             </section>
+
           </div>
         </>
       )}
+
+      {/* ── Quick links for session-only players (no active team) ── */}
+      {!team && nextItem && (
+        <section>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Explore</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {([
+              { href: '/events',    Icon: Trophy,       label: 'Browse Events' },
+              { href: '/standings', Icon: BarChart3,    label: 'Standings'     },
+              { href: '/my-events', Icon: Users,        label: 'My Events'     },
+              { href: '/shop',      Icon: ShoppingBag,  label: 'Shop'          },
+            ] as const).map(({ href, Icon, label }) => (
+              <Link
+                key={href}
+                href={href}
+                className="flex items-center gap-2.5 bg-white border rounded-xl px-3 py-3.5 hover:shadow-sm transition-shadow group"
+              >
+                <Icon className="w-4 h-4 shrink-0 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                <span className="text-sm font-medium text-gray-600 group-hover:text-gray-900 transition-colors">{label}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
     </div>
   )
-}
-
-function ordinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd']
-  const v = n % 100
-  return s[(v - 20) % 10] ?? s[v] ?? s[0]
 }
