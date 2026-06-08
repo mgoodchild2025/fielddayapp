@@ -42,7 +42,7 @@ export default function AuthCallbackClient({ origin }: { origin: string }) {
         const meta = session.user?.user_metadata?.redirect_destination as string | undefined
         const destination = isSafeDestination(meta ?? '')
           ? meta!
-          : `${origin}/my-events`
+          : `${origin}/dashboard`
         window.location.replace(destination)
       })
   }, [origin])

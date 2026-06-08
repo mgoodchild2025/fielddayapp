@@ -55,7 +55,7 @@ export default async function CallbackPage({
     if (error) redirect(errorRedirect)
     const { data: { user } } = await supabase.auth.getUser()
     const meta = user?.user_metadata?.redirect_destination as string | undefined
-    redirect(next ?? (isSafeDestination(meta ?? '') ? meta! : `${origin}/my-events`))
+    redirect(next ?? (isSafeDestination(meta ?? '') ? meta! : `${origin}/dashboard`))
   }
 
   // ── PKCE code flow ───────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ export default async function CallbackPage({
     if (error) redirect(errorRedirect)
     const { data: { user } } = await supabase.auth.getUser()
     const meta = user?.user_metadata?.redirect_destination as string | undefined
-    redirect(next ?? (isSafeDestination(meta ?? '') ? meta! : `${origin}/my-events`))
+    redirect(next ?? (isSafeDestination(meta ?? '') ? meta! : `${origin}/dashboard`))
   }
 
   // ── Implicit / hash flow — tokens are in the URL fragment ────────────────

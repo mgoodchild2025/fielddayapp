@@ -232,7 +232,7 @@ export default async function TeamStatsPage({
   }
 
   const upcomingResults = seasonResults.filter(r => r.outcome === 'upcoming')
-  const pastResults     = seasonResults.filter(r => r.outcome !== 'upcoming').reverse()
+  const pastResults     = seasonResults.filter(r => r.outcome !== 'upcoming') // already ascending from the games query
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
