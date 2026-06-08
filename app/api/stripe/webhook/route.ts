@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (supabase as any)
           .from('merchandise_orders')
-          .update({ status: 'paid' })
+          .update({ status: 'paid', paid_at: new Date().toISOString() })
           .in('id', shopOrderIds)
 
         // Check and notify admins if any item/variant is now low on stock
