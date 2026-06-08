@@ -328,8 +328,8 @@ export default async function TeamStatsPage({
             </div>
           ) : (
             <div className="bg-white rounded-xl border overflow-hidden divide-y">
-              {upcomingResults.map(r => <ResultRow key={r.gameId} result={r} timezone={timezone} />)}
               {pastResults.map(r => <ResultRow key={r.gameId} result={r} timezone={timezone} />)}
+              {upcomingResults.map(r => <ResultRow key={r.gameId} result={r} timezone={timezone} />)}
             </div>
           )}
         </section>
