@@ -2,12 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarDays, Trophy, Users } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, Trophy } from 'lucide-react'
 
 const TABS = [
-  { href: '/schedule',  label: 'My Games',  Icon: CalendarDays },
-  { href: '/my-events', label: 'My Events', Icon: Trophy       },
-  { href: '/my-teams',  label: 'My Teams',  Icon: Users        },
+  { href: '/dashboard', label: 'Dashboard',  Icon: LayoutDashboard },
+  { href: '/schedule',  label: 'My Games',   Icon: CalendarDays    },
+  { href: '/my-events', label: 'My Events',  Icon: Trophy          },
 ] as const
 
 export function MobileBottomNavClient() {
