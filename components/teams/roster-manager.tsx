@@ -6,6 +6,7 @@ import { captainSetMemberRole, captainRemoveTeamMember, sendRosterReminder } fro
 import { resendTeamInvite, cancelTeamInvitation } from '@/actions/invitations'
 import { setTeamMemberPosition } from '@/actions/positions'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
+import { Copy, Check } from 'lucide-react'
 
 type Role = 'captain' | 'coach' | 'player' | 'sub'
 
@@ -76,6 +77,7 @@ export function RosterManager({
   const [members, setMembers] = useState(initialMembers)
   const [invites, setInvites] = useState(initialInvites)
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null)
+  const [copiedField, setCopiedField] = useState<'code' | 'link' | null>(null)
 
   const [actionPending, startActionTransition] = useTransition()
   const [actionError, setActionError] = useState<string | null>(null)
@@ -93,6 +95,13 @@ export function RosterManager({
   function clearFeedback() {
     setActionError(null)
     setActionSuccess(null)
+  }
+
+  function copyToClipboard(text: string, field: 'code' | 'link') {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedField(field)
+      setTimeout(() => setCopiedField(null), 2000)
+    })
   }
 
   // ── Active member actions ──────────────────────────────────────────────────
@@ -368,20 +377,66 @@ export function RosterManager({
           </div>
         )}
 
-        {/* ── Join link ── */}
-        {joinUrl && (
-          <div className="px-5 py-3 border-t bg-gray-50 flex items-center gap-2">
-            <code className="flex-1 min-w-0 text-xs text-gray-500 bg-white border rounded-md px-2.5 py-2 truncate font-mono">
-              {joinUrl}
-            </code>
-            <button
-              type="button"
-              onClick={() => navigator.clipboard.writeText(joinUrl)}
-              className="shrink-0 px-3 py-2 rounded-md text-xs font-semibold border transition-colors"
-              style={{ borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
-            >
-              Copy link
-            </button>
+        {/* ── Join code & link ── */}
+        {(teamCode || joinUrl) && (
+          <div className="border-t bg-gray-50 px-5 py-4 space-y-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              Team Join Info
+            </p>
+
+            {/* Join code row */}
+            {teamCode && (
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] text-gray-400 mb-0.5">Join Code</p>
+                  <p className="font-mono font-bold text-lg tracking-widest text-gray-800 leading-none">
+                    {teamCode}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(teamCode, 'code')}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-all"
+                  style={
+                    copiedField === 'code'
+                      ? { borderColor: '#22c55e', color: '#16a34a', backgroundColor: '#f0fdf4' }
+                      : { borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)', backgroundColor: 'white' }
+                  }
+                  aria-label="Copy join code"
+                >
+                  {copiedField === 'code'
+                    ? <><Check className="w-3.5 h-3.5" /> Copied</>
+                    : <><Copy className="w-3.5 h-3.5" /> Copy</>
+                  }
+                </button>
+              </div>
+            )}
+
+            {/* Join link row */}
+            {joinUrl && (
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] text-gray-400 mb-0.5">Join Link</p>
+                  <p className="text-xs text-gray-500 font-mono truncate">{joinUrl}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(joinUrl, 'link')}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-all"
+                  style={
+                    copiedField === 'link'
+                      ? { borderColor: '#22c55e', color: '#16a34a', backgroundColor: '#f0fdf4' }
+                      : { borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)', backgroundColor: 'white' }
+                  }
+                  aria-label="Copy join link"
+                >
+                  {copiedField === 'link'
+                    ? <><Check className="w-3.5 h-3.5" /> Copied</>
+                    : <><Copy className="w-3.5 h-3.5" /> Copy</>
+                  }
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
