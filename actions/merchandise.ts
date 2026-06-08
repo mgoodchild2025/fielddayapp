@@ -738,7 +738,7 @@ export async function fulfillMerchandiseOrder(orderId: string): Promise<{ error:
   return { error: null }
 }
 
-/** Bulk fulfill all paid orders for a league. */
+/** Bulk fulfill all pending/paid orders for a league. */
 export async function fulfillAllMerchandiseOrders(leagueId: string): Promise<{ error: string | null; count: number }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -754,7 +754,7 @@ export async function fulfillAllMerchandiseOrders(leagueId: string): Promise<{ e
     .update({ status: 'fulfilled', fulfilled_at: new Date().toISOString() })
     .eq('league_id', leagueId)
     .eq('organization_id', org.id)
-    .eq('status', 'paid')
+    .in('status', ['pending', 'paid'])
     .select('id')
 
   if (error) return { error: error.message, count: 0 }
@@ -949,7 +949,7 @@ export async function getAllMerchandiseOrders(orgId: string): Promise<MerchOrder
   }))
 }
 
-/** Mark all paid orders org-wide as fulfilled. */
+/** Mark all pending/paid orders org-wide as fulfilled. */
 export async function fulfillAllOrgOrders(orgId: string): Promise<{ error: string | null; count: number }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -964,7 +964,7 @@ export async function fulfillAllOrgOrders(orgId: string): Promise<{ error: strin
     .from('merchandise_orders')
     .update({ status: 'fulfilled', fulfilled_at: new Date().toISOString() })
     .eq('organization_id', orgId)
-    .eq('status', 'paid')
+    .in('status', ['pending', 'paid'])
     .select('id')
 
   if (error) return { error: error.message, count: 0 }
@@ -1197,7 +1197,7 @@ export async function fulfillAllShopOrders(orgId: string): Promise<{ error: stri
     .update({ status: 'fulfilled', fulfilled_at: new Date().toISOString() })
     .eq('organization_id', orgId)
     .is('league_id', null)
-    .eq('status', 'paid')
+    .in('status', ['pending', 'paid'])
     .select('id')
 
   if (error) return { error: error.message, count: 0 }

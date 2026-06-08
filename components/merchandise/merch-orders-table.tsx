@@ -57,7 +57,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
   const [markPaidPendingId, setMarkPaidPendingId] = useState<string | null>(null)
   const [, startTransition] = useTransition()
 
-  const paidOrders = orders.filter((o) => o.status === 'paid')
+  const fulfillableOrders = orders.filter((o) => o.status === 'pending' || o.status === 'paid')
 
   function handleFulfill(orderId: string) {
     setError(null)
@@ -92,7 +92,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
         setError(result.error)
       } else {
         setOrders((prev) =>
-          prev.map((o) => o.status === 'paid' ? { ...o, status: 'fulfilled', fulfilled_at: new Date().toISOString() } : o)
+          prev.map((o) => (o.status === 'pending' || o.status === 'paid') ? { ...o, status: 'fulfilled', fulfilled_at: new Date().toISOString() } : o)
         )
       }
     })
@@ -188,15 +188,15 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
           <span>{orders.length} order{orders.length !== 1 ? 's' : ''}</span>
           <span className="text-gray-300">|</span>
           <span className="font-medium text-gray-700">${(paidTotal / 100).toFixed(2)} collected</span>
-          {paidOrders.length > 0 && (
+          {fulfillableOrders.length > 0 && (
             <>
               <span className="text-gray-300">|</span>
-              <span className="text-blue-600">{paidOrders.length} awaiting fulfillment</span>
+              <span className="text-blue-600">{fulfillableOrders.length} awaiting fulfillment</span>
             </>
           )}
         </div>
         <div className="flex items-center gap-2">
-          {paidOrders.length > 0 && (
+          {fulfillableOrders.length > 0 && (
             <button
               type="button"
               onClick={handleFulfillAll}
@@ -210,7 +210,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                   Fulfilling…
                 </>
               ) : (
-                <>Fulfill All ({paidOrders.length})</>
+                <>Fulfill All ({fulfillableOrders.length})</>
               )}
             </button>
           )}
@@ -351,7 +351,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                         </button>
                       )
                     )}
-                    {order.status === 'paid' && (
+                    {(order.status === 'pending' || order.status === 'paid') && (
                       <button
                         type="button"
                         onClick={() => handleFulfill(order.id)}
