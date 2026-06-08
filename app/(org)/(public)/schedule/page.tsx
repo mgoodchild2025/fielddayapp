@@ -106,9 +106,8 @@ export default async function SchedulePage() {
     }).filter(Boolean) as string[]
   )
 
-  // Games involving the player's teams (or all org games if no team memberships)
-  const relevantGames = publishedGames.filter((g) => {
-    if (myTeamIds.size === 0) return true
+  // Only show games where the player is on one of the teams
+  const relevantGames = myTeamIds.size === 0 ? [] : publishedGames.filter((g) => {
     const homeTeam = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
     const awayTeam = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
     return myTeamIds.has(homeTeam?.id) || myTeamIds.has(awayTeam?.id)
