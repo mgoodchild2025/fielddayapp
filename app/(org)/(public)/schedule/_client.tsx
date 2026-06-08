@@ -2,9 +2,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { List, CalendarDays } from 'lucide-react'
 import { PastGamesToggle } from '@/components/schedule/past-games-toggle'
 import { GameRsvpButton } from '@/components/schedule/game-rsvp-button'
 import { GameAttendancePanel } from '@/components/schedule/game-attendance-panel'
+import { PlayerCalendar, toLocalDate } from '@/components/ui/player-calendar'
+import type { CalendarDot } from '@/components/ui/player-calendar'
 import { formatGameTime } from '@/lib/format-time'
 import type { GameSub } from '@/actions/game-subs'
 
@@ -12,14 +15,15 @@ import type { GameSub } from '@/actions/game-subs'
 type ScheduleItem = { _type: 'game' | 'session'; scheduled_at: string; data: any }
 
 function TeamBadge({
-  name, logoUrl, color, bold,
+  name, logoUrl, color, bold, href,
 }: {
   name: string
   logoUrl?: string | null
   color?: string | null
   bold?: boolean
+  href?: string
 }) {
-  return (
+  const inner = (
     <span className="flex items-center gap-1">
       {logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -29,6 +33,16 @@ function TeamBadge({
       ) : null}
       <span className={bold ? 'font-semibold' : 'font-medium'}>{name}</span>
     </span>
+  )
+  if (!href) return inner
+  return (
+    <Link
+      href={href}
+      onClick={(e) => e.stopPropagation()}
+      className="relative z-10 hover:underline"
+    >
+      {inner}
+    </Link>
   )
 }
 
@@ -64,6 +78,7 @@ export function MyGamesClient({
   timezone,
 }: Props) {
   const [activeLeague, setActiveLeague] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
 
   const teamIdSet = new Set(myTeamIds)
   const captainTeamIdSet = new Set(captainTeamIds)
@@ -157,9 +172,21 @@ export function MyGamesClient({
             </div>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-            <TeamBadge name={homeTeam?.name ?? 'TBD'} logoUrl={homeLogoUrl} color={homeColor} bold={isHomeMyTeam} />
+            <TeamBadge
+              name={homeTeam?.name ?? 'TBD'}
+              logoUrl={homeLogoUrl}
+              color={homeColor}
+              bold={isHomeMyTeam}
+              href={homeTeam?.id ? `/teams/${homeTeam.id}/stats` : undefined}
+            />
             <span className="text-gray-400 text-sm mx-0.5">vs</span>
-            <TeamBadge name={awayTeam?.name ?? 'TBD'} logoUrl={awayLogoUrl} color={awayColor} bold={isAwayMyTeam} />
+            <TeamBadge
+              name={awayTeam?.name ?? 'TBD'}
+              logoUrl={awayLogoUrl}
+              color={awayColor}
+              bold={isAwayMyTeam}
+              href={awayTeam?.id ? `/teams/${awayTeam.id}/stats` : undefined}
+            />
           </div>
           <p className="text-xs text-gray-400 mt-0.5">{league?.name}</p>
 
@@ -212,54 +239,121 @@ export function MyGamesClient({
     )
   }
 
+  // Build calendar dots from all items
+  const allItems = [...upcomingItems, ...pastItems]
+  const calendarDots: CalendarDot[] = allItems
+    .filter(item => {
+      if (!activeLeague) return true
+      return getLeague(item)?.slug === activeLeague
+    })
+    .map(item => {
+      const league = getLeague(item)
+      if (item._type === 'game') {
+        const g = item.data
+        const homeTeam = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
+        const awayTeam = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
+        const isHome = teamIdSet.has(homeTeam?.id)
+        const myTeamColor = isHome ? (homeTeam?.color ?? null) : (awayTeam?.color ?? null)
+        const opponent = isHome ? awayTeam : homeTeam
+        return {
+          id: `g-${g.id}`,
+          date: toLocalDate(item.scheduled_at, timezone),
+          color: myTeamColor,
+          label: `vs ${opponent?.name ?? 'TBD'}${league?.name ? ` · ${league.name}` : ''}`,
+          href: `/games/${g.id}`,
+        } satisfies CalendarDot
+      }
+      // session
+      return {
+        id: `s-${item.data.id}`,
+        date: toLocalDate(item.scheduled_at, timezone),
+        color: null,
+        label: `Pickup Session${league?.name ? ` · ${league.name}` : ''}`,
+        href: league?.slug ? `/events/${league.slug}` : '#',
+      } satisfies CalendarDot
+    })
+
   return (
     <>
-      {/* Filter pills — only shown when in multiple leagues */}
-      {leagues.length > 1 && (
-        <div className="flex flex-wrap gap-2 mb-5">
-          <button
-            onClick={() => setActiveLeague(null)}
-            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-              !activeLeague ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-            style={!activeLeague ? { backgroundColor: 'var(--brand-primary)' } : {}}
-          >
-            All
-          </button>
-          {leagues.map(([slug, name]) => (
+      {/* Filter pills + view mode toggle */}
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
+        {leagues.length > 1 && (
+          <>
             <button
-              key={slug}
-              onClick={() => setActiveLeague(activeLeague === slug ? null : slug)}
+              onClick={() => setActiveLeague(null)}
               className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                activeLeague === slug ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                !activeLeague ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
-              style={activeLeague === slug ? { backgroundColor: 'var(--brand-primary)' } : {}}
+              style={!activeLeague ? { backgroundColor: 'var(--brand-primary)' } : {}}
             >
-              {name}
+              All
             </button>
-          ))}
+            {leagues.map(([slug, name]) => (
+              <button
+                key={slug}
+                onClick={() => setActiveLeague(activeLeague === slug ? null : slug)}
+                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                  activeLeague === slug ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                style={activeLeague === slug ? { backgroundColor: 'var(--brand-primary)' } : {}}
+              >
+                {name}
+              </button>
+            ))}
+          </>
+        )}
+        {/* Spacer */}
+        <div className="flex-1" />
+        {/* View mode toggle */}
+        <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5 shrink-0">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+            aria-label="List view"
+            title="List view"
+          >
+            <List className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`p-1.5 rounded-md transition-colors ${viewMode === 'calendar' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+            aria-label="Calendar view"
+            title="Calendar view"
+          >
+            <CalendarDays className="w-3.5 h-3.5" />
+          </button>
         </div>
-      )}
-
-      {/* Upcoming */}
-      <div className="space-y-2">
-        {filteredUpcoming.length > 0
-          ? filteredUpcoming.map(renderItem)
-          : (
-            <div className="border rounded-md p-6 text-center text-sm text-gray-400 bg-white">
-              {activeLeague
-                ? 'No upcoming games for this league.'
-                : 'No upcoming games — check back when your league publishes the schedule.'}
-            </div>
-          )
-        }
       </div>
 
-      {/* Past games — collapsed by default */}
-      {filteredPast.length > 0 && (
-        <PastGamesToggle count={filteredPast.length}>
-          {filteredPast.map(renderItem)}
-        </PastGamesToggle>
+      {/* Calendar view */}
+      {viewMode === 'calendar' && (
+        <PlayerCalendar dots={calendarDots} timezone={timezone} />
+      )}
+
+      {/* List view */}
+      {viewMode === 'list' && (
+        <>
+          {/* Upcoming */}
+          <div className="space-y-2">
+            {filteredUpcoming.length > 0
+              ? filteredUpcoming.map(renderItem)
+              : (
+                <div className="border rounded-md p-6 text-center text-sm text-gray-400 bg-white">
+                  {activeLeague
+                    ? 'No upcoming games for this league.'
+                    : 'No upcoming games — check back when your league publishes the schedule.'}
+                </div>
+              )
+            }
+          </div>
+
+          {/* Past games — collapsed by default */}
+          {filteredPast.length > 0 && (
+            <PastGamesToggle count={filteredPast.length}>
+              {filteredPast.map(renderItem)}
+            </PastGamesToggle>
+          )}
+        </>
       )}
     </>
   )

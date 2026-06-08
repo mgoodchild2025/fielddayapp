@@ -250,15 +250,24 @@ export default async function GameMatchupPage({
           <div className="flex items-center justify-between gap-4">
             {/* Home team */}
             <div className="flex flex-col items-center gap-2 flex-1 text-center">
-              <TeamLogo
-                name={homeTeam?.name ?? 'TBD'}
-                logoUrl={homeTeam?.logo_url}
-                color={homeTeam?.color}
-              />
-              <span className={`text-sm font-semibold leading-tight ${isHomeMyTeam ? '' : 'text-gray-700'}`}
-                style={isHomeMyTeam ? { color: 'var(--brand-primary)' } : {}}>
-                {homeTeam?.name ?? 'TBD'}
-              </span>
+              {homeTeam?.id ? (
+                <Link href={`/teams/${homeTeam.id}/stats`} className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity">
+                  <TeamLogo
+                    name={homeTeam.name ?? 'TBD'}
+                    logoUrl={homeTeam.logo_url}
+                    color={homeTeam.color}
+                  />
+                  <span className={`text-sm font-semibold leading-tight ${isHomeMyTeam ? '' : 'text-gray-700'}`}
+                    style={isHomeMyTeam ? { color: 'var(--brand-primary)' } : {}}>
+                    {homeTeam.name ?? 'TBD'}
+                  </span>
+                </Link>
+              ) : (
+                <>
+                  <TeamLogo name="TBD" logoUrl={undefined} color={undefined} />
+                  <span className="text-sm font-semibold leading-tight text-gray-700">TBD</span>
+                </>
+              )}
             </div>
 
             {/* Score or VS */}
@@ -292,15 +301,24 @@ export default async function GameMatchupPage({
 
             {/* Away team */}
             <div className="flex flex-col items-center gap-2 flex-1 text-center">
-              <TeamLogo
-                name={awayTeam?.name ?? 'TBD'}
-                logoUrl={awayTeam?.logo_url}
-                color={awayTeam?.color}
-              />
-              <span className={`text-sm font-semibold leading-tight ${isAwayMyTeam ? '' : 'text-gray-700'}`}
-                style={isAwayMyTeam ? { color: 'var(--brand-primary)' } : {}}>
-                {awayTeam?.name ?? 'TBD'}
-              </span>
+              {awayTeam?.id ? (
+                <Link href={`/teams/${awayTeam.id}/stats`} className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity">
+                  <TeamLogo
+                    name={awayTeam.name ?? 'TBD'}
+                    logoUrl={awayTeam.logo_url}
+                    color={awayTeam.color}
+                  />
+                  <span className={`text-sm font-semibold leading-tight ${isAwayMyTeam ? '' : 'text-gray-700'}`}
+                    style={isAwayMyTeam ? { color: 'var(--brand-primary)' } : {}}>
+                    {awayTeam.name ?? 'TBD'}
+                  </span>
+                </Link>
+              ) : (
+                <>
+                  <TeamLogo name="TBD" logoUrl={undefined} color={undefined} />
+                  <span className="text-sm font-semibold leading-tight text-gray-700">TBD</span>
+                </>
+              )}
             </div>
           </div>
 
