@@ -565,10 +565,27 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
             {withTeams && (
               <Field label="Team Join Policy" error={errors.team_join_policy?.message}>
                 <select {...register('team_join_policy')} className={SELECT}>
-                  <option value="open">Open (anyone can join)</option>
+                  <option value="open">Open — anyone can join</option>
                   <option value="captain_invite">Captain invite only</option>
                   <option value="admin_only">Admin managed</option>
                 </select>
+                {{
+                  open: (
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      Players can join any team directly using the team&apos;s join code or link — no approval needed. Best for casual leagues where captains want to fill their roster quickly.
+                    </p>
+                  ),
+                  captain_invite: (
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      Players can only join a team if the captain sends them a direct invite by email. The join code and link are disabled for self-serve joining. Best for competitive leagues where captains control their roster.
+                    </p>
+                  ),
+                  admin_only: (
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      Only league admins can add players to teams. Captains cannot invite players themselves. Best for drafted or pre-assigned leagues where the organiser builds every roster.
+                    </p>
+                  ),
+                }[teamJoinPolicy ?? 'open']}
               </Field>
             )}
 
