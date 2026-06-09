@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useRef, useState, useEffect, useCallback } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
   const base = [
@@ -78,6 +80,29 @@ export function EventAdminTabs({ leagueId, eventType, pickupJoinPolicy = 'public
   const router = useRouter()
   const tabList = tabs(leagueId, eventType, pickupJoinPolicy)
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  const checkScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 2)
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2)
+  }, [])
+
+  useEffect(() => {
+    checkScroll()
+    const el = scrollRef.current
+    el?.addEventListener('scroll', checkScroll, { passive: true })
+    const ro = new ResizeObserver(checkScroll)
+    if (el) ro.observe(el)
+    return () => {
+      el?.removeEventListener('scroll', checkScroll)
+      ro.disconnect()
+    }
+  }, [checkScroll])
+
   function activeHref() {
     // Find the most specific matching tab (longest href that matches)
     return tabList.reduce<string | null>((best, tab) => {
@@ -113,27 +138,62 @@ export function EventAdminTabs({ leagueId, eventType, pickupJoinPolicy = 'public
         </div>
       </div>
 
-      {/* Desktop: tab bar */}
-      <div className="hidden md:flex gap-0 border-b mb-6 overflow-x-auto scrollbar-none -mx-1 px-1">
-        {tabList.map((tab) => {
-          const isActive =
-            tab.href === `/admin/events/${leagueId}`
-              ? pathname === tab.href
-              : pathname.startsWith(tab.href)
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={`shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                isActive
-                  ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]'
-                  : 'border-transparent text-gray-500 hover:text-gray-800'
-              }`}
+      {/* Desktop: scrollable tab bar with fade + arrow affordances */}
+      <div className="hidden md:block relative mb-6">
+        {/* Left fade + arrow */}
+        {canScrollLeft && (
+          <div className="absolute left-0 top-0 bottom-0 z-10 flex items-end pb-px pointer-events-none">
+            <div className="absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-white to-transparent" />
+            <button
+              onClick={() => scrollRef.current?.scrollBy({ left: -160, behavior: 'smooth' })}
+              className="relative z-10 pointer-events-auto p-1 text-gray-400 hover:text-gray-700 transition-colors"
+              aria-label="Scroll tabs left"
             >
-              {tab.label}
-            </Link>
-          )
-        })}
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Tab strip */}
+        <div
+          ref={scrollRef}
+          className="flex gap-0 border-b overflow-x-auto scrollbar-none"
+          style={{ scrollbarWidth: 'none' }}
+        >
+          {tabList.map((tab) => {
+            const isActive =
+              tab.href === `/admin/events/${leagueId}`
+                ? pathname === tab.href
+                : pathname.startsWith(tab.href)
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={`shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  isActive
+                    ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]'
+                    : 'border-transparent text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                {tab.label}
+              </Link>
+            )
+          })}
+        </div>
+
+        {/* Right fade + arrow */}
+        {canScrollRight && (
+          <div className="absolute right-0 top-0 bottom-0 z-10 flex items-end pb-px pointer-events-none">
+            <div className="absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white to-transparent" />
+            <button
+              onClick={() => scrollRef.current?.scrollBy({ left: 160, behavior: 'smooth' })}
+              className="relative z-10 pointer-events-auto p-1 text-gray-400 hover:text-gray-700 transition-colors"
+              aria-label="Scroll tabs right"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
     </>
   )
