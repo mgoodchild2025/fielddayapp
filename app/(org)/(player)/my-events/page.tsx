@@ -61,21 +61,41 @@ export default async function MyEventsPage() {
     .from('org_branding').select('timezone').eq('organization_id', org.id).single()
   const timezone = brandingTz?.timezone ?? 'America/Toronto'
 
-  // Fetch scheduled game dates for the calendar view.
-  // We look up the player's team memberships first, then fetch games for those teams.
-  // If the player isn't on a team yet in a league, fall back to all published games in that league.
+  // Fetch scheduled dates for the calendar view, split by event type.
+  // league / tournament → games table (player's team games; fallback to all published games)
+  // drop_in / pickup   → event_sessions table (all upcoming sessions for the league)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const leagueIds = [...new Set((registrations ?? []).map((r: any) => {
+  type LeagueMeta = { id: string; name: string; slug: string; event_type: string | null }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leagueMetas: LeagueMeta[] = [...new Map((registrations ?? []).map((r: any) => {
     const league = Array.isArray(r.league) ? r.league[0] : r.league
-    return league?.id as string | undefined
-  }).filter(Boolean))] as string[]
+    return league ? [league.id, { id: league.id, name: league.name, slug: league.slug, event_type: league.event_type }] : null
+  }).filter(Boolean) as [string, LeagueMeta][]).values()]
+
+  const teamBasedLeagueIds = leagueMetas
+    .filter(l => !l.event_type || ['league', 'tournament'].includes(l.event_type))
+    .map(l => l.id)
+  const sessionBasedLeagueIds = leagueMetas
+    .filter(l => ['drop_in', 'pickup'].includes(l.event_type ?? ''))
+    .map(l => l.id)
+
+  // IDs of drop_in/pickup leagues where the player already has a specific session registration
+  // (those are already shown via sessionScheduledAt — no need to show all sessions)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leaguesWithSpecificSession = new Set((registrations ?? []).map((r: any) => {
+    const league = Array.isArray(r.league) ? r.league[0] : r.league
+    return r.session_id && league ? league.id : null
+  }).filter(Boolean) as string[])
 
   // Game dots: { leagueId, date (YYYY-MM-DD in org tz), label }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let gameDots: { leagueId: string; date: string; label: string; href: string }[] = []
 
-  if (leagueIds.length > 0) {
-    // 1. Player's teams in these leagues
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }) // YYYY-MM-DD
+
+  // ── 1. league / tournament → games table ──────────────────────────────────
+  if (teamBasedLeagueIds.length > 0) {
+    // Player's teams in these leagues
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: myTeamRows } = await (db as any)
       .from('team_members')
@@ -88,25 +108,18 @@ export default async function MyEventsPage() {
     for (const row of (myTeamRows ?? [])) {
       const teamRow = Array.isArray(row.team) ? row.team[0] : row.team
       const lid = (teamRow as { league_id?: string } | null)?.league_id
-      if (lid && leagueIds.includes(lid)) teamIdsByLeague.set(lid, row.team_id)
+      if (lid && teamBasedLeagueIds.includes(lid)) teamIdsByLeague.set(lid, row.team_id)
     }
 
-    // 2. Games for all leagues the player is registered in
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const gamesQuery = (db as any)
+    const { data: allLeagueGames } = await (db as any)
       .from('games')
       .select('league_id, scheduled_at, home_team_id, away_team_id, status, leagues:leagues!games_league_id_fkey(name, slug, schedule_published)')
       .eq('organization_id', org.id)
-      .in('league_id', leagueIds)
+      .in('league_id', teamBasedLeagueIds)
       .neq('status', 'cancelled')
       .order('scheduled_at', { ascending: true })
 
-    const { data: allLeagueGames } = await gamesQuery
-
-    // Build game dots — only include games where:
-    //   a) player is on one of the teams, OR
-    //   b) player has no team in the league yet (show any published game)
-    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }) // YYYY-MM-DD
     for (const g of (allLeagueGames ?? []) as {
       league_id: string; scheduled_at: string; home_team_id: string | null;
       away_team_id: string | null; status: string;
@@ -118,28 +131,51 @@ export default async function MyEventsPage() {
       const playerIsOnThisGame = myTeamId
         ? g.home_team_id === myTeamId || g.away_team_id === myTeamId
         : true // no team assigned yet — show all league games
-
       if (!playerIsOnThisGame) continue
-      // Skip if schedule is not published and player has no team yet
       if (!myTeamId && leagueRow.schedule_published === false) continue
-
-      const date = fmt.format(new Date(g.scheduled_at))
       gameDots.push({
         leagueId: g.league_id,
-        date,
+        date: fmt.format(new Date(g.scheduled_at)),
         label: leagueRow.name,
         href: `/events/${leagueRow.slug}`,
       })
     }
-    // Deduplicate by leagueId+date (one dot per league per day is enough)
-    const seen = new Set<string>()
-    gameDots = gameDots.filter(d => {
-      const key = `${d.leagueId}:${d.date}`
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
   }
+
+  // ── 2. drop_in / pickup → event_sessions table ────────────────────────────
+  // Only for leagues where the player doesn't already have a specific session registration
+  const sessionLeaguesNeedingDots = sessionBasedLeagueIds.filter(id => !leaguesWithSpecificSession.has(id))
+  if (sessionLeaguesNeedingDots.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: sessions } = await (db as any)
+      .from('event_sessions')
+      .select('league_id, scheduled_at, status')
+      .eq('organization_id', org.id)
+      .in('league_id', sessionLeaguesNeedingDots)
+      .neq('status', 'cancelled')
+      .order('scheduled_at', { ascending: true })
+
+    const sessionLeagueMeta = new Map(leagueMetas.map(l => [l.id, l]))
+    for (const s of (sessions ?? []) as { league_id: string; scheduled_at: string; status: string }[]) {
+      const meta = sessionLeagueMeta.get(s.league_id)
+      if (!meta) continue
+      gameDots.push({
+        leagueId: s.league_id,
+        date: fmt.format(new Date(s.scheduled_at)),
+        label: meta.name,
+        href: `/events/${meta.slug}`,
+      })
+    }
+  }
+
+  // Deduplicate by leagueId+date (one dot per league per day)
+  const seen = new Set<string>()
+  gameDots = gameDots.filter(d => {
+    const key = `${d.leagueId}:${d.date}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const events: EventItem[] = (registrations ?? []).map((r: any) => {
