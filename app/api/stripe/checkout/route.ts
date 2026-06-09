@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { canAccess } from '@/lib/features'
+import { createEnrollment } from '@/actions/payment-plans'
 
 const playerSchema = z.object({
   leagueId: z.string().uuid(),
@@ -10,6 +12,7 @@ const playerSchema = z.object({
   registrationId: z.string().uuid(),
   orgId: z.string().uuid(),
   discountId: z.string().uuid().optional(),   // validated discount code id
+  planId: z.string().uuid().optional(),        // payment plan — charge first instalment only
   merchSelections: z.array(z.object({
     itemId: z.string().uuid(),
     variantId: z.string().uuid().nullable(),
@@ -177,7 +180,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const { leagueId, leagueSlug, userId, registrationId, orgId, discountId, merchSelections } = parsed.data
+  const { leagueId, leagueSlug, userId, registrationId, orgId, discountId, planId, merchSelections } = parsed.data
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db2 = db as any
@@ -377,6 +380,113 @@ export async function POST(request: NextRequest) {
 
   const origin = request.headers.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
 
+  // ── Payment plan instalment mode ─────────────────────────────────────────
+  if (planId && priceCents > 0) {
+    // Feature gate
+    const hasPlans = await canAccess(orgId, 'payment_plans')
+    if (!hasPlans) {
+      return NextResponse.json({ error: 'Payment plans are not available on this plan' }, { status: 403 })
+    }
+
+    // Validate plan belongs to this org + league and is enabled
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: plan } = await (db as any)
+      .from('payment_plans')
+      .select('id, name, installments, enabled')
+      .eq('id', planId)
+      .eq('league_id', leagueId)
+      .eq('organization_id', orgId)
+      .single()
+
+    if (!plan || !plan.enabled) {
+      return NextResponse.json({ error: 'Payment plan not available' }, { status: 400 })
+    }
+
+    // Create the enrollment + instalment schedule
+    const enrollResult = await createEnrollment({
+      leagueId,
+      planId,
+      registrationId,
+      totalCents: priceCents,
+    })
+    if (enrollResult.error || !enrollResult.enrollmentId) {
+      return NextResponse.json({ error: enrollResult.error ?? 'Failed to create payment plan' }, { status: 500 })
+    }
+
+    // Fetch the first instalment
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: firstInstalment } = await (db as any)
+      .from('payment_plan_installments')
+      .select('id, installment_number, amount_cents')
+      .eq('enrollment_id', enrollResult.enrollmentId)
+      .eq('installment_number', 1)
+      .single()
+
+    if (!firstInstalment) {
+      return NextResponse.json({ error: 'Failed to retrieve first instalment' }, { status: 500 })
+    }
+
+    const instalment1Cents = firstInstalment.amount_cents
+    const regLineName = `Instalment 1 of ${plan.installments} — ${league.name}`
+
+    const instSession = await orgStripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
+      currency: league.currency,
+      line_items: [
+        ...(instalment1Cents > 0 ? [{
+          price_data: {
+            currency: league.currency,
+            unit_amount: instalment1Cents,
+            product_data: { name: regLineName },
+          },
+          quantity: 1,
+        }] : []),
+        ...merch_line_items,
+      ],
+      customer_email: profile?.email ?? undefined,
+      metadata: {
+        paymentType: 'installment',
+        registrationId,
+        leagueId,
+        userId,
+        orgId,
+        enrollmentId: enrollResult.enrollmentId,
+        installmentId: firstInstalment.id,
+        installmentNumber: '1',
+        ...(merchOrderIds.length > 0 ? { merchOrderIds: merchOrderIds.join(',') } : {}),
+      },
+      payment_intent_data: {
+        metadata: {
+          paymentType: 'installment',
+          registrationId,
+          leagueId,
+          userId,
+          orgId,
+          enrollmentId: enrollResult.enrollmentId,
+          installmentId: firstInstalment.id,
+          installmentNumber: '1',
+        },
+      },
+      success_url: `${origin}/register/${leagueSlug}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/register/${leagueSlug}`,
+    })
+
+    // Save session ID on the instalment for dedup
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any)
+      .from('payment_plan_installments')
+      .update({ stripe_checkout_session_id: instSession.id })
+      .eq('id', firstInstalment.id)
+
+    if (discountApplied) {
+      await db2.rpc('increment_discount_use', { discount_id: discountApplied.id })
+    }
+
+    return NextResponse.json({ url: instSession.url })
+  }
+
+  // ── Standard full-price Stripe session ───────────────────────────────────
   const session = await orgStripe.checkout.sessions.create({
     payment_method_types: ['card'],
     mode: 'payment',

@@ -15,6 +15,7 @@ import { StatsVisibilityToggle } from '@/components/stats/stats-visibility-toggl
 import { EventLogoUpload } from '@/components/events/event-logo-upload'
 import { MerchSummaryWidget } from '@/components/merchandise/merch-summary-widget'
 import { LeagueDocumentsManager } from '@/components/events/league-documents-manager'
+import { PaymentPlanConfig } from '@/components/events/payment-plan-config'
 import { RichTextContent } from '@/components/ui/rich-text-content'
 import type { Database } from '@/types/database'
 
@@ -51,6 +52,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     merchOrders,
     leagueDocuments,
     canCoOrganizers,
+    canPaymentPlans,
   ] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues').select('*').eq('id', id).eq('organization_id', org.id).single(),
@@ -69,6 +71,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     getMerchandiseOrders(id),
     getLeagueDocuments(id),
     canAccess(org.id, 'co_organizers'),
+    canAccess(org.id, 'payment_plans'),
   ])
 
   if (!league) notFound()
@@ -80,6 +83,20 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     ? await (db as any).from('org_members').select('role').eq('organization_id', org.id).eq('user_id', currentUser.id).single()
     : { data: null }
   const isOrgAdmin = currentMember?.role === 'org_admin'
+
+  // Fetch existing payment plan for this league (only when feature is available and event is team-based)
+  const isTeamBased = (league as { league_type?: string }).league_type === 'team'
+  let existingPaymentPlan: { id?: string; name: string; installments: number; interval_days: number; upfront_percent: number; enabled: boolean } | null = null
+  if (canPaymentPlans && isTeamBased) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: planRow } = await (db as any)
+      .from('payment_plans')
+      .select('id, name, installments, interval_days, upfront_percent, enabled')
+      .eq('league_id', id)
+      .eq('organization_id', org.id)
+      .maybeSingle()
+    existingPaymentPlan = planRow ?? null
+  }
 
   const transition = statusFlow[league.status]
 
@@ -206,6 +223,24 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
 
         {/* Merchandise summary — only rendered when there are orders */}
         <MerchSummaryWidget orders={merchOrders} leagueId={id} />
+
+        {/* Payment Plan — team-based events, Club tier only */}
+        {isTeamBased && isOrgAdmin && (
+          canPaymentPlans ? (
+            <PaymentPlanConfig leagueId={id} existing={existingPaymentPlan} />
+          ) : (
+            <div className="bg-white rounded-lg border p-5">
+              <h2 className="font-semibold text-sm mb-1">Payment Plan</h2>
+              <p className="text-xs text-gray-500 mb-3">
+                Let players pay their registration fee in instalments over time.
+              </p>
+              <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-800">
+                💳 Payment plans are available on the <strong>Club</strong> plan.{' '}
+                <a href="/admin/settings/billing" className="underline font-medium">Upgrade to unlock</a>
+              </div>
+            </div>
+          )
+        )}
 
         {isOrgAdmin && (
           <div className="bg-white rounded-lg border p-5 space-y-4">

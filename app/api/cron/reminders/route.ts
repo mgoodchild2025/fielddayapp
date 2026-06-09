@@ -321,9 +321,20 @@ export async function GET(req: NextRequest) {
 
   // 3. Payment reminders — overdue installments
   const paymentEmailBatch: Array<{ from: string; to: string; subject: string; html: string }> = []
-  const { data: overdueInstallments } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: overdueInstallments } = await (supabase as any)
     .from('payment_plan_installments')
-    .select('id, enrollment_id, amount_cents, due_date, payment_plan_enrollments(registration_id, organization_id)')
+    .select(`
+      id, enrollment_id, amount_cents, due_date,
+      payment_plan_enrollments(
+        registration_id, organization_id,
+        registrations(
+          league_id,
+          leagues(slug, name),
+          profiles(email, full_name)
+        )
+      )
+    `)
     .eq('status', 'pending')
     .is('reminder_sent', null)
     .lt('due_date', now.toISOString())
@@ -334,24 +345,38 @@ export async function GET(req: NextRequest) {
       : inst.payment_plan_enrollments
     if (!enrollment) continue
 
-    const { data: reg } = await supabase
-      .from('registrations')
-      .select('profiles(email, full_name)')
-      .eq('id', enrollment.registration_id)
-      .single()
+    const reg = Array.isArray(enrollment.registrations) ? enrollment.registrations[0] : enrollment.registrations
+    if (!reg) continue
 
-    const profile = reg ? (Array.isArray(reg.profiles) ? reg.profiles[0] : reg.profiles) : null
+    const profile = Array.isArray(reg.profiles) ? reg.profiles[0] : reg.profiles
     if (!profile?.email) continue
+
+    const league = Array.isArray(reg.leagues) ? reg.leagues[0] : reg.leagues
+    const leagueSlug: string | null = league?.slug ?? null
+    const leagueName: string = league?.name ?? 'your league'
+
+    // Build Pay Now URL — link to the event page where the instalment schedule is shown
+    const enrollmentOrgId: string | null = enrollment.organization_id ?? null
+    let payNowUrl: string | null = null
+    if (leagueSlug && enrollmentOrgId) {
+      const { data: orgRow } = await supabase.from('organizations').select('slug').eq('id', enrollmentOrgId).single()
+      const PLATFORM_DOMAIN_LOCAL = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+      if (orgRow?.slug) {
+        payNowUrl = `https://${orgRow.slug}.${PLATFORM_DOMAIN_LOCAL}/events/${leagueSlug}`
+      }
+    }
 
     paymentEmailBatch.push({
       from: FROM_EMAIL,
       to: profile.email,
-      subject: 'Payment reminder — installment overdue',
+      subject: `Payment reminder — overdue instalment for ${leagueName}`,
       html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-        <h2>Payment Reminder</h2>
+        <h2 style="margin-top:0">Payment Reminder</h2>
         <p>Hi ${profile.full_name ?? 'there'},</p>
-        <p>You have an overdue installment of <strong>$${(inst.amount_cents / 100).toFixed(2)} CAD</strong> due ${new Date(inst.due_date).toLocaleDateString('en-CA')}.</p>
-        <p>Please log in to your account to complete your payment.</p>
+        <p>You have an overdue instalment of <strong>$${(inst.amount_cents / 100).toFixed(2)} CAD</strong>
+           that was due on ${new Date(inst.due_date).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}
+           for <strong>${leagueName}</strong>.</p>
+        ${payNowUrl ? `<p><a href="${payNowUrl}" style="display:inline-block;background:#333;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;font-size:14px">Pay now →</a></p>` : '<p>Please log in to your account to complete your payment.</p>'}
         <p style="font-size:12px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:16px;margin-top:24px;line-height:1.6;">
           You&rsquo;re receiving this because you have an active payment plan for a league registration, powered by Fieldday.
         </p>

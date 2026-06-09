@@ -189,6 +189,89 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true })
     }
 
+    // ── Payment plan instalment ──────────────────────────────────────────
+    if (paymentType === 'installment') {
+      const { installmentId, enrollmentId, installmentNumber } = session.metadata ?? {}
+      if (installmentId && enrollmentId && registrationId && userId) {
+        const now = new Date().toISOString()
+
+        // 1. Insert a payments row for this instalment
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: newPayment } = await (supabase as any)
+          .from('payments')
+          .insert({
+            organization_id: orgId,
+            registration_id: registrationId,
+            user_id: userId,
+            league_id: leagueId ?? null,
+            amount_cents: session.amount_total,
+            currency: session.currency ?? 'cad',
+            status: 'paid',
+            payment_method: 'stripe',
+            payment_type: 'player',
+            stripe_checkout_session_id: session.id,
+            stripe_payment_intent_id: session.payment_intent as string,
+            paid_at: now,
+          })
+          .select('id')
+          .single()
+
+        // 2. Mark the instalment paid and clear the dedup session id
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+          .from('payment_plan_installments')
+          .update({
+            status: 'paid',
+            payment_id: newPayment?.id ?? null,
+            stripe_checkout_session_id: null,  // clear so future logic doesn't reuse it
+          })
+          .eq('id', installmentId)
+
+        // 3. First instalment → activate the registration
+        if (installmentNumber === '1') {
+          await supabase
+            .from('registrations')
+            .update({ status: 'active' })
+            .eq('id', registrationId)
+
+          // Send registration confirmation email (fire-and-forget)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: regData } = await (supabase as any)
+            .from('registrations')
+            .select('profiles!registrations_user_id_fkey(email, full_name), leagues(name, slug)')
+            .eq('id', registrationId)
+            .single()
+          const profile = Array.isArray(regData?.profiles) ? regData.profiles[0] : regData?.profiles
+          const regLeague = Array.isArray(regData?.leagues) ? regData.leagues[0] : regData?.leagues
+          if (profile?.email && regLeague) {
+            sendRegistrationConfirmation({
+              toEmail: profile.email,
+              toName: profile.full_name ?? 'there',
+              leagueName: regLeague.name,
+              leagueSlug: regLeague.slug,
+            }).catch(() => {})
+          }
+        }
+
+        // 4. Check if all instalments are now paid → complete the enrollment
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { count: remainingCount } = await (supabase as any)
+          .from('payment_plan_installments')
+          .select('id', { count: 'exact', head: true })
+          .eq('enrollment_id', enrollmentId)
+          .eq('status', 'pending')
+
+        if (remainingCount === 0) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase as any)
+            .from('payment_plan_enrollments')
+            .update({ status: 'completed' })
+            .eq('id', enrollmentId)
+        }
+      }
+      return NextResponse.json({ received: true })
+    }
+
     // ── Per-player payment (existing flow) ──────────────────────────────
     if (registrationId && userId) {
       const { merchOrderIds: rawMerchOrderIds } = session.metadata ?? {}

@@ -9,6 +9,7 @@ import { getPositionsForSport } from '@/actions/positions'
 import { getLeagueMerchandise } from '@/actions/merchandise'
 import type { MerchItemForStep } from '@/components/registration/step-addons'
 import { resolveLeagueMethods } from '@/lib/payment-methods'
+import { canAccess } from '@/lib/features'
 
 export default async function RegisterLeaguePage({
   params,
@@ -233,10 +234,26 @@ export default async function RegisterLeaguePage({
     registered_count: s.registered?.[0]?.count ?? 0,
   }))
 
-  const [positions, leagueMerchRaw] = await Promise.all([
+  const [positions, leagueMerchRaw, hasPaymentPlans] = await Promise.all([
     getPositionsForSport(org.id, league.sport ?? ''),
     getLeagueMerchandise(league.id),
+    canAccess(org.id, 'payment_plans'),
   ])
+
+  // Fetch active payment plan for this league (only when org has the feature)
+  type PaymentPlanRow = { id: string; name: string; installments: number; interval_days: number; upfront_percent: number }
+  let paymentPlan: PaymentPlanRow | null = null
+  if (hasPaymentPlans && !isDropIn && !isPerTeamLeague) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: planRow } = await (db as any)
+      .from('payment_plans')
+      .select('id, name, installments, interval_days, upfront_percent')
+      .eq('league_id', league.id)
+      .eq('organization_id', org.id)
+      .eq('enabled', true)
+      .maybeSingle()
+    paymentPlan = planRow ?? null
+  }
 
   // Map LeagueMerchItem (with available_stock + effective_price_cents) to the
   // shape the registration flow and add-ons step expect.
@@ -392,6 +409,7 @@ export default async function RegisterLeaguePage({
       offlineInstructions={offlineInstructions}
       dropInSessions={dropInSessions}
       preselectedSessionId={preselectedSessionId}
+      paymentPlan={paymentPlan}
     />
   )
 }

@@ -62,6 +62,8 @@ interface Props {
   dropInSessions?: { id: string; scheduled_at: string; capacity: number | null; registered_count: number }[]
   /** Session pre-selected from the event page "Register to join" button — skips the picker */
   preselectedSessionId?: string | null
+  /** Payment plan configured for this league (Club tier only). */
+  paymentPlan?: { id: string; name: string; installments: number; interval_days: number; upfront_percent: number } | null
 }
 
 // Steps used in the progress bar (step 0 = role select, shown separately; never in bar)
@@ -100,6 +102,7 @@ export function RegistrationFlow({
   offlineInstructions = null,
   dropInSessions = [],
   preselectedSessionId = null,
+  paymentPlan = null,
 }: Props) {
   const router = useRouter()
 
@@ -484,6 +487,7 @@ export function RegistrationFlow({
             offlineInstructions={offlineInstructions}
             onComplete={() => completeRegistration(registrationId)}
             teamId={showCaptainPaymentStep ? newCaptainTeamId : null}
+            paymentPlan={paymentPlan}
           />
         )}
 

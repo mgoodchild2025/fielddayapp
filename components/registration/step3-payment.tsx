@@ -13,6 +13,14 @@ import {
 
 type League = Database['public']['Tables']['leagues']['Row']
 
+interface PaymentPlan {
+  id: string
+  name: string
+  installments: number
+  interval_days: number
+  upfront_percent: number
+}
+
 interface Props {
   org: { id: string; slug: string }
   league: League
@@ -32,13 +40,17 @@ interface Props {
   /** When set, this is a per-team captain paying the team fee: card uses the team
    *  checkout, offline reserves the whole team. */
   teamId?: string | null
+  /** When set, show the "Pay in instalments" option (card only). */
+  paymentPlan?: PaymentPlan | null
 }
 
-export function Step3Payment({ org, league, userId, registrationId, priceCents, merchSelections = [], leagueMerch = [], onBack, acceptedMethods = [], offlineInstructions = null, onComplete, teamId = null }: Props) {
+export function Step3Payment({ org, league, userId, registrationId, priceCents, merchSelections = [], leagueMerch = [], onBack, acceptedMethods = [], offlineInstructions = null, onComplete, teamId = null, paymentPlan = null }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [manualInstructions, setManualInstructions] = useState<string | null>(null)
   const [offlineDone, setOfflineDone] = useState<{ instructions: string | null; label: string } | null>(null)
+  // Payment plan toggle — only available when paying by card
+  const [usePlan, setUsePlan] = useState(false)
 
   // Discount code
   const [discountInput, setDiscountInput] = useState('')
@@ -79,6 +91,21 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
     : 0
   const discountedRegistrationCents = registrationPriceCents - discountAmountCents
   const totalCents = discountedRegistrationCents + merchTotalCents
+
+  // ── Payment plan preview calculations ────────────────────────────────────
+  const showPlanOption = !!paymentPlan && !teamId && discountedRegistrationCents > 0
+  const planUpfrontCents = paymentPlan
+    ? Math.round(discountedRegistrationCents * (paymentPlan.upfront_percent / 100))
+    : 0
+  const planRemainingCents = discountedRegistrationCents - planUpfrontCents
+  const planRegularCount  = paymentPlan ? (paymentPlan.installments - (paymentPlan.upfront_percent > 0 ? 1 : 0)) : 0
+  const planRegularCents  = planRegularCount > 0 ? Math.round(planRemainingCents / planRegularCount) : 0
+  // First payment = upfront (if set) else first equal instalment
+  const plan1stCents = paymentPlan
+    ? (paymentPlan.upfront_percent > 0 ? planUpfrontCents : planRegularCents)
+    : 0
+  // Total charged today = first instalment + merch
+  const planTodayCents = plan1stCents + merchTotalCents
 
   // ── Payment method selection ────────────────────────────────────────────────
   // Merchandise can only be charged online, so offline methods are hidden when
@@ -147,6 +174,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
         registrationId,
         orgId: org.id,
         ...(appliedDiscount ? { discountId: appliedDiscount.id } : {}),
+        ...(usePlan && paymentPlan ? { planId: paymentPlan.id } : {}),
       }
 
       if (merchSelections.length > 0) {
@@ -391,6 +419,58 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
           </div>
         )}
 
+        {/* Payment plan toggle — only when available and paying by card */}
+        {showPlanOption && selectedMethod === 'card' && (
+          <div className="space-y-3">
+            <div className="flex rounded-lg overflow-hidden border text-sm font-medium">
+              <button
+                type="button"
+                onClick={() => setUsePlan(false)}
+                className={`flex-1 py-2 transition-colors ${!usePlan ? 'text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                style={!usePlan ? { backgroundColor: 'var(--brand-primary)' } : {}}
+              >
+                Pay in full
+              </button>
+              <button
+                type="button"
+                onClick={() => setUsePlan(true)}
+                className={`flex-1 py-2 transition-colors ${usePlan ? 'text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                style={usePlan ? { backgroundColor: 'var(--brand-primary)' } : {}}
+              >
+                Pay in instalments
+              </button>
+            </div>
+
+            {usePlan && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 space-y-1.5">
+                <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide">
+                  {paymentPlan!.name}
+                </p>
+                <div className="flex justify-between text-sm text-blue-900">
+                  <span>Pay today (instalment 1{paymentPlan!.installments > 1 ? ` of ${paymentPlan!.installments}` : ''})</span>
+                  <span className="font-bold">${(plan1stCents / 100).toFixed(2)} {currency}</span>
+                </div>
+                {planRegularCount > 0 && planRemainingCents > 0 && (
+                  <div className="flex justify-between text-sm text-blue-700">
+                    <span>
+                      Then ${(planRegularCents / 100).toFixed(2)} × {planRegularCount} every {paymentPlan!.interval_days} days
+                    </span>
+                  </div>
+                )}
+                {merchTotalCents > 0 && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    + ${(merchTotalCents / 100).toFixed(2)} merchandise charged today
+                  </p>
+                )}
+                <div className="border-t border-blue-200 pt-1.5 flex justify-between text-xs text-blue-700">
+                  <span>Total registration</span>
+                  <span className="font-semibold">${(discountedRegistrationCents / 100).toFixed(2)} {currency}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Payment method chooser — shown when the league accepts more than one */}
         {choice && selectableMethods.length > 1 && (
           <div className="space-y-2">
@@ -437,9 +517,11 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
         >
           {loading
             ? (selectedMethod === 'card' ? 'Redirecting to checkout…' : 'Saving…')
-            : selectedMethod === 'card'
-              ? `Pay $${(totalCents / 100).toFixed(0)} ${currency} →`
-              : `Register & pay by ${PAYMENT_METHOD_LABELS[selectedMethod]} →`}
+            : selectedMethod === 'card' && usePlan && paymentPlan
+              ? `Pay $${(planTodayCents / 100).toFixed(2)} today →`
+              : selectedMethod === 'card'
+                ? `Pay $${(totalCents / 100).toFixed(0)} ${currency} →`
+                : `Register & pay by ${PAYMENT_METHOD_LABELS[selectedMethod]} →`}
         </button>
 
         {selectedMethod === 'card' && (

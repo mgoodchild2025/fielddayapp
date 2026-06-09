@@ -7,6 +7,8 @@ import { activateRegistration } from '@/actions/registrations'
 import { RemoveRegistrationButton } from '@/components/registrations/remove-registration-button'
 import { SendWaiverRemindersButton } from '@/components/registrations/send-waiver-reminders-button'
 import { CopyWaiverLink } from '@/components/waivers/copy-waiver-link'
+import { AdminInstallmentRow } from '@/components/payments/admin-installment-row'
+import type { InstallmentRow } from '@/components/payments/installment-schedule'
 
 const regStatusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -76,6 +78,46 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   // Show reminders button whenever the org has ANY waiver configured (league-level or org-level active waiver)
   const hasWaiver = hasWaiverConfigured
 
+  // Fetch payment plan enrollments for all registrations (for 💳 Plan badge)
+  const regIds = rows.map((r: { id: string }) => r.id)
+  let enrollmentsByRegId = new Map<string, InstallmentRow[]>()
+  if (regIds.length > 0) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: enrollmentRows } = await (db as any)
+        .from('payment_plan_enrollments')
+        .select(`
+          registration_id,
+          payment_plan_installments(
+            id, installment_number, amount_cents, due_date, status,
+            stripe_checkout_session_id
+          )
+        `)
+        .in('registration_id', regIds)
+        .in('status', ['active', 'completed'])
+        .order('installment_number', { referencedTable: 'payment_plan_installments', ascending: true })
+
+      for (const row of enrollmentRows ?? []) {
+        const installments: InstallmentRow[] = (row.payment_plan_installments ?? []).map((i: {
+          id: string; installment_number: number; amount_cents: number
+          due_date: string; status: string; stripe_checkout_session_id?: string | null
+        }) => ({
+          id: i.id,
+          installment_number: i.installment_number,
+          amount_cents: i.amount_cents,
+          due_date: i.due_date,
+          status: i.status as 'pending' | 'paid' | 'failed',
+          stripe_checkout_session_id: i.stripe_checkout_session_id,
+        }))
+        if (installments.length > 0) {
+          enrollmentsByRegId.set(row.registration_id, installments)
+        }
+      }
+    } catch {
+      // Table may not yet exist — degrade gracefully
+    }
+  }
+
   // Build the public waiver signing URL from request headers
   const host = headersList.get('host') ?? ''
   const proto = headersList.get('x-forwarded-proto') ?? 'http'
@@ -141,6 +183,8 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                   })
                 : null
 
+              const planInstallments = enrollmentsByRegId.get(reg.id) ?? null
+
               return (
                 <tr key={reg.id} className="border-b last:border-0 hover:bg-gray-50">
                   <td className="px-4 py-3">
@@ -155,6 +199,12 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                           <span className="text-[10px] text-gray-400">{sessionDate}</span>
                         )}
                       </div>
+                    )}
+                    {planInstallments && (
+                      <AdminInstallmentRow
+                        registrationId={reg.id}
+                        installments={planInstallments}
+                      />
                     )}
                   </td>
                   <td className="px-4 py-3">

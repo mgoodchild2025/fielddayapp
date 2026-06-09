@@ -33,6 +33,8 @@ import type { StatDef } from '@/actions/stats'
 import { RichTextContent } from '@/components/ui/rich-text-content'
 import { PdfViewerButton } from '@/components/ui/pdf-viewer-button'
 import { getCurrentLiveStream } from '@/actions/live'
+import { getEnrollmentForRegistration } from '@/actions/payment-plans'
+import { PlayerInstallmentSchedule } from '@/components/payments/player-installment-schedule'
 
 // ── Tab nav ───────────────────────────────────────────────────────────────────
 
@@ -871,6 +873,12 @@ export default async function EventDetailPage({
   const { data: myRegistration } = (user && isTeamBased)
     ? await (db as any).from('registrations').select('id, status').eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
     : { data: null }
+
+  // Fetch payment plan enrollment for the player's registration (if any)
+  let myEnrollment: Awaited<ReturnType<typeof getEnrollmentForRegistration>> = null
+  if (myRegistration?.id) {
+    myEnrollment = await getEnrollmentForRegistration(myRegistration.id)
+  }
 
   // Also check org admin status for visibility bypass
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1971,12 +1979,21 @@ export default async function EventDetailPage({
             {/* Registration CTA */}
             {isTeamBased && (
               myRegistration ? (
-                <div className="w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide bg-green-50 border border-green-200 text-green-700" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-                  ✓ You&apos;re registered
-                  {myRegistration.status === 'pending' && (
-                    <span className="block text-sm font-normal normal-case text-green-600 mt-1">Your registration is pending approval</span>
+                <>
+                  <div className="w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide bg-green-50 border border-green-200 text-green-700" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+                    ✓ You&apos;re registered
+                    {myRegistration.status === 'pending' && (
+                      <span className="block text-sm font-normal normal-case text-green-600 mt-1">Your registration is pending approval</span>
+                    )}
+                  </div>
+                  {myEnrollment && myEnrollment.installments && myEnrollment.installments.length > 0 && (
+                    <div className="mt-3">
+                      <PlayerInstallmentSchedule
+                        installments={myEnrollment.installments}
+                      />
+                    </div>
                   )}
-                </div>
+                </>
               ) : isFull ? (
                 <div className="w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide bg-red-50 border border-red-200 text-red-700" style={{ fontFamily: 'var(--brand-heading-font)' }}>
                   🔒 Event Full
