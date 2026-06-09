@@ -70,10 +70,23 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
   const [markPaidOpenId, setMarkPaidOpenId] = useState<string | null>(null)
   const [markPaidMethod, setMarkPaidMethod] = useState<'etransfer' | 'cash'>('etransfer')
   const [markPaidNotes, setMarkPaidNotes] = useState('')
+  const [markPaidAmount, setMarkPaidAmount] = useState('')
   const [markPaidPendingId, setMarkPaidPendingId] = useState<string | null>(null)
   const [, startTransition] = useTransition()
 
   const fulfillableOrders = orders.filter((o) => o.status === 'pending' || o.status === 'paid')
+
+  /** Standard price in cents for an order (before any admin override) */
+  function standardCents(o: MerchOrder) {
+    return o.unit_price_cents * o.quantity - (o.discount_cents ?? 0)
+  }
+
+  function openMarkPaid(o: MerchOrder) {
+    setMarkPaidOpenId(o.id)
+    setMarkPaidAmount((standardCents(o) / 100).toFixed(2))
+    setMarkPaidNotes('')
+    setMarkPaidMethod('etransfer')
+  }
 
   function handleFulfill(orderId: string) {
     setError(null)
@@ -114,13 +127,18 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
     })
   }
 
-  function handleMarkPaid(orderId: string) {
+  function handleMarkPaid(orderId: string, standardCents: number) {
     setError(null)
     setMarkPaidPendingId(orderId)
+    const parsedAmount = parseFloat(markPaidAmount)
+    const amountCents = !isNaN(parsedAmount) && parsedAmount >= 0
+      ? Math.round(parsedAmount * 100)
+      : standardCents
     startTransition(async () => {
       const result = await markMerchandiseOrderPaid(orderId, {
         method: markPaidMethod,
         notes: markPaidNotes || undefined,
+        amountCents,
       })
       setMarkPaidPendingId(null)
       if (result.error) {
@@ -135,11 +153,14 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                 paid_at: new Date().toISOString(),
                 payment_method: markPaidMethod,
                 paid_by_name: result.collectedByName ?? o.paid_by_name ?? null,
+                // Store override only when it differs from standard price
+                amount_paid_cents: amountCents !== standardCents ? amountCents : null,
               }
             : o)
         )
         setMarkPaidOpenId(null)
         setMarkPaidNotes('')
+        setMarkPaidAmount('')
         setMarkPaidMethod('etransfer')
       }
     })
@@ -299,7 +320,20 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                     <span className="text-sm text-gray-800">{order.quantity}</span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {(order.discount_cents ?? 0) > 0 ? (
+                    {order.amount_paid_cents !== null && order.amount_paid_cents !== undefined ? (
+                      // Admin collected a custom amount — show override with strikethrough standard
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="text-xs text-gray-400 line-through">
+                          ${(standardCents(order) / 100).toFixed(2)}
+                        </span>
+                        <span className="text-sm font-medium text-gray-800">
+                          ${(order.amount_paid_cents / 100).toFixed(2)}
+                        </span>
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                          Adjusted
+                        </span>
+                      </div>
+                    ) : (order.discount_cents ?? 0) > 0 ? (
                       <div className="flex flex-col items-end gap-0.5">
                         <span className="text-xs text-gray-400 line-through">
                           ${((order.unit_price_cents * order.quantity) / 100).toFixed(2)}
@@ -329,16 +363,28 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                   <td className="px-4 py-3 text-right">
                     {((order.status === 'pending' && isManualPayment) || (order.status === 'fulfilled' && !order.paid_at)) && (
                       markPaidOpenId === order.id ? (
-                        <div className="flex flex-col gap-1.5 items-end min-w-[180px]">
-                          <div className="flex gap-1.5">
+                        <div className="flex flex-col gap-1.5 items-end min-w-[200px]">
+                          <div className="flex gap-1.5 w-full">
                             <select
                               value={markPaidMethod}
                               onChange={e => setMarkPaidMethod(e.target.value as 'etransfer' | 'cash')}
-                              className="border rounded px-1.5 py-1 text-xs"
+                              className="border rounded px-1.5 py-1 text-xs flex-1"
                             >
                               <option value="etransfer">e-Transfer</option>
                               <option value="cash">Cash</option>
                             </select>
+                            <div className="relative">
+                              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={markPaidAmount}
+                                onChange={e => setMarkPaidAmount(e.target.value)}
+                                className="border rounded pl-4 pr-1.5 py-1 text-xs w-20"
+                                aria-label="Amount collected"
+                              />
+                            </div>
                           </div>
                           <input
                             type="text"
@@ -350,7 +396,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                           <div className="flex gap-1.5">
                             <button
                               type="button"
-                              onClick={() => handleMarkPaid(order.id)}
+                              onClick={() => handleMarkPaid(order.id, standardCents(order))}
                               disabled={markPaidPendingId === order.id}
                               className="text-xs px-2.5 py-1 rounded-md font-semibold text-white disabled:opacity-60"
                               style={{ backgroundColor: 'var(--brand-primary)' }}
@@ -359,7 +405,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                             </button>
                             <button
                               type="button"
-                              onClick={() => { setMarkPaidOpenId(null); setMarkPaidNotes('') }}
+                              onClick={() => { setMarkPaidOpenId(null); setMarkPaidNotes(''); setMarkPaidAmount('') }}
                               className="text-xs px-2.5 py-1 rounded-md border text-gray-600 hover:bg-gray-50"
                             >
                               Cancel
@@ -369,7 +415,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                       ) : (
                         <button
                           type="button"
-                          onClick={() => setMarkPaidOpenId(order.id)}
+                          onClick={() => openMarkPaid(order)}
                           className="text-xs px-2.5 py-1 rounded-md border font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap"
                         >
                           Mark as Paid

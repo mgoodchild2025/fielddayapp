@@ -92,6 +92,12 @@ export type MerchOrder = {
   paid_at: string | null
   payment_method: string | null
   paid_by: string | null
+  /**
+   * Actual amount collected when an admin marks the order paid manually.
+   * NULL means the standard price was charged. When set, the orders table
+   * shows a diff badge so the override is visible at a glance.
+   */
+  amount_paid_cents: number | null
   // joined fields
   player_name?: string | null
   player_email?: string | null
@@ -705,7 +711,7 @@ export async function createMerchandiseOrders(
 /** Mark a single pending order as paid (manual/offline payment orgs). */
 export async function markMerchandiseOrderPaid(
   orderId: string,
-  { method, notes }: { method?: string; notes?: string } = {}
+  { method, notes, amountCents }: { method?: string; notes?: string; amountCents?: number } = {}
 ): Promise<{ error: string | null; collectedByName?: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -735,6 +741,24 @@ export async function markMerchandiseOrderPaid(
   // If already fulfilled, stay fulfilled; if pending, advance to paid
   const newStatus = current.status === 'fulfilled' ? 'fulfilled' : 'paid'
 
+  // Fetch the order's standard price to determine if an override is needed
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: orderRow } = await (db as any)
+    .from('merchandise_orders')
+    .select('unit_price_cents, quantity, discount_cents')
+    .eq('id', orderId)
+    .eq('organization_id', org.id)
+    .single() as { data: { unit_price_cents: number; quantity: number; discount_cents: number } | null }
+
+  const standardAmountCents = orderRow
+    ? orderRow.unit_price_cents * orderRow.quantity - (orderRow.discount_cents ?? 0)
+    : null
+
+  // Store the override only when it differs from the standard price
+  const amountPaidCents = amountCents !== undefined && standardAmountCents !== null && amountCents !== standardAmountCents
+    ? amountCents
+    : null
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (db as any)
     .from('merchandise_orders')
@@ -744,6 +768,7 @@ export async function markMerchandiseOrderPaid(
       payment_method: method ?? null,
       paid_by: user?.id ?? null,
       notes: notes?.trim() || null,
+      amount_paid_cents: amountPaidCents,
     })
     .eq('id', orderId)
     .eq('organization_id', org.id)
