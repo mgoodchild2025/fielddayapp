@@ -29,7 +29,7 @@ export default async function ShopPage() {
   const logoUrl = branding?.logo_url ?? null
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
 
       {/* Branded hero */}
@@ -59,7 +59,7 @@ export default async function ShopPage() {
       </div>
 
       {/* Content */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+      <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-10 flex-1">
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
             <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
