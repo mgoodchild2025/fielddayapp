@@ -43,7 +43,7 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
       { label: 'Bracket', href: `/admin/events/${id}/bracket` },
       { label: 'Check-in', href: `/admin/events/${id}/checkin` },
       { label: 'Merchandise', href: `/admin/events/${id}/merchandise` },
-      { label: '🤝 Sponsors', href: `/admin/events/${id}/sponsors` },
+      { label: 'Sponsors', href: `/admin/events/${id}/sponsors` },
       { label: 'Display', href: `/admin/events/${id}/display` },
     ]
   }
@@ -59,7 +59,7 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
       { label: 'Bracket', href: `/admin/events/${id}/bracket` },
       { label: 'Check-in', href: `/admin/events/${id}/checkin` },
       { label: 'Merchandise', href: `/admin/events/${id}/merchandise` },
-      { label: '🤝 Sponsors', href: `/admin/events/${id}/sponsors` },
+      { label: 'Sponsors', href: `/admin/events/${id}/sponsors` },
       { label: 'Display', href: `/admin/events/${id}/display` },
     ]
   }
