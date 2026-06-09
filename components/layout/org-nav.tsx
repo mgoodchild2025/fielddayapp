@@ -8,6 +8,7 @@ import { MobileNav } from './mobile-nav'
 import { NotificationBell } from './notification-bell'
 import { CartNavIcon } from '@/components/shop/cart-nav-icon'
 import { getCurrentLiveStream } from '@/actions/live'
+import { canAccess } from '@/lib/features'
 import type { OrgContext } from '@/lib/tenant'
 import type { NavLink } from '@/actions/nav-links'
 
@@ -27,7 +28,7 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let unreadNotifications: { id: string; type: string | null; title: string; body: string | null; created_at: string; data: any }[] = []
 
-  const [navLinksResult, sectionLayoutResult, ...userResults] = await Promise.all([
+  const [navLinksResult, sectionLayoutResult, featMediaGallery, featMerchandiseShop, featCustomNavLinks, ...userResults] = await Promise.all([
     db.from('org_nav_links')
       .select('id, label, link_type, url, open_in_new_tab, sort_order')
       .eq('organization_id', org.id)
@@ -37,6 +38,9 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
       .eq('organization_id', org.id)
       .eq('section_key', 'section_layout')
       .maybeSingle(),
+    canAccess(org.id, 'media_gallery'),
+    canAccess(org.id, 'merchandise_shop'),
+    canAccess(org.id, 'custom_nav_links'),
     ...(user ? [
       db.from('profiles').select('full_name').eq('id', user.id).single(),
       db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single(),
@@ -49,7 +53,9 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
     ] : []),
   ])
 
-  const customLinks: NavLink[] = (navLinksResult.data ?? []) as NavLink[]
+  // Only show custom links if the plan includes custom_nav_links
+  const allCustomLinks: NavLink[] = (navLinksResult.data ?? []) as NavLink[]
+  const customLinks: NavLink[] = featCustomNavLinks ? allCustomLinks : []
 
   // Current live stream (if any) → "Live now" banner
   const liveStream = await getCurrentLiveStream(org.id)
@@ -57,7 +63,9 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sectionItems: { key: string; visible: boolean }[] = (sectionLayoutResult?.data as any)?.content?.sections ?? []
   const photosSection = sectionItems.find((s) => s.key === 'photos')
-  const showGallery = photosSection ? photosSection.visible : true  // default visible if not configured
+  // Gallery shows only when the feature is on the plan AND the section is not hidden in site settings
+  const showGallery = featMediaGallery && (photosSection ? photosSection.visible : true)
+  const showShop = featMerchandiseShop
 
   if (user && userResults.length === 3) {
     const [{ data: profile }, { data: member }, { data: notifs }] = userResults as [
@@ -140,7 +148,7 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
           {user ? (
             <>
               <div className="hidden md:flex items-center gap-1">
-                <CartNavIcon />
+                {showShop && <CartNavIcon />}
                 <NotificationBell initialNotifications={unreadNotifications} />
               </div>
               <div className="hidden md:block">
@@ -161,11 +169,11 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
 
           {user && (
             <div className="md:hidden flex items-center gap-1">
-              <CartNavIcon />
+              {showShop && <CartNavIcon />}
               <NotificationBell initialNotifications={unreadNotifications} />
             </div>
           )}
-          <MobileNav userName={userName} userEmail={user?.email ?? null} isAdmin={isAdmin} customLinks={customLinks} showGallery={showGallery} />
+          <MobileNav userName={userName} userEmail={user?.email ?? null} isAdmin={isAdmin} customLinks={customLinks} showGallery={showGallery} showShop={showShop} />
         </div>
       </div>
     </nav>
