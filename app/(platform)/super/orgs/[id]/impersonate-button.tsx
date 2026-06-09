@@ -11,7 +11,7 @@ export function ImpersonateButton({ orgId }: { orgId: string }) {
       onClick={() =>
         startTransition(async () => {
           const result = await startImpersonation(orgId)
-          window.location.href = result.redirect
+          window.open(result.redirect, '_blank', 'noopener')
         })
       }
       disabled={pending}
