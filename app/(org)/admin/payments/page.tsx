@@ -72,18 +72,10 @@ export default async function AdminPaymentsPage() {
     return { ...r, player: player ?? null, league: league ?? null, payment: payment ?? null, paymentStatus, isFree }
   })
 
-  const stats = {
-    totalPaidCents: registrations
-      .filter(r => r.payment?.status === 'paid')
-      .reduce((sum, r) => sum + (r.payment?.amount_cents ?? 0), 0),
-    paidCount: registrations.filter(r => r.paymentStatus === 'paid').length,
-    unpaidCount: registrations.filter(r => r.paymentStatus === 'unpaid').length,
-  }
-
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Payments</h1>
-      <PaymentsTable rows={registrations} stats={stats} isOrgAdmin={scope.isOrgAdmin} />
+      <PaymentsTable rows={registrations} isOrgAdmin={scope.isOrgAdmin} />
     </div>
   )
 }

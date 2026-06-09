@@ -26,12 +26,6 @@ type Row = {
   isFree: boolean
 }
 
-type Stats = {
-  totalPaidCents: number
-  paidCount: number
-  unpaidCount: number
-}
-
 const statusColors: Record<string, string> = {
   paid: 'bg-green-100 text-green-700',
   pending: 'bg-yellow-100 text-yellow-700',
@@ -66,7 +60,7 @@ function needsAction(r: Row) {
     && !!r.player && !!r.league
 }
 
-export function PaymentsTable({ rows, stats, isOrgAdmin = true }: { rows: Row[]; stats: Stats; isOrgAdmin?: boolean }) {
+export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgAdmin?: boolean }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [eventFilter, setEventFilter] = useState('all')
@@ -100,6 +94,15 @@ export function PaymentsTable({ rows, stats, isOrgAdmin = true }: { rows: Row[];
 
   const hasFilters = search || statusFilter !== 'all' || eventFilter !== 'all'
 
+  // Stats derived from the filtered set so they react to search/filter changes
+  const filteredStats = useMemo(() => ({
+    totalPaidCents: filtered
+      .filter(r => r.payment?.status === 'paid')
+      .reduce((sum, r) => sum + (r.payment?.amount_cents ?? 0), 0),
+    paidCount: filtered.filter(r => r.paymentStatus === 'paid').length,
+    unpaidCount: filtered.filter(r => r.paymentStatus === 'unpaid').length,
+  }), [filtered])
+
   // Reset to page 1 whenever the filters change so stale pages don't linger
   useEffect(() => { setPage(1) }, [search, statusFilter, eventFilter])
 
@@ -113,16 +116,16 @@ export function PaymentsTable({ rows, stats, isOrgAdmin = true }: { rows: Row[];
         <div className="bg-white rounded-lg border p-4">
           <p className="text-xs sm:text-sm text-gray-500">Total Collected</p>
           <p className="text-xl sm:text-2xl font-bold mt-1" style={{ color: 'var(--brand-primary)' }}>
-            ${(stats.totalPaidCents / 100).toFixed(2)}
+            ${(filteredStats.totalPaidCents / 100).toFixed(2)}
           </p>
         </div>
         <div className="bg-white rounded-lg border p-4">
           <p className="text-xs sm:text-sm text-gray-500">Paid</p>
-          <p className="text-xl sm:text-2xl font-bold mt-1">{stats.paidCount}</p>
+          <p className="text-xl sm:text-2xl font-bold mt-1">{filteredStats.paidCount}</p>
         </div>
         <div className="bg-white rounded-lg border p-4">
           <p className="text-xs sm:text-sm text-gray-500">Unpaid</p>
-          <p className="text-xl sm:text-2xl font-bold mt-1 text-amber-600">{stats.unpaidCount}</p>
+          <p className="text-xl sm:text-2xl font-bold mt-1 text-amber-600">{filteredStats.unpaidCount}</p>
         </div>
       </div>
 
