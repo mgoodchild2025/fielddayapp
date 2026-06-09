@@ -11,11 +11,20 @@ ALTER TABLE public.payment_plan_installments
 
 -- FK: link paid instalments to their payments row
 -- NOT VALID skips the row scan on existing data (all have payment_id = NULL).
-ALTER TABLE public.payment_plan_installments
-  ADD CONSTRAINT IF NOT EXISTS payment_plan_installments_payment_id_fkey
-  FOREIGN KEY (payment_id) REFERENCES public.payments(id)
-  ON DELETE SET NULL
-  NOT VALID;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'payment_plan_installments_payment_id_fkey'
+      AND conrelid = 'public.payment_plan_installments'::regclass
+  ) THEN
+    ALTER TABLE public.payment_plan_installments
+      ADD CONSTRAINT payment_plan_installments_payment_id_fkey
+      FOREIGN KEY (payment_id) REFERENCES public.payments(id)
+      ON DELETE SET NULL
+      NOT VALID;
+  END IF;
+END $$;
 
 COMMENT ON COLUMN public.payment_plan_installments.stripe_checkout_session_id IS
   'Set when a Stripe Checkout session is created for this instalment. '
