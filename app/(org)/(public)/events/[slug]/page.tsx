@@ -880,6 +880,46 @@ export default async function EventDetailPage({
     myEnrollment = await getEnrollmentForRegistration(myRegistration.id)
   }
 
+  // Fetch any pending offline payment for this player on this league
+  // Used to show a reminder notice beneath the "✓ You're registered" banner.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let myPendingPayment: { payment_method: string; amount_cents: number; currency: string } | null = null
+  if (user && myRegistration?.id && !myEnrollment) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: pmtRow } = await (db as any)
+      .from('payments')
+      .select('payment_method, amount_cents, currency')
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
+      .eq('league_id', league.id)
+      .eq('status', 'pending')
+      .in('payment_method', ['cash', 'etransfer', 'cheque'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    myPendingPayment = pmtRow ?? null
+  }
+  // Also check for a per-team pending payment (captain scenario)
+  if (user && isTeamBased && paymentMode === 'per_team' && !myPendingPayment) {
+    // Find captain's team then look for the team payment row
+    const myTeamId = myMemberships && myMemberships.length > 0 ? myMemberships[0].team_id : null
+    if (myTeamId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: teamPmtRow } = await (db as any)
+        .from('payments')
+        .select('payment_method, amount_cents, currency')
+        .eq('organization_id', org.id)
+        .eq('team_id', myTeamId)
+        .eq('league_id', league.id)
+        .eq('payment_type', 'team')
+        .eq('status', 'pending')
+        .in('payment_method', ['cash', 'etransfer', 'cheque'])
+        .limit(1)
+        .maybeSingle()
+      myPendingPayment = teamPmtRow ?? null
+    }
+  }
+
   // Also check org admin status for visibility bypass
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: orgMember } = user
@@ -1752,12 +1792,17 @@ export default async function EventDetailPage({
             {/* Season pickup CTA */}
             {isSeasonPickup && (
               mySeasonRegistration ? (
-                <div className="w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide bg-green-50 border border-green-200 text-green-700" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-                  ✓ You&apos;re enrolled for the season
-                  {mySeasonRegistration.status === 'pending' && (
-                    <span className="block text-sm font-normal normal-case text-green-600 mt-1">Your registration is pending approval</span>
+                <>
+                  <div className="w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide bg-green-50 border border-green-200 text-green-700" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+                    ✓ You&apos;re enrolled for the season
+                    {mySeasonRegistration.status === 'pending' && (
+                      <span className="block text-sm font-normal normal-case text-green-600 mt-1">Your registration is pending approval</span>
+                    )}
+                  </div>
+                  {myPendingPayment && (
+                    <PendingPaymentNotice payment={myPendingPayment} instructions={(league as any).payment_instructions ?? null} />
                   )}
-                </div>
+                </>
               ) : isFull ? (
                 <div className="w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide bg-red-50 border border-red-200 text-red-700" style={{ fontFamily: 'var(--brand-heading-font)' }}>
                   🔒 Event Full
@@ -1986,6 +2031,9 @@ export default async function EventDetailPage({
                       <span className="block text-sm font-normal normal-case text-green-600 mt-1">Your registration is pending approval</span>
                     )}
                   </div>
+                  {myPendingPayment && (
+                    <PendingPaymentNotice payment={myPendingPayment} instructions={(league as any).payment_instructions ?? null} />
+                  )}
                   {myEnrollment && myEnrollment.installments && myEnrollment.installments.length > 0 && (
                     <div className="mt-3">
                       <PlayerInstallmentSchedule
@@ -2213,6 +2261,37 @@ export default async function EventDetailPage({
       )}
 
       <Footer org={org} />
+    </div>
+  )
+}
+
+function PendingPaymentNotice({
+  payment,
+  instructions,
+}: {
+  payment: { payment_method: string; amount_cents: number; currency: string }
+  instructions: string | null
+}) {
+  const methodLabel =
+    payment.payment_method === 'etransfer' ? 'e-transfer'
+    : payment.payment_method === 'cheque' ? 'cheque'
+    : 'cash'
+  const amountFormatted =
+    payment.amount_cents > 0
+      ? `$${(payment.amount_cents / 100).toFixed(0)} ${payment.currency.toUpperCase()}`
+      : null
+
+  return (
+    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <p className="font-semibold">
+        ⚠ Payment outstanding{amountFormatted ? ` — ${amountFormatted}` : ''}
+      </p>
+      <p className="mt-0.5 text-amber-700">
+        You chose to pay by {methodLabel}. Your spot is reserved, but your registration won&apos;t be fully confirmed until your payment is received by the organiser.
+      </p>
+      {instructions && (
+        <p className="mt-1.5 text-amber-700 whitespace-pre-wrap">{instructions}</p>
+      )}
     </div>
   )
 }

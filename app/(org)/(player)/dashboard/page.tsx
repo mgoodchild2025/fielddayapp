@@ -191,6 +191,8 @@ export default async function DashboardPage() {
   let pendingRegs: any[] = []
   let waiverSig: { id: string } | null = null
   let orgHasActiveWaiver = false
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let pendingOfflinePayments: any[] = []
 
   if (activeTeams.length > 0) {
     const [
@@ -202,6 +204,7 @@ export default async function DashboardPage() {
       { data: pr },
       { data: ws },
       { data: aw },
+      { data: pp },
     ] = await Promise.all([
       // Upcoming scheduled games for any of user's teams
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -277,6 +280,17 @@ export default async function DashboardPage() {
         .eq('is_active', true)
         .limit(1)
         .maybeSingle(),
+
+      // Pending offline payments (cash / etransfer / cheque) for this player
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('payments').select(`
+        id, payment_method, amount_cents, currency,
+        league:leagues!payments_league_id_fkey(name, slug)
+      `)
+        .eq('organization_id', org.id)
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .in('payment_method', ['cash', 'etransfer', 'cheque']),
     ])
 
     upcomingGames   = ug  ?? []
@@ -287,6 +301,7 @@ export default async function DashboardPage() {
     pendingRegs     = pr  ?? []
     waiverSig          = ws
     orgHasActiveWaiver = !!aw
+    pendingOfflinePayments = pp ?? []
   }
 
   // ── RSVP counts for the globally soonest game ─────────────────────────────
@@ -506,6 +521,28 @@ export default async function DashboardPage() {
       type: 'pending_registration',
       label: 'Registration incomplete',
       sublabel: `Complete your registration for ${league.name}.`,
+      href: `/events/${league.slug}`,
+    })
+  }
+
+  // Pending offline payments (cash / etransfer / cheque)
+  // Deduplicate by league slug so one banner per league, not per payment row.
+  const seenPaymentSlugs = new Set<string>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const pmt of pendingOfflinePayments as any[]) {
+    const league = Array.isArray(pmt.league) ? pmt.league[0] : pmt.league
+    if (!league?.slug || seenPaymentSlugs.has(league.slug)) continue
+    seenPaymentSlugs.add(league.slug)
+    const methodLabel = pmt.payment_method === 'etransfer' ? 'e-transfer'
+      : pmt.payment_method === 'cheque' ? 'cheque'
+      : 'cash'
+    const amountFormatted = pmt.amount_cents > 0
+      ? ` ($${(pmt.amount_cents / 100).toFixed(0)} ${(pmt.currency ?? 'cad').toUpperCase()})`
+      : ''
+    pendingActions.push({
+      type: 'pending_payment',
+      label: 'Payment outstanding',
+      sublabel: `Your ${methodLabel} payment${amountFormatted} for ${league.name} hasn't been received yet.`,
       href: `/events/${league.slug}`,
     })
   }

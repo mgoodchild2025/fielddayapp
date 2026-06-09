@@ -13,6 +13,7 @@ import {
   ChevronRight,
   BarChart3,
   Users,
+  AlertCircle,
 } from 'lucide-react'
 import { upsertRsvp } from '@/actions/rsvp'
 
@@ -89,7 +90,7 @@ export type DashboardTeam = {
 }
 
 export type PendingAction = {
-  type: 'waiver' | 'pending_registration'
+  type: 'waiver' | 'pending_registration' | 'pending_payment'
   label: string
   sublabel: string
   href: string
@@ -428,13 +429,16 @@ export function DashboardClient({ firstName, timezone, nextItem, teams, pendingA
           href={action.href}
           className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5 hover:bg-amber-100 transition-colors"
         >
-          <ClipboardList className="w-5 h-5 text-amber-500 shrink-0" />
+          {action.type === 'pending_payment'
+            ? <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+            : <ClipboardList className="w-5 h-5 text-amber-500 shrink-0" />
+          }
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-amber-900">{action.label}</p>
             <p className="text-xs text-amber-700 mt-0.5">{action.sublabel}</p>
           </div>
           <span className="text-xs font-bold text-amber-700 shrink-0 flex items-center gap-0.5">
-            Complete <ChevronRight className="w-3.5 h-3.5" />
+            {action.type === 'pending_payment' ? 'View' : 'Complete'} <ChevronRight className="w-3.5 h-3.5" />
           </span>
         </Link>
       ))}
