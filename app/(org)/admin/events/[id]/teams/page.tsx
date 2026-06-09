@@ -258,6 +258,19 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
               }
             })
 
+            // Filter roster notes: hide any entry whose email matches an active member
+            const activeMemberEmailSet = new Set(
+              activeMembers
+                .map((m) => {
+                  const p = Array.isArray(m.profile) ? m.profile[0] : m.profile
+                  return (p as { email?: string } | null)?.email?.toLowerCase()
+                })
+                .filter((e): e is string => Boolean(e))
+            )
+            const filteredRosterNotes = (rosterNotesByTeam.get(team.id) ?? []).filter(
+              (note) => !note.email || !activeMemberEmailSet.has(note.email.toLowerCase())
+            )
+
             const teamInvites = invitesByTeam.get(team.id) ?? []
             const initialInvites: PendingInvite[] = teamInvites.map((inv) => ({
               id: inv.id,
@@ -299,7 +312,7 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
                 initialMembers={initialMembers}
                 initialInvites={initialInvites}
                 joinRequests={teamJoinRequests}
-                rosterNotes={rosterNotesByTeam.get(team.id) ?? []}
+                rosterNotes={filteredRosterNotes}
               />
             )
           })

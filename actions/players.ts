@@ -168,6 +168,7 @@ export async function addPlayerToTeam(userId: string, teamId: string, leagueId: 
     .eq('organization_id', org.id)
 
   revalidatePath(`/admin/players/${userId}`)
+  revalidatePath(`/teams/${teamId}`)
   return { error: null }
 }
 
