@@ -7,8 +7,15 @@ import { QRCodeDisplay } from '@/components/checkin/qr-code-display'
 import { PastGamesToggle } from '@/components/schedule/past-games-toggle'
 import { EventAvatar } from '@/components/ui/event-avatar'
 import { PlayerCalendar, toLocalDate } from '@/components/ui/player-calendar'
-import type { CalendarDot, CalendarBand } from '@/components/ui/player-calendar'
+import type { CalendarDot } from '@/components/ui/player-calendar'
 import { leagueColor } from '@/lib/league-color'
+
+export interface GameDotItem {
+  leagueId: string
+  date: string  // YYYY-MM-DD in org tz
+  label: string
+  href: string
+}
 
 export interface EventItem {
   registrationId: string
@@ -42,6 +49,7 @@ interface Props {
   currentEvents: EventItem[]
   pastEvents: EventItem[]
   timezone: string
+  gameDots?: GameDotItem[]
 }
 
 function formatSport(s: string) {
@@ -117,37 +125,35 @@ function EventCard({ item, timezone, faded }: { item: EventItem; timezone: strin
   )
 }
 
-export function MyEventsClient({ currentEvents, pastEvents, timezone }: Props) {
+export function MyEventsClient({ currentEvents, pastEvents, timezone, gameDots = [] }: Props) {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
 
   const allEvents = [...currentEvents, ...pastEvents]
 
-  // Build calendar bands (league seasons) and dots (specific sessions)
-  const seenLeagueIds = new Set<string>()
-  const calendarBands: CalendarBand[] = []
-  for (const e of allEvents) {
-    if (e.league.season_start_date && e.league.season_end_date && !seenLeagueIds.has(e.league.id)) {
-      seenLeagueIds.add(e.league.id)
-      calendarBands.push({
-        id: e.league.id,
-        startDate: e.league.season_start_date.substring(0, 10),
-        endDate: e.league.season_end_date.substring(0, 10),
+  // Game-day dots (actual scheduled game dates from the server)
+  const calendarDots: CalendarDot[] = [
+    // Specific game dates per league
+    ...gameDots.map(d => ({
+      id: `game-${d.leagueId}-${d.date}`,
+      date: d.date,
+      color: leagueColor(d.leagueId),
+      label: d.label,
+      href: d.href,
+    })),
+    // Drop-in session dots (one-off specific sessions)
+    ...allEvents
+      .filter(e => e.sessionScheduledAt)
+      .map(e => ({
+        id: e.registrationId,
+        date: toLocalDate(e.sessionScheduledAt!, timezone),
         color: leagueColor(e.league.id),
-        label: e.league.name,
+        label: `${e.league.name} (Drop-in)`,
         href: `/events/${e.league.slug}`,
-      })
-    }
-  }
+      })),
+  ]
 
-  const calendarDots: CalendarDot[] = allEvents
-    .filter(e => e.sessionScheduledAt)
-    .map(e => ({
-      id: e.registrationId,
-      date: toLocalDate(e.sessionScheduledAt!, timezone),
-      color: leagueColor(e.league.id),
-      label: `${e.league.name}${e.registrationType === 'drop_in' ? ' (Drop-in)' : ''}`,
-      href: `/events/${e.league.slug}`,
-    }))
+  // No bands — events now appear only on their actual game days
+  const calendarBands = [] as const
 
   const isEmpty = allEvents.length === 0
 
