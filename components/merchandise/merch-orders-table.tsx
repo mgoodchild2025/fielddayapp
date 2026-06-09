@@ -327,7 +327,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                     <StatusBadge order={order} />
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {(order.status === 'pending' || (order.status === 'fulfilled' && !order.paid_at)) && isManualPayment && (
+                    {((order.status === 'pending' && isManualPayment) || (order.status === 'fulfilled' && !order.paid_at)) && (
                       markPaidOpenId === order.id ? (
                         <div className="flex flex-col gap-1.5 items-end min-w-[180px]">
                           <div className="flex gap-1.5">
