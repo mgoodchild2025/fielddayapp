@@ -10,6 +10,7 @@ import { BillingBanner } from '@/components/layout/billing-banner'
 import { LimitWarningBanner } from '@/components/layout/limit-warning-banner'
 import { MfaGraceBanner } from '@/components/mfa/mfa-grace-banner'
 import { getLimit, getActiveLeagueCount } from '@/lib/features'
+import { getEnforcementState } from '@/lib/billing'
 import { getPendingReacceptance } from '@/actions/tenant-consent'
 
 export default async function AdminLayout({
@@ -110,7 +111,7 @@ export default async function AdminLayout({
   // Fetch subscription + plan limits in parallel for banners
   const db = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [{ data: subscription }, playerLimit, leagueLimit, activeLeagueCount, { count: playerCount }] = await Promise.all([
+  const [{ data: subscription }, playerLimit, leagueLimit, activeLeagueCount, { count: playerCount }, enforcement] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)
       .from('subscriptions')
@@ -126,6 +127,7 @@ export default async function AdminLayout({
       .eq('organization_id', org.id)
       .eq('role', 'player')
       .eq('status', 'active'),
+    getEnforcementState(org.id),
   ])
 
   return (
@@ -155,6 +157,8 @@ export default async function AdminLayout({
           playerLimit={playerLimit}
           leagueCount={activeLeagueCount}
           leagueLimit={leagueLimit}
+          graceDaysLeft={enforcement.graceDaysLeft}
+          inGracePeriod={enforcement.inGracePeriod}
         />
       </div>
       <div className="flex flex-1 min-h-0 overflow-hidden print:block print:overflow-visible">

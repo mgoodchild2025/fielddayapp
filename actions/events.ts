@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { getLimit, getActiveLeagueCount } from '@/lib/features'
+import { isLeagueFrozen, invalidateBillingCache } from '@/lib/billing'
 import { assertOrgAdmin, requireOrgMember } from '@/lib/auth'
 import { convertToWebP } from '@/lib/image-utils'
 import { optionalPhone } from '@/lib/validation'
@@ -181,6 +182,12 @@ export async function updateLeagueStatus(leagueId: string, status: LeagueStatus)
   const auth = await assertOrgAdmin(org)
   if (auth.error) return { data: null, error: auth.error }
 
+  // Block activating a frozen league (over plan cap, grace expired)
+  if (status === 'registration_open' || status === 'active') {
+    const frozen = await isLeagueFrozen(leagueId, org.id)
+    if (frozen) return { data: null, error: 'LEAGUE_FROZEN' }
+  }
+
   const db = createServiceRoleClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -210,6 +217,8 @@ export async function updateLeagueStatus(leagueId: string, status: LeagueStatus)
   // Bust public caches so archive/restore reflects immediately on the
   // public homepage, events list, and event detail pages.
   revalidatePath('/', 'layout')
+  // Archiving/completing a league may bring the org back within their plan limits
+  invalidateBillingCache(org.id)
   return { data: null, error: null }
 }
 

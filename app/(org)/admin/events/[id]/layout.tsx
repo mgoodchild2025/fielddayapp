@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { EventAdminTabs } from '@/components/layout/event-admin-tabs'
+import { getEnforcementState } from '@/lib/billing'
+import { FrozenLeagueBanner } from '@/components/billing/frozen-league-banner'
 
 const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-600',
@@ -35,8 +37,24 @@ export default async function EventAdminLayout({
 
   if (!league) notFound()
 
+  // Check enforcement state to show frozen/grace banner
+  const enforcement = await getEnforcementState(org.id)
+  const isFrozen = enforcement.frozenLeagueIds.includes(id)
+  // During grace, show warning on leagues that would be frozen once grace expires
+  const isAtRiskDuringGrace = !isFrozen && enforcement.inGracePeriod && enforcement.atRiskLeagueIds.includes(id)
+
   return (
     <div>
+      {isFrozen && (
+        <div className="print:hidden">
+          <FrozenLeagueBanner />
+        </div>
+      )}
+      {isAtRiskDuringGrace && enforcement.graceDaysLeft !== null && (
+        <div className="print:hidden">
+          <FrozenLeagueBanner graceDaysLeft={enforcement.graceDaysLeft} />
+        </div>
+      )}
       <div className="print:hidden mb-6">
         <Link href="/admin/events" className="text-sm text-gray-400 hover:text-gray-600">
           ← Events

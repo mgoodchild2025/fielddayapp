@@ -153,7 +153,7 @@ export function MyEventsClient({ currentEvents, pastEvents, timezone, gameDots =
   ]
 
   // No bands — events now appear only on their actual game days
-  const calendarBands = [] as const
+  const calendarBands: import('@/components/ui/player-calendar').CalendarBand[] = []
 
   const isEmpty = allEvents.length === 0
 

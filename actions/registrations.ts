@@ -12,6 +12,7 @@ import { recordConsents, consentRequestMeta, type ConsentRow } from './player-co
 import { recordAuditLog, getAuditActor } from '@/lib/audit'
 import { calendarSubscribeUrls, ensureCalendarToken } from '@/lib/calendar-feed'
 import { buildCalendarCtaHtml } from '@/lib/email'
+import { isPlayerRegistrationBlocked } from '@/lib/billing'
 
 const createRegistrationSchema = z.object({
   leagueId: z.string().uuid(),
@@ -41,6 +42,11 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
   if (!user) return { data: null, error: 'Not authenticated' }
 
   const db = createServiceRoleClient()
+
+  // ── Plan enforcement: player cap check ──────────────────────────────────
+  if (await isPlayerRegistrationBlocked(org.id)) {
+    return { data: null, error: 'PLAYER_CAP_REACHED' }
+  }
 
   // ── League status + capacity check ──────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -8,6 +8,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { sendEmail, buildTeamInviteEmail } from '@/lib/email'
+import { isLeagueFrozen } from '@/lib/billing'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -131,6 +132,13 @@ export async function sendTeamInvite(input: z.infer<typeof sendInviteSchema>) {
   ])
 
   if (!team) return { error: 'Team not found' }
+
+  // Block invites to teams in frozen leagues
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const teamLeagueId = (team as any).league_id as string | null
+  if (teamLeagueId && await isLeagueFrozen(teamLeagueId, org.id)) {
+    return { error: 'LEAGUE_FROZEN' }
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leagueRow = Array.isArray((team as any).leagues) ? (team as any).leagues[0] : (team as any).leagues

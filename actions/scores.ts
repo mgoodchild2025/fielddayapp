@@ -8,6 +8,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { advanceBracketFromScore, reverseBracketAdvancement } from '@/actions/brackets'
 import { recordAuditLog } from '@/lib/audit'
+import { isLeagueFrozen } from '@/lib/billing'
 
 const submitScoreSchema = z.object({
   gameId: z.string().uuid(),
@@ -122,6 +123,11 @@ export async function adminSetScore(input: z.infer<typeof adminSetScoreSchema>) 
     .single()
 
   if (!game) return { data: null, error: 'Game not found' }
+
+  // Block score entry on frozen leagues
+  if (game.league_id && await isLeagueFrozen(game.league_id, org.id)) {
+    return { data: null, error: 'LEAGUE_FROZEN' }
+  }
 
   const { error: upsertError } = await supabase
     .from('game_results')

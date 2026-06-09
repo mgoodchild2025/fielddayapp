@@ -11,6 +11,7 @@ import { FROM_EMAIL } from '@/lib/resend'
 import { sendEmailBatch } from '@/lib/email'
 import { notifyScheduleDelay } from '@/lib/notify-schedule-delay'
 import { recordAuditLog, getAuditActor } from '@/lib/audit'
+import { isLeagueFrozen } from '@/lib/billing'
 
 // ── Notification helpers ────────────────────────────────────────────────────
 
@@ -94,6 +95,11 @@ export async function addGame(input: z.infer<typeof addGameSchema>) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
+  // Block writes to frozen leagues
+  if (await isLeagueFrozen(parsed.data.leagueId, org.id)) {
+    return { data: null, error: 'LEAGUE_FROZEN' }
+  }
+
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -152,6 +158,12 @@ export async function generateRoundRobinSchedule(input: {
 }) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+
+  // Block writes to frozen leagues
+  if (await isLeagueFrozen(input.leagueId, org.id)) {
+    return { error: 'LEAGUE_FROZEN', count: 0 }
+  }
+
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
 
@@ -237,6 +249,11 @@ export async function updateGame(input: z.infer<typeof updateGameSchema>) {
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+
+  // Block writes to frozen leagues
+  if (await isLeagueFrozen(parsed.data.leagueId, org.id)) {
+    return { error: 'LEAGUE_FROZEN' }
+  }
 
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -905,6 +922,11 @@ export async function generateWeeklyLeagueSchedule(input: {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
+  // Block writes to frozen leagues
+  if (await isLeagueFrozen(input.leagueId, org.id)) {
+    return { error: 'LEAGUE_FROZEN', count: 0 }
+  }
+
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated', count: 0 }
@@ -1010,6 +1032,11 @@ export async function generatePickupSchedule(input: {
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+
+  // Block writes to frozen leagues
+  if (await isLeagueFrozen(input.leagueId, org.id)) {
+    return { error: 'LEAGUE_FROZEN', count: 0 }
+  }
 
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
