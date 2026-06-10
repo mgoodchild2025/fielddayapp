@@ -1,7 +1,4 @@
-import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
-import { type EmailOtpType } from '@supabase/supabase-js'
-import { createServerClient } from '@/lib/supabase/server'
 import AuthCallbackClient from './_client'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
@@ -40,36 +37,20 @@ export default async function CallbackPage({
   const params = await searchParams
   const headersList = await headers()
   const origin = getOriginFromHeaders(headersList)
-  const errorRedirect = `${origin}/login?error=confirmation_failed`
 
-  // `next` is a safe relative path to redirect to after auth
-  const next = params.next && isSafeDestination(params.next) ? params.next : null
+  // `next` is a safe relative/absolute path to redirect to after auth
+  const next = params.next && isSafeDestination(params.next) ? params.next : undefined
 
-  // ── token_hash flow ──────────────────────────────────────────────────────
-  if (params.token_hash && params.type) {
-    const supabase = await createServerClient()
-    const { error } = await supabase.auth.verifyOtp({
-      token_hash: params.token_hash,
-      type: params.type as EmailOtpType,
-    })
-    if (error) redirect(errorRedirect)
-    const { data: { user } } = await supabase.auth.getUser()
-    const meta = user?.user_metadata?.redirect_destination as string | undefined
-    redirect(next ?? (isSafeDestination(meta ?? '') ? meta! : `${origin}/dashboard`))
-  }
-
-  // ── PKCE code flow ───────────────────────────────────────────────────────
-  if (params.code) {
-    const supabase = await createServerClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(params.code)
-    if (error) redirect(errorRedirect)
-    const { data: { user } } = await supabase.auth.getUser()
-    const meta = user?.user_metadata?.redirect_destination as string | undefined
-    redirect(next ?? (isSafeDestination(meta ?? '') ? meta! : `${origin}/dashboard`))
-  }
-
-  // ── Implicit / hash flow — tokens are in the URL fragment ────────────────
-  // The fragment never reaches the server; the client component reads it and
-  // calls setSession(), then uses redirect_destination from user_metadata.
-  return <AuthCallbackClient origin={origin} />
+  // All three auth flows are handled browser-side in the client component so
+  // that the Supabase browser client can write session cookies. Server
+  // components cannot write cookies, which would silently drop the session.
+  return (
+    <AuthCallbackClient
+      origin={origin}
+      code={params.code}
+      tokenHash={params.token_hash}
+      type={params.type}
+      next={next}
+    />
+  )
 }
