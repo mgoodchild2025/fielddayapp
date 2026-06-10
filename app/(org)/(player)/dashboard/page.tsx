@@ -237,17 +237,19 @@ export default async function DashboardPage() {
         .limit(20),
 
       // All confirmed results in these leagues (for standings computation)
+      // pool_id included so we can exclude pool games from regular-season standings
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any).from('games').select(`
-        id, home_team_id, away_team_id, league_id, status,
+        id, home_team_id, away_team_id, league_id, status, pool_id,
         game_results(home_score, away_score, status)
       `)
         .eq('organization_id', org.id)
         .in('league_id', leagueIds),
 
-      // All teams in these leagues (for standings denominator)
+      // Active teams in these leagues (for standings + denominator)
+      // status='active' matches the standings page filter — inactive/dropped teams are excluded
       leagueIds.length > 0
-        ? db.from('teams').select('id, league_id').in('league_id', leagueIds)
+        ? (db as any).from('teams').select('id, league_id').in('league_id', leagueIds).eq('status', 'active')
         : Promise.resolve({ data: [] }),
 
       // User's own RSVPs for upcoming games
@@ -334,20 +336,33 @@ export default async function DashboardPage() {
   }
 
   // ── Standings computation ─────────────────────────────────────────────────
+  // Build a per-league set of active team IDs — mirrors standings page filter
+  const activeTeamIdsByLeague = new Map<string, Set<string>>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const t of leagueTeams as any[]) {
+    const lid = t.league_id as string
+    if (!activeTeamIdsByLeague.has(lid)) activeTeamIdsByLeague.set(lid, new Set())
+    activeTeamIdsByLeague.get(lid)!.add(t.id as string)
+  }
+
   const leagueRecordMap = new Map<string, Map<string, { wins: number; losses: number; ties: number; played: number; goalsFor: number; goalsAgainst: number }>>()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const g of allLeagueResults as any[]) {
     if (g.status !== 'completed') continue
+    if (g.pool_id) continue  // exclude pool games — standings page puts these in poolRecord, not record
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = Array.isArray(g.game_results) ? g.game_results[0] : g.game_results as any
     if (!result || result.status !== 'confirmed') continue
     const lid = g.league_id as string
     if (!lid) continue
-    if (!leagueRecordMap.has(lid)) leagueRecordMap.set(lid, new Map())
-    const leagueMap = leagueRecordMap.get(lid)!
     const ht = g.home_team_id as string
     const at = g.away_team_id as string
     if (!ht || !at) continue
+    // Skip games where either team is not currently active — mirrors standings page
+    const activeIds = activeTeamIdsByLeague.get(lid)
+    if (!activeIds || !activeIds.has(ht) || !activeIds.has(at)) continue
+    if (!leagueRecordMap.has(lid)) leagueRecordMap.set(lid, new Map())
+    const leagueMap = leagueRecordMap.get(lid)!
     if (!leagueMap.has(ht)) leagueMap.set(ht, { wins: 0, losses: 0, ties: 0, played: 0, goalsFor: 0, goalsAgainst: 0 })
     if (!leagueMap.has(at)) leagueMap.set(at, { wins: 0, losses: 0, ties: 0, played: 0, goalsFor: 0, goalsAgainst: 0 })
     const home = leagueMap.get(ht)!
