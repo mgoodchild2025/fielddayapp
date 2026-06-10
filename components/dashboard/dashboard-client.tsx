@@ -549,7 +549,7 @@ export function DashboardClient({ firstName, timezone, nextItem, teams, pendingA
                 <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-primary)' }}>
                   {team.record.points}
                 </p>
-                <p className="text-[11px] text-gray-400 mt-1.5">3W · 1T · 0L</p>
+                <p className="text-[11px] text-gray-400 mt-1.5">{team.record.wins}W · {team.record.ties}T · {team.record.losses}L</p>
               </Link>
             </div>
           </section>

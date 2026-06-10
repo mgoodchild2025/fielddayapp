@@ -47,7 +47,7 @@ export default async function DashboardPage() {
       id, role,
       team:teams!team_members_team_id_fkey(
         id, name, color, logo_url,
-        league:leagues!teams_league_id_fkey(id, name, slug, status, sport, standings_pts_method)
+        league:leagues!teams_league_id_fkey(id, name, slug, status, sport, standings_pts_method, volleyball_standings_mode)
       )
     `)
       .eq('organization_id', org.id)
@@ -238,10 +238,11 @@ export default async function DashboardPage() {
 
       // All confirmed results in these leagues (for standings computation)
       // pool_id included so we can exclude pool games from regular-season standings
+      // sets included so we can accumulate set wins for volleyball leagues
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any).from('games').select(`
         id, home_team_id, away_team_id, league_id, status, pool_id,
-        game_results(home_score, away_score, status)
+        game_results(home_score, away_score, status, sets)
       `)
         .eq('organization_id', org.id)
         .in('league_id', leagueIds),
@@ -336,8 +337,18 @@ export default async function DashboardPage() {
   }
 
   // ── Standings computation ─────────────────────────────────────────────────
-  // Build a per-league set of active team IDs — mirrors standings page filter
+  // Build per-league active team set + volleyball mode — mirrors standings page
+  const VOLLEYBALL_SPORTS = new Set(['volleyball', 'beach_volleyball'])
   const activeTeamIdsByLeague = new Map<string, Set<string>>()
+  const leagueIsSetBased = new Map<string, boolean>()
+  for (const m of activeTeams) {
+    const lid = m.league.id as string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sport = (m.league.sport ?? '') as string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const vMode = ((m.league as any).volleyball_standings_mode ?? 'match_based') as string
+    leagueIsSetBased.set(lid, VOLLEYBALL_SPORTS.has(sport) && vMode === 'set_based')
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const t of leagueTeams as any[]) {
     const lid = t.league_id as string
@@ -345,11 +356,15 @@ export default async function DashboardPage() {
     activeTeamIdsByLeague.get(lid)!.add(t.id as string)
   }
 
-  const leagueRecordMap = new Map<string, Map<string, { wins: number; losses: number; ties: number; played: number; goalsFor: number; goalsAgainst: number }>>()
+  const leagueRecordMap = new Map<string, Map<string, {
+    wins: number; losses: number; ties: number; played: number
+    setWins: number; setLosses: number
+    pointsFor: number; pointsAgainst: number
+  }>>()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const g of allLeagueResults as any[]) {
     if (g.status !== 'completed') continue
-    if (g.pool_id) continue  // exclude pool games — standings page puts these in poolRecord, not record
+    if (g.pool_id) continue  // pool games are separate on standings page
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = Array.isArray(g.game_results) ? g.game_results[0] : g.game_results as any
     if (!result || result.status !== 'confirmed') continue
@@ -358,23 +373,37 @@ export default async function DashboardPage() {
     const ht = g.home_team_id as string
     const at = g.away_team_id as string
     if (!ht || !at) continue
-    // Skip games where either team is not currently active — mirrors standings page
+    // Skip games involving inactive/dropped teams
     const activeIds = activeTeamIdsByLeague.get(lid)
     if (!activeIds || !activeIds.has(ht) || !activeIds.has(at)) continue
     if (!leagueRecordMap.has(lid)) leagueRecordMap.set(lid, new Map())
     const leagueMap = leagueRecordMap.get(lid)!
-    if (!leagueMap.has(ht)) leagueMap.set(ht, { wins: 0, losses: 0, ties: 0, played: 0, goalsFor: 0, goalsAgainst: 0 })
-    if (!leagueMap.has(at)) leagueMap.set(at, { wins: 0, losses: 0, ties: 0, played: 0, goalsFor: 0, goalsAgainst: 0 })
+    const blank = () => ({ wins: 0, losses: 0, ties: 0, played: 0, setWins: 0, setLosses: 0, pointsFor: 0, pointsAgainst: 0 })
+    if (!leagueMap.has(ht)) leagueMap.set(ht, blank())
+    if (!leagueMap.has(at)) leagueMap.set(at, blank())
     const home = leagueMap.get(ht)!
     const away = leagueMap.get(at)!
     const hs = Number(result.home_score ?? 0)
     const as_ = Number(result.away_score ?? 0)
     home.played++; away.played++
-    home.goalsFor += hs; home.goalsAgainst += as_
-    away.goalsFor += as_; away.goalsAgainst += hs
     if (hs > as_) { home.wins++; away.losses++ }
     else if (as_ > hs) { away.wins++; home.losses++ }
     else { home.ties++; away.ties++ }
+    // Accumulate set wins + point data (mirrors standings page logic)
+    if (leagueIsSetBased.get(lid) && Array.isArray(result.sets)) {
+      // Volleyball set_based: count individual set outcomes; pointsFor = set-level scores
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const s of result.sets as { home: number; away: number }[]) {
+        home.pointsFor += s.home; home.pointsAgainst += s.away
+        away.pointsFor += s.away; away.pointsAgainst += s.home
+        if (s.home > s.away) { home.setWins++; away.setLosses++ }
+        else if (s.away > s.home) { away.setWins++; home.setLosses++ }
+      }
+    } else {
+      // Match-based: pointsFor = match score
+      home.pointsFor += hs; home.pointsAgainst += as_
+      away.pointsFor += as_; away.pointsAgainst += hs
+    }
   }
 
   const teamsPerLeague = new Map<string, number>()
@@ -387,13 +416,26 @@ export default async function DashboardPage() {
   function getStanding(leagueId: string, teamId: string): number | null {
     const leagueMap = leagueRecordMap.get(leagueId)
     if (!leagueMap) return null
+    const isSetBased = leagueIsSetBased.get(leagueId) ?? false
     const entries = [...leagueMap.entries()]
-      .map(([tid, rec]) => ({ tid, wins: rec.wins, gd: rec.goalsFor - rec.goalsAgainst }))
+      .map(([tid, rec]) => ({
+        tid,
+        wins: rec.wins,
+        setWins: rec.setWins,
+        setDiff: rec.setWins - rec.setLosses,
+        pd: rec.pointsFor - rec.pointsAgainst,
+      }))
       .sort((a, b) => {
-        // Mirror standings page: wins first, then goal differential as tiebreaker.
-        // Ties is NOT a reliable tiebreaker — the standings page uses PF-PA after equal wins.
+        if (isSetBased) {
+          // Volleyball set_based: SW → set differential → point differential (mirrors sortSetBased)
+          if (b.setWins !== a.setWins) return b.setWins - a.setWins
+          const sdDiff = b.setDiff - a.setDiff
+          if (sdDiff !== 0) return sdDiff
+          return b.pd - a.pd
+        }
+        // Match-based: wins → point differential (mirrors sortMatchBased)
         if (b.wins !== a.wins) return b.wins - a.wins
-        return b.gd - a.gd
+        return b.pd - a.pd
       })
     const idx = entries.findIndex((e) => e.tid === teamId)
     return idx >= 0 ? idx + 1 : null
@@ -461,9 +503,10 @@ export default async function DashboardPage() {
     const teamId = m.team.id as string
     const leagueId = m.league.id as string
     const leagueRec = leagueRecordMap.get(leagueId)
-    const myRec = leagueRec?.get(teamId) ?? { wins: 0, losses: 0, ties: 0, played: 0, goalsFor: 0, goalsAgainst: 0 }
+    const myRec = leagueRec?.get(teamId) ?? { wins: 0, losses: 0, ties: 0, played: 0, setWins: 0, setLosses: 0, pointsFor: 0, pointsAgainst: 0 }
     const standing = getStanding(leagueId, teamId)
     const totalTeams = teamsPerLeague.get(leagueId) ?? null
+    const isSetBased = leagueIsSetBased.get(leagueId) ?? false
 
     // Recent results (last 3 completed games for this team)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -510,7 +553,8 @@ export default async function DashboardPage() {
         losses: myRec.losses,
         ties: myRec.ties,
         played: myRec.played,
-        points: myRec.wins * 3 + myRec.ties,
+        // For volleyball set_based leagues, "points" = set wins (SW), matching standings page
+        points: isSetBased ? myRec.setWins : myRec.wins * 3 + myRec.ties,
         standing,
         totalTeams,
       },
