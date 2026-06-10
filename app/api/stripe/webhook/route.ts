@@ -238,17 +238,22 @@ export async function POST(request: NextRequest) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { data: regData } = await (supabase as any)
             .from('registrations')
-            .select('profiles!registrations_user_id_fkey(email, full_name), leagues(name, slug)')
+            .select('profiles!registrations_user_id_fkey(email, full_name), leagues(name)')
             .eq('id', registrationId)
+            .single()
+          const { data: orgData } = await (supabase as any)
+            .from('organizations')
+            .select('name')
+            .eq('id', orgId)
             .single()
           const profile = Array.isArray(regData?.profiles) ? regData.profiles[0] : regData?.profiles
           const regLeague = Array.isArray(regData?.leagues) ? regData.leagues[0] : regData?.leagues
           if (profile?.email && regLeague) {
             sendRegistrationConfirmation({
               email: profile.email,
-              toName: profile.full_name ?? 'there',
+              name: profile.full_name ?? 'there',
               leagueName: regLeague.name,
-              leagueSlug: regLeague.slug,
+              orgName: orgData?.name ?? '',
             }).catch(() => {})
           }
         }
