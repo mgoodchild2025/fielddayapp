@@ -1,5 +1,9 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY
-const EMAIL_FROM = process.env.EMAIL_FROM ?? 'noreply@fielddayapp.ca'
+const EMAIL_FROM = process.env.EMAIL_FROM ?? 'Fieldday <noreply@fielddayapp.ca>'
+const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO ?? 'hello@fielddayapp.ca'
+// List-Unsubscribe points at a real, monitored mailbox so the header is valid.
+// Its presence is a positive signal to spam filters (notably Microsoft/Outlook).
+const UNSUBSCRIBE_MAILTO = process.env.EMAIL_UNSUBSCRIBE ?? 'hello@fielddayapp.ca'
 
 /**
  * Shared compliance footer for all transactional emails.
@@ -64,8 +68,12 @@ export async function sendEmail(opts: SendEmailOptions): Promise<void> {
       body: JSON.stringify({
         from: EMAIL_FROM,
         to: opts.to,
+        reply_to: EMAIL_REPLY_TO,
         subject: opts.subject,
         html: opts.html,
+        headers: {
+          'List-Unsubscribe': `<mailto:${UNSUBSCRIBE_MAILTO}?subject=Unsubscribe>`,
+        },
       }),
     })
   } catch {

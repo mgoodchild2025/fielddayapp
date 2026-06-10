@@ -4,3 +4,9 @@ export const getResend = () => new Resend(process.env.RESEND_API_KEY ?? 'placeho
 
 export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'Fieldday <hello@fielddayapp.ca>'
 export const REPLY_TO  = process.env.RESEND_REPLY_TO  ?? 'hello@fielddayapp.ca'
+
+// Valid List-Unsubscribe header (points at a real, monitored mailbox). Its
+// presence improves deliverability, especially with Microsoft/Outlook filters.
+export const EMAIL_HEADERS = {
+  'List-Unsubscribe': `<mailto:${process.env.RESEND_REPLY_TO ?? 'hello@fielddayapp.ca'}?subject=Unsubscribe>`,
+}
