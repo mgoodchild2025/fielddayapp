@@ -334,7 +334,7 @@ export default async function DashboardPage() {
   }
 
   // ── Standings computation ─────────────────────────────────────────────────
-  const leagueRecordMap = new Map<string, Map<string, { wins: number; losses: number; ties: number; played: number }>>()
+  const leagueRecordMap = new Map<string, Map<string, { wins: number; losses: number; ties: number; played: number; goalsFor: number; goalsAgainst: number }>>()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const g of allLeagueResults as any[]) {
     if (g.status !== 'completed') continue
@@ -342,17 +342,23 @@ export default async function DashboardPage() {
     const result = Array.isArray(g.game_results) ? g.game_results[0] : g.game_results as any
     if (!result || result.status !== 'confirmed') continue
     const lid = g.league_id as string
+    if (!lid) continue
     if (!leagueRecordMap.has(lid)) leagueRecordMap.set(lid, new Map())
     const leagueMap = leagueRecordMap.get(lid)!
     const ht = g.home_team_id as string
     const at = g.away_team_id as string
-    if (!leagueMap.has(ht)) leagueMap.set(ht, { wins: 0, losses: 0, ties: 0, played: 0 })
-    if (!leagueMap.has(at)) leagueMap.set(at, { wins: 0, losses: 0, ties: 0, played: 0 })
+    if (!ht || !at) continue
+    if (!leagueMap.has(ht)) leagueMap.set(ht, { wins: 0, losses: 0, ties: 0, played: 0, goalsFor: 0, goalsAgainst: 0 })
+    if (!leagueMap.has(at)) leagueMap.set(at, { wins: 0, losses: 0, ties: 0, played: 0, goalsFor: 0, goalsAgainst: 0 })
     const home = leagueMap.get(ht)!
     const away = leagueMap.get(at)!
+    const hs = Number(result.home_score ?? 0)
+    const as_ = Number(result.away_score ?? 0)
     home.played++; away.played++
-    if (result.home_score > result.away_score) { home.wins++; away.losses++ }
-    else if (result.away_score > result.home_score) { away.wins++; home.losses++ }
+    home.goalsFor += hs; home.goalsAgainst += as_
+    away.goalsFor += as_; away.goalsAgainst += hs
+    if (hs > as_) { home.wins++; away.losses++ }
+    else if (as_ > hs) { away.wins++; home.losses++ }
     else { home.ties++; away.ties++ }
   }
 
@@ -367,13 +373,12 @@ export default async function DashboardPage() {
     const leagueMap = leagueRecordMap.get(leagueId)
     if (!leagueMap) return null
     const entries = [...leagueMap.entries()]
-      .map(([tid, rec]) => ({ tid, wins: rec.wins, ties: rec.ties }))
+      .map(([tid, rec]) => ({ tid, wins: rec.wins, gd: rec.goalsFor - rec.goalsAgainst }))
       .sort((a, b) => {
-        // Match the standings page primary sort: wins first, then ties as
-        // tiebreaker. The old formula (wins*3 + ties) incorrectly ranked a
-        // team with 2W 4T above a team with 3W 0T (10 vs 9 points).
+        // Mirror standings page: wins first, then goal differential as tiebreaker.
+        // Ties is NOT a reliable tiebreaker — the standings page uses PF-PA after equal wins.
         if (b.wins !== a.wins) return b.wins - a.wins
-        return b.ties - a.ties
+        return b.gd - a.gd
       })
     const idx = entries.findIndex((e) => e.tid === teamId)
     return idx >= 0 ? idx + 1 : null
@@ -441,7 +446,7 @@ export default async function DashboardPage() {
     const teamId = m.team.id as string
     const leagueId = m.league.id as string
     const leagueRec = leagueRecordMap.get(leagueId)
-    const myRec = leagueRec?.get(teamId) ?? { wins: 0, losses: 0, ties: 0, played: 0 }
+    const myRec = leagueRec?.get(teamId) ?? { wins: 0, losses: 0, ties: 0, played: 0, goalsFor: 0, goalsAgainst: 0 }
     const standing = getStanding(leagueId, teamId)
     const totalTeams = teamsPerLeague.get(leagueId) ?? null
 
