@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { login } from '@/actions/auth'
 import Link from 'next/link'
+import { Eye, EyeOff } from 'lucide-react'
 
 const schema = z.object({
   email: z.string().email('Invalid email address'),
@@ -17,6 +18,7 @@ type FormData = z.infer<typeof schema>
 export function LoginForm({ redirectTo }: { redirectTo?: string }) {
   const [serverError, setServerError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -53,13 +55,23 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">Password</label>
-        <input
-          {...register('password')}
-          id="password"
-          type="password"
-          autoComplete="current-password"
-          className="w-full border rounded-md px-3 py-2 text-base focus:outline-none focus:ring-2"
-        />
+        <div className="relative">
+          <input
+            {...register('password')}
+            id="password"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="current-password"
+            className="w-full border rounded-md px-3 py-2 pr-10 text-base focus:outline-none focus:ring-2"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600"
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
         {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
       </div>
       <button
