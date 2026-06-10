@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation'
 import { z } from 'zod'
 import { signUp } from '@/actions/auth'
 import Link from 'next/link'
+import { GoogleAuthButton } from '@/components/auth/google-auth-button'
 
 const schema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -69,7 +70,13 @@ export default function RegisterPage() {
         <h1 className="text-3xl font-bold uppercase mb-8 text-center" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           Create Account
         </h1>
-        <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-lg shadow-sm border p-8 space-y-5">
+        <div className="bg-white rounded-lg shadow-sm border p-8 space-y-5">
+          <GoogleAuthButton redirectTo={redirectTo} label="Sign up with Google" />
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
+            <div className="relative flex justify-center text-xs text-gray-400"><span className="bg-white px-2">or create account with email</span></div>
+          </div>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           {serverError && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
               {serverError}
@@ -108,6 +115,7 @@ export default function RegisterPage() {
             <Link href={loginHref} className="hover:underline" style={{ color: 'var(--brand-primary)' }}>Sign in</Link>
           </p>
         </form>
+        </div>
       </div>
     </div>
   )

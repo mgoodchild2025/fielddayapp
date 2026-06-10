@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { login } from '@/actions/auth'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
+import { GoogleAuthButton } from '@/components/auth/google-auth-button'
 
 const schema = z.object({
   email: z.string().email('Invalid email address'),
@@ -35,7 +36,13 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-lg shadow-sm border p-8 space-y-5">
+    <div className="bg-white rounded-lg shadow-sm border p-8 space-y-5">
+      <GoogleAuthButton redirectTo={redirectTo} label="Continue with Google" />
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
+        <div className="relative flex justify-center text-xs text-gray-400"><span className="bg-white px-2">or sign in with email</span></div>
+      </div>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       {serverError && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
           {serverError}
@@ -87,5 +94,6 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         <Link href={redirectTo ? `/register?redirect=${encodeURIComponent(redirectTo)}` : '/register'} className="hover:underline">Create account</Link>
       </div>
     </form>
+    </div>
   )
 }
