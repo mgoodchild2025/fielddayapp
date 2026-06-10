@@ -1,6 +1,6 @@
 'use server'
 
-import { getResend, FROM_EMAIL } from '@/lib/resend'
+import { getResend, FROM_EMAIL, REPLY_TO } from '@/lib/resend'
 
 /** Escape user-supplied strings before interpolating into HTML email bodies. */
 function esc(str: string | null | undefined): string {
@@ -163,6 +163,7 @@ export async function sendRegistrationConfirmation({
 
   await getResend().emails.send({
     from: FROM_EMAIL,
+    replyTo: REPLY_TO,
     to: email,
     subject: `You're registered for ${leagueName}!`,
     html: `
@@ -205,6 +206,7 @@ export async function sendWaiverSigningRequest({
 }) {
   await getResend().emails.send({
     from: FROM_EMAIL,
+    replyTo: REPLY_TO,
     to: email,
     subject: `Action required: Sign your waiver for ${leagueName}`,
     html: `
@@ -279,6 +281,7 @@ export async function sendRegistrationAdminNotification({
 
   await getResend().emails.send({
     from: FROM_EMAIL,
+    replyTo: REPLY_TO,
     to,
     subject: `New registration — ${leagueName}`,
     html: `
@@ -328,6 +331,7 @@ export async function sendAdminPaymentFailedAlert({
   if (to.length === 0) return
   await getResend().emails.send({
     from: FROM_EMAIL,
+    replyTo: REPLY_TO,
     to,
     subject: `Payment failed — ${playerName ?? 'a player'} · ${leagueName}`,
     html: `
@@ -364,6 +368,7 @@ export async function sendPaymentFailedEmail({
 }) {
   await getResend().emails.send({
     from: FROM_EMAIL,
+    replyTo: REPLY_TO,
     to: email,
     subject: `Payment failed for ${leagueName}`,
     html: `
@@ -395,6 +400,7 @@ export async function sendSignupConfirmation({
 }) {
   await getResend().emails.send({
     from: FROM_EMAIL,
+    replyTo: REPLY_TO,
     to: email,
     subject: 'Confirm your email to get started',
     html: `
@@ -474,6 +480,7 @@ export async function sendMerchOrderAdminNotification({
 
   await getResend().emails.send({
     from: FROM_EMAIL,
+    replyTo: REPLY_TO,
     to,
     subject: `New merch order — ${orgName}`,
     html: `
