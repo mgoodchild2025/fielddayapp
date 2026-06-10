@@ -363,16 +363,18 @@ export default async function DashboardPage() {
     teamsPerLeague.set(lid, (teamsPerLeague.get(lid) ?? 0) + 1)
   }
 
-  function getPoints(r: { wins: number; losses: number; ties: number }): number {
-    return r.wins * 3 + r.ties
-  }
-
   function getStanding(leagueId: string, teamId: string): number | null {
     const leagueMap = leagueRecordMap.get(leagueId)
     if (!leagueMap) return null
     const entries = [...leagueMap.entries()]
-      .map(([tid, rec]) => ({ tid, points: getPoints(rec) }))
-      .sort((a, b) => b.points - a.points)
+      .map(([tid, rec]) => ({ tid, wins: rec.wins, ties: rec.ties }))
+      .sort((a, b) => {
+        // Match the standings page primary sort: wins first, then ties as
+        // tiebreaker. The old formula (wins*3 + ties) incorrectly ranked a
+        // team with 2W 4T above a team with 3W 0T (10 vs 9 points).
+        if (b.wins !== a.wins) return b.wins - a.wins
+        return b.ties - a.ties
+      })
     const idx = entries.findIndex((e) => e.tid === teamId)
     return idx >= 0 ? idx + 1 : null
   }
@@ -488,7 +490,7 @@ export default async function DashboardPage() {
         losses: myRec.losses,
         ties: myRec.ties,
         played: myRec.played,
-        points: getPoints(myRec),
+        points: myRec.wins * 3 + myRec.ties,
         standing,
         totalTeams,
       },
