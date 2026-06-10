@@ -12,11 +12,11 @@ interface Props {
 export function CalendarSubscribeButton({ teamId, calendarToken, host }: Props) {
   const [open, setOpen] = useState(false)
 
-  const protocol = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https'
   const feedPath = `/api/teams/${teamId}/calendar.ics?token=${calendarToken}`
-  const feedUrl = `${protocol}://${host}${feedPath}`
   const webcalUrl = `webcal://${host}${feedPath}`
-  const googleUrl = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(feedUrl)}`
+  // Google subscribe expects the webcal:// scheme in cid — an https:// value
+  // is interpreted as a calendar ID and fails with "check the URL".
+  const googleUrl = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcalUrl)}`
 
   if (!open) {
     return (

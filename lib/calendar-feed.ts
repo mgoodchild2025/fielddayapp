@@ -18,11 +18,15 @@ export function calendarSubscribeUrls(
   feedPath: string,
 ): { webcalUrl: string; googleUrl: string } {
   const protocol = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https'
-  const feedUrl = `${protocol}://${host}${feedPath}`
+  const rawWebcal = `webcal://${host}${feedPath}`
   return {
     // https handoff (not raw webcal://) so the link survives email-client sanitizers
     webcalUrl: `${protocol}://${host}/api/calendar-handoff?p=${encodeURIComponent(feedPath)}`,
-    googleUrl: `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(feedUrl)}`,
+    // The cid value must use the webcal:// scheme — Google reads it as a
+    // calendar identifier and rejects https:// feed URLs ("check the URL").
+    // This is a normal https link to calendar.google.com, so email clients
+    // don't strip it even though the cid parameter is a webcal URL.
+    googleUrl: `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(rawWebcal)}`,
   }
 }
 
