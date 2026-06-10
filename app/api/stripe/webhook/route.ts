@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
           const regLeague = Array.isArray(regData?.leagues) ? regData.leagues[0] : regData?.leagues
           if (profile?.email && regLeague) {
             sendRegistrationConfirmation({
-              toEmail: profile.email,
+              email: profile.email,
               toName: profile.full_name ?? 'there',
               leagueName: regLeague.name,
               leagueSlug: regLeague.slug,

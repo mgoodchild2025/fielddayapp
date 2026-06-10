@@ -133,7 +133,8 @@ export default async function AdminDashboardPage() {
 
   const todayLocalStr = localDate(new Date().toISOString())
 
-  const totalRevenue = recentPayments?.filter((p) => p.status === 'paid').reduce((acc, p) => acc + p.amount_cents, 0) ?? 0
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const totalRevenue = recentPayments?.filter((p: any) => p.status === 'paid').reduce((acc: number, p: any) => acc + p.amount_cents, 0) ?? 0
 
   // Onboarding checklist — compute completion and visibility
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -184,7 +185,8 @@ export default async function AdminDashboardPage() {
             <Link href="/admin/events" className="text-sm hover:underline" style={{ color: 'var(--brand-primary)' }}>View all</Link>
           </div>
           <div className="space-y-2">
-            {activeLeagues?.map((l) => (
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {(activeLeagues as any[])?.map((l: any) => (
               <Link key={l.id} href={`/admin/events/${l.id}`} className="flex items-center justify-between py-2 border-b last:border-0 hover:opacity-70">
                 <span className="font-medium">{l.name}</span>
                 <span className={`text-xs px-2 py-1 rounded-full font-medium ${l.status === 'registration_open' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
@@ -204,7 +206,8 @@ export default async function AdminDashboardPage() {
             <Link href="/admin/payments" className="text-sm hover:underline" style={{ color: 'var(--brand-primary)' }}>View all</Link>
           </div>
           <div className="space-y-2">
-            {recentPayments?.map((p) => (
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {(recentPayments as any[])?.map((p: any) => (
               <div key={p.created_at} className="flex items-center justify-between py-2 border-b last:border-0">
                 <span className="text-sm text-gray-600">{new Date(p.created_at).toLocaleDateString()}</span>
                 <div className="flex items-center gap-2">

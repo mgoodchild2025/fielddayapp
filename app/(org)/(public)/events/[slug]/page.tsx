@@ -866,8 +866,8 @@ export default async function EventDetailPage({
     ? await (db as any).from('team_join_requests').select('team_id, status').eq('user_id', user.id).eq('status', 'pending').in('team_id', teams.map((t: { id: string }) => t.id))
     : { data: null }
 
-  const myTeamIds = new Set(myMemberships?.map((m: { team_id: string }) => m.team_id) ?? [])
-  const myRequestTeamIds = new Set(myRequests?.map((r: { team_id: string }) => r.team_id) ?? [])
+  const myTeamIds = new Set<string>(myMemberships?.map((m: { team_id: string }) => m.team_id) ?? [])
+  const myRequestTeamIds = new Set<string>(myRequests?.map((r: { team_id: string }) => r.team_id) ?? [])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: myRegistration } = (user && isTeamBased)
@@ -1975,7 +1975,8 @@ export default async function EventDetailPage({
               <div>
                 <h2 className="font-bold text-lg mb-3 text-white" style={{ fontFamily: 'var(--brand-heading-font)' }}>Teams</h2>
                 <div className="space-y-2">
-                  {teams.map((team) => {
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {(teams as any[]).map((team: any) => {
                     const isMember = myTeamIds.has(team.id)
                     const inner = (
                       <>

@@ -13,6 +13,7 @@ import { uploadContentImage } from '@/actions/content-images'
 interface Props {
   content: string
   onChange: (html: string) => void
+  placeholder?: string
   minHeight?: string
   disabled?: boolean
 }

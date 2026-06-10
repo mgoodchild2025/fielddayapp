@@ -100,6 +100,7 @@ export type Database = {
           social_facebook: string | null
           social_x: string | null
           social_tiktok: string | null
+          social_youtube: string | null
           timezone: string
           updated_at: string
         }
@@ -123,6 +124,7 @@ export type Database = {
           social_x?: string | null
           timezone?: string
           social_tiktok?: string | null
+          social_youtube?: string | null
           updated_at?: string
         }
         Update: Partial<Database['public']['Tables']['org_branding']['Insert']>
@@ -435,6 +437,9 @@ export type Database = {
           waiver_signature_id: string | null
           status: 'pending' | 'active' | 'withdrawn' | 'waitlisted'
           form_data: Json | null
+          registration_type: string | null
+          session_id: string | null
+          checked_in_at: string | null
           created_at: string
         }
         Insert: {
@@ -446,6 +451,9 @@ export type Database = {
           waiver_signature_id?: string | null
           status?: 'pending' | 'active' | 'withdrawn' | 'waitlisted'
           form_data?: Json | null
+          registration_type?: string | null
+          session_id?: string | null
+          checked_in_at?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['registrations']['Insert']>

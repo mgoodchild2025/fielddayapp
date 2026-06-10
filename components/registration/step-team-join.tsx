@@ -115,7 +115,7 @@ export function StepTeamJoin({ initialTeamCode, onComplete, onBack }: Props) {
         <p className="text-sm text-gray-500">Don&apos;t have a code? You can join a team later from the event page.</p>
         <button
           type="button"
-          onClick={onComplete}
+          onClick={() => onComplete()}
           className="text-sm font-medium underline"
           style={{ color: 'var(--brand-primary)' }}
         >

@@ -32,7 +32,8 @@ export default async function AdminTeamsPage() {
 
   const { data: rawTeams } = await query
 
-  const teams = (rawTeams ?? []).map(team => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const teams = (rawTeams ?? []).map((team: any) => {
     const league = Array.isArray(team.league) ? team.league[0] : team.league
     const memberCount = (team.team_members ?? []).filter(
       (m: { status: string }) => m.status === 'active'

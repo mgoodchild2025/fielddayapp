@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       .eq('organization_id', installment.organization_id)
       .single()
     if (orgSettings.data?.stripe_secret_key) {
-      const orgStripe = new Stripe(orgSettings.data.stripe_secret_key, { apiVersion: '2025-02-24.acacia' })
+      const orgStripe = new Stripe(orgSettings.data.stripe_secret_key, { apiVersion: '2026-04-22.dahlia' as const })
       try {
         const existing = await orgStripe.checkout.sessions.retrieve(installment.stripe_checkout_session_id)
         if (existing.status === 'open') {
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Stripe is not configured for this organisation' }, { status: 400 })
   }
 
-  const orgStripe = new Stripe(paymentSettings.stripe_secret_key, { apiVersion: '2025-02-24.acacia' })
+  const orgStripe = new Stripe(paymentSettings.stripe_secret_key, { apiVersion: '2026-04-22.dahlia' as const })
 
   // Total instalment count for the display label
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

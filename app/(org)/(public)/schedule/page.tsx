@@ -100,14 +100,16 @@ export default async function SchedulePage() {
 
   // ── Derived sets ──────────────────────────────────────────────────────────
   const myTeamIds = new Set(
-    (myTeams ?? []).map((mt) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (myTeams ?? []).map((mt: any) => {
       const team = Array.isArray(mt.team) ? mt.team[0] : mt.team
       return team?.id as string | undefined
     }).filter(Boolean) as string[]
   )
 
   // Only show games where the player is on one of the teams
-  const relevantGames = myTeamIds.size === 0 ? [] : publishedGames.filter((g) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const relevantGames = myTeamIds.size === 0 ? [] : publishedGames.filter((g: any) => {
     const homeTeam = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
     const awayTeam = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
     return myTeamIds.has(homeTeam?.id) || myTeamIds.has(awayTeam?.id)
@@ -258,7 +260,8 @@ export default async function SchedulePage() {
   // ── Merge and split upcoming vs past ──────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allItems: { _type: 'game' | 'session'; scheduled_at: string; data: any }[] = [
-    ...relevantGames.map((g) => ({ _type: 'game' as const, scheduled_at: g.scheduled_at, data: g })),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...relevantGames.map((g: any) => ({ _type: 'game' as const, scheduled_at: g.scheduled_at, data: g })),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...allSessions.map((s: any) => ({ _type: 'session' as const, scheduled_at: s.scheduled_at, data: s })),
   ].sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at))
