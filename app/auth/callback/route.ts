@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import type { EmailOtpType } from '@supabase/supabase-js'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
@@ -68,13 +69,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/auth/confirm`)
   }
 
-  // Pick the post-auth destination: explicit ?next= wins, then the
-  // redirect_destination stored in user_metadata at signup, then /dashboard.
+  // Pick the post-auth destination. Explicit ?next= always wins. Otherwise
+  // mirror the password-login routing (actions/auth.ts): on an org subdomain
+  // go to /dashboard; on the platform/apex domain (no org context) route by
+  // role — platform admins to /super, everyone else to /choose-org. Sending an
+  // apex login to /dashboard would break (it requires org context).
   let dest = nextParam
   if (!dest) {
     const { data: { user } } = await supabase.auth.getUser()
-    const meta = user?.user_metadata?.redirect_destination as string | undefined
-    dest = safeRelative(meta) ?? '/dashboard'
+    const orgId = request.headers.get('x-org-id')
+
+    if (orgId) {
+      // Org subdomain — honor a stored signup destination, else the dashboard.
+      const meta = user?.user_metadata?.redirect_destination as string | undefined
+      dest = safeRelative(meta) ?? '/dashboard'
+    } else if (user) {
+      // Platform/apex domain — route by platform role.
+      const service = createServiceRoleClient()
+      const { data: profile } = await service
+        .from('profiles')
+        .select('platform_role')
+        .eq('id', user.id)
+        .single()
+      dest = profile?.platform_role === 'platform_admin' ? '/super' : '/choose-org'
+    } else {
+      dest = '/choose-org'
+    }
   }
 
   return NextResponse.redirect(`${origin}${dest}`)

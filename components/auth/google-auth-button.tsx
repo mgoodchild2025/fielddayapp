@@ -14,12 +14,17 @@ export function GoogleAuthButton({ redirectTo, label = 'Continue with Google' }:
   async function handleClick() {
     setLoading(true)
     const supabase = createClient()
-    const next = redirectTo && redirectTo.startsWith('/') ? redirectTo : '/dashboard'
+    // Only pass ?next when there's an explicit redirect target. Otherwise let
+    // the callback compute the right destination by org context + role
+    // (org → /dashboard, platform admin → /super, org-less → /choose-org).
+    // Hardcoding /dashboard here breaks apex/platform logins.
+    const next = redirectTo && redirectTo.startsWith('/') ? redirectTo : null
+    const callbackUrl = next
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+      : `${window.location.origin}/auth/callback`
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-      },
+      options: { redirectTo: callbackUrl },
     })
     // signInWithOAuth redirects the page — if we get here something failed
     setLoading(false)
