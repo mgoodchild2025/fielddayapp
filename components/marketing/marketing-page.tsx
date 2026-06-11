@@ -520,7 +520,7 @@ function MarketingFooter() {
         {' · '}
         <a href="https://docs.fielddayapp.ca" className="hover:text-gray-600 transition-colors">Docs</a>
         {' · '}
-        <a href="/legal/privacy" className="hover:text-gray-600 transition-colors">Privacy</a>
+        <a href="/legal/tenant-policy" className="hover:text-gray-600 transition-colors">Privacy</a>
         {' · '}
         <a href="/legal/terms" className="hover:text-gray-600 transition-colors">Terms</a>
       </p>
