@@ -13,6 +13,7 @@ import { recordAuditLog, getAuditActor } from '@/lib/audit'
 import { calendarSubscribeUrls, ensureCalendarToken } from '@/lib/calendar-feed'
 import { buildCalendarCtaHtml } from '@/lib/email'
 import { isPlayerRegistrationBlocked } from '@/lib/billing'
+import { toE164 } from '@/lib/twilio'
 
 const createRegistrationSchema = z.object({
   leagueId: z.string().uuid(),
@@ -391,4 +392,139 @@ export async function activateRegistration(registrationId: string) {
 
   revalidatePath('/dashboard')
   return { data: null, error: null }
+}
+
+// ── Admin: manually add a registrant ─────────────────────────────────────────
+
+const adminAddRegistrantSchema = z.object({
+  leagueId: z.string().uuid(),
+  fullName: z.string().trim().min(1, 'Name is required').max(120),
+  email: z.string().trim().email('Invalid email').optional().or(z.literal('')),
+  phone: z.string().trim().optional(),
+  amountCents: z.number().int().min(0),
+  method: z.enum(['cash', 'etransfer', 'cheque', 'stripe', 'card', 'other']),
+  notes: z.string().optional(),
+})
+
+/**
+ * Org-admin manual registration for someone who won't use the app. If an email
+ * is given we link/create a real account (claimable later); otherwise we create
+ * a guest registration (user_id NULL, name stored inline). Optionally records the
+ * payment they handed over. No waiver step.
+ */
+export async function adminAddRegistrant(input: z.infer<typeof adminAddRegistrantSchema>) {
+  const parsed = adminAddRegistrantSchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid input' }
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const db = createServiceRoleClient()
+  const { data: caller } = await db
+    .from('org_members').select('role')
+    .eq('organization_id', org.id).eq('user_id', user.id).single()
+  if (!caller || !['org_admin', 'league_admin'].includes(caller.role)) return { error: 'Unauthorized' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: league } = await (db as any)
+    .from('leagues').select('id, name').eq('id', parsed.data.leagueId).eq('organization_id', org.id).maybeSingle()
+  if (!league) return { error: 'Event not found' }
+
+  const email = parsed.data.email?.trim() || ''
+  const phone = parsed.data.phone?.trim() || ''
+  let registrantUserId: string | null = null
+
+  if (email) {
+    // Link an existing account, or create a confirmed one with no password.
+    const { data: existingProfile } = await db
+      .from('profiles').select('id').eq('email', email).maybeSingle()
+
+    if (existingProfile) {
+      registrantUserId = existingProfile.id
+    } else {
+      const { data: created, error: createErr } = await db.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        user_metadata: { full_name: parsed.data.fullName },
+      })
+      if (createErr || !created?.user) return { error: createErr?.message ?? 'Could not create the account' }
+      registrantUserId = created.user.id
+      await db.from('profiles').update({
+        full_name: parsed.data.fullName,
+        phone: phone ? toE164(phone) : null,
+      }).eq('id', registrantUserId)
+    }
+
+    await db.from('org_members').upsert({
+      organization_id: org.id,
+      user_id: registrantUserId,
+      role: 'player',
+      status: 'active',
+      invited_email: email,
+    }, { onConflict: 'organization_id,user_id', ignoreDuplicates: false })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: dupe } = await (db as any)
+      .from('registrations').select('id')
+      .eq('league_id', parsed.data.leagueId).eq('user_id', registrantUserId).maybeSingle()
+    if (dupe) return { error: 'This person is already registered for this event.' }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: reg, error: regErr } = await (db as any)
+    .from('registrations')
+    .insert({
+      organization_id: org.id,
+      league_id: parsed.data.leagueId,
+      user_id: registrantUserId,
+      guest_name: registrantUserId ? null : parsed.data.fullName,
+      guest_email: registrantUserId ? null : (email || null),
+      guest_phone: registrantUserId ? null : (phone || null),
+      added_by_admin: user.id,
+      registration_type: 'season',
+      status: 'active',
+    })
+    .select('id')
+    .single()
+  if (regErr || !reg) return { error: regErr?.message ?? 'Could not create the registration' }
+
+  if (parsed.data.amountCents > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: payErr } = await (db as any).from('payments').insert({
+      organization_id: org.id,
+      registration_id: reg.id,
+      user_id: registrantUserId,
+      league_id: parsed.data.leagueId,
+      payment_type: 'player',
+      amount_cents: parsed.data.amountCents,
+      currency: 'cad',
+      status: 'paid',
+      payment_method: parsed.data.method,
+      notes: parsed.data.notes?.trim() || null,
+      paid_at: new Date().toISOString(),
+    })
+    if (payErr) return { error: payErr.message }
+  }
+
+  const actor = await getAuditActor()
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: actor.actorUserId,
+    actorLabel: actor.actorLabel,
+    action: 'registration.manual_added',
+    targetType: 'registration',
+    targetId: reg.id,
+    metadata: {
+      league_id: parsed.data.leagueId,
+      guest: !registrantUserId,
+      amount_cents: parsed.data.amountCents,
+    },
+  })
+
+  revalidatePath('/admin/payments')
+  revalidatePath(`/admin/events/${parsed.data.leagueId}/registrations`)
+  return { error: null, registrationId: reg.id, guest: !registrantUserId }
 }

@@ -19,7 +19,7 @@ type RegistrationRow = {
   created_at: string
   registration_type: string | null
   player: { id: string; full_name: string; email: string } | { id: string; full_name: string; email: string }[] | null
-  league: { id: string; name: string; price_cents: number; drop_in_price_cents: number | null; currency: string } | { id: string; name: string; price_cents: number; drop_in_price_cents: number | null; currency: string }[] | null
+  league: { id: string; name: string; price_cents: number; drop_in_price_cents: number | null; currency: string; payment_mode: string } | { id: string; name: string; price_cents: number; drop_in_price_cents: number | null; currency: string; payment_mode: string }[] | null
   payment: PaymentRecord | PaymentRecord[] | null
 }
 
@@ -34,7 +34,7 @@ export default async function AdminPaymentsPage() {
     .select(`
       id, created_at, registration_type,
       player:profiles!registrations_user_id_fkey(id, full_name, email),
-      league:leagues!registrations_league_id_fkey(id, name, price_cents, drop_in_price_cents, currency),
+      league:leagues!registrations_league_id_fkey(id, name, price_cents, drop_in_price_cents, currency, payment_mode),
       payment:payments!payments_registration_id_fkey(id, amount_cents, currency, status, payment_method, paid_at, notes)
     `)
     .eq('organization_id', org.id)

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { MarkPaidForm } from '@/components/payments/mark-paid-form'
+import { EditPaymentForm } from '@/components/payments/edit-payment-form'
 
 const PAGE_SIZE = 25
 
@@ -20,7 +21,7 @@ type Row = {
   created_at: string
   registration_type?: string | null
   player: { id: string; full_name: string; email: string } | null
-  league: { id: string; name: string; price_cents: number; drop_in_price_cents?: number | null; currency: string } | null
+  league: { id: string; name: string; price_cents: number; drop_in_price_cents?: number | null; currency: string; payment_mode?: string } | null
   payment: PaymentRecord | null
   paymentStatus: string
   isFree: boolean
@@ -58,6 +59,48 @@ function dateLabel(r: Row) {
 function needsAction(r: Row) {
   return (r.paymentStatus === 'unpaid' || r.paymentStatus === 'pending' || r.paymentStatus === 'failed')
     && !!r.player && !!r.league
+}
+
+const VALID_METHODS = ['cash', 'etransfer', 'cheque', 'stripe', 'card', 'other'] as const
+function defaultPayStatus(s?: string | null): 'paid' | 'pending' | 'refunded' {
+  return s === 'pending' ? 'pending' : s === 'refunded' ? 'refunded' : 'paid'
+}
+function defaultPayMethod(m?: string | null): (typeof VALID_METHODS)[number] {
+  return (VALID_METHODS as readonly string[]).includes(m ?? '') ? (m as (typeof VALID_METHODS)[number]) : 'etransfer'
+}
+
+function hasPaymentAction(r: Row, isOrgAdmin: boolean) {
+  if (!isOrgAdmin || !r.league) return false
+  if (r.league.payment_mode === 'per_team') return needsAction(r) && !!r.player
+  return true
+}
+
+/** Org-admin payment control: per-team events keep the (team-aware) Mark-as-Paid
+ *  flow; per-player events get the editable form that also handles free events. */
+function PaymentAction({ r, isOrgAdmin }: { r: Row; isOrgAdmin: boolean }) {
+  if (!isOrgAdmin || !r.league) return null
+  if (r.league.payment_mode === 'per_team') {
+    if (!needsAction(r) || !r.player) return null
+    return (
+      <MarkPaidForm
+        registrationId={r.id}
+        userId={r.player.id}
+        leagueId={r.league.id}
+        amountCents={r.registration_type === 'drop_in' ? (r.league.drop_in_price_cents ?? r.league.price_cents) : r.league.price_cents}
+        currency={r.league.currency}
+      />
+    )
+  }
+  return (
+    <EditPaymentForm
+      registrationId={r.id}
+      hasPayment={!!r.payment}
+      defaultAmountCents={effectivePriceCents(r)}
+      defaultStatus={defaultPayStatus(r.payment?.status)}
+      defaultMethod={defaultPayMethod(r.payment?.payment_method)}
+      defaultNotes={r.payment?.notes}
+    />
+  )
 }
 
 export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgAdmin?: boolean }) {
@@ -220,19 +263,7 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{dateLabel(r)}</td>
                   <td className="px-4 py-3">
-                    {isOrgAdmin && needsAction(r) && (
-                      <MarkPaidForm
-                        registrationId={r.id}
-                        userId={r.player!.id}
-                        leagueId={r.league!.id}
-                        amountCents={
-                          r.registration_type === 'drop_in'
-                            ? (r.league!.drop_in_price_cents ?? r.league!.price_cents)
-                            : r.league!.price_cents
-                        }
-                        currency={r.league!.currency}
-                      />
-                    )}
+                    <PaymentAction r={r} isOrgAdmin={isOrgAdmin} />
                   </td>
                 </tr>
               ))}
@@ -290,15 +321,9 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
               </div>
 
               {/* Action */}
-              {isOrgAdmin && needsAction(r) && (
+              {hasPaymentAction(r, isOrgAdmin) && (
                 <div className="mt-3 pt-3 border-t">
-                  <MarkPaidForm
-                    registrationId={r.id}
-                    userId={r.player!.id}
-                    leagueId={r.league!.id}
-                    amountCents={effectivePriceCents(r)}
-                    currency={r.league!.currency}
-                  />
+                  <PaymentAction r={r} isOrgAdmin={isOrgAdmin} />
                 </div>
               )}
             </div>

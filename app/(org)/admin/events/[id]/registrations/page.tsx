@@ -7,6 +7,7 @@ import { activateRegistration } from '@/actions/registrations'
 import { RemoveRegistrationButton } from '@/components/registrations/remove-registration-button'
 import { SendWaiverRemindersButton } from '@/components/registrations/send-waiver-reminders-button'
 import { CopyWaiverLink } from '@/components/waivers/copy-waiver-link'
+import { AdminAddRegistrant } from '@/components/registration/admin-add-registrant'
 import { AdminInstallmentRow } from '@/components/payments/admin-installment-row'
 import type { InstallmentRow } from '@/components/payments/installment-schedule'
 
@@ -74,6 +75,23 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   } catch {
     // migration not yet applied — session info simply won't show
   }
+  // Guest registrants (manual adds with no account). Guarded so the page still
+  // works before migration 161 adds the guest_* columns.
+  const guestMap = new Map<string, { name: string | null; email: string | null }>()
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: guestRows } = await (db as any)
+      .from('registrations')
+      .select('id, guest_name, guest_email')
+      .eq('league_id', id)
+      .is('user_id', null)
+    for (const g of guestRows ?? []) {
+      guestMap.set(g.id, { name: g.guest_name ?? null, email: g.guest_email ?? null })
+    }
+  } catch {
+    // migration not yet applied — guests simply show no name
+  }
+
   const unsignedCount = rows.filter((r: { status: string; waiver_signature_id: string | null }) => r.status === 'active' && !r.waiver_signature_id).length
   // Show reminders button whenever the org has ANY waiver configured (league-level or org-level active waiver)
   const hasWaiver = hasWaiverConfigured
@@ -125,11 +143,14 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
 
   return (
     <div>
-      <p className="text-sm text-gray-500 mb-4">
-        {rows.length} registration{rows.length !== 1 ? 's' : ''}
-        {' · '}
-        {rows.filter((r: { status: string }) => r.status === 'active').length} active
-      </p>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <p className="text-sm text-gray-500">
+          {rows.length} registration{rows.length !== 1 ? 's' : ''}
+          {' · '}
+          {rows.filter((r: { status: string }) => r.status === 'active').length} active
+        </p>
+        <AdminAddRegistrant leagueId={id} />
+      </div>
 
       {/* Waiver link — shown whenever org has a waiver configured */}
       {hasWaiverConfigured && waiverUrl && (
@@ -188,8 +209,13 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
               return (
                 <tr key={reg.id} className="border-b last:border-0 hover:bg-gray-50">
                   <td className="px-4 py-3">
-                    <div className="font-medium">{profile?.full_name ?? '—'}</div>
-                    <div className="text-xs text-gray-400">{profile?.email ?? '—'}</div>
+                    <div className="font-medium flex items-center gap-1.5">
+                      {profile?.full_name ?? guestMap.get(reg.id)?.name ?? '—'}
+                      {!reg.user_id && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 border">Guest</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-400">{profile?.email ?? guestMap.get(reg.id)?.email ?? '—'}</div>
                     {isDropIn && (
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">

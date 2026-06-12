@@ -519,3 +519,108 @@ export async function updatePaymentStatus(input: z.infer<typeof updatePaymentSta
   revalidatePath('/admin/payments')
   return { error: null }
 }
+
+// ── Admin: edit/record a registrant's payment (per-player) ───────────────────
+
+const adminUpdatePaymentSchema = z.object({
+  registrationId: z.string().uuid(),
+  amountCents: z.number().int().min(0),
+  status: z.enum(['paid', 'pending', 'refunded']),
+  method: z.enum(['cash', 'etransfer', 'cheque', 'stripe', 'card', 'other']),
+  notes: z.string().optional(),
+})
+
+/**
+ * Org-admin edit (or create) of a single registration's payment. Unlike
+ * recordManualPayment, this works on already-paid rows and on free ($0) events,
+ * and lets the admin set the status (paid / pending / refunded) and amount
+ * directly. Per-player payments only (the payments table is keyed by
+ * registration_id); per-team events keep using recordManualPayment.
+ */
+export async function adminUpdateRegistrationPayment(input: z.infer<typeof adminUpdatePaymentSchema>) {
+  const parsed = adminUpdatePaymentSchema.safeParse(input)
+  if (!parsed.success) return { error: 'Invalid input' }
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const db = createServiceRoleClient()
+  const { data: caller } = await db
+    .from('org_members').select('role')
+    .eq('organization_id', org.id).eq('user_id', user.id).single()
+  if (!caller || !['org_admin', 'league_admin'].includes(caller.role)) return { error: 'Unauthorized' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: reg } = await (db as any)
+    .from('registrations')
+    .select('id, user_id, league_id')
+    .eq('id', parsed.data.registrationId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (!reg) return { error: 'Registration not found' }
+
+  const isPaid = parsed.data.status === 'paid'
+  const fields = {
+    amount_cents: parsed.data.amountCents,
+    status: parsed.data.status,
+    payment_method: parsed.data.method,
+    notes: parsed.data.notes?.trim() || null,
+    paid_at: isPaid ? new Date().toISOString() : null,
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing } = await (db as any)
+    .from('payments')
+    .select('id')
+    .eq('registration_id', parsed.data.registrationId)
+    .eq('organization_id', org.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (existing) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (db as any).from('payments').update(fields).eq('id', existing.id)
+    if (error) return { error: error.message }
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (db as any).from('payments').insert({
+      organization_id: org.id,
+      registration_id: parsed.data.registrationId,
+      user_id: reg.user_id,   // may be null for guest registrations
+      league_id: reg.league_id,
+      payment_type: 'player',
+      currency: 'cad',
+      ...fields,
+    })
+    if (error) return { error: error.message }
+  }
+
+  // Mark active when paid; don't touch the registration otherwise.
+  if (isPaid) {
+    await db.from('registrations').update({ status: 'active' }).eq('id', parsed.data.registrationId)
+  }
+
+  const actor = await getAuditActor()
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: actor.actorUserId,
+    actorLabel: actor.actorLabel,
+    action: AUDIT_ACTIONS.PAYMENT_MANUAL_RECORDED,
+    targetType: 'registration',
+    targetId: parsed.data.registrationId,
+    metadata: {
+      amount_cents: parsed.data.amountCents,
+      status: parsed.data.status,
+      method: parsed.data.method,
+      edited: true,
+    },
+  })
+
+  revalidatePath('/admin/payments')
+  return { error: null }
+}
