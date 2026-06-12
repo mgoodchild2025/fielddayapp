@@ -75,7 +75,7 @@ export default async function PlayerManagementPage({
     leaguesRes,
     teamsRes,
   ] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email, phone, sms_opted_in, avatar_url').eq('id', userId).single(),
+    supabase.from('profiles').select('id, full_name, email, phone, sms_opted_in, email_reminders_enabled, avatar_url').eq('id', userId).single(),
     supabase
       .from('org_members')
       .select('id, role, status, joined_at')
@@ -293,6 +293,10 @@ export default async function PlayerManagementPage({
                         ? <>Signed {waiver.document_version ? `v${waiver.document_version} · ` : ''}{fmt(waiver.consented_at)}</>
                         : <span className="text-gray-400">Not on record</span>}
                     </dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-gray-500">Game/schedule email</dt>
+                    <dd><Pill on={(profile.email_reminders_enabled ?? true) && !!profile.email} /></dd>
                   </div>
                   <div className="flex items-center justify-between">
                     <dt className="text-gray-500">Game/schedule SMS</dt>

@@ -12,6 +12,7 @@ export type Database = {
           avatar_url: string | null
           platform_role: 'platform_admin' | null
           sms_opted_in: boolean
+          email_reminders_enabled: boolean
           created_at: string
           updated_at: string
         }
@@ -23,6 +24,7 @@ export type Database = {
           avatar_url?: string | null
           platform_role?: 'platform_admin' | null
           sms_opted_in?: boolean
+          email_reminders_enabled?: boolean
           created_at?: string
           updated_at?: string
         }

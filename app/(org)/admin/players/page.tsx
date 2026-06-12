@@ -34,7 +34,7 @@ export default async function PlayersPage({
       .from('org_members')
       .select(`
         id, role, status, joined_at, user_id,
-        profile:profiles!org_members_user_id_fkey(full_name, email, phone, avatar_url, sms_opted_in)
+        profile:profiles!org_members_user_id_fkey(full_name, email, phone, avatar_url, sms_opted_in, email_reminders_enabled)
       `)
       .eq('organization_id', org.id)
       .neq('status', 'invited')
@@ -108,6 +108,10 @@ export default async function PlayersPage({
       smsTransactional: !!phone && (profile as { sms_opted_in?: boolean } | null)?.sms_opted_in === true,
       // Commercial SMS = explicit marketing_sms consent for this org.
       smsPromo: !!m.user_id && promoConsent.sms.has(m.user_id),
+      // Transactional email = reminders not disabled AND has an email on file.
+      emailTransactional: !!profile?.email && (profile as { email_reminders_enabled?: boolean } | null)?.email_reminders_enabled !== false,
+      // Commercial email = explicit marketing_email consent for this org.
+      emailPromo: !!m.user_id && promoConsent.email.has(m.user_id),
     }
   })
 

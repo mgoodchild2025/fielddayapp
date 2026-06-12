@@ -22,6 +22,10 @@ export interface PlayerRow {
   smsTransactional: boolean
   /** Opted in to commercial/promotional SMS for this org. */
   smsPromo: boolean
+  /** Transactional email reachable (reminders not disabled + email on file). */
+  emailTransactional: boolean
+  /** Opted in to commercial/promotional email for this org. */
+  emailPromo: boolean
 }
 
 export interface LeagueOption {
@@ -75,18 +79,22 @@ function ArrowIcon() {
   )
 }
 
-/** Two small badges showing transactional (game/schedule) and promotional SMS status. */
-function SmsBadges({ transactional, promo }: { transactional: boolean; promo: boolean }) {
+/**
+ * Two small badges showing transactional (game/schedule) and promotional status
+ * for a channel. `channel` is only used in the hover tooltips.
+ */
+function NotifBadges({ transactional, promo, channel }: { transactional: boolean; promo: boolean; channel: 'SMS' | 'Email' }) {
+  const reach = channel === 'SMS' ? 'phone' : 'email'
   return (
     <span className="inline-flex items-center gap-1">
       <span
-        title={transactional ? 'Transactional SMS on — game & schedule alerts' : 'Transactional SMS off (or no phone)'}
+        title={transactional ? `Transactional ${channel} on — game & schedule alerts` : `Transactional ${channel} off (or no ${reach})`}
         className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${transactional ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}
       >
         Txn
       </span>
       <span
-        title={promo ? 'Opted in to promotional SMS' : 'Not opted in to promotional SMS'}
+        title={promo ? `Opted in to promotional ${channel}` : `Not opted in to promotional ${channel}`}
         className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${promo ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-400'}`}
       >
         Promo
@@ -307,7 +315,7 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
                 <th className="px-4 py-3 font-medium text-gray-500">Name</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Email</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Phone</th>
-                <th className="px-4 py-3 font-medium text-gray-500">SMS</th>
+                <th className="px-4 py-3 font-medium text-gray-500">Notifications</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Role</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Status</th>
                 <th className="px-4 py-3 font-medium text-gray-500"></th>
@@ -338,7 +346,16 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
                   <td className="px-4 py-3 text-gray-500">{player.email ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-500">{player.phone ?? '—'}</td>
                   <td className="px-4 py-3">
-                    <SmsBadges transactional={player.smsTransactional} promo={player.smsPromo} />
+                    <div className="flex flex-col gap-1">
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-[10px] w-9 text-gray-400">Email</span>
+                        <NotifBadges transactional={player.emailTransactional} promo={player.emailPromo} channel="Email" />
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-[10px] w-9 text-gray-400">SMS</span>
+                        <NotifBadges transactional={player.smsTransactional} promo={player.smsPromo} channel="SMS" />
+                      </span>
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     {isOrgAdmin && player.userId !== currentUserId ? (
