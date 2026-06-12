@@ -178,8 +178,8 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
     if (exportable.length === 0) return
 
     const headerRow = showSource
-      ? ['Source', 'Player Name', 'Email', 'Item', 'Size / Variant', 'Qty', 'Unit Price', 'Total', 'Discount Code', 'Status']
-      : ['Player Name', 'Email', 'Item', 'Size / Variant', 'Qty', 'Unit Price', 'Total', 'Discount Code', 'Status']
+      ? ['Source', 'Player Name', 'Email', 'Item', 'Size / Variant', 'Qty', 'Unit Price', 'Total', 'Discount Code', 'Status', 'Notes']
+      : ['Player Name', 'Email', 'Item', 'Size / Variant', 'Qty', 'Unit Price', 'Total', 'Discount Code', 'Status', 'Notes']
 
     const rows = exportable.map((o) => {
       const base = [
@@ -192,6 +192,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
         `$${((o.unit_price_cents * o.quantity - (o.discount_cents ?? 0)) / 100).toFixed(2)}`,
         o.discount_code_label ?? '',
         o.status,
+        o.notes ?? '',
       ]
       const source = o.league_name ?? (o.sale_source === 'in_person' ? 'In-person' : 'Shop')
       return showSource ? [source, ...base] : base
@@ -320,6 +321,11 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                   </td>
                   <td className="px-4 py-3">
                     <p className="text-sm text-gray-800 max-w-[180px] truncate">{order.item_name}</p>
+                    {order.notes && (
+                      <p className="text-xs text-gray-400 italic max-w-[180px] truncate" title={order.notes}>
+                        📝 {order.notes}
+                      </p>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <p className="text-sm text-gray-600">{order.variant_label ?? <span className="text-gray-300">—</span>}</p>
