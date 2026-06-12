@@ -4,8 +4,9 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
-import { getEventPnl, getEventExpenses, getEventBudget } from '@/actions/finances'
+import { getEventPnl, getEventExpenses, getEventBudget, getEventRevenue } from '@/actions/finances'
 import { EventExpensesManager } from '@/components/finances/event-expenses-manager'
+import { EventRevenueManager } from '@/components/finances/event-revenue-manager'
 import { BudgetPlanner } from '@/components/finances/budget-planner'
 
 function money(cents: number): string {
@@ -28,9 +29,10 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
     .from('leagues').select('id').eq('id', id).eq('organization_id', org.id).single()
   if (!league) notFound()
 
-  const [pnl, expenses, budget] = await Promise.all([
+  const [pnl, expenses, revenue, budget] = await Promise.all([
     getEventPnl(id, org.id),
     getEventExpenses(id),
+    getEventRevenue(id),
     getEventBudget(id),
   ])
 
@@ -42,6 +44,7 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
         <div className="bg-white rounded-xl border divide-y">
           <Row label="Registration revenue" value={money(pnl.registrationRevenueCents)} />
           {pnl.merchRevenueCents > 0 && <Row label="Merchandise revenue" value={money(pnl.merchRevenueCents)} />}
+          {pnl.otherRevenueCents > 0 && <Row label="Other income" value={money(pnl.otherRevenueCents)} />}
           <Row label="Total revenue" value={money(pnl.revenueCents)} strong />
           <Row label="Expenses" value={`− ${money(pnl.expenseCents)}`} muted />
           {pnl.merchCogsCents > 0 && <Row label="Merchandise cost" value={`− ${money(pnl.merchCogsCents)}`} muted />}
@@ -58,10 +61,13 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
           </div>
         </div>
         <p className="text-xs text-gray-400">
-          Revenue counts paid &amp; manual registration payments plus this event&rsquo;s merch sales. Set unit costs on
-          merch items to include their cost.
+          Revenue counts paid &amp; manual registration payments, this event&rsquo;s merch sales, and any other income
+          you log below (donations, 50/50, sponsorships…). Set unit costs on merch items to include their cost.
         </p>
       </section>
+
+      {/* ── Other income ledger ──────────────────────────────────────────── */}
+      <EventRevenueManager leagueId={id} initialRevenue={revenue} />
 
       {/* ── Expenses ledger ──────────────────────────────────────────────── */}
       <EventExpensesManager leagueId={id} initialExpenses={expenses} />

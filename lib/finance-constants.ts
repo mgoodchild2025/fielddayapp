@@ -20,3 +20,9 @@ export type OverheadPeriod = (typeof OVERHEAD_PERIODS)[number]
 // Pricing planner: how a projected cost scales.
 export const BUDGET_COST_TYPES = ['fixed', 'per_team', 'per_player'] as const
 export type BudgetCostType = (typeof BUDGET_COST_TYPES)[number]
+
+// Other (non-registration, non-merch) event income.
+export const REVENUE_CATEGORIES = [
+  'donation', 'fifty_fifty', 'sponsorship', 'concessions', 'fundraiser', 'other',
+] as const
+export type RevenueCategory = (typeof REVENUE_CATEGORIES)[number]
