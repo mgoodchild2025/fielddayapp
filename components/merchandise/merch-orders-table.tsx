@@ -47,17 +47,24 @@ function formatPaymentMethod(method: string | null | undefined): string {
   return method.charAt(0).toUpperCase() + method.slice(1)
 }
 
-function SourceBadge({ leagueName }: { leagueName?: string | null }) {
-  if (!leagueName) {
+function SourceBadge({ order }: { order: MerchOrder }) {
+  if (order.league_name) {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-        Shop
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs text-gray-500 bg-gray-100 max-w-[140px] truncate" title={order.league_name}>
+        {order.league_name}
+      </span>
+    )
+  }
+  if (order.sale_source === 'in_person') {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+        In-person
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs text-gray-500 bg-gray-100 max-w-[140px] truncate" title={leagueName}>
-      {leagueName}
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+      Shop
     </span>
   )
 }
@@ -186,7 +193,8 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
         o.discount_code_label ?? '',
         o.status,
       ]
-      return showSource ? [o.league_name ?? 'Shop', ...base] : base
+      const source = o.league_name ?? (o.sale_source === 'in_person' ? 'In-person' : 'Shop')
+      return showSource ? [source, ...base] : base
     })
 
     const csv = [headerRow, ...rows]
@@ -297,7 +305,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                 <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
                   {showSource && (
                     <td className="px-4 py-3">
-                      <SourceBadge leagueName={order.league_name} />
+                      <SourceBadge order={order} />
                     </td>
                   )}
                   <td className="px-4 py-3">

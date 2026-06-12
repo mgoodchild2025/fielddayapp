@@ -9,6 +9,7 @@ import type { MerchItem } from '@/actions/merchandise'
 import { MerchandiseOrdersTable } from '@/components/merchandise/merch-orders-table'
 import { MerchItemList } from '@/components/merchandise/merch-item-list'
 import { ShopTabs } from '@/components/merchandise/shop-tabs'
+import { RecordSaleModal } from '@/components/merchandise/record-sale-modal'
 
 function getLowStockAlerts(items: MerchItem[]) {
   const out: string[] = []
@@ -128,12 +129,17 @@ export default async function AdminShopPage({
           <MerchItemList items={items} />
         </div>
       ) : (
-        <MerchandiseOrdersTable
-          fulfillAllTarget={{ type: 'all', orgId: org.id }}
-          orders={orders}
-          showSource
-          isManualPayment={isManualPayment}
-        />
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <RecordSaleModal items={items} />
+          </div>
+          <MerchandiseOrdersTable
+            fulfillAllTarget={{ type: 'all', orgId: org.id }}
+            orders={orders}
+            showSource
+            isManualPayment={isManualPayment}
+          />
+        </div>
       )}
     </div>
   )

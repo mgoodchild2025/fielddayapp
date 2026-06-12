@@ -77,7 +77,11 @@ export type MerchOrder = {
   organization_id: string
   league_id: string | null
   registration_id: string | null
-  user_id: string
+  user_id: string | null
+  buyer_name: string | null
+  buyer_email: string | null
+  created_by_admin: string | null
+  sale_source: 'online' | 'in_person'
   item_id: string
   variant_id: string | null
   quantity: number
@@ -265,7 +269,7 @@ export async function getMerchandiseOrders(leagueId: string): Promise<MerchOrder
   if (error || !orders || (orders as MerchOrder[]).length === 0) return []
 
   const typedOrders = orders as MerchOrder[]
-  const userIds = [...new Set(typedOrders.map((o) => o.user_id))]
+  const userIds = [...new Set(typedOrders.map((o) => o.user_id).filter(Boolean) as string[])]
   const itemIds = [...new Set(typedOrders.map((o) => o.item_id))]
   const variantIds = typedOrders.map((o) => o.variant_id).filter(Boolean) as string[]
   const discountCodeIds = typedOrders.map((o) => o.discount_code_id).filter(Boolean) as string[]
@@ -315,8 +319,8 @@ export async function getMerchandiseOrders(leagueId: string): Promise<MerchOrder
 
   return typedOrders.map((order) => ({
     ...order,
-    player_name: profileMap.get(order.user_id)?.full_name ?? null,
-    player_email: profileMap.get(order.user_id)?.email ?? null,
+    player_name: (order.user_id ? profileMap.get(order.user_id)?.full_name : null) ?? order.buyer_name ?? null,
+    player_email: (order.user_id ? profileMap.get(order.user_id)?.email : null) ?? order.buyer_email ?? null,
     item_name: itemMap.get(order.item_id) ?? 'Unknown item',
     variant_label: order.variant_id ? (variantMap.get(order.variant_id) ?? null) : null,
     discount_code_label: order.discount_code_id ? (discountCodeMap.get(order.discount_code_id) ?? null) : null,
@@ -844,6 +848,112 @@ export async function cancelMerchandiseOrders(registrationId: string): Promise<{
   return { error: null }
 }
 
+export type InPersonSaleLine = {
+  itemId: string
+  variantId: string | null
+  quantity: number
+  unitPriceCents: number
+}
+
+/**
+ * Record an in-person / off-system sale to a non-registered buyer (spectator,
+ * walk-up). Creates merchandise_orders rows with no user_id, marks them paid
+ * (and optionally fulfilled), and decrements stock the same way the online shop
+ * does. Inventory is the merchandise_*.stock_quantity column for shop-style
+ * sales, so we decrement it directly rather than relying on order-count
+ * reservations (which is how the league/registration path tracks stock).
+ */
+export async function recordInPersonSale(input: {
+  lines: InPersonSaleLine[]
+  buyerName?: string
+  buyerEmail?: string
+  paymentMethod: string        // cash | etransfer | card | other
+  fulfillNow: boolean          // true → paid + fulfilled; false → paid, stays in queue
+  notes?: string
+}): Promise<{ error: string | null; orderIds: string[] }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const role = await getCallerRole(org.id)
+  if (!role || !['org_admin', 'league_admin'].includes(role)) {
+    return { error: 'Unauthorized', orderIds: [] }
+  }
+
+  const lines = input.lines.filter((l) => l.quantity > 0)
+  if (lines.length === 0) return { error: 'Add at least one item.', orderIds: [] }
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const db = createServiceRoleClient()
+  const now = new Date().toISOString()
+
+  // Validate items belong to this org (and resolve variant ↔ item).
+  const itemIds = [...new Set(lines.map((l) => l.itemId))]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: items } = await (db as any)
+    .from('merchandise_items')
+    .select('id')
+    .eq('organization_id', org.id)
+    .in('id', itemIds)
+  const validItemIds = new Set(((items ?? []) as { id: string }[]).map((i) => i.id))
+  if (lines.some((l) => !validItemIds.has(l.itemId))) {
+    return { error: 'One or more items are not part of this organization.', orderIds: [] }
+  }
+
+  // Insert the order rows (the sale + revenue ledger).
+  const rows = lines.map((l) => ({
+    organization_id: org.id,
+    league_id: null,
+    registration_id: null,
+    user_id: null,
+    buyer_name: input.buyerName?.trim() || null,
+    buyer_email: input.buyerEmail?.trim() || null,
+    created_by_admin: user?.id ?? null,
+    sale_source: 'in_person',
+    item_id: l.itemId,
+    variant_id: l.variantId ?? null,
+    quantity: l.quantity,
+    unit_price_cents: l.unitPriceCents,
+    status: input.fulfillNow ? 'fulfilled' : 'paid',
+    paid_at: now,
+    payment_method: input.paymentMethod,
+    paid_by: user?.id ?? null,
+    fulfilled_at: input.fulfillNow ? now : null,
+    notes: input.notes?.trim() || null,
+  }))
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: inserted, error } = await (db as any)
+    .from('merchandise_orders')
+    .insert(rows)
+    .select('id')
+  if (error) return { error: error.message, orderIds: [] }
+  const orderIds = ((inserted ?? []) as { id: string }[]).map((r) => r.id)
+
+  // Decrement stock the same way the shop checkout does: variant-level stock
+  // when a variant is chosen, otherwise item-level stock. null stock = unlimited
+  // (skip). Clamp at 0 — the admin physically holds the goods, so we never block.
+  for (const l of lines) {
+    const table = l.variantId ? 'merchandise_variants' : 'merchandise_items'
+    const id = l.variantId ?? l.itemId
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: row } = await (db as any)
+      .from(table)
+      .select('stock_quantity')
+      .eq('id', id)
+      .single() as { data: { stock_quantity: number | null } | null }
+    if (!row || row.stock_quantity === null) continue // untracked / unlimited
+    const newQty = Math.max(0, row.stock_quantity - l.quantity)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any).from(table).update({ stock_quantity: newQty }).eq('id', id)
+  }
+
+  // Low-stock alert (uses the freshly decremented values).
+  await checkAndNotifyLowStock(org.id, orderIds)
+
+  revalidatePath('/admin/shop')
+  return { error: null, orderIds }
+}
+
 // ── Standalone Shop ────────────────────────────────────────────────────────────
 
 /** Fetch items available in the standalone shop (shop_enabled=true, active). */
@@ -903,7 +1013,7 @@ export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
   if (error || !orders || (orders as MerchOrder[]).length === 0) return []
 
   const typedOrders = orders as MerchOrder[]
-  const userIds = [...new Set(typedOrders.map((o) => o.user_id))]
+  const userIds = [...new Set(typedOrders.map((o) => o.user_id).filter(Boolean) as string[])]
   const itemIds = [...new Set(typedOrders.map((o) => o.item_id))]
   const variantIds = typedOrders.map((o) => o.variant_id).filter(Boolean) as string[]
   const discountCodeIds = typedOrders.map((o) => o.discount_code_id).filter(Boolean) as string[]
@@ -949,8 +1059,8 @@ export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
 
   return typedOrders.map((order) => ({
     ...order,
-    player_name: profileMap.get(order.user_id)?.full_name ?? null,
-    player_email: profileMap.get(order.user_id)?.email ?? null,
+    player_name: (order.user_id ? profileMap.get(order.user_id)?.full_name : null) ?? order.buyer_name ?? null,
+    player_email: (order.user_id ? profileMap.get(order.user_id)?.email : null) ?? order.buyer_email ?? null,
     item_name: itemMap.get(order.item_id) ?? 'Unknown item',
     variant_label: order.variant_id ? (variantMap.get(order.variant_id) ?? null) : null,
     discount_code_label: order.discount_code_id ? (discountCodeMap.get(order.discount_code_id) ?? null) : null,
@@ -972,7 +1082,7 @@ export async function getAllMerchandiseOrders(orgId: string): Promise<MerchOrder
   if (error || !orders || (orders as MerchOrder[]).length === 0) return []
 
   const typedOrders = orders as MerchOrder[]
-  const userIds = [...new Set(typedOrders.map((o) => o.user_id))]
+  const userIds = [...new Set(typedOrders.map((o) => o.user_id).filter(Boolean) as string[])]
   const itemIds = [...new Set(typedOrders.map((o) => o.item_id))]
   const variantIds = typedOrders.map((o) => o.variant_id).filter(Boolean) as string[]
   const leagueIds = typedOrders.map((o) => o.league_id).filter(Boolean) as string[]
@@ -1026,8 +1136,8 @@ export async function getAllMerchandiseOrders(orgId: string): Promise<MerchOrder
 
   return typedOrders.map((order) => ({
     ...order,
-    player_name: profileMap.get(order.user_id)?.full_name ?? null,
-    player_email: profileMap.get(order.user_id)?.email ?? null,
+    player_name: (order.user_id ? profileMap.get(order.user_id)?.full_name : null) ?? order.buyer_name ?? null,
+    player_email: (order.user_id ? profileMap.get(order.user_id)?.email : null) ?? order.buyer_email ?? null,
     item_name: itemMap.get(order.item_id) ?? 'Unknown item',
     variant_label: order.variant_id ? (variantMap.get(order.variant_id) ?? null) : null,
     league_name: order.league_id ? (leagueMap.get(order.league_id) ?? null) : null,
