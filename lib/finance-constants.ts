@@ -6,3 +6,13 @@ export const EXPENSE_CATEGORIES = [
 ] as const
 
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number]
+
+// Org-level overhead (not tied to a single event).
+export const OVERHEAD_CATEGORIES = [
+  'insurance', 'equipment', 'software', 'rent', 'salaries', 'marketing', 'other',
+] as const
+
+export type OverheadCategory = (typeof OVERHEAD_CATEGORIES)[number]
+
+export const OVERHEAD_PERIODS = ['one_time', 'monthly', 'annual'] as const
+export type OverheadPeriod = (typeof OVERHEAD_PERIODS)[number]

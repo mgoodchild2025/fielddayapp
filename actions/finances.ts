@@ -5,7 +5,7 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { EXPENSE_CATEGORIES, type ExpenseCategory } from '@/lib/finance-constants'
+import { EXPENSE_CATEGORIES, type ExpenseCategory, OVERHEAD_CATEGORIES, type OverheadCategory, OVERHEAD_PERIODS, type OverheadPeriod } from '@/lib/finance-constants'
 
 // ── Auth helper ──────────────────────────────────────────────────────────────
 
@@ -340,5 +340,217 @@ export async function getEventPnl(leagueId: string, orgId: string): Promise<Even
     registrationRevenueCents, merchRevenueCents, merchCogsCents,
     expenseCents, revenueCents, costCents, profitCents, marginPct,
     expenseCount: expenseRows.length,
+  }
+}
+
+// ── Org overhead ─────────────────────────────────────────────────────────────
+
+export type OrgOverhead = {
+  id: string
+  category: OverheadCategory
+  description: string
+  amount_cents: number
+  period: OverheadPeriod
+  applies_to: 'general' | 'shop'
+  incurred_on: string | null
+  notes: string | null
+  created_at: string
+}
+
+export async function getOrgOverhead(orgId: string): Promise<OrgOverhead[]> {
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (db as any)
+    .from('org_overhead_expenses')
+    .select('id, category, description, amount_cents, period, applies_to, incurred_on, notes, created_at')
+    .eq('organization_id', orgId)
+    .order('incurred_on', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+  return (data ?? []) as OrgOverhead[]
+}
+
+export async function addOrgOverhead(input: {
+  category: OverheadCategory
+  description: string
+  amountCents: number
+  period: OverheadPeriod
+  appliesTo: 'general' | 'shop'
+  incurredOn?: string | null
+  notes?: string
+}): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await requireFinanceAdmin(org.id)
+  if ('error' in auth) return { error: auth.error }
+
+  if (!input.description.trim()) return { error: 'Description is required.' }
+  if (!Number.isFinite(input.amountCents) || input.amountCents < 0) return { error: 'Enter a valid amount.' }
+  if (!OVERHEAD_CATEGORIES.includes(input.category)) return { error: 'Invalid category.' }
+  if (!OVERHEAD_PERIODS.includes(input.period)) return { error: 'Invalid period.' }
+
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any).from('org_overhead_expenses').insert({
+    organization_id: org.id,
+    category: input.category,
+    description: input.description.trim(),
+    amount_cents: Math.round(input.amountCents),
+    period: input.period,
+    applies_to: input.appliesTo,
+    incurred_on: input.incurredOn || null,
+    notes: input.notes?.trim() || null,
+    created_by: auth.userId,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin/finances')
+  return { error: null }
+}
+
+export async function deleteOrgOverhead(id: string): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await requireFinanceAdmin(org.id)
+  if ('error' in auth) return { error: auth.error }
+
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
+    .from('org_overhead_expenses').delete().eq('id', id).eq('organization_id', org.id)
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin/finances')
+  return { error: null }
+}
+
+// ── Org-wide profit & loss ───────────────────────────────────────────────────
+
+export type OrgPnlEvent = {
+  leagueId: string | null   // null = standalone shop
+  name: string
+  revenueCents: number
+  costCents: number
+  profitCents: number
+}
+
+export type OrgPnl = {
+  registrationRevenueCents: number
+  merchRevenueCents: number
+  merchCogsCents: number
+  eventExpenseCents: number
+  overheadCents: number
+  revenueCents: number      // registrations + all merch
+  costCents: number         // event expenses + overhead + merch COGS
+  profitCents: number
+  marginPct: number | null
+  events: OrgPnlEvent[]      // per-event rows incl. a "Shop" row for league_id null
+}
+
+/**
+ * Org-wide P&L across every event and the standalone shop, net of org overhead.
+ * Revenue = registration payments (paid/manual) + all merch (paid/fulfilled).
+ * Cost = logged event expenses + merch COGS + org overhead. Overhead is summed
+ * as logged (period is informational) and is not split per event.
+ */
+export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
+  const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [{ data: payments }, { data: merchOrders }, { data: expenses }, { data: overhead }, { data: leagues }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('payments').select('amount_cents, league_id')
+      .eq('organization_id', orgId).in('status', ['paid', 'manual']),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('merchandise_orders')
+      .select('league_id, item_id, variant_id, quantity, unit_price_cents, discount_cents, amount_paid_cents')
+      .eq('organization_id', orgId).in('status', ['paid', 'fulfilled']),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('event_expenses').select('league_id, amount_cents').eq('organization_id', orgId),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_overhead_expenses').select('amount_cents').eq('organization_id', orgId),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('leagues').select('id, name').eq('organization_id', orgId),
+  ])
+
+  const leagueName = new Map<string, string>()
+  for (const l of (leagues ?? []) as { id: string; name: string }[]) leagueName.set(l.id, l.name)
+
+  // Per-bucket aggregation; key '' = standalone shop (league_id null)
+  const revByKey = new Map<string, number>()   // registrations + merch revenue
+  const costByKey = new Map<string, number>()  // event expenses + merch COGS
+  const add = (m: Map<string, number>, k: string, v: number) => m.set(k, (m.get(k) ?? 0) + v)
+
+  let registrationRevenueCents = 0
+  for (const p of (payments ?? []) as { amount_cents: number; league_id: string | null }[]) {
+    registrationRevenueCents += p.amount_cents ?? 0
+    add(revByKey, p.league_id ?? '', p.amount_cents ?? 0)
+  }
+
+  // Merch revenue + COGS (needs item/variant costs)
+  const orders = (merchOrders ?? []) as {
+    league_id: string | null; item_id: string; variant_id: string | null
+    quantity: number; unit_price_cents: number; discount_cents: number | null; amount_paid_cents: number | null
+  }[]
+  let merchRevenueCents = 0
+  let merchCogsCents = 0
+  if (orders.length > 0) {
+    const itemIds = [...new Set(orders.map((o) => o.item_id))]
+    const variantIds = [...new Set(orders.map((o) => o.variant_id).filter(Boolean) as string[])]
+    const [{ data: items }, { data: variants }] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('merchandise_items').select('id, cost_cents').in('id', itemIds),
+      variantIds.length > 0
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? (db as any).from('merchandise_variants').select('id, cost_cents').in('id', variantIds)
+        : Promise.resolve({ data: [] }),
+    ])
+    const itemCost = new Map<string, number | null>()
+    for (const i of (items ?? []) as { id: string; cost_cents: number | null }[]) itemCost.set(i.id, i.cost_cents)
+    const variantCost = new Map<string, number | null>()
+    for (const v of (variants ?? []) as { id: string; cost_cents: number | null }[]) variantCost.set(v.id, v.cost_cents)
+
+    for (const o of orders) {
+      const rev = o.amount_paid_cents ?? (o.unit_price_cents * o.quantity - (o.discount_cents ?? 0))
+      merchRevenueCents += rev
+      add(revByKey, o.league_id ?? '', rev)
+      const unit = unitCogs(o.variant_id, itemCost.get(o.item_id), variantCost)
+      if (unit !== null) {
+        const c = unit * o.quantity
+        merchCogsCents += c
+        add(costByKey, o.league_id ?? '', c)
+      }
+    }
+  }
+
+  let eventExpenseCents = 0
+  for (const e of (expenses ?? []) as { league_id: string; amount_cents: number }[]) {
+    eventExpenseCents += e.amount_cents ?? 0
+    add(costByKey, e.league_id ?? '', e.amount_cents ?? 0)
+  }
+
+  const overheadCents = ((overhead ?? []) as { amount_cents: number }[]).reduce((s, o) => s + (o.amount_cents ?? 0), 0)
+
+  // Build per-event rows (union of all keys seen in revenue or cost)
+  const keys = new Set<string>([...revByKey.keys(), ...costByKey.keys()])
+  const events: OrgPnlEvent[] = [...keys].map((k) => {
+    const revenue = revByKey.get(k) ?? 0
+    const cost = costByKey.get(k) ?? 0
+    return {
+      leagueId: k === '' ? null : k,
+      name: k === '' ? 'Shop (no event)' : (leagueName.get(k) ?? 'Unknown event'),
+      revenueCents: revenue,
+      costCents: cost,
+      profitCents: revenue - cost,
+    }
+  }).sort((a, b) => b.revenueCents - a.revenueCents)
+
+  const revenueCents = registrationRevenueCents + merchRevenueCents
+  const costCents = eventExpenseCents + merchCogsCents + overheadCents
+  const profitCents = revenueCents - costCents
+  const marginPct = revenueCents > 0 ? profitCents / revenueCents : null
+
+  return {
+    registrationRevenueCents, merchRevenueCents, merchCogsCents,
+    eventExpenseCents, overheadCents, revenueCents, costCents, profitCents, marginPct, events,
   }
 }
