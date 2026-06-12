@@ -55,6 +55,25 @@ export function RecordSaleModal({ items }: Props) {
   const draftNeedsVariant = !!draftItem && draftItem.variants.length > 0
   const draftAvailable = draftItem ? availableStock(draftItem, draftNeedsVariant ? draftVariantId || null : null) : null
 
+  /** Build a Line from the current add-row draft, or null if it isn't valid yet. */
+  function buildDraftLine(): Line | null {
+    if (!draftItem) return null
+    if (draftNeedsVariant && !draftVariantId) return null
+    const priceCents = Math.round(parseFloat(draftPrice || '') * 100)
+    if (isNaN(priceCents) || priceCents < 0) return null
+    const qty = Math.max(1, Math.floor(draftQty))
+    const variant = draftNeedsVariant ? draftItem.variants.find((v) => v.id === draftVariantId) ?? null : null
+    return {
+      itemId: draftItem.id,
+      itemName: draftItem.name,
+      variantId: variant?.id ?? null,
+      variantLabel: variant?.label ?? null,
+      quantity: qty,
+      unitPriceCents: priceCents,
+    }
+  }
+  const draftValid = buildDraftLine() !== null
+
   function resetDraft() {
     setDraftItemId('')
     setDraftVariantId('')
@@ -75,24 +94,12 @@ export function RecordSaleModal({ items }: Props) {
       setError('Choose a size / variant for this item.')
       return
     }
-    const priceCents = Math.round(parseFloat(draftPrice || '0') * 100)
-    if (isNaN(priceCents) || priceCents < 0) {
+    const line = buildDraftLine()
+    if (!line) {
       setError('Enter a valid price.')
       return
     }
-    const qty = Math.max(1, Math.floor(draftQty))
-    const variant = draftNeedsVariant ? draftItem.variants.find((v) => v.id === draftVariantId) ?? null : null
-    setLines((prev) => [
-      ...prev,
-      {
-        itemId: draftItem.id,
-        itemName: draftItem.name,
-        variantId: variant?.id ?? null,
-        variantLabel: variant?.label ?? null,
-        quantity: qty,
-        unitPriceCents: priceCents,
-      },
-    ])
+    setLines((prev) => [...prev, line])
     setError(null)
     resetDraft()
   }
@@ -101,7 +108,11 @@ export function RecordSaleModal({ items }: Props) {
     setLines((prev) => prev.filter((_, i) => i !== idx))
   }
 
-  const total = lines.reduce((sum, l) => sum + l.unitPriceCents * l.quantity, 0)
+  // Include a valid-but-not-yet-added draft so the total + button reflect what
+  // will actually be recorded (users often skip the explicit "Add item" click).
+  const pendingDraft = buildDraftLine()
+  const effectiveLines = pendingDraft ? [...lines, pendingDraft] : lines
+  const total = effectiveLines.reduce((sum, l) => sum + l.unitPriceCents * l.quantity, 0)
 
   function close() {
     setOpen(false)
@@ -116,14 +127,15 @@ export function RecordSaleModal({ items }: Props) {
   }
 
   function submit() {
-    if (lines.length === 0) {
+    const finalLines = effectiveLines
+    if (finalLines.length === 0) {
       setError('Add at least one item.')
       return
     }
     setError(null)
     startTransition(async () => {
       const result = await recordInPersonSale({
-        lines: lines.map((l) => ({
+        lines: finalLines.map((l) => ({
           itemId: l.itemId,
           variantId: l.variantId,
           quantity: l.quantity,
@@ -299,7 +311,7 @@ export function RecordSaleModal({ items }: Props) {
             <button
               type="button"
               onClick={submit}
-              disabled={pending || lines.length === 0}
+              disabled={pending || (lines.length === 0 && !draftValid)}
               className="px-3.5 py-1.5 rounded-md text-sm font-semibold text-white disabled:opacity-60"
               style={{ backgroundColor: 'var(--brand-primary)' }}
             >
