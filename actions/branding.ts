@@ -8,6 +8,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { convertToWebP } from '@/lib/image-utils'
 import { addRailwayCustomDomain, removeRailwayCustomDomain, getRailwayDomainStatus, isRailwayConfigured, type RailwayDnsRecord } from '@/lib/railway'
+import { syncCustomDomainRedirectUrls, isSupabaseAuthMgmtConfigured } from '@/lib/supabase-management'
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 import { verifyCnameRecords } from '@/lib/dns-check'
 
@@ -114,6 +115,23 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
     }, { onConflict: 'organization_id' })
 
   if (error) return { data: null, error: error.message }
+
+  // ── Keep the Supabase OAuth redirect allowlist in sync with the domain ─────
+  // Google/OAuth sign-in must return to the custom domain's /auth/callback, and
+  // that URL must be allowlisted or Supabase falls back to the Site URL
+  // (app.fielddayapp.ca). The *.fielddayapp.ca wildcard doesn't cover custom
+  // domains, so add the new one (and remove the old) automatically. Best-effort.
+  if (domainChanged && isSupabaseAuthMgmtConfigured()) {
+    const sync = await syncCustomDomainRedirectUrls({
+      add: newDomain,
+      remove: oldDomain && oldDomain !== newDomain ? oldDomain : null,
+    })
+    if (!sync.ok && newDomain) {
+      domainError = domainError ??
+        `Domain saved, but it couldn't be added to the sign-in allowlist automatically (${sync.error}). ` +
+        `Google login may redirect to the main app until ${newDomain}/auth/callback is added in Supabase → Auth → URL Configuration.`
+    }
+  }
 
   // ── Persist Railway domain ID + DNS records (separate, non-blocking) ───────
   // Done separately so that missing columns (migrations not yet applied) never
