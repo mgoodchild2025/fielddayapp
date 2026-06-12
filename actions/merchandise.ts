@@ -25,6 +25,7 @@ export type MerchItem = {
   name: string
   description: string | null
   price_cents: number
+  cost_cents: number | null
   currency: string
   image_url: string | null
   is_active: boolean
@@ -484,6 +485,7 @@ export async function upsertMerchandiseItem(data: {
   name: string
   description?: string | null
   price_cents: number
+  cost_cents?: number | null
   currency?: string
   image_url?: string | null
   is_active?: boolean
@@ -504,6 +506,7 @@ export async function upsertMerchandiseItem(data: {
     name: data.name.trim(),
     description: data.description?.trim() ?? null,
     price_cents: data.price_cents,
+    cost_cents: data.cost_cents ?? null,
     currency: data.currency ?? 'cad',
     image_url: data.image_url ?? null,
     is_active: data.is_active ?? true,

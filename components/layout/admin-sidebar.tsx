@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Trophy, CreditCard, ShoppingBag, Users,
   ClipboardList, Image, Radio, Mail, Settings, PersonStanding, CalendarDays,
+  TrendingUp,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { OrgContext } from '@/lib/tenant'
@@ -18,6 +19,7 @@ const orgAdminNav: NavItem[] = [
   { label: 'Calendar',  href: '/admin/calendar',                     icon: CalendarDays },
   { label: 'Events',    href: '/admin/events',                       icon: Trophy },
   { label: 'Payments',  href: '/admin/payments',                     icon: CreditCard },
+  { label: 'Finances',  href: '/admin/finances',                     icon: TrendingUp },
   { label: 'Shop',      href: '/admin/shop',                         icon: ShoppingBag },
   { label: 'Teams',     href: '/admin/teams',                        icon: Users },
   { label: 'Players',   href: '/admin/players',                      icon: PersonStanding },

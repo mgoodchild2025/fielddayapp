@@ -154,6 +154,18 @@ export function MerchItemList({ items: initialItems }: Props) {
                             Shop
                           </span>
                         )}
+                        {item.cost_cents != null && item.price_cents > 0 && (() => {
+                          const margin = Math.round(((item.price_cents - item.cost_cents) / item.price_cents) * 100)
+                          const neg = item.price_cents - item.cost_cents < 0
+                          return (
+                            <span
+                              title={`Cost $${(item.cost_cents / 100).toFixed(2)} · ${margin}% margin`}
+                              className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${neg ? 'bg-red-50 text-red-600 border-red-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}
+                            >
+                              {margin}% margin
+                            </span>
+                          )
+                        })()}
                         {(() => {
                           const { label, color } = getStockStatus(item)
                           if (!label || !color) return null

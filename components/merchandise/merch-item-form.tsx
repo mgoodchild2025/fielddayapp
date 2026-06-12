@@ -25,6 +25,9 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
   const [priceStr, setPriceStr] = useState(
     item ? (item.price_cents / 100).toFixed(2) : ''
   )
+  const [costStr, setCostStr] = useState(
+    item?.cost_cents != null ? (item.cost_cents / 100).toFixed(2) : ''
+  )
   const [imageUrl, setImageUrl] = useState<string | null>(item?.image_url ?? null)
   const [variants, setVariants] = useState<VariantDraft[]>(() =>
     (item?.variants ?? []).map((v) => ({
@@ -145,11 +148,14 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
         ? parseInt(stockStr, 10)
         : null
 
+      const costCents = costStr.trim() ? Math.round(parseFloat(costStr) * 100) : null
+
       const result = await upsertMerchandiseItem({
         id: item?.id,
         name: name.trim(),
         description: description.trim() || null,
         price_cents: priceCents,
+        cost_cents: costCents !== null && !isNaN(costCents) && costCents >= 0 ? costCents : null,
         image_url: imageUrl,
         is_active: item?.is_active ?? true,
         shop_enabled: shopEnabled,
@@ -294,6 +300,40 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
               className="w-full border rounded-md pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30"
               required
             />
+          </div>
+        </div>
+
+        {/* Unit cost (for margin / profit) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Unit cost <span className="text-gray-400 font-normal">(optional — what it costs you, for profit tracking)</span>
+          </label>
+          <div className="flex items-center gap-3">
+            <div className="relative w-40">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={costStr}
+                onChange={(e) => setCostStr(e.target.value)}
+                placeholder="0.00"
+                className="w-full border rounded-md pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30"
+              />
+            </div>
+            {(() => {
+              const price = parseFloat(priceStr)
+              const cost = parseFloat(costStr)
+              if (isNaN(price) || isNaN(cost) || price <= 0) return null
+              const margin = ((price - cost) / price) * 100
+              const profit = price - cost
+              const tone = profit < 0 ? 'text-red-600' : 'text-green-600'
+              return (
+                <span className={`text-xs font-medium ${tone}`}>
+                  {profit >= 0 ? '+' : '−'}${Math.abs(profit).toFixed(2)} · {margin.toFixed(0)}% margin
+                </span>
+              )
+            })()}
           </div>
         </div>
 

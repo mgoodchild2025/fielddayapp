@@ -25,6 +25,7 @@ export type BooleanFeature =
   | 'player_check_in'
   | 'media_gallery'
   | 'social_integration'
+  | 'financial_tools'
 
 export type LimitFeature =
   | 'max_leagues'   // null = unlimited
@@ -70,6 +71,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       { key: 'discount_codes',        label: 'Discount / promo codes', description: 'Create and manage promotional discount codes', type: 'boolean' },
       { key: 'payment_plans',         label: 'Payment plans',          description: 'Allow players to pay in instalments', type: 'boolean' },
       { key: 'merchandise_shop',      label: 'Merchandise shop',       description: 'Standalone shop where members can buy merch at any time (separate from registration)', type: 'boolean' },
+      { key: 'financial_tools',       label: 'Financial tools',        description: 'Track expenses and profit for events and the shop, with cost-based margins and event cost planning', type: 'boolean' },
     ],
   },
   {
