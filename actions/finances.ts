@@ -5,7 +5,7 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { EXPENSE_CATEGORIES, type ExpenseCategory, OVERHEAD_CATEGORIES, type OverheadCategory, OVERHEAD_PERIODS, type OverheadPeriod } from '@/lib/finance-constants'
+import { EXPENSE_CATEGORIES, type ExpenseCategory, OVERHEAD_CATEGORIES, type OverheadCategory, OVERHEAD_PERIODS, type OverheadPeriod, BUDGET_COST_TYPES, type BudgetCostType } from '@/lib/finance-constants'
 
 // ── Auth helper ──────────────────────────────────────────────────────────────
 
@@ -553,4 +553,132 @@ export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
     registrationRevenueCents, merchRevenueCents, merchCogsCents,
     eventExpenseCents, overheadCents, revenueCents, costCents, profitCents, marginPct, events,
   }
+}
+
+// ── Pricing planner (event budgets) ──────────────────────────────────────────
+
+export type BudgetItem = {
+  id: string
+  label: string
+  cost_type: BudgetCostType
+  amount_cents: number
+  sort_order: number
+}
+
+export type EventBudget = {
+  budget: {
+    expected_teams: number
+    expected_participants: number
+    target_margin_pct: number
+    notes: string | null
+  } | null
+  items: BudgetItem[]
+  /** League's current price + mode, for the "profit at current price" projection. */
+  league: { price_cents: number; payment_mode: 'per_player' | 'per_team' } | null
+}
+
+export async function getEventBudget(leagueId: string): Promise<EventBudget> {
+  const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [{ data: budget }, { data: league }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('event_budgets')
+      .select('id, expected_teams, expected_participants, target_margin_pct, notes')
+      .eq('league_id', leagueId).maybeSingle(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('leagues').select('price_cents, payment_mode').eq('id', leagueId).single(),
+  ])
+
+  let items: BudgetItem[] = []
+  if (budget?.id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rows } = await (db as any)
+      .from('event_budget_items')
+      .select('id, label, cost_type, amount_cents, sort_order')
+      .eq('budget_id', budget.id)
+      .order('sort_order', { ascending: true })
+    items = (rows ?? []) as BudgetItem[]
+  }
+
+  return {
+    budget: budget
+      ? {
+          expected_teams: budget.expected_teams,
+          expected_participants: budget.expected_participants,
+          target_margin_pct: Number(budget.target_margin_pct),
+          notes: budget.notes ?? null,
+        }
+      : null,
+    items,
+    league: league
+      ? { price_cents: league.price_cents ?? 0, payment_mode: (league.payment_mode ?? 'per_player') }
+      : null,
+  }
+}
+
+export async function saveEventBudget(input: {
+  leagueId: string
+  expectedTeams: number
+  expectedParticipants: number
+  targetMarginPct: number   // fraction 0–0.99
+  notes?: string | null
+  items: { label: string; costType: BudgetCostType; amountCents: number }[]
+}): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await requireFinanceAdmin(org.id)
+  if ('error' in auth) return { error: auth.error }
+
+  const margin = Number(input.targetMarginPct)
+  if (!Number.isFinite(margin) || margin < 0 || margin >= 1) return { error: 'Target margin must be between 0 and 99%.' }
+  for (const it of input.items) {
+    if (!BUDGET_COST_TYPES.includes(it.costType)) return { error: 'Invalid cost type.' }
+    if (!Number.isFinite(it.amountCents) || it.amountCents < 0) return { error: 'Enter valid cost amounts.' }
+  }
+
+  const db = createServiceRoleClient()
+  // Verify the league belongs to this org.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: league } = await (db as any)
+    .from('leagues').select('id').eq('id', input.leagueId).eq('organization_id', org.id).single()
+  if (!league) return { error: 'Event not found.' }
+
+  // Upsert the budget row (unique on league_id) and capture its id.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: budget, error: budgetErr } = await (db as any)
+    .from('event_budgets')
+    .upsert({
+      organization_id: org.id,
+      league_id: input.leagueId,
+      expected_teams: Math.max(0, Math.round(input.expectedTeams) || 0),
+      expected_participants: Math.max(0, Math.round(input.expectedParticipants) || 0),
+      target_margin_pct: margin,
+      notes: input.notes?.trim() || null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'league_id' })
+    .select('id')
+    .single()
+  if (budgetErr || !budget) return { error: budgetErr?.message ?? 'Could not save budget.' }
+
+  // Replace the line items.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('event_budget_items').delete().eq('budget_id', budget.id)
+  const rows = input.items
+    .filter((it) => it.label.trim())
+    .map((it, i) => ({
+      budget_id: budget.id,
+      label: it.label.trim(),
+      cost_type: it.costType,
+      amount_cents: Math.round(it.amountCents),
+      sort_order: i,
+    }))
+  if (rows.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: itemsErr } = await (db as any).from('event_budget_items').insert(rows)
+    if (itemsErr) return { error: itemsErr.message }
+  }
+
+  revalidatePath(`/admin/events/${input.leagueId}/finances`)
+  return { error: null }
 }

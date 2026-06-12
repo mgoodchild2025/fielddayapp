@@ -4,8 +4,9 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
-import { getEventPnl, getEventExpenses } from '@/actions/finances'
+import { getEventPnl, getEventExpenses, getEventBudget } from '@/actions/finances'
 import { EventExpensesManager } from '@/components/finances/event-expenses-manager'
+import { BudgetPlanner } from '@/components/finances/budget-planner'
 
 function money(cents: number): string {
   const neg = cents < 0
@@ -27,9 +28,10 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
     .from('leagues').select('id').eq('id', id).eq('organization_id', org.id).single()
   if (!league) notFound()
 
-  const [pnl, expenses] = await Promise.all([
+  const [pnl, expenses, budget] = await Promise.all([
     getEventPnl(id, org.id),
     getEventExpenses(id),
+    getEventBudget(id),
   ])
 
   return (
@@ -63,6 +65,9 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
 
       {/* ── Expenses ledger ──────────────────────────────────────────────── */}
       <EventExpensesManager leagueId={id} initialExpenses={expenses} />
+
+      {/* ── Pricing planner ──────────────────────────────────────────────── */}
+      <BudgetPlanner leagueId={id} initial={budget} />
     </div>
   )
 }

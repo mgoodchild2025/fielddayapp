@@ -16,3 +16,7 @@ export type OverheadCategory = (typeof OVERHEAD_CATEGORIES)[number]
 
 export const OVERHEAD_PERIODS = ['one_time', 'monthly', 'annual'] as const
 export type OverheadPeriod = (typeof OVERHEAD_PERIODS)[number]
+
+// Pricing planner: how a projected cost scales.
+export const BUDGET_COST_TYPES = ['fixed', 'per_team', 'per_player'] as const
+export type BudgetCostType = (typeof BUDGET_COST_TYPES)[number]
