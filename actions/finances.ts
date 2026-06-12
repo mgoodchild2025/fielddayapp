@@ -5,6 +5,7 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { EXPENSE_CATEGORIES, type ExpenseCategory } from '@/lib/finance-constants'
 
 // ── Auth helper ──────────────────────────────────────────────────────────────
 
@@ -173,11 +174,6 @@ export async function getShopPnl(orgId: string): Promise<ShopPnl> {
 }
 
 // ── Event expenses ───────────────────────────────────────────────────────────
-
-export const EXPENSE_CATEGORIES = [
-  'rental', 'referee', 'insurance', 'prizes', 'equipment', 'staff', 'marketing', 'other',
-] as const
-export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number]
 
 export type EventExpense = {
   id: string

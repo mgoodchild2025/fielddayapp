@@ -3,8 +3,9 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2 } from 'lucide-react'
-import { addEventExpense, deleteEventExpense, EXPENSE_CATEGORIES } from '@/actions/finances'
-import type { EventExpense, ExpenseCategory } from '@/actions/finances'
+import { addEventExpense, deleteEventExpense } from '@/actions/finances'
+import type { EventExpense } from '@/actions/finances'
+import { EXPENSE_CATEGORIES, type ExpenseCategory } from '@/lib/finance-constants'
 
 const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   rental: 'Venue / rental',
