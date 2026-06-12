@@ -295,6 +295,15 @@ export default async function PlayerManagementPage({
                     </dd>
                   </div>
                   <div className="flex items-center justify-between">
+                    <dt className="text-gray-500">Game/schedule SMS</dt>
+                    <dd>
+                      <Pill on={(profile.sms_opted_in ?? false) && !!profile.phone} />
+                      {(profile.sms_opted_in ?? false) && !profile.phone && (
+                        <span className="ml-1 text-xs text-gray-400">(no phone)</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between">
                     <dt className="text-gray-500">Marketing email</dt>
                     <dd><Pill on={marketing.email} /></dd>
                   </div>

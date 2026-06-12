@@ -18,6 +18,10 @@ export interface PlayerRow {
   email: string | null
   phone: string | null
   avatarUrl: string | null
+  /** Transactional SMS reachable (opted in + phone on file). */
+  smsTransactional: boolean
+  /** Opted in to commercial/promotional SMS for this org. */
+  smsPromo: boolean
 }
 
 export interface LeagueOption {
@@ -68,6 +72,26 @@ function ArrowIcon() {
     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
     </svg>
+  )
+}
+
+/** Two small badges showing transactional (game/schedule) and promotional SMS status. */
+function SmsBadges({ transactional, promo }: { transactional: boolean; promo: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span
+        title={transactional ? 'Transactional SMS on — game & schedule alerts' : 'Transactional SMS off (or no phone)'}
+        className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${transactional ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}
+      >
+        Txn
+      </span>
+      <span
+        title={promo ? 'Opted in to promotional SMS' : 'Not opted in to promotional SMS'}
+        className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${promo ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-400'}`}
+      >
+        Promo
+      </span>
+    </span>
   )
 }
 
@@ -283,6 +307,7 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
                 <th className="px-4 py-3 font-medium text-gray-500">Name</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Email</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Phone</th>
+                <th className="px-4 py-3 font-medium text-gray-500">SMS</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Role</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Status</th>
                 <th className="px-4 py-3 font-medium text-gray-500"></th>
@@ -312,6 +337,9 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
                   </td>
                   <td className="px-4 py-3 text-gray-500">{player.email ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-500">{player.phone ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    <SmsBadges transactional={player.smsTransactional} promo={player.smsPromo} />
+                  </td>
                   <td className="px-4 py-3">
                     {isOrgAdmin && player.userId !== currentUserId ? (
                       <ChangeMemberRoleForm
@@ -355,14 +383,14 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+                  <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
                     {hasFilters ? 'No players match your search.' : 'No players found.'}
                   </td>
                 </tr>
               )}
               {hasMore && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-3 text-center">
+                  <td colSpan={7} className="px-4 py-3 text-center">
                     <button
                       onClick={() => setPage((p) => p + 1)}
                       className="text-sm font-medium hover:underline"

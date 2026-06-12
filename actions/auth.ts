@@ -270,7 +270,9 @@ export async function updateProfile(input: z.infer<typeof updateProfileSchema>) 
       full_name: parsed.data.full_name,
       phone: parsed.data.phone ? toE164(parsed.data.phone) : null,
       email_reminders_enabled: parsed.data.email_reminders_enabled ?? true,
-      sms_opted_in: parsed.data.sms_opted_in ?? false,
+      // Transactional SMS is opt-out (on by default). When a caller omits the
+      // field we keep it enabled rather than silently disabling it.
+      sms_opted_in: parsed.data.sms_opted_in ?? true,
       sms_game_day_enabled: parsed.data.sms_game_day_enabled ?? true,
       show_contact_info: parsed.data.show_contact_info ?? false,
     }).eq('id', user.id),

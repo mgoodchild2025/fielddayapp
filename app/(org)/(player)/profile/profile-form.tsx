@@ -56,7 +56,7 @@ export function ProfileForm({
       full_name: profile?.full_name ?? '',
       phone: profile?.phone ?? '',
       email_reminders_enabled: (profile as any)?.email_reminders_enabled ?? true,
-      sms_opted_in: profile?.sms_opted_in ?? false,
+      sms_opted_in: profile?.sms_opted_in ?? true,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sms_game_day_enabled: (profile as any)?.sms_game_day_enabled ?? true,
       skill_level: (playerDetails?.skill_level as FormData['skill_level']) ?? undefined,
@@ -195,9 +195,12 @@ export function ProfileForm({
                 <input {...register('email_reminders_enabled')} type="checkbox" className="rounded" />
                 <span className="text-xs text-gray-600">Receive game reminder emails</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input {...register('sms_opted_in')} type="checkbox" className="rounded" />
-                <span className="text-xs text-gray-600">Receive SMS notifications</span>
+              <label className="flex items-start gap-2 cursor-pointer select-none">
+                <input {...register('sms_opted_in')} type="checkbox" className="rounded mt-0.5" />
+                <span className="text-xs text-gray-600">
+                  Game &amp; schedule text alerts
+                  <span className="block text-[11px] text-gray-400">On by default — reminders, RSVPs, and schedule changes. Reply STOP any time to opt out.</span>
+                </span>
               </label>
               {smsOptedIn && (
                 <label className="flex items-center gap-2 cursor-pointer select-none pl-5">

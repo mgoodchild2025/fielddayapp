@@ -3,6 +3,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
+import { getMarketingConsentBatch } from '@/actions/player-consents'
 import { PlayersClient } from '@/components/players/players-client'
 import type { PlayerRow, LeagueOption } from '@/components/players/players-client'
 import { InvitePlayerButton } from '@/components/players/invite-player-form'
@@ -33,7 +34,7 @@ export default async function PlayersPage({
       .from('org_members')
       .select(`
         id, role, status, joined_at, user_id,
-        profile:profiles!org_members_user_id_fkey(full_name, email, phone, avatar_url)
+        profile:profiles!org_members_user_id_fkey(full_name, email, phone, avatar_url, sms_opted_in)
       `)
       .eq('organization_id', org.id)
       .neq('status', 'invited')
@@ -87,8 +88,13 @@ export default async function PlayersPage({
     members = members.filter((m) => !m.user_id || !registeredIds.has(m.user_id))
   }
 
+  // Commercial (marketing_sms) consent per player, for the SMS status column.
+  const memberUserIds = members.map((m) => m.user_id).filter(Boolean) as string[]
+  const promoConsent = await getMarketingConsentBatch(org.id, memberUserIds)
+
   const players: PlayerRow[] = members.map((m) => {
     const profile = Array.isArray(m.profile) ? m.profile[0] : m.profile
+    const phone = profile?.phone ?? null
     return {
       memberId: m.id,
       userId: m.user_id ?? null,
@@ -96,8 +102,12 @@ export default async function PlayersPage({
       status: m.status,
       fullName: profile?.full_name ?? null,
       email: profile?.email ?? null,
-      phone: profile?.phone ?? null,
+      phone,
       avatarUrl: (profile as { avatar_url?: string | null } | null)?.avatar_url ?? null,
+      // Transactional SMS reachable = opted in AND has a phone on file.
+      smsTransactional: !!phone && (profile as { sms_opted_in?: boolean } | null)?.sms_opted_in === true,
+      // Commercial SMS = explicit marketing_sms consent for this org.
+      smsPromo: !!m.user_id && promoConsent.sms.has(m.user_id),
     }
   })
 

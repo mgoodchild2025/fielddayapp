@@ -74,6 +74,8 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
   const [privacyAccepted, setPrivacyAccepted] = useState(false)
   const [marketingEmail, setMarketingEmail] = useState(false)
   const [marketingSms, setMarketingSms] = useState(false)
+  // Transactional SMS — on by default (opt-out). Persisted to the profile below.
+  const [smsOptedIn, setSmsOptedIn] = useState(true)
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -119,7 +121,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
     setLoading(true)
     setError(null)
 
-    await updateProfile({ ...data, orgId: org.id })
+    await updateProfile({ ...data, sms_opted_in: smsOptedIn, orgId: org.id })
 
     const result = await createRegistration({
       leagueId: league.id,
@@ -256,13 +258,13 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
         <label className="flex items-start gap-3 cursor-pointer">
           <input
             type="checkbox"
-            name="sms_opted_in"
-            defaultChecked
+            checked={smsOptedIn}
+            onChange={(e) => setSmsOptedIn(e.target.checked)}
             className="mt-0.5 h-4 w-4 rounded border-gray-300"
           />
           <span className="text-sm text-gray-700">
-            Send me SMS game reminders to my phone number above.
-            <span className="block text-xs text-gray-400 mt-0.5">Reply STOP at any time to unsubscribe.</span>
+            Send me game &amp; schedule text alerts to the phone number above.
+            <span className="block text-xs text-gray-400 mt-0.5">Reminders, RSVPs, and schedule changes. Standard message rates may apply. Reply STOP at any time to unsubscribe.</span>
           </span>
         </label>
       </div>
