@@ -8,7 +8,7 @@ export function getStripe(): Stripe {
       throw new Error('STRIPE_SECRET_KEY is not set')
     }
     _stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2026-04-22.dahlia' as const,
+      apiVersion: '2026-05-27.dahlia' as const,
       typescript: true,
     })
   }

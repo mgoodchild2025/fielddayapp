@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
     }
 
     const orgStripe = new Stripe(paymentSettings.stripe_secret_key, {
-      apiVersion: '2026-04-22.dahlia' as const,
+      apiVersion: '2026-05-27.dahlia' as const,
       typescript: true,
     })
 
@@ -374,7 +374,7 @@ export async function POST(request: NextRequest) {
   }
 
   const orgStripe = new Stripe(paymentSettings.stripe_secret_key, {
-    apiVersion: '2026-04-22.dahlia' as const,
+    apiVersion: '2026-05-27.dahlia' as const,
     typescript: true,
   })
 

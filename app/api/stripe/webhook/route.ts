@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   let event: Stripe.Event
   try {
     const stripe = new Stripe(paymentSettings.stripe_secret_key ?? 'sk_placeholder', {
-      apiVersion: '2026-04-22.dahlia' as const,
+      apiVersion: '2026-05-27.dahlia' as const,
     })
     event = stripe.webhooks.constructEvent(body, sig, paymentSettings.stripe_webhook_secret)
   } catch (err) {

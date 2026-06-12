@@ -20,7 +20,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 
 export type StripeMode = 'test' | 'live'
 
-const API_VERSION = '2026-04-22.dahlia' as const
+const API_VERSION = '2026-05-27.dahlia' as const
 
 function pick(suffix: string, base: string, mode: StripeMode): string | undefined {
   const suffixed = process.env[`${base}${suffix}`]

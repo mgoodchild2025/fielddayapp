@@ -2,7 +2,7 @@ import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { platformEnvFor } from '@/lib/stripe-platform'
 
-const API_VERSION = '2026-04-22.dahlia' as const
+const API_VERSION = '2026-05-27.dahlia' as const
 
 function periodEndIso(sub: Stripe.Subscription): string | null {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

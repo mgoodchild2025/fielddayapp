@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
   // Use the key matching THIS event's mode (test vs live), so subscription
   // retrieves work regardless of the active toggle.
   const eventEnv = platformEnvFor(event.livemode ? 'live' : 'test')
-  const stripe = new Stripe(eventEnv.secretKey ?? 'sk_placeholder', { apiVersion: '2026-04-22.dahlia' as const })
+  const stripe = new Stripe(eventEnv.secretKey ?? 'sk_placeholder', { apiVersion: '2026-05-27.dahlia' as const })
 
   // ── checkout.session.completed ────────────────────────────────────────────
   // Fires when an org admin finishes paying for a plan via Stripe Checkout.

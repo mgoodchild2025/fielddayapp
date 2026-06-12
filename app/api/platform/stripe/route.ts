@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
   // Stripe client keyed to THIS event's mode for any subscription retrieves.
   const eventEnv = platformEnvFor(event.livemode ? 'live' : 'test')
-  const stripe = new Stripe(eventEnv.secretKey ?? 'sk_placeholder', { apiVersion: '2026-04-22.dahlia' as const })
+  const stripe = new Stripe(eventEnv.secretKey ?? 'sk_placeholder', { apiVersion: '2026-05-27.dahlia' as const })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = createServiceRoleClient() as any
