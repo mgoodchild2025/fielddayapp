@@ -75,10 +75,13 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
   ]
 }
 
-export function EventAdminTabs({ leagueId, eventType, pickupJoinPolicy = 'public' }: { leagueId: string; eventType: string; pickupJoinPolicy?: string }) {
+export function EventAdminTabs({ leagueId, eventType, pickupJoinPolicy = 'public', hasFinances = false }: { leagueId: string; eventType: string; pickupJoinPolicy?: string; hasFinances?: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
   const tabList = tabs(leagueId, eventType, pickupJoinPolicy)
+  if (hasFinances) {
+    tabList.push({ label: 'Finances', href: `/admin/events/${leagueId}/finances` })
+  }
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)

@@ -5,6 +5,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { EventAdminTabs } from '@/components/layout/event-admin-tabs'
 import { getEnforcementState } from '@/lib/billing'
+import { canAccess } from '@/lib/features'
 import { FrozenLeagueBanner } from '@/components/billing/frozen-league-banner'
 
 const statusColors: Record<string, string> = {
@@ -39,6 +40,7 @@ export default async function EventAdminLayout({
 
   // Check enforcement state to show frozen/grace banner
   const enforcement = await getEnforcementState(org.id)
+  const hasFinances = await canAccess(org.id, 'financial_tools')
   const isFrozen = enforcement.frozenLeagueIds.includes(id)
   // During grace, show warning on leagues that would be frozen once grace expires
   const isAtRiskDuringGrace = !isFrozen && enforcement.inGracePeriod && enforcement.atRiskLeagueIds.includes(id)
@@ -67,7 +69,7 @@ export default async function EventAdminLayout({
         </div>
       </div>
       <div className="print:hidden">
-        <EventAdminTabs leagueId={id} eventType={league.event_type ?? 'league'} pickupJoinPolicy={league.pickup_join_policy ?? 'public'} />
+        <EventAdminTabs leagueId={id} eventType={league.event_type ?? 'league'} pickupJoinPolicy={league.pickup_join_policy ?? 'public'} hasFinances={hasFinances} />
       </div>
       {children}
     </div>
