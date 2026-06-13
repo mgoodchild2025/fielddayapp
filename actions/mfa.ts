@@ -85,7 +85,24 @@ export async function enrollTotp(): Promise<{
   error?: string
 }> {
   const supabase = await createServerClient()
-  const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' })
+
+  // Clean up any leftover *unverified* TOTP factors from a previous abandoned
+  // attempt. Supabase enforces unique friendly names per user, and an empty
+  // friendly name ('') counts — so a stale unverified factor makes the next
+  // enroll fail with "A factor with friendly name '' already exists". Verified
+  // factors are never touched.
+  const { data: existing } = await supabase.auth.mfa.listFactors()
+  // listFactors() is typed as verified-only, but at runtime returns unverified
+  // factors too — those are exactly the ones we need to clear.
+  const stale = (existing?.totp ?? []).filter((f) => (f.status as string) === 'unverified')
+  for (const f of stale) {
+    await supabase.auth.mfa.unenroll({ factorId: f.id }).catch(() => {})
+  }
+
+  const { data, error } = await supabase.auth.mfa.enroll({
+    factorType: 'totp',
+    friendlyName: 'Authenticator app',
+  })
   if (error) return { error: error.message }
   return {
     factorId: data.id,
