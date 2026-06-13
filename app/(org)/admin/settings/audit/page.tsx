@@ -20,6 +20,13 @@ export default async function AuditLogPage({ searchParams }: Props) {
 
   const db = createServiceRoleClient()
 
+  // Org timezone — audit times are stored in UTC; format them in the org's zone.
+  // Without this, a server component formats in the server's zone (UTC in prod).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: branding } = await (db as any)
+    .from('org_branding').select('timezone').eq('organization_id', org.id).maybeSingle()
+  const timezone: string = branding?.timezone || 'America/Toronto'
+
   // Distinct actions present (for the filter dropdown)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: allActions } = await (db as any)
@@ -96,7 +103,7 @@ export default async function AuditLogPage({ searchParams }: Props) {
                 </p>
               </div>
               <p className="text-xs text-gray-400 whitespace-nowrap shrink-0">
-                {new Date(r.created_at).toLocaleString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                {new Date(r.created_at).toLocaleString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: timezone })}
               </p>
             </div>
           ))}
