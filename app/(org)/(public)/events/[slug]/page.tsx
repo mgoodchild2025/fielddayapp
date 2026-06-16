@@ -33,6 +33,10 @@ import type { StatDef } from '@/actions/stats'
 import { RichTextContent } from '@/components/ui/rich-text-content'
 import { PdfViewerButton } from '@/components/ui/pdf-viewer-button'
 import { getCurrentLiveStream } from '@/actions/live'
+import { getApprovedEventMedia } from '@/actions/event-media'
+import { EventMediaUpload } from '@/components/media/event-media-upload'
+import { EventMediaGallery } from '@/components/media/event-media-gallery'
+import { isCloudinaryConfigured, cloudinaryApiKey } from '@/lib/cloudinary'
 import { getEnrollmentForRegistration } from '@/actions/payment-plans'
 import { PlayerInstallmentSchedule } from '@/components/payments/player-installment-schedule'
 
@@ -720,6 +724,7 @@ export default async function EventDetailPage({
     ...(schedulePublished ? [{ id: 'schedule', label: 'Schedule', visibility: scheduleVisibility }] : []),
     { id: 'standings', label: 'Standings', visibility: standingsVisibility },
     ...(hasBracket ? [{ id: 'bracket', label: 'Playoffs', visibility: bracketVisibility }] : []),
+    { id: 'media', label: 'Media', visibility: 'public' as const },
   ]
 
   // Tabs for in-season/completed events — team-based gets Schedule+Standings+Bracket+Rules,
@@ -737,11 +742,13 @@ export default async function EventDetailPage({
         { id: 'stats', label: 'Stats', visibility: statsVisibility },
         ...((league as any).format_content || (league as any).format_pdf_url ? [{ id: 'format', label: 'Format', visibility: 'public' as const }] : []),
         { id: 'overview', label: 'Event Info', visibility: 'public' as const },
+        { id: 'media', label: 'Media', visibility: 'public' as const },
       ]
     : [
         { id: 'overview', label: 'Info',  visibility: 'public' as const },
         ...((league as any).format_content || (league as any).format_pdf_url ? [{ id: 'format', label: 'Format', visibility: 'public' as const }] : []),
         ...(league.rules_content || (league as any).rules_pdf_url ? [{ id: 'rules', label: 'Rules', visibility: 'public' as const }] : []),
+        { id: 'media', label: 'Media', visibility: 'public' as const },
       ]
 
   // Placeholder — refined after participant status is resolved below
@@ -1399,6 +1406,11 @@ export default async function EventDetailPage({
   const eventLive = await getCurrentLiveStream(org.id, (league as any).id)
   const eventLiveStream = eventLive && eventLive.league_id ? eventLive : null
 
+  // Media tab — approved uploads for this event (fetched only when on the tab)
+  const eventMedia = activeTab === 'media' ? await getApprovedEventMedia(league.id) : []
+  const cloudinaryReady = isCloudinaryConfigured()
+  const cloudinaryKey = cloudinaryReady ? cloudinaryApiKey() : ''
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
@@ -1531,6 +1543,20 @@ export default async function EventDetailPage({
 
       {/* ── Tab content ── */}
       <div className={`max-w-3xl mx-auto px-4 sm:px-6 py-8 ${stickyBar ? 'pb-28 md:pb-8' : ''}`}>
+
+        {/* ──────────────── MEDIA TAB ──────────────── */}
+        {activeTab === 'media' && (
+          <div className="space-y-5">
+            <div className="bg-white rounded-xl border p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h2 className="font-semibold text-gray-900">Event gallery</h2>
+                <p className="text-sm text-gray-500">Share your photos and videos — uploads appear here once an organizer approves them.</p>
+              </div>
+              {cloudinaryReady && <EventMediaUpload leagueId={league.id} apiKey={cloudinaryKey} />}
+            </div>
+            <EventMediaGallery items={eventMedia} />
+          </div>
+        )}
 
         {/* ──────────────── OVERVIEW TAB ──────────────── */}
         {activeTab === 'overview' && (

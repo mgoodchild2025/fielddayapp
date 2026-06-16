@@ -5,13 +5,15 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { GalleryGrid } from '@/components/gallery/gallery-grid'
 import { getApprovedVideos } from '@/actions/social'
+import { getOrgApprovedEventMedia } from '@/actions/event-media'
+import { EventMediaGallery } from '@/components/media/event-media-gallery'
 
 export default async function GalleryPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  const [{ data: branding }, { data: photos }, videos] = await Promise.all([
+  const [{ data: branding }, { data: photos }, videos, eventMedia] = await Promise.all([
     db.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)
@@ -20,6 +22,7 @@ export default async function GalleryPage() {
       .eq('organization_id', org.id)
       .order('display_order', { ascending: true }),
     getApprovedVideos(org.id, 12),
+    getOrgApprovedEventMedia(org.id, 60),
   ])
 
   const photoList = (photos ?? []) as { id: string; url: string; caption: string | null; display_order: number }[]
@@ -66,6 +69,14 @@ export default async function GalleryPage() {
           <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-500 mb-4">Photos</h2>
         )}
         <GalleryGrid photos={photoList} />
+
+        {/* From events — approved player uploads across all events */}
+        {eventMedia.length > 0 && (
+          <section className="mt-10">
+            <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-500 mb-4">From events</h2>
+            <EventMediaGallery items={eventMedia} showLeague />
+          </section>
+        )}
       </main>
 
       <Footer org={org} />

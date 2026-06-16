@@ -79,6 +79,7 @@ export function EventAdminTabs({ leagueId, eventType, pickupJoinPolicy = 'public
   const pathname = usePathname()
   const router = useRouter()
   const tabList = tabs(leagueId, eventType, pickupJoinPolicy)
+  tabList.push({ label: 'Media', href: `/admin/events/${leagueId}/media` })
   if (hasFinances) {
     tabList.push({ label: 'Finances', href: `/admin/events/${leagueId}/finances` })
   }
