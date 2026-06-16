@@ -99,7 +99,9 @@ export async function goLive(input: z.infer<typeof goLiveSchema>): Promise<{ err
   if (parsed.data.platform === 'youtube') {
     const vid = youTubeId(parsed.data.url)
     if (!vid) return { error: 'Could not read the YouTube video ID from that URL.' }
-    embedUrl = `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1`
+    // Use youtube.com/embed (not -nocookie); nocookie is occasionally stricter
+    // with live content and can refuse to play where the standard embed works.
+    embedUrl = `https://www.youtube.com/embed/${vid}?autoplay=1`
   }
 
   // End only the prior stream with the SAME scope (this event, or org-wide).

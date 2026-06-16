@@ -7,6 +7,11 @@ interface Props {
   theme: 'dark' | 'light'
 }
 
+/** Friendly, typeable form of a watch URL: drop protocol, www, and query/tracking. */
+function cleanWatchUrl(url: string): string {
+  return url.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\?.*$/, '').replace(/\/+$/, '')
+}
+
 export function LiveZone({ live, theme }: Props) {
   const isDark = theme === 'dark'
   const subtext = isDark ? '#a1a1aa' : '#6b7280'
@@ -23,9 +28,12 @@ export function LiveZone({ live, theme }: Props) {
 
   // YouTube → full-bleed autoplay embed (muted so browsers allow autoplay on a TV)
   if (live.embed_url) {
-    const src = live.embed_url.includes('mute=')
-      ? live.embed_url
-      : `${live.embed_url}${live.embed_url.includes('?') ? '&' : '?'}mute=1`
+    // Normalise legacy nocookie embeds to the standard host (better live support).
+    const normalized = live.embed_url.replace('youtube-nocookie.com', 'youtube.com')
+    const src = normalized.includes('mute=')
+      ? normalized
+      : `${normalized}${normalized.includes('?') ? '&' : '?'}mute=1`
+    const watch = live.url ? cleanWatchUrl(live.url) : null
     return (
       <div className="relative w-full h-full">
         <iframe
@@ -43,6 +51,14 @@ export function LiveZone({ live, theme }: Props) {
           </span>
           LIVE
         </div>
+        {/* Always-visible "watch live" bar — a fallback so even if YouTube blocks
+            the embed (showing a black frame), viewers still see where to watch. */}
+        {watch && (
+          <div className="absolute bottom-0 inset-x-0 flex items-center justify-center gap-2 bg-black/60 text-white py-1.5 px-3 text-sm">
+            <span className="opacity-80">📺 Watch live:</span>
+            <span className="font-semibold text-amber-300 truncate">{watch}</span>
+          </div>
+        )}
       </div>
     )
   }
