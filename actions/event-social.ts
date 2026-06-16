@@ -83,7 +83,7 @@ export async function addCuratedSocialPost(leagueId: string, url: string): Promi
     mediaUrl = `https://www.youtube.com/watch?v=${externalId}`
   } else if (platform === 'instagram') {
     externalId = instagramShortcode(clean)
-    if (!externalId) return { error: 'Could not read the Instagram post id from that link.' }
+    if (!externalId) return { error: 'Use a public Instagram post or reel link, e.g. instagram.com/p/… or instagram.com/reel/…' }
     mediaUrl = `https://www.instagram.com/p/${externalId}/`
     type = 'image'
   } else {

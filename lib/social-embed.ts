@@ -28,9 +28,10 @@ export function youTubeId(url: string): string | null {
   return null
 }
 
-/** Instagram post/reel/tv shortcode. */
+/** Instagram post/reel/tv shortcode. Handles /p/, /reel/, /reels/, /tv/ and an
+ *  optional leading username segment (e.g. instagram.com/<user>/reel/<code>). */
 export function instagramShortcode(url: string): string | null {
-  const m = url.match(/instagram\.com\/(?:p|reel|tv)\/([^/?#]+)/i)
+  const m = url.match(/instagram\.com\/(?:[^/?#]+\/)?(?:p|reel|reels|tv)\/([^/?#]+)/i)
   return m?.[1] ?? null
 }
 
