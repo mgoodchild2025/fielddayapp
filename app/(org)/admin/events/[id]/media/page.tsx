@@ -5,9 +5,11 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { getEventMediaForAdmin } from '@/actions/event-media'
+import { getCuratedSocialPosts } from '@/actions/event-social'
 import { isCloudinaryConfigured, cloudinaryApiKey, CLOUD_NAME } from '@/lib/cloudinary'
 import { EventMediaModeration } from '@/components/media/event-media-moderation'
 import { EventMediaUpload } from '@/components/media/event-media-upload'
+import { AdminCurateSocial } from '@/components/media/admin-curate-social'
 
 export default async function EventMediaAdminPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -24,7 +26,10 @@ export default async function EventMediaAdminPage({ params }: { params: Promise<
     .from('leagues').select('id').eq('id', id).eq('organization_id', org.id).single()
   if (!league) notFound()
 
-  const items = await getEventMediaForAdmin(id)
+  const [items, curated] = await Promise.all([
+    getEventMediaForAdmin(id),
+    getCuratedSocialPosts(id),
+  ])
 
   return (
     <div className="max-w-5xl space-y-5">
@@ -46,6 +51,10 @@ export default async function EventMediaAdminPage({ params }: { params: Promise<
       )}
 
       <EventMediaModeration items={items} />
+
+      <div className="pt-2 border-t">
+        <AdminCurateSocial leagueId={id} posts={curated} />
+      </div>
     </div>
   )
 }

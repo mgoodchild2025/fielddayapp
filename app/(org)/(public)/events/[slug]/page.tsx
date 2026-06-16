@@ -34,8 +34,10 @@ import { RichTextContent } from '@/components/ui/rich-text-content'
 import { PdfViewerButton } from '@/components/ui/pdf-viewer-button'
 import { getCurrentLiveStream } from '@/actions/live'
 import { getApprovedEventMedia } from '@/actions/event-media'
+import { getCuratedSocialPosts } from '@/actions/event-social'
 import { EventMediaUpload } from '@/components/media/event-media-upload'
 import { EventMediaGallery } from '@/components/media/event-media-gallery'
+import { SocialEmbeds } from '@/components/media/social-embeds'
 import { isCloudinaryConfigured, cloudinaryApiKey, CLOUD_NAME } from '@/lib/cloudinary'
 import { getEnrollmentForRegistration } from '@/actions/payment-plans'
 import { PlayerInstallmentSchedule } from '@/components/payments/player-installment-schedule'
@@ -1406,8 +1408,10 @@ export default async function EventDetailPage({
   const eventLive = await getCurrentLiveStream(org.id, (league as any).id)
   const eventLiveStream = eventLive && eventLive.league_id ? eventLive : null
 
-  // Media tab — approved uploads for this event (fetched only when on the tab)
-  const eventMedia = activeTab === 'media' ? await getApprovedEventMedia(league.id) : []
+  // Media tab — approved uploads + curated social posts (fetched only on the tab)
+  const [eventMedia, curatedSocial] = activeTab === 'media'
+    ? await Promise.all([getApprovedEventMedia(league.id), getCuratedSocialPosts(league.id)])
+    : [[], []]
   const cloudinaryReady = isCloudinaryConfigured()
   const cloudinaryKey = cloudinaryReady ? cloudinaryApiKey() : ''
 
@@ -1555,6 +1559,12 @@ export default async function EventDetailPage({
               {cloudinaryReady && <EventMediaUpload leagueId={league.id} apiKey={cloudinaryKey} cloudName={CLOUD_NAME} />}
             </div>
             <EventMediaGallery items={eventMedia} />
+            {curatedSocial.length > 0 && (
+              <section className="pt-2">
+                <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-500 mb-3">Featured social</h3>
+                <SocialEmbeds posts={curatedSocial} />
+              </section>
+            )}
           </div>
         )}
 
