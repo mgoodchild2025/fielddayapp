@@ -283,7 +283,7 @@ interface ScreenState {
 }
 
 function ScreenEditor({
-  state, onChange, onSave, onToggleEnabled, onDelete, isSaving, isDirty, displayBaseUrl, pools, bracketTiers, leagueId,
+  state, onChange, onSave, onToggleEnabled, onDelete, isSaving, isDirty, displayBaseUrl, pools, bracketTiers, leagueId, liveStreams,
 }: {
   state: ScreenState
   onChange: (s: ScreenState) => void
@@ -296,6 +296,7 @@ function ScreenEditor({
   pools: { id: string; name: string }[]
   bracketTiers: { name: string }[]
   leagueId: string
+  liveStreams: { id: string; title: string | null; platform: string }[]
 }) {
   const { screen, enabled, config } = state
   const tvUrl = `${displayBaseUrl}/${screen}`
@@ -409,6 +410,29 @@ function ScreenEditor({
           ))}
         </div>
       </div>
+
+      {/* Live stream picker — only when this screen has a Live zone */}
+      {config.zones.some((z) => z.type === 'live') && (
+        <div className="rounded-xl border border-gray-700 bg-gray-800 p-4 space-y-2">
+          <p className="text-sm font-semibold text-gray-200">Live stream</p>
+          <p className="text-xs text-gray-400">
+            Choose which stream this screen shows. Pick a specific one when several games are streaming at once.
+          </p>
+          <select
+            value={config.live_stream_id ?? ''}
+            onChange={(e) => setConfig({ live_stream_id: e.target.value || null })}
+            className="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100"
+          >
+            <option value="">Auto — current event stream</option>
+            {liveStreams.map((s) => (
+              <option key={s.id} value={s.id}>{s.title || `${s.platform} stream`}</option>
+            ))}
+          </select>
+          {config.live_stream_id && !liveStreams.some((s) => s.id === config.live_stream_id) && (
+            <p className="text-xs text-amber-400">The pinned stream isn&rsquo;t live right now — this screen will show nothing until it&rsquo;s live again or you switch to Auto.</p>
+          )}
+        </div>
+      )}
 
       {/* Options */}
       <div className="rounded-xl border border-gray-700 bg-gray-800 p-4 space-y-4">
@@ -606,10 +630,11 @@ interface Props {
   bracketTiers:   { name: string }[]
   timezone:       string
   initialScreens: ScreenState[]
+  liveStreams:    { id: string; title: string | null; platform: string }[]
 }
 
 export function DisplayControlPanel({
-  leagueId, leagueName, displayBaseUrl, pools, bracketTiers, timezone, initialScreens,
+  leagueId, leagueName, displayBaseUrl, pools, bracketTiers, timezone, initialScreens, liveStreams,
 }: Props) {
   const [screens, setScreens] = useState<ScreenState[]>(
     initialScreens.length > 0 ? initialScreens : [{ screen: 1, enabled: false, config: defaultConfig() }]
@@ -743,6 +768,7 @@ export function DisplayControlPanel({
         pools={pools}
         bracketTiers={bracketTiers}
         leagueId={leagueId}
+        liveStreams={liveStreams}
       />
     </div>
   )

@@ -116,22 +116,37 @@ export async function getDisplayData(
     db.from('organizations').select('name').eq('id', orgId).single(),
   ])
 
-  // Current live stream — prefer one tied to THIS event, else the org-wide stream
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: eventLive } = await (db as any)
-    .from('live_streams')
-    .select('platform, title, url, embed_url')
-    .eq('organization_id', orgId).eq('league_id', leagueId).eq('status', 'live')
-    .order('started_at', { ascending: false }).limit(1).maybeSingle()
-  let liveStream = (eventLive as { platform: string; title: string | null; url: string; embed_url: string | null } | null) ?? null
-  if (!liveStream) {
+  // Live stream for this screen.
+  //  - If the screen pins a specific stream (config.live_stream_id), show only
+  //    that one (when still live) so multiple screens can show different
+  //    concurrent streams. If the pinned stream has ended, show nothing.
+  //  - Otherwise prefer the most recent stream tied to THIS event, else org-wide.
+  let liveStream: { platform: string; title: string | null; url: string; embed_url: string | null } | null = null
+  if (config.live_stream_id) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: orgLive } = await (db as any)
+    const { data: pinned } = await (db as any)
       .from('live_streams')
       .select('platform, title, url, embed_url')
-      .eq('organization_id', orgId).is('league_id', null).eq('status', 'live')
+      .eq('organization_id', orgId).eq('id', config.live_stream_id).eq('status', 'live')
+      .maybeSingle()
+    liveStream = (pinned as typeof liveStream) ?? null
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: eventLive } = await (db as any)
+      .from('live_streams')
+      .select('platform, title, url, embed_url')
+      .eq('organization_id', orgId).eq('league_id', leagueId).eq('status', 'live')
       .order('started_at', { ascending: false }).limit(1).maybeSingle()
-    liveStream = (orgLive as typeof liveStream) ?? null
+    liveStream = (eventLive as typeof liveStream) ?? null
+    if (!liveStream) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: orgLive } = await (db as any)
+        .from('live_streams')
+        .select('platform, title, url, embed_url')
+        .eq('organization_id', orgId).is('league_id', null).eq('status', 'live')
+        .order('started_at', { ascending: false }).limit(1).maybeSingle()
+      liveStream = (orgLive as typeof liveStream) ?? null
+    }
   }
 
   // Team lookup by name — used to enrich label-based games (no FK) with color/logo

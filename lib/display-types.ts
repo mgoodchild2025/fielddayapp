@@ -45,6 +45,10 @@ export interface DisplayConfig {
   theme:           'dark' | 'light'
   show_header:     boolean
   refresh_seconds: number
+  /** Pin this screen's Live zone to a specific live stream (by id). When unset,
+   *  the zone shows the event's current stream (or the org-wide one). Lets each
+   *  screen show a different concurrent stream when several are live at once. */
+  live_stream_id?: string | null
   /** Optional running sponsor banner that overlays the bottom/top of the screen. */
   sponsor_banner?: SponsorBannerConfig
   /** Optional full-screen sponsor interstitial (ad creative) shown periodically. */

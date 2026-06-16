@@ -104,15 +104,15 @@ export async function goLive(input: z.infer<typeof goLiveSchema>): Promise<{ err
     embedUrl = `https://www.youtube.com/embed/${vid}?autoplay=1`
   }
 
-  // End only the prior stream with the SAME scope (this event, or org-wide).
-  // Other events' streams keep running.
+  // Only replace a prior live stream with the SAME url (re-going-live with the
+  // same link shouldn't create a duplicate). Different streams stay live
+  // concurrently, so two games can each run their own stream and be assigned to
+  // separate display screens.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let endQuery = (db as any)
+  await (db as any)
     .from('live_streams')
     .update({ status: 'ended', ended_at: new Date().toISOString() })
-    .eq('organization_id', org.id).eq('status', 'live')
-  endQuery = leagueId ? endQuery.eq('league_id', leagueId) : endQuery.is('league_id', null)
-  await endQuery
+    .eq('organization_id', org.id).eq('status', 'live').eq('url', parsed.data.url)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (db as any)

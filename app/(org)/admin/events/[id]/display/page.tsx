@@ -4,6 +4,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { getDisplayConfig, getDisplayScreens } from '@/actions/display'
+import { getActiveLiveStreams } from '@/actions/live'
 import { defaultConfig } from '@/lib/display-types'
 import { DisplayControlPanel } from '@/components/display/display-control-panel'
 
@@ -71,6 +72,12 @@ export default async function DisplayAdminPage({
 
   const displayBaseUrl = `https://${org.slug}.${process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'}/events/${league.slug}/display`
 
+  // Currently-live streams for the per-screen stream picker (this event + org-wide).
+  const allLive = await getActiveLiveStreams(org.id)
+  const liveStreams = allLive
+    .filter((s) => s.league_id === id || s.league_id === null)
+    .map((s) => ({ id: s.id, title: s.title, platform: s.platform }))
+
   return (
     <DisplayControlPanel
       leagueId={id}
@@ -80,6 +87,7 @@ export default async function DisplayAdminPage({
       bracketTiers={bracketTiers}
       timezone={timezone}
       initialScreens={screenConfigs}
+      liveStreams={liveStreams}
     />
   )
 }
