@@ -1556,7 +1556,7 @@ export default async function EventDetailPage({
                 <h2 className="font-semibold text-gray-900">Event gallery</h2>
                 <p className="text-sm text-gray-500">Share your photos and videos — uploads appear here once an organizer approves them.</p>
               </div>
-              {cloudinaryReady && <EventMediaUpload leagueId={league.id} apiKey={cloudinaryKey} cloudName={CLOUD_NAME} />}
+              {cloudinaryReady && <EventMediaUpload leagueId={league.id} orgId={org.id} apiKey={cloudinaryKey} cloudName={CLOUD_NAME} />}
             </div>
             <EventMediaGallery items={eventMedia} />
             {curatedSocial.length > 0 && (

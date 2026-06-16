@@ -5,6 +5,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgDataControls } from '@/components/settings/org-data-controls'
 import { OrgExportControls } from '@/components/settings/org-export-controls'
+import { OrgMediaExport } from '@/components/settings/org-media-export'
 
 const EXPORT_WINDOW_DAYS = 30
 
@@ -117,8 +118,9 @@ export default async function AdminDataPage() {
 
       {/* Full ZIP export — async job with email notification */}
       {canExport && (
-        <div className="mb-6">
+        <div className="mb-6 space-y-6">
           <OrgExportControls />
+          <OrgMediaExport />
         </div>
       )}
 

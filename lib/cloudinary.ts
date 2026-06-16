@@ -56,3 +56,38 @@ export async function destroyAsset(publicId: string, resourceType: 'image' | 'vi
     // best-effort — the DB row is already gone; an orphaned asset is harmless
   }
 }
+
+/**
+ * Bulk-delete assets from Cloudinary (used when purging an org's media on
+ * account closure). Batches by resource type, ≤100 per Admin API call.
+ * Best-effort — returns how many ids were submitted for deletion.
+ */
+export async function destroyAssets(items: { publicId: string; resourceType: 'image' | 'video' }[]): Promise<number> {
+  if (!isCloudinaryConfigured() || items.length === 0) return 0
+  ensureConfig()
+  const byType: Record<'image' | 'video', string[]> = { image: [], video: [] }
+  for (const it of items) byType[it.resourceType].push(it.publicId)
+
+  let submitted = 0
+  for (const type of ['image', 'video'] as const) {
+    const ids = byType[type]
+    for (let i = 0; i < ids.length; i += 100) {
+      const chunk = ids.slice(i, i + 100)
+      try {
+        await cloudinary.api.delete_resources(chunk, { resource_type: type, invalidate: true })
+        submitted += chunk.length
+      } catch {
+        // best-effort; continue with remaining chunks
+      }
+    }
+  }
+  return submitted
+}
+
+/** Signed URL that downloads a ZIP archive of the given public ids (one resource
+ *  type per archive). Returns null when not configured or no ids. */
+export function archiveDownloadUrl(publicIds: string[], resourceType: 'image' | 'video'): string | null {
+  if (!isCloudinaryConfigured() || publicIds.length === 0) return null
+  ensureConfig()
+  return cloudinary.utils.download_zip_url({ public_ids: publicIds, resource_type: resourceType, target_format: 'zip' })
+}

@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
+import { destroyAssets } from '@/lib/cloudinary'
 
 const IMPERSONATE_COOKIE = 'fieldday_impersonate_org_id'
 
@@ -252,6 +253,19 @@ export async function deleteOrganization(orgId: string): Promise<{ error: string
 
   // Clean up storage objects for this org (non-fatal if bucket doesn't exist yet)
   await supabase.storage.from('org-branding').remove([`${orgId}/logo.png`, `${orgId}/logo.jpg`, `${orgId}/logo.webp`, `${orgId}/logo.svg`, `${orgId}/logo.gif`]).catch(() => {})
+
+  // Purge the org's Cloudinary-hosted event media BEFORE the cascade below
+  // deletes event_media — otherwise the public_id index is lost and the assets
+  // are orphaned on Cloudinary forever. Best-effort.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: media } = await (supabase as any)
+    .from('event_media').select('cloudinary_public_id, media_type').eq('organization_id', orgId)
+  await destroyAssets(
+    ((media ?? []) as { cloudinary_public_id: string; media_type: string }[]).map((m) => ({
+      publicId: m.cloudinary_public_id,
+      resourceType: m.media_type === 'video' ? 'video' : 'image',
+    }))
+  )
 
   // Purge via RPC so the org delete + its ON DELETE CASCADE (including the
   // append-only tenant_acceptances rows) happen atomically with the purge flag.

@@ -12,7 +12,7 @@ import { recordEventMediaUpload } from '@/actions/event-media'
  * record metadata through a server action. Items start 'pending' until an admin
  * approves them. Renders nothing if Cloudinary isn't configured.
  */
-export function EventMediaUpload({ leagueId, apiKey, cloudName }: { leagueId: string; apiKey: string; cloudName: string }) {
+export function EventMediaUpload({ leagueId, orgId, apiKey, cloudName }: { leagueId: string; orgId: string; apiKey: string; cloudName: string }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -53,7 +53,7 @@ export function EventMediaUpload({ leagueId, apiKey, cloudName }: { leagueId: st
           multiple: true,
           resourceType: 'auto',
           maxFileSize: 100_000_000,
-          folder: `fieldday/events/${leagueId}`,
+          folder: `fieldday/${orgId}/events/${leagueId}`,
           sources: ['local', 'camera'],
           clientAllowedFormats: ['image', 'video'],
         }}

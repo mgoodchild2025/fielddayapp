@@ -40,7 +40,7 @@ export default async function EventMediaAdminPage({ params }: { params: Promise<
             Approve player uploads to publish them to the event gallery, or hide/delete anything unwanted.
           </p>
         </div>
-        {isCloudinaryConfigured() && <EventMediaUpload leagueId={id} apiKey={cloudinaryApiKey()} cloudName={CLOUD_NAME} />}
+        {isCloudinaryConfigured() && <EventMediaUpload leagueId={id} orgId={org.id} apiKey={cloudinaryApiKey()} cloudName={CLOUD_NAME} />}
       </div>
 
       {!isCloudinaryConfigured() && (
