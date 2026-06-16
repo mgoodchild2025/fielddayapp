@@ -5,7 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { getEventMediaForAdmin } from '@/actions/event-media'
-import { isCloudinaryConfigured, cloudinaryApiKey } from '@/lib/cloudinary'
+import { isCloudinaryConfigured, cloudinaryApiKey, CLOUD_NAME } from '@/lib/cloudinary'
 import { EventMediaModeration } from '@/components/media/event-media-moderation'
 import { EventMediaUpload } from '@/components/media/event-media-upload'
 
@@ -35,7 +35,7 @@ export default async function EventMediaAdminPage({ params }: { params: Promise<
             Approve player uploads to publish them to the event gallery, or hide/delete anything unwanted.
           </p>
         </div>
-        {isCloudinaryConfigured() && <EventMediaUpload leagueId={id} apiKey={cloudinaryApiKey()} />}
+        {isCloudinaryConfigured() && <EventMediaUpload leagueId={id} apiKey={cloudinaryApiKey()} cloudName={CLOUD_NAME} />}
       </div>
 
       {!isCloudinaryConfigured() && (

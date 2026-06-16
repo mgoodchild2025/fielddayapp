@@ -36,7 +36,7 @@ import { getCurrentLiveStream } from '@/actions/live'
 import { getApprovedEventMedia } from '@/actions/event-media'
 import { EventMediaUpload } from '@/components/media/event-media-upload'
 import { EventMediaGallery } from '@/components/media/event-media-gallery'
-import { isCloudinaryConfigured, cloudinaryApiKey } from '@/lib/cloudinary'
+import { isCloudinaryConfigured, cloudinaryApiKey, CLOUD_NAME } from '@/lib/cloudinary'
 import { getEnrollmentForRegistration } from '@/actions/payment-plans'
 import { PlayerInstallmentSchedule } from '@/components/payments/player-installment-schedule'
 
@@ -1552,7 +1552,7 @@ export default async function EventDetailPage({
                 <h2 className="font-semibold text-gray-900">Event gallery</h2>
                 <p className="text-sm text-gray-500">Share your photos and videos — uploads appear here once an organizer approves them.</p>
               </div>
-              {cloudinaryReady && <EventMediaUpload leagueId={league.id} apiKey={cloudinaryKey} />}
+              {cloudinaryReady && <EventMediaUpload leagueId={league.id} apiKey={cloudinaryKey} cloudName={CLOUD_NAME} />}
             </div>
             <EventMediaGallery items={eventMedia} />
           </div>

@@ -12,11 +12,10 @@ import { recordEventMediaUpload } from '@/actions/event-media'
  * record metadata through a server action. Items start 'pending' until an admin
  * approves them. Renders nothing if Cloudinary isn't configured.
  */
-export function EventMediaUpload({ leagueId, apiKey }: { leagueId: string; apiKey: string }) {
+export function EventMediaUpload({ leagueId, apiKey, cloudName }: { leagueId: string; apiKey: string; cloudName: string }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
 
   if (!cloudName || !apiKey) return null
 
