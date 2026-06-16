@@ -1,6 +1,10 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY
-const EMAIL_FROM = process.env.EMAIL_FROM ?? 'Fieldday <noreply@fielddayapp.ca>'
-const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO ?? 'hello@fielddayapp.ca'
+const EMAIL_FROM = process.env.EMAIL_FROM ?? 'Fieldday <hello@fielddayapp.ca>'
+// Reply-To MUST match the From address. A noreply From with a different Reply-To
+// is a classic phishing signal and gets flagged. Derive it from EMAIL_FROM so the
+// two can never diverge, regardless of how EMAIL_FROM is configured.
+const FROM_ADDRESS = (EMAIL_FROM.match(/<([^>]+)>/)?.[1] ?? EMAIL_FROM).trim()
+const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO ?? FROM_ADDRESS
 // List-Unsubscribe points at a real, monitored mailbox so the header is valid.
 // Its presence is a positive signal to spam filters (notably Microsoft/Outlook).
 const UNSUBSCRIBE_MAILTO = process.env.EMAIL_UNSUBSCRIBE ?? 'hello@fielddayapp.ca'
