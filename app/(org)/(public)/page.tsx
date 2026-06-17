@@ -19,7 +19,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
       .single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues')
-      .select('id, name, slug, event_type, sport, logo_url, status, season_start_date, price_cents, currency, max_teams, max_participants, payment_mode, skill_level, days_of_week, game_start_time, game_end_time')
+      .select('id, name, slug, event_type, sport, logo_url, status, season_start_date, price_cents, drop_in_price_cents, currency, max_teams, max_participants, payment_mode, skill_level, days_of_week, game_start_time, game_end_time')
       .eq('organization_id', orgId)
       .is('deleted_at', null)
       .neq('status', 'draft')
@@ -87,7 +87,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
   type League = {
     id: string; name: string; slug: string; event_type: string | null; status: string
     sport: string | null; logo_url: string | null
-    season_start_date: string | null; price_cents: number; currency: string | null
+    season_start_date: string | null; price_cents: number; drop_in_price_cents: number | null; currency: string | null
     max_teams: number | null; max_participants: number | null; payment_mode: string | null; skill_level: string | null
     days_of_week: string[] | null
     game_start_time: string | null

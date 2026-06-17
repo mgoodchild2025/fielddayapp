@@ -6,6 +6,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { updateLeagueStatus } from '@/actions/events'
 import { getLeagueOrganizers } from '@/actions/organizers'
 import { canAccess } from '@/lib/features'
+import { formatEventPrice } from '@/lib/event-price'
 import { getMerchandiseOrders } from '@/actions/merchandise'
 import { getLeagueDocuments } from '@/actions/league-documents'
 import { EditEventForm } from '@/components/events/edit-event-form'
@@ -136,10 +137,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
         <dl className="space-y-3 text-sm mt-4">
           <Row label="Sport" value={league.sport ?? '—'} />
           {league.age_group && <Row label="Age Group" value={league.age_group} />}
-          <Row
-            label="Price"
-            value={league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency.toUpperCase()}`}
-          />
+          <Row label="Price" value={formatEventPrice(league)} />
           <Row label="Payment Mode" value={league.payment_mode.replace('_', ' ')} />
           <Row label="Team Size" value={`${league.min_team_size ?? 1}–${league.max_team_size ?? '∞'} players`} />
           {league.max_teams && <Row label="Max Teams" value={String(league.max_teams)} />}

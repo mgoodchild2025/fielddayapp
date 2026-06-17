@@ -14,7 +14,7 @@ export default async function AdminEventsPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (db as any)
     .from('leagues')
-    .select('id, name, slug, status, event_type, sport, logo_url, price_cents, currency, season_start_date, venue_name, created_at')
+    .select('id, name, slug, status, event_type, sport, logo_url, price_cents, drop_in_price_cents, currency, season_start_date, venue_name, created_at')
     .eq('organization_id', org.id)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })

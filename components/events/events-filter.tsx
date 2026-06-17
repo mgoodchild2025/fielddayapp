@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { EventAvatar } from '@/components/ui/event-avatar'
+import { formatEventPrice } from '@/lib/event-price'
 
 export interface EventItem {
   id: string
@@ -13,6 +14,7 @@ export interface EventItem {
   sport: string | null
   logo_url: string | null
   price_cents: number
+  drop_in_price_cents: number | null
   currency: string
   season_start_date: string | null
   max_teams: number | null
@@ -57,10 +59,6 @@ const EVENT_TYPE_LABEL: Record<string, string> = {
 
 function formatSport(s: string) {
   return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-function formatPrice(cents: number, currency: string) {
-  return cents === 0 ? 'Free' : `$${(cents / 100).toFixed(0)} ${currency.toUpperCase()}`
 }
 
 function formatDate(iso: string) {
@@ -182,7 +180,7 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
             <span className="text-sm text-amber-700 font-medium">Players can still join a team</span>
           ) : (
             <span className={`text-base font-bold ${isFull ? 'text-gray-400' : 'text-green-600'}`}>
-              {formatPrice(event.price_cents, event.currency)}
+              {formatEventPrice(event)}
             </span>
           )}
           {isFull ? (

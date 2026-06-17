@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { DeleteEventRowButton } from '@/components/events/delete-event-row-button'
 import { EventAvatar } from '@/components/ui/event-avatar'
+import { formatEventPrice } from '@/lib/event-price'
 
 type League = {
   id: string
@@ -14,6 +15,7 @@ type League = {
   sport: string | null
   logo_url: string | null
   price_cents: number
+  drop_in_price_cents: number | null
   currency: string
   season_start_date: string | null
   venue_name: string | null
@@ -161,7 +163,7 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
                   </td>
                   <td className="px-4 py-3 text-gray-500">{league.venue_name ?? '—'}</td>
                   <td className="px-4 py-3">
-                    {league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency.toUpperCase()}`}
+                    {formatEventPrice(league)}
                   </td>
                   <td className="px-4 py-3 text-gray-500">
                     {league.season_start_date ? new Date(league.season_start_date).toLocaleDateString() : '—'}
@@ -228,7 +230,7 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
                   <span>{new Date(league.season_start_date).toLocaleDateString()}</span>
                 )}
                 <span>
-                  {league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency.toUpperCase()}`}
+                  {formatEventPrice(league)}
                 </span>
               </div>
             </Link>

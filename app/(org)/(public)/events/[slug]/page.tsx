@@ -1041,7 +1041,10 @@ export default async function EventDetailPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const earlyBirdDeadline: string | null = (league as any).early_bird_deadline ?? null
   const earlyBirdActive = earlyBirdPriceCents != null && earlyBirdDeadline != null && new Date() < new Date(earlyBirdDeadline)
-  const effectiveRegPrice = earlyBirdActive ? earlyBirdPriceCents! : league.price_cents
+  // Drop-in / pickup events keep their fee in drop_in_price_cents (season price
+  // is often 0), so fall back to it for the headline price.
+  const baseRegPrice = league.price_cents > 0 ? league.price_cents : (dropInPriceCents ?? 0)
+  const effectiveRegPrice = earlyBirdActive ? earlyBirdPriceCents! : baseRegPrice
   const price = effectiveRegPrice === 0 ? 'Free' : `$${(effectiveRegPrice / 100).toFixed(0)} ${league.currency?.toUpperCase()}${earlyBirdActive ? ' (Early Bird)' : ''}`
   const dropInPriceLabel = dropInPriceCents !== null
     ? (dropInPriceCents === 0 ? 'Free drop-in' : `$${(dropInPriceCents / 100).toFixed(0)} drop-in`)

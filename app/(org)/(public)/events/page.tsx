@@ -20,7 +20,7 @@ export default async function EventsPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)
       .from('leagues')
-      .select('id, name, slug, status, event_type, sport, logo_url, price_cents, currency, season_start_date, max_teams, payment_mode, skill_level, days_of_week, game_start_time, game_end_time')
+      .select('id, name, slug, status, event_type, sport, logo_url, price_cents, drop_in_price_cents, currency, season_start_date, max_teams, payment_mode, skill_level, days_of_week, game_start_time, game_end_time')
       .eq('organization_id', org.id)
       .is('deleted_at', null)
       .not('status', 'in', '(draft,archived)')
@@ -62,6 +62,7 @@ export default async function EventsPage() {
     sport: l.sport,
     logo_url: l.logo_url ?? null,
     price_cents: l.price_cents ?? 0,
+    drop_in_price_cents: l.drop_in_price_cents ?? null,
     currency: l.currency ?? 'cad',
     season_start_date: l.season_start_date ?? null,
     max_teams: l.max_teams ?? null,

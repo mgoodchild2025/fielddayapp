@@ -5,11 +5,12 @@ import { Footer } from '@/components/layout/footer'
 import { EventAvatar } from '@/components/ui/event-avatar'
 import { HeroSocialLinks } from '@/components/ui/social-links'
 import type { OrgContext } from '@/lib/tenant'
+import { formatEventPrice } from '@/lib/event-price'
 
 type League = {
   id: string; name: string; slug: string; event_type: string | null; status: string
   sport: string | null; logo_url: string | null
-  season_start_date: string | null; price_cents: number; currency: string | null
+  season_start_date: string | null; price_cents: number; drop_in_price_cents: number | null; currency: string | null
   max_teams: number | null; payment_mode: string | null; skill_level: string | null
   days_of_week: string[] | null; game_start_time: string | null; game_end_time: string | null
 }
@@ -174,7 +175,7 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
                             </p>
                           )}
                           <p className="mt-3 text-sm font-semibold group-hover:underline" style={{ color: 'var(--brand-primary)' }}>
-                            {league.price_cents === 0 ? 'Free' : `$${(league.price_cents / 100).toFixed(0)} ${league.currency ?? 'CAD'}`} →
+                            {formatEventPrice(league)} →
                           </p>
                         </Link>
                       )

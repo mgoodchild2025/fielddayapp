@@ -5,6 +5,7 @@ import { Footer } from '@/components/layout/footer'
 import { EventAvatar } from '@/components/ui/event-avatar'
 import { HeroSocialLinks } from '@/components/ui/social-links'
 import type { OrgContext } from '@/lib/tenant'
+import { formatEventPrice } from '@/lib/event-price'
 
 type Photo = { id: string; url: string; caption: string | null; display_order: number }
 type StaffMember = { id: string; name: string; role: string | null; bio: string | null; avatar_url: string | null; display_order: number }
@@ -19,6 +20,7 @@ type League = {
   sport: string | null
   season_start_date: string | null
   price_cents: number
+  drop_in_price_cents: number | null
   currency: string | null
   max_teams: number | null
   payment_mode: string | null
@@ -163,9 +165,7 @@ function EventCard({ league, spots }: { league: League; spots: { filled: number;
       <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>
         {atCapacity
           ? 'Players can still join a team'
-          : league.price_cents === 0
-            ? 'Free'
-            : `$${(league.price_cents / 100).toFixed(0)} ${(league.currency ?? 'CAD').toUpperCase()}`}
+          : formatEventPrice(league)}
       </p>
     </Link>
   )
