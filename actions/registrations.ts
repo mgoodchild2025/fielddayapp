@@ -14,6 +14,10 @@ import { calendarSubscribeUrls, ensureCalendarToken } from '@/lib/calendar-feed'
 import { buildCalendarCtaHtml } from '@/lib/email'
 import { isPlayerRegistrationBlocked } from '@/lib/billing'
 import { toE164 } from '@/lib/twilio'
+import { createRateLimiter } from '@/lib/rate-limit'
+
+// Public guest endpoints are unauthenticated writes — rate-limit by IP.
+const guestRegLimiter = createRateLimiter({ windowMs: 10 * 60_000, max: 8 })
 
 const createRegistrationSchema = z.object({
   leagueId: z.string().uuid(),
@@ -527,4 +531,204 @@ export async function adminAddRegistrant(input: z.infer<typeof adminAddRegistran
   revalidatePath('/admin/payments')
   revalidatePath(`/admin/events/${parsed.data.leagueId}/registrations`)
   return { error: null, registrationId: reg.id, guest: !registrantUserId }
+}
+
+// ── Guest (no-account) self-serve drop-in registration ───────────────────────
+
+// Mirrors the register page's `isOpenDropIn` gate. Guests may only self-register
+// for events explicitly opened to walk-up / drop-in play.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function isOpenDropInEvent(league: any): boolean {
+  return league?.league_type === 'dropin'
+    || league?.event_type === 'drop_in'
+    || (league?.event_type === 'pickup' && league?.pickup_join_policy !== 'private')
+}
+
+const guestDropinSchema = z.object({
+  leagueId: z.string().uuid(),
+  sessionId: z.string().uuid().optional().nullable(),
+  fullName: z.string().trim().min(2, 'Please enter your name').max(120),
+  email: z.string().trim().email('Enter a valid email'),
+  phone: z.string().trim().max(40).optional().or(z.literal('')),
+  waiverSignatureId: z.string().uuid().optional().nullable(),
+})
+
+/**
+ * Public, unauthenticated drop-in registration for a guest (no account). Creates
+ * a `registrations` row with `user_id` NULL and the guest's contact details inline.
+ *
+ * - Free or pay-at-the-door (manual) events → status 'active' immediately.
+ * - Online-paid events (Stripe connected) → status 'pending'; the caller then runs
+ *   the guest checkout and the webhook/return-fallback flips it to 'active' + paid.
+ *
+ * The waiver is signed separately via `signWaiverAsGuest` and linked here.
+ */
+export async function registerGuestDropin(input: z.infer<typeof guestDropinSchema>) {
+  const parsed = guestDropinSchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid input', registrationId: null, needsPayment: false, slug: null }
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+
+  const ip = headersList.get('x-forwarded-for')?.split(',')[0].trim() ?? headersList.get('x-real-ip') ?? 'unknown'
+  if (guestRegLimiter.check(ip).limited) {
+    return { error: 'Too many requests. Please wait a few minutes and try again.', registrationId: null, needsPayment: false, slug: null }
+  }
+
+  const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: league } = await (db as any)
+    .from('leagues')
+    .select('id, name, slug, status, event_type, league_type, pickup_join_policy, drop_in_price_cents, price_cents, currency')
+    .eq('id', parsed.data.leagueId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (!league) return { error: 'Event not found', registrationId: null, needsPayment: false, slug: null }
+  if (!['registration_open', 'active'].includes(league.status)) {
+    return { error: 'Registration is not open for this event.', registrationId: null, needsPayment: false, slug: null }
+  }
+  if (!isOpenDropInEvent(league)) {
+    return { error: 'Guest registration is not available for this event.', registrationId: null, needsPayment: false, slug: null }
+  }
+
+  const priceCents: number = league.drop_in_price_cents ?? league.price_cents ?? 0
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: settings } = await (db as any)
+    .from('org_payment_settings')
+    .select('stripe_secret_key, registration_payment_mode')
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  const onlinePayments = !!settings?.stripe_secret_key && (settings?.registration_payment_mode ?? 'stripe') !== 'manual'
+  const needsOnlinePayment = priceCents > 0 && onlinePayments
+
+  const email = parsed.data.email.toLowerCase()
+  const phone = parsed.data.phone?.trim() || null
+
+  // If this email already has an account, fold the registration into it so the
+  // person's history stays unified (and they can see it under My Events).
+  const { data: existingProfile } = await db
+    .from('profiles').select('id').ilike('email', email).maybeSingle()
+  const registrantUserId: string | null = existingProfile?.id ?? null
+
+  if (registrantUserId) {
+    // Avoid a duplicate drop-in row for the same session.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dupeQuery = (db as any)
+      .from('registrations').select('id, status')
+      .eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', registrantUserId)
+      .eq('registration_type', 'drop_in')
+    if (parsed.data.sessionId) dupeQuery.eq('session_id', parsed.data.sessionId)
+    const { data: dupe } = await dupeQuery.maybeSingle()
+    if (dupe) {
+      return { error: 'You already have an account with this email and are registered for this session. Please sign in to view it.', registrationId: null, needsPayment: false, slug: null }
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: reg, error: regErr } = await (db as any)
+    .from('registrations')
+    .insert({
+      organization_id: org.id,
+      league_id: league.id,
+      user_id: registrantUserId,
+      guest_name: registrantUserId ? null : parsed.data.fullName,
+      guest_email: registrantUserId ? null : email,
+      guest_phone: registrantUserId ? null : phone,
+      registration_type: 'drop_in',
+      session_id: parsed.data.sessionId || null,
+      waiver_signature_id: parsed.data.waiverSignatureId || null,
+      status: needsOnlinePayment ? 'pending' : 'active',
+    })
+    .select('id')
+    .single()
+  if (regErr || !reg) return { error: regErr?.message ?? 'Could not create the registration', registrationId: null, needsPayment: false, slug: null }
+
+  return { error: null, registrationId: reg.id as string, needsPayment: needsOnlinePayment, slug: league.slug as string, priceCents }
+}
+
+// ── Claim a guest registration into a real account ───────────────────────────
+
+const claimGuestSchema = z.object({
+  registrationId: z.string().uuid(),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(72),
+})
+
+/**
+ * Upgrades a guest registration to a real account. Creates a confirmed Supabase
+ * auth user from the guest's email + chosen password, moves the registration and
+ * any guest waiver signatures onto the new user, and adds org membership. The
+ * caller signs the user in client-side afterwards.
+ */
+export async function claimGuestRegistration(input: z.infer<typeof claimGuestSchema>) {
+  const parsed = claimGuestSchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid input', email: null }
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+
+  const ip = headersList.get('x-forwarded-for')?.split(',')[0].trim() ?? headersList.get('x-real-ip') ?? 'unknown'
+  if (guestRegLimiter.check(ip).limited) return { error: 'Too many requests. Please wait a few minutes and try again.', email: null }
+
+  const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: reg } = await (db as any)
+    .from('registrations')
+    .select('id, user_id, guest_name, guest_email, guest_phone')
+    .eq('id', parsed.data.registrationId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (!reg) return { error: 'Registration not found', email: null }
+  if (reg.user_id) return { error: 'This registration already belongs to an account. Please sign in.', email: null }
+  const email = (reg.guest_email as string | null)?.toLowerCase()
+  if (!email) return { error: 'This registration has no email to create an account with.', email: null }
+
+  // If an account somehow already exists for this email, don't clobber it.
+  const { data: existing } = await db.from('profiles').select('id').ilike('email', email).maybeSingle()
+  if (existing) return { error: 'An account already exists for this email. Please sign in instead.', email }
+
+  const { data: created, error: createErr } = await db.auth.admin.createUser({
+    email,
+    password: parsed.data.password,
+    email_confirm: true,
+    user_metadata: { full_name: reg.guest_name ?? '' },
+  })
+  if (createErr || !created?.user) return { error: createErr?.message ?? 'Could not create the account', email }
+  const newUserId = created.user.id
+
+  await db.from('profiles').update({
+    full_name: reg.guest_name ?? null,
+    phone: reg.guest_phone ? toE164(reg.guest_phone) : null,
+  }).eq('id', newUserId)
+
+  await db.from('org_members').upsert({
+    organization_id: org.id,
+    user_id: newUserId,
+    role: 'player',
+    status: 'active',
+    invited_email: email,
+  }, { onConflict: 'organization_id,user_id', ignoreDuplicates: false })
+
+  // Move the registration onto the account and clear the inline guest fields.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('registrations').update({
+    user_id: newUserId,
+    guest_name: null,
+    guest_email: null,
+    guest_phone: null,
+  }).eq('id', reg.id).eq('organization_id', org.id)
+
+  // Re-home any guest waiver signatures for this email so they appear in account history.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('waiver_signatures').update({ user_id: newUserId, guest_name: null, guest_email: null })
+    .eq('organization_id', org.id).is('user_id', null).ilike('guest_email', email)
+
+  // Attach any other paid guest payments for this registration to the account.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('payments').update({ user_id: newUserId })
+    .eq('organization_id', org.id).eq('registration_id', reg.id).is('user_id', null)
+
+  return { error: null, email }
 }

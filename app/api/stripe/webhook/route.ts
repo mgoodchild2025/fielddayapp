@@ -232,6 +232,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true })
     }
 
+    // ── Guest (no-account) self-serve drop-in ────────────────────────────
+    // The pending registration + payment are pre-created by the checkout route;
+    // flip them to active/paid here.
+    if (paymentType === 'guest_dropin') {
+      const { registrationId: guestRegId, paymentId: guestPayId } = session.metadata ?? {}
+      const nowIso = new Date().toISOString()
+      if (guestPayId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any).from('payments').update({
+          status: 'paid',
+          paid_at: nowIso,
+          stripe_payment_intent_id: session.payment_intent as string,
+          stripe_checkout_session_id: session.id,
+        }).eq('id', guestPayId)
+      }
+      if (guestRegId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any).from('registrations')
+          .update({ status: 'active' }).eq('id', guestRegId).eq('organization_id', orgId)
+      }
+      return NextResponse.json({ received: true })
+    }
+
     // ── Payment plan instalment ──────────────────────────────────────────
     if (paymentType === 'installment') {
       const { installmentId, enrollmentId, installmentNumber } = session.metadata ?? {}

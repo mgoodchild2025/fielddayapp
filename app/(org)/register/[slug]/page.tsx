@@ -4,6 +4,9 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { RegistrationFlow } from '@/components/registration/registration-flow'
+import { GuestRegistrationFlow } from '@/components/registration/guest-registration-flow'
+import { OrgNav } from '@/components/layout/org-nav'
+import { Footer } from '@/components/layout/footer'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getPositionsForSport } from '@/actions/positions'
 import { getLeagueMerchandise } from '@/actions/merchandise'
@@ -30,7 +33,6 @@ export default async function RegisterLeaguePage({
   const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect(`/login?redirect=/register/${slug}${isDropIn ? '?mode=drop_in' : ''}`)
 
   // registration_open: open to all. active: only team-invited players (guard below).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,6 +45,76 @@ export default async function RegisterLeaguePage({
     .single()
 
   if (!league) notFound()
+
+  // Guests (no account) may self-register for open drop-in / pickup events — offer
+  // them a sign-in vs. continue-as-guest choice instead of forcing login.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const guestEligible = (league as any).league_type === 'dropin'
+    || (league as any).event_type === 'drop_in'
+    || ((league as any).event_type === 'pickup' && (league as any).pickup_join_policy !== 'private')
+
+  if (!user) {
+    if (isDropIn && guestEligible) {
+      const [{ data: gBranding }, { data: gSettings }, gWaiver, { data: gRawSessions }] = await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).maybeSingle(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any).from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', org.id).maybeSingle(),
+        (async () => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const sel = (q: any) => q.select('id, title, content')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          if ((league as any).waiver_version_id) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data } = await sel((db as any).from('waivers')).eq('id', (league as any).waiver_version_id).maybeSingle()
+            return data
+          }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data } = await sel((db as any).from('waivers')).eq('organization_id', org.id).eq('is_active', true).maybeSingle()
+          return data
+        })(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any).from('event_sessions')
+          .select('id, scheduled_at, capacity, registered:session_registrations(count)')
+          .eq('league_id', league.id).eq('organization_id', org.id).eq('status', 'open')
+          .gte('scheduled_at', new Date().toISOString()).order('scheduled_at', { ascending: true }).limit(20),
+      ])
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const gSessions = (gRawSessions ?? []).map((s: any) => ({
+        id: s.id, scheduled_at: s.scheduled_at, capacity: s.capacity,
+        registered_count: s.registered?.[0]?.count ?? 0,
+      }))
+      const gOnline = !!gSettings?.stripe_secret_key && (gSettings?.registration_payment_mode ?? 'stripe') !== 'manual'
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const gPrice = (league as any).drop_in_price_cents ?? (league as any).price_cents ?? 0
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const gManual = ((league as any).payment_instructions?.trim() || null) ?? (gSettings?.registration_manual_instructions ?? null)
+
+      return (
+        <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
+          <OrgNav org={org} logoUrl={gBranding?.logo_url ?? null} />
+          <div className="max-w-md mx-auto w-full px-5 py-10 flex-1">
+            <GuestRegistrationFlow
+              org={{ id: org.id, name: org.name, slug: org.slug }}
+              league={{ id: league.id, name: league.name, slug: league.slug, sport: league.sport ?? null }}
+              waiver={gWaiver ? { id: gWaiver.id, title: gWaiver.title, content: gWaiver.content } : null}
+              sessions={gSessions}
+              preselectedSessionId={preselectedSessionId}
+              priceCents={gPrice}
+              currency={(league as any).currency ?? 'cad'}
+              onlinePayments={gOnline}
+              manualInstructions={gManual}
+              timezone={gBranding?.timezone ?? 'America/Toronto'}
+              loginHref={`/login?redirect=/register/${slug}?mode=drop_in`}
+            />
+          </div>
+          <Footer org={org} />
+        </div>
+      )
+    }
+    redirect(`/login?redirect=/register/${slug}${isDropIn ? '?mode=drop_in' : ''}`)
+  }
 
   // ── Team join policy enforcement ──────────────────────────────────────────
   // Org admins bypass all policy gates
