@@ -14,14 +14,22 @@ export function GoogleAuthButton({ redirectTo, label = 'Continue with Google' }:
   async function handleClick() {
     setLoading(true)
     const supabase = createClient()
-    // Only pass ?next when there's an explicit redirect target. Otherwise let
-    // the callback compute the right destination by org context + role
+    // Only carry a destination when there's an explicit redirect target. Otherwise
+    // let the callback compute the right destination by org context + role
     // (org → /dashboard, platform admin → /super, org-less → /choose-org).
     // Hardcoding /dashboard here breaks apex/platform logins.
     const next = redirectTo && redirectTo.startsWith('/') ? redirectTo : null
-    const callbackUrl = next
-      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
-      : `${window.location.origin}/auth/callback`
+    // Carry the post-login destination in a short-lived cookie rather than as a
+    // query string on the OAuth redirectTo. A query on redirectTo can fail
+    // Supabase's redirect-allowlist match, which bounces the callback to the
+    // project Site URL (a different host) where the PKCE code-verifier cookie
+    // doesn't exist — so the code exchange fails and the user loops back to
+    // /login. Keeping the callback URL constant matches the allowlist; the
+    // callback reads this cookie for `next`.
+    if (next) {
+      document.cookie = `fd_oauth_next=${encodeURIComponent(next)}; path=/; max-age=600; SameSite=Lax`
+    }
+    const callbackUrl = `${window.location.origin}/auth/callback`
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: callbackUrl },

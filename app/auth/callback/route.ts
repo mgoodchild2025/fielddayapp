@@ -42,7 +42,11 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code')
   const tokenHash = searchParams.get('token_hash')
   const type = searchParams.get('type') as EmailOtpType | null
-  const nextParam = safeRelative(searchParams.get('next'))
+  // `next` may arrive as a query param (legacy) or, for OAuth, in a short-lived
+  // cookie set by the Google button (keeps the OAuth redirectTo allowlist-clean).
+  const cookieNextRaw = request.cookies.get('fd_oauth_next')?.value
+  const cookieNext = cookieNextRaw ? decodeURIComponent(cookieNextRaw) : null
+  const nextParam = safeRelative(searchParams.get('next') ?? cookieNext)
 
   const origin = getOrigin(request)
   const errorRedirect = (reason: string) =>
@@ -97,5 +101,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(`${origin}${dest}`)
+  const response = NextResponse.redirect(`${origin}${dest}`)
+  if (cookieNextRaw) response.cookies.set('fd_oauth_next', '', { maxAge: 0, path: '/' })
+  return response
 }
