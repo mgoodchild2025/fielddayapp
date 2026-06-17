@@ -1,5 +1,7 @@
 import { headers } from 'next/headers'
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { QrCode } from 'lucide-react'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { AdminSessionsManager } from '@/components/sessions/admin-sessions-manager'
@@ -135,9 +137,17 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
         Use <strong>Repeat weekly</strong> when adding a session to bulk-create the full schedule at once.
       </div>
 
-      {showWalkup && (
-        <DropinWalkupPayment orgId={org.id} leagueId={id} sessions={sessionOptions} priceLabel={priceLabel} />
-      )}
+      <div className="flex flex-wrap items-start gap-3">
+        <Link
+          href={`/admin/events/${id}/sessions/qr`}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md text-sm font-semibold border text-gray-700 hover:bg-gray-50"
+        >
+          <QrCode className="w-4 h-4" /> Registration QR
+        </Link>
+        {showWalkup && (
+          <DropinWalkupPayment orgId={org.id} leagueId={id} sessions={sessionOptions} priceLabel={priceLabel} />
+        )}
+      </div>
       <AdminSessionsManager
         leagueId={id}
         initialSessions={mapped}
