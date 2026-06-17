@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { AdminSessionsManager } from '@/components/sessions/admin-sessions-manager'
+import { DropinWalkupPayment } from '@/components/sessions/dropin-walkup-payment'
 
 export default async function AdminSessionsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -10,10 +11,10 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  const [{ data: league }, { data: sessions }, { data: branding }] = await Promise.all([
+  const [{ data: league }, { data: sessions }, { data: branding }, { data: paySettings }] = await Promise.all([
     db
       .from('leagues')
-      .select('id, name, event_type, registration_mode, max_participants')
+      .select('id, name, event_type, registration_mode, max_participants, drop_in_price_cents, price_cents, currency')
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
@@ -29,9 +30,17 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
       .eq('organization_id', org.id)
       .order('scheduled_at', { ascending: true }),
     db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_payment_settings').select('stripe_secret_key').eq('organization_id', org.id).maybeSingle(),
   ])
 
   const timezone = branding?.timezone ?? 'America/Toronto'
+
+  // Walk-up payment is available when Stripe is connected and a drop-in price is set.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dropinPriceCents: number = ((league as any)?.drop_in_price_cents ?? (league as any)?.price_cents ?? 0)
+  const stripeConnected = !!paySettings?.stripe_secret_key
+  const showWalkup = stripeConnected && dropinPriceCents > 0
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leagueAny = league as any
@@ -110,6 +119,14 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
     dropin_count: dropInBySession.get(s.id) ?? 0,
   }))
 
+  const sessionOptions = mapped.map((s: { id: string; scheduled_at: string }) => ({
+    id: s.id,
+    label: new Date(s.scheduled_at).toLocaleString('en-CA', {
+      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: timezone,
+    }),
+  }))
+  const priceLabel = `$${(dropinPriceCents / 100).toFixed(2)}`
+
   return (
     <div className="space-y-4">
       <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-blue-800">
@@ -117,6 +134,10 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
         Players registered for this event will see upcoming sessions in their dashboard.
         Use <strong>Repeat weekly</strong> when adding a session to bulk-create the full schedule at once.
       </div>
+
+      {showWalkup && (
+        <DropinWalkupPayment orgId={org.id} leagueId={id} sessions={sessionOptions} priceLabel={priceLabel} />
+      )}
       <AdminSessionsManager
         leagueId={id}
         initialSessions={mapped}

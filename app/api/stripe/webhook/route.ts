@@ -189,6 +189,49 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true })
     }
 
+    // ── Drop-in walk-up (on-site Stripe payment for a non-registered guest) ──
+    if (paymentType === 'dropin_walkup') {
+      const { leagueId: dropinLeagueId, sessionId: dropinSessionId, guestName, guestEmail, addedByAdmin } = session.metadata ?? {}
+      if (dropinLeagueId) {
+        const nowIso = new Date().toISOString()
+        // Create the guest drop-in registration (active + checked in on the spot).
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: reg } = await (supabase as any)
+          .from('registrations')
+          .insert({
+            organization_id: orgId,
+            league_id: dropinLeagueId,
+            user_id: null,
+            guest_name: guestName || 'Walk-in',
+            guest_email: guestEmail || null,
+            registration_type: 'drop_in',
+            session_id: dropinSessionId || null,
+            status: 'active',
+            added_by_admin: addedByAdmin || null,
+            checked_in_at: nowIso,
+          })
+          .select('id')
+          .single()
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any).from('payments').insert({
+          organization_id: orgId,
+          registration_id: reg?.id ?? null,
+          user_id: null,
+          league_id: dropinLeagueId,
+          payment_type: 'player',
+          amount_cents: session.amount_total ?? 0,
+          currency: session.currency ?? 'cad',
+          status: 'paid',
+          payment_method: 'stripe',
+          stripe_checkout_session_id: session.id,
+          stripe_payment_intent_id: session.payment_intent as string,
+          paid_at: nowIso,
+        })
+      }
+      return NextResponse.json({ received: true })
+    }
+
     // ── Payment plan instalment ──────────────────────────────────────────
     if (paymentType === 'installment') {
       const { installmentId, enrollmentId, installmentNumber } = session.metadata ?? {}
