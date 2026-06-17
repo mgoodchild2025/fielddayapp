@@ -268,7 +268,7 @@ export function RichTextEditor({ content, onChange, minHeight = '220px', disable
 
   return (
     <div
-      className={`border rounded-lg overflow-hidden transition-shadow ${
+      className={`relative border rounded-lg overflow-hidden transition-shadow ${
         disabled
           ? 'opacity-60 bg-gray-50'
           : 'focus-within:ring-2 focus-within:ring-orange-400 focus-within:border-orange-400'
