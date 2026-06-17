@@ -13,6 +13,17 @@
   }
 }
 
+/* iOS Safari auto-zooms when a form control with font-size < 16px is focused,
+   and never zooms back out. Force 16px on mobile so focusing an input never
+   shifts the viewport. Unlayered so it beats Tailwind's text-sm utility. */
+@media (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px; /* prevent iOS focus zoom */
+  }
+}
+
 @layer components {
   .input {
     @apply w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white;
