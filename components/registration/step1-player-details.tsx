@@ -13,12 +13,16 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 type PlayerDetails = Database['public']['Tables']['player_details']['Row']
 type League = Database['public']['Tables']['leagues']['Row']
 
+const SHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const
+
 const schema = z.object({
   full_name: z.string().min(2, 'Full name required'),
   email: z.string().email(),
   phone: z.string().min(10, 'Phone number required'),
   skill_level: z.enum(['beginner', 'intermediate', 'competitive']),
-  t_shirt_size: z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']),
+  // Optional in the base schema; required for season events via the dynamic
+  // resolver below (drop-in registration skips the shirt-size question).
+  t_shirt_size: z.enum(SHIRT_SIZES).optional(),
   emergency_contact_name: z.string().min(2, 'Emergency contact name required'),
   emergency_contact_phone: z.string().min(10, 'Emergency contact phone required'),
   how_did_you_hear: z.string().optional(),
@@ -77,8 +81,16 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
   // Transactional SMS — on by default (opt-out). Persisted to the profile below.
   const [smsOptedIn, setSmsOptedIn] = useState(true)
 
+  const isDropIn = registrationType === 'drop_in'
+
+  // Drop-in players skip the shirt-size question; season players still require it.
+  const resolverSchema = isDropIn
+    ? schema
+    : schema.extend({ t_shirt_size: z.enum(SHIRT_SIZES) })
+
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(resolverSchema) as any,
     defaultValues: {
       full_name: profile?.full_name ?? '',
       email: profile?.email ?? '',
@@ -173,7 +185,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div>
+          <div className={isDropIn ? 'col-span-2' : ''}>
             <label className="block text-sm font-medium text-gray-700 mb-1">Skill Level *</label>
             <select {...register('skill_level')} className="w-full border rounded-md px-3 py-2 text-base">
               <option value="">Select…</option>
@@ -183,14 +195,16 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
             </select>
             {errors.skill_level && <p className="text-red-500 text-xs mt-1">{errors.skill_level.message}</p>}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">T-Shirt Size *</label>
-            <select {...register('t_shirt_size')} className="w-full border rounded-md px-3 py-2 text-base">
-              <option value="">Select…</option>
-              {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-            {errors.t_shirt_size && <p className="text-red-500 text-xs mt-1">{errors.t_shirt_size.message}</p>}
-          </div>
+          {!isDropIn && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">T-Shirt Size *</label>
+              <select {...register('t_shirt_size')} className="w-full border rounded-md px-3 py-2 text-base">
+                <option value="">Select…</option>
+                {SHIRT_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              {errors.t_shirt_size && <p className="text-red-500 text-xs mt-1">{errors.t_shirt_size.message}</p>}
+            </div>
+          )}
         </div>
 
         {positions.length > 0 && (

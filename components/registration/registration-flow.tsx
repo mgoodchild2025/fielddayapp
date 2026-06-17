@@ -374,8 +374,8 @@ export function RegistrationFlow({
             positions={positions}
             registrationType={isDropIn ? 'drop_in' : 'season'}
             sessionId={selectedSessionId}
-            showTeamCode={!isPerTeam}
-            initialTeamCode={!isPerTeam ? initialTeamCode : null}
+            showTeamCode={!isPerTeam && !isDropIn}
+            initialTeamCode={!isPerTeam && !isDropIn ? initialTeamCode : null}
             onComplete={(regId, teamId) => {
               setRegistrationId(regId)
               if (teamId) setStep1TeamId(teamId)
