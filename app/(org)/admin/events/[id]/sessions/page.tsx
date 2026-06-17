@@ -6,6 +6,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { AdminSessionsManager } from '@/components/sessions/admin-sessions-manager'
 import { DropinWalkupPayment } from '@/components/sessions/dropin-walkup-payment'
+import { CopyLinkButton } from '@/components/sessions/copy-link-button'
 
 export default async function AdminSessionsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -16,7 +17,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   const [{ data: league }, { data: sessions }, { data: branding }, { data: paySettings }] = await Promise.all([
     db
       .from('leagues')
-      .select('id, name, event_type, registration_mode, max_participants, drop_in_price_cents, price_cents, currency')
+      .select('id, name, slug, event_type, registration_mode, max_participants, drop_in_price_cents, price_cents, currency')
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
@@ -129,6 +130,11 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   }))
   const priceLabel = `$${(dropinPriceCents / 100).toFixed(2)}`
 
+  // The self-serve registration link the QR also encodes — shareable directly.
+  const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const registrationUrl = `https://${org.slug}.${platformDomain}/register/${(league as any).slug}?mode=drop_in`
+
   return (
     <div className="space-y-4">
       <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-blue-800">
@@ -144,6 +150,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
         >
           <QrCode className="w-4 h-4" /> Registration QR
         </Link>
+        <CopyLinkButton url={registrationUrl} label="Copy registration link" />
         {showWalkup && (
           <DropinWalkupPayment orgId={org.id} leagueId={id} sessions={sessionOptions} priceLabel={priceLabel} />
         )}
