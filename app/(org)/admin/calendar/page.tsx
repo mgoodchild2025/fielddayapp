@@ -51,6 +51,32 @@ export default async function AdminCalendarPage({
     .in('status', statuses)
     .order('season_start_date', { ascending: true, nullsFirst: false })
 
+  // Drop-in / pickup events may have no season span — they're defined by their
+  // individual sessions. For those, surface each session's date on the calendar.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const undatedSessionLeagueIds: string[] = (rawLeagues ?? [])
+    .filter((l: { event_type: string | null; season_start_date: string | null; season_end_date: string | null }) =>
+      (l.event_type === 'pickup' || l.event_type === 'drop_in') && (!l.season_start_date || !l.season_end_date))
+    .map((l: { id: string }) => l.id)
+
+  const sessionDatesByLeague = new Map<string, string[]>()
+  if (undatedSessionLeagueIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rawSessions } = await (db as any)
+      .from('event_sessions')
+      .select('league_id, scheduled_at')
+      .eq('organization_id', org.id)
+      .in('league_id', undatedSessionLeagueIds)
+    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: timezone })  // → YYYY-MM-DD
+    for (const s of (rawSessions ?? []) as { league_id: string; scheduled_at: string }[]) {
+      if (!s.scheduled_at) continue
+      const dateStr = fmt.format(new Date(s.scheduled_at))
+      const arr = sessionDatesByLeague.get(s.league_id) ?? []
+      if (!arr.includes(dateStr)) arr.push(dateStr)
+      sessionDatesByLeague.set(s.league_id, arr)
+    }
+  }
+
   const leagues = (rawLeagues ?? []).map((l: {
     id: string; name: string; slug: string; status: string
     event_type: string | null; season_start_date: string | null; season_end_date: string | null
@@ -67,6 +93,7 @@ export default async function AdminCalendarPage({
     gameStartTime: l.game_start_time,
     gameEndTime: l.game_end_time,
     daysOfWeek: l.days_of_week,
+    sessionDates: sessionDatesByLeague.get(l.id) ?? null,
   }))
 
   return (

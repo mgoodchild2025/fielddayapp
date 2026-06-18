@@ -18,6 +18,7 @@ export type CalendarLeague = {
   gameStartTime: string | null  // HH:MM or HH:MM:SS
   gameEndTime: string | null
   daysOfWeek: string[] | null   // ['mon','tue',...] — which days the event runs
+  sessionDates: string[] | null // YYYY-MM-DD per session — for drop-ins with no season span
 }
 
 // ── Colour palette ────────────────────────────────────────────────────────────
@@ -212,13 +213,22 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
     () => leagues.filter((l) => l.daysOfWeek && l.daysOfWeek.length > 0),
     [leagues],
   )
+  // Spanning bands only apply to dated leagues; session-driven drop-ins are
+  // placed by their explicit session dates instead.
   const spanningLeagues = useMemo(
-    () => leagues.filter((l) => !l.daysOfWeek || l.daysOfWeek.length === 0),
+    () => leagues.filter((l) => l.startDate && l.endDate && (!l.daysOfWeek || l.daysOfWeek.length === 0)),
+    [leagues],
+  )
+  // Drop-in / pickup events without a season span — render a chip on each session date.
+  const sessionLeagues = useMemo(
+    () => leagues.filter((l) => (!l.startDate || !l.endDate) && l.sessionDates && l.sessionDates.length > 0),
     [leagues],
   )
 
-  // Leagues that have no start/end date set (warn about them)
-  const undatedLeagues = leagues.filter((l) => !l.startDate || !l.endDate)
+  // Truly undated — no season span and no sessions to place (warn about them).
+  const undatedLeagues = leagues.filter(
+    (l) => (!l.startDate || !l.endDate) && !(l.sessionDates && l.sessionDates.length > 0),
+  )
 
   // Leagues active on the selected date (for day panel)
   const selectedLeagues = useMemo(() => {
@@ -228,7 +238,10 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
     const dayVal = toDays(selectedDate)
 
     return leagues.filter((l) => {
-      if (!l.startDate || !l.endDate) return false
+      // Drop-in events without a season span: match on explicit session dates.
+      if (!l.startDate || !l.endDate) {
+        return !!(l.sessionDates && l.sessionDates.includes(selectedDate))
+      }
       if (dayVal < toDays(l.startDate) || dayVal > toDays(l.endDate)) return false
       // day-scheduled: must match the day of week
       if (l.daysOfWeek && l.daysOfWeek.length > 0) return l.daysOfWeek.includes(dowKey)
@@ -376,8 +389,12 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
                   const isToday    = dateStr === todayStr
                   const isSelected = dateStr === selectedDate
                   const isLastCol  = colIdx === 6
-                  // Leagues that run on this specific day
-                  const dayChips = getActiveLeaguesForDay(dateStr, dayScheduledLeagues)
+                  // Leagues that run on this specific day — day-scheduled seasons
+                  // plus any drop-in events with a session on this date.
+                  const dayChips = [
+                    ...getActiveLeaguesForDay(dateStr, dayScheduledLeagues),
+                    ...sessionLeagues.filter((l) => l.sessionDates!.includes(dateStr)),
+                  ]
 
                   return (
                     <div
@@ -443,9 +460,9 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
         })}
 
         {/* Legend */}
-        {leagues.filter((l) => l.startDate && l.endDate).length > 0 && (
+        {leagues.filter((l) => (l.startDate && l.endDate) || (l.sessionDates && l.sessionDates.length > 0)).length > 0 && (
           <div className="px-4 py-3 border-t flex flex-wrap gap-x-5 gap-y-1.5">
-            {leagues.filter((l) => l.startDate && l.endDate).map((l) => (
+            {leagues.filter((l) => (l.startDate && l.endDate) || (l.sessionDates && l.sessionDates.length > 0)).map((l) => (
               <Link
                 key={l.id}
                 href={`/admin/events/${l.id}`}
@@ -491,7 +508,7 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
               <p className="text-xs text-gray-400 mt-0.5">
                 {selectedLeagues.length === 0
                   ? 'No events on this day'
-                  : `${selectedLeagues.length} event${selectedLeagues.length !== 1 ? 's' : ''} in season`}
+                  : `${selectedLeagues.length} event${selectedLeagues.length !== 1 ? 's' : ''} on this day`}
               </p>
             </div>
             <button
@@ -512,11 +529,16 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
               {selectedLeagues.map((l) => {
                 const isDraft = l.status === 'draft'
                 const p = palette(l.id)
+                const isSession = (!l.startDate || !l.endDate) && !!(l.sessionDates && l.sessionDates.length > 0)
                 const dateRange = l.startDate && l.endDate
                   ? `${shortDate(l.startDate)} – ${shortDate(l.endDate)}`
                   : null
-                // Draft events link to overview (no schedule yet); published events link to schedule
-                const href = isDraft ? `/admin/events/${l.id}` : `/admin/events/${l.id}/schedule`
+                // Draft → overview; session-driven drop-ins → sessions; else schedule.
+                const href = isDraft
+                  ? `/admin/events/${l.id}`
+                  : isSession
+                    ? `/admin/events/${l.id}/sessions`
+                    : `/admin/events/${l.id}/schedule`
                 return (
                   <Link
                     key={l.id}
@@ -537,6 +559,9 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
                       {dateRange && (
                         <p className="text-xs text-gray-400 mt-0.5">{dateRange}</p>
                       )}
+                      {isSession && (
+                        <p className="text-xs text-gray-400 mt-0.5">Drop-in session</p>
+                      )}
                       {(l.gameStartTime || l.gameEndTime) && (
                         <p className="text-xs text-gray-500 mt-0.5">
                           {l.gameStartTime && l.gameEndTime
@@ -547,7 +572,7 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
                         </p>
                       )}
                       <p className="text-xs font-medium mt-1.5 group-hover:underline" style={{ color: 'var(--brand-primary)' }}>
-                        View schedule →
+                        {isSession ? 'View sessions →' : 'View schedule →'}
                       </p>
                     </div>
                   </Link>
