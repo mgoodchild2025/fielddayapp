@@ -333,6 +333,11 @@ export async function updateLeague(
     format_content?: string | null
     standings_pts_method?: string | null
     volleyball_standings_mode?: string | null
+    // Nullable so clearing a date persists (undefined would be dropped by .update()).
+    season_start_date?: string | null
+    season_end_date?: string | null
+    registration_opens_at?: string | null
+    registration_closes_at?: string | null
   }
 ) {
   const headersList = await headers()
@@ -372,6 +377,7 @@ export async function updateLeague(
   })
 
   revalidatePath(`/admin/events/${leagueId}`)
+  revalidatePath('/admin/calendar')
   return { data: null, error: null }
 }
 

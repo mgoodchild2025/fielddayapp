@@ -174,10 +174,12 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
       max_team_size: Number(fd.get('max_team_size')),
       max_teams: fd.get('max_teams') ? Number(fd.get('max_teams')) : undefined,
       max_participants: fd.get('max_participants') ? Number(fd.get('max_participants')) : undefined,
-      season_start_date: (fd.get('season_start_date') as string) || undefined,
-      season_end_date: (fd.get('season_end_date') as string) || undefined,
-      registration_opens_at: (fd.get('registration_opens_at') as string) || undefined,
-      registration_closes_at: (fd.get('registration_closes_at') as string) || undefined,
+      // Send null (not undefined) when cleared — Supabase .update() drops
+      // undefined keys, which would leave the old date in place.
+      season_start_date: (fd.get('season_start_date') as string) || null,
+      season_end_date: (fd.get('season_end_date') as string) || null,
+      registration_opens_at: (fd.get('registration_opens_at') as string) || null,
+      registration_closes_at: (fd.get('registration_closes_at') as string) || null,
       waiver_version_id: waiverVal || undefined,
       rule_template_id: ruleTemplateVal || undefined,
       rules_content: rulesContent || undefined,
