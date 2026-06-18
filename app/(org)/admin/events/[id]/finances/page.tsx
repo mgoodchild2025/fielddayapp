@@ -29,12 +29,25 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
     .from('leagues').select('id').eq('id', id).eq('organization_id', org.id).single()
   if (!league) notFound()
 
-  const [pnl, expenses, revenue, budget] = await Promise.all([
+  const [pnl, expenses, revenue, budget, { data: rawSessions }, { data: branding }] = await Promise.all([
     getEventPnl(id, org.id),
     getEventExpenses(id),
     getEventRevenue(id),
     getEventBudget(id),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('event_sessions').select('id, scheduled_at')
+      .eq('league_id', id).eq('organization_id', org.id).order('scheduled_at', { ascending: true }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_branding').select('timezone').eq('organization_id', org.id).maybeSingle(),
   ])
+
+  const timezone = branding?.timezone ?? 'America/Toronto'
+  const sessions = (rawSessions ?? []).map((s: { id: string; scheduled_at: string }) => ({
+    id: s.id,
+    label: new Date(s.scheduled_at).toLocaleString('en-CA', {
+      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: timezone,
+    }),
+  }))
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -70,7 +83,7 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
       <EventRevenueManager leagueId={id} initialRevenue={revenue} />
 
       {/* ── Expenses ledger ──────────────────────────────────────────────── */}
-      <EventExpensesManager leagueId={id} initialExpenses={expenses} />
+      <EventExpensesManager leagueId={id} initialExpenses={expenses} sessions={sessions} />
 
       {/* ── Pricing planner ──────────────────────────────────────────────── */}
       <BudgetPlanner leagueId={id} initial={budget} />

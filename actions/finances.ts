@@ -178,6 +178,7 @@ export async function getShopPnl(orgId: string): Promise<ShopPnl> {
 export type EventExpense = {
   id: string
   league_id: string
+  session_id: string | null
   category: ExpenseCategory
   description: string
   amount_cents: number
@@ -192,7 +193,7 @@ export async function getEventExpenses(leagueId: string): Promise<EventExpense[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = await (db as any)
     .from('event_expenses')
-    .select('id, league_id, category, description, amount_cents, vendor, incurred_on, notes, created_at')
+    .select('id, league_id, session_id, category, description, amount_cents, vendor, incurred_on, notes, created_at')
     .eq('league_id', leagueId)
     .order('incurred_on', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
@@ -207,6 +208,7 @@ export async function addEventExpense(input: {
   vendor?: string
   incurredOn?: string | null
   notes?: string
+  sessionId?: string | null
 }): Promise<{ error: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -224,10 +226,19 @@ export async function addEventExpense(input: {
     .from('leagues').select('id').eq('id', input.leagueId).eq('organization_id', org.id).single()
   if (!league) return { error: 'Event not found.' }
 
+  // If tagging a session, verify it belongs to this event.
+  if (input.sessionId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: sess } = await (db as any)
+      .from('event_sessions').select('id').eq('id', input.sessionId).eq('league_id', input.leagueId).maybeSingle()
+    if (!sess) return { error: 'Session not found for this event.' }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (db as any).from('event_expenses').insert({
     organization_id: org.id,
     league_id: input.leagueId,
+    session_id: input.sessionId || null,
     category: input.category,
     description: input.description.trim(),
     amount_cents: Math.round(input.amountCents),
@@ -240,6 +251,60 @@ export async function addEventExpense(input: {
 
   revalidatePath(`/admin/events/${input.leagueId}/finances`)
   return { error: null }
+}
+
+/**
+ * Logs the same per-session cost against every session of an event — one expense
+ * row per session, each tagged to its session. The amount is per session, so the
+ * total recorded is amount × session count.
+ */
+export async function addEventExpensePerSession(input: {
+  leagueId: string
+  category: ExpenseCategory
+  description: string
+  amountCents: number
+  vendor?: string
+}): Promise<{ error: string | null; count?: number }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await requireFinanceAdmin(org.id)
+  if ('error' in auth) return { error: auth.error }
+
+  if (!input.description.trim()) return { error: 'Description is required.' }
+  if (!Number.isFinite(input.amountCents) || input.amountCents < 0) return { error: 'Enter a valid amount.' }
+  if (!EXPENSE_CATEGORIES.includes(input.category)) return { error: 'Invalid category.' }
+
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: league } = await (db as any)
+    .from('leagues').select('id').eq('id', input.leagueId).eq('organization_id', org.id).single()
+  if (!league) return { error: 'Event not found.' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: sessions } = await (db as any)
+    .from('event_sessions').select('id, scheduled_at')
+    .eq('league_id', input.leagueId).eq('organization_id', org.id)
+  if (!sessions || sessions.length === 0) return { error: 'This event has no sessions yet.' }
+
+  const rows = sessions.map((s: { id: string; scheduled_at: string }) => ({
+    organization_id: org.id,
+    league_id: input.leagueId,
+    session_id: s.id,
+    category: input.category,
+    description: input.description.trim(),
+    amount_cents: Math.round(input.amountCents),
+    vendor: input.vendor?.trim() || null,
+    // Date the cost to the session it covers.
+    incurred_on: s.scheduled_at ? s.scheduled_at.slice(0, 10) : null,
+    created_by: auth.userId,
+  }))
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any).from('event_expenses').insert(rows)
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${input.leagueId}/finances`)
+  return { error: null, count: rows.length }
 }
 
 export async function deleteEventExpense(expenseId: string, leagueId: string): Promise<{ error: string | null }> {

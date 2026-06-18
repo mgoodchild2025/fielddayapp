@@ -3,9 +3,12 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2 } from 'lucide-react'
-import { addEventExpense, deleteEventExpense } from '@/actions/finances'
+import { addEventExpense, addEventExpensePerSession, deleteEventExpense } from '@/actions/finances'
 import type { EventExpense } from '@/actions/finances'
 import { EXPENSE_CATEGORIES, type ExpenseCategory } from '@/lib/finance-constants'
+
+export type ExpenseSession = { id: string; label: string }
+const ALL_SESSIONS = '__all__'
 
 const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   rental: 'Venue / rental',
@@ -22,7 +25,7 @@ function money(cents: number) {
   return `$${(cents / 100).toFixed(2)}`
 }
 
-export function EventExpensesManager({ leagueId, initialExpenses }: { leagueId: string; initialExpenses: EventExpense[] }) {
+export function EventExpensesManager({ leagueId, initialExpenses, sessions = [] }: { leagueId: string; initialExpenses: EventExpense[]; sessions?: ExpenseSession[] }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -33,11 +36,15 @@ export function EventExpensesManager({ leagueId, initialExpenses }: { leagueId: 
   const [amount, setAmount] = useState('')
   const [vendor, setVendor] = useState('')
   const [incurredOn, setIncurredOn] = useState('')
+  // '' = whole event · ALL_SESSIONS = every session · otherwise a session id
+  const [sessionScope, setSessionScope] = useState('')
 
+  const hasSessions = sessions.length > 0
+  const sessionLabels = new Map(sessions.map((s) => [s.id, s.label]))
   const total = initialExpenses.reduce((s, e) => s + e.amount_cents, 0)
 
   function reset() {
-    setCategory('rental'); setDescription(''); setAmount(''); setVendor(''); setIncurredOn('')
+    setCategory('rental'); setDescription(''); setAmount(''); setVendor(''); setIncurredOn(''); setSessionScope('')
   }
 
   function submit() {
@@ -46,10 +53,13 @@ export function EventExpensesManager({ leagueId, initialExpenses }: { leagueId: 
     if (isNaN(cents) || cents < 0) { setError('Enter a valid amount.'); return }
     setError(null)
     startTransition(async () => {
-      const res = await addEventExpense({
-        leagueId, category, description, amountCents: cents,
-        vendor: vendor || undefined, incurredOn: incurredOn || null,
-      })
+      const res = sessionScope === ALL_SESSIONS
+        ? await addEventExpensePerSession({ leagueId, category, description, amountCents: cents, vendor: vendor || undefined })
+        : await addEventExpense({
+            leagueId, category, description, amountCents: cents,
+            vendor: vendor || undefined, incurredOn: incurredOn || null,
+            sessionId: sessionScope || null,
+          })
       if (res.error) { setError(res.error); return }
       reset(); setAdding(false); router.refresh()
     })
@@ -93,11 +103,25 @@ export function EventExpensesManager({ leagueId, initialExpenses }: { leagueId: 
               <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="w-full border rounded pl-5 pr-2 py-1.5 text-sm" />
             </div>
           </div>
-          <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (e.g. Gym rental — 10 weeks)" className="w-full border rounded px-2 py-1.5 text-sm" />
-          <div className="grid grid-cols-2 gap-2">
-            <input value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="Vendor (optional)" className="border rounded px-2 py-1.5 text-sm" />
-            <input type="date" value={incurredOn} onChange={(e) => setIncurredOn(e.target.value)} className="border rounded px-2 py-1.5 text-sm text-gray-600" />
-          </div>
+          <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (e.g. Court rental)" className="w-full border rounded px-2 py-1.5 text-sm" />
+          {hasSessions && (
+            <select value={sessionScope} onChange={(e) => setSessionScope(e.target.value)} className="w-full border rounded px-2 py-1.5 text-sm bg-white">
+              <option value="">Whole event</option>
+              <option value={ALL_SESSIONS}>Every session (×{sessions.length})</option>
+              {sessions.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+          )}
+          {sessionScope === ALL_SESSIONS ? (
+            <>
+              <p className="text-xs text-gray-500">Amount is charged <strong>per session</strong> — one entry is added for each of the {sessions.length} sessions.</p>
+              <input value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="Vendor (optional)" className="w-full border rounded px-2 py-1.5 text-sm" />
+            </>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <input value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="Vendor (optional)" className="border rounded px-2 py-1.5 text-sm" />
+              <input type="date" value={incurredOn} onChange={(e) => setIncurredOn(e.target.value)} className="border rounded px-2 py-1.5 text-sm text-gray-600" />
+            </div>
+          )}
           <div className="flex items-center gap-2 justify-end">
             <button type="button" onClick={() => { setAdding(false); reset(); setError(null) }} className="px-3 py-1.5 rounded-md border text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
             <button type="button" onClick={submit} disabled={pending} className="px-3 py-1.5 rounded-md text-sm font-semibold text-white disabled:opacity-60" style={{ backgroundColor: 'var(--brand-primary)' }}>
@@ -121,6 +145,7 @@ export function EventExpensesManager({ leagueId, initialExpenses }: { leagueId: 
                     <p className="text-gray-800">{e.description}</p>
                     <p className="text-xs text-gray-400">
                       {CATEGORY_LABELS[e.category]}
+                      {e.session_id ? ` · ${sessionLabels.get(e.session_id) ?? 'Session'}` : ''}
                       {e.vendor ? ` · ${e.vendor}` : ''}
                       {e.incurred_on ? ` · ${new Date(e.incurred_on).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
                     </p>
