@@ -111,6 +111,7 @@ export async function createSession(
   if (error) return { error: error.message }
 
   revalidatePath(`/admin/events/${leagueId}/sessions`)
+  revalidatePath('/admin/calendar')
   revalidatePath('/events/[slug]', 'page')
   return { error: null, count: rows.length }
 }
@@ -159,6 +160,7 @@ export async function updateSession(
   if (error) return { error: error.message }
 
   revalidatePath(`/admin/events/${leagueId}/sessions`)
+  revalidatePath('/admin/calendar')
   revalidatePath('/events/[slug]', 'page')
   return { error: null }
 }
@@ -179,6 +181,7 @@ export async function cancelSession(sessionId: string, leagueId: string) {
   if (error) return { error: error.message }
 
   revalidatePath(`/admin/events/${leagueId}/sessions`)
+  revalidatePath('/admin/calendar')
   revalidatePath('/events/[slug]', 'page')
   return { error: null }
 }
@@ -199,6 +202,7 @@ export async function reopenSession(sessionId: string, leagueId: string) {
   if (error) return { error: error.message }
 
   revalidatePath(`/admin/events/${leagueId}/sessions`)
+  revalidatePath('/admin/calendar')
   revalidatePath('/events/[slug]', 'page')
   return { error: null }
 }
@@ -219,6 +223,7 @@ export async function deleteSession(sessionId: string, leagueId: string) {
   if (error) return { error: error.message }
 
   revalidatePath(`/admin/events/${leagueId}/sessions`)
+  revalidatePath('/admin/calendar')
   return { error: null }
 }
 

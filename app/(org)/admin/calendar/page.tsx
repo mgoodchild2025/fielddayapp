@@ -53,10 +53,11 @@ export default async function AdminCalendarPage({
 
   // Drop-in / pickup events may have no season span — they're defined by their
   // individual sessions. For those, surface each session's date on the calendar.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Any event without a full season span is placed by its sessions (only
+  // pickup / drop-in events actually have sessions, so others simply match none).
   const undatedSessionLeagueIds: string[] = (rawLeagues ?? [])
-    .filter((l: { event_type: string | null; season_start_date: string | null; season_end_date: string | null }) =>
-      (l.event_type === 'pickup' || l.event_type === 'drop_in') && (!l.season_start_date || !l.season_end_date))
+    .filter((l: { season_start_date: string | null; season_end_date: string | null }) =>
+      !l.season_start_date || !l.season_end_date)
     .map((l: { id: string }) => l.id)
 
   const sessionDatesByLeague = new Map<string, string[]>()
