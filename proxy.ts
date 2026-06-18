@@ -117,6 +117,16 @@ export async function proxy(request: NextRequest) {
   // Expose the full pathname+search so server components can build return-to URLs
   requestHeaders.set('x-pathname', request.nextUrl.pathname + request.nextUrl.search)
 
+  // ── Auth routes: skip the session refresh ─────────────────────────────────
+  // The OAuth callback exchanges the PKCE code and writes the session itself.
+  // Running the session-refresh getUser()/setAll here mutates the auth cookies
+  // mid-exchange and can drop the code-verifier cookie before the callback reads
+  // it ("PKCE code verifier not found in storage"). Org context is still injected
+  // above; we just don't touch cookies on these routes.
+  if (request.nextUrl.pathname.startsWith('/auth/')) {
+    return NextResponse.next({ request: { headers: requestHeaders } })
+  }
+
   // ── Step 4: create the final response, refreshing the Supabase session ────
   // We do this in one pass so session-refresh cookies land on the correct
   // response object and aren't lost when we add the org header.
