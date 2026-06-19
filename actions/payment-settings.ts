@@ -100,14 +100,16 @@ export async function saveShopPaymentSettings(input: {
 }
 
 export async function saveRegistrationPaymentSettings(input: {
-  registrationPaymentMode: 'stripe' | 'manual'
+  registrationPaymentMode: 'stripe' | 'manual' | 'both'
   registrationManualInstructions: string | null
 }) {
-  if (!['stripe', 'manual'].includes(input.registrationPaymentMode)) {
+  if (!['stripe', 'manual', 'both'].includes(input.registrationPaymentMode)) {
     return { error: 'Invalid payment mode' }
   }
-  if (input.registrationPaymentMode === 'manual' && !input.registrationManualInstructions?.trim()) {
-    return { error: 'Payment instructions are required for manual payment mode' }
+  // 'both' and 'manual' both offer an offline option, so instructions are needed.
+  const offersOffline = input.registrationPaymentMode === 'manual' || input.registrationPaymentMode === 'both'
+  if (offersOffline && !input.registrationManualInstructions?.trim()) {
+    return { error: 'Payment instructions are required when offline payment is offered' }
   }
 
   const headersList = await headers()
@@ -123,7 +125,7 @@ export async function saveRegistrationPaymentSettings(input: {
       {
         organization_id: org.id,
         registration_payment_mode: input.registrationPaymentMode,
-        registration_manual_instructions: input.registrationPaymentMode === 'manual'
+        registration_manual_instructions: offersOffline
           ? input.registrationManualInstructions?.trim() ?? null
           : null,
         updated_at: new Date().toISOString(),

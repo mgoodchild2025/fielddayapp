@@ -69,7 +69,13 @@ export function resolveLeagueMethods(
     return usable.length > 0 ? usable : ['etransfer', 'cash']
   }
 
-  // Legacy fallback: was Stripe-or-manual org-wide.
+  // No explicit per-league config — derive the default from the org-wide mode.
+  const mode = org?.registration_payment_mode ?? 'stripe'
+  if (mode === 'both') {
+    // Offer card (when Stripe is usable) alongside offline methods.
+    return hasStripe ? ['card', 'etransfer', 'cash'] : ['etransfer', 'cash']
+  }
+  if (mode === 'manual') return ['etransfer', 'cash']
   return hasStripe ? ['card'] : ['etransfer', 'cash']
 }
 

@@ -3,17 +3,27 @@
 import { useState, useTransition } from 'react'
 import { saveRegistrationPaymentSettings } from '@/actions/payment-settings'
 
+type Mode = 'stripe' | 'manual' | 'both'
+
 interface Props {
-  mode: 'stripe' | 'manual'
+  mode: Mode
   instructions: string | null
 }
 
+const MODE_OPTIONS: { value: Mode; label: string; desc: string }[] = [
+  { value: 'stripe', label: 'Online (Stripe)', desc: 'Players pay by card at checkout' },
+  { value: 'both', label: 'Both', desc: 'Card, or e-transfer / cash / cheque' },
+  { value: 'manual', label: 'Manual / Offline', desc: 'E-transfer, cash, or cheque' },
+]
+
 export function RegistrationPaymentForm({ mode, instructions }: Props) {
-  const [selectedMode, setSelectedMode] = useState<'stripe' | 'manual'>(mode)
+  const [selectedMode, setSelectedMode] = useState<Mode>(mode)
   const [text, setText] = useState(instructions ?? '')
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  const offersOffline = selectedMode === 'manual' || selectedMode === 'both'
 
   function handleSave() {
     setError(null)
@@ -21,7 +31,7 @@ export function RegistrationPaymentForm({ mode, instructions }: Props) {
     startTransition(async () => {
       const result = await saveRegistrationPaymentSettings({
         registrationPaymentMode: selectedMode,
-        registrationManualInstructions: selectedMode === 'manual' ? text : null,
+        registrationManualInstructions: offersOffline ? text : null,
       })
       if (result.error) {
         setError(result.error)
@@ -35,54 +45,34 @@ export function RegistrationPaymentForm({ mode, instructions }: Props) {
   return (
     <div className="space-y-4">
       {/* Mode selector */}
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={() => setSelectedMode('stripe')}
-          className={`flex flex-col gap-1 p-4 rounded-lg border-2 text-left transition-colors ${
-            selectedMode === 'stripe'
-              ? 'border-[var(--brand-primary)] bg-orange-50'
-              : 'border-gray-200 hover:border-gray-300'
-          }`}
-        >
-          <span className="flex items-center gap-2">
-            <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-              selectedMode === 'stripe' ? 'border-[var(--brand-primary)]' : 'border-gray-300'
-            }`}>
-              {selectedMode === 'stripe' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-primary)]" />
-              )}
-            </span>
-            <span className="text-sm font-semibold text-gray-900">Online (Stripe)</span>
-          </span>
-          <span className="text-xs text-gray-500 pl-5">Players pay by card at checkout</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSelectedMode('manual')}
-          className={`flex flex-col gap-1 p-4 rounded-lg border-2 text-left transition-colors ${
-            selectedMode === 'manual'
-              ? 'border-[var(--brand-primary)] bg-orange-50'
-              : 'border-gray-200 hover:border-gray-300'
-          }`}
-        >
-          <span className="flex items-center gap-2">
-            <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-              selectedMode === 'manual' ? 'border-[var(--brand-primary)]' : 'border-gray-300'
-            }`}>
-              {selectedMode === 'manual' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-primary)]" />
-              )}
-            </span>
-            <span className="text-sm font-semibold text-gray-900">Manual / Offline</span>
-          </span>
-          <span className="text-xs text-gray-500 pl-5">E-transfer, cash, or cheque</span>
-        </button>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {MODE_OPTIONS.map((opt) => {
+          const active = selectedMode === opt.value
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setSelectedMode(opt.value)}
+              className={`flex flex-col gap-1 p-4 rounded-lg border-2 text-left transition-colors ${
+                active ? 'border-[var(--brand-primary)] bg-orange-50' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                  active ? 'border-[var(--brand-primary)]' : 'border-gray-300'
+                }`}>
+                  {active && <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-primary)]" />}
+                </span>
+                <span className="text-sm font-semibold text-gray-900">{opt.label}</span>
+              </span>
+              <span className="text-xs text-gray-500 pl-5">{opt.desc}</span>
+            </button>
+          )
+        })}
       </div>
 
-      {/* Manual instructions */}
-      {selectedMode === 'manual' && (
+      {/* Offline instructions (manual or both) */}
+      {offersOffline && (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Payment instructions
@@ -108,6 +98,13 @@ export function RegistrationPaymentForm({ mode, instructions }: Props) {
         </p>
       )}
 
+      {selectedMode === 'both' && (
+        <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2.5 border">
+          Players choose card (requires Stripe connected above) or an offline method at checkout.
+          You can still fine-tune the accepted methods per event when creating or editing it.
+        </p>
+      )}
+
       {error && (
         <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
       )}
@@ -116,7 +113,7 @@ export function RegistrationPaymentForm({ mode, instructions }: Props) {
         <button
           type="button"
           onClick={handleSave}
-          disabled={isPending || (selectedMode === 'manual' && !text.trim())}
+          disabled={isPending || (offersOffline && !text.trim())}
           className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >

@@ -80,7 +80,7 @@ export default async function PaymentSettingsPage() {
         </div>
         <div className="bg-white rounded-lg border p-6">
           <RegistrationPaymentForm
-            mode={(settings?.registration_payment_mode as 'stripe' | 'manual') ?? (hasSecretKey ? 'stripe' : 'manual')}
+            mode={(settings?.registration_payment_mode as 'stripe' | 'manual' | 'both') ?? (hasSecretKey ? 'stripe' : 'manual')}
             instructions={settings?.registration_manual_instructions ?? null}
           />
         </div>
