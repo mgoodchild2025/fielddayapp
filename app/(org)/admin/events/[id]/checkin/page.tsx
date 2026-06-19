@@ -134,7 +134,7 @@ export default async function AdminCheckInPage({
         (db as any)
           .from('registrations')
           .select(`
-            id, user_id, checked_in_at, checkin_token, status,
+            id, user_id, checked_in_at, checkin_token, status, guest_name,
             profile:profiles!registrations_user_id_fkey(full_name)
           `)
           .eq('session_id', selectedSession.id)
@@ -190,12 +190,14 @@ export default async function AdminCheckInPage({
           user_id: string
           checked_in_at: string | null
           checkin_token: string
+          guest_name: string | null
           profile: { full_name: string } | { full_name: string }[] | null
         }) => {
           const profile = Array.isArray(r.profile) ? r.profile[0] : r.profile
           return {
             id: r.id,
-            playerName: profile?.full_name ?? 'Unknown',
+            // Guests have no profile (user_id null) — use the inline guest name.
+            playerName: profile?.full_name ?? r.guest_name ?? 'Unknown',
             teamName: null,
             checkinToken: r.checkin_token ?? '',
             checkedInAt: r.checked_in_at,
