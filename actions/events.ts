@@ -44,7 +44,7 @@ const createLeagueSchema = z.object({
   organizer_email: z.string().email().optional().or(z.literal('')),
   organizer_phone: optionalPhone,
   team_join_policy: z.enum(['open', 'captain_invite', 'admin_only']).default('open'),
-  pickup_join_policy: z.enum(['public', 'private']).default('public'),
+  pickup_join_policy: z.enum(['public', 'link', 'private']).default('public'),
   registration_mode: z.enum(['session', 'season']).default('session'),
   drop_in_price_cents: z.coerce.number().min(0).optional(),
   schedule_visibility: z.enum(['public', 'participants']).default('public'),

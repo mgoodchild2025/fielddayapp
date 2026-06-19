@@ -19,10 +19,10 @@ export default async function RegisterLeaguePage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ mode?: string; code?: string; session?: string }>
+  searchParams: Promise<{ mode?: string; code?: string; session?: string; key?: string }>
 }) {
   const { slug } = await params
-  const { mode, code: teamCodeParam, session: sessionParam } = await searchParams
+  const { mode, code: teamCodeParam, session: sessionParam, key: keyParam } = await searchParams
   const initialTeamCode = teamCodeParam?.trim().toUpperCase() ?? null
   const isDropIn = mode === 'drop_in'
   // Pre-selected session from the event page "Register to join" button
@@ -46,12 +46,24 @@ export default async function RegisterLeaguePage({
 
   if (!league) notFound()
 
-  // Guests (no account) may self-register for open drop-in / pickup events — offer
-  // them a sign-in vs. continue-as-guest choice instead of forcing login.
+  // ── Event join policy (drop-in / pickup) ──────────────────────────────────
+  // Team join policy governs team events only; drop-in/pickup use the event
+  // (pickup) policy: public = anyone · link = needs the group link (access_token)
+  // · private = individual invite (pickup_invites).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const guestEligible = (league as any).league_type === 'dropin'
-    || (league as any).event_type === 'drop_in'
-    || ((league as any).event_type === 'pickup' && (league as any).pickup_join_policy !== 'private')
+  const isPickupType = (league as any).event_type === 'drop_in'
+    || (league as any).event_type === 'pickup'
+    || (league as any).league_type === 'dropin'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const eventPolicy: string = isPickupType ? ((league as any).pickup_join_policy ?? 'public') : 'public'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hasValidKey = eventPolicy === 'link' && !!keyParam && keyParam === (league as any).access_token
+  // Preserves drop-in mode (and the group-link key) through login / redirects.
+  const dropInQuery = `?mode=drop_in${eventPolicy === 'link' && keyParam ? `&key=${encodeURIComponent(keyParam)}` : ''}`
+
+  // Guests (no account) may self-register for open drop-in events (public, or a
+  // valid group link) — offer them a sign-in vs. continue-as-guest choice.
+  const guestEligible = isPickupType && (eventPolicy === 'public' || hasValidKey)
 
   if (!user) {
     if (isDropIn && guestEligible) {
@@ -106,14 +118,14 @@ export default async function RegisterLeaguePage({
               onlinePayments={gOnline}
               manualInstructions={gManual}
               timezone={gBranding?.timezone ?? 'America/Toronto'}
-              loginHref={`/login?redirect=/register/${slug}?mode=drop_in`}
+              loginHref={`/login?redirect=${encodeURIComponent(`/register/${slug}${dropInQuery}`)}`}
             />
           </div>
           <Footer org={org} />
         </div>
       )
     }
-    redirect(`/login?redirect=/register/${slug}${isDropIn ? '?mode=drop_in' : ''}`)
+    redirect(`/login?redirect=${encodeURIComponent(`/register/${slug}${isDropIn ? dropInQuery : ''}`)}`)
   }
 
   // ── Team join policy enforcement ──────────────────────────────────────────
@@ -123,8 +135,10 @@ export default async function RegisterLeaguePage({
     .from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
   const isOrgAdminCheck = ['org_admin', 'league_admin'].includes(orgMemberCheck?.role ?? '')
 
+  // Team join policy only governs team events (leagues/tournaments). Drop-in /
+  // pickup events use the event join policy below — never team_join_policy.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const joinPolicy = (league as any).team_join_policy as string | null
+  const joinPolicy = isPickupType ? null : ((league as any).team_join_policy as string | null)
   if (!isOrgAdminCheck && joinPolicy === 'admin_only') {
     redirect(`/events/${slug}?join=restricted`)
   }
@@ -150,13 +164,16 @@ export default async function RegisterLeaguePage({
     }
   }
 
-  // Verify drop-in invite — only required for private pickup events.
-  // Public pickup events and drop_in event types allow open drop-in registration.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const isOpenDropIn = (league as any).league_type === 'dropin'
-    || (league as any).event_type === 'drop_in'
-    || ((league as any).event_type === 'pickup' && (league as any).pickup_join_policy !== 'private')
-  if (isDropIn && !isOpenDropIn) {
+  // Enforce the event join policy for drop-in / pickup registration:
+  //   public — open · link — requires the group-link key · private — needs an invite
+  const isOpenDropIn = eventPolicy === 'public' || hasValidKey
+  if (isPickupType && !isOpenDropIn) {
+    if (eventPolicy === 'link') {
+      // Reached without the group link (e.g. via the event page) — send them back
+      // with a message telling them to use the link the organizer shared.
+      redirect(`/events/${slug}?join=link_required`)
+    }
+    // private — individual invite required (matched by email)
     if (!user.email) notFound()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: invite } = await (db as any)
@@ -167,7 +184,7 @@ export default async function RegisterLeaguePage({
       .eq('invite_type', 'drop_in')
       .eq('status', 'pending')
       .maybeSingle()
-    if (!invite) notFound()
+    if (!invite) redirect(`/events/${slug}?join=invite_required`)
   }
 
   const [{ data: playerDetails }, { data: existingReg }, { data: profile }, { data: connectAccount }, { data: captainTeam }, { data: rawTeams }] = await Promise.all([

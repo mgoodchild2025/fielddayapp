@@ -201,6 +201,8 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
       documents_visibility: (fd.get('documents_visibility') as 'public' | 'participants') || 'public',
       standings_pts_method: (fd.get('standings_pts_method') as string) || 'wins',
       volleyball_standings_mode: volleyballMode,
+      // Only present for drop-in/pickup events; undefined for team events.
+      pickup_join_policy: (fd.get('pickup_join_policy') as 'public' | 'link' | 'private') || undefined,
       days_of_week: selectedDays.length ? selectedDays : undefined,
       game_start_time: gameStartTime || undefined,
       game_end_time: gameEndTime || undefined,
@@ -308,6 +310,21 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           <input type="hidden" name="registration_mode" value="season" />
         )}
 
+        {(league.event_type === 'pickup' || league.event_type === 'drop_in') && (
+          <Field label="Join Policy">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            <select name="pickup_join_policy" defaultValue={(league as any).pickup_join_policy ?? 'public'} className="input">
+              <option value="public">Public — anyone can register</option>
+              <option value="link">Group link — only people with the link</option>
+              <option value="private">Invite only — individual invites</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1.5">
+              <strong>Group link</strong>: share one link with a group — only people who have it can register (get it from the Sessions page).
+              {' '}<strong>Invite only</strong>: send individual invites from the Invites page.
+            </p>
+          </Field>
+        )}
+
         {(league.event_type === 'pickup' || league.event_type === 'drop_in') ? (
           <div className="grid grid-cols-2 gap-3">
             <Field label="Season fee">
@@ -401,13 +418,15 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
               <option value="Seniors 55+">Seniors 55+</option>
             </select>
           </Field>
-          <Field label="Team Join Policy">
-            <select name="team_join_policy" defaultValue={league.team_join_policy ?? 'open'} className="input">
-              <option value="open">Open (anyone can join)</option>
-              <option value="captain_invite">Captain invite only</option>
-              <option value="admin_only">Admin managed</option>
-            </select>
-          </Field>
+          {league.event_type !== 'pickup' && league.event_type !== 'drop_in' && (
+            <Field label="Team Join Policy">
+              <select name="team_join_policy" defaultValue={league.team_join_policy ?? 'open'} className="input">
+                <option value="open">Open (anyone can join)</option>
+                <option value="captain_invite">Captain invite only</option>
+                <option value="admin_only">Admin managed</option>
+              </select>
+            </Field>
+          )}
         </div>
 
         <div className="grid grid-cols-3 gap-3">

@@ -535,13 +535,15 @@ export async function adminAddRegistrant(input: z.infer<typeof adminAddRegistran
 
 // ── Guest (no-account) self-serve drop-in registration ───────────────────────
 
-// Mirrors the register page's `isOpenDropIn` gate. Guests may only self-register
-// for events explicitly opened to walk-up / drop-in play.
+// Mirrors the register page's gate. Guests may self-register for drop-in/pickup
+// events, except invite-only ('private') events which require an individual
+// invite (and therefore an account). 'public' and group-'link' events allow it.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function isOpenDropInEvent(league: any): boolean {
-  return league?.league_type === 'dropin'
+  const isPickup = league?.league_type === 'dropin'
     || league?.event_type === 'drop_in'
-    || (league?.event_type === 'pickup' && league?.pickup_join_policy !== 'private')
+    || league?.event_type === 'pickup'
+  return isPickup && (league?.pickup_join_policy ?? 'public') !== 'private'
 }
 
 const guestDropinSchema = z.object({

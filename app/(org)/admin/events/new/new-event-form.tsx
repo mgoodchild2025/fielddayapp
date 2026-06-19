@@ -97,7 +97,7 @@ const schema = z.object({
   min_team_size: z.number().default(4),
   max_team_size: z.number().default(8),
   team_join_policy: z.enum(['open', 'captain_invite', 'admin_only']).default('open'),
-  pickup_join_policy: z.enum(['public', 'private']).default('public'),
+  pickup_join_policy: z.enum(['public', 'link', 'private']).default('public'),
   registration_mode: z.enum(['session', 'season']).default('season'),
   drop_in_price_cents: z.number().min(0).optional(),
   season_start_date: z.string().optional(),
@@ -591,11 +591,17 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
 
             {!withTeams && (
               <>
-                <Field label="Access" error={errors.pickup_join_policy?.message}>
+                <Field label="Join Policy" error={errors.pickup_join_policy?.message}>
                   <select {...register('pickup_join_policy')} className={SELECT}>
                     <option value="public">Public — anyone can register</option>
-                    <option value="private">Private — admin invite only</option>
+                    <option value="link">Group link — only people with the link</option>
+                    <option value="private">Invite only — individual invites</option>
                   </select>
+                  {{
+                    public: <p className="text-xs text-gray-500 mt-1.5">Listed publicly; anyone can register.</p>,
+                    link: <p className="text-xs text-gray-500 mt-1.5">Share one link with a group — only people who have it can register. Get the link from the event&apos;s Sessions page.</p>,
+                    private: <p className="text-xs text-gray-500 mt-1.5">Send individual invites from the event&apos;s Invites page — only invited people can register.</p>,
+                  }[pickupJoinPolicy ?? 'public']}
                 </Field>
                 {eventType === 'drop_in' && (
                   <div>

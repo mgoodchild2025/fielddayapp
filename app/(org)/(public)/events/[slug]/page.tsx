@@ -2116,11 +2116,13 @@ export default async function EventDetailPage({
             )}
 
             {/* Redirect notice when someone tried to navigate directly to /register */}
-            {(joinParam === 'restricted' || joinParam === 'invite_required') && !myRegistration && (
+            {(joinParam === 'restricted' || joinParam === 'invite_required' || joinParam === 'link_required') && !myRegistration && (
               <div className="mt-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
                 {joinParam === 'restricted'
                   ? '🔒 Registration for this league is managed by the organiser. Contact your league admin to be added to a team.'
-                  : '✉️ Registration for this league requires an invitation from your captain.'}
+                  : joinParam === 'link_required'
+                    ? '🔗 This event is open to people with the event link. Please register using the link the organiser shared with you.'
+                    : '✉️ Registration for this event requires an invitation from the organiser.'}
               </div>
             )}
           </div>

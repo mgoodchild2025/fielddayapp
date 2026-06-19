@@ -25,14 +25,16 @@ export default async function SessionsQrPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: league } = await (db as any)
     .from('leagues')
-    .select('id, name, slug, drop_in_price_cents, price_cents, currency')
+    .select('id, name, slug, drop_in_price_cents, price_cents, currency, pickup_join_policy, access_token')
     .eq('id', id).eq('organization_id', org.id).single()
   if (!league) notFound()
 
   const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
   const base = `https://${org.slug}.${platformDomain}`
   const sessionParam = session ? `&session=${encodeURIComponent(session)}` : ''
-  const url = `${base}/register/${league.slug}?mode=drop_in${sessionParam}`
+  // Group-link events embed the access key so the QR works for link-holders.
+  const accessKey = league.pickup_join_policy === 'link' ? `&key=${league.access_token}` : ''
+  const url = `${base}/register/${league.slug}?mode=drop_in${accessKey}${sessionParam}`
 
   const priceCents: number = league.drop_in_price_cents ?? league.price_cents ?? 0
   const priceLabel = priceCents > 0 ? `$${(priceCents / 100).toFixed(2)}` : null

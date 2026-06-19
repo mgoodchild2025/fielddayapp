@@ -17,7 +17,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   const [{ data: league }, { data: sessions }, { data: branding }, { data: paySettings }] = await Promise.all([
     db
       .from('leagues')
-      .select('id, name, slug, event_type, registration_mode, max_participants, drop_in_price_cents, price_cents, currency')
+      .select('id, name, slug, event_type, registration_mode, max_participants, drop_in_price_cents, price_cents, currency, pickup_join_policy, access_token')
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
@@ -131,9 +131,14 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   const priceLabel = `$${(dropinPriceCents / 100).toFixed(2)}`
 
   // The self-serve registration link the QR also encodes — shareable directly.
+  // For a "Group link" event we append the access key so link-holders can register.
   const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const registrationUrl = `https://${org.slug}.${platformDomain}/register/${(league as any).slug}?mode=drop_in`
+  const joinPolicy: string = (league as any).pickup_join_policy ?? 'public'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const accessKey = joinPolicy === 'link' ? `&key=${(league as any).access_token}` : ''
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const registrationUrl = `https://${org.slug}.${platformDomain}/register/${(league as any).slug}?mode=drop_in${accessKey}`
 
   return (
     <div className="space-y-4">
@@ -143,18 +148,34 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
         Use <strong>Repeat weekly</strong> when adding a session to bulk-create the full schedule at once.
       </div>
 
-      <div className="flex flex-wrap items-start gap-3">
-        <Link
-          href={`/admin/events/${id}/sessions/qr`}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md text-sm font-semibold border text-gray-700 hover:bg-gray-50"
-        >
-          <QrCode className="w-4 h-4" /> Registration QR
-        </Link>
-        <CopyLinkButton url={registrationUrl} label="Copy registration link" />
-        {showWalkup && (
-          <DropinWalkupPayment orgId={org.id} leagueId={id} sessions={sessionOptions} priceLabel={priceLabel} />
-        )}
-      </div>
+      {joinPolicy === 'private' ? (
+        <div className="rounded-lg border bg-white px-4 py-3 text-sm text-gray-600 flex flex-wrap items-center gap-2">
+          <span>🔒 This event is <strong>invite only</strong> — registration is restricted to people you invite individually.</span>
+          <Link href={`/admin/events/${id}/invites`} className="font-semibold hover:underline" style={{ color: 'var(--brand-primary)' }}>
+            Manage invites →
+          </Link>
+        </div>
+      ) : (
+        <>
+          {joinPolicy === 'link' && (
+            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-xs text-blue-800">
+              🔗 <strong>Group link</strong> — only people with the link below can register. Share it with your group; it includes a private access key.
+            </div>
+          )}
+          <div className="flex flex-wrap items-start gap-3">
+            <Link
+              href={`/admin/events/${id}/sessions/qr`}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md text-sm font-semibold border text-gray-700 hover:bg-gray-50"
+            >
+              <QrCode className="w-4 h-4" /> Registration QR
+            </Link>
+            <CopyLinkButton url={registrationUrl} label="Copy registration link" />
+            {showWalkup && (
+              <DropinWalkupPayment orgId={org.id} leagueId={id} sessions={sessionOptions} priceLabel={priceLabel} />
+            )}
+          </div>
+        </>
+      )}
       <AdminSessionsManager
         leagueId={id}
         initialSessions={mapped}
