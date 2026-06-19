@@ -143,7 +143,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
     try {
       const res = teamId
         ? await selectOfflineTeamPayment({ teamId, leagueId: league.id, method: method as 'etransfer' | 'cash' | 'cheque', discountedAmountCents: appliedDiscount ? discountedRegistrationCents : undefined })
-        : await selectOfflinePayment({ registrationId, leagueId: league.id, method: method as 'etransfer' | 'cash' | 'cheque', discountedAmountCents: appliedDiscount ? discountedRegistrationCents : undefined })
+        : await selectOfflinePayment({ registrationId, leagueId: league.id, method: method as 'etransfer' | 'cash' | 'cheque', discountedAmountCents: appliedDiscount ? discountedRegistrationCents : registrationPriceCents })
       if (res.error) {
         setError(res.error)
         setLoading(false)
@@ -223,7 +223,8 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
           </div>
           <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 space-y-1">
             <p className="text-sm font-semibold text-amber-900">
-              Pay by {offlineDone.label} — ${(registrationPriceCents / 100).toFixed(2)} {currency}
+              Pay by {offlineDone.label} — ${((appliedDiscount ? discountedRegistrationCents : registrationPriceCents) / 100).toFixed(2)} {currency}
+              {appliedDiscount && <span className="font-normal text-amber-700"> (discount {appliedDiscount.code} applied)</span>}
             </p>
             {offlineDone.instructions ? (
               <p className="text-sm text-amber-800 whitespace-pre-wrap">{offlineDone.instructions}</p>
