@@ -21,11 +21,13 @@ export default async function GuestRegistrationSuccessPage({
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  const [{ data: branding }, { data: league }] = await Promise.all([
+  const [{ data: branding }, { data: league }, { data: paySettings }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('id, name, sport, season_start_date').eq('organization_id', org.id).eq('slug', slug).single(),
+    (db as any).from('leagues').select('id, name, sport, season_start_date, currency, payment_instructions').eq('organization_id', org.id).eq('slug', slug).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_payment_settings').select('registration_manual_instructions').eq('organization_id', org.id).maybeSingle(),
   ])
 
   // Load the guest registration.
@@ -90,6 +92,22 @@ export default async function GuestRegistrationSuccessPage({
   // Only offer account claim for a still-unclaimed guest registration with an email.
   const canClaim = !!registration && !registration.user_id && !!registration.guest_email
 
+  // Pay-in-person balance: an unpaid (pending) payment on an active registration —
+  // i.e. there's no online payment, so the player owes the organizer at the venue.
+  let amountDueCents = 0
+  if (registration && status === 'active') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: pendingPay } = await (db as any)
+      .from('payments').select('amount_cents')
+      .eq('registration_id', registration.id).eq('organization_id', org.id).eq('status', 'pending')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle()
+    amountDueCents = pendingPay?.amount_cents ?? 0
+  }
+  const amountDueLabel = amountDueCents > 0
+    ? new Intl.NumberFormat('en-CA', { style: 'currency', currency: (league?.currency ?? 'cad').toUpperCase() }).format(amountDueCents / 100)
+    : null
+  const payInstructions: string | null = (league?.payment_instructions?.trim() || null) ?? (paySettings?.registration_manual_instructions ?? null)
+
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
@@ -107,6 +125,15 @@ export default async function GuestRegistrationSuccessPage({
           <p className="mt-2 text-gray-500 text-sm">
             Starts {new Date(league.season_start_date).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
           </p>
+        )}
+
+        {amountDueLabel && (
+          <div className="mt-6 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-left">
+            <p className="text-sm font-semibold text-amber-900">Amount due: {amountDueLabel} — pay the organizer in person</p>
+            {payInstructions
+              ? <p className="text-sm text-amber-800 whitespace-pre-wrap mt-1">{payInstructions}</p>
+              : <p className="text-sm text-amber-700 mt-1">Please bring payment to the venue. The organizer will mark it received.</p>}
+          </div>
         )}
 
         {canClaim && !isPending && (

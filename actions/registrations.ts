@@ -694,6 +694,23 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
     .single()
   if (regErr || !reg) return { error: regErr?.message ?? 'Could not create the registration', registrationId: null, needsPayment: false, slug: null }
 
+  // Pay-at-the-venue (no online payment available, but there's a fee): record a
+  // pending payment so the organizer can see the amount owed and reconcile it.
+  if (!needsOnlinePayment && priceCents > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any).from('payments').insert({
+      organization_id: org.id,
+      registration_id: reg.id,
+      user_id: registrantUserId,
+      league_id: league.id,
+      payment_type: 'player',
+      amount_cents: priceCents,
+      currency: league.currency ?? 'cad',
+      status: 'pending',
+      payment_method: 'cash',
+    })
+  }
+
   // Consume the invite once the spot is secured (immediate-active registrations).
   // For online-paid events the registration is still 'pending', so leave the invite
   // usable until payment completes rather than burning it on an abandoned checkout.
