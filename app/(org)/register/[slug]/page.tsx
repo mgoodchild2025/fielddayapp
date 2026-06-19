@@ -399,6 +399,39 @@ export default async function RegisterLeaguePage({
     .from('org_branding').select('timezone').eq('organization_id', org.id).maybeSingle()
   const orgTimezone: string = regBranding?.timezone ?? 'America/Toronto'
 
+  // If the player already consented to the CURRENT Fieldday Privacy Policy version
+  // in this org, don't make them re-consent (only required when the policy changes).
+  let privacyAlreadyAccepted = false
+  {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: privDoc } = await (db as any)
+      .from('legal_documents').select('id').eq('slug', 'privacy-policy').maybeSingle()
+    if (privDoc) {
+      // Resolve the same version createRegistration records (latest published).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: ver } = await (db as any)
+        .from('legal_document_versions')
+        .select('id')
+        .eq('document_id', privDoc.id)
+        .order('published_at', { ascending: false })
+        .limit(1).maybeSingle()
+      if (ver?.id) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: existing } = await (db as any)
+          .from('player_consents')
+          .select('id')
+          .eq('organization_id', org.id)
+          .eq('user_id', user.id)
+          .eq('consent_type', 'privacy_policy')
+          .eq('consent_given', true)
+          .eq('legal_document_version_id', ver.id)
+          .is('withdrawn_at', null)
+          .limit(1).maybeSingle()
+        privacyAlreadyAccepted = !!existing
+      }
+    }
+  }
+
   // captainTeam is shaped as { id, name, team_members: [{ role }] }
   // Extract before the resume logic so we can use team membership to avoid
   // redirecting per-team players to success before they've joined a team.
@@ -506,6 +539,7 @@ export default async function RegisterLeaguePage({
       initialStep={initialStep}
       initialRegistrationId={initialRegistrationId}
       priorWaiverSignatureId={priorWaiverSignatureId}
+      privacyAlreadyAccepted={privacyAlreadyAccepted}
       hasOnlinePayments={hasOnlinePayments}
       positions={positions}
       isDropIn={isDropIn}

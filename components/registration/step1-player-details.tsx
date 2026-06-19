@@ -46,11 +46,13 @@ interface Props {
   initialTeamCode?: string | null
   /** Reuse a prior current-year waiver signature (drop-in) — linked at creation */
   waiverSignatureId?: string | null
+  /** Player already agreed to the current Privacy Policy version — skip re-consent */
+  privacyAlreadyAccepted?: boolean
   /** registrationId is always provided; joinedTeamId is set when the player joined a team via code */
   onComplete: (registrationId: string, joinedTeamId?: string) => void
 }
 
-export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, positions = [], registrationType = 'season', sessionId = null, showTeamCode = true, initialTeamCode = null, waiverSignatureId = null, onComplete }: Props) {
+export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, positions = [], registrationType = 'season', sessionId = null, showTeamCode = true, initialTeamCode = null, waiverSignatureId = null, privacyAlreadyAccepted = false, onComplete }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedPosition, setSelectedPosition] = useState('')
@@ -77,7 +79,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
   }, [])
 
   // ── Consent (PIPEDA privacy + CASL marketing) ──
-  const [privacyAccepted, setPrivacyAccepted] = useState(false)
+  const [privacyAccepted, setPrivacyAccepted] = useState(privacyAlreadyAccepted)
   const [marketingEmail, setMarketingEmail] = useState(false)
   const [marketingSms, setMarketingSms] = useState(false)
   // Transactional SMS — on by default (opt-out). Persisted to the profile below.
@@ -290,26 +292,38 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
       <div className="bg-white rounded-lg border p-5 space-y-4">
         <h2 className="font-semibold">Review &amp; Consent</h2>
 
-        {/* Required consent — privacy policy */}
-        <div className="space-y-2">
-          <p className="text-sm text-gray-600">To continue, please review and agree to the following.</p>
-          <label className="flex items-start gap-3 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={privacyAccepted}
-              onChange={(e) => setPrivacyAccepted(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-gray-300"
-            />
-            <span className="text-sm text-gray-700">
-              I have read and agree to the{' '}
-              <a href="https://fielddayapp.ca/privacy" target="_blank" rel="noopener noreferrer"
-                className="underline text-blue-600 hover:text-blue-800">Fieldday Privacy Policy</a>.
-              <span className="block text-xs text-gray-400 mt-0.5">
-                You&apos;ll review and sign the league waiver on the next step.
-              </span>
+        {/* Required consent — privacy policy. Skipped if the player already agreed
+            to the current version (they only re-consent when the policy changes). */}
+        {privacyAlreadyAccepted ? (
+          <p className="text-sm text-gray-600">
+            ✓ You&apos;ve already agreed to the current{' '}
+            <a href="https://fielddayapp.ca/privacy" target="_blank" rel="noopener noreferrer"
+              className="underline text-blue-600 hover:text-blue-800">Fieldday Privacy Policy</a>.
+            <span className="block text-xs text-gray-400 mt-0.5">
+              You&apos;ll review and sign the league waiver on the next step.
             </span>
-          </label>
-        </div>
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-sm text-gray-600">To continue, please review and agree to the following.</p>
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={privacyAccepted}
+                onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300"
+              />
+              <span className="text-sm text-gray-700">
+                I have read and agree to the{' '}
+                <a href="https://fielddayapp.ca/privacy" target="_blank" rel="noopener noreferrer"
+                  className="underline text-blue-600 hover:text-blue-800">Fieldday Privacy Policy</a>.
+                <span className="block text-xs text-gray-400 mt-0.5">
+                  You&apos;ll review and sign the league waiver on the next step.
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
 
         {/* Optional marketing — unbundled, unticked (CASL) */}
         <div className="pt-3 border-t space-y-2">

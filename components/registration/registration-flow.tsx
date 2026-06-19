@@ -31,6 +31,8 @@ interface Props {
   initialRegistrationId?: string | null
   /** A current-year waiver signature to reuse (drop-in) — skips the waiver step */
   priorWaiverSignatureId?: string | null
+  /** Player already consented to the current Privacy Policy version — skip re-consent */
+  privacyAlreadyAccepted?: boolean
   hasOnlinePayments?: boolean
   positions?: string[]
   isDropIn?: boolean
@@ -88,6 +90,7 @@ export function RegistrationFlow({
   initialStep = 1,
   initialRegistrationId = null,
   priorWaiverSignatureId = null,
+  privacyAlreadyAccepted = false,
   hasOnlinePayments = false,
   positions = [],
   isDropIn = false,
@@ -384,6 +387,7 @@ export function RegistrationFlow({
             showTeamCode={!isPerTeam && !isDropIn}
             initialTeamCode={!isPerTeam && !isDropIn ? initialTeamCode : null}
             waiverSignatureId={priorWaiverSignatureId}
+            privacyAlreadyAccepted={privacyAlreadyAccepted}
             onComplete={(regId, teamId) => {
               setRegistrationId(regId)
               if (teamId) setStep1TeamId(teamId)

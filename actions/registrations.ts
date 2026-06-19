@@ -153,13 +153,32 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
         legalVersionId = ver?.id ?? null
         versionLabel = ver?.version ?? null
       }
-      rows.push({
-        organization_id: org.id, user_id: user.id, league_id: parsed.data.leagueId,
-        consent_type: 'privacy_policy', consent_given: true,
-        document_slug: 'privacy-policy', document_version: versionLabel,
-        legal_document_version_id: legalVersionId,
-        ip_address: meta.ip, user_agent: meta.userAgent,
-      })
+      // Don't append a duplicate if they already consented to this exact version
+      // (existing players only re-consent when the policy changes).
+      let alreadyOnFile = false
+      if (legalVersionId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: existingConsent } = await (db as any)
+          .from('player_consents')
+          .select('id')
+          .eq('organization_id', org.id)
+          .eq('user_id', user.id)
+          .eq('consent_type', 'privacy_policy')
+          .eq('consent_given', true)
+          .eq('legal_document_version_id', legalVersionId)
+          .is('withdrawn_at', null)
+          .limit(1).maybeSingle()
+        alreadyOnFile = !!existingConsent
+      }
+      if (!alreadyOnFile) {
+        rows.push({
+          organization_id: org.id, user_id: user.id, league_id: parsed.data.leagueId,
+          consent_type: 'privacy_policy', consent_given: true,
+          document_slug: 'privacy-policy', document_version: versionLabel,
+          legal_document_version_id: legalVersionId,
+          ip_address: meta.ip, user_agent: meta.userAgent,
+        })
+      }
     }
 
     // (Waiver consent is logged by signWaiver, where the signature is created —
