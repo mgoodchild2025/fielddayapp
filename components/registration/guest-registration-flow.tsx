@@ -27,6 +27,9 @@ interface Props {
   manualInstructions: string | null
   timezone: string
   loginHref: string
+  /** Invite-only events: the invited email (prefilled + locked) and its token */
+  lockedEmail?: string | null
+  inviteToken?: string | null
 }
 
 type Stage = 'choice' | 'details' | 'waiver' | 'submitting'
@@ -34,6 +37,7 @@ type Stage = 'choice' | 'details' | 'waiver' | 'submitting'
 export function GuestRegistrationFlow({
   org, league, waiver, sessions, preselectedSessionId,
   priceCents, currency, onlinePayments, manualInstructions, timezone, loginHref,
+  lockedEmail = null, inviteToken = null,
 }: Props) {
   const [stage, setStage] = useState<Stage>('choice')
   const [loading, setLoading] = useState(false)
@@ -41,7 +45,7 @@ export function GuestRegistrationFlow({
 
   // Details
   const [fullName, setFullName] = useState('')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(lockedEmail ?? '')
   const [phone, setPhone] = useState('')
   const [sessionId, setSessionId] = useState(preselectedSessionId ?? (sessions[0]?.id ?? ''))
   const [agree, setAgree] = useState(false)
@@ -89,6 +93,7 @@ export function GuestRegistrationFlow({
       email: email.trim(),
       phone: phone.trim() || '',
       waiverSignatureId: waiverSignatureId || null,
+      inviteToken: inviteToken || undefined,
     })
     if (result.error || !result.registrationId) {
       setError(result.error ?? 'Could not complete registration.')
@@ -217,8 +222,11 @@ export function GuestRegistrationFlow({
           </label>
           <label className="block text-sm font-medium text-gray-700">
             Email
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 text-sm" placeholder="you@example.com" />
-            <span className="block text-xs font-normal text-gray-400 mt-1">For your receipt and check-in details.</span>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} readOnly={!!lockedEmail}
+              className={`mt-1 w-full border rounded-md px-3 py-2 text-sm ${lockedEmail ? 'bg-gray-50 text-gray-500' : ''}`} placeholder="you@example.com" />
+            <span className="block text-xs font-normal text-gray-400 mt-1">
+              {lockedEmail ? 'This event is invite-only — registering with your invited email.' : 'For your receipt and check-in details.'}
+            </span>
           </label>
           <label className="block text-sm font-medium text-gray-700">
             Phone <span className="font-normal text-gray-400">(optional)</span>

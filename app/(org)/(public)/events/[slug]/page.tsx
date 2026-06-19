@@ -1892,12 +1892,14 @@ export default async function EventDetailPage({
                     Register as Drop-in
                   </Link>
                 ) : (
+                  // Logged out — go straight to registration, which offers a
+                  // sign-in vs. continue-as-guest choice (and honors the invite).
                   <Link
-                    href={`/login?redirect=${encodeURIComponent(returnPath)}`}
+                    href={`/register/${league.slug}?mode=drop_in${inviteToken ? `&invite=${inviteToken}` : ''}`}
                     className="inline-block px-6 py-2.5 rounded-md font-semibold text-white transition-opacity hover:opacity-90"
                     style={{ backgroundColor: 'var(--brand-primary)' }}
                   >
-                    Log in to Register as Drop-in
+                    Register as Drop-in
                   </Link>
                 )}
               </div>

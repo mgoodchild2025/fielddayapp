@@ -572,6 +572,8 @@ const guestDropinSchema = z.object({
   email: z.string().trim().email('Enter a valid email'),
   phone: z.string().trim().max(40).optional().or(z.literal('')),
   waiverSignatureId: z.string().uuid().optional().nullable(),
+  // Required for invite-only ('private') events — authorizes the invited guest.
+  inviteToken: z.string().min(1).optional().nullable(),
 })
 
 /**
@@ -609,7 +611,32 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
   if (!['registration_open', 'active'].includes(league.status)) {
     return { error: 'Registration is not open for this event.', registrationId: null, needsPayment: false, slug: null }
   }
-  if (!isOpenDropInEvent(league)) {
+
+  // Invite-only events require a valid drop-in invite token; the invited email is
+  // taken from the invite (so it can't be spoofed). Other policies use the open gate.
+  const policy: string = league.pickup_join_policy ?? 'public'
+  let acceptedInviteId: string | null = null
+  let invitedEmail: string | null = null
+  if (policy === 'private') {
+    if (!parsed.data.inviteToken) {
+      return { error: 'This event is invite only.', registrationId: null, needsPayment: false, slug: null }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: inviteRow } = await (db as any)
+      .from('pickup_invites')
+      .select('id, email')
+      .eq('organization_id', org.id)
+      .eq('league_id', league.id)
+      .eq('token', parsed.data.inviteToken)
+      .eq('invite_type', 'drop_in')
+      .eq('status', 'pending')
+      .maybeSingle()
+    if (!inviteRow?.email) {
+      return { error: 'This invite link is no longer valid.', registrationId: null, needsPayment: false, slug: null }
+    }
+    acceptedInviteId = inviteRow.id
+    invitedEmail = inviteRow.email
+  } else if (!isOpenDropInEvent(league)) {
     return { error: 'Guest registration is not available for this event.', registrationId: null, needsPayment: false, slug: null }
   }
 
@@ -624,7 +651,8 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
   const onlinePayments = !!settings?.stripe_secret_key && (settings?.registration_payment_mode ?? 'stripe') !== 'manual'
   const needsOnlinePayment = priceCents > 0 && onlinePayments
 
-  const email = parsed.data.email.toLowerCase()
+  // For invite-only events, always use the invited email (don't trust the client).
+  const email = (invitedEmail ?? parsed.data.email).toLowerCase()
   const phone = parsed.data.phone?.trim() || null
 
   // If this email already has an account, fold the registration into it so the
@@ -665,6 +693,14 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
     .select('id')
     .single()
   if (regErr || !reg) return { error: regErr?.message ?? 'Could not create the registration', registrationId: null, needsPayment: false, slug: null }
+
+  // Consume the invite once the spot is secured (immediate-active registrations).
+  // For online-paid events the registration is still 'pending', so leave the invite
+  // usable until payment completes rather than burning it on an abandoned checkout.
+  if (acceptedInviteId && !needsOnlinePayment) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any).from('pickup_invites').update({ status: 'accepted' }).eq('id', acceptedInviteId)
+  }
 
   return { error: null, registrationId: reg.id as string, needsPayment: needsOnlinePayment, slug: league.slug as string, priceCents }
 }

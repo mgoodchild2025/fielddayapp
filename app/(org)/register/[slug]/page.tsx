@@ -41,10 +41,10 @@ export default async function RegisterLeaguePage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ mode?: string; code?: string; session?: string; key?: string }>
+  searchParams: Promise<{ mode?: string; code?: string; session?: string; key?: string; invite?: string }>
 }) {
   const { slug } = await params
-  const { mode, code: teamCodeParam, session: sessionParam, key: keyParam } = await searchParams
+  const { mode, code: teamCodeParam, session: sessionParam, key: keyParam, invite: inviteParam } = await searchParams
   const initialTeamCode = teamCodeParam?.trim().toUpperCase() ?? null
   const isDropIn = mode === 'drop_in'
   // Pre-selected session from the event page "Register to join" button
@@ -80,12 +80,33 @@ export default async function RegisterLeaguePage({
   const eventPolicy: string = isPickupType ? ((league as any).pickup_join_policy ?? 'public') : 'public'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const hasValidKey = eventPolicy === 'link' && !!keyParam && keyParam === (league as any).access_token
-  // Preserves drop-in mode (and the group-link key) through login / redirects.
-  const dropInQuery = `?mode=drop_in${eventPolicy === 'link' && keyParam ? `&key=${encodeURIComponent(keyParam)}` : ''}`
 
-  // Guests (no account) may self-register for open drop-in events (public, or a
-  // valid group link) — offer them a sign-in vs. continue-as-guest choice.
-  const guestEligible = isPickupType && (eventPolicy === 'public' || hasValidKey)
+  // Invite-only events: a valid drop-in invite token in the URL authorizes the
+  // invited person — including guests (no account) — to register with that email.
+  let invitedEmail: string | null = null
+  let hasValidInvite = false
+  if (isPickupType && eventPolicy === 'private' && inviteParam) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: inviteRow } = await (db as any)
+      .from('pickup_invites')
+      .select('email')
+      .eq('organization_id', org.id)
+      .eq('league_id', league.id)
+      .eq('token', inviteParam)
+      .eq('invite_type', 'drop_in')
+      .eq('status', 'pending')
+      .maybeSingle()
+    if (inviteRow?.email) { hasValidInvite = true; invitedEmail = inviteRow.email }
+  }
+
+  // Preserves drop-in mode (group-link key / invite token) through login / redirects.
+  const dropInQuery = `?mode=drop_in`
+    + (eventPolicy === 'link' && keyParam ? `&key=${encodeURIComponent(keyParam)}` : '')
+    + (hasValidInvite && inviteParam ? `&invite=${encodeURIComponent(inviteParam)}` : '')
+
+  // Guests (no account) may self-register for open drop-in events (public, a valid
+  // group link, or a valid individual invite) — offer sign-in vs. continue-as-guest.
+  const guestEligible = isPickupType && (eventPolicy === 'public' || hasValidKey || hasValidInvite)
 
   if (!user) {
     if (isDropIn && guestEligible) {
@@ -144,6 +165,8 @@ export default async function RegisterLeaguePage({
               manualInstructions={gManual}
               timezone={gBranding?.timezone ?? 'America/Toronto'}
               loginHref={`/login?redirect=${encodeURIComponent(`/register/${slug}${dropInQuery}`)}`}
+              lockedEmail={invitedEmail}
+              inviteToken={hasValidInvite ? (inviteParam ?? null) : null}
             />
           </div>
           <Footer org={org} />
@@ -198,18 +221,22 @@ export default async function RegisterLeaguePage({
       // with a message telling them to use the link the organizer shared.
       redirect(`/events/${slug}?join=link_required`)
     }
-    // private — individual invite required (matched by email)
-    if (!user.email) notFound()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: invite } = await (db as any)
-      .from('pickup_invites')
-      .select('id')
-      .eq('league_id', league.id)
-      .eq('email', user.email.toLowerCase())
-      .eq('invite_type', 'drop_in')
-      .eq('status', 'pending')
-      .maybeSingle()
-    if (!invite) redirect(`/events/${slug}?join=invite_required`)
+    // private — allow a valid invite token in the URL, or a pending invite that
+    // matches the signed-in user's email.
+    let invited = hasValidInvite
+    if (!invited && user.email) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: invite } = await (db as any)
+        .from('pickup_invites')
+        .select('id')
+        .eq('league_id', league.id)
+        .eq('email', user.email.toLowerCase())
+        .eq('invite_type', 'drop_in')
+        .eq('status', 'pending')
+        .maybeSingle()
+      invited = !!invite
+    }
+    if (!invited) redirect(`/events/${slug}?join=invite_required`)
   }
 
   const [{ data: playerDetails }, { data: existingReg }, { data: profile }, { data: connectAccount }, { data: captainTeam }, { data: rawTeams }] = await Promise.all([
