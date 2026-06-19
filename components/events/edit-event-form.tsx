@@ -361,15 +361,14 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           </div>
         )}
 
-        {/* Accepted payment methods (paid events only) */}
-        {league.price_cents > 0 && (
-          <PaymentMethodsField
-            value={paymentMethods}
-            onChange={setPaymentMethods}
-            instructions={paymentInstructions}
-            onInstructionsChange={setPaymentInstructions}
-          />
-        )}
+        {/* Accepted payment methods — available for any event (season fee,
+            drop-in fee, or none). Org admins can always choose the methods. */}
+        <PaymentMethodsField
+          value={paymentMethods}
+          onChange={setPaymentMethods}
+          instructions={paymentInstructions}
+          onInstructionsChange={setPaymentInstructions}
+        />
 
         {/* Early bird pricing — feature-gated, not shown for pickup/drop-in */}
         {hasEarlyBird && league.event_type !== 'pickup' && league.event_type !== 'drop_in' && (

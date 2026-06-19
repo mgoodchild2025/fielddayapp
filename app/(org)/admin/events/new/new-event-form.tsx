@@ -696,8 +696,9 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
               )}
             </div>
 
-            {/* Accepted payment methods (only meaningful for paid events) */}
-            {(priceCents ?? 0) > 0 && (
+            {/* Accepted payment methods — available for any event (season fee,
+                drop-in fee, or none). Org admins can always choose the methods. */}
+            {(
               <PaymentMethodsField
                 value={paymentMethods}
                 onChange={(m) => setValue('payment_methods', m, { shouldValidate: false })}
