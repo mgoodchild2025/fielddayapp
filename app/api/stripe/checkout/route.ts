@@ -380,6 +380,37 @@ export async function POST(request: NextRequest) {
 
   const origin = request.headers.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
 
+  // ── Fully covered by a discount ($0 total, no merch) ─────────────────────
+  // A Stripe Checkout session needs at least one line item; an empty cart errors.
+  // Activate the registration directly instead of charging $0.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const merchTotalCents = merch_line_items.reduce((s: number, li: any) => s + (li.price_data.unit_amount * (li.quantity ?? 1)), 0)
+  if (priceCents === 0 && merchTotalCents === 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existingPaid } = await (db as any)
+      .from('payments').select('id').eq('registration_id', registrationId).in('status', ['paid', 'manual']).limit(1).maybeSingle()
+    await Promise.all([
+      db.from('registrations').update({ status: 'active' }).eq('id', registrationId),
+      ...(!existingPaid ? [
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any).from('payments').insert({
+          organization_id: orgId,
+          registration_id: registrationId,
+          user_id: userId,
+          league_id: leagueId,
+          amount_cents: 0,
+          currency: league.currency,
+          status: 'paid',
+          payment_method: 'other',
+          payment_type: 'player',
+          paid_at: new Date().toISOString(),
+        }),
+      ] : []),
+    ])
+    if (discountApplied) await db2.rpc('increment_discount_use', { discount_id: discountApplied.id })
+    return NextResponse.json({ url: `${origin}/register/${leagueSlug}/success` })
+  }
+
   // ── Payment plan instalment mode ─────────────────────────────────────────
   if (planId && priceCents > 0) {
     // Feature gate

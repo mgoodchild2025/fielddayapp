@@ -5,6 +5,7 @@ import { LogIn, UserPlus, ArrowLeft } from 'lucide-react'
 import { RichTextContent } from '@/components/ui/rich-text-content'
 import { signWaiverAsGuest } from '@/actions/waivers'
 import { registerGuestDropin } from '@/actions/registrations'
+import { validateDiscountCode } from '@/actions/discounts'
 
 type GuardianRelationship = 'parent' | 'legal_guardian'
 
@@ -49,6 +50,29 @@ export function GuestRegistrationFlow({
   const [phone, setPhone] = useState('')
   const [sessionId, setSessionId] = useState(preselectedSessionId ?? (sessions[0]?.id ?? ''))
   const [agree, setAgree] = useState(false)
+
+  // Discount code (online-paid drop-ins)
+  const [discountInput, setDiscountInput] = useState('')
+  const [discountLoading, setDiscountLoading] = useState(false)
+  const [discountError, setDiscountError] = useState<string | null>(null)
+  const [appliedDiscount, setAppliedDiscount] = useState<{ id: string; code: string; type: 'percent' | 'fixed'; value: number } | null>(null)
+
+  const discountAmountCents = appliedDiscount
+    ? appliedDiscount.type === 'percent'
+      ? Math.round(priceCents * appliedDiscount.value / 100)
+      : Math.min(appliedDiscount.value * 100, priceCents)
+    : 0
+  const discountedPriceCents = Math.max(0, priceCents - discountAmountCents)
+
+  async function applyDiscount() {
+    const code = discountInput.trim()
+    if (!code) return
+    setDiscountLoading(true); setDiscountError(null)
+    const result = await validateDiscountCode(code, org.id, 'dropins', league.id)
+    setDiscountLoading(false)
+    if (result.valid && result.discount) setAppliedDiscount(result.discount)
+    else setDiscountError(result.error ?? 'Invalid code')
+  }
 
   // Waiver
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -108,7 +132,7 @@ export function GuestRegistrationFlow({
         const res = await fetch('/api/stripe/guest-dropin-checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ registrationId: result.registrationId }),
+          body: JSON.stringify({ registrationId: result.registrationId, discountId: appliedDiscount?.id }),
         })
         const body = await res.json()
         if (!res.ok || !body.url) {
@@ -240,6 +264,38 @@ export function GuestRegistrationFlow({
                 {sessions.map((s) => <option key={s.id} value={s.id}>{sessionLabel(s)}</option>)}
               </select>
             </label>
+          )}
+
+          {/* Discount code — only meaningful for online-paid drop-ins */}
+          {priceCents > 0 && onlinePayments && (
+            appliedDiscount ? (
+              <div className="flex items-center justify-between rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm">
+                <span className="text-green-700 font-medium">
+                  {appliedDiscount.code} applied — {discountedPriceCents > 0
+                    ? `now ${new Intl.NumberFormat('en-CA', { style: 'currency', currency: (currency || 'cad').toUpperCase() }).format(discountedPriceCents / 100)}`
+                    : 'free'}
+                </span>
+                <button type="button" onClick={() => { setAppliedDiscount(null); setDiscountInput('') }} className="text-green-700 hover:underline text-xs">Remove</button>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Discount code <span className="font-normal text-gray-400">(optional)</span></label>
+                <div className="flex gap-2">
+                  <input
+                    value={discountInput}
+                    onChange={(e) => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(null) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyDiscount() } }}
+                    placeholder="CODE"
+                    className="flex-1 border rounded-md px-3 py-2 text-sm font-mono uppercase tracking-wide"
+                  />
+                  <button type="button" onClick={applyDiscount} disabled={discountLoading || !discountInput.trim()}
+                    className="px-3 py-2 rounded-md border text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                    {discountLoading ? '…' : 'Apply'}
+                  </button>
+                </div>
+                {discountError && <p className="text-xs text-red-600 mt-1">{discountError}</p>}
+              </div>
+            )
           )}
 
           <label className="flex items-start gap-2.5 cursor-pointer select-none pt-1">

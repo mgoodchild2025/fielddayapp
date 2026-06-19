@@ -10,6 +10,7 @@ const limiter = createRateLimiter({ windowMs: 10 * 60_000, max: 8 })
 
 const schema = z.object({
   registrationId: z.string().uuid(),
+  discountId: z.string().uuid().optional(),
 })
 
 /**
@@ -53,9 +54,43 @@ export async function POST(request: NextRequest) {
     .eq('id', reg.league_id).eq('organization_id', org.id).maybeSingle()
   if (!league) return NextResponse.json({ error: 'Event not found.' }, { status: 404 })
 
-  const priceCents = league.drop_in_price_cents ?? league.price_cents ?? 0
+  let priceCents = league.drop_in_price_cents ?? league.price_cents ?? 0
   if (priceCents <= 0) return NextResponse.json({ error: 'This event has no drop-in price set.' }, { status: 400 })
   const currency = (league.currency ?? 'cad') as string
+
+  // Apply a discount code if provided — re-validated server-side (never trust the client price).
+  let discountApplied: { id: string } | null = null
+  if (parsed.data.discountId) {
+    const { data: dr } = await db
+      .from('discount_codes').select('*').eq('id', parsed.data.discountId).eq('organization_id', org.id).maybeSingle()
+    const valid = dr && dr.active
+      && (!dr.expires_at || new Date(dr.expires_at) > new Date())
+      && (!dr.max_uses || dr.use_count < dr.max_uses)
+      && (dr.applies_to === 'all' || dr.applies_to === 'dropins')
+      && (!dr.league_id || dr.league_id === league.id)
+    if (valid) {
+      const reduction = dr.type === 'percent' ? Math.round(priceCents * dr.value / 100) : Math.min(dr.value * 100, priceCents)
+      priceCents = Math.max(0, priceCents - reduction)
+      discountApplied = { id: dr.id }
+    }
+  }
+
+  const origin = request.headers.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
+
+  // Fully covered by the discount — activate the registration without charging.
+  if (priceCents === 0) {
+    await db.from('registrations').update({ status: 'active' }).eq('id', reg.id)
+    const { data: existingPaid } = await db
+      .from('payments').select('id').eq('registration_id', reg.id).in('status', ['paid', 'manual']).limit(1).maybeSingle()
+    if (!existingPaid) {
+      await db.from('payments').insert({
+        organization_id: org.id, registration_id: reg.id, user_id: reg.user_id ?? null, league_id: league.id,
+        payment_type: 'player', amount_cents: 0, currency, status: 'paid', payment_method: 'other', paid_at: new Date().toISOString(),
+      })
+    }
+    if (discountApplied) await db.rpc('increment_discount_use', { discount_id: discountApplied.id })
+    return NextResponse.json({ url: `${origin}/register/${league.slug}/guest-success?reg=${reg.id}` })
+  }
 
   // Reuse an existing pending payment row for this registration if present, else create one.
   let paymentId: string | null = null
@@ -63,6 +98,8 @@ export async function POST(request: NextRequest) {
     .from('payments').select('id').eq('registration_id', reg.id).eq('status', 'pending').limit(1).maybeSingle()
   if (existingPay) {
     paymentId = existingPay.id
+    // Keep the amount in sync with any discount applied on this attempt.
+    await db.from('payments').update({ amount_cents: priceCents }).eq('id', existingPay.id)
   } else {
     const { data: pay } = await db.from('payments').insert({
       organization_id: org.id,
@@ -79,7 +116,6 @@ export async function POST(request: NextRequest) {
   }
 
   const orgStripe = new Stripe(settings.stripe_secret_key, { apiVersion: '2026-05-27.dahlia' as const, typescript: true })
-  const origin = request.headers.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
 
   try {
     const checkout = await orgStripe.checkout.sessions.create({
@@ -106,6 +142,7 @@ export async function POST(request: NextRequest) {
     if (paymentId) {
       await db.from('payments').update({ stripe_checkout_session_id: checkout.id }).eq('id', paymentId)
     }
+    if (discountApplied) await db.rpc('increment_discount_use', { discount_id: discountApplied.id })
     return NextResponse.json({ url: checkout.url })
   } catch (err) {
     console.error('[guest-dropin-checkout] Stripe session creation failed:', err)
