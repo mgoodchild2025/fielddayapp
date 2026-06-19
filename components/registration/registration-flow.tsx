@@ -29,6 +29,8 @@ interface Props {
   userId: string
   initialStep?: number
   initialRegistrationId?: string | null
+  /** A current-year waiver signature to reuse (drop-in) — skips the waiver step */
+  priorWaiverSignatureId?: string | null
   hasOnlinePayments?: boolean
   positions?: string[]
   isDropIn?: boolean
@@ -83,6 +85,7 @@ export function RegistrationFlow({
   userId,
   initialStep = 1,
   initialRegistrationId = null,
+  priorWaiverSignatureId = null,
   hasOnlinePayments = false,
   positions = [],
   isDropIn = false,
@@ -189,7 +192,8 @@ export function RegistrationFlow({
     }
   }
 
-  async function afterWaiver() {
+  async function afterWaiver(regIdParam?: string | null) {
+    const rid = regIdParam ?? registrationId
     if (showAddOnsStep) {
       // go to add-ons step (step 3), then payment is step 4
       advanceStep(3)
@@ -201,7 +205,7 @@ export function RegistrationFlow({
     } else if (isPerTeam) {
       if (isPlayer && playerTeamId) {
         // Player already on a team via invite — activate and skip team-join
-        await activateRegistration(registrationId!)
+        await activateRegistration(rid!)
         // If they arrived via an invite link, land on their team page
         if (initialTeamCode) {
           router.push(`/teams/${playerTeamId}`)
@@ -217,7 +221,7 @@ export function RegistrationFlow({
         } else {
           // New captain creating their own team (no pre-assigned team), or free league.
           // Activate now; team page handles team creation / any team-level payment.
-          await activateRegistration(registrationId!)
+          await activateRegistration(rid!)
           advanceStep(3)
         }
       } else {
@@ -226,7 +230,7 @@ export function RegistrationFlow({
         advanceStep(3)
       }
     } else {
-      await completeRegistration(registrationId)
+      await completeRegistration(rid)
     }
   }
 
@@ -376,10 +380,17 @@ export function RegistrationFlow({
             sessionId={selectedSessionId}
             showTeamCode={!isPerTeam && !isDropIn}
             initialTeamCode={!isPerTeam && !isDropIn ? initialTeamCode : null}
+            waiverSignatureId={priorWaiverSignatureId}
             onComplete={(regId, teamId) => {
               setRegistrationId(regId)
               if (teamId) setStep1TeamId(teamId)
-              advanceStep(2)
+              // Already signed this year (drop-in) — the registration was created
+              // with that signature linked, so skip the waiver step entirely.
+              if (priorWaiverSignatureId) {
+                afterWaiver(regId)
+              } else {
+                advanceStep(2)
+              }
             }}
           />
         )}

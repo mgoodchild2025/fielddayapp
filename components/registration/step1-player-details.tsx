@@ -44,11 +44,13 @@ interface Props {
   showTeamCode?: boolean
   /** Pre-filled team code from the invite link — auto-validates on mount */
   initialTeamCode?: string | null
+  /** Reuse a prior current-year waiver signature (drop-in) — linked at creation */
+  waiverSignatureId?: string | null
   /** registrationId is always provided; joinedTeamId is set when the player joined a team via code */
   onComplete: (registrationId: string, joinedTeamId?: string) => void
 }
 
-export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, positions = [], registrationType = 'season', sessionId = null, showTeamCode = true, initialTeamCode = null, onComplete }: Props) {
+export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, positions = [], registrationType = 'season', sessionId = null, showTeamCode = true, initialTeamCode = null, waiverSignatureId = null, onComplete }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedPosition, setSelectedPosition] = useState('')
@@ -140,6 +142,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
       position: selectedPosition || undefined,
       registration_type: registrationType,
       session_id: sessionId ?? undefined,
+      waiverSignatureId: waiverSignatureId ?? undefined,
       consent: {
         privacyAccepted,
         marketingEmail,

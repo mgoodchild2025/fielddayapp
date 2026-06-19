@@ -356,6 +356,25 @@ export default async function RegisterLeaguePage({
     waiver = data
   }
 
+  // Drop-in players who already signed this org's waiver earlier this calendar
+  // year don't need to sign again — reuse that signature and skip the step.
+  let priorWaiverSignatureId: string | null = null
+  if (isDropIn && waiver) {
+    const yearStart = `${new Date().getFullYear()}-01-01`
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: priorSig } = await (db as any)
+      .from('waiver_signatures')
+      .select('id')
+      .eq('organization_id', org.id)
+      .eq('user_id', user.id)
+      .eq('waiver_id', waiver.id)
+      .gte('signed_at', yearStart)
+      .order('signed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    priorWaiverSignatureId = priorSig?.id ?? null
+  }
+
   // captainTeam is shaped as { id, name, team_members: [{ role }] }
   // Extract before the resume logic so we can use team membership to avoid
   // redirecting per-team players to success before they've joined a team.
@@ -462,6 +481,7 @@ export default async function RegisterLeaguePage({
       userId={user.id}
       initialStep={initialStep}
       initialRegistrationId={initialRegistrationId}
+      priorWaiverSignatureId={priorWaiverSignatureId}
       hasOnlinePayments={hasOnlinePayments}
       positions={positions}
       isDropIn={isDropIn}
