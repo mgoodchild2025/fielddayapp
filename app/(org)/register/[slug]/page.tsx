@@ -14,6 +14,28 @@ import type { MerchItemForStep } from '@/components/registration/step-addons'
 import { resolveLeagueMethods } from '@/lib/payment-methods'
 import { canAccess } from '@/lib/features'
 
+/** Count active drop-in registrations (registrations table, session_id set) per
+ *  session — these are the players who registered via the registration flow. */
+async function countDropInRegsBySession(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any, orgId: string, leagueId: string, sessionIds: string[],
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>()
+  if (sessionIds.length === 0) return counts
+  const { data } = await db
+    .from('registrations')
+    .select('session_id')
+    .eq('organization_id', orgId)
+    .eq('league_id', leagueId)
+    .eq('registration_type', 'drop_in')
+    .eq('status', 'active')
+    .in('session_id', sessionIds)
+  for (const r of (data ?? []) as { session_id: string | null }[]) {
+    if (r.session_id) counts.set(r.session_id, (counts.get(r.session_id) ?? 0) + 1)
+  }
+  return counts
+}
+
 export default async function RegisterLeaguePage({
   params,
   searchParams,
@@ -92,10 +114,13 @@ export default async function RegisterLeaguePage({
           .gte('scheduled_at', new Date().toISOString()).order('scheduled_at', { ascending: true }).limit(20),
       ])
 
+      const gRegBySession = await countDropInRegsBySession(
+        db, org.id, league.id, (gRawSessions ?? []).map((s: { id: string }) => s.id),
+      )
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const gSessions = (gRawSessions ?? []).map((s: any) => ({
         id: s.id, scheduled_at: s.scheduled_at, capacity: s.capacity,
-        registered_count: s.registered?.[0]?.count ?? 0,
+        registered_count: (s.registered?.[0]?.count ?? 0) + (gRegBySession.get(s.id) ?? 0),
       }))
       const gOnline = !!gSettings?.stripe_secret_key && (gSettings?.registration_payment_mode ?? 'stripe') !== 'manual'
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -310,6 +335,12 @@ export default async function RegisterLeaguePage({
         .limit(20)
     : { data: [] }
 
+  // Players who register through the registration flow are rows in `registrations`
+  // (session_id set), NOT session_registrations — count both so "spots left" is right.
+  const dropInRegBySession = await countDropInRegsBySession(
+    db, org.id, league.id, (rawSessions ?? []).map((s: { id: string }) => s.id),
+  )
+
   const dropInSessions = (rawSessions ?? []).map((s: {
     id: string
     scheduled_at: string
@@ -320,7 +351,7 @@ export default async function RegisterLeaguePage({
     id: s.id,
     scheduled_at: s.scheduled_at,
     capacity: s.capacity,
-    registered_count: s.registered?.[0]?.count ?? 0,
+    registered_count: (s.registered?.[0]?.count ?? 0) + (dropInRegBySession.get(s.id) ?? 0),
   }))
 
   const [positions, leagueMerchRaw, hasPaymentPlans] = await Promise.all([
