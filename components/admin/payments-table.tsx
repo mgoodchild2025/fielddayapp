@@ -14,6 +14,17 @@ type PaymentRecord = {
   payment_method: string | null
   paid_at: string | null
   notes: string | null
+  discountCode?: string | null
+  discountCents?: number
+}
+
+/** "SAVE10 (−$5.00)" when a discount was applied to this payment. */
+function discountLabel(r: Row): string | null {
+  const cents = r.payment?.discountCents ?? 0
+  const code = r.payment?.discountCode
+  if (!code && cents <= 0) return null
+  const amount = cents > 0 ? ` (−$${(cents / 100).toFixed(2)})` : ''
+  return `${code ?? 'Discount'}${amount}`
 }
 
 type Row = {
@@ -252,6 +263,9 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
                       ? <span className="text-gray-400 font-normal">Free</span>
                       : amountLabel(r)
                     }
+                    {discountLabel(r) && (
+                      <span className="block text-xs font-normal text-green-600 mt-0.5">🏷 {discountLabel(r)}</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${statusColors[r.paymentStatus] ?? 'bg-gray-100 text-gray-600'}`}>
@@ -307,9 +321,12 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
               {/* Event + amount row */}
               <div className="flex items-center justify-between mt-2">
                 <p className="text-sm text-gray-600 truncate mr-3">{r.league?.name ?? '—'}</p>
-                <p className={`text-sm font-semibold shrink-0 ${r.isFree ? 'text-gray-400 font-normal' : ''}`}>
-                  {amountLabel(r)}
-                </p>
+                <div className="shrink-0 text-right">
+                  <p className={`text-sm font-semibold ${r.isFree ? 'text-gray-400 font-normal' : ''}`}>
+                    {amountLabel(r)}
+                  </p>
+                  {discountLabel(r) && <p className="text-xs text-green-600">🏷 {discountLabel(r)}</p>}
+                </div>
               </div>
 
               {/* Secondary details */}

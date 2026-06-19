@@ -12,6 +12,8 @@ type PaymentRecord = {
   payment_method: string | null
   paid_at: string | null
   notes: string | null
+  discount_cents: number | null
+  discount_code: { code: string } | { code: string }[] | null
 }
 
 type RegistrationRow = {
@@ -37,7 +39,7 @@ export default async function AdminPaymentsPage() {
       id, created_at, registration_type, guest_name, guest_email,
       player:profiles!registrations_user_id_fkey(id, full_name, email),
       league:leagues!registrations_league_id_fkey(id, name, price_cents, drop_in_price_cents, currency, payment_mode),
-      payment:payments!payments_registration_id_fkey(id, amount_cents, currency, status, payment_method, paid_at, notes)
+      payment:payments!payments_registration_id_fkey(id, amount_cents, currency, status, payment_method, paid_at, notes, discount_cents, discount_code:discount_codes(code))
     `)
     .eq('organization_id', org.id)
     .order('created_at', { ascending: false })
@@ -59,7 +61,13 @@ export default async function AdminPaymentsPage() {
     const player = (Array.isArray(r.player) ? r.player[0] : r.player)
       ?? (r.guest_name ? { id: '', full_name: r.guest_name, email: r.guest_email ?? '' } : null)
     const league = Array.isArray(r.league) ? r.league[0] : r.league
-    const payment = Array.isArray(r.payment) ? r.payment[0] : r.payment
+    const paymentRaw = Array.isArray(r.payment) ? r.payment[0] : r.payment
+    const discountCode = paymentRaw
+      ? (Array.isArray(paymentRaw.discount_code) ? paymentRaw.discount_code[0] : paymentRaw.discount_code)
+      : null
+    const payment = paymentRaw
+      ? { ...paymentRaw, discountCode: discountCode?.code ?? null, discountCents: paymentRaw.discount_cents ?? 0 }
+      : null
 
     const isDropIn = r.registration_type === 'drop_in'
     const effectivePrice = isDropIn

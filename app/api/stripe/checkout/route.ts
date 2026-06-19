@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
     : (earlyBirdActive ? league.early_bird_price_cents : league.price_cents)
 
   // Apply discount server-side (re-validate to prevent price tampering)
-  let discountApplied: { id: string; type: string; value: number } | null = null
+  let discountApplied: { id: string; type: string; value: number; cents: number } | null = null
   if (discountId && priceCents > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: discountRow } = await (db2 as any)
@@ -232,7 +232,7 @@ export async function POST(request: NextRequest) {
         ? Math.round(priceCents * discountRow.value / 100)
         : Math.min(discountRow.value * 100, priceCents)
       priceCents = Math.max(0, priceCents - reduction)
-      discountApplied = { id: discountRow.id, type: discountRow.type, value: discountRow.value }
+      discountApplied = { id: discountRow.id, type: discountRow.type, value: discountRow.value, cents: reduction }
     }
   }
 
@@ -268,6 +268,8 @@ export async function POST(request: NextRequest) {
           status: 'manual',
           payment_method: 'cash',
           payment_type: 'player',
+          discount_code_id: discountApplied?.id ?? null,
+          discount_cents: discountApplied?.cents ?? 0,
         }),
       ] : []),
     ])
@@ -404,6 +406,8 @@ export async function POST(request: NextRequest) {
           payment_method: 'other',
           payment_type: 'player',
           paid_at: new Date().toISOString(),
+          discount_code_id: discountApplied?.id ?? null,
+          discount_cents: discountApplied?.cents ?? 0,
         }),
       ] : []),
     ])
@@ -565,6 +569,8 @@ export async function POST(request: NextRequest) {
     currency: league.currency,
     status: 'pending',
     payment_type: 'player',
+    discount_code_id: discountApplied?.id ?? null,
+    discount_cents: discountApplied?.cents ?? 0,
   })
 
   // Lock in discount use count now that a Stripe session is created

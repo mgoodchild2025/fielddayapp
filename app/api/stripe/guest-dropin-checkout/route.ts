@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
   const currency = (league.currency ?? 'cad') as string
 
   // Apply a discount code if provided — re-validated server-side (never trust the client price).
-  let discountApplied: { id: string } | null = null
+  let discountApplied: { id: string; cents: number } | null = null
   if (parsed.data.discountId) {
     const { data: dr } = await db
       .from('discount_codes').select('*').eq('id', parsed.data.discountId).eq('organization_id', org.id).maybeSingle()
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     if (valid) {
       const reduction = dr.type === 'percent' ? Math.round(priceCents * dr.value / 100) : Math.min(dr.value * 100, priceCents)
       priceCents = Math.max(0, priceCents - reduction)
-      discountApplied = { id: dr.id }
+      discountApplied = { id: dr.id, cents: reduction }
     }
   }
 
@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
       await db.from('payments').insert({
         organization_id: org.id, registration_id: reg.id, user_id: reg.user_id ?? null, league_id: league.id,
         payment_type: 'player', amount_cents: 0, currency, status: 'paid', payment_method: 'other', paid_at: new Date().toISOString(),
+        discount_code_id: discountApplied?.id ?? null, discount_cents: discountApplied?.cents ?? 0,
       })
     }
     if (discountApplied) await db.rpc('increment_discount_use', { discount_id: discountApplied.id })
@@ -98,8 +99,12 @@ export async function POST(request: NextRequest) {
     .from('payments').select('id').eq('registration_id', reg.id).eq('status', 'pending').limit(1).maybeSingle()
   if (existingPay) {
     paymentId = existingPay.id
-    // Keep the amount in sync with any discount applied on this attempt.
-    await db.from('payments').update({ amount_cents: priceCents }).eq('id', existingPay.id)
+    // Keep the amount + discount in sync with this attempt.
+    await db.from('payments').update({
+      amount_cents: priceCents,
+      discount_code_id: discountApplied?.id ?? null,
+      discount_cents: discountApplied?.cents ?? 0,
+    }).eq('id', existingPay.id)
   } else {
     const { data: pay } = await db.from('payments').insert({
       organization_id: org.id,
@@ -111,6 +116,8 @@ export async function POST(request: NextRequest) {
       currency,
       status: 'pending',
       payment_method: 'stripe',
+      discount_code_id: discountApplied?.id ?? null,
+      discount_cents: discountApplied?.cents ?? 0,
     }).select('id').single()
     paymentId = pay?.id ?? null
   }

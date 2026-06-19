@@ -213,6 +213,9 @@ const selectOfflinePaymentSchema = z.object({
   method: z.enum(['etransfer', 'cash', 'cheque']),
   /** Discounted amount in cents. When provided, used instead of league.price_cents. */
   discountedAmountCents: z.number().int().nonnegative().optional(),
+  /** Discount applied (for admin visibility on the payment). */
+  discountId: z.string().uuid().optional(),
+  discountCents: z.number().int().nonnegative().optional(),
 })
 
 /**
@@ -288,11 +291,17 @@ export async function selectOfflinePayment(
         currency,
         status: 'pending',
         payment_method: method,
+        discount_code_id: parsed.data.discountId ?? null,
+        discount_cents: parsed.data.discountCents ?? 0,
       })
     } else if (existing.status !== 'paid') {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (db as any).from('payments')
-        .update({ payment_method: method, amount_cents: amountCents, currency, status: 'pending' })
+        .update({
+          payment_method: method, amount_cents: amountCents, currency, status: 'pending',
+          discount_code_id: parsed.data.discountId ?? null,
+          discount_cents: parsed.data.discountCents ?? 0,
+        })
         .eq('id', existing.id)
     }
   }
