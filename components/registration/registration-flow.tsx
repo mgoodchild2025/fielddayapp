@@ -62,6 +62,8 @@ interface Props {
   offlineInstructions?: string | null
   /** Upcoming sessions for drop-in registration — player picks one before step 1 */
   dropInSessions?: { id: string; scheduled_at: string; capacity: number | null; registered_count: number }[]
+  /** Org timezone — used to render drop-in session dates/times correctly */
+  timezone?: string
   /** Session pre-selected from the event page "Register to join" button — skips the picker */
   preselectedSessionId?: string | null
   /** Payment plan configured for this league (Club tier only). */
@@ -104,6 +106,7 @@ export function RegistrationFlow({
   acceptedMethods = [],
   offlineInstructions = null,
   dropInSessions = [],
+  timezone = 'America/Toronto',
   preselectedSessionId = null,
   paymentPlan = null,
 }: Props) {
@@ -261,10 +264,10 @@ export function RegistrationFlow({
                   }`}
                 >
                   <p className="font-semibold text-gray-900">
-                    {date.toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                    {date.toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: timezone })}
                   </p>
                   <p className="text-sm text-gray-500 mt-0.5">
-                    {date.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                    {date.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: timezone })}
                     {spotsLeft !== null && (
                       <span className={`ml-2 ${spotsLeft <= 3 ? 'text-amber-600 font-medium' : ''}`}>
                         · {isFull ? 'Full' : `${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''} left`}

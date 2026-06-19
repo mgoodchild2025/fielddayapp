@@ -375,6 +375,13 @@ export default async function RegisterLeaguePage({
     priorWaiverSignatureId = priorSig?.id ?? null
   }
 
+  // Org timezone — so drop-in session dates/times render correctly regardless
+  // of the player's own device timezone.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: regBranding } = await (db as any)
+    .from('org_branding').select('timezone').eq('organization_id', org.id).maybeSingle()
+  const orgTimezone: string = regBranding?.timezone ?? 'America/Toronto'
+
   // captainTeam is shaped as { id, name, team_members: [{ role }] }
   // Extract before the resume logic so we can use team membership to avoid
   // redirecting per-team players to success before they've joined a team.
@@ -500,6 +507,7 @@ export default async function RegisterLeaguePage({
       acceptedMethods={acceptedMethods}
       offlineInstructions={offlineInstructions}
       dropInSessions={dropInSessions}
+      timezone={orgTimezone}
       preselectedSessionId={preselectedSessionId}
       paymentPlan={paymentPlan}
     />
