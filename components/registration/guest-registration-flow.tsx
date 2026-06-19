@@ -177,7 +177,7 @@ export function GuestRegistrationFlow({
           <LogIn className="w-5 h-5 shrink-0" style={{ color: 'var(--brand-primary)' }} />
           <span>
             <span className="block font-semibold text-gray-900">Sign in or create an account</span>
-            <span className="block text-sm text-gray-500">Track your events, waivers, and receipts.</span>
+            <span className="block text-sm text-gray-500">Track your events, receive event alerts, and keep your waivers and receipts.</span>
           </span>
         </a>
 
