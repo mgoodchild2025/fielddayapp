@@ -123,8 +123,15 @@ function formatShortDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
 }
 
-function daysUntil(iso: string): string {
-  const diff = Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)
+function daysUntil(iso: string, tz: string): string {
+  // Compare calendar days in the org timezone — not raw elapsed time, which
+  // mislabels a game later *today* as "Tomorrow" (and shifts across timezones).
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz })  // → YYYY-MM-DD
+  const toDays = (d: Date) => {
+    const [y, m, day] = fmt.format(d).split('-').map(Number)
+    return Math.floor(Date.UTC(y, m - 1, day) / 86_400_000)
+  }
+  const diff = toDays(new Date(iso)) - toDays(new Date())
   if (diff === 0) return 'Today'
   if (diff === 1) return 'Tomorrow'
   if (diff < 0) return 'Past'
@@ -194,7 +201,7 @@ function GameHero({
           {item.weekNumber ? `Week ${item.weekNumber} · ${item.leagueName}` : item.leagueName}
         </span>
         <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-emerald-400 bg-emerald-400/10 border border-emerald-400/20">
-          {daysUntil(item.scheduledAt)}
+          {daysUntil(item.scheduledAt, timezone)}
         </span>
       </div>
 
@@ -300,7 +307,7 @@ function SessionHero({ item, timezone }: { item: NextSessionItem; timezone: stri
           {formatEventType(item.eventType)}
         </span>
         <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-emerald-400 bg-emerald-400/10 border border-emerald-400/20">
-          {daysUntil(item.scheduledAt)}
+          {daysUntil(item.scheduledAt, timezone)}
         </span>
       </div>
 
