@@ -98,6 +98,8 @@ export function GuestRegistrationFlow({
   const priceLabel = priceCents > 0
     ? new Intl.NumberFormat('en-CA', { style: 'currency', currency: (currency || 'cad').toUpperCase() }).format(priceCents / 100)
     : null
+  // There's a fee but no online payment available — the player pays in person.
+  const payInPerson = priceCents > 0 && !onlinePayments
 
   function sessionLabel(s: SessionOption) {
     const dt = new Date(s.scheduled_at).toLocaleString('en-CA', {
@@ -197,6 +199,7 @@ export function GuestRegistrationFlow({
             {league.name}
           </h1>
           {priceLabel && <p className="text-lg font-semibold mt-1" style={{ color: 'var(--brand-primary)' }}>{priceLabel} drop-in</p>}
+          {payInPerson && <p className="text-xs text-gray-500 mt-1">💵 Paid in person at the venue</p>}
         </div>
 
         <a
@@ -236,6 +239,13 @@ export function GuestRegistrationFlow({
           <h1 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'var(--brand-heading-font)' }}>Your details</h1>
           <p className="text-sm text-gray-500 mt-0.5">Registering for {league.name}{priceLabel ? ` · ${priceLabel}` : ''}</p>
         </div>
+
+        {payInPerson && (
+          <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2.5 text-sm text-amber-800">
+            💵 <strong>Pay {priceLabel} in person</strong> at the venue — there&apos;s no online payment for this event.
+            {manualInstructions && <span className="block text-amber-700 mt-1 whitespace-pre-wrap">{manualInstructions}</span>}
+          </div>
+        )}
 
         {errorBox}
 
