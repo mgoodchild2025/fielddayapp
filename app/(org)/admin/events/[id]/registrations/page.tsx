@@ -36,10 +36,34 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   const [{ data: branding }, { data: league }, { data: activeWaiver }] = await Promise.all([
     db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('name, slug, waiver_version_id').eq('id', id).eq('organization_id', org.id).single(),
+    (db as any).from('leagues').select('name, slug, waiver_version_id, event_type, registration_mode').eq('id', id).eq('organization_id', org.id).single(),
     db.from('waivers').select('id').eq('organization_id', org.id).eq('is_active', true).maybeSingle(),
   ])
   const timezone = branding?.timezone ?? 'America/Toronto'
+
+  // For session-based events (drop-in / pickup), offer a session picker on the
+  // manual "Add registrant" form so the admin can place the person in a specific
+  // session — or all sessions (a full pass).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leagueAny = league as any
+  const hasSessions = leagueAny?.event_type === 'drop_in' || leagueAny?.event_type === 'pickup'
+  let sessionOptions: { id: string; label: string }[] = []
+  if (hasSessions) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: sessionRows } = await (db as any)
+      .from('event_sessions')
+      .select('id, scheduled_at, status')
+      .eq('league_id', id)
+      .eq('organization_id', org.id)
+      .neq('status', 'cancelled')
+      .order('scheduled_at', { ascending: true })
+    sessionOptions = (sessionRows ?? []).map((s: { id: string; scheduled_at: string }) => ({
+      id: s.id,
+      label: new Date(s.scheduled_at).toLocaleString('en-CA', {
+        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: timezone,
+      }),
+    }))
+  }
   const leagueSlug = (league as { slug?: string } | null)?.slug ?? ''
   const hasWaiverConfigured = !!(league as { waiver_version_id?: string | null } | null)?.waiver_version_id || !!activeWaiver
 
@@ -149,7 +173,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
           {' · '}
           {rows.filter((r: { status: string }) => r.status === 'active').length} active
         </p>
-        <AdminAddRegistrant leagueId={id} />
+        <AdminAddRegistrant leagueId={id} sessions={sessionOptions} />
       </div>
 
       {/* Waiver link — shown whenever org has a waiver configured */}

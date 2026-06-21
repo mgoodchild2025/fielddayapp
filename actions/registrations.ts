@@ -427,6 +427,9 @@ const adminAddRegistrantSchema = z.object({
   amountCents: z.number().int().min(0),
   method: z.enum(['cash', 'etransfer', 'cheque', 'stripe', 'card', 'other']),
   notes: z.string().optional(),
+  // For session-based (drop-in / pickup) events: place the registrant in a
+  // specific session. Omit (or empty) = a full pass that counts for every session.
+  sessionId: z.string().uuid().optional().nullable(),
 })
 
 /**
@@ -489,11 +492,25 @@ export async function adminAddRegistrant(input: z.infer<typeof adminAddRegistran
       invited_email: email,
     }, { onConflict: 'organization_id,user_id', ignoreDuplicates: false })
 
+    // Duplicate check is scope-aware: a specific-session add only conflicts with
+    // the same session; a full-pass add conflicts with an existing full pass.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: dupe } = await (db as any)
+    let dupeQuery = (db as any)
       .from('registrations').select('id')
-      .eq('league_id', parsed.data.leagueId).eq('user_id', registrantUserId).maybeSingle()
-    if (dupe) return { error: 'This person is already registered for this event.' }
+      .eq('league_id', parsed.data.leagueId).eq('user_id', registrantUserId)
+    if (parsed.data.sessionId) {
+      dupeQuery = dupeQuery.eq('session_id', parsed.data.sessionId)
+    } else {
+      dupeQuery = dupeQuery.is('session_id', null)
+    }
+    const { data: dupe } = await dupeQuery.maybeSingle()
+    if (dupe) {
+      return {
+        error: parsed.data.sessionId
+          ? 'This person is already registered for that session.'
+          : 'This person is already registered for this event.',
+      }
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -507,7 +524,9 @@ export async function adminAddRegistrant(input: z.infer<typeof adminAddRegistran
       guest_email: registrantUserId ? null : (email || null),
       guest_phone: registrantUserId ? null : (phone || null),
       added_by_admin: user.id,
-      registration_type: 'season',
+      // A specific session = a per-session drop-in row; otherwise a full pass.
+      registration_type: parsed.data.sessionId ? 'drop_in' : 'season',
+      session_id: parsed.data.sessionId ?? null,
       status: 'active',
     })
     .select('id')

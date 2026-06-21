@@ -50,24 +50,59 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   const registrationMode: string = leagueAny?.registration_mode ?? 'season'
   const eventCapacity: number | null = leagueAny?.max_participants ?? null
 
-  // For season-pass events, all sessions are attended by every registered player.
-  // Count only season-type registrations (not drop-in rows which are per-session).
-  let seasonRegistrantCount = 0
-  if (registrationMode === 'season') {
-    const { count } = await db
-      .from('registrations')
-      .select('*', { count: 'exact', head: true })
-      .eq('league_id', id)
-      .eq('organization_id', org.id)
-      .eq('status', 'active')
-      .or('registration_type.eq.season,registration_type.is.null')
-    seasonRegistrantCount = count ?? 0
+  // A per-session registrant entry. `allSessions` marks a full-pass holder who
+  // attends every session, rather than a per-session drop-in.
+  type RosterEntry = { name: string; isGuest: boolean; payment: 'paid' | 'owed' | 'free'; allSessions: boolean }
+
+  // Resolve a paid / owed / free status for a set of registration ids in one query.
+  async function resolvePayments(regIds: string[]): Promise<Map<string, 'paid' | 'owed'>> {
+    const map = new Map<string, 'paid' | 'owed'>()
+    if (regIds.length === 0) return map
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: pays } = await (db as any)
+      .from('payments').select('registration_id, status')
+      .eq('organization_id', org.id).in('registration_id', regIds)
+    for (const p of (pays ?? [])) {
+      if (!p.registration_id) continue
+      const prev = map.get(p.registration_id)
+      // 'paid' wins; otherwise a pending payment means money is owed (e.g. pay in person).
+      if (p.status === 'paid') map.set(p.registration_id, 'paid')
+      else if (p.status === 'pending' && prev !== 'paid') map.set(p.registration_id, 'owed')
+    }
+    return map
   }
+
+  // Full-pass registrants: season-type (no session_id) active registrations attend
+  // EVERY session of this event — including sessions added later. We fetch names so
+  // each session's roster can list them, tagged "All sessions".
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: seasonRegs } = await (db as any)
+    .from('registrations')
+    .select(`id, user_id, guest_name, profile:profiles!registrations_user_id_fkey(full_name)`)
+    .eq('league_id', id)
+    .eq('organization_id', org.id)
+    .eq('status', 'active')
+    .is('session_id', null)
+    .or('registration_type.eq.season,registration_type.is.null')
+  const seasonPayments = await resolvePayments((seasonRegs ?? []).map((r: { id: string }) => r.id))
+  const seasonRoster: RosterEntry[] = (seasonRegs ?? []).map((r: {
+    id: string; user_id: string | null; guest_name: string | null
+    profile: { full_name: string } | { full_name: string }[] | null
+  }) => {
+    const profile = Array.isArray(r.profile) ? r.profile[0] : r.profile
+    return {
+      name: profile?.full_name ?? r.guest_name ?? 'Guest',
+      isGuest: !r.user_id,
+      payment: seasonPayments.get(r.id) ?? 'free',
+      allSessions: true,
+    }
+  })
+  seasonRoster.sort((a, b) => a.name.localeCompare(b.name))
+  const seasonRegistrantCount = seasonRoster.length
 
   // Fetch per-session drop-in registrants from the registrations table, plus the
   // old-flow session_registrations, so each session row can list WHO registered
   // (not just a count). Two sources, deduped by user_id like the check-in page.
-  type RosterEntry = { name: string; isGuest: boolean; payment: 'paid' | 'owed' | 'free' }
   const sessionIds = (sessions ?? []).map((s: { id: string }) => s.id)
   const dropInBySession = new Map<string, number>()
   const rosterBySession = new Map<string, RosterEntry[]>()
@@ -99,24 +134,8 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
         .eq('status', 'registered')
         .in('session_id', sessionIds)
 
-      // Resolve payment status for the drop-in registrations in one query.
-      const regIds = (dropInRegs ?? []).map((r: { id: string }) => r.id)
-      const paymentByReg = new Map<string, 'paid' | 'owed'>()
-      if (regIds.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: pays } = await (db as any)
-          .from('payments')
-          .select('registration_id, status')
-          .eq('organization_id', org.id)
-          .in('registration_id', regIds)
-        for (const p of (pays ?? [])) {
-          if (!p.registration_id) continue
-          const prev = paymentByReg.get(p.registration_id)
-          // 'paid' wins; otherwise a pending payment means money is owed (e.g. pay in person).
-          if (p.status === 'paid') paymentByReg.set(p.registration_id, 'paid')
-          else if (p.status === 'pending' && prev !== 'paid') paymentByReg.set(p.registration_id, 'owed')
-        }
-      }
+      // Resolve payment status for the drop-in registrations.
+      const paymentByReg = await resolvePayments((dropInRegs ?? []).map((r: { id: string }) => r.id))
 
       // user_ids already covered by the new flow — avoid double-listing the same person.
       const dropInUserIds = new Set(
@@ -137,6 +156,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
           name: profile?.full_name ?? r.guest_name ?? 'Guest',
           isGuest: !r.user_id,
           payment: paymentByReg.get(r.id) ?? 'free',
+          allSessions: false,
         })
       }
 
@@ -147,6 +167,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
           name: profile?.full_name ?? 'Unknown',
           isGuest: false,
           payment: 'free',
+          allSessions: false,
         })
       }
 
@@ -190,7 +211,8 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
     status: s.status,
     registered_count: s.registered?.[0]?.count ?? 0,
     dropin_count: dropInBySession.get(s.id) ?? 0,
-    roster: rosterBySession.get(s.id) ?? [],
+    // Full-pass holders attend every session, so they head each session's roster.
+    roster: [...seasonRoster, ...(rosterBySession.get(s.id) ?? [])],
   }))
 
   const sessionOptions = mapped.map((s: { id: string; scheduled_at: string }) => ({
