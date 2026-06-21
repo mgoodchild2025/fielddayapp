@@ -64,25 +64,95 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
     seasonRegistrantCount = count ?? 0
   }
 
-  // Fetch per-session drop-in counts from the registrations table.
-  // Drop-in players who registered through the registration flow have a session_id
-  // on their registrations row — count them per session separately.
+  // Fetch per-session drop-in registrants from the registrations table, plus the
+  // old-flow session_registrations, so each session row can list WHO registered
+  // (not just a count). Two sources, deduped by user_id like the check-in page.
+  type RosterEntry = { name: string; isGuest: boolean; payment: 'paid' | 'owed' | 'free' }
   const sessionIds = (sessions ?? []).map((s: { id: string }) => s.id)
   const dropInBySession = new Map<string, number>()
+  const rosterBySession = new Map<string, RosterEntry[]>()
   if (sessionIds.length > 0) {
     try {
-      const { data: dropInRegs } = await db
+      // New flow: drop-in registrations carrying a session_id.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: dropInRegs } = await (db as any)
         .from('registrations')
-        .select('session_id')
+        .select(`
+          id, session_id, user_id, guest_name,
+          profile:profiles!registrations_user_id_fkey(full_name)
+        `)
         .eq('league_id', id)
         .eq('organization_id', org.id)
         .eq('registration_type', 'drop_in')
         .eq('status', 'active')
         .in('session_id', sessionIds)
-      for (const r of (dropInRegs ?? [])) {
-        if (r.session_id) {
-          dropInBySession.set(r.session_id, (dropInBySession.get(r.session_id) ?? 0) + 1)
+
+      // Old flow: session_registrations (join-button) with profile name.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: sessionRegs } = await (db as any)
+        .from('session_registrations')
+        .select(`
+          session_id, user_id,
+          profile:profiles!session_registrations_user_id_fkey(full_name)
+        `)
+        .eq('organization_id', org.id)
+        .eq('status', 'registered')
+        .in('session_id', sessionIds)
+
+      // Resolve payment status for the drop-in registrations in one query.
+      const regIds = (dropInRegs ?? []).map((r: { id: string }) => r.id)
+      const paymentByReg = new Map<string, 'paid' | 'owed'>()
+      if (regIds.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: pays } = await (db as any)
+          .from('payments')
+          .select('registration_id, status')
+          .eq('organization_id', org.id)
+          .in('registration_id', regIds)
+        for (const p of (pays ?? [])) {
+          if (!p.registration_id) continue
+          const prev = paymentByReg.get(p.registration_id)
+          // 'paid' wins; otherwise a pending payment means money is owed (e.g. pay in person).
+          if (p.status === 'paid') paymentByReg.set(p.registration_id, 'paid')
+          else if (p.status === 'pending' && prev !== 'paid') paymentByReg.set(p.registration_id, 'owed')
         }
+      }
+
+      // user_ids already covered by the new flow — avoid double-listing the same person.
+      const dropInUserIds = new Set(
+        (dropInRegs ?? []).map((r: { user_id: string | null }) => r.user_id).filter(Boolean),
+      )
+
+      const push = (sessionId: string, entry: RosterEntry) => {
+        dropInBySession.set(sessionId, (dropInBySession.get(sessionId) ?? 0) + 1)
+        const list = rosterBySession.get(sessionId) ?? []
+        list.push(entry)
+        rosterBySession.set(sessionId, list)
+      }
+
+      for (const r of (dropInRegs ?? [])) {
+        if (!r.session_id) continue
+        const profile = Array.isArray(r.profile) ? r.profile[0] : r.profile
+        push(r.session_id, {
+          name: profile?.full_name ?? r.guest_name ?? 'Guest',
+          isGuest: !r.user_id,
+          payment: paymentByReg.get(r.id) ?? 'free',
+        })
+      }
+
+      for (const sr of (sessionRegs ?? [])) {
+        if (!sr.session_id || (sr.user_id && dropInUserIds.has(sr.user_id))) continue
+        const profile = Array.isArray(sr.profile) ? sr.profile[0] : sr.profile
+        push(sr.session_id, {
+          name: profile?.full_name ?? 'Unknown',
+          isGuest: false,
+          payment: 'free',
+        })
+      }
+
+      // Alphabetise each roster for a stable, scannable list.
+      for (const list of rosterBySession.values()) {
+        list.sort((a, b) => a.name.localeCompare(b.name))
       }
     } catch {
       // session_id column not yet present — gracefully degrade
@@ -120,6 +190,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
     status: s.status,
     registered_count: s.registered?.[0]?.count ?? 0,
     dropin_count: dropInBySession.get(s.id) ?? 0,
+    roster: rosterBySession.get(s.id) ?? [],
   }))
 
   const sessionOptions = mapped.map((s: { id: string; scheduled_at: string }) => ({
