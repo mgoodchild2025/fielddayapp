@@ -419,6 +419,31 @@ export async function activateRegistration(registrationId: string) {
 
 // ── Admin: manually add a registrant ─────────────────────────────────────────
 
+/**
+ * Ensure the user has an active org membership WITHOUT downgrading an existing
+ * role. An org_admin / league_admin / captain who registers for an event (or
+ * whose guest registration is claimed) must keep their role — a blind upsert to
+ * 'player' would strip their admin access.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function ensureOrgMembership(db: any, orgId: string, userId: string, email: string | null) {
+  const { data: existing } = await db
+    .from('org_members').select('id, status')
+    .eq('organization_id', orgId).eq('user_id', userId).maybeSingle()
+  if (!existing) {
+    await db.from('org_members').insert({
+      organization_id: orgId,
+      user_id: userId,
+      role: 'player',
+      status: 'active',
+      invited_email: email,
+    })
+  } else if (existing.status !== 'active') {
+    // Re-activate an existing member without touching their role.
+    await db.from('org_members').update({ status: 'active' }).eq('id', existing.id)
+  }
+}
+
 const adminAddRegistrantSchema = z.object({
   leagueId: z.string().uuid(),
   fullName: z.string().trim().min(1, 'Name is required').max(120),
@@ -484,13 +509,7 @@ export async function adminAddRegistrant(input: z.infer<typeof adminAddRegistran
       }).eq('id', registrantUserId)
     }
 
-    await db.from('org_members').upsert({
-      organization_id: org.id,
-      user_id: registrantUserId,
-      role: 'player',
-      status: 'active',
-      invited_email: email,
-    }, { onConflict: 'organization_id,user_id', ignoreDuplicates: false })
+    await ensureOrgMembership(db, org.id, registrantUserId, email || null)
 
     // Duplicate check is scope-aware: a specific-session add only conflicts with
     // the same session; a full-pass add conflicts with an existing full pass.
@@ -796,13 +815,7 @@ export async function claimGuestRegistration(input: z.infer<typeof claimGuestSch
     phone: reg.guest_phone ? toE164(reg.guest_phone) : null,
   }).eq('id', newUserId)
 
-  await db.from('org_members').upsert({
-    organization_id: org.id,
-    user_id: newUserId,
-    role: 'player',
-    status: 'active',
-    invited_email: email,
-  }, { onConflict: 'organization_id,user_id', ignoreDuplicates: false })
+  await ensureOrgMembership(db, org.id, newUserId, email)
 
   // Move the registration onto the account and clear the inline guest fields.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
