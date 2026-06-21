@@ -7,7 +7,9 @@ import { adminAddRegistrant } from '@/actions/registrations'
 
 type Method = 'cash' | 'etransfer' | 'cheque' | 'card' | 'other'
 
-export function AdminAddRegistrant({ leagueId }: { leagueId: string }) {
+interface SessionOption { id: string; label: string }
+
+export function AdminAddRegistrant({ leagueId, sessions = [] }: { leagueId: string; sessions?: SessionOption[] }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
@@ -19,10 +21,14 @@ export function AdminAddRegistrant({ leagueId }: { leagueId: string }) {
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState<Method>('cash')
   const [notes, setNotes] = useState('')
+  // '' = all sessions (full pass); otherwise a specific session id.
+  const [sessionId, setSessionId] = useState('')
+
+  const hasSessions = sessions.length > 0
 
   function close() {
     setOpen(false)
-    setFullName(''); setEmail(''); setPhone(''); setAmount(''); setMethod('cash'); setNotes('')
+    setFullName(''); setEmail(''); setPhone(''); setAmount(''); setMethod('cash'); setNotes(''); setSessionId('')
     setError(null)
   }
 
@@ -40,6 +46,7 @@ export function AdminAddRegistrant({ leagueId }: { leagueId: string }) {
         amountCents: cents,
         method,
         notes: notes.trim() || undefined,
+        sessionId: sessionId || undefined,
       })
       if (res.error) { setError(res.error); return }
       close()
@@ -75,6 +82,23 @@ export function AdminAddRegistrant({ leagueId }: { leagueId: string }) {
             <label className="block text-xs font-medium text-gray-500 mb-1">Full name <span className="text-red-400">*</span></label>
             <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm" placeholder="Jane Doe" />
           </div>
+
+          {hasSessions && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Session</label>
+              <select value={sessionId} onChange={(e) => setSessionId(e.target.value)} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
+                <option value="">All sessions (full pass)</option>
+                {sessions.map((s) => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-gray-400 mt-1">
+                {sessionId
+                  ? 'Counts toward this session only.'
+                  : 'Counts toward every session — including ones you add later.'}
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-2">
             <div>

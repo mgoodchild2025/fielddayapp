@@ -8,6 +8,8 @@ interface RosterEntry {
   name: string
   isGuest: boolean
   payment: 'paid' | 'owed' | 'free'
+  /** A full-pass holder who attends every session (vs a single-session drop-in). */
+  allSessions: boolean
 }
 
 interface Session {
@@ -103,6 +105,9 @@ function RosterPanel({ roster }: { roster: RosterEntry[] }) {
             <span className="text-gray-800">{r.name}</span>
             {r.isGuest && (
               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600">Guest</span>
+            )}
+            {r.allSessions && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">All sessions</span>
             )}
             <span className="ml-auto"><PaymentBadge payment={r.payment} /></span>
           </li>
@@ -412,7 +417,9 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
                   </div>
 
                   {(() => {
-                    const count = (registrationMode === 'season' ? seasonRegistrantCount : s.registered_count) + (s.dropin_count ?? 0)
+                    // Full-pass holders (seasonRegistrantCount) attend every session;
+                    // session-mode events add their per-session sign-ups on top.
+                    const count = seasonRegistrantCount + (registrationMode === 'season' ? 0 : s.registered_count) + (s.dropin_count ?? 0)
                     const hasRoster = (s.roster?.length ?? 0) > 0
                     const isOpen = expandedId === s.id
                     return (
