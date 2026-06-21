@@ -4,6 +4,12 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSession, updateSession, cancelSession, reopenSession, deleteSession } from '@/actions/sessions'
 
+interface RosterEntry {
+  name: string
+  isGuest: boolean
+  payment: 'paid' | 'owed' | 'free'
+}
+
 interface Session {
   id: string
   scheduled_at: string
@@ -15,6 +21,8 @@ interface Session {
   registered_count: number
   /** Drop-in registrations for this session from the registrations table (new flow) */
   dropin_count?: number
+  /** Per-session registrant list (drop-in + join-button flows) */
+  roster?: RosterEntry[]
 }
 
 interface Props {
@@ -63,6 +71,46 @@ function SpotsLabel({ count, capacity }: { count: number; capacity: number | nul
 
 const INPUT = 'w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]'
 const LABEL = 'block text-xs font-medium text-gray-700 mb-1'
+
+// ── Roster panel ──────────────────────────────────────────────────────────────
+
+function PaymentBadge({ payment }: { payment: RosterEntry['payment'] }) {
+  if (payment === 'paid') {
+    return <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">Paid</span>
+  }
+  if (payment === 'owed') {
+    return <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Owes at venue</span>
+  }
+  return null
+}
+
+function RosterPanel({ roster }: { roster: RosterEntry[] }) {
+  if (roster.length === 0) {
+    return (
+      <div className="bg-gray-50 border border-t-0 rounded-b-lg px-4 py-3 text-xs text-gray-400">
+        No one has registered for this session yet.
+      </div>
+    )
+  }
+  return (
+    <div className="bg-gray-50 border border-t-0 rounded-b-lg px-4 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+        Registered ({roster.length})
+      </p>
+      <ul className="divide-y divide-gray-200">
+        {roster.map((r, i) => (
+          <li key={i} className="flex items-center gap-2 py-1.5 text-sm">
+            <span className="text-gray-800">{r.name}</span>
+            {r.isGuest && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600">Guest</span>
+            )}
+            <span className="ml-auto"><PaymentBadge payment={r.payment} /></span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
 
 // ── Create form ───────────────────────────────────────────────────────────────
 
@@ -298,6 +346,7 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
   const router = useRouter()
   const [showCreate, setShowCreate] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -355,19 +404,38 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
               {editingId === s.id ? (
                 <EditForm session={s} leagueId={leagueId} timezone={timezone} onDone={() => setEditingId(null)} />
               ) : (
-                <div className={`bg-white border rounded-lg px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-1 ${s.status === 'cancelled' ? 'opacity-50' : ''}`}>
+                <>
+                <div className={`bg-white border px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-1 ${expandedId === s.id ? 'rounded-t-lg border-b-0' : 'rounded-lg'} ${s.status === 'cancelled' ? 'opacity-50' : ''}`}>
                   <div className="min-w-[180px]">
                     <p className="font-medium text-sm">{formatDateTime(s.scheduled_at, timezone)}</p>
                     <p className="text-xs text-gray-400">{s.duration_minutes} min</p>
                   </div>
 
-                  <SpotsLabel
-                    count={
-                      (registrationMode === 'season' ? seasonRegistrantCount : s.registered_count)
-                      + (s.dropin_count ?? 0)
-                    }
-                    capacity={s.capacity ?? (registrationMode === 'season' ? eventCapacity : null)}
-                  />
+                  {(() => {
+                    const count = (registrationMode === 'season' ? seasonRegistrantCount : s.registered_count) + (s.dropin_count ?? 0)
+                    const hasRoster = (s.roster?.length ?? 0) > 0
+                    const isOpen = expandedId === s.id
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setExpandedId(isOpen ? null : s.id)}
+                        disabled={!hasRoster}
+                        className={`flex items-center gap-1.5 ${hasRoster ? 'hover:opacity-70 cursor-pointer' : 'cursor-default'}`}
+                        aria-expanded={isOpen}
+                        title={hasRoster ? 'View who registered' : undefined}
+                      >
+                        <SpotsLabel
+                          count={count}
+                          capacity={s.capacity ?? (registrationMode === 'season' ? eventCapacity : null)}
+                        />
+                        {hasRoster && (
+                          <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        )}
+                      </button>
+                    )
+                  })()}
 
                   {s.location_override && (
                     <span className="text-xs text-gray-500">{s.location_override}</span>
@@ -440,6 +508,8 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
                     )}
                   </div>
                 </div>
+                {expandedId === s.id && <RosterPanel roster={s.roster ?? []} />}
+                </>
               )}
             </div>
           ))}
