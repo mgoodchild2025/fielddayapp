@@ -353,9 +353,17 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
   const [editingId, setEditingId] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [showPast, setShowPast] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   const sessions = initialSessions
+
+  // Split into upcoming vs past by end time (so an in-progress session stays
+  // "upcoming"). Upcoming is soonest-first; past is most-recent-first.
+  const now = Date.now()
+  const sessionEnd = (s: Session) => new Date(s.scheduled_at).getTime() + (s.duration_minutes ?? 0) * 60_000
+  const upcoming = sessions.filter((s) => sessionEnd(s) >= now)
+  const past = sessions.filter((s) => sessionEnd(s) < now).reverse()
 
   function handleCancel(sessionId: string) {
     startTransition(async () => {
@@ -379,33 +387,8 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
     })
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">{sessions.length} session{sessions.length !== 1 ? 's' : ''}</p>
-        <button
-          onClick={() => { setShowCreate((v) => !v); setEditingId(null) }}
-          className="px-4 py-2 rounded-md text-sm font-semibold text-white"
-          style={{ backgroundColor: 'var(--brand-primary)' }}
-        >
-          {showCreate ? 'Cancel' : '+ Add Session'}
-        </button>
-      </div>
-
-      {showCreate && (
-        <CreateForm leagueId={leagueId} timezone={timezone} onDone={() => setShowCreate(false)} />
-      )}
-
-      {sessions.length === 0 && !showCreate && (
-        <div className="bg-white border rounded-lg px-6 py-12 text-center text-gray-400 text-sm">
-          No sessions scheduled yet. Add the first one above.
-        </div>
-      )}
-
-      {sessions.length > 0 && (
-        <div className="space-y-2">
-          {sessions.map((s) => (
-            <div key={s.id}>
+  const renderSession = (s: Session) => (
+    <div key={s.id}>
               {editingId === s.id ? (
                 <EditForm session={s} leagueId={leagueId} timezone={timezone} onDone={() => setEditingId(null)} />
               ) : (
@@ -519,7 +502,62 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
                 </>
               )}
             </div>
-          ))}
+  )
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500">{sessions.length} session{sessions.length !== 1 ? 's' : ''}</p>
+        <button
+          onClick={() => { setShowCreate((v) => !v); setEditingId(null) }}
+          className="px-4 py-2 rounded-md text-sm font-semibold text-white"
+          style={{ backgroundColor: 'var(--brand-primary)' }}
+        >
+          {showCreate ? 'Cancel' : '+ Add Session'}
+        </button>
+      </div>
+
+      {showCreate && (
+        <CreateForm leagueId={leagueId} timezone={timezone} onDone={() => setShowCreate(false)} />
+      )}
+
+      {sessions.length === 0 && !showCreate && (
+        <div className="bg-white border rounded-lg px-6 py-12 text-center text-gray-400 text-sm">
+          No sessions scheduled yet. Add the first one above.
+        </div>
+      )}
+
+      {/* Upcoming sessions — the focus, soonest first */}
+      {upcoming.length > 0 && (
+        <div className="space-y-2">
+          {upcoming.map(renderSession)}
+        </div>
+      )}
+
+      {sessions.length > 0 && upcoming.length === 0 && !showCreate && (
+        <div className="bg-white border rounded-lg px-6 py-8 text-center text-gray-400 text-sm">
+          No upcoming sessions.
+        </div>
+      )}
+
+      {/* Past sessions — collapsed by default, most recent first */}
+      {past.length > 0 && (
+        <div className="pt-1">
+          <button
+            onClick={() => setShowPast((v) => !v)}
+            className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-700"
+            aria-expanded={showPast}
+          >
+            <svg className={`w-3.5 h-3.5 transition-transform ${showPast ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            {showPast ? 'Hide' : 'Show'} {past.length} past session{past.length !== 1 ? 's' : ''}
+          </button>
+          {showPast && (
+            <div className="space-y-2 mt-2">
+              {past.map(renderSession)}
+            </div>
+          )}
         </div>
       )}
     </div>
