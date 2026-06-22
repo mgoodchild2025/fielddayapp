@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { countDropInRegsBySession } from '@/lib/session-counts'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { JoinTeamByCode } from '@/components/teams/join-team-by-code'
@@ -774,22 +775,9 @@ export default async function EventDetailPage({
   // Players who register via the registration + payment flow are rows in
   // `registrations` (session_id set), not session_registrations — count both so
   // each session's "spots left" is accurate.
-  const dropInCountBySession = new Map<string, number>()
-  const sessionIdList = (sessions ?? []).map((s: { id: string }) => s.id)
-  if (isSessionBased && sessionIdList.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: dropInRegRows } = await (db as any)
-      .from('registrations')
-      .select('session_id')
-      .eq('organization_id', org.id)
-      .eq('league_id', league.id)
-      .eq('registration_type', 'drop_in')
-      .eq('status', 'active')
-      .in('session_id', sessionIdList)
-    for (const r of (dropInRegRows ?? []) as { session_id: string | null }[]) {
-      if (r.session_id) dropInCountBySession.set(r.session_id, (dropInCountBySession.get(r.session_id) ?? 0) + 1)
-    }
-  }
+  const dropInCountBySession = isSessionBased
+    ? await countDropInRegsBySession(db, org.id, league.id, (sessions ?? []).map((s: { id: string }) => s.id))
+    : new Map<string, number>()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: mySessionRegs } = (isSessionBased && !isSeasonPickup && !isPickupEvent && user)
