@@ -779,6 +779,21 @@ export default async function EventDetailPage({
     ? await countDropInRegsBySession(db, org.id, league.id, (sessions ?? []).map((s: { id: string }) => s.id))
     : new Map<string, number>()
 
+  // Full-pass holders: active season-type registrations (no session_id) attend
+  // EVERY session, so they count toward each session's occupancy — same as the
+  // admin Sessions page. (Mirrors that page's seasonRegistrantCount.)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sessionRegistrationMode: string = (league as any).registration_mode ?? 'season'
+  const { count: fullPassCount } = isSessionBased
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any).from('registrations')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', org.id).eq('league_id', league.id).eq('status', 'active')
+        .is('session_id', null)
+        .or('registration_type.eq.season,registration_type.is.null')
+    : { count: 0 }
+  const fullPass = fullPassCount ?? 0
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: mySessionRegs } = (isSessionBased && !isSeasonPickup && !isPickupEvent && user)
     ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1942,13 +1957,19 @@ export default async function EventDetailPage({
                   <div className="space-y-3">
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {(sessions as any[]).map((s) => {
-                      const registeredCount = (s.session_registrations?.[0]?.count ?? 0) + (dropInCountBySession.get(s.id) ?? 0)
-                      const isFull = s.capacity !== null && registeredCount >= s.capacity
+                      // Match the admin Sessions page exactly: full-pass holders +
+                      // per-session sign-ups (session_registrations, except in season
+                      // mode) + drop-in registrations.
+                      const registeredCount = fullPass
+                        + (sessionRegistrationMode === 'season' ? 0 : (s.session_registrations?.[0]?.count ?? 0))
+                        + (dropInCountBySession.get(s.id) ?? 0)
+                      const capacity = s.capacity ?? (sessionRegistrationMode === 'season' ? maxParticipants : null)
+                      const isFull = capacity !== null && registeredCount >= capacity
                       // isJoined covers both join-button flow (session_registrations) and
                       // registration-flow drop-ins (registrations.session_id via myPaidSessionIds)
                       const isJoined = mySessionIds.has(s.id) || myPaidSessionIds.has(s.id)
                       const isCancelled = s.status === 'cancelled'
-                      const remaining = s.capacity !== null ? s.capacity - registeredCount : null
+                      const remaining = capacity !== null ? capacity - registeredCount : null
                       // Per-session: player is "registered" only if they've paid for THIS session
                       const playerIsSessionRegistered = !sessionRegistrationRequired || myPaidSessionIds.has(s.id)
                       return (
@@ -1956,7 +1977,7 @@ export default async function EventDetailPage({
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="font-semibold text-sm">
-                                {new Date(s.scheduled_at).toLocaleString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                                {new Date(s.scheduled_at).toLocaleString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: timezone })}
                               </p>
                               {isCancelled && <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
                               {!isSeasonPickup && isJoined && !isCancelled && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Joined ✓</span>}
@@ -1968,8 +1989,8 @@ export default async function EventDetailPage({
                               {!isCancelled && (remaining === null
                                 ? <span>{registeredCount} registered</span>
                                 : isFull
-                                  ? <span className={`font-medium ${isSeasonPickup ? 'text-amber-600' : 'text-red-600'}`}>Full ({s.capacity} spots)</span>
-                                  : <span className="text-green-700 font-medium">{remaining} of {s.capacity} spots left</span>
+                                  ? <span className={`font-medium ${isSeasonPickup ? 'text-amber-600' : 'text-red-600'}`}>Full ({capacity} spots)</span>
+                                  : <span className="text-green-700 font-medium">{remaining} of {capacity} spots left</span>
                               )}
                             </div>
                             {s.notes && <p className="text-xs text-gray-400 mt-1">{s.notes}</p>}
