@@ -771,6 +771,26 @@ export default async function EventDetailPage({
         .order('scheduled_at', { ascending: true })
     : { data: null }
 
+  // Players who register via the registration + payment flow are rows in
+  // `registrations` (session_id set), not session_registrations — count both so
+  // each session's "spots left" is accurate.
+  const dropInCountBySession = new Map<string, number>()
+  const sessionIdList = (sessions ?? []).map((s: { id: string }) => s.id)
+  if (isSessionBased && sessionIdList.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: dropInRegRows } = await (db as any)
+      .from('registrations')
+      .select('session_id')
+      .eq('organization_id', org.id)
+      .eq('league_id', league.id)
+      .eq('registration_type', 'drop_in')
+      .eq('status', 'active')
+      .in('session_id', sessionIdList)
+    for (const r of (dropInRegRows ?? []) as { session_id: string | null }[]) {
+      if (r.session_id) dropInCountBySession.set(r.session_id, (dropInCountBySession.get(r.session_id) ?? 0) + 1)
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: mySessionRegs } = (isSessionBased && !isSeasonPickup && !isPickupEvent && user)
     ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1934,7 +1954,7 @@ export default async function EventDetailPage({
                   <div className="space-y-3">
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {(sessions as any[]).map((s) => {
-                      const registeredCount = s.session_registrations?.[0]?.count ?? 0
+                      const registeredCount = (s.session_registrations?.[0]?.count ?? 0) + (dropInCountBySession.get(s.id) ?? 0)
                       const isFull = s.capacity !== null && registeredCount >= s.capacity
                       // isJoined covers both join-button flow (session_registrations) and
                       // registration-flow drop-ins (registrations.session_id via myPaidSessionIds)
