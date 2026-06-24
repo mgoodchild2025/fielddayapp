@@ -296,7 +296,7 @@ export async function activateRegistration(registrationId: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: reg, error: fetchError } = await (db2 as any)
     .from('registrations')
-    .select('*, checkin_token, profiles!registrations_user_id_fkey(full_name, email), leagues!registrations_league_id_fkey(id, name, slug, sport, event_type, checkin_enabled, calendar_token, price_cents, payment_mode, season_start_date, game_start_time, game_end_time, days_of_week, venue_name, venue_address, venue_maps_url)')
+    .select('*, checkin_token, profiles!registrations_user_id_fkey(full_name, email), leagues!registrations_league_id_fkey(id, name, slug, sport, event_type, checkin_enabled, calendar_token, price_cents, drop_in_price_cents, payment_mode, season_start_date, game_start_time, game_end_time, days_of_week, venue_name, venue_address, venue_maps_url)')
     .eq('id', registrationId)
     .eq('organization_id', org.id)
     .single()
@@ -366,8 +366,17 @@ export async function activateRegistration(registrationId: string) {
   // selectOfflinePayment) sends the notification with the actual payment method
   // once the player has chosen how they'll pay.
   // Fire-and-forget — never block the player's registration flow on this.
-  const leaguePriceCents: number = league?.price_cents ?? 0
-  const isFreeLeague = leaguePriceCents === 0
+  // Drop-in registrations are priced by drop_in_price_cents, not the league's
+  // season price_cents (which is 0 for drop-in events). Use the price that
+  // actually applies to THIS registration — otherwise a paid drop-in looks
+  // "free" here and we send a duplicate "free" notification alongside the
+  // payment handler's real "awaiting e-transfer" / "paid by card" one.
+  const isDropInReg = reg.registration_type === 'drop_in'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const effectivePriceCents: number = isDropInReg
+    ? ((league as any)?.drop_in_price_cents ?? 0)
+    : (league?.price_cents ?? 0)
+  const isFreeLeague = effectivePriceCents === 0
   if (isFreeLeague) {
     try {
       const service = createServiceRoleClient()
