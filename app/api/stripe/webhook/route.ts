@@ -39,6 +39,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
+  // Idempotency guard: Stripe redelivers events when the endpoint responds
+  // slowly or with a non-2xx status (retries land minutes later). Claim this
+  // event id; if it's already recorded, we've handled it — skip so we don't
+  // re-send confirmation + admin emails. Degrades gracefully (processes without
+  // dedup) if the table isn't present yet — e.g. migration 167 not yet applied.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: claimErr } = await (supabase as any)
+      .from('stripe_processed_events')
+      .insert({ event_id: event.id, organization_id: orgId })
+    if (claimErr?.code === '23505') {
+      // Unique-violation → this event was already processed.
+      return NextResponse.json({ received: true, duplicate: true })
+    }
+  } catch (err) {
+    console.error('[webhook] idempotency claim failed (processing anyway):', err)
+  }
+
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
     const { registrationId, userId, leagueId, teamId, paymentType } = session.metadata ?? {}
