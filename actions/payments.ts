@@ -268,12 +268,17 @@ export async function selectOfflinePayment(
   const amountCents = parsed.data.discountedAmountCents ?? league.price_cents ?? 0
   const currency = league.currency ?? 'cad'
 
+  // Whether to alert admins. Only a genuinely new offline selection (or a real
+  // method change) warrants it — repeating the same method (page re-run, double
+  // click, the flow re-invoking this) must NOT re-send an identical email.
+  let shouldNotify = true
+
   // Record a pending payment (skip when free) — reuse any existing row.
   if (amountCents > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: existing } = await (db as any)
       .from('payments')
-      .select('id, status')
+      .select('id, status, payment_method')
       .eq('registration_id', reg.id)
       .eq('organization_id', org.id)
       .order('created_at', { ascending: false })
@@ -294,6 +299,7 @@ export async function selectOfflinePayment(
         discount_code_id: parsed.data.discountId ?? null,
         discount_cents: parsed.data.discountCents ?? 0,
       })
+      shouldNotify = true
     } else if (existing.status !== 'paid') {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (db as any).from('payments')
@@ -303,6 +309,11 @@ export async function selectOfflinePayment(
           discount_cents: parsed.data.discountCents ?? 0,
         })
         .eq('id', existing.id)
+      // Re-notify only if the player actually switched methods.
+      shouldNotify = existing.payment_method !== method
+    } else {
+      // Payment already marked paid — nothing to collect, don't re-alert.
+      shouldNotify = false
     }
   }
 
@@ -315,8 +326,11 @@ export async function selectOfflinePayment(
     (league.payment_instructions?.trim() || null) ??
     (orgPay?.registration_manual_instructions ?? null)
 
-  // Notify admins so they know to follow up and collect payment (fire-and-forget)
-  notifyRegistrationAdmin(db, org.id, reg.user_id, league.id, league.name, method as RegistrationPaymentMethod).catch(() => {})
+  // Notify admins so they know to follow up and collect payment (fire-and-forget).
+  // Guarded so a repeated selection of the same method doesn't re-alert.
+  if (shouldNotify) {
+    notifyRegistrationAdmin(db, org.id, reg.user_id, league.id, league.name, method as RegistrationPaymentMethod).catch(() => {})
+  }
 
   revalidatePath('/admin/payments')
   return { instructions, methodLabel: PAYMENT_METHOD_LABELS[method], error: null }
