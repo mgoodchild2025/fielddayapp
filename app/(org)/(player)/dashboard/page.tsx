@@ -162,6 +162,7 @@ export default async function DashboardPage() {
           firstName={firstName}
           timezone={timezone}
           nextItem={null}
+          sameDayGames={[]}
           teams={[]}
           pendingActions={[]}
           logoUrl={logoUrl}
@@ -442,33 +443,68 @@ export default async function DashboardPage() {
   }
 
   // ── Build next item (game or session, whichever is soonest) ──────────────
-  let nextGameItem: NextGameItem | null = null
-  if (firstGame) {
-    const isHome = teamIdSet.has(firstGame.home_team_id)
-    const myTeamId = isHome ? firstGame.home_team_id : firstGame.away_team_id
+  // Build a NextGameItem from a raw game row (closures over team/RSVP context).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function buildGameItem(g: any, rsvpInCount: number, rsvpOutCount: number): NextGameItem {
+    const isHome = teamIdSet.has(g.home_team_id)
+    const myTeamId = isHome ? g.home_team_id : g.away_team_id
     const myTeamData = activeTeams.find((m) => m.team.id === myTeamId)
     const opponentRaw = isHome
-      ? (Array.isArray(firstGame.away_team) ? firstGame.away_team[0] : firstGame.away_team)
-      : (Array.isArray(firstGame.home_team) ? firstGame.home_team[0] : firstGame.home_team)
-    const leagueInfo = Array.isArray(firstGame.league) ? firstGame.league[0] : firstGame.league
-    nextGameItem = {
+      ? (Array.isArray(g.away_team) ? g.away_team[0] : g.away_team)
+      : (Array.isArray(g.home_team) ? g.home_team[0] : g.home_team)
+    const leagueInfo = Array.isArray(g.league) ? g.league[0] : g.league
+    return {
       kind: 'game',
       teamId: myTeamId as string,
       teamName: (myTeamData?.team.name ?? '') as string,
       teamColor: (myTeamData?.team.color ?? null) as string | null,
       teamLogoUrl: (myTeamData?.team.logo_url ?? null) as string | null,
-      id: firstGame.id as string,
-      scheduledAt: firstGame.scheduled_at as string,
-      court: (firstGame.court ?? null) as string | null,
-      weekNumber: (firstGame.week_number ?? null) as number | null,
+      id: g.id as string,
+      scheduledAt: g.scheduled_at as string,
+      court: (g.court ?? null) as string | null,
+      weekNumber: (g.week_number ?? null) as number | null,
       opponentName: (opponentRaw?.name ?? 'TBD') as string,
       opponentColor: (opponentRaw?.color ?? null) as string | null,
       opponentLogoUrl: (opponentRaw?.logo_url ?? null) as string | null,
       isHome,
       leagueName: (leagueInfo?.name ?? '') as string,
-      rsvpIn: firstGameRsvpCounts.in,
-      rsvpOut: firstGameRsvpCounts.out,
-      myRsvp: myRsvpMap.get(firstGame.id as string) ?? null,
+      rsvpIn: rsvpInCount,
+      rsvpOut: rsvpOutCount,
+      myRsvp: myRsvpMap.get(g.id as string) ?? null,
+    }
+  }
+
+  const nextGameItem: NextGameItem | null = firstGame
+    ? buildGameItem(firstGame, firstGameRsvpCounts.in, firstGameRsvpCounts.out)
+    : null
+
+  // ── Other games on the same calendar day (org tz) as the next game ────────
+  let sameDayGames: NextGameItem[] = []
+  if (firstGame) {
+    const dayKey = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(iso))
+    const firstDay = dayKey(firstGame.scheduled_at)
+    // upcomingGames is sorted ascending, so these are all later the same day.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sameDayRaw = (upcomingGames as any[]).filter((g) => g.id !== firstGame.id && dayKey(g.scheduled_at) === firstDay)
+    if (sameDayRaw.length > 0) {
+      const ids = sameDayRaw.map((g) => g.id as string)
+      const myTeamByGame = new Map<string, string>()
+      for (const g of sameDayRaw) myTeamByGame.set(g.id, teamIdSet.has(g.home_team_id) ? g.home_team_id : g.away_team_id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: rrows } = await (db as any).from('game_rsvps').select('game_id, team_id, status').in('game_id', ids)
+      const counts = new Map<string, { in: number; out: number }>()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const r of (rrows ?? []) as any[]) {
+        if (r.team_id !== myTeamByGame.get(r.game_id)) continue  // only the player's team
+        const c = counts.get(r.game_id) ?? { in: 0, out: 0 }
+        if (r.status === 'in') c.in++
+        else if (r.status === 'out') c.out++
+        counts.set(r.game_id, c)
+      }
+      sameDayGames = sameDayRaw.map((g) => {
+        const c = counts.get(g.id) ?? { in: 0, out: 0 }
+        return buildGameItem(g, c.in, c.out)
+      })
     }
   }
 
@@ -622,6 +658,7 @@ export default async function DashboardPage() {
           firstName={firstName}
           timezone={timezone}
           nextItem={nextItem}
+          sameDayGames={sameDayGames}
           teams={dashboardTeams}
           pendingActions={pendingActions}
           logoUrl={logoUrl}
