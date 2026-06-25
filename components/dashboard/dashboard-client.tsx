@@ -100,6 +100,8 @@ interface Props {
   firstName: string
   timezone: string
   nextItem: NextItem
+  /** Other games on the same day as the next game (RSVP-able, shown below the hero). */
+  sameDayGames?: NextGameItem[]
   teams: DashboardTeam[]
   pendingActions: PendingAction[]
   logoUrl: string | null
@@ -296,6 +298,70 @@ function GameHero({
   )
 }
 
+// ── SameDayGameRow ────────────────────────────────────────────────────────────
+// A compact, RSVP-able row for a game later the same day as the hero game.
+
+function SameDayGameRow({ item, timezone }: { item: NextGameItem; timezone: string }) {
+  const [myRsvp, setMyRsvp] = useState<'in' | 'out' | null>(item.myRsvp)
+  const [count, setCount] = useState({ in: item.rsvpIn, out: item.rsvpOut })
+  const [, startTransition] = useTransition()
+
+  function handle(status: 'in' | 'out') {
+    if (myRsvp === status) return
+    const prev = myRsvp
+    setMyRsvp(status)
+    setCount((c) => ({
+      in:  status === 'in'  ? c.in + 1  : prev === 'in'  ? Math.max(0, c.in - 1)  : c.in,
+      out: status === 'out' ? c.out + 1 : prev === 'out' ? Math.max(0, c.out - 1) : c.out,
+    }))
+    startTransition(async () => {
+      const res = await upsertRsvp(item.id, item.teamId, status)
+      if (res.error) {
+        setMyRsvp(prev)
+        setCount((c) => ({
+          in:  status === 'in'  ? Math.max(0, c.in - 1)  : prev === 'in'  ? c.in + 1  : c.in,
+          out: status === 'out' ? Math.max(0, c.out - 1) : prev === 'out' ? c.out + 1 : c.out,
+        }))
+      }
+    })
+  }
+
+  return (
+    <div className="bg-white rounded-xl border px-4 py-2.5 flex items-center gap-3">
+      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <TeamCircle name={item.opponentName} color={item.opponentColor} logoUrl={item.opponentLogoUrl} size={32} />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-gray-900 truncate">vs {item.opponentName}</p>
+          <p className="text-xs text-gray-500">
+            {formatTime(item.scheduledAt, timezone)}{item.court ? ` · ${item.court}` : ''}
+            <span className="text-gray-300"> · </span>
+            <span className="text-emerald-600">{count.in} in</span>
+            <span className="text-gray-300"> / </span>
+            <span className="text-red-400">{count.out} out</span>
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0">
+        <button
+          onClick={() => handle('out')}
+          className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
+            myRsvp === 'out' ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+          }`}
+        >
+          {myRsvp === 'out' ? '✗ Out' : 'Out'}
+        </button>
+        <button
+          onClick={() => handle('in')}
+          className={`px-2.5 py-1 rounded-lg text-xs font-semibold text-white transition-all ${myRsvp === 'in' ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
+          style={{ backgroundColor: 'var(--brand-primary)' }}
+        >
+          {myRsvp === 'in' ? '✓ In' : 'In'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── SessionHero ───────────────────────────────────────────────────────────────
 
 function SessionHero({ item, timezone }: { item: NextSessionItem; timezone: string }) {
@@ -366,7 +432,7 @@ function SessionHero({ item, timezone }: { item: NextSessionItem; timezone: stri
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function DashboardClient({ firstName, timezone, nextItem, teams, pendingActions }: Props) {
+export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = [], teams, pendingActions }: Props) {
   const [activeIdx, setActiveIdx] = useState(0)
 
   // RSVP state — only relevant when nextItem is a game
@@ -462,14 +528,24 @@ export function DashboardClient({ firstName, timezone, nextItem, teams, pendingA
         </div>
 
         {nextItem?.kind === 'game' ? (
-          <GameHero
-            item={nextItem}
-            timezone={timezone}
-            rsvpIn={rsvpIn}
-            rsvpOut={rsvpOut}
-            myRsvp={myRsvp}
-            onRsvp={(status) => handleRsvp(nextItem.id, nextItem.teamId, status)}
-          />
+          <>
+            <GameHero
+              item={nextItem}
+              timezone={timezone}
+              rsvpIn={rsvpIn}
+              rsvpOut={rsvpOut}
+              myRsvp={myRsvp}
+              onRsvp={(status) => handleRsvp(nextItem.id, nextItem.teamId, status)}
+            />
+            {sameDayGames.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 px-1">Later that day</p>
+                {sameDayGames.map((g) => (
+                  <SameDayGameRow key={g.id} item={g} timezone={timezone} />
+                ))}
+              </div>
+            )}
+          </>
         ) : nextItem?.kind === 'session' ? (
           <SessionHero item={nextItem} timezone={timezone} />
         ) : (
