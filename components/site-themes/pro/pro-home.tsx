@@ -62,6 +62,7 @@ interface ProHomeProps {
   openEvents: League[]
   inSeasonEvents: League[]
   upcomingEvents: League[]
+  timezone?: string
   spotsMap: Map<string, { filled: number; max: number | null; unit: 'team' | 'player' }>
   sectionLayout: { key: string; visible: boolean }[] | null
 }
@@ -84,7 +85,7 @@ function SponsorLogo({ sponsor, size }: { sponsor: Sponsor; size: 'sm' | 'lg' })
     : <div>{el}</div>
 }
 
-export function ProHome({ org, branding, heroContent, sponsors, staff, recentResults, openEvents, inSeasonEvents, upcomingEvents, spotsMap, sectionLayout }: ProHomeProps) {
+export function ProHome({ org, branding, heroContent, sponsors, staff, recentResults, openEvents, inSeasonEvents, upcomingEvents, timezone, spotsMap, sectionLayout }: ProHomeProps) {
   const headline    = heroContent.headline    || org.name
   const subheadline = heroContent.subheadline || branding?.tagline || null
   const ctaLabel    = heroContent.cta_label   || 'Register'
@@ -124,7 +125,7 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
       case 'events':
         return (openEvents.length > 0 || inSeasonEvents.length > 0 || upcomingEvents.length > 0) ? (
           <div key="events">
-            <UpcomingEventsSection events={upcomingEvents} />
+            <UpcomingEventsSection events={upcomingEvents} timezone={timezone} />
             {openEvents.length > 0 && (
               <section className="py-12">
                 <div className="max-w-5xl mx-auto px-6">

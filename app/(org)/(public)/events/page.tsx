@@ -27,7 +27,7 @@ export default async function EventsPage() {
       .not('status', 'in', '(draft,archived)')
       .order('created_at', { ascending: false }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
+    (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
     user
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? (db as any).from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single()
@@ -109,7 +109,7 @@ export default async function EventsPage() {
         >
           Events
         </h1>
-        <EventsFilter events={events} isOrgAdmin={isOrgAdmin} />
+        <EventsFilter events={events} isOrgAdmin={isOrgAdmin} timezone={branding?.timezone ?? undefined} />
       </div>
       <Footer org={org} />
     </div>

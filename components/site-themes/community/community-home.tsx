@@ -84,6 +84,7 @@ interface CommunityHomeProps {
   inSeasonEvents: League[]
   upcomingEvents: League[]
   completedEvents: League[]
+  timezone?: string
   spotsMap: Map<string, { filled: number; max: number | null; unit: 'team' | 'player' }>
   sectionLayout: { key: string; visible: boolean }[] | null
 }
@@ -208,6 +209,7 @@ export function CommunityHome({
   inSeasonEvents,
   upcomingEvents,
   completedEvents,
+  timezone,
   spotsMap,
   sectionLayout,
 }: CommunityHomeProps) {
@@ -234,7 +236,7 @@ export function CommunityHome({
       case 'events':
         return (openEvents.length > 0 || inSeasonEvents.length > 0 || upcomingEvents.length > 0) ? (
           <div key="events">
-            <UpcomingEventsSection events={upcomingEvents} />
+            <UpcomingEventsSection events={upcomingEvents} timezone={timezone} />
             {openEvents.length > 0 && (
               <section className="max-w-5xl mx-auto w-full px-6 py-12">
                 <h2 className="text-2xl sm:text-3xl font-bold mb-6 uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>

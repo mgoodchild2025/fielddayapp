@@ -57,6 +57,7 @@ interface ClubHomeProps {
   openEvents: League[]
   inSeasonEvents: League[]
   upcomingEvents: League[]
+  timezone?: string
   spotsMap: Map<string, { filled: number; max: number | null; unit: 'team' | 'player' }>
   sectionLayout: { key: string; visible: boolean }[] | null
 }
@@ -119,7 +120,7 @@ function StaffRow({ staff }: { staff: StaffMember[] }) {
   )
 }
 
-export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, staff, openEvents, inSeasonEvents, upcomingEvents, spotsMap, sectionLayout }: ClubHomeProps) {
+export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, staff, openEvents, inSeasonEvents, upcomingEvents, timezone, spotsMap, sectionLayout }: ClubHomeProps) {
   const headline    = heroContent.headline    || org.name
   const subheadline = heroContent.subheadline || branding?.tagline || null
   const ctaLabel    = heroContent.cta_label   || 'Register Now'
@@ -139,7 +140,7 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
       case 'events':
         return (openEvents.length > 0 || inSeasonEvents.length > 0 || upcomingEvents.length > 0) ? (
           <div key="events">
-            <UpcomingEventsSection events={upcomingEvents} />
+            <UpcomingEventsSection events={upcomingEvents} timezone={timezone} />
             {openEvents.length > 0 && (
               <section className="py-12">
                 <div className="max-w-5xl mx-auto px-6">

@@ -208,9 +208,9 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
 
 // ── Coming-soon card (advertised, not yet open) ───────────────────────────────
 
-function ComingSoonCard({ event }: { event: EventItem }) {
+function ComingSoonCard({ event, timezone }: { event: EventItem; timezone?: string }) {
   const opens = event.registration_opens_at
-    ? `Opens ${new Date(event.registration_opens_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}`
+    ? `Opens ${new Date(event.registration_opens_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', ...(timezone ? { timeZone: timezone } : {}) })}`
     : 'Registration opening soon'
   return (
     <Link
@@ -335,7 +335,7 @@ function Accordion({
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export function EventsFilter({ events, isOrgAdmin = false }: { events: EventItem[]; isOrgAdmin?: boolean }) {
+export function EventsFilter({ events, isOrgAdmin = false, timezone }: { events: EventItem[]; isOrgAdmin?: boolean; timezone?: string }) {
   const [selectedSport, setSelectedSport] = useState<string | null>(null)
   const [selectedType,  setSelectedType]  = useState<string | null>(null)
 
@@ -449,7 +449,7 @@ export function EventsFilter({ events, isOrgAdmin = false }: { events: EventItem
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">Coming Soon</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {upcoming.map((e) => (
-              <ComingSoonCard key={e.id} event={e} />
+              <ComingSoonCard key={e.id} event={e} timezone={timezone} />
             ))}
           </div>
         </div>
