@@ -73,12 +73,18 @@ export default async function PromoteEventPage({ params }: { params: Promise<{ i
           registerUrl={registerUrl}
           canSms={canSms}
           interestCount={activeCount}
+          lastSubject={promos[0]?.title ?? null}
+          lastBody={promos[0]?.body ?? null}
         />
       </div>
 
-      {promos.length > 0 && (
-        <div className="border-t pt-6 space-y-3">
-          <h3 className="text-base font-semibold text-gray-900">Recent promotions</h3>
+      <div className="border-t pt-6 space-y-3">
+        <h3 className="text-base font-semibold text-gray-900">Recent promotions</h3>
+        {promos.length === 0 ? (
+          <div className="bg-white border rounded-lg px-6 py-8 text-center text-gray-400 text-sm">
+            No promotions sent yet — messages you send above will appear here.
+          </div>
+        ) : (
           <div className="space-y-3">
             {promos.map((p) => {
               const when = p.sent_at
@@ -99,8 +105,8 @@ export default async function PromoteEventPage({ params }: { params: Promise<{ i
               )
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="border-t pt-6">
         <EventInterestManager leagueId={league.id} rows={interestRows} timezone={timezone} />

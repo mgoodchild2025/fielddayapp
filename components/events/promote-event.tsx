@@ -13,19 +13,24 @@ interface Props {
   registerUrl: string
   canSms?: boolean
   interestCount?: number
+  /** Subject/body of the last promo sent — prefilled so admins continue from it. */
+  lastSubject?: string | null
+  lastBody?: string | null
 }
 
-export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = false, interestCount = 0 }: Props) {
+export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = false, interestCount = 0, lastSubject = null, lastBody = null }: Props) {
   const router = useRouter()
   const [audience, setAudience] = useState<Audience>('marketing')
   const [channel, setChannel] = useState<Channel>('email')
   const [isPending, startTransition] = useTransition()
   const [result, setResult] = useState<{ error?: string; success?: boolean } | null>(null)
 
-  const defaultBody =
+  const defaultSubject = lastSubject || `${eventName} — Register Now`
+  const defaultBody = lastBody || (
     `Registration for ${eventName} is open — don't miss your spot!\n\n` +
     `Register here: ${registerUrl}\n\n` +
     `See you on the court!`
+  )
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -94,7 +99,7 @@ export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = fa
         <input
           name="title"
           required
-          defaultValue={`${eventName} — Register Now`}
+          defaultValue={defaultSubject}
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
       </div>
