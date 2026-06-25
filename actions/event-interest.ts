@@ -1,6 +1,7 @@
 'use server'
 
 import { headers } from 'next/headers'
+import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createServerClient } from '@/lib/supabase/server'
@@ -155,4 +156,90 @@ export async function notifyInterestList(leagueId: string, orgId: string): Promi
   await (db as any).from('event_interest')
     .update({ notified_at: new Date().toISOString() })
     .in('id', recipients.map((r) => r.id))
+}
+
+// ── Admin management of the notify-me list ───────────────────────────────────
+
+/** Assert the caller is an org/league admin; returns the org id or an error. */
+async function assertInterestAdmin(): Promise<{ orgId: string } | { error: string }> {
+  const h = await headers()
+  const org = await getCurrentOrg(h)
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+  const db = createServiceRoleClient()
+  const { data: m } = await db
+    .from('org_members').select('role')
+    .eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
+  if (!m || !['org_admin', 'league_admin'].includes(m.role)) return { error: 'Unauthorized' }
+  return { orgId: org.id }
+}
+
+/** Admin: manually add someone to an event's notify-me list. */
+export async function adminAddInterest(
+  leagueId: string, email: string, name?: string,
+): Promise<{ error: string | null }> {
+  const auth = await assertInterestAdmin()
+  if ('error' in auth) return { error: auth.error }
+
+  const e = email.trim().toLowerCase()
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) return { error: 'Enter a valid email.' }
+
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: league } = await (db as any)
+    .from('leagues').select('id').eq('id', leagueId).eq('organization_id', auth.orgId).maybeSingle()
+  if (!league) return { error: 'Event not found.' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any).from('event_interest').insert({
+    organization_id: auth.orgId,
+    league_id: leagueId,
+    email: e,
+    name: name?.trim() || null,
+    source: 'admin',
+  })
+  if (error) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((error as any).code === '23505') {
+      // Already on the list — clear any unsubscribe so they're active again.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any).from('event_interest')
+        .update({ unsubscribed_at: null }).eq('league_id', leagueId).eq('email', e)
+      revalidatePath(`/admin/events/${leagueId}/promote`)
+      return { error: null }
+    }
+    return { error: 'Could not add to the list.' }
+  }
+  revalidatePath(`/admin/events/${leagueId}/promote`)
+  return { error: null }
+}
+
+/** Admin: permanently remove an entry from the notify-me list. */
+export async function adminRemoveInterest(
+  interestId: string, leagueId: string,
+): Promise<{ error: string | null }> {
+  const auth = await assertInterestAdmin()
+  if ('error' in auth) return { error: auth.error }
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('event_interest')
+    .delete().eq('id', interestId).eq('organization_id', auth.orgId)
+  revalidatePath(`/admin/events/${leagueId}/promote`)
+  return { error: null }
+}
+
+/** Admin: suppress (unsubscribe) or re-activate an entry without deleting it. */
+export async function adminSetInterestUnsubscribed(
+  interestId: string, leagueId: string, unsubscribed: boolean,
+): Promise<{ error: string | null }> {
+  const auth = await assertInterestAdmin()
+  if ('error' in auth) return { error: auth.error }
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any).from('event_interest')
+    .update({ unsubscribed_at: unsubscribed ? new Date().toISOString() : null })
+    .eq('id', interestId).eq('organization_id', auth.orgId)
+  revalidatePath(`/admin/events/${leagueId}/promote`)
+  return { error: null }
 }
