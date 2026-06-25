@@ -104,6 +104,10 @@ const schema = z.object({
   season_end_date: z.string().optional(),
   registration_opens_at: z.string().optional(),
   registration_closes_at: z.string().optional(),
+  advertised: z.boolean().optional().default(false),
+  featured: z.boolean().optional().default(false),
+  teaser_text: z.string().optional(),
+  notify_on_open: z.boolean().optional().default(true),
   venue_name: z.string().optional(),
   venue_address: z.string().optional(),
   venue_type: z.enum(['indoor', 'outdoor', 'both']).optional(),
@@ -271,6 +275,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
       schedule_visibility: 'public',
       standings_visibility: 'public',
       bracket_visibility: 'public',
+      notify_on_open: true,
     },
   })
 
@@ -871,6 +876,34 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                 className={INPUT}
               />
             </Field>
+          </div>
+
+          <div className="mt-2 rounded-lg border border-gray-200 p-4 space-y-3">
+            <p className="text-sm font-semibold text-gray-900">Advertising</p>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" {...register('advertised')} className="w-4 h-4 mt-0.5 rounded border-gray-300" />
+              <span className="text-sm text-gray-700">
+                Advertise as “Coming Soon”
+                <span className="block text-xs text-gray-400">Show a public teaser with a “Notify me” signup before registration opens (set Registration Opens to a future date).</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" {...register('featured')} className="w-4 h-4 mt-0.5 rounded border-gray-300" />
+              <span className="text-sm text-gray-700">
+                Feature on homepage
+                <span className="block text-xs text-gray-400">Highlight this event at the top of your public homepage and events list.</span>
+              </span>
+            </label>
+            <Field label="Teaser blurb">
+              <textarea {...register('teaser_text')} rows={2} maxLength={400} placeholder="Short pitch shown on the Coming Soon card…" className={INPUT} />
+            </Field>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" {...register('notify_on_open')} className="w-4 h-4 mt-0.5 rounded border-gray-300" />
+              <span className="text-sm text-gray-700">
+                Email the notify-me list when registration opens
+                <span className="block text-xs text-gray-400">Turn off to collect interest now and send a promotion yourself later from the Promote tab.</span>
+              </span>
+            </label>
           </div>
         </AccordionSection>
 

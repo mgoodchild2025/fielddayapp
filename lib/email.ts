@@ -304,6 +304,54 @@ export function buildPickupInviteEmail({
 </html>`
 }
 
+/**
+ * Sent to people on an event's "notify me" interest list the moment the admin
+ * opens registration. Explicit per-event opt-in, so it carries its own
+ * interest-unsubscribe link (recipients may be non-users).
+ */
+export function buildEventRegistrationOpenEmail({
+  orgName,
+  leagueName,
+  registerUrl,
+  unsubscribeUrl,
+  startLine = null,
+}: {
+  orgName: string
+  leagueName: string
+  registerUrl: string
+  unsubscribeUrl: string
+  startLine?: string | null
+}): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+  <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+    <div style="background:#1e3a5f;padding:24px 32px;">
+      <h1 style="color:#fff;margin:0;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">${orgName}</h1>
+    </div>
+    <div style="padding:32px;">
+      <h2 style="margin:0 0 8px;color:#111827;font-size:22px;">Registration is open! 🎉</h2>
+      <p style="color:#6b7280;margin:0 0 8px;font-size:15px;line-height:1.6;">
+        You asked to be notified when <strong>${leagueName}</strong> opened for registration — it&rsquo;s live now. Spots can fill up fast, so grab yours.
+      </p>
+      ${startLine ? `<p style="color:#6b7280;margin:0 0 24px;font-size:14px;">${startLine}</p>` : ''}
+      <div style="text-align:center;margin:28px 0 20px;">
+        <a href="${registerUrl}"
+           style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:700;font-size:16px;">
+          Register Now →
+        </a>
+      </div>
+      ${buildTransactionalFooter(orgName)}
+      <p style="color:#9ca3af;font-size:12px;text-align:center;margin:8px 0 0;">
+        Don&rsquo;t want these alerts? <a href="${unsubscribeUrl}" style="color:#6b7280;">Unsubscribe</a>.
+      </p>
+    </div>
+  </div>
+</body>
+</html>`
+}
+
 export function buildCaptainAssignedEmail({
   teamName,
   orgName,

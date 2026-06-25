@@ -18,8 +18,10 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
       .eq('organization_id', orgId)
       .single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // select('*') (not a named column list) so this still works before migration
+    // 168 adds advertised/featured/teaser_text — the columns are simply absent.
     (db as any).from('leagues')
-      .select('id, name, slug, event_type, sport, logo_url, status, season_start_date, price_cents, drop_in_price_cents, currency, max_teams, max_participants, payment_mode, skill_level, days_of_week, game_start_time, game_end_time')
+      .select('*')
       .eq('organization_id', orgId)
       .is('deleted_at', null)
       .neq('status', 'draft')
@@ -92,11 +94,33 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
     days_of_week: string[] | null
     game_start_time: string | null
     game_end_time: string | null
+    advertised?: boolean | null
+    featured?: boolean | null
+    registration_opens_at?: string | null
+    teaser_text?: string | null
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leagueList = ((leagues ?? []) as any[]) as League[]
 
-  const openEvents = leagueList.filter((l) => l.status === 'registration_open')
+  // Coming-soon: advertised draft events whose registration hasn't opened yet.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: comingSoonRaw } = await (db as any).from('leagues')
+    .select('id, name, slug, event_type, sport, logo_url, status, season_start_date, price_cents, drop_in_price_cents, currency, max_teams, max_participants, payment_mode, skill_level, days_of_week, game_start_time, game_end_time, advertised, featured, registration_opens_at, teaser_text')
+    .eq('organization_id', orgId)
+    .is('deleted_at', null)
+    .eq('status', 'draft')
+    .eq('advertised', true)
+    .order('registration_opens_at', { ascending: true })
+    .limit(20)
+  const nowMs = Date.now()
+  const upcomingEvents = (((comingSoonRaw ?? []) as any[]) as League[])
+    .filter((l) => !l.registration_opens_at || new Date(l.registration_opens_at).getTime() > nowMs)
+    .sort((a, b) => Number(!!b.featured) - Number(!!a.featured))
+
+  // Featured open events bubble to the top of the "open" section.
+  const openEvents = leagueList
+    .filter((l) => l.status === 'registration_open')
+    .sort((a, b) => Number(!!b.featured) - Number(!!a.featured))
   const inSeasonEvents = leagueList.filter((l) => l.status === 'active')
   const completedEvents = leagueList.filter((l) => l.status === 'completed')
 
@@ -186,6 +210,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           staff={staffList}
           openEvents={openEvents}
           inSeasonEvents={inSeasonEvents}
+          upcomingEvents={upcomingEvents}
           spotsMap={spotsMap}
           sectionLayout={sectionLayout}
         />
@@ -201,6 +226,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           recentResults={recentResults}
           openEvents={openEvents}
           inSeasonEvents={inSeasonEvents}
+          upcomingEvents={upcomingEvents}
           spotsMap={spotsMap}
           sectionLayout={sectionLayout}
         />
@@ -216,6 +242,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           staff={staffList}
           openEvents={openEvents}
           inSeasonEvents={inSeasonEvents}
+          upcomingEvents={upcomingEvents}
           completedEvents={completedEvents}
           spotsMap={spotsMap}
           sectionLayout={sectionLayout}
