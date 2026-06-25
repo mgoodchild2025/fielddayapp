@@ -13,7 +13,32 @@ import { optionalPhone } from '@/lib/validation'
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 import { purgeLeagueData } from '@/lib/purge-league'
 import { notifyInterestList } from '@/actions/event-interest'
+import { parseLocalToUtc } from '@/lib/format-time'
 import type { Database } from '@/types/database'
+
+/** The org's configured timezone (falls back to America/Toronto). */
+async function getOrgTimezone(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  orgId: string,
+): Promise<string> {
+  const { data } = await db.from('org_branding').select('timezone').eq('organization_id', orgId).maybeSingle()
+  return data?.timezone || 'America/Toronto'
+}
+
+/**
+ * Convert a datetime-local wall-clock value ("YYYY-MM-DDTHH:MM") into a UTC ISO
+ * string interpreted in the org's timezone. Pass-through for null, date-only
+ * values (no time), or strings that already carry a timezone (Z/offset).
+ */
+function localDateTimeToUtc(value: string | null | undefined, tz: string): string | null {
+  if (!value || typeof value !== 'string') return (value as string | null) ?? null
+  if (!value.includes('T')) return value                    // date-only ("YYYY-MM-DD")
+  if (value.includes('Z') || /[+-]\d\d:\d\d$/.test(value)) return value  // already absolute
+  const [d, t] = value.split('T')
+  if (!d || !t) return value
+  return parseLocalToUtc(d, t.slice(0, 5), tz)
+}
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
 
@@ -98,6 +123,8 @@ export async function createLeague(
   const league_type = leagueTypeMap[parsed.data.event_type] ?? 'team'
 
   const db = createServiceRoleClient()
+  // datetime-local inputs are wall-clock in the org's timezone — convert to UTC.
+  const tz = await getOrgTimezone(db, org.id)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db as any)
     .from('leagues')
@@ -109,8 +136,8 @@ export async function createLeague(
       payment_instructions: parsed.data.payment_instructions?.trim() || null,
       season_start_date: parsed.data.season_start_date || null,
       season_end_date: parsed.data.season_end_date || null,
-      registration_opens_at: parsed.data.registration_opens_at || null,
-      registration_closes_at: parsed.data.registration_closes_at || null,
+      registration_opens_at: localDateTimeToUtc(parsed.data.registration_opens_at, tz),
+      registration_closes_at: localDateTimeToUtc(parsed.data.registration_closes_at, tz),
       max_teams: parsed.data.max_teams ?? null,
       max_participants: parsed.data.max_participants ?? null,
       waiver_version_id: parsed.data.waiver_version_id ?? null,
@@ -138,7 +165,7 @@ export async function createLeague(
       officiated: parsed.data.officiated ?? null,
       checkin_enabled: parsed.data.checkin_enabled ?? false,
       early_bird_price_cents: parsed.data.early_bird_price_cents ?? null,
-      early_bird_deadline: parsed.data.early_bird_deadline || null,
+      early_bird_deadline: localDateTimeToUtc(parsed.data.early_bird_deadline, tz),
       advertised: parsed.data.advertised ?? false,
       featured: parsed.data.featured ?? false,
       teaser_text: parsed.data.teaser_text?.trim() || null,
@@ -370,6 +397,14 @@ export async function updateLeague(
   if (typeof u.teaser_text === 'string') u.teaser_text = u.teaser_text.trim() || null
 
   const db = createServiceRoleClient()
+
+  // datetime-local inputs are wall-clock in the org's timezone — convert to UTC.
+  if ('registration_opens_at' in u || 'registration_closes_at' in u || 'early_bird_deadline' in u) {
+    const tz = await getOrgTimezone(db, org.id)
+    if ('registration_opens_at' in u)  u.registration_opens_at  = localDateTimeToUtc(u.registration_opens_at, tz)
+    if ('registration_closes_at' in u) u.registration_closes_at = localDateTimeToUtc(u.registration_closes_at, tz)
+    if ('early_bird_deadline' in u)    u.early_bird_deadline    = localDateTimeToUtc(u.early_bird_deadline, tz)
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (db as any)
     .from('leagues')

@@ -21,9 +21,9 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   drop_in: 'Drop-in',
 }
 
-function opensLabel(iso: string | null | undefined): string {
+function opensLabel(iso: string | null | undefined, tz?: string): string {
   if (!iso) return 'Registration opening soon'
-  return `Registration opens ${new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}`
+  return `Registration opens ${new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', ...(tz ? { timeZone: tz } : {}) })}`
 }
 
 /**
@@ -31,7 +31,7 @@ function opensLabel(iso: string | null | undefined): string {
  * yet. Links to each event's public teaser (where visitors can sign up to be
  * notified). Shared across all three site themes.
  */
-export function UpcomingEventsSection({ events }: { events: UpcomingLeague[] }) {
+export function UpcomingEventsSection({ events, timezone }: { events: UpcomingLeague[]; timezone?: string }) {
   if (!events || events.length === 0) return null
   return (
     <section className="max-w-5xl mx-auto w-full px-6 py-12">
@@ -77,7 +77,7 @@ export function UpcomingEventsSection({ events }: { events: UpcomingLeague[] }) 
                 <p className="text-sm text-gray-500 mt-2 line-clamp-2">{league.teaser_text}</p>
               )}
               <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>
-                {opensLabel(league.registration_opens_at)} →
+                {opensLabel(league.registration_opens_at, timezone)} →
               </p>
             </Link>
           )

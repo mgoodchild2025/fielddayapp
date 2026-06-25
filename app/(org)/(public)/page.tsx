@@ -14,7 +14,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
     (db as any).from('organizations').select('id, slug, name').eq('id', orgId).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('org_branding')
-      .select('tagline, hero_image_url, logo_url, site_theme, contact_email, social_instagram, social_facebook, social_x, social_tiktok, social_youtube')
+      .select('tagline, hero_image_url, logo_url, site_theme, contact_email, timezone, social_instagram, social_facebook, social_x, social_tiktok, social_youtube')
       .eq('organization_id', orgId)
       .single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,6 +85,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
 
   const orgContext = { id: org.id, slug: org.slug, name: org.name }
   const theme = (branding as unknown as { site_theme?: string })?.site_theme ?? 'community'
+  const timezone = (branding as unknown as { timezone?: string })?.timezone ?? 'America/Toronto'
 
   type League = {
     id: string; name: string; slug: string; event_type: string | null; status: string
@@ -211,6 +212,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           openEvents={openEvents}
           inSeasonEvents={inSeasonEvents}
           upcomingEvents={upcomingEvents}
+          timezone={timezone}
           spotsMap={spotsMap}
           sectionLayout={sectionLayout}
         />
@@ -227,6 +229,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           openEvents={openEvents}
           inSeasonEvents={inSeasonEvents}
           upcomingEvents={upcomingEvents}
+          timezone={timezone}
           spotsMap={spotsMap}
           sectionLayout={sectionLayout}
         />
@@ -244,6 +247,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           inSeasonEvents={inSeasonEvents}
           upcomingEvents={upcomingEvents}
           completedEvents={completedEvents}
+          timezone={timezone}
           spotsMap={spotsMap}
           sectionLayout={sectionLayout}
         />
