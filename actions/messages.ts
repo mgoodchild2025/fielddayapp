@@ -207,6 +207,10 @@ async function deliverAnnouncement(
   const userIds = new Set<string>()
   // Raw email recipients with NO account (event-interest non-user signups).
   const rawEmails = new Map<string, { interestId?: string }>()
+  // User IDs exempt from the commercial marketing-consent gate because they have
+  // explicit consent of another kind: event-interest signups (opted in for this
+  // event) and CC'd staff (operational copies, not marketing to a customer).
+  const exemptUserIds = new Set<string>()
 
   if (data.audience_type === 'past_participants') {
     // Anyone who has registered for any of this org's events. CASL: commercial
@@ -232,7 +236,7 @@ async function deliverAnnouncement(
       .eq('organization_id', orgId)
       .is('unsubscribed_at', null)
     for (const row of rows ?? []) {
-      if (row.user_id) userIds.add(row.user_id)
+      if (row.user_id) { userIds.add(row.user_id); exemptUserIds.add(row.user_id) }
       else if (row.email) rawEmails.set(String(row.email).toLowerCase(), { interestId: row.id })
     }
 
@@ -279,6 +283,7 @@ async function deliverAnnouncement(
   // ── 2. CC additions ───────────────────────────────────────────────────────
   if (data.cc_self && senderId) {
     userIds.add(senderId)
+    exemptUserIds.add(senderId)
   }
 
   if (data.cc_admins) {
@@ -289,7 +294,7 @@ async function deliverAnnouncement(
       .eq('organization_id', orgId)
       .in('role', ['org_admin', 'league_admin'])
       .eq('status', 'active')
-    for (const a of admins ?? []) if (a.user_id) userIds.add(a.user_id)
+    for (const a of admins ?? []) if (a.user_id) { userIds.add(a.user_id); exemptUserIds.add(a.user_id) }
   }
 
   if (userIds.size === 0 && rawEmails.size === 0) return
@@ -345,9 +350,10 @@ async function deliverAnnouncement(
 
     let emailSentAny = false
 
-    // Profile-backed recipients (consent-gated for commercial)
+    // Profile-backed recipients (consent-gated for commercial, except the
+    // exempt set: event-interest signups + CC'd staff).
     const emailRecipients = recipients.filter(
-      (r) => r.email && (!isCommercial || emailConsent!.has(r.id))
+      (r) => r.email && (!isCommercial || emailConsent!.has(r.id) || exemptUserIds.has(r.id))
     )
     if (emailRecipients.length > 0) {
       if (isCommercial) {
@@ -408,7 +414,7 @@ async function deliverAnnouncement(
     } else {
       const smsBody = `${orgName}\n\n${data.title}\n\n${data.body}\n\nReply STOP to unsubscribe.`
       const smsRecipients = recipients.filter(
-        (r) => r.phone && r.sms_opted_in && (!isCommercial || smsConsent!.has(r.id))
+        (r) => r.phone && r.sms_opted_in && (!isCommercial || smsConsent!.has(r.id) || exemptUserIds.has(r.id))
       )
       await Promise.allSettled(
         smsRecipients.map((r) => sendSms(toE164(r.phone!), smsBody))
