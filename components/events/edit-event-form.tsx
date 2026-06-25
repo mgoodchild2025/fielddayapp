@@ -55,6 +55,10 @@ interface League {
   early_bird_deadline: string | null
   standings_pts_method: string | null
   volleyball_standings_mode: string | null
+  advertised: boolean | null
+  featured: boolean | null
+  teaser_text: string | null
+  notify_on_open: boolean | null
 }
 
 interface Waiver {
@@ -213,6 +217,10 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
       early_bird_price_cents: fd.get('early_bird_price_cents') ? Math.round(Number(fd.get('early_bird_price_cents')) * 100) : null as any,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       early_bird_deadline: (fd.get('early_bird_deadline') as string) || null as any,
+      advertised: fd.get('advertised') === 'on',
+      featured: fd.get('featured') === 'on',
+      teaser_text: (fd.get('teaser_text') as string) || null,
+      notify_on_open: fd.get('notify_on_open') === 'on',
     } as any)
 
     setLoading(false)
@@ -590,6 +598,35 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           <Field label="Reg Closes">
             <input name="registration_closes_at" type="datetime-local" defaultValue={toDateTimeInput(league.registration_closes_at)} className="input w-full" />
           </Field>
+        </div>
+
+        {/* Advertising — promote the event before registration opens */}
+        <div className="rounded-lg border border-gray-200 p-4 space-y-3">
+          <p className="text-sm font-semibold text-gray-900">Advertising</p>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" name="advertised" defaultChecked={!!league.advertised} className="w-4 h-4 mt-0.5 rounded border-gray-300" />
+            <span className="text-sm text-gray-700">
+              Advertise as “Coming Soon”
+              <span className="block text-xs text-gray-400">Show a public teaser with a “Notify me” signup before registration opens. Set <em>Reg Opens</em> above to a future date.</span>
+            </span>
+          </label>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" name="featured" defaultChecked={!!league.featured} className="w-4 h-4 mt-0.5 rounded border-gray-300" />
+            <span className="text-sm text-gray-700">
+              Feature on homepage
+              <span className="block text-xs text-gray-400">Highlight this event at the top of your public homepage and events list.</span>
+            </span>
+          </label>
+          <Field label="Teaser blurb">
+            <textarea name="teaser_text" defaultValue={league.teaser_text ?? ''} rows={2} maxLength={400} placeholder="Short pitch shown on the Coming Soon card…" className="input w-full" />
+          </Field>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" name="notify_on_open" defaultChecked={league.notify_on_open ?? true} className="w-4 h-4 mt-0.5 rounded border-gray-300" />
+            <span className="text-sm text-gray-700">
+              Email the notify-me list when registration opens
+              <span className="block text-xs text-gray-400">Turn off to collect interest now and send a promotion yourself later from the Promote tab.</span>
+            </span>
+          </label>
         </div>
 
         <div>

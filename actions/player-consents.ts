@@ -241,6 +241,30 @@ export async function getMarketingConsentBatch(
 }
 
 /**
+ * All user ids in an org that currently have marketing-email consent (latest
+ * non-withdrawn ledger row per user). Used by the outbound "advertise" audience.
+ */
+export async function getMarketingOptInUserIds(orgId: string): Promise<string[]> {
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (db as any)
+    .from('player_consents')
+    .select('user_id, consent_given, withdrawn_at, consented_at')
+    .eq('organization_id', orgId)
+    .eq('consent_type', 'marketing_email')
+    .order('consented_at', { ascending: false })
+
+  const seen = new Set<string>()
+  const optedIn: string[] = []
+  for (const r of (data ?? []) as { user_id: string; consent_given: boolean; withdrawn_at: string | null }[]) {
+    if (seen.has(r.user_id)) continue  // latest row per user wins
+    seen.add(r.user_id)
+    if (r.consent_given && !r.withdrawn_at) optedIn.push(r.user_id)
+  }
+  return optedIn
+}
+
+/**
  * One-click unsubscribe (from a commercial email link). Withdraws the active
  * marketing-email consent for a user in an org. No auth — gated by a signed token.
  */

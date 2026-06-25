@@ -18,9 +18,10 @@ export default async function EventsPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: leagues }, { data: branding }, { data: orgMember }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // select('*') so this still works before migration 168 (new columns absent).
     (db as any)
       .from('leagues')
-      .select('id, name, slug, status, event_type, sport, logo_url, price_cents, drop_in_price_cents, currency, season_start_date, max_teams, payment_mode, skill_level, days_of_week, game_start_time, game_end_time')
+      .select('*')
       .eq('organization_id', org.id)
       .is('deleted_at', null)
       .not('status', 'in', '(draft,archived)')
@@ -35,8 +36,28 @@ export default async function EventsPage() {
 
   const isOrgAdmin = ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
 
+  // Advertised "coming soon" drafts — separate query so it degrades to empty if
+  // migration 168 (advertised column) hasn't been applied yet.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: comingSoonRaw } = await (db as any)
+    .from('leagues')
+    .select('*')
+    .eq('organization_id', org.id)
+    .is('deleted_at', null)
+    .eq('status', 'draft')
+    .eq('advertised', true)
+    .order('registration_opens_at', { ascending: true })
+
+  const nowMs = Date.now()
+  // Only keep advertised drafts whose registration hasn't opened/passed yet.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const comingSoon = ((comingSoonRaw ?? []) as any[]).filter((l) =>
+    !l.registration_opens_at || new Date(l.registration_opens_at).getTime() > nowMs
+  )
+  const visibleLeagues = [...((leagues ?? []) as any[]), ...comingSoon]
+
   // Fetch team counts for open-registration leagues so we can show capacity
-  const openIds = (leagues ?? [])
+  const openIds = visibleLeagues
     .filter((l: { status: string }) => l.status === 'registration_open')
     .map((l: { id: string }) => l.id)
 
@@ -53,7 +74,7 @@ export default async function EventsPage() {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const events: EventItem[] = (leagues ?? []).map((l: any) => ({
+  const events: EventItem[] = visibleLeagues.map((l: any) => ({
     id: l.id,
     name: l.name,
     slug: l.slug,
@@ -72,6 +93,10 @@ export default async function EventsPage() {
     days_of_week: l.days_of_week ?? null,
     game_start_time: l.game_start_time ?? null,
     game_end_time: l.game_end_time ?? null,
+    advertised: l.advertised ?? false,
+    featured: l.featured ?? false,
+    registration_opens_at: l.registration_opens_at ?? null,
+    teaser_text: l.teaser_text ?? null,
   }))
 
   return (

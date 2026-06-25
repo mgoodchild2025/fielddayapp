@@ -6,6 +6,7 @@ import { EventAvatar } from '@/components/ui/event-avatar'
 import { HeroSocialLinks } from '@/components/ui/social-links'
 import type { OrgContext } from '@/lib/tenant'
 import { formatEventPrice } from '@/lib/event-price'
+import { UpcomingEventsSection } from '@/components/site-themes/shared/upcoming-events-section'
 
 type League = {
   id: string; name: string; slug: string; event_type: string | null; status: string
@@ -13,6 +14,7 @@ type League = {
   season_start_date: string | null; price_cents: number; drop_in_price_cents: number | null; currency: string | null
   max_teams: number | null; payment_mode: string | null; skill_level: string | null
   days_of_week: string[] | null; game_start_time: string | null; game_end_time: string | null
+  registration_opens_at?: string | null; teaser_text?: string | null; featured?: boolean | null
 }
 
 function fmtTimePro(t: string): string {
@@ -59,6 +61,7 @@ interface ProHomeProps {
   recentResults: RecentResult[]
   openEvents: League[]
   inSeasonEvents: League[]
+  upcomingEvents: League[]
   spotsMap: Map<string, { filled: number; max: number | null; unit: 'team' | 'player' }>
   sectionLayout: { key: string; visible: boolean }[] | null
 }
@@ -81,7 +84,7 @@ function SponsorLogo({ sponsor, size }: { sponsor: Sponsor; size: 'sm' | 'lg' })
     : <div>{el}</div>
 }
 
-export function ProHome({ org, branding, heroContent, sponsors, staff, recentResults, openEvents, inSeasonEvents, spotsMap, sectionLayout }: ProHomeProps) {
+export function ProHome({ org, branding, heroContent, sponsors, staff, recentResults, openEvents, inSeasonEvents, upcomingEvents, spotsMap, sectionLayout }: ProHomeProps) {
   const headline    = heroContent.headline    || org.name
   const subheadline = heroContent.subheadline || branding?.tagline || null
   const ctaLabel    = heroContent.cta_label   || 'Register'
@@ -119,8 +122,9 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
         ) : null
 
       case 'events':
-        return (openEvents.length > 0 || inSeasonEvents.length > 0) ? (
+        return (openEvents.length > 0 || inSeasonEvents.length > 0 || upcomingEvents.length > 0) ? (
           <div key="events">
+            <UpcomingEventsSection events={upcomingEvents} />
             {openEvents.length > 0 && (
               <section className="py-12">
                 <div className="max-w-5xl mx-auto px-6">
@@ -262,7 +266,7 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
   }
 
   const sections = orderedKeys.map(renderSection).filter(Boolean)
-  const hasNoEvents = openEvents.length === 0 && inSeasonEvents.length === 0
+  const hasNoEvents = openEvents.length === 0 && inSeasonEvents.length === 0 && upcomingEvents.length === 0
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>

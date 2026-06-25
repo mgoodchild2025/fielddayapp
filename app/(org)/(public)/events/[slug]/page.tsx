@@ -24,6 +24,7 @@ import { ChevronRight } from 'lucide-react'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { EventAvatar } from '@/components/ui/event-avatar'
+import { NotifyMeForm } from '@/components/events/notify-me-form'
 import { StickyRegisterBar } from '@/components/events/sticky-register-bar'
 import { EventTabSelect } from '@/components/events/event-tab-select'
 import { CaptainStatsEntry } from '@/components/stats/captain-stats-entry'
@@ -607,11 +608,60 @@ export default async function EventDetailPage({
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: league }, { data: branding }] = await Promise.all([
-    (db as any).from('leagues').select('*').eq('organization_id', org.id).eq('slug', slug).is('deleted_at', null).not('status', 'in', '(draft,archived)').single(),
+    // Note: draft events are NOT filtered out here so advertised "coming soon"
+    // events can render a teaser. The gate below decides visibility.
+    (db as any).from('leagues').select('*').eq('organization_id', org.id).eq('slug', slug).is('deleted_at', null).maybeSingle(),
     (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
   ])
 
-  if (!league) notFound()
+  // An advertised draft event whose registration hasn't opened yet shows a public
+  // "coming soon" teaser. Everything else stays hidden when draft/archived.
+  const isComingSoon = !!league
+    && league.status === 'draft'
+    && league.advertised === true
+    && (!league.registration_opens_at || new Date(league.registration_opens_at) > new Date())
+
+  if (!league || (['draft', 'archived'].includes(league.status) && !isComingSoon)) notFound()
+
+  // ── Coming-soon teaser (early return — none of the schedule/standings/
+  //    registration logic below runs, so no draft data leaks) ──────────────────
+  if (isComingSoon) {
+    const tz = branding?.timezone ?? 'America/Toronto'
+    const opensLabel = league.registration_opens_at
+      ? new Date(league.registration_opens_at).toLocaleString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz })
+      : null
+    const startLabel = league.season_start_date
+      ? new Date(league.season_start_date).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+      : null
+    return (
+      <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
+        <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+        <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-12 flex-1">
+          <div className="bg-white border rounded-2xl shadow-sm overflow-hidden">
+            <div className="px-6 py-8 text-center" style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}>
+              <span className="inline-block text-xs font-semibold uppercase tracking-wide bg-white/20 rounded-full px-3 py-1 mb-4">Coming Soon</span>
+              <div className="flex justify-center mb-3">
+                <EventAvatar logoUrl={(league as any).logo_url ?? null} name={league.name} sport={league.sport ?? null} size="lg" />
+              </div>
+              <h1 className="text-3xl font-bold uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>{league.name}</h1>
+              {startLabel && <p className="mt-2 text-white/80 text-sm">Starts {startLabel}</p>}
+            </div>
+            <div className="px-6 py-6 space-y-5 text-center">
+              {league.teaser_text && <p className="text-gray-600 whitespace-pre-wrap">{league.teaser_text}</p>}
+              {opensLabel && (
+                <p className="text-sm font-medium text-gray-900">Registration opens <span style={{ color: 'var(--brand-primary)' }}>{opensLabel}</span></p>
+              )}
+              <div className="rounded-xl bg-gray-50 border px-4 py-5">
+                <p className="text-sm font-semibold text-gray-900 mb-3">Want first dibs? Get notified the moment registration opens.</p>
+                <NotifyMeForm leagueId={league.id} source="coming_soon" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <Footer org={org} />
+      </div>
+    )
+  }
 
   const timezone = branding?.timezone ?? 'America/Toronto'
   const isPickupEvent = league.event_type === 'pickup'

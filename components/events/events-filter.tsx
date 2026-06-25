@@ -24,6 +24,10 @@ export interface EventItem {
   days_of_week: string[] | null
   game_start_time: string | null
   game_end_time: string | null
+  advertised?: boolean | null
+  featured?: boolean | null
+  registration_opens_at?: string | null
+  teaser_text?: string | null
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -202,6 +206,42 @@ function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boo
   )
 }
 
+// ── Coming-soon card (advertised, not yet open) ───────────────────────────────
+
+function ComingSoonCard({ event }: { event: EventItem }) {
+  const opens = event.registration_opens_at
+    ? `Opens ${new Date(event.registration_opens_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}`
+    : 'Registration opening soon'
+  return (
+    <Link
+      href={`/events/${event.slug}`}
+      className="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-150"
+    >
+      <div className="flex items-start justify-between mb-2 gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {event.event_type && (
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+              {EVENT_TYPE_LABEL[event.event_type] ?? event.event_type}
+            </span>
+          )}
+          {event.featured && (
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">★ Featured</span>
+          )}
+        </div>
+        <span className="text-xs font-semibold shrink-0 px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--brand-primary)', color: 'white' }}>
+          Coming Soon
+        </span>
+      </div>
+      <div className="flex items-start gap-3 mt-2">
+        <EventAvatar logoUrl={event.logo_url} name={event.name} sport={event.sport} size="md" className="shrink-0 border border-gray-100" />
+        <h3 className="text-lg font-bold leading-snug" style={{ fontFamily: 'var(--brand-heading-font)' }}>{event.name}</h3>
+      </div>
+      {event.teaser_text && <p className="text-sm text-gray-500 mt-2 line-clamp-2">{event.teaser_text}</p>}
+      <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>{opens} →</p>
+    </Link>
+  )
+}
+
 // ── Compact list row ──────────────────────────────────────────────────────────
 
 function EventRow({ event, variant }: { event: EventItem; variant: 'inseason' | 'past' }) {
@@ -321,7 +361,12 @@ export function EventsFilter({ events, isOrgAdmin = false }: { events: EventItem
     })
   }, [events, selectedSport, selectedType])
 
-  const open     = filtered.filter((e) => e.status === 'registration_open')
+  const upcoming = filtered
+    .filter((e) => e.status === 'draft' && e.advertised)
+    .sort((a, b) => Number(!!b.featured) - Number(!!a.featured))
+  const open     = filtered
+    .filter((e) => e.status === 'registration_open')
+    .sort((a, b) => Number(!!b.featured) - Number(!!a.featured))
   const inSeason = filtered.filter((e) => e.status === 'active')
   const past     = filtered.filter((e) => e.status === 'completed' || e.status === 'archived')
 
@@ -395,6 +440,18 @@ export function EventsFilter({ events, isOrgAdmin = false }: { events: EventItem
       {filtered.length === 0 && (
         <div className="text-center py-14 text-gray-400 text-sm bg-white rounded-2xl border">
           No events match the selected filters.
+        </div>
+      )}
+
+      {/* ── 0. Coming soon — advertised events not yet open ──────────────────── */}
+      {upcoming.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">Coming Soon</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {upcoming.map((e) => (
+              <ComingSoonCard key={e.id} event={e} />
+            ))}
+          </div>
         </div>
       )}
 

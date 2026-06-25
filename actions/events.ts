@@ -12,6 +12,7 @@ import { convertToWebP } from '@/lib/image-utils'
 import { optionalPhone } from '@/lib/validation'
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 import { purgeLeagueData } from '@/lib/purge-league'
+import { notifyInterestList } from '@/actions/event-interest'
 import type { Database } from '@/types/database'
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
@@ -59,6 +60,10 @@ const createLeagueSchema = z.object({
   checkin_enabled: z.boolean().optional(),
   early_bird_price_cents: z.coerce.number().min(0).optional(),
   early_bird_deadline: z.string().optional(),
+  advertised: z.coerce.boolean().optional().default(false),
+  featured: z.coerce.boolean().optional().default(false),
+  teaser_text: z.string().optional(),
+  notify_on_open: z.coerce.boolean().optional().default(true),
 })
 
 export async function createLeague(
@@ -134,6 +139,10 @@ export async function createLeague(
       checkin_enabled: parsed.data.checkin_enabled ?? false,
       early_bird_price_cents: parsed.data.early_bird_price_cents ?? null,
       early_bird_deadline: parsed.data.early_bird_deadline || null,
+      advertised: parsed.data.advertised ?? false,
+      featured: parsed.data.featured ?? false,
+      teaser_text: parsed.data.teaser_text?.trim() || null,
+      notify_on_open: parsed.data.notify_on_open ?? true,
       created_by: auth.userId,
     })
     .select('id')
@@ -192,7 +201,7 @@ export async function updateLeagueStatus(leagueId: string, status: LeagueStatus)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: prior } = await (db as any)
-    .from('leagues').select('name, status').eq('id', leagueId).eq('organization_id', org.id).single()
+    .from('leagues').select('name, status, notify_on_open').eq('id', leagueId).eq('organization_id', org.id).single()
 
   const { error } = await db
     .from('leagues')
@@ -201,6 +210,13 @@ export async function updateLeagueStatus(leagueId: string, status: LeagueStatus)
     .eq('organization_id', org.id)
 
   if (error) return { data: null, error: error.message }
+
+  // Email the notify-me list the moment registration first opens (one-shot),
+  // unless the admin opted out for this event. Fire-and-forget — never block the
+  // status change on email delivery.
+  if (prior?.status !== 'registration_open' && status === 'registration_open' && prior?.notify_on_open !== false) {
+    await notifyInterestList(leagueId, org.id).catch(() => {})
+  }
 
   await recordAuditLog({
     orgId: org.id,
@@ -351,6 +367,7 @@ export async function updateLeague(
   const u = updates as any
   if (Array.isArray(u.payment_methods) && u.payment_methods.length === 0) u.payment_methods = null
   if (typeof u.payment_instructions === 'string') u.payment_instructions = u.payment_instructions.trim() || null
+  if (typeof u.teaser_text === 'string') u.teaser_text = u.teaser_text.trim() || null
 
   const db = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -378,6 +395,9 @@ export async function updateLeague(
 
   revalidatePath(`/admin/events/${leagueId}`)
   revalidatePath('/admin/calendar')
+  // Bust public caches so advertise/feature/teaser changes show immediately on
+  // the public homepage, events list, and coming-soon teaser.
+  revalidatePath('/', 'layout')
   return { data: null, error: null }
 }
 

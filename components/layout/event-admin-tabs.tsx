@@ -9,6 +9,7 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
   const base = [
     { label: 'Overview', href: `/admin/events/${id}` },
     { label: 'Registrations', href: `/admin/events/${id}/registrations` },
+    { label: 'Promote', href: `/admin/events/${id}/promote` },
   ]
 
   if (eventType === 'pickup') {

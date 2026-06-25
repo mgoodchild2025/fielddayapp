@@ -6,6 +6,7 @@ import { EventAvatar } from '@/components/ui/event-avatar'
 import { HeroSocialLinks } from '@/components/ui/social-links'
 import type { OrgContext } from '@/lib/tenant'
 import { formatEventPrice } from '@/lib/event-price'
+import { UpcomingEventsSection } from '@/components/site-themes/shared/upcoming-events-section'
 
 type Photo = { id: string; url: string; caption: string | null; display_order: number }
 type StaffMember = { id: string; name: string; role: string | null; bio: string | null; avatar_url: string | null; display_order: number }
@@ -28,6 +29,9 @@ type League = {
   days_of_week: string[] | null
   game_start_time: string | null
   game_end_time: string | null
+  registration_opens_at?: string | null
+  teaser_text?: string | null
+  featured?: boolean | null
 }
 
 function fmtTime(t: string): string {
@@ -78,6 +82,7 @@ interface CommunityHomeProps {
   staff: StaffMember[]
   openEvents: League[]
   inSeasonEvents: League[]
+  upcomingEvents: League[]
   completedEvents: League[]
   spotsMap: Map<string, { filled: number; max: number | null; unit: 'team' | 'player' }>
   sectionLayout: { key: string; visible: boolean }[] | null
@@ -201,6 +206,7 @@ export function CommunityHome({
   staff,
   openEvents,
   inSeasonEvents,
+  upcomingEvents,
   completedEvents,
   spotsMap,
   sectionLayout,
@@ -226,8 +232,9 @@ export function CommunityHome({
   function renderSection(key: string) {
     switch (key) {
       case 'events':
-        return (openEvents.length > 0 || inSeasonEvents.length > 0) ? (
+        return (openEvents.length > 0 || inSeasonEvents.length > 0 || upcomingEvents.length > 0) ? (
           <div key="events">
+            <UpcomingEventsSection events={upcomingEvents} />
             {openEvents.length > 0 && (
               <section className="max-w-5xl mx-auto w-full px-6 py-12">
                 <h2 className="text-2xl sm:text-3xl font-bold mb-6 uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>
@@ -364,7 +371,7 @@ export function CommunityHome({
   }
 
   const sections = orderedKeys.map(renderSection).filter(Boolean)
-  const hasNoEvents = openEvents.length === 0 && inSeasonEvents.length === 0
+  const hasNoEvents = openEvents.length === 0 && inSeasonEvents.length === 0 && upcomingEvents.length === 0
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>

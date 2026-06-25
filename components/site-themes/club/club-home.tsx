@@ -6,6 +6,7 @@ import { EventAvatar } from '@/components/ui/event-avatar'
 import { HeroSocialLinks } from '@/components/ui/social-links'
 import type { OrgContext } from '@/lib/tenant'
 import { formatEventPrice } from '@/lib/event-price'
+import { UpcomingEventsSection } from '@/components/site-themes/shared/upcoming-events-section'
 
 type League = {
   id: string; name: string; slug: string; event_type: string | null; status: string
@@ -13,6 +14,7 @@ type League = {
   season_start_date: string | null; price_cents: number; drop_in_price_cents: number | null; currency: string | null
   max_teams: number | null; payment_mode: string | null; skill_level: string | null
   days_of_week: string[] | null; game_start_time: string | null; game_end_time: string | null
+  registration_opens_at?: string | null; teaser_text?: string | null; featured?: boolean | null
 }
 
 function fmtTimeClub(t: string): string {
@@ -54,6 +56,7 @@ interface ClubHomeProps {
   staff: StaffMember[]
   openEvents: League[]
   inSeasonEvents: League[]
+  upcomingEvents: League[]
   spotsMap: Map<string, { filled: number; max: number | null; unit: 'team' | 'player' }>
   sectionLayout: { key: string; visible: boolean }[] | null
 }
@@ -116,7 +119,7 @@ function StaffRow({ staff }: { staff: StaffMember[] }) {
   )
 }
 
-export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, staff, openEvents, inSeasonEvents, spotsMap, sectionLayout }: ClubHomeProps) {
+export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, staff, openEvents, inSeasonEvents, upcomingEvents, spotsMap, sectionLayout }: ClubHomeProps) {
   const headline    = heroContent.headline    || org.name
   const subheadline = heroContent.subheadline || branding?.tagline || null
   const ctaLabel    = heroContent.cta_label   || 'Register Now'
@@ -134,8 +137,9 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
   function renderSection(key: string) {
     switch (key) {
       case 'events':
-        return (openEvents.length > 0 || inSeasonEvents.length > 0) ? (
+        return (openEvents.length > 0 || inSeasonEvents.length > 0 || upcomingEvents.length > 0) ? (
           <div key="events">
+            <UpcomingEventsSection events={upcomingEvents} />
             {openEvents.length > 0 && (
               <section className="py-12">
                 <div className="max-w-5xl mx-auto px-6">
@@ -236,7 +240,7 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
   }
 
   const sections = orderedKeys.map(renderSection).filter(Boolean)
-  const hasNoEvents = openEvents.length === 0 && inSeasonEvents.length === 0
+  const hasNoEvents = openEvents.length === 0 && inSeasonEvents.length === 0 && upcomingEvents.length === 0
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
