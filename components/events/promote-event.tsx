@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { sendAnnouncement } from '@/actions/messages'
 
 type Audience = 'past_participants' | 'marketing' | 'event_interest'
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = false, interestCount = 0 }: Props) {
+  const router = useRouter()
   const [audience, setAudience] = useState<Audience>('marketing')
   const [channel, setChannel] = useState<Channel>('email')
   const [isPending, startTransition] = useTransition()
@@ -39,6 +41,7 @@ export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = fa
         ;(e.target as HTMLFormElement).reset()
         setAudience('marketing')
         setChannel('email')
+        router.refresh()  // surface the just-sent promo in "Recent promotions"
       }
     })
   }
