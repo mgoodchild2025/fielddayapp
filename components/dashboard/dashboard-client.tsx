@@ -299,33 +299,19 @@ function GameHero({
 }
 
 // ── SameDayGameRow ────────────────────────────────────────────────────────────
-// A compact, RSVP-able row for a game later the same day as the hero game.
+// A compact RSVP row for a game later the same day. Controlled by the parent so
+// the hero can cascade its status to every same-day game at once.
 
-function SameDayGameRow({ item, timezone }: { item: NextGameItem; timezone: string }) {
-  const [myRsvp, setMyRsvp] = useState<'in' | 'out' | null>(item.myRsvp)
-  const [count, setCount] = useState({ in: item.rsvpIn, out: item.rsvpOut })
-  const [, startTransition] = useTransition()
-
-  function handle(status: 'in' | 'out') {
-    if (myRsvp === status) return
-    const prev = myRsvp
-    setMyRsvp(status)
-    setCount((c) => ({
-      in:  status === 'in'  ? c.in + 1  : prev === 'in'  ? Math.max(0, c.in - 1)  : c.in,
-      out: status === 'out' ? c.out + 1 : prev === 'out' ? Math.max(0, c.out - 1) : c.out,
-    }))
-    startTransition(async () => {
-      const res = await upsertRsvp(item.id, item.teamId, status)
-      if (res.error) {
-        setMyRsvp(prev)
-        setCount((c) => ({
-          in:  status === 'in'  ? Math.max(0, c.in - 1)  : prev === 'in'  ? c.in + 1  : c.in,
-          out: status === 'out' ? Math.max(0, c.out - 1) : prev === 'out' ? c.out + 1 : c.out,
-        }))
-      }
-    })
-  }
-
+function SameDayGameRow({
+  item, timezone, myRsvp, rsvpIn, rsvpOut, onRsvp,
+}: {
+  item: NextGameItem
+  timezone: string
+  myRsvp: 'in' | 'out' | null
+  rsvpIn: number
+  rsvpOut: number
+  onRsvp: (status: 'in' | 'out') => void
+}) {
   return (
     <div className="bg-white rounded-xl border px-4 py-2.5 flex items-center gap-3">
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -335,15 +321,15 @@ function SameDayGameRow({ item, timezone }: { item: NextGameItem; timezone: stri
           <p className="text-xs text-gray-500">
             {formatTime(item.scheduledAt, timezone)}{item.court ? ` · ${item.court}` : ''}
             <span className="text-gray-300"> · </span>
-            <span className="text-emerald-600">{count.in} in</span>
+            <span className="text-emerald-600">{rsvpIn} in</span>
             <span className="text-gray-300"> / </span>
-            <span className="text-red-400">{count.out} out</span>
+            <span className="text-red-400">{rsvpOut} out</span>
           </p>
         </div>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
         <button
-          onClick={() => handle('out')}
+          onClick={() => onRsvp('out')}
           className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
             myRsvp === 'out' ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
           }`}
@@ -351,7 +337,7 @@ function SameDayGameRow({ item, timezone }: { item: NextGameItem; timezone: stri
           {myRsvp === 'out' ? '✗ Out' : 'Out'}
         </button>
         <button
-          onClick={() => handle('in')}
+          onClick={() => onRsvp('in')}
           className={`px-2.5 py-1 rounded-lg text-xs font-semibold text-white transition-all ${myRsvp === 'in' ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >
@@ -444,7 +430,22 @@ export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = 
   const [rsvpOut, setRsvpOut] = useState(initialOut)
   const [, startTransition] = useTransition()
 
+  // Controlled RSVP state for the same-day games (so the hero can cascade to them).
+  type RsvpState = { myRsvp: 'in' | 'out' | null; in: number; out: number }
+  const [sameDayRsvp, setSameDayRsvp] = useState<Record<string, RsvpState>>(
+    () => Object.fromEntries(sameDayGames.map((g) => [g.id, { myRsvp: g.myRsvp, in: g.rsvpIn, out: g.rsvpOut }]))
+  )
+
   const team = teams[activeIdx] ?? null
+
+  function transitionRsvp(s: RsvpState, status: 'in' | 'out'): RsvpState {
+    const prev = s.myRsvp
+    return {
+      myRsvp: status,
+      in:  status === 'in'  ? s.in + 1  : prev === 'in'  ? Math.max(0, s.in - 1)  : s.in,
+      out: status === 'out' ? s.out + 1 : prev === 'out' ? Math.max(0, s.out - 1) : s.out,
+    }
+  }
 
   function handleRsvp(gameId: string, teamId: string, status: 'in' | 'out') {
     if (myRsvp === status) return
@@ -461,6 +462,24 @@ export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = 
         setRsvpOut((n) => status === 'out' ? Math.max(0, n - 1) : prev === 'out' ? n + 1 : n)
       }
     })
+  }
+
+  // Set RSVP for one same-day game (optimistic + persist, revert on error).
+  function rsvpSameDayGame(game: NextGameItem, status: 'in' | 'out') {
+    const cur = sameDayRsvp[game.id] ?? { myRsvp: game.myRsvp, in: game.rsvpIn, out: game.rsvpOut }
+    if (cur.myRsvp === status) return
+    setSameDayRsvp((s) => ({ ...s, [game.id]: transitionRsvp(cur, status) }))
+    startTransition(async () => {
+      const res = await upsertRsvp(game.id, game.teamId, status)
+      if (res.error) setSameDayRsvp((s) => ({ ...s, [game.id]: cur }))
+    })
+  }
+
+  // Hero RSVP — also cascades the same status to every game later that day.
+  function handleHeroRsvp(status: 'in' | 'out') {
+    if (!nextItem || nextItem.kind !== 'game') return
+    handleRsvp(nextItem.id, nextItem.teamId, status)
+    for (const g of sameDayGames) rsvpSameDayGame(g, status)
   }
 
   // ── Empty state (no active teams AND no upcoming sessions) ────────────────
@@ -535,14 +554,27 @@ export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = 
               rsvpIn={rsvpIn}
               rsvpOut={rsvpOut}
               myRsvp={myRsvp}
-              onRsvp={(status) => handleRsvp(nextItem.id, nextItem.teamId, status)}
+              onRsvp={handleHeroRsvp}
             />
             {sameDayGames.length > 0 && (
               <div className="mt-3 space-y-2">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 px-1">Later that day</p>
-                {sameDayGames.map((g) => (
-                  <SameDayGameRow key={g.id} item={g} timezone={timezone} />
-                ))}
+                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 px-1">
+                  Later that day <span className="text-gray-300 normal-case font-medium tracking-normal">· follows your hero RSVP</span>
+                </p>
+                {sameDayGames.map((g) => {
+                  const st = sameDayRsvp[g.id] ?? { myRsvp: g.myRsvp, in: g.rsvpIn, out: g.rsvpOut }
+                  return (
+                    <SameDayGameRow
+                      key={g.id}
+                      item={g}
+                      timezone={timezone}
+                      myRsvp={st.myRsvp}
+                      rsvpIn={st.in}
+                      rsvpOut={st.out}
+                      onRsvp={(status) => rsvpSameDayGame(g, status)}
+                    />
+                  )
+                })}
               </div>
             )}
           </>
