@@ -15,8 +15,8 @@ export interface InterestRow {
 
 function statusOf(r: InterestRow): { label: string; cls: string } {
   if (r.unsubscribed_at) return { label: 'Unsubscribed', cls: 'bg-gray-100 text-gray-500' }
-  if (r.notified_at) return { label: 'Notified', cls: 'bg-green-100 text-green-700' }
-  return { label: 'Pending', cls: 'bg-amber-100 text-amber-700' }
+  if (r.notified_at) return { label: 'Notified on open', cls: 'bg-green-100 text-green-700' }
+  return { label: 'Awaiting open', cls: 'bg-amber-100 text-amber-700' }
 }
 
 function csvCell(v: string): string {
