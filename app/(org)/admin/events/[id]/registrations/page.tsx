@@ -36,7 +36,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   const [{ data: branding }, { data: league }, { data: activeWaiver }] = await Promise.all([
     db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('name, slug, waiver_version_id, event_type, registration_mode').eq('id', id).eq('organization_id', org.id).single(),
+    (db as any).from('leagues').select('name, slug, waiver_version_id, event_type, registration_mode, payment_mode, price_cents, currency').eq('id', id).eq('organization_id', org.id).single(),
     db.from('waivers').select('id').eq('organization_id', org.id).eq('is_active', true).maybeSingle(),
   ])
   const timezone = branding?.timezone ?? 'America/Toronto'
@@ -114,6 +114,47 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
     }
   } catch {
     // migration not yet applied — guests simply show no name
+  }
+
+  // For per-team paid events the fee is paid by the team, not the individual —
+  // so registrations have no per-player payment row. Resolve each player's team
+  // payment status so the Payment column reflects reality instead of "free".
+  const showTeamPayment = leagueAny?.payment_mode === 'per_team' && (leagueAny?.price_cents ?? 0) > 0
+  type TeamPay = { teamName: string; status: string | null; amount_cents: number | null; currency: string | null }
+  const teamPaymentByUserId = new Map<string, TeamPay>()
+  if (showTeamPayment) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: teams } = await (db as any)
+      .from('teams').select('id, name').eq('league_id', id).eq('organization_id', org.id)
+    const teamIds = (teams ?? []).map((t: { id: string }) => t.id)
+    const teamNameById = new Map<string, string>((teams ?? []).map((t: { id: string; name: string }) => [t.id, t.name]))
+    if (teamIds.length > 0) {
+      const [{ data: members }, { data: teamPays }] = await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any).from('team_members').select('user_id, team_id').in('team_id', teamIds).eq('status', 'active'),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (db as any).from('payments').select('team_id, status, amount_cents, currency')
+          .eq('league_id', id).eq('organization_id', org.id).eq('payment_type', 'team').in('team_id', teamIds),
+      ])
+      // Prefer a paid row per team; otherwise keep whatever exists (pending/failed).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const payByTeam = new Map<string, any>()
+      for (const p of teamPays ?? []) {
+        if (!p.team_id) continue
+        const prev = payByTeam.get(p.team_id)
+        if (!prev || (p.status === 'paid' || p.status === 'manual')) payByTeam.set(p.team_id, p)
+      }
+      for (const m of (members ?? []) as { user_id: string | null; team_id: string }[]) {
+        if (!m.user_id) continue
+        const pay = payByTeam.get(m.team_id)
+        teamPaymentByUserId.set(m.user_id, {
+          teamName: teamNameById.get(m.team_id) ?? 'Team',
+          status: pay?.status ?? null,
+          amount_cents: pay?.amount_cents ?? null,
+          currency: pay?.currency ?? null,
+        })
+      }
+    }
   }
 
   const unsignedCount = rows.filter((r: { status: string; waiver_signature_id: string | null }) => r.status === 'active' && !r.waiver_signature_id).length
@@ -267,7 +308,21 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {payment ? (
+                    {showTeamPayment ? (() => {
+                      const tp = teamPaymentByUserId.get(reg.user_id)
+                      if (!tp) return <span className="text-xs text-gray-400">No team yet</span>
+                      const paid = tp.status === 'paid' || tp.status === 'manual'
+                      return (
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${paid ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}
+                          title={tp.teamName}
+                        >
+                          {paid
+                            ? `$${((tp.amount_cents ?? 0) / 100).toFixed(0)} ${(tp.currency ?? leagueAny?.currency ?? 'cad').toUpperCase()} · Team paid`
+                            : 'Team unpaid'}
+                        </span>
+                      )
+                    })() : payment ? (
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
                           paymentStatusColors[payment.status] ?? 'bg-gray-100 text-gray-600'
