@@ -134,6 +134,16 @@ export async function sendAnnouncement(input: FormData) {
 
   if (error) return { error: error.message }
 
+  // Persist cc intent so the scheduled (cron) path can honour "send me a copy".
+  // Best-effort: ignored if migration 169 (cc columns) isn't applied yet.
+  if (announcement && (parsed.data.cc_self || parsed.data.cc_admins)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any).from('announcements')
+      .update({ cc_self: parsed.data.cc_self, cc_admins: parsed.data.cc_admins })
+      .eq('id', announcement.id)
+      .then(() => {}, () => {})
+  }
+
   if (isImmediate && announcement) {
     await deliverAnnouncement(announcement.id, org.id, org.name ?? '', user.id, parsed.data).catch(() => {})
   }
@@ -171,6 +181,9 @@ type DeliveryData = {
   message_class?: 'transactional' | 'commercial'
   cc_self?: boolean
   cc_admins?: boolean
+  /** Used by the scheduled (cron) path, which has no live sender — the sender
+   *  is recovered from announcements.sent_by so cc-self still works. */
+  sender_id?: string
 }
 
 type Recipient = { id: string; email: string | null; phone: string | null; sms_opted_in: boolean }
@@ -281,9 +294,12 @@ async function deliverAnnouncement(
   }
 
   // ── 2. CC additions ───────────────────────────────────────────────────────
-  if (data.cc_self && senderId) {
-    userIds.add(senderId)
-    exemptUserIds.add(senderId)
+  // On the scheduled (cron) path there's no live sender arg — recover it from
+  // the stored data so "send me a copy" still works.
+  const ccSender = senderId || data.sender_id || ''
+  if (data.cc_self && ccSender) {
+    userIds.add(ccSender)
+    exemptUserIds.add(ccSender)
   }
 
   if (data.cc_admins) {

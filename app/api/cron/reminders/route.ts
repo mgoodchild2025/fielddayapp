@@ -25,12 +25,24 @@ export async function GET(req: NextRequest) {
 
   // 1. Deliver scheduled announcements past their send time
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: due } = await (supabase as any)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let { data: due } = await (supabase as any)
     .from('announcements')
-    .select('id, organization_id, title, body, audience_type, league_id, team_id, recipient_user_ids, channel, message_class')
+    .select('id, organization_id, title, body, audience_type, league_id, team_id, recipient_user_ids, channel, message_class, cc_self, cc_admins, sent_by')
     .is('sent_at', null)
     .eq('email_sent', false)
     .lte('scheduled_for', now.toISOString())
+  if (!due) {
+    // Fallback for before migration 169 (cc_self/cc_admins) is applied.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const retry = await (supabase as any)
+      .from('announcements')
+      .select('id, organization_id, title, body, audience_type, league_id, team_id, recipient_user_ids, channel, message_class, sent_by')
+      .is('sent_at', null)
+      .eq('email_sent', false)
+      .lte('scheduled_for', now.toISOString())
+    due = retry.data
+  }
 
   for (const ann of due ?? []) {
     await deliverAnnouncementEmails(ann.id, ann.organization_id, {
@@ -42,6 +54,10 @@ export async function GET(req: NextRequest) {
       user_ids: ann.recipient_user_ids ?? undefined,
       channel: ann.channel ?? 'email',
       message_class: ann.message_class ?? 'transactional',
+      // Carry the sender + cc intent so "send me a copy" works on scheduled sends.
+      cc_self: ann.cc_self ?? false,
+      cc_admins: ann.cc_admins ?? false,
+      sender_id: ann.sent_by ?? undefined,
     }).catch((e: unknown) => results.push(`ann ${ann.id} error: ${e}`))
 
     await supabase
