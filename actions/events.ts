@@ -32,7 +32,8 @@ async function getOrgTimezone(
  * values (no time), or strings that already carry a timezone (Z/offset).
  */
 function localDateTimeToUtc(value: string | null | undefined, tz: string): string | null {
-  if (!value || typeof value !== 'string') return (value as string | null) ?? null
+  // Empty string / null / undefined → null (an empty timestamptz value errors in Postgres).
+  if (!value || typeof value !== 'string' || value.trim() === '') return null
   if (!value.includes('T')) return value                    // date-only ("YYYY-MM-DD")
   if (value.includes('Z') || /[+-]\d\d:\d\d$/.test(value)) return value  // already absolute
   const [d, t] = value.split('T')
