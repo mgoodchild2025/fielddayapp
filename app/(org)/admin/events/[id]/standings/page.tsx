@@ -3,66 +3,17 @@ import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { requireOrgMember } from '@/lib/auth'
+import {
+  computePts, sortStandings, VOLLEYBALL_SPORTS,
+  accumulateGameResult, emptyTeamStat,
+  type TeamStat as BaseTeamStat, type TeamStatTotals,
+  type PtsMethod, type VolleyballMode,
+} from '@/lib/standings'
 
-// ── Types & helpers (mirrored from public event page) ─────────────────────────
-
-type PtsMethod = 'wins' | 'set_wins' | 'set_differential' | 'points_for'
-type VolleyballMode = 'match_based' | 'set_based'
-
-interface TeamStat {
-  id: string
-  name: string
+// Standings rows on this page additionally carry division/pool grouping.
+interface TeamStat extends BaseTeamStat {
   division_id: string | null
   pool_id: string | null
-  matchesPlayed: number
-  wins: number
-  losses: number
-  ties: number
-  pointsFor: number
-  pointsAgainst: number
-  setWins: number
-  setLosses: number
-}
-
-const VOLLEYBALL_SPORTS = new Set(['volleyball', 'beach_volleyball'])
-
-function computePts(team: TeamStat, method: PtsMethod): number {
-  switch (method) {
-    case 'wins':             return team.wins
-    case 'set_wins':         return team.setWins
-    case 'set_differential': return team.setWins - team.setLosses
-    case 'points_for':       return team.pointsFor
-  }
-}
-
-function setRatio(team: TeamStat): number {
-  return team.setLosses === 0 ? team.setWins : team.setWins / team.setLosses
-}
-
-function sortMatchBased(teams: TeamStat[], method: PtsMethod): TeamStat[] {
-  return [...teams].sort((a, b) => {
-    if (b.wins !== a.wins) return b.wins - a.wins
-    const ptsDiff = computePts(b, method) - computePts(a, method)
-    if (ptsDiff !== 0) return ptsDiff
-    const ratioDiff = setRatio(b) - setRatio(a)
-    if (ratioDiff !== 0) return ratioDiff
-    return (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst)
-  })
-}
-
-function sortSetBased(teams: TeamStat[]): TeamStat[] {
-  return [...teams].sort((a, b) => {
-    if (b.setWins !== a.setWins) return b.setWins - a.setWins
-    const sdDiff = (b.setWins - b.setLosses) - (a.setWins - a.setLosses)
-    if (sdDiff !== 0) return sdDiff
-    return (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst)
-  })
-}
-
-function sortTeams(teams: TeamStat[], isVolleyball: boolean, mode: VolleyballMode, method: PtsMethod): TeamStat[] {
-  return isVolleyball && mode === 'set_based'
-    ? sortSetBased(teams)
-    : sortMatchBased(teams, method)
 }
 
 // ── StandingsTable component ──────────────────────────────────────────────────
@@ -85,7 +36,7 @@ function StandingsTable({
   const isVolleyball = VOLLEYBALL_SPORTS.has(sport ?? '')
   const mode: VolleyballMode = volleyballMode ?? 'match_based'
   const method: PtsMethod = ptsMethod ?? 'wins'
-  const sorted = sortTeams(teams, isVolleyball, mode, method)
+  const sorted = sortStandings(teams, sport, mode, method)
 
   if (sorted.length === 0) {
     return <p className="text-gray-400 text-sm py-6 text-center">No results yet.</p>
@@ -216,16 +167,11 @@ export default async function AdminStandingsPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leagueTeamIds = new Set<string>((teamsData ?? []).map((t: any) => t.id as string))
 
-  const blankStat = () => ({
-    matchesPlayed: 0, wins: 0, losses: 0, ties: 0,
-    pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0,
-  })
-
   // record = regular season games (no pool_id); poolRecord = pool-play games (has pool_id)
-  const record: Record<string, ReturnType<typeof blankStat>> = {}
-  const poolRecord: Record<string, ReturnType<typeof blankStat>> = {}
+  const record = new Map<string, TeamStatTotals>()
+  const poolRecord = new Map<string, TeamStatTotals>()
   // combinedRecord = all games regardless of pool_id (for overall ranking when pools exist)
-  const combinedRecord: Record<string, ReturnType<typeof blankStat>> = {}
+  const combinedRecord = new Map<string, TeamStatTotals>()
 
   for (const r of resultsData ?? []) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -234,53 +180,33 @@ export default async function AdminStandingsPage({
     const { home_team_id: ht, away_team_id: at, pool_id: gamePool } = game
     if (!ht || !at || !leagueTeamIds.has(ht) || !leagueTeamIds.has(at)) continue
 
-    const isPoolGame = !!gamePool
-    const target = isPoolGame ? poolRecord : record
-
-    for (const rec of [target, combinedRecord]) {
-      if (!rec[ht]) rec[ht] = blankStat()
-      if (!rec[at]) rec[at] = blankStat()
-      rec[ht].matchesPlayed++
-      rec[at].matchesPlayed++
-      const hs = r.home_score ?? 0
-      const as_ = r.away_score ?? 0
-      // Double forfeit (flagged, no forfeiting team) = loss for both
-      if (r.is_forfeit && !r.forfeit_team_id) { rec[ht].losses++; rec[at].losses++ }
-      else if (hs > as_) { rec[ht].wins++; rec[at].losses++ }
-      else if (as_ > hs) { rec[at].wins++; rec[ht].losses++ }
-      else { rec[ht].ties++; rec[at].ties++ }
-      if (isVolleyball && Array.isArray(r.sets)) {
-        for (const s of r.sets as { home: number; away: number }[]) {
-          rec[ht].pointsFor += s.home; rec[ht].pointsAgainst += s.away
-          rec[at].pointsFor += s.away; rec[at].pointsAgainst += s.home
-          if (s.home > s.away) { rec[ht].setWins++; rec[at].setLosses++ }
-          else if (s.away > s.home) { rec[at].setWins++; rec[ht].setLosses++ }
-        }
-      } else {
-        rec[ht].pointsFor += hs; rec[ht].pointsAgainst += as_
-        rec[at].pointsFor += as_; rec[at].pointsAgainst += hs
-      }
+    const input = {
+      homeTeamId: ht, awayTeamId: at,
+      homeScore: r.home_score, awayScore: r.away_score,
+      sets: r.sets, isForfeit: r.is_forfeit, forfeitTeamId: r.forfeit_team_id,
     }
+    accumulateGameResult(gamePool ? poolRecord : record, input, isVolleyball)
+    accumulateGameResult(combinedRecord, input, isVolleyball)
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const buildTeamStats = (src: Record<string, ReturnType<typeof blankStat>>) => (teamsData ?? []).map((t: any) => ({
+  const buildTeamStats = (src: Map<string, TeamStatTotals>) => (teamsData ?? []).map((t: any) => ({
     id: t.id, name: t.name,
     division_id: t.division_id ?? null,
     pool_id: t.pool_id ?? null,
-    ...(src[t.id] ?? blankStat()),
+    ...(src.get(t.id) ?? emptyTeamStat()),
   })) as TeamStat[]
 
   const regularTeams   = buildTeamStats(record)
   const poolTeams      = buildTeamStats(poolRecord).filter((t) => t.pool_id)
   const combinedTeams  = buildTeamStats(combinedRecord)
 
-  const hasRegular  = Object.keys(record).some((k) => record[k].matchesPlayed > 0)
-  const hasPoolPlay = Object.keys(poolRecord).some((k) => poolRecord[k].matchesPlayed > 0)
+  const hasRegular  = [...record.values()].some((s) => s.matchesPlayed > 0)
+  const hasPoolPlay = [...poolRecord.values()].some((s) => s.matchesPlayed > 0)
   const hasPools    = pools.length > 0
 
   // Compute overall rank order for cross-pool ranking
-  const overallSorted = sortTeams(combinedTeams, isVolleyball, volleyballMode, ptsMethod)
+  const overallSorted = sortStandings(combinedTeams, sport, volleyballMode, ptsMethod)
 
   return (
     <div className="space-y-8">
@@ -368,7 +294,7 @@ export default async function AdminStandingsPage({
                   </div>
                 )
               })}
-              {regularTeams.filter((t) => !t.division_id && record[t.id]?.matchesPlayed > 0).length > 0 && (
+              {regularTeams.filter((t) => !t.division_id && (record.get(t.id)?.matchesPlayed ?? 0) > 0).length > 0 && (
                 <div className="bg-white rounded-lg border overflow-hidden">
                   <div className="px-4 py-3 border-b bg-gray-50">
                     <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">Unassigned</p>

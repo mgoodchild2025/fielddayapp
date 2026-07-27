@@ -20,6 +20,12 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { BackLink } from '@/components/ui/back-link'
 import { formatGameTime } from '@/lib/format-time'
+import {
+  computePts, sortStandings, VOLLEYBALL_SPORTS,
+  accumulateGameResult, emptyTeamStat,
+  type TeamStat as BaseTeamStat, type TeamStatTotals,
+  type PtsMethod, type VolleyballMode,
+} from '@/lib/standings'
 import { ChevronRight } from 'lucide-react'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
@@ -75,65 +81,10 @@ function TabNav({ slug, activeTab, tabs }: { slug: string; activeTab: string; ta
 
 // ── Standings helpers ─────────────────────────────────────────────────────────
 
-type PtsMethod = 'wins' | 'set_wins' | 'set_differential' | 'points_for'
-type VolleyballMode = 'match_based' | 'set_based'
-
-interface TeamStat {
-  id: string
-  name: string
+// Standings rows on this page additionally carry division/pool grouping.
+interface TeamStat extends BaseTeamStat {
   division_id: string | null
   pool_id: string | null
-  matchesPlayed: number
-  wins: number
-  losses: number
-  ties: number
-  pointsFor: number      // for volleyball: total set-level points scored
-  pointsAgainst: number  // for volleyball: total set-level points conceded
-  setWins: number
-  setLosses: number
-}
-
-const VOLLEYBALL_SPORTS = new Set(['volleyball', 'beach_volleyball'])
-
-function computePts(team: TeamStat, method: PtsMethod): number {
-  switch (method) {
-    case 'wins':             return team.wins
-    case 'set_wins':         return team.setWins
-    case 'set_differential': return team.setWins - team.setLosses
-    case 'points_for':       return team.pointsFor
-  }
-}
-
-// Safe set ratio: if SL is 0, use SW as ratio (unbeaten in sets → highest ratio)
-function setRatio(team: TeamStat): number {
-  return team.setLosses === 0 ? team.setWins : team.setWins / team.setLosses
-}
-
-function sortMatchBased(teams: TeamStat[], method: PtsMethod): TeamStat[] {
-  return [...teams].sort((a, b) => {
-    // 1. Match wins
-    if (b.wins !== a.wins) return b.wins - a.wins
-    // 2. Standings points
-    const ptsDiff = computePts(b, method) - computePts(a, method)
-    if (ptsDiff !== 0) return ptsDiff
-    // 3. Set ratio (SW ÷ SL)
-    const ratioDiff = setRatio(b) - setRatio(a)
-    if (ratioDiff !== 0) return ratioDiff
-    // 4. Point differential
-    return (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst)
-  })
-}
-
-function sortSetBased(teams: TeamStat[]): TeamStat[] {
-  return [...teams].sort((a, b) => {
-    // 1. Sets won
-    if (b.setWins !== a.setWins) return b.setWins - a.setWins
-    // 2. Set differential (SW − SL)
-    const sdDiff = (b.setWins - b.setLosses) - (a.setWins - a.setLosses)
-    if (sdDiff !== 0) return sdDiff
-    // 3. Point differential (SPF − SPA)
-    return (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst)
-  })
 }
 
 function Legend({ items }: { items: { abbr: string; label: string }[] }) {
@@ -163,9 +114,7 @@ function StandingsTable({
   const mode: VolleyballMode = volleyballMode ?? 'match_based'
   const method: PtsMethod = ptsMethod ?? 'wins'
 
-  const sorted = isVolleyball && mode === 'set_based'
-    ? sortSetBased(teams)
-    : sortMatchBased(teams, method)
+  const sorted = sortStandings(teams, sport, mode, method)
 
   if (sorted.length === 0) {
     return <p className="text-gray-400 text-sm text-center py-8">No results yet.</p>
@@ -1276,9 +1225,8 @@ export default async function EventDetailPage({
     divisions = divsData ?? []
     pools = poolsData ?? []
 
-    const blankStat = () => ({ matchesPlayed: 0, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0 })
-    const record: Record<string, ReturnType<typeof blankStat>> = {}
-    const poolRecord: Record<string, ReturnType<typeof blankStat>> = {}
+    const record = new Map<string, TeamStatTotals>()
+    const poolRecord = new Map<string, TeamStatTotals>()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const leagueTeamIds = new Set<string>((teamsData ?? []).map((t: any) => t.id as string))
 
@@ -1288,42 +1236,22 @@ export default async function EventDetailPage({
       const { home_team_id: ht, away_team_id: at, pool_id: gamePool } = game
       if (!ht || !at || !leagueTeamIds.has(ht) || !leagueTeamIds.has(at)) continue
 
-      const isPoolGame = !!gamePool
-      const target = isPoolGame ? poolRecord : record
-
-      if (!target[ht]) target[ht] = blankStat()
-      if (!target[at]) target[at] = blankStat()
-      target[ht].matchesPlayed++
-      target[at].matchesPlayed++
-      const hs = r.home_score ?? 0
-      const as_ = r.away_score ?? 0
-      // Double forfeit (flagged, no forfeiting team) = loss for both
-      if (r.is_forfeit && !r.forfeit_team_id) { target[ht].losses++; target[at].losses++ }
-      else if (hs > as_) { target[ht].wins++; target[at].losses++ }
-      else if (as_ > hs) { target[at].wins++; target[ht].losses++ }
-      else { target[ht].ties++; target[at].ties++ }
-      if (isVolleyballLeague && Array.isArray(r.sets)) {
-        for (const s of r.sets as { home: number; away: number }[]) {
-          target[ht].pointsFor += s.home; target[ht].pointsAgainst += s.away
-          target[at].pointsFor += s.away; target[at].pointsAgainst += s.home
-          if (s.home > s.away) { target[ht].setWins++; target[at].setLosses++ }
-          else if (s.away > s.home) { target[at].setWins++; target[ht].setLosses++ }
-        }
-      } else {
-        target[ht].pointsFor += hs; target[ht].pointsAgainst += as_
-        target[at].pointsFor += as_; target[at].pointsAgainst += hs
-      }
+      accumulateGameResult(gamePool ? poolRecord : record, {
+        homeTeamId: ht, awayTeamId: at,
+        homeScore: r.home_score, awayScore: r.away_score,
+        sets: r.sets, isForfeit: r.is_forfeit, forfeitTeamId: r.forfeit_team_id,
+      }, isVolleyballLeague)
     }
 
-    hasRegularSeasonGames = Object.keys(record).length > 0
-    hasPoolGames = Object.keys(poolRecord).length > 0
+    hasRegularSeasonGames = record.size > 0
+    hasPoolGames = poolRecord.size > 0
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     standingsTeams = (teamsData ?? []).map((t: any) => ({
       id: t.id, name: t.name,
       division_id: t.division_id ?? null,
       pool_id: t.pool_id ?? null,
-      ...(record[t.id] ?? blankStat()),
+      ...(record.get(t.id) ?? emptyTeamStat()),
     }))
     poolStandingsTeams = (teamsData ?? [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1333,7 +1261,7 @@ export default async function EventDetailPage({
         id: t.id, name: t.name,
         division_id: t.division_id ?? null,
         pool_id: t.pool_id ?? null,
-        ...(poolRecord[t.id] ?? blankStat()),
+        ...(poolRecord.get(t.id) ?? emptyTeamStat()),
       }))
     standingsPtsMethod = leaguePtsMethod
     standingsVolleyballMode = leagueVolleyballMode
