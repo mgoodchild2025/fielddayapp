@@ -6,6 +6,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { DashboardClient } from '@/components/dashboard/dashboard-client'
+import { sortStandings, isVolleyballSport, computePts, type PtsMethod, type VolleyballMode } from '@/lib/standings'
 import type {
   DashboardTeam,
   PendingAction,
@@ -338,17 +339,21 @@ export default async function DashboardPage() {
   }
 
   // ── Standings computation ─────────────────────────────────────────────────
-  // Build per-league active team set + volleyball mode — mirrors standings page
-  const VOLLEYBALL_SPORTS = new Set(['volleyball', 'beach_volleyball'])
+  // Build per-league active team set + standings config — mirrors standings page.
+  // The rank/points must honor the event's standings_pts_method + volleyball
+  // mode, so we compute via the shared lib/standings helpers.
   const activeTeamIdsByLeague = new Map<string, Set<string>>()
   const leagueIsSetBased = new Map<string, boolean>()
+  const leagueConfig = new Map<string, { sport: string | null; mode: VolleyballMode; method: PtsMethod }>()
   for (const m of activeTeams) {
     const lid = m.league.id as string
+    const sport = (m.league.sport ?? null) as string | null
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sport = (m.league.sport ?? '') as string
+    const mode = (((m.league as any).volleyball_standings_mode ?? 'match_based') as VolleyballMode)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const vMode = ((m.league as any).volleyball_standings_mode ?? 'match_based') as string
-    leagueIsSetBased.set(lid, VOLLEYBALL_SPORTS.has(sport) && vMode === 'set_based')
+    const method = (((m.league as any).standings_pts_method ?? 'wins') as PtsMethod)
+    leagueConfig.set(lid, { sport, mode, method })
+    leagueIsSetBased.set(lid, isVolleyballSport(sport) && mode === 'set_based')
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const t of leagueTeams as any[]) {
@@ -416,29 +421,23 @@ export default async function DashboardPage() {
 
   function getStanding(leagueId: string, teamId: string): number | null {
     const leagueMap = leagueRecordMap.get(leagueId)
-    if (!leagueMap) return null
-    const isSetBased = leagueIsSetBased.get(leagueId) ?? false
-    const entries = [...leagueMap.entries()]
-      .map(([tid, rec]) => ({
-        tid,
-        wins: rec.wins,
-        setWins: rec.setWins,
-        setDiff: rec.setWins - rec.setLosses,
-        pd: rec.pointsFor - rec.pointsAgainst,
-      }))
-      .sort((a, b) => {
-        if (isSetBased) {
-          // Volleyball set_based: SW → set differential → point differential (mirrors sortSetBased)
-          if (b.setWins !== a.setWins) return b.setWins - a.setWins
-          const sdDiff = b.setDiff - a.setDiff
-          if (sdDiff !== 0) return sdDiff
-          return b.pd - a.pd
-        }
-        // Match-based: wins → point differential (mirrors sortMatchBased)
-        if (b.wins !== a.wins) return b.wins - a.wins
-        return b.pd - a.pd
-      })
-    const idx = entries.findIndex((e) => e.tid === teamId)
+    const cfg = leagueConfig.get(leagueId)
+    if (!leagueMap || !cfg) return null
+    // Rank via the shared helper so the order honors the event's configured
+    // standings mode + PTS method, exactly like the standings tab.
+    const sorted = sortStandings(
+      [...leagueMap.entries()].map(([tid, rec]) => ({
+        id: tid, name: '',
+        matchesPlayed: rec.played,
+        wins: rec.wins, losses: rec.losses, ties: rec.ties,
+        pointsFor: rec.pointsFor, pointsAgainst: rec.pointsAgainst,
+        setWins: rec.setWins, setLosses: rec.setLosses,
+      })),
+      cfg.sport,
+      cfg.mode,
+      cfg.method,
+    )
+    const idx = sorted.findIndex((t) => t.id === teamId)
     return idx >= 0 ? idx + 1 : null
   }
 
@@ -542,7 +541,28 @@ export default async function DashboardPage() {
     const myRec = leagueRec?.get(teamId) ?? { wins: 0, losses: 0, ties: 0, played: 0, setWins: 0, setLosses: 0, pointsFor: 0, pointsAgainst: 0 }
     const standing = getStanding(leagueId, teamId)
     const totalTeams = teamsPerLeague.get(leagueId) ?? null
-    const isSetBased = leagueIsSetBased.get(leagueId) ?? false
+    const cfg = leagueConfig.get(leagueId)
+
+    // Points box, adapted to the event's standings mode (mirrors team stats page):
+    // volleyball set-based → Set Wins; match-based volleyball → configured PTS
+    // method; other sports → classic 3-1-0 points.
+    let pointsLabel = 'Points'
+    let pointsValue = myRec.wins * 3 + myRec.ties
+    let pointsHint = `${myRec.wins}W · ${myRec.ties}T · ${myRec.losses}L`
+    if (cfg && isVolleyballSport(cfg.sport) && cfg.mode === 'set_based') {
+      pointsLabel = 'Set Wins'
+      pointsValue = myRec.setWins
+      pointsHint = `${myRec.setLosses} set losses`
+    } else if (cfg && isVolleyballSport(cfg.sport)) {
+      const hints: Record<PtsMethod, string> = {
+        wins: '1 per win',
+        set_wins: 'sets won',
+        set_differential: 'SW − SL',
+        points_for: 'points scored',
+      }
+      pointsValue = computePts({ id: teamId, name: '', matchesPlayed: myRec.played, ...myRec }, cfg.method)
+      pointsHint = hints[cfg.method]
+    }
 
     // Recent results (last 3 completed games for this team)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -589,8 +609,9 @@ export default async function DashboardPage() {
         losses: myRec.losses,
         ties: myRec.ties,
         played: myRec.played,
-        // For volleyball set_based leagues, "points" = set wins (SW), matching standings page
-        points: isSetBased ? myRec.setWins : myRec.wins * 3 + myRec.ties,
+        points: pointsValue,
+        pointsLabel,
+        pointsHint,
         standing,
         totalTeams,
       },
