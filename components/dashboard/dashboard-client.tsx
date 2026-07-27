@@ -83,6 +83,8 @@ export type DashboardTeam = {
     ties: number
     played: number
     points: number
+    pointsLabel: string
+    pointsHint: string
     standing: number | null
     totalTeams: number | null
   }
@@ -660,11 +662,11 @@ export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = 
               </Link>
 
               <Link href={`/teams/${team.teamId}/stats`} className="bg-white rounded-xl border p-4 hover:shadow-sm transition-shadow block">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Points</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">{team.record.pointsLabel}</p>
                 <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-primary)' }}>
                   {team.record.points}
                 </p>
-                <p className="text-[11px] text-gray-400 mt-1.5">{team.record.wins}W · {team.record.ties}T · {team.record.losses}L</p>
+                <p className="text-[11px] text-gray-400 mt-1.5">{team.record.pointsHint}</p>
               </Link>
             </div>
           </section>
