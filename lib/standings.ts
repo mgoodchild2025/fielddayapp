@@ -26,6 +26,75 @@ export function isVolleyballSport(sport?: string | null): boolean {
   return VOLLEYBALL_SPORTS.has(sport ?? '')
 }
 
+/** A team's accumulated stats without identity — the mutable half of TeamStat. */
+export type TeamStatTotals = Omit<TeamStat, 'id' | 'name'>
+
+export function emptyTeamStat(): TeamStatTotals {
+  return {
+    matchesPlayed: 0, wins: 0, losses: 0, ties: 0,
+    pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0,
+  }
+}
+
+/** One confirmed game result, in a shape decoupled from the DB row layout. */
+export interface GameResultInput {
+  homeTeamId: string
+  awayTeamId: string
+  homeScore: number | null | undefined
+  awayScore: number | null | undefined
+  /** Per-set scores (volleyball). */
+  sets?: { home: number; away: number }[] | null
+  isForfeit?: boolean | null
+  forfeitTeamId?: string | null
+}
+
+/**
+ * Apply one confirmed game result to a stats accumulator for both teams,
+ * auto-creating blank entries as needed. This is the single source of truth
+ * for the win/loss/tie, forfeit, and set-scoring math shared by every
+ * standings surface (standings tab, pool seeding, team stats, dashboard).
+ *
+ * Set-level stats (setWins/setLosses + set-level points) are accumulated for
+ * any volleyball sport regardless of match/set-based mode — match-based
+ * volleyball still needs them for the set_wins / set_differential / points_for
+ * PTS methods. Callers own filtering (confirmed status, pool/active-team
+ * scoping); this owns the arithmetic.
+ */
+export function accumulateGameResult(
+  stats: Map<string, TeamStatTotals>,
+  result: GameResultInput,
+  isVolleyball: boolean,
+): void {
+  const { homeTeamId: ht, awayTeamId: at } = result
+  if (!stats.has(ht)) stats.set(ht, emptyTeamStat())
+  if (!stats.has(at)) stats.set(at, emptyTeamStat())
+  const home = stats.get(ht)!
+  const away = stats.get(at)!
+
+  home.matchesPlayed++
+  away.matchesPlayed++
+
+  const hs = result.homeScore ?? 0
+  const as_ = result.awayScore ?? 0
+  // Double forfeit (flagged, no forfeiting team) = loss for both
+  if (result.isForfeit && !result.forfeitTeamId) { home.losses++; away.losses++ }
+  else if (hs > as_) { home.wins++; away.losses++ }
+  else if (as_ > hs) { away.wins++; home.losses++ }
+  else { home.ties++; away.ties++ }
+
+  if (isVolleyball && Array.isArray(result.sets)) {
+    for (const s of result.sets) {
+      home.pointsFor += s.home; home.pointsAgainst += s.away
+      away.pointsFor += s.away; away.pointsAgainst += s.home
+      if (s.home > s.away) { home.setWins++; away.setLosses++ }
+      else if (s.away > s.home) { away.setWins++; home.setLosses++ }
+    }
+  } else {
+    home.pointsFor += hs; home.pointsAgainst += as_
+    away.pointsFor += as_; away.pointsAgainst += hs
+  }
+}
+
 export function computePts(team: TeamStat, method: PtsMethod): number {
   switch (method) {
     case 'wins':             return team.wins

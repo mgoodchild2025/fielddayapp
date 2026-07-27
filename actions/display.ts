@@ -11,8 +11,8 @@ import type {
 import { defaultConfig, ZONE_COUNT } from '@/lib/display-types'
 import { getEventSponsors } from '@/actions/event-sponsors'
 import {
-  sortStandings, isVolleyballSport,
-  type PtsMethod, type VolleyballMode, type TeamStat,
+  sortStandings, isVolleyballSport, accumulateGameResult, emptyTeamStat,
+  type PtsMethod, type VolleyballMode, type TeamStat, type TeamStatTotals,
 } from '@/lib/standings'
 
 // ── Config persistence ────────────────────────────────────────────────────────
@@ -248,14 +248,13 @@ export async function getDisplayData(
         .eq('status', 'confirmed'),
     ])
 
-    const stat = () => ({ played: 0, won: 0, lost: 0, drawn: 0, gf: 0, ga: 0, setWins: 0, setLosses: 0 })
     // Two record maps:
     //   combinedRecords → ALL games (regular + pool). Drives the "all teams"
     //     overall standings, matching the Event standings page's Overall table.
     //   poolRecords → pool-play games only. Drives per-pool standings, matching
     //     the public Pool Play tab.
-    const combinedRecords: Record<string, ReturnType<typeof stat>> = {}
-    const poolRecords: Record<string, ReturnType<typeof stat>> = {}
+    const combinedRecords = new Map<string, TeamStatTotals>()
+    const poolRecords = new Map<string, TeamStatTotals>()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const teamIds = new Set<string>((teamsData ?? []).map((t: any) => t.id as string))
 
@@ -266,44 +265,24 @@ export async function getDisplayData(
       const { home_team_id: ht, away_team_id: at } = g
       if (!ht || !at || !teamIds.has(ht) || !teamIds.has(at)) continue
 
-      const hs = r.home_score ?? 0
-      const as_ = r.away_score ?? 0
-
       // Accumulate into the combined record always; into pool record for pool games.
-      const targets = g.pool_id ? [combinedRecords, poolRecords] : [combinedRecords]
-      for (const records of targets) {
-        if (!records[ht]) records[ht] = stat()
-        if (!records[at]) records[at] = stat()
-        records[ht].played++; records[at].played++
-        // Double forfeit (flagged, no forfeiting team) = loss for both
-        if (r.is_forfeit && !r.forfeit_team_id) { records[ht].lost++; records[at].lost++ }
-        else if (hs > as_)  { records[ht].won++;   records[at].lost++ }
-        else if (as_ > hs)  { records[at].won++;   records[ht].lost++ }
-        else                { records[ht].drawn++; records[at].drawn++ }
-
-        // Volleyball: accumulate set-level points + set wins/losses; otherwise match scores
-        if (isVb && Array.isArray(r.sets)) {
-          for (const s of r.sets as { home: number; away: number }[]) {
-            records[ht].gf += s.home; records[ht].ga += s.away
-            records[at].gf += s.away; records[at].ga += s.home
-            if (s.home > s.away)      { records[ht].setWins++; records[at].setLosses++ }
-            else if (s.away > s.home) { records[at].setWins++; records[ht].setLosses++ }
-          }
-        } else {
-          records[ht].gf += hs; records[ht].ga += as_
-          records[at].gf += as_; records[at].ga += hs
-        }
+      const input = {
+        homeTeamId: ht, awayTeamId: at,
+        homeScore: r.home_score, awayScore: r.away_score,
+        sets: r.sets, isForfeit: r.is_forfeit, forfeitTeamId: r.forfeit_team_id,
       }
+      accumulateGameResult(combinedRecords, input, isVb)
+      if (g.pool_id) accumulateGameResult(poolRecords, input, isVb)
     }
 
     // Build a DisplayStanding for a team from its accumulated record
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const build = (t: any, s: ReturnType<typeof stat>): DisplayStanding => ({
+    const build = (t: any, s: TeamStatTotals): DisplayStanding => ({
       rank: 0, team_id: t.id, name: t.name, color: t.color ?? null,
       logo_url: t.logo_url ?? null, pool_id: t.pool_id ?? null,
-      played: s.played, won: s.won, lost: s.lost, drawn: s.drawn,
-      gf: s.gf, ga: s.ga, setWins: s.setWins, setLosses: s.setLosses,
-      pts: s.won * 3 + s.drawn,
+      played: s.matchesPlayed, won: s.wins, lost: s.losses, drawn: s.ties,
+      gf: s.pointsFor, ga: s.pointsAgainst, setWins: s.setWins, setLosses: s.setLosses,
+      pts: s.wins * 3 + s.ties,
     })
 
     // Map a DisplayStanding to the shared TeamStat shape for sorting
@@ -321,11 +300,11 @@ export async function getDisplayData(
     // ── Overall standings (all teams, all games) — matches the Event
     //    standings page's Overall table; used by the "all teams" zone. ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    standings = rankSorted((teamsData ?? []).map((t: any) => build(t, combinedRecords[t.id] ?? stat())))
+    standings = rankSorted((teamsData ?? []).map((t: any) => build(t, combinedRecords.get(t.id) ?? emptyTeamStat())))
 
     // ── Pool-play standings (pool teams only, pool games only), ranked within each pool ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const poolRaw = (teamsData ?? []).filter((t: any) => t.pool_id).map((t: any) => build(t, poolRecords[t.id] ?? stat()))
+    const poolRaw = (teamsData ?? []).filter((t: any) => t.pool_id).map((t: any) => build(t, poolRecords.get(t.id) ?? emptyTeamStat()))
     const byPool = new Map<string, DisplayStanding[]>()
     for (const t of poolRaw) {
       if (!byPool.has(t.pool_id!)) byPool.set(t.pool_id!, [])

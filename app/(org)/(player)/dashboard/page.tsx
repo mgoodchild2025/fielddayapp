@@ -6,7 +6,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { DashboardClient } from '@/components/dashboard/dashboard-client'
-import { sortStandings, isVolleyballSport, computePts, type PtsMethod, type VolleyballMode } from '@/lib/standings'
+import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, type TeamStatTotals, type PtsMethod, type VolleyballMode } from '@/lib/standings'
 import type {
   DashboardTeam,
   PendingAction,
@@ -240,11 +240,11 @@ export default async function DashboardPage() {
 
       // All confirmed results in these leagues (for standings computation)
       // pool_id included so we can exclude pool games from regular-season standings
-      // sets included so we can accumulate set wins for volleyball leagues
+      // sets + forfeit fields included so accumulateGameResult can mirror the standings tab
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any).from('games').select(`
         id, home_team_id, away_team_id, league_id, status, pool_id,
-        game_results(home_score, away_score, status, sets)
+        game_results(home_score, away_score, status, sets, is_forfeit, forfeit_team_id)
       `)
         .eq('organization_id', org.id)
         .in('league_id', leagueIds),
@@ -343,7 +343,6 @@ export default async function DashboardPage() {
   // The rank/points must honor the event's standings_pts_method + volleyball
   // mode, so we compute via the shared lib/standings helpers.
   const activeTeamIdsByLeague = new Map<string, Set<string>>()
-  const leagueIsSetBased = new Map<string, boolean>()
   const leagueConfig = new Map<string, { sport: string | null; mode: VolleyballMode; method: PtsMethod }>()
   for (const m of activeTeams) {
     const lid = m.league.id as string
@@ -353,7 +352,6 @@ export default async function DashboardPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const method = (((m.league as any).standings_pts_method ?? 'wins') as PtsMethod)
     leagueConfig.set(lid, { sport, mode, method })
-    leagueIsSetBased.set(lid, isVolleyballSport(sport) && mode === 'set_based')
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const t of leagueTeams as any[]) {
@@ -362,11 +360,7 @@ export default async function DashboardPage() {
     activeTeamIdsByLeague.get(lid)!.add(t.id as string)
   }
 
-  const leagueRecordMap = new Map<string, Map<string, {
-    wins: number; losses: number; ties: number; played: number
-    setWins: number; setLosses: number
-    pointsFor: number; pointsAgainst: number
-  }>>()
+  const leagueRecordMap = new Map<string, Map<string, TeamStatTotals>>()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const g of allLeagueResults as any[]) {
     if (g.status !== 'completed') continue
@@ -383,33 +377,11 @@ export default async function DashboardPage() {
     const activeIds = activeTeamIdsByLeague.get(lid)
     if (!activeIds || !activeIds.has(ht) || !activeIds.has(at)) continue
     if (!leagueRecordMap.has(lid)) leagueRecordMap.set(lid, new Map())
-    const leagueMap = leagueRecordMap.get(lid)!
-    const blank = () => ({ wins: 0, losses: 0, ties: 0, played: 0, setWins: 0, setLosses: 0, pointsFor: 0, pointsAgainst: 0 })
-    if (!leagueMap.has(ht)) leagueMap.set(ht, blank())
-    if (!leagueMap.has(at)) leagueMap.set(at, blank())
-    const home = leagueMap.get(ht)!
-    const away = leagueMap.get(at)!
-    const hs = Number(result.home_score ?? 0)
-    const as_ = Number(result.away_score ?? 0)
-    home.played++; away.played++
-    if (hs > as_) { home.wins++; away.losses++ }
-    else if (as_ > hs) { away.wins++; home.losses++ }
-    else { home.ties++; away.ties++ }
-    // Accumulate set wins + point data (mirrors standings page logic)
-    if (leagueIsSetBased.get(lid) && Array.isArray(result.sets)) {
-      // Volleyball set_based: count individual set outcomes; pointsFor = set-level scores
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for (const s of result.sets as { home: number; away: number }[]) {
-        home.pointsFor += s.home; home.pointsAgainst += s.away
-        away.pointsFor += s.away; away.pointsAgainst += s.home
-        if (s.home > s.away) { home.setWins++; away.setLosses++ }
-        else if (s.away > s.home) { away.setWins++; home.setLosses++ }
-      }
-    } else {
-      // Match-based: pointsFor = match score
-      home.pointsFor += hs; home.pointsAgainst += as_
-      away.pointsFor += as_; away.pointsAgainst += hs
-    }
+    accumulateGameResult(leagueRecordMap.get(lid)!, {
+      homeTeamId: ht, awayTeamId: at,
+      homeScore: result.home_score, awayScore: result.away_score,
+      sets: result.sets, isForfeit: result.is_forfeit, forfeitTeamId: result.forfeit_team_id,
+    }, isVolleyballSport(leagueConfig.get(lid)?.sport ?? null))
   }
 
   const teamsPerLeague = new Map<string, number>()
@@ -426,13 +398,7 @@ export default async function DashboardPage() {
     // Rank via the shared helper so the order honors the event's configured
     // standings mode + PTS method, exactly like the standings tab.
     const sorted = sortStandings(
-      [...leagueMap.entries()].map(([tid, rec]) => ({
-        id: tid, name: '',
-        matchesPlayed: rec.played,
-        wins: rec.wins, losses: rec.losses, ties: rec.ties,
-        pointsFor: rec.pointsFor, pointsAgainst: rec.pointsAgainst,
-        setWins: rec.setWins, setLosses: rec.setLosses,
-      })),
+      [...leagueMap.entries()].map(([tid, rec]) => ({ id: tid, name: '', ...rec })),
       cfg.sport,
       cfg.mode,
       cfg.method,
@@ -538,7 +504,7 @@ export default async function DashboardPage() {
     const teamId = m.team.id as string
     const leagueId = m.league.id as string
     const leagueRec = leagueRecordMap.get(leagueId)
-    const myRec = leagueRec?.get(teamId) ?? { wins: 0, losses: 0, ties: 0, played: 0, setWins: 0, setLosses: 0, pointsFor: 0, pointsAgainst: 0 }
+    const myRec = leagueRec?.get(teamId) ?? emptyTeamStat()
     const standing = getStanding(leagueId, teamId)
     const totalTeams = teamsPerLeague.get(leagueId) ?? null
     const cfg = leagueConfig.get(leagueId)
@@ -560,7 +526,7 @@ export default async function DashboardPage() {
         set_differential: 'SW − SL',
         points_for: 'points scored',
       }
-      pointsValue = computePts({ id: teamId, name: '', matchesPlayed: myRec.played, ...myRec }, cfg.method)
+      pointsValue = computePts({ id: teamId, name: '', ...myRec }, cfg.method)
       pointsHint = hints[cfg.method]
     }
 
@@ -608,7 +574,7 @@ export default async function DashboardPage() {
         wins: myRec.wins,
         losses: myRec.losses,
         ties: myRec.ties,
-        played: myRec.played,
+        played: myRec.matchesPlayed,
         points: pointsValue,
         pointsLabel,
         pointsHint,

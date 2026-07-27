@@ -12,7 +12,7 @@ import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
 import type { LeaderboardPlayer } from '@/components/stats/stats-leaderboard'
 import type { SeasonResult, H2HRecord } from '@/components/teams/team-stats-client'
 import { formatGameTime } from '@/lib/format-time'
-import { sortStandings, isVolleyballSport, computePts, type PtsMethod, type VolleyballMode } from '@/lib/standings'
+import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, type TeamStatTotals, type PtsMethod, type VolleyballMode } from '@/lib/standings'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -137,41 +137,17 @@ export default async function TeamStatsPage({
   const volleyballMode: VolleyballMode = ((league?.volleyball_standings_mode as string) ?? 'match_based') as VolleyballMode
   const isVolleyball = isVolleyballSport(sport)
 
-  const blankStat = () => ({
-    matchesPlayed: 0, wins: 0, losses: 0, ties: 0,
-    pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0,
-  })
-  const statMap = new Map<string, ReturnType<typeof blankStat>>(
-    allTeamIds.map(id => [id, blankStat()])
+  const statMap = new Map<string, TeamStatTotals>(
+    allTeamIds.map(id => [id, emptyTeamStat()])
   )
   for (const g of allLeagueGames) {
     const result = Array.isArray(g.game_results) ? g.game_results[0] : g.game_results
     if (!result || result.status !== 'confirmed') continue
-    const ht = g.home_team_id as string
-    const at = g.away_team_id as string
-    if (!statMap.has(ht)) statMap.set(ht, blankStat())
-    if (!statMap.has(at)) statMap.set(at, blankStat())
-    const home = statMap.get(ht)!
-    const away = statMap.get(at)!
-    home.matchesPlayed++; away.matchesPlayed++
-    const hs = result.home_score ?? 0
-    const as_ = result.away_score ?? 0
-    // Double forfeit (flagged, no forfeiting team) = loss for both
-    if (result.is_forfeit && !result.forfeit_team_id) { home.losses++; away.losses++ }
-    else if (hs > as_) { home.wins++; away.losses++ }
-    else if (as_ > hs) { away.wins++; home.losses++ }
-    else { home.ties++; away.ties++ }
-    if (isVolleyball && Array.isArray(result.sets)) {
-      for (const s of result.sets as { home: number; away: number }[]) {
-        home.pointsFor += s.home; home.pointsAgainst += s.away
-        away.pointsFor += s.away; away.pointsAgainst += s.home
-        if (s.home > s.away) { home.setWins++; away.setLosses++ }
-        else if (s.away > s.home) { away.setWins++; home.setLosses++ }
-      }
-    } else {
-      home.pointsFor += hs; home.pointsAgainst += as_
-      away.pointsFor += as_; away.pointsAgainst += hs
-    }
+    accumulateGameResult(statMap, {
+      homeTeamId: g.home_team_id as string, awayTeamId: g.away_team_id as string,
+      homeScore: result.home_score, awayScore: result.away_score,
+      sets: result.sets, isForfeit: result.is_forfeit, forfeitTeamId: result.forfeit_team_id,
+    }, isVolleyball)
   }
   const rankedTeams = sortStandings(
     [...statMap.entries()].map(([id, s]) => ({ id, name: '', ...s })),
@@ -189,7 +165,7 @@ export default async function TeamStatsPage({
   // Mirrors the standings tab: set-based volleyball ranks on set wins;
   // match-based volleyball shows the configured PTS method; other sports keep
   // the classic 3-1-0 points model.
-  const myStat = statMap.get(teamId) ?? blankStat()
+  const myStat = statMap.get(teamId) ?? emptyTeamStat()
   const ptsBox: { label: string; value: number; hint: string } = (() => {
     if (isVolleyball && volleyballMode === 'set_based') {
       return { label: 'Set Wins', value: myStat.setWins, hint: `${myStat.setLosses} set losses` }
