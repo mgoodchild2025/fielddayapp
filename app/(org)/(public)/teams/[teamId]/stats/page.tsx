@@ -12,6 +12,7 @@ import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
 import type { LeaderboardPlayer } from '@/components/stats/stats-leaderboard'
 import type { SeasonResult, H2HRecord } from '@/components/teams/team-stats-client'
 import { formatGameTime } from '@/lib/format-time'
+import { sortStandings, isVolleyballSport, computePts, type PtsMethod, type VolleyballMode } from '@/lib/standings'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -30,7 +31,7 @@ export default async function TeamStatsPage({
   // ── Fetch team + league info ──────────────────────────────────────────────
   const { data: team } = await (db as any).from('teams').select(`
     id, name, color, logo_url, league_id,
-    league:leagues!teams_league_id_fkey(id, name, slug, sport, status)
+    league:leagues!teams_league_id_fkey(id, name, slug, sport, status, standings_pts_method, volleyball_standings_mode)
   `).eq('id', teamId).eq('organization_id', org.id).maybeSingle()
 
   if (!team) notFound()
@@ -67,7 +68,7 @@ export default async function TeamStatsPage({
     // All league games (for standings)
     (db as any).from('games').select(`
       id, home_team_id, away_team_id,
-      game_results(home_score, away_score, status)
+      game_results(home_score, away_score, status, sets, is_forfeit, forfeit_team_id)
     `)
       .eq('organization_id', org.id)
       .eq('league_id', leagueId)
@@ -129,33 +130,81 @@ export default async function TeamStatsPage({
   const points = wins * 3 + ties
   const goalDiff = goalsFor - goalsAgainst
 
-  // ── Compute league standings (all league games) ───────────────────────────
-  const leagueRecord = new Map<string, { wins: number; losses: number; ties: number; points: number }>(
-    allTeamIds.map(id => [id, { wins: 0, losses: 0, ties: 0, points: 0 }])
+  // ── Compute league standings using the event's configured standings mode ──
+  // Mirrors the standings tab (lib/standings.ts) so the rank shown here matches:
+  // volleyball set-based → set wins etc.; otherwise wins → configured PTS method.
+  const ptsMethod: PtsMethod = ((league?.standings_pts_method as string) ?? 'wins') as PtsMethod
+  const volleyballMode: VolleyballMode = ((league?.volleyball_standings_mode as string) ?? 'match_based') as VolleyballMode
+  const isVolleyball = isVolleyballSport(sport)
+
+  const blankStat = () => ({
+    matchesPlayed: 0, wins: 0, losses: 0, ties: 0,
+    pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0,
+  })
+  const statMap = new Map<string, ReturnType<typeof blankStat>>(
+    allTeamIds.map(id => [id, blankStat()])
   )
   for (const g of allLeagueGames) {
     const result = Array.isArray(g.game_results) ? g.game_results[0] : g.game_results
     if (!result || result.status !== 'confirmed') continue
     const ht = g.home_team_id as string
     const at = g.away_team_id as string
-    if (!leagueRecord.has(ht)) leagueRecord.set(ht, { wins: 0, losses: 0, ties: 0, points: 0 })
-    if (!leagueRecord.has(at)) leagueRecord.set(at, { wins: 0, losses: 0, ties: 0, points: 0 })
-    const home = leagueRecord.get(ht)!
-    const away = leagueRecord.get(at)!
-    if (result.home_score > result.away_score) {
-      home.wins++; home.points += 3; away.losses++
-    } else if (result.away_score > result.home_score) {
-      away.wins++; away.points += 3; home.losses++
+    if (!statMap.has(ht)) statMap.set(ht, blankStat())
+    if (!statMap.has(at)) statMap.set(at, blankStat())
+    const home = statMap.get(ht)!
+    const away = statMap.get(at)!
+    home.matchesPlayed++; away.matchesPlayed++
+    const hs = result.home_score ?? 0
+    const as_ = result.away_score ?? 0
+    // Double forfeit (flagged, no forfeiting team) = loss for both
+    if (result.is_forfeit && !result.forfeit_team_id) { home.losses++; away.losses++ }
+    else if (hs > as_) { home.wins++; away.losses++ }
+    else if (as_ > hs) { away.wins++; home.losses++ }
+    else { home.ties++; away.ties++ }
+    if (isVolleyball && Array.isArray(result.sets)) {
+      for (const s of result.sets as { home: number; away: number }[]) {
+        home.pointsFor += s.home; home.pointsAgainst += s.away
+        away.pointsFor += s.away; away.pointsAgainst += s.home
+        if (s.home > s.away) { home.setWins++; away.setLosses++ }
+        else if (s.away > s.home) { away.setWins++; home.setLosses++ }
+      }
     } else {
-      home.ties++; home.points++; away.ties++; away.points++
+      home.pointsFor += hs; home.pointsAgainst += as_
+      away.pointsFor += as_; away.pointsAgainst += hs
     }
   }
+  const rankedTeams = sortStandings(
+    [...statMap.entries()].map(([id, s]) => ({ id, name: '', ...s })),
+    sport,
+    volleyballMode,
+    ptsMethod,
+  )
   const standing = (() => {
-    const sorted = [...leagueRecord.entries()].sort((a, b) => b[1].points - a[1].points)
-    const idx = sorted.findIndex(([id]) => id === teamId)
+    const idx = rankedTeams.findIndex(t => t.id === teamId)
     return idx >= 0 ? idx + 1 : null
   })()
   const totalTeams = allTeamIds.length
+
+  // ── Points box, adapted to the event's standings mode ─────────────────────
+  // Mirrors the standings tab: set-based volleyball ranks on set wins;
+  // match-based volleyball shows the configured PTS method; other sports keep
+  // the classic 3-1-0 points model.
+  const myStat = statMap.get(teamId) ?? blankStat()
+  const ptsBox: { label: string; value: number; hint: string } = (() => {
+    if (isVolleyball && volleyballMode === 'set_based') {
+      return { label: 'Set Wins', value: myStat.setWins, hint: `${myStat.setLosses} set losses` }
+    }
+    if (isVolleyball) {
+      const hints: Record<PtsMethod, string> = {
+        wins: '1 per win',
+        set_wins: 'sets won',
+        set_differential: 'SW − SL',
+        points_for: 'points scored',
+      }
+      return { label: 'Points', value: computePts({ id: teamId, name: '', ...myStat }, ptsMethod), hint: hints[ptsMethod] }
+    }
+    return { label: 'Points', value: points, hint: '3W · 1T · 0L' }
+  })()
 
   // ── Build season results ──────────────────────────────────────────────────
   const seasonResults: SeasonResult[] = []
@@ -296,11 +345,11 @@ export default async function TeamStatsPage({
             </div>
 
             <div className="bg-white rounded-xl border p-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Points</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">{ptsBox.label}</p>
               <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-primary)' }}>
-                {points}
+                {ptsBox.value}
               </p>
-              <p className="text-[11px] text-gray-400 mt-1.5">3W · 1T · 0L</p>
+              <p className="text-[11px] text-gray-400 mt-1.5">{ptsBox.hint}</p>
             </div>
 
             <div className="bg-white rounded-xl border p-4">
