@@ -22,6 +22,8 @@ interface StandingTeam {
   wins: number
   losses: number
   ties: number
+  setWins: number
+  setLosses: number
 }
 
 interface Props {
@@ -29,6 +31,8 @@ interface Props {
   initialPools: Pool[]
   initialTeams: Team[]
   standingsOrder?: StandingTeam[]
+  /** When true (volleyball set-based standings), the seed preview shows set record (SW–SL) instead of match record. */
+  standingsSetBased?: boolean
 }
 
 function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId: string; teamCount: number }) {
@@ -178,10 +182,12 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
 function SeedFromStandings({
   leagueId,
   standings,
+  setBased = false,
   onSeeded,
 }: {
   leagueId: string
   standings: StandingTeam[]
+  setBased?: boolean
   onSeeded: (pools: { name: string; poolId: string }[], teams: Team[]) => void
 }) {
   const [poolCount, setPoolCount] = useState(2)
@@ -265,7 +271,11 @@ function SeedFromStandings({
                     <p key={t.id} className="text-sm text-gray-700">
                       <span className="text-gray-400 text-xs w-5 inline-block">{pi * Math.ceil(standings.length / poolCount) + ti + 1}.</span>
                       {t.name}
-                      <span className="text-xs text-gray-400 ml-2">{t.wins}W–{t.losses}L{t.ties > 0 ? `–${t.ties}T` : ''}</span>
+                      <span className="text-xs text-gray-400 ml-2">
+                        {setBased
+                          ? `${t.setWins}SW–${t.setLosses}SL`
+                          : `${t.wins}W–${t.losses}L${t.ties > 0 ? `–${t.ties}T` : ''}`}
+                      </span>
                     </p>
                   ))}
                 </div>
@@ -290,7 +300,7 @@ function SeedFromStandings({
   )
 }
 
-export function AdminPoolsManager({ leagueId, initialPools, initialTeams, standingsOrder }: Props) {
+export function AdminPoolsManager({ leagueId, initialPools, initialTeams, standingsOrder, standingsSetBased }: Props) {
   const [pools, setPools] = useState(initialPools)
   const [teams, setTeams] = useState(initialTeams)
   const [newName, setNewName] = useState('')
@@ -369,6 +379,7 @@ export function AdminPoolsManager({ leagueId, initialPools, initialTeams, standi
         <SeedFromStandings
           leagueId={leagueId}
           standings={standingsOrder}
+          setBased={standingsSetBased}
           onSeeded={() => {}}
         />
       )}

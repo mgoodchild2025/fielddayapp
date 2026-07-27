@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { AdminPoolsManager } from '@/components/pools/admin-pools-manager'
+import { sortStandings, isVolleyballSport, type PtsMethod, type VolleyballMode } from '@/lib/standings'
 
 export default async function AdminPoolsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -25,7 +26,7 @@ export default async function AdminPoolsPage({ params }: { params: Promise<{ id:
   const [{ data: league }, { data: pools }, { data: teams }, { data: resultsData }] = await Promise.all([
     db
       .from('leagues')
-      .select('id, name, event_type')
+      .select('id, name, event_type, sport, standings_pts_method, volleyball_standings_mode')
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
@@ -46,8 +47,9 @@ export default async function AdminPoolsPage({ params }: { params: Promise<{ id:
       .order('pool_sort_order', { ascending: true })
       .order('name'),
     // For "seed from standings" — confirmed regular-season game results
-    db.from('game_results')
-      .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('game_results')
+      .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
       .eq('organization_id', org.id)
       .eq('status', 'confirmed'),
   ])
@@ -64,38 +66,65 @@ export default async function AdminPoolsPage({ params }: { params: Promise<{ id:
     })
   )
   const teamIdSet = new Set(teamList.map((t) => t.id))
-  const record: Record<string, { wins: number; losses: number; ties: number; pointsFor: number; pointsAgainst: number }> = {}
-  for (const t of teamList) {
-    record[t.id] = { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 }
-  }
+
+  // Standings config from the event details — the seed order must honor these,
+  // matching the standings tab (lib/standings.ts / admin standings page).
+  const sport: string | null = (league as { sport?: string | null }).sport ?? null
+  const ptsMethod: PtsMethod = ((league as { standings_pts_method?: string }).standings_pts_method ?? 'wins') as PtsMethod
+  const volleyballMode: VolleyballMode = ((league as { volleyball_standings_mode?: string }).volleyball_standings_mode ?? 'match_based') as VolleyballMode
+  const isVolleyball = isVolleyballSport(sport)
+
+  const blankStat = () => ({
+    matchesPlayed: 0, wins: 0, losses: 0, ties: 0,
+    pointsFor: 0, pointsAgainst: 0, setWins: 0, setLosses: 0,
+  })
+  const record: Record<string, ReturnType<typeof blankStat>> = {}
+  for (const t of teamList) record[t.id] = blankStat()
+
   for (const r of (resultsData ?? [])) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const game = Array.isArray(r.game) ? r.game[0] : r.game as any
     if (!game || game.status !== 'completed' || game.league_id !== id) continue
-    // Only regular season games (no pool_id)
+    // Only regular season games (no pool_id) feed pool seeding
     if (game.pool_id) continue
     const ht = game.home_team_id as string
     const at = game.away_team_id as string
     if (!teamIdSet.has(ht) || !teamIdSet.has(at)) continue
+
+    record[ht].matchesPlayed++
+    record[at].matchesPlayed++
     const hs = r.home_score ?? 0
     const as_ = r.away_score ?? 0
-    record[ht].pointsFor += hs; record[ht].pointsAgainst += as_
-    record[at].pointsFor += as_; record[at].pointsAgainst += hs
-    if (hs > as_) { record[ht].wins++; record[at].losses++ }
+    // Double forfeit (flagged, no forfeiting team) = loss for both
+    if (r.is_forfeit && !r.forfeit_team_id) { record[ht].losses++; record[at].losses++ }
+    else if (hs > as_) { record[ht].wins++; record[at].losses++ }
     else if (as_ > hs) { record[at].wins++; record[ht].losses++ }
     else { record[ht].ties++; record[at].ties++ }
+
+    if (isVolleyball && Array.isArray(r.sets)) {
+      for (const s of r.sets as { home: number; away: number }[]) {
+        record[ht].pointsFor += s.home; record[ht].pointsAgainst += s.away
+        record[at].pointsFor += s.away; record[at].pointsAgainst += s.home
+        if (s.home > s.away) { record[ht].setWins++; record[at].setLosses++ }
+        else if (s.away > s.home) { record[at].setWins++; record[ht].setLosses++ }
+      }
+    } else {
+      record[ht].pointsFor += hs; record[ht].pointsAgainst += as_
+      record[at].pointsFor += as_; record[at].pointsAgainst += hs
+    }
   }
 
-  // Sort by wins desc, then point differential
-  const standingsOrder = teamList
-    .map((t) => ({ ...t, ...record[t.id] }))
-    .sort((a, b) => {
-      if (b.wins !== a.wins) return b.wins - a.wins
-      const pdA = a.pointsFor - a.pointsAgainst
-      const pdB = b.pointsFor - b.pointsAgainst
-      return pdB - pdA
-    })
-    .map((t) => ({ id: t.id, name: t.name, wins: t.wins, losses: t.losses, ties: t.ties }))
+  // Sort using the configured standings mode/method (same as the standings tab)
+  const standingsOrder = sortStandings(
+    teamList.map((t) => ({ id: t.id, name: t.name, ...record[t.id] })),
+    sport,
+    volleyballMode,
+    ptsMethod,
+  ).map((t) => ({
+    id: t.id, name: t.name,
+    wins: t.wins, losses: t.losses, ties: t.ties,
+    setWins: t.setWins, setLosses: t.setLosses,
+  }))
 
   return (
     <AdminPoolsManager
@@ -103,6 +132,7 @@ export default async function AdminPoolsPage({ params }: { params: Promise<{ id:
       initialPools={pools ?? []}
       initialTeams={teamList}
       standingsOrder={standingsOrder}
+      standingsSetBased={isVolleyball && volleyballMode === 'set_based'}
     />
   )
 }
