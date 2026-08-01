@@ -6,6 +6,14 @@ import { useState, useTransition, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { MatchEditModal } from './match-edit-modal'
+import { formatGameTime } from '@/lib/format-time'
+import { BracketTimezoneContext, useBracketTimezone } from './bracket-timezone'
+
+/** Compact venue-time label for a bracket match, e.g. "Sat, Aug 15, 6:00 p.m." */
+function fmtMatchTime(iso: string, timezone: string): string {
+  const f = formatGameTime(iso, timezone)
+  return `${f.date}, ${f.time}`
+}
 
 export interface BracketMatchData {
   id: string
@@ -58,6 +66,7 @@ interface Props {
   leagueId: string
   isAdmin?: boolean
   sport?: string
+  timezone?: string
   allTeams?: TeamRef[]
 }
 
@@ -296,6 +305,7 @@ function MatchCard({
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const timezone = useBracketTimezone()
 
   const isTbd = match.status === 'pending'
   const isCompleted = match.status === 'completed'
@@ -325,7 +335,7 @@ function MatchCard({
             {match.court && <span>Court {match.court}</span>}
             {match.court && match.scheduledAt && <span>·</span>}
             {match.scheduledAt && (
-              <span>{new Date(match.scheduledAt).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+              <span>{fmtMatchTime(match.scheduledAt, timezone)}</span>
             )}
           </div>
         )}
@@ -582,6 +592,7 @@ function BracketScoreList({
   sport?: string
 }) {
   const [activeMatch, setActiveMatch] = useState<BracketMatchData | null>(null)
+  const timezone = useBracketTimezone()
   const bracketSize = bracket.bracketSize
 
   const isDE = bracket.bracketType === 'double_elimination'
@@ -634,9 +645,7 @@ function BracketScoreList({
                         <p className="text-[11px] text-gray-400 mb-1">
                           {match.court && `Court ${match.court}`}
                           {match.court && match.scheduledAt && ' · '}
-                          {match.scheduledAt && new Date(match.scheduledAt).toLocaleString('en-CA', {
-                            month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-                          })}
+                          {match.scheduledAt && fmtMatchTime(match.scheduledAt, timezone)}
                         </p>
                       )}
                       <div className="flex items-center justify-between gap-3">
@@ -690,7 +699,7 @@ function BracketScoreList({
 
 // ── Main BracketView ──────────────────────────────────────────────────────────
 
-export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeams }: Props) {
+export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezone, allTeams }: Props) {
   const [view, setView] = useState<'bracket' | 'list'>('bracket')
   const [swapMode, setSwapMode] = useState(false)
   const [swapSlotA, setSwapSlotA] = useState<SwapSlot | null>(null)
@@ -808,6 +817,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
   }
 
   return (
+    <BracketTimezoneContext.Provider value={timezone ?? 'America/Toronto'}>
     <div>
       {/* View toggle */}
       {isAdmin && (
@@ -1050,5 +1060,6 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, allTeam
         </div>
       )}
     </div>
+    </BracketTimezoneContext.Provider>
   )
 }

@@ -53,6 +53,7 @@ export interface ExistingConfig {
 interface Props {
   leagueId: string
   sport?: string
+  timezone?: string
   isOrgAdmin: boolean
   seededTeams: TeamStanding[]
   allTeams: TeamRef[]
@@ -198,6 +199,7 @@ function TierBracketCard({
   tier,
   leagueId,
   sport,
+  timezone,
   allTeams,
   isOrgAdmin,
   onDeleted,
@@ -206,6 +208,7 @@ function TierBracketCard({
   tier: ExistingTier
   leagueId: string
   sport?: string
+  timezone?: string
   allTeams: TeamRef[]
   isOrgAdmin: boolean
   onDeleted: () => void
@@ -496,6 +499,7 @@ function TierBracketCard({
             leagueId={leagueId}
             isAdmin={isOrgAdmin}
             sport={sport}
+            timezone={timezone}
             allTeams={allTeams}
           />
         </div>
@@ -620,6 +624,7 @@ function ManageHeader({
 export function PlayoffConfigWizard({
   leagueId,
   sport,
+  timezone,
   isOrgAdmin,
   seededTeams,
   allTeams,
@@ -815,6 +820,7 @@ export function PlayoffConfigWizard({
             tier={tier}
             leagueId={leagueId}
             sport={sport}
+            timezone={timezone}
             allTeams={allTeams}
             isOrgAdmin={isOrgAdmin}
             onDeleted={() => setRefreshKey((k) => k + 1)}

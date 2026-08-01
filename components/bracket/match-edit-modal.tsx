@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { overrideBracketSlot, updateMatchSchedule } from '@/actions/brackets'
 import { adminClearScore } from '@/actions/scores'
 import type { BracketMatchData } from './bracket-view'
+import { useBracketTimezone } from './bracket-timezone'
+import { parseLocalToUtc } from '@/lib/format-time'
 
 interface Team {
   id: string
@@ -14,14 +16,22 @@ interface Team {
 
 /**
  * Convert a stored UTC ISO string to the "YYYY-MM-DDTHH:mm" value a
- * datetime-local input expects, in the viewer's local time — matching how
- * bracket match times are displayed elsewhere. Empty string when unset.
+ * datetime-local input expects, expressed in the given (venue) timezone.
+ * Empty string when unset.
  */
-function isoToLocalInput(iso: string | null | undefined): string {
+function isoToTzInput(iso: string | null | undefined, timezone: string): string {
   if (!iso) return ''
   const d = new Date(iso)
   if (isNaN(d.getTime())) return ''
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(d)
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? ''
+  let hour = get('hour')
+  if (hour === '24') hour = '00' // Intl midnight quirk
+  return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}`
 }
 
 interface Props {
@@ -34,6 +44,7 @@ interface Props {
 
 export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }: Props) {
   const router = useRouter()
+  const timezone = useBracketTimezone()
   const [isPending, startTransition] = useTransition()
   const [err, setErr] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -57,7 +68,7 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
 
   // Schedule fields
   const [court, setCourt] = useState(match.court ?? '')
-  const [scheduledAt, setScheduledAt] = useState(() => isoToLocalInput(match.scheduledAt))
+  const [scheduledAt, setScheduledAt] = useState(() => isoToTzInput(match.scheduledAt, timezone))
   const [notes, setNotes] = useState(match.notes ?? '')
 
   // Close on Escape
@@ -95,14 +106,19 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
       // Update schedule fields if anything changed
       const scheduleChanged =
         court !== (match.court ?? '') ||
-        scheduledAt !== isoToLocalInput(match.scheduledAt) ||
+        scheduledAt !== isoToTzInput(match.scheduledAt, timezone) ||
         notes !== (match.notes ?? '')
 
       if (scheduleChanged) {
+        // datetime-local value is wall-clock time in the venue timezone → UTC.
+        const [datePart, timePart] = scheduledAt.split('T')
+        const utcIso = scheduledAt && datePart && timePart
+          ? parseLocalToUtc(datePart, timePart, timezone)
+          : undefined
         const r = await updateMatchSchedule({
           matchId: match.id,
           leagueId,
-          scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
+          scheduledAt: utcIso,
           court: court || undefined,
           notes: notes || undefined,
         })
