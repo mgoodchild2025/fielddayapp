@@ -10,12 +10,16 @@ import { TeamAvatar } from '@/components/ui/team-avatar'
 export type SeasonResult = {
   gameId: string
   scheduledAt: string
+  /** Pre-formatted, timezone-aware date label (computed server-side). */
+  dateLabel: string
   opponentId: string
   opponentName: string
   opponentColor: string | null
   opponentLogoUrl: string | null
   homeScore: number | null
   awayScore: number | null
+  /** Per-set scores from this team's perspective (volleyball only). */
+  setScores: { mine: number; theirs: number }[] | null
   isHome: boolean
   outcome: 'W' | 'L' | 'T' | 'upcoming'
 }
@@ -33,16 +37,7 @@ export type H2HRecord = {
   games: SeasonResult[]
 }
 
-interface Props {
-  h2h: H2HRecord[]
-  timezone: string
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatShortDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
-}
 
 function OutcomeBadge({ outcome }: { outcome: SeasonResult['outcome'] }) {
   if (outcome === 'upcoming') {
@@ -64,7 +59,103 @@ function OutcomeBadge({ outcome }: { outcome: SeasonResult['outcome'] }) {
   )
 }
 
-// ── H2H Accordion ─────────────────────────────────────────────────────────────
+/** "25–20 · 23–25 · 15–12" from this team's perspective. */
+function SetScores({ sets }: { sets: { mine: number; theirs: number }[] }) {
+  return (
+    <span className="text-[11px] text-gray-400 tabular-nums">
+      {sets.map((s, i) => (
+        <span key={i}>
+          {i > 0 && <span className="text-gray-300"> · </span>}
+          {s.mine}–{s.theirs}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+// ── Season results list ─────────────────────────────────────────────────────
+
+function ResultRow({ result }: { result: SeasonResult }) {
+  const myScore = result.isHome ? result.homeScore : result.awayScore
+  const theirScore = result.isHome ? result.awayScore : result.homeScore
+  const hasSets = !!result.setScores && result.setScores.length > 0
+
+  return (
+    // Overlay link handles game navigation; the opponent link sits above it (z-10).
+    <div className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors relative">
+      <Link href={`/games/${result.gameId}`} className="absolute inset-0" aria-label="View game" />
+
+      <span className="text-xs text-gray-400 w-14 shrink-0 relative z-10">{result.dateLabel}</span>
+
+      <div className="flex items-center gap-2 flex-1 min-w-0 relative z-10">
+        <TeamAvatar
+          logoUrl={result.opponentLogoUrl}
+          color={result.opponentColor}
+          name={result.opponentName}
+          size="xs"
+        />
+        <div className="min-w-0">
+          {result.opponentId ? (
+            <Link
+              href={`/teams/${result.opponentId}/stats`}
+              className="block text-sm font-medium text-gray-700 hover:underline truncate"
+            >
+              {result.opponentName}
+            </Link>
+          ) : (
+            <span className="block text-sm font-medium text-gray-700 truncate">{result.opponentName}</span>
+          )}
+          {hasSets && (
+            <span className="block sm:hidden mt-0.5">
+              <SetScores sets={result.setScores!} />
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Set scores inline on wider screens */}
+      {hasSets && (
+        <span className="hidden sm:block shrink-0 relative z-10">
+          <SetScores sets={result.setScores!} />
+        </span>
+      )}
+
+      {result.outcome !== 'upcoming' && myScore !== null && theirScore !== null && (
+        <span className="text-sm tabular-nums font-semibold text-gray-700 shrink-0 relative z-10 text-right">
+          {myScore}–{theirScore}
+        </span>
+      )}
+
+      <div className="relative z-10">
+        <OutcomeBadge outcome={result.outcome} />
+      </div>
+    </div>
+  )
+}
+
+function ResultsList({
+  pastResults,
+  upcomingResults,
+}: {
+  pastResults: SeasonResult[]
+  upcomingResults: SeasonResult[]
+}) {
+  if (pastResults.length === 0 && upcomingResults.length === 0) {
+    return (
+      <div className="bg-white rounded-xl border p-8 text-center text-sm text-gray-400">
+        No games scheduled yet.
+      </div>
+    )
+  }
+  return (
+    <div className="bg-white rounded-xl border overflow-hidden divide-y">
+      {pastResults.map(r => <ResultRow key={r.gameId} result={r} />)}
+      {upcomingResults.map(r => <ResultRow key={r.gameId} result={r} />)}
+    </div>
+  )
+}
+
+// ── H2H accordion ─────────────────────────────────────────────────────────────
 
 function H2HRow({ record }: { record: H2HRecord }) {
   const [open, setOpen] = useState(false)
@@ -113,16 +204,18 @@ function H2HRow({ record }: { record: H2HRecord }) {
           {games.map(g => {
             const myScore = g.isHome ? g.homeScore : g.awayScore
             const theirScore = g.isHome ? g.awayScore : g.homeScore
+            const hasSets = !!g.setScores && g.setScores.length > 0
             return (
               <Link
                 key={g.gameId}
                 href={`/games/${g.gameId}`}
                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors"
               >
-                <span className="text-xs text-gray-400 w-16 shrink-0">{formatShortDate(g.scheduledAt)}</span>
-                <span className="text-xs text-gray-500 flex-1">
+                <span className="text-xs text-gray-400 w-14 shrink-0">{g.dateLabel}</span>
+                <span className="text-xs text-gray-500 flex-1 tabular-nums">
                   {g.outcome === 'upcoming' ? 'Upcoming' : `${myScore ?? '?'}–${theirScore ?? '?'}`}
                 </span>
+                {hasSets && <SetScores sets={g.setScores!} />}
                 <OutcomeBadge outcome={g.outcome} />
               </Link>
             )
@@ -133,9 +226,7 @@ function H2HRow({ record }: { record: H2HRecord }) {
   )
 }
 
-// ── Main export ───────────────────────────────────────────────────────────────
-
-export function TeamStatsClient({ h2h, timezone }: Props) {
+function H2HList({ h2h }: { h2h: H2HRecord[] }) {
   if (h2h.length === 0) {
     return (
       <p className="text-sm text-gray-400 text-center py-8 bg-white rounded-xl border">
@@ -143,12 +234,58 @@ export function TeamStatsClient({ h2h, timezone }: Props) {
       </p>
     )
   }
-
   return (
     <div className="space-y-2">
       {h2h.map(record => (
         <H2HRow key={record.opponentId} record={record} />
       ))}
+    </div>
+  )
+}
+
+// ── Main export: tabbed Results / Head to Head / Players ─────────────────────
+
+interface TabsProps {
+  pastResults: SeasonResult[]
+  upcomingResults: SeasonResult[]
+  h2h: H2HRecord[]
+  /** Player-stats leaderboard, rendered on its own tab when provided. */
+  playersSlot?: React.ReactNode
+}
+
+export function TeamStatsTabs({ pastResults, upcomingResults, h2h, playersSlot }: TabsProps) {
+  const tabs: { key: 'results' | 'h2h' | 'players'; label: string }[] = [
+    { key: 'results', label: 'Results' },
+    { key: 'h2h', label: 'Head to Head' },
+    ...(playersSlot ? [{ key: 'players' as const, label: 'Players' }] : []),
+  ]
+  const [tab, setTab] = useState<'results' | 'h2h' | 'players'>('results')
+
+  return (
+    <div>
+      <div className="flex gap-1 border-b border-gray-200 mb-4 overflow-x-auto">
+        {tabs.map(t => {
+          const active = t.key === tab
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`px-3 sm:px-4 py-2 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap transition-colors ${
+                active
+                  ? 'border-[var(--brand-primary)] text-gray-900'
+                  : 'border-transparent text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {tab === 'results' && <ResultsList pastResults={pastResults} upcomingResults={upcomingResults} />}
+      {tab === 'h2h' && <H2HList h2h={h2h} />}
+      {tab === 'players' && playersSlot}
     </div>
   )
 }

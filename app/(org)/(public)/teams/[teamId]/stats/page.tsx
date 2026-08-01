@@ -6,7 +6,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { TeamAvatar } from '@/components/ui/team-avatar'
-import { TeamStatsClient } from '@/components/teams/team-stats-client'
+import { TeamStatsTabs } from '@/components/teams/team-stats-client'
 import { StatsLeaderboard } from '@/components/stats/stats-leaderboard'
 import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
 import type { LeaderboardPlayer } from '@/components/stats/stats-leaderboard'
@@ -57,7 +57,7 @@ export default async function TeamStatsPage({
       id, scheduled_at, court, week_number, status, home_team_id, away_team_id,
       home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
       away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
-      game_results(home_score, away_score, status)
+      game_results(home_score, away_score, status, sets)
     `)
       .eq('organization_id', org.id)
       .eq('league_id', leagueId)
@@ -198,15 +198,26 @@ export default async function TeamStatsPage({
       outcome = myScore > their ? 'W' : myScore < their ? 'L' : 'T'
     }
 
+    // Per-set scores from this team's perspective (volleyball only)
+    let setScores: { mine: number; theirs: number }[] | null = null
+    if (isVolleyball && result?.status === 'confirmed' && Array.isArray(result.sets) && result.sets.length > 0) {
+      setScores = (result.sets as { home: number; away: number }[]).map((s) => ({
+        mine: isHome ? s.home : s.away,
+        theirs: isHome ? s.away : s.home,
+      }))
+    }
+
     seasonResults.push({
       gameId: g.id as string,
       scheduledAt: g.scheduled_at as string,
+      dateLabel: formatGameTime(g.scheduled_at as string, timezone).date,
       opponentId: (opp?.id ?? '') as string,
       opponentName: (opp?.name ?? 'TBD') as string,
       opponentColor: (opp?.color ?? null) as string | null,
       opponentLogoUrl: (opp?.logo_url ?? null) as string | null,
       homeScore: result?.home_score ?? null,
       awayScore: result?.away_score ?? null,
+      setScores,
       isHome,
       outcome,
     })
@@ -358,100 +369,21 @@ export default async function TeamStatsPage({
           </div>
         </section>
 
-        {/* ── Season Results ── */}
-        <section>
-          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Season Results</h2>
-          {seasonResults.length === 0 ? (
-            <div className="bg-white rounded-xl border p-8 text-center text-sm text-gray-400">
-              No games scheduled yet.
-            </div>
-          ) : (
-            <div className="bg-white rounded-xl border overflow-hidden divide-y">
-              {pastResults.map(r => <ResultRow key={r.gameId} result={r} timezone={timezone} />)}
-              {upcomingResults.map(r => <ResultRow key={r.gameId} result={r} timezone={timezone} />)}
-            </div>
-          )}
-        </section>
-
-        {/* ── Head to Head ── */}
-        <section>
-          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Head to Head</h2>
-          <TeamStatsClient h2h={h2hList} timezone={timezone} />
-        </section>
-
-        {/* ── Player Stats ── */}
-        {statDefs.length > 0 && (
-          <section>
-            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Player Stats</h2>
-            <StatsLeaderboard statDefs={statDefs} players={leaderboardPlayers} />
-          </section>
-        )}
+        {/* ── Results / Head to Head / Players (tabbed) ── */}
+        <TeamStatsTabs
+          pastResults={pastResults}
+          upcomingResults={upcomingResults}
+          h2h={h2hList}
+          playersSlot={
+            statDefs.length > 0
+              ? <StatsLeaderboard statDefs={statDefs} players={leaderboardPlayers} />
+              : undefined
+          }
+        />
 
       </div>
 
       <Footer org={org} />
     </div>
-  )
-}
-
-// ── Result row ───────────────────────────────────────────────────────────────
-
-function ResultRow({ result, timezone }: { result: SeasonResult; timezone: string }) {
-  const { date: gameDate } = formatGameTime(result.scheduledAt, timezone)
-  const myScore = result.isHome ? result.homeScore : result.awayScore
-  const theirScore = result.isHome ? result.awayScore : result.homeScore
-
-  return (
-    // Outer div with relative positioning — absolute overlay handles game navigation,
-    // z-10 opponent link sits above it so clicks on the name go to team stats.
-    <div className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors relative">
-      {/* Overlay link to game detail — sits beneath z-10 elements */}
-      <Link href={`/games/${result.gameId}`} className="absolute inset-0" aria-label="View game" />
-
-      <span className="text-xs text-gray-400 w-16 shrink-0 relative z-10">{gameDate}</span>
-
-      <div className="flex items-center gap-2 flex-1 min-w-0 relative z-10">
-        <TeamAvatar
-          logoUrl={result.opponentLogoUrl}
-          color={result.opponentColor}
-          name={result.opponentName}
-          size="xs"
-        />
-        {result.opponentId ? (
-          <Link
-            href={`/teams/${result.opponentId}/stats`}
-            className="text-sm font-medium text-gray-700 hover:underline truncate"
-          >
-            {result.opponentName}
-          </Link>
-        ) : (
-          <span className="text-sm font-medium text-gray-700 truncate">{result.opponentName}</span>
-        )}
-      </div>
-
-      {result.outcome !== 'upcoming' && myScore !== null && theirScore !== null && (
-        <span className="text-sm tabular-nums text-gray-600 shrink-0 relative z-10">
-          {myScore}–{theirScore}
-        </span>
-      )}
-
-      <div className="relative z-10">
-        <OutcomeBadge outcome={result.outcome} />
-      </div>
-    </div>
-  )
-}
-
-function OutcomeBadge({ outcome }: { outcome: SeasonResult['outcome'] }) {
-  if (outcome === 'upcoming') return (
-    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 uppercase tracking-wide shrink-0">
-      Upcoming
-    </span>
-  )
-  const cfg = { W: 'bg-emerald-50 text-emerald-700', L: 'bg-red-50 text-red-600', T: 'bg-amber-50 text-amber-700' }[outcome]
-  return (
-    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${cfg} uppercase tracking-wide shrink-0`}>
-      {outcome}
-    </span>
   )
 }
