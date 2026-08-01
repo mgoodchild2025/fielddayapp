@@ -211,68 +211,14 @@ export default async function AdminStandingsPage({
   return (
     <div className="space-y-8">
 
-      {/* ── Pool Play section ──────────────────────────────────────────────── */}
-      {hasPools && (
-        <section>
-          <h2 className="text-base font-semibold mb-1">Pool Play Standings</h2>
-          <p className="text-xs text-gray-500 mb-4">Rankings are within each pool. Overall ranking across all pools is shown below.</p>
-
-          {!hasPoolPlay ? (
-            <p className="text-gray-400 text-sm py-6 text-center">No pool play results recorded yet.</p>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2">
-              {pools.map((pool) => {
-                const thisPoolTeams = poolTeams.filter((t) => t.pool_id === pool.id)
-                if (thisPoolTeams.length === 0) return null
-                return (
-                  <div key={pool.id} className="bg-white rounded-lg border overflow-hidden">
-                    <div className="px-4 py-3 border-b bg-gray-50">
-                      <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">{pool.name}</p>
-                    </div>
-                    <StandingsTable
-                      teams={thisPoolTeams}
-                      sport={sport}
-                      ptsMethod={ptsMethod}
-                      volleyballMode={volleyballMode}
-                      showRank
-                    />
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* ── Overall standings (cross-pool) ─────────────────────────────────── */}
-      {hasPools && (
-        <section>
-          <h2 className="text-base font-semibold mb-1">Overall Standings</h2>
-          <p className="text-xs text-gray-500 mb-4">All teams ranked together across pool play results — used for seeding playoffs.</p>
-          {!hasPoolPlay ? (
-            <p className="text-gray-400 text-sm py-6 text-center">No pool play results recorded yet.</p>
-          ) : (
-            <div className="bg-white rounded-lg border overflow-hidden">
-              <StandingsTable
-                teams={overallSorted.filter((t) => t.pool_id)}
-                sport={sport}
-                ptsMethod={ptsMethod}
-                volleyballMode={volleyballMode}
-                showRank
-              />
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* ── Regular season standings ────────────────────────────────────────── */}
+      {/* ── Regular season ─────────────────────────────────────────────────── */}
       {hasRegular && (
         <section>
-          <h2 className="text-base font-semibold mb-1">
-            {hasPools ? 'Regular Season Standings' : 'Standings'}
-          </h2>
           {hasPools && (
-            <p className="text-xs text-gray-500 mb-4">Games played before pool play began.</p>
+            <>
+              <h2 className="text-base font-semibold mb-1">Regular Season</h2>
+              <p className="text-xs text-gray-500 mb-4">Games played before pool play began.</p>
+            </>
           )}
           {divisions.length > 0 ? (
             <div className="space-y-6">
@@ -313,6 +259,60 @@ export default async function AdminStandingsPage({
             <div className="bg-white rounded-lg border overflow-hidden">
               <StandingsTable
                 teams={regularTeams}
+                sport={sport}
+                ptsMethod={ptsMethod}
+                volleyballMode={volleyballMode}
+                showRank
+              />
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── Pool Play ──────────────────────────────────────────────────────── */}
+      {hasPools && (
+        <section>
+          <h2 className="text-base font-semibold mb-1">Pool Play</h2>
+          <p className="text-xs text-gray-500 mb-4">Rankings are within each pool. Overall ranking across all pools is shown below.</p>
+
+          {!hasPoolPlay ? (
+            <p className="text-gray-400 text-sm py-6 text-center">No pool play results recorded yet.</p>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2">
+              {pools.map((pool) => {
+                const thisPoolTeams = poolTeams.filter((t) => t.pool_id === pool.id)
+                if (thisPoolTeams.length === 0) return null
+                return (
+                  <div key={pool.id} className="bg-white rounded-lg border overflow-hidden">
+                    <div className="px-4 py-3 border-b bg-gray-50">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">{pool.name}</p>
+                    </div>
+                    <StandingsTable
+                      teams={thisPoolTeams}
+                      sport={sport}
+                      ptsMethod={ptsMethod}
+                      volleyballMode={volleyballMode}
+                      showRank
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── Overall (cross-pool) ───────────────────────────────────────────── */}
+      {hasPools && (
+        <section>
+          <h2 className="text-base font-semibold mb-1">Overall</h2>
+          <p className="text-xs text-gray-500 mb-4">All teams ranked together across pool play results — used for seeding playoffs.</p>
+          {!hasPoolPlay ? (
+            <p className="text-gray-400 text-sm py-6 text-center">No pool play results recorded yet.</p>
+          ) : (
+            <div className="bg-white rounded-lg border overflow-hidden">
+              <StandingsTable
+                teams={overallSorted.filter((t) => t.pool_id)}
                 sport={sport}
                 ptsMethod={ptsMethod}
                 volleyballMode={volleyballMode}
