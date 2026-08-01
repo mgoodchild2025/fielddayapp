@@ -5,6 +5,7 @@ interface Game {
   scheduledAt: string
   court: string | null
   weekNumber: number | null
+  poolName?: string | null
   homeTeamName: string
   awayTeamName: string
 }
@@ -29,6 +30,7 @@ export function DailyScheduleSheet({ games, date, leagueName, orgName, timezone,
   // Show up to 3 set columns on the daily sheet (enough for match result; extra sets rare)
   const sheetSets = Math.min(setCount, 3)
   const showSets = sheetSets > 0
+  const hasPools = games.some((g) => g.poolName)
 
   // Format the date as a long readable string for the header
   const dateDisplay = new Intl.DateTimeFormat('en-US', {
@@ -36,7 +38,7 @@ export function DailyScheduleSheet({ games, date, leagueName, orgName, timezone,
     timeZone: timezone,
   }).format(new Date(`${date}T12:00:00`))  // noon to avoid DST edge
 
-  const colSpanTotal = 3 + (showSets ? sheetSets : 1)
+  const colSpanTotal = 3 + (hasPools ? 1 : 0) + (showSets ? sheetSets : 1)
 
   return (
     <div className="font-sans text-black">
@@ -60,6 +62,7 @@ export function DailyScheduleSheet({ games, date, leagueName, orgName, timezone,
           <tr className="border-b-2 border-black">
             <th className="text-left py-1.5 pr-3 font-semibold w-14">Time</th>
             <th className="text-left py-1.5 pr-3 font-semibold w-12">Court</th>
+            {hasPools && <th className="text-left py-1.5 pr-3 font-semibold w-16">Pool</th>}
             <th className="text-left py-1.5 pr-4 font-semibold">Team</th>
             {showSets ? (
               Array.from({ length: sheetSets }, (_, i) => (
@@ -100,6 +103,15 @@ export function DailyScheduleSheet({ games, date, leagueName, orgName, timezone,
                     >
                       {game.court ?? '—'}
                     </td>
+                    {hasPools && (
+                      <td
+                        rowSpan={2}
+                        className="pr-3 text-gray-600 align-middle text-xs"
+                        style={{ verticalAlign: 'middle' }}
+                      >
+                        {game.poolName ?? '—'}
+                      </td>
+                    )}
                     <td className="pt-2 pb-1 pr-4 font-medium">{game.homeTeamName}</td>
                     {showSets ? (
                       Array.from({ length: sheetSets }, (_, i) => (

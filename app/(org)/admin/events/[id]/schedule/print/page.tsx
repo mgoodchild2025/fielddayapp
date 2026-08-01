@@ -60,32 +60,40 @@ export default async function SchedulePrintPage({
   // ─── Full Schedule (all games) ─────────────────────────────────────────────
   if (type === 'full') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rawGames } = await (db as any)
-      .from('games')
-      .select(`
-        id, scheduled_at, court, week_number,
-        home_team_label, away_team_label,
-        home_team:teams!games_home_team_id_fkey(name),
-        away_team:teams!games_away_team_id_fkey(name)
-      `)
-      .eq('league_id', id)
-      .eq('organization_id', org.id)
-      .neq('status', 'cancelled')
-      .order('scheduled_at', { ascending: true })
+    const [{ data: rawGames }, { data: poolRows }] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any)
+        .from('games')
+        .select(`
+          id, scheduled_at, court, week_number, pool_id,
+          home_team_label, away_team_label,
+          home_team:teams!games_home_team_id_fkey(name),
+          away_team:teams!games_away_team_id_fkey(name)
+        `)
+        .eq('league_id', id)
+        .eq('organization_id', org.id)
+        .neq('status', 'cancelled')
+        .order('scheduled_at', { ascending: true }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('pools').select('id, name').eq('league_id', id).eq('organization_id', org.id),
+    ])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const poolNameById = new Map<string, string>((poolRows ?? []).map((p: any) => [p.id as string, p.name as string]))
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const games = (rawGames ?? []).map((g: any) => {
+    const games = sortByTimeThenCourt(((rawGames ?? []) as any[]).map((g: any) => {
       const home = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
       const away = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
       return {
-        id: g.id,
-        scheduledAt: g.scheduled_at,
-        court: g.court ?? null,
-        weekNumber: g.week_number ?? null,
+        id: g.id as string,
+        scheduledAt: g.scheduled_at as string,
+        court: (g.court ?? null) as string | null,
+        weekNumber: (g.week_number ?? null) as number | null,
+        poolName: g.pool_id ? (poolNameById.get(g.pool_id) ?? null) : null,
         homeTeamName: home?.name ?? g.home_team_label ?? 'TBD',
         awayTeamName: away?.name ?? g.away_team_label ?? 'TBD',
       }
-    })
+    }))
 
     return (
       <PrintPage>
@@ -107,33 +115,41 @@ export default async function SchedulePrintPage({
     const dayEnd   = parseLocalToUtc(date, '23:59', timezone)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rawGames } = await (db as any)
-      .from('games')
-      .select(`
-        id, scheduled_at, court, week_number,
-        home_team_label, away_team_label,
-        home_team:teams!games_home_team_id_fkey(name),
-        away_team:teams!games_away_team_id_fkey(name)
-      `)
-      .eq('league_id', id)
-      .eq('organization_id', org.id)
-      .gte('scheduled_at', dayStart)
-      .lte('scheduled_at', dayEnd)
-      .order('scheduled_at', { ascending: true })
+    const [{ data: rawGames }, { data: poolRows }] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any)
+        .from('games')
+        .select(`
+          id, scheduled_at, court, week_number, pool_id,
+          home_team_label, away_team_label,
+          home_team:teams!games_home_team_id_fkey(name),
+          away_team:teams!games_away_team_id_fkey(name)
+        `)
+        .eq('league_id', id)
+        .eq('organization_id', org.id)
+        .gte('scheduled_at', dayStart)
+        .lte('scheduled_at', dayEnd)
+        .order('scheduled_at', { ascending: true }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('pools').select('id, name').eq('league_id', id).eq('organization_id', org.id),
+    ])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const poolNameById = new Map<string, string>((poolRows ?? []).map((p: any) => [p.id as string, p.name as string]))
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const games = (rawGames ?? []).map((g: any) => {
+    const games = sortByTimeThenCourt(((rawGames ?? []) as any[]).map((g: any) => {
       const home = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
       const away = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
       return {
-        id: g.id,
-        scheduledAt: g.scheduled_at,
-        court: g.court ?? null,
-        weekNumber: g.week_number ?? null,
+        id: g.id as string,
+        scheduledAt: g.scheduled_at as string,
+        court: (g.court ?? null) as string | null,
+        weekNumber: (g.week_number ?? null) as number | null,
+        poolName: g.pool_id ? (poolNameById.get(g.pool_id) ?? null) : null,
         homeTeamName: home?.name ?? g.home_team_label ?? 'TBD',
         awayTeamName: away?.name ?? g.away_team_label ?? 'TBD',
       }
-    })
+    }))
 
     return (
       <PrintPage>
@@ -293,6 +309,16 @@ export default async function SchedulePrintPage({
   }
 
   notFound()
+}
+
+/** Sort by date/time, then by court/rink/field (natural order). Undated / no-court last. */
+function sortByTimeThenCourt<T extends { scheduledAt: string | null; court: string | null }>(games: T[]): T[] {
+  return [...games].sort((a, b) => {
+    const at = a.scheduledAt ?? '￿'
+    const bt = b.scheduledAt ?? '￿'
+    if (at !== bt) return at < bt ? -1 : 1
+    return (a.court ?? '￿').localeCompare(b.court ?? '￿', undefined, { numeric: true, sensitivity: 'base' })
+  })
 }
 
 // Minimal wrapper with print CSS
