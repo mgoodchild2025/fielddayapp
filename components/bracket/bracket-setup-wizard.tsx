@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useEffect, useRef } from 'react'
-import { createBracket, seedBracket, scaffoldBracket, publishBracket, deleteBracket } from '@/actions/brackets'
+import { createBracket, seedBracket, scaffoldBracket, publishBracket, unpublishBracket, deleteBracket } from '@/actions/brackets'
 import type { BracketRecommendation, TeamStanding } from '@/lib/bracket'
 import { BracketView, type BracketData } from './bracket-view'
 
@@ -137,6 +137,16 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
     })
   }
 
+  function handleUnpublish() {
+    if (!bracketId || !confirm('Unpublish this bracket? It will be hidden from players until you publish again. Seeding is kept.')) return
+    setErr(null)
+    startTransition(async () => {
+      const res = await unpublishBracket(bracketId, leagueId)
+      if (res.error) { setErr(res.error); return }
+      window.location.reload()
+    })
+  }
+
   function handleDelete() {
     if (!bracketId || !confirm('Delete this bracket and all match data? This cannot be undone.')) return
     setErr(null)
@@ -208,6 +218,16 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
               >
                 {isPending ? 'Publishing…' : isPublished ? 'Republish' : 'Publish Bracket'}
               </button>
+              {isPublished && (
+                <button
+                  onClick={handleUnpublish}
+                  disabled={isPending}
+                  className="px-4 py-2 rounded-md text-sm font-medium border text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+                  title="Hide the bracket from players; keeps the seeding"
+                >
+                  {isPending ? '…' : 'Unpublish'}
+                </button>
+              )}
               <button
                 onClick={handleDelete}
                 disabled={isPending}

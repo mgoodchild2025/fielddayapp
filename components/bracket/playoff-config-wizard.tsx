@@ -4,7 +4,7 @@ import { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Printer, Trash2 } from 'lucide-react'
 import { savePlayoffConfig, generateAllTierBrackets, deletePlayoffConfig } from '@/actions/playoff-config'
-import { publishBracket, deleteBracket, seedBracket, clearBracketSeeding, advanceBestLoser } from '@/actions/brackets'
+import { publishBracket, unpublishBracket, deleteBracket, seedBracket, clearBracketSeeding, advanceBestLoser } from '@/actions/brackets'
 import { BracketView, type BracketData, type TeamRef } from './bracket-view'
 import type { TeamStanding, BracketRecommendation } from '@/lib/bracket'
 import type { TierInput, PoolSeedingMethod } from '@/actions/playoff-config'
@@ -280,6 +280,16 @@ function TierBracketCard({
     })
   }
 
+  function handleUnpublish() {
+    if (!tier.bracketId || !confirm(`Unpublish the ${tier.name} bracket? It will be hidden from players until you publish again. Seeding is kept.`)) return
+    setErr(null)
+    startTransition(async () => {
+      const r = await unpublishBracket(tier.bracketId!, leagueId)
+      if (r?.error) { setErr(r.error); return }
+      router.refresh()
+    })
+  }
+
   function handleDelete() {
     if (!tier.bracketId || !confirm(`Delete the ${tier.name} bracket? This cannot be undone.`)) return
     setErr(null)
@@ -366,6 +376,16 @@ function TierBracketCard({
               >
                 {isPending ? '…' : isPublished ? 'Republish' : 'Publish'}
               </button>
+              {isPublished && (
+                <button
+                  onClick={handleUnpublish}
+                  disabled={isPending}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium border text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+                  title="Hide the bracket from players; keeps the seeding"
+                >
+                  {isPending ? '…' : 'Unpublish'}
+                </button>
+              )}
               {isScaffold && (
                 <span className="text-[11px] text-gray-400 self-center">Publish to show slots on the schedule</span>
               )}
