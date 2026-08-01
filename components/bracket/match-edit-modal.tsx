@@ -12,6 +12,18 @@ interface Team {
   name: string
 }
 
+/**
+ * Convert a stored UTC ISO string to the "YYYY-MM-DDTHH:mm" value a
+ * datetime-local input expects, in the viewer's local time — matching how
+ * bracket match times are displayed elsewhere. Empty string when unset.
+ */
+function isoToLocalInput(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+}
+
 interface Props {
   match: BracketMatchData
   bracketId: string
@@ -45,11 +57,7 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
 
   // Schedule fields
   const [court, setCourt] = useState(match.court ?? '')
-  const [scheduledAt, setScheduledAt] = useState(() => {
-    if (!match.scheduledAt) return ''
-    // Convert ISO to datetime-local format (YYYY-MM-DDTHH:mm)
-    return match.scheduledAt.slice(0, 16)
-  })
+  const [scheduledAt, setScheduledAt] = useState(() => isoToLocalInput(match.scheduledAt))
   const [notes, setNotes] = useState(match.notes ?? '')
 
   // Close on Escape
@@ -87,7 +95,7 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
       // Update schedule fields if anything changed
       const scheduleChanged =
         court !== (match.court ?? '') ||
-        scheduledAt !== (match.scheduledAt?.slice(0, 16) ?? '') ||
+        scheduledAt !== isoToLocalInput(match.scheduledAt) ||
         notes !== (match.notes ?? '')
 
       if (scheduleChanged) {
