@@ -13,6 +13,8 @@ import { EventSponsorStrip } from '@/components/sponsors/event-sponsor-strip'
 import { CaptainScoreEntry } from '@/components/scores/captain-score-entry'
 import { GameKindBadge } from '@/components/schedule/game-kind-badge'
 import { ScheduleFilterBar } from '@/components/events/schedule-filter-bar'
+import { SchedulePhaseSummary } from '@/components/schedule/schedule-phase-summary'
+import type { SchedulePhase } from '@/lib/phases'
 import { GameRsvpButton } from '@/components/schedule/game-rsvp-button'
 import { GameAttendancePanel } from '@/components/schedule/game-attendance-panel'
 import { EventRulesModal } from '@/components/events/event-rules-modal'
@@ -1095,13 +1097,14 @@ export default async function EventDetailPage({
   // ── Schedule tab data ─────────────────────────────────────────────────────
 
   let games: GameRow[] = []
+  let schedulePhaseList: { week_number: number; phase: SchedulePhase }[] = []
   let captainTeamIds = new Set<string>()
   let myRsvps = new Map<string, 'in' | 'out'>()
   let captainAttendance = new Map<string, { in: number; out: number; total: number }>()
 
   if (activeTab === 'schedule' && isTeamBased) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [{ data: gamesData }, { data: poolRows }] = await Promise.all([
+    const [{ data: gamesData }, { data: poolRows }, { data: weekPhaseRows }] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any)
         .from('games')
@@ -1118,10 +1121,13 @@ export default async function EventDetailPage({
         .order('scheduled_at', { ascending: true }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any).from('pools').select('id, name').eq('league_id', league.id).eq('organization_id', org.id),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('week_phases').select('week_number, phase').eq('league_id', league.id).eq('organization_id', org.id).order('week_number', { ascending: true }),
     ])
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const poolNameById = new Map<string, string>((poolRows ?? []).map((p: any) => [p.id as string, p.name as string]))
+    schedulePhaseList = (weekPhaseRows ?? []) as { week_number: number; phase: SchedulePhase }[]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     games = ((gamesData ?? []) as any[]).map((g: any) => ({
       ...g,
@@ -2206,6 +2212,9 @@ export default async function EventDetailPage({
               <p className="text-gray-400 text-center py-16">No games scheduled yet.</p>
             ) : (
               <>
+                {schedulePhaseList.length > 0 && (
+                  <SchedulePhaseSummary weekPhases={schedulePhaseList} className="mb-5" />
+                )}
                 <ScheduleFilterBar
                   view={activeScheduleView}
                   teamFilter={teamFilter}
