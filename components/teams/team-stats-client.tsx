@@ -23,6 +23,8 @@ export type SeasonResult = {
   setScores: { mine: number; theirs: number }[] | null
   /** Pool name when this was a pool match; null for regular-season games. */
   poolName?: string | null
+  /** True for playoff bracket games. */
+  isPlayoff?: boolean
   isHome: boolean
   outcome: 'W' | 'L' | 'T' | 'upcoming'
 }
@@ -110,13 +112,13 @@ function ResultRow({ result, showKind }: { result: SeasonResult; showKind?: bool
           )}
           {(showKind || (hasSets)) && (
             <span className="flex items-center gap-1.5 mt-0.5 sm:hidden">
-              {showKind && <GameKindBadge poolName={result.poolName} />}
+              {showKind && <GameKindBadge poolName={result.poolName} isPlayoff={result.isPlayoff} />}
               {hasSets && <SetScores sets={result.setScores!} />}
             </span>
           )}
           {showKind && (
             <span className="hidden sm:block mt-0.5">
-              <GameKindBadge poolName={result.poolName} />
+              <GameKindBadge poolName={result.poolName} isPlayoff={result.isPlayoff} />
             </span>
           )}
         </div>
@@ -226,7 +228,7 @@ function H2HRow({ record, showKind }: { record: H2HRecord; showKind?: boolean })
                 <span className="text-xs text-gray-500 flex-1 tabular-nums">
                   {g.outcome === 'upcoming' ? 'Upcoming' : `${myScore ?? '?'}–${theirScore ?? '?'}`}
                 </span>
-                {showKind && <GameKindBadge poolName={g.poolName} />}
+                {showKind && <GameKindBadge poolName={g.poolName} isPlayoff={g.isPlayoff} />}
                 {hasSets && <SetScores sets={g.setScores!} />}
                 <OutcomeBadge outcome={g.outcome} />
               </Link>

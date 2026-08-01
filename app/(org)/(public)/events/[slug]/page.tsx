@@ -13,6 +13,9 @@ import { EventSponsorStrip } from '@/components/sponsors/event-sponsor-strip'
 import { CaptainScoreEntry } from '@/components/scores/captain-score-entry'
 import { GameKindBadge } from '@/components/schedule/game-kind-badge'
 import { ScheduleFilterBar } from '@/components/events/schedule-filter-bar'
+import { SchedulePhaseSummary } from '@/components/schedule/schedule-phase-summary'
+import type { SchedulePhase } from '@/lib/phases'
+import { fetchLeaguePlayoffGames } from '@/lib/playoff-games'
 import { GameRsvpButton } from '@/components/schedule/game-rsvp-button'
 import { GameAttendancePanel } from '@/components/schedule/game-attendance-panel'
 import { EventRulesModal } from '@/components/events/event-rules-modal'
@@ -277,6 +280,7 @@ type GameRow = {
   week_number: number | null
   pool_id?: string | null
   poolName?: string | null
+  isPlayoff?: boolean
   home_team_id: string | null
   away_team_id: string | null
   home_team_label: string | null
@@ -366,7 +370,7 @@ function DateGroup({
                   <span className="font-medium text-gray-500">{gameTime}</span>
                   {game.court && <><span>·</span><span>Court {game.court}</span></>}
                   {game.week_number && showWeek && <><span>·</span><span>Wk {game.week_number}</span></>}
-                  {showKind && <GameKindBadge poolName={game.poolName} className="not-italic" />}
+                  {showKind && <GameKindBadge poolName={game.poolName} isPlayoff={game.isPlayoff} className="not-italic" />}
                   {isForfeit && <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 not-italic">Forfeit</span>}
                 </div>
                 {/* Teams + scores */}
@@ -454,7 +458,7 @@ function DateGroup({
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
                     {game.court && <span>Court {game.court}</span>}
                     {game.week_number && showWeek && <><span>·</span><span>Wk {game.week_number}</span></>}
-                    {showKind && <GameKindBadge poolName={game.poolName} />}
+                    {showKind && <GameKindBadge poolName={game.poolName} isPlayoff={game.isPlayoff} />}
                     {game.cancellation_reason && (game.status === 'cancelled' || game.status === 'postponed') && (
                       <span className="italic">{game.cancellation_reason}</span>
                     )}
@@ -497,7 +501,7 @@ function DateGroup({
                 </div>
               </div>
 
-              {attendance && captainTeamIdForGame && (
+              {!game.isPlayoff && attendance && captainTeamIdForGame && (
                 <GameAttendancePanel
                   gameId={game.id}
                   teamId={captainTeamIdForGame}
@@ -505,7 +509,7 @@ function DateGroup({
                 />
               )}
 
-              {showRsvp && (
+              {!game.isPlayoff && showRsvp && (
                 <GameRsvpButton
                   gameId={game.id}
                   teamId={myTeamIdForGame!}
@@ -513,7 +517,7 @@ function DateGroup({
                 />
               )}
 
-              {isPast && isCaptain && result?.status !== 'confirmed' && game.status !== 'cancelled' && game.status !== 'postponed' && (
+              {!game.isPlayoff && isPast && isCaptain && result?.status !== 'confirmed' && game.status !== 'cancelled' && game.status !== 'postponed' && (
                 <CaptainScoreEntry
                   gameId={game.id}
                   sport={sport ?? undefined}
@@ -1095,13 +1099,14 @@ export default async function EventDetailPage({
   // ── Schedule tab data ─────────────────────────────────────────────────────
 
   let games: GameRow[] = []
+  let schedulePhaseList: { week_number: number; phase: SchedulePhase }[] = []
   let captainTeamIds = new Set<string>()
   let myRsvps = new Map<string, 'in' | 'out'>()
   let captainAttendance = new Map<string, { in: number; out: number; total: number }>()
 
   if (activeTab === 'schedule' && isTeamBased) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [{ data: gamesData }, { data: poolRows }] = await Promise.all([
+    const [{ data: gamesData }, { data: poolRows }, { data: weekPhaseRows }] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any)
         .from('games')
@@ -1118,15 +1123,47 @@ export default async function EventDetailPage({
         .order('scheduled_at', { ascending: true }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any).from('pools').select('id, name').eq('league_id', league.id).eq('organization_id', org.id),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any).from('week_phases').select('week_number, phase').eq('league_id', league.id).eq('organization_id', org.id).order('week_number', { ascending: true }),
     ])
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const poolNameById = new Map<string, string>((poolRows ?? []).map((p: any) => [p.id as string, p.name as string]))
+    schedulePhaseList = (weekPhaseRows ?? []) as { week_number: number; phase: SchedulePhase }[]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    games = ((gamesData ?? []) as any[]).map((g: any) => ({
+    const regularGames = ((gamesData ?? []) as any[]).map((g: any) => ({
       ...g,
       poolName: g.pool_id ? (poolNameById.get(g.pool_id) ?? null) : null,
     })) as unknown as GameRow[]
+
+    // Merge in published playoff bracket games as read-only schedule rows.
+    const playoffGames = await fetchLeaguePlayoffGames(db, org.id, league.id)
+    const playoffRows: GameRow[] = playoffGames
+      .filter((pg) => !!pg.scheduledAt)
+      .map((pg) => ({
+        id: pg.matchId,
+        scheduled_at: pg.scheduledAt as string,
+        court: pg.court,
+        status: pg.status === 'completed' ? 'completed' : 'scheduled',
+        cancellation_reason: null,
+        week_number: null,
+        pool_id: null,
+        poolName: null,
+        isPlayoff: true,
+        home_team_id: pg.team1Id,
+        away_team_id: pg.team2Id,
+        home_team_label: pg.team1Name,
+        away_team_label: pg.team2Name,
+        home_team: pg.team1Id ? { id: pg.team1Id, name: pg.team1Name } : null,
+        away_team: pg.team2Id ? { id: pg.team2Id, name: pg.team2Name } : null,
+        game_results: (pg.score1 != null && pg.score2 != null)
+          ? { home_score: pg.score1, away_score: pg.score2, status: 'confirmed', submitted_by: null, sets: pg.sets }
+          : null,
+      }))
+
+    games = [...regularGames, ...playoffRows].sort((a, b) =>
+      a.scheduled_at < b.scheduled_at ? -1 : a.scheduled_at > b.scheduled_at ? 1 : 0,
+    )
 
     if (user && games.length > 0) {
       const gameIds = games.map((g) => g.id)
@@ -1463,9 +1500,9 @@ export default async function EventDetailPage({
     scheduleView === 'results' || (scheduleView !== 'upcoming' && upcomingGroups.length === 0 && pastGroups.length > 0)
       ? 'results'
       : 'upcoming'
-  // Only surface the Regular Season / Pool badge when the event actually mixes
-  // pool and non-pool games.
-  const scheduleHasPools = games.some((g) => !!g.poolName)
+  // Surface the kind badge (Regular Season / Pool / Playoff) when the schedule
+  // actually mixes kinds.
+  const scheduleHasPools = games.some((g) => !!g.poolName || !!g.isPlayoff)
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -2206,6 +2243,9 @@ export default async function EventDetailPage({
               <p className="text-gray-400 text-center py-16">No games scheduled yet.</p>
             ) : (
               <>
+                {schedulePhaseList.length > 0 && (
+                  <SchedulePhaseSummary weekPhases={schedulePhaseList} className="mb-5" />
+                )}
                 <ScheduleFilterBar
                   view={activeScheduleView}
                   teamFilter={teamFilter}

@@ -10,8 +10,11 @@ import { DelayScheduleControl } from '@/components/schedule/delay-schedule-contr
 import { ScheduleImport } from '@/components/schedule/schedule-import'
 import { RoundRobinGenerator } from '@/components/schedule/round-robin-generator'
 import { ScheduleTable } from '@/components/schedule/schedule-table'
+import { WeekPhasesEditor } from '@/components/schedule/week-phases-editor'
+import { SchedulePhaseSummary } from '@/components/schedule/schedule-phase-summary'
 import { UpgradeBadge } from '@/components/ui/upgrade-prompt'
 import { formatGameTime } from '@/lib/format-time'
+import type { SchedulePhase } from '@/lib/phases'
 
 export default async function AdminSchedulePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -30,7 +33,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
   const timezone = branding?.timezone ?? 'America/Toronto'
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [{ data: games }, { data: teams }, { data: league }, { data: pools }] = await Promise.all([
+  const [{ data: games }, { data: teams }, { data: league }, { data: pools }, { data: weekPhases }] = await Promise.all([
     // Cast to any — Supabase types may not yet reflect home_team_label/away_team_label columns
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)
@@ -67,7 +70,16 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
       .eq('league_id', id)
       .eq('organization_id', org.id)
       .order('sort_order', { ascending: true }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any)
+      .from('week_phases')
+      .select('week_number, phase')
+      .eq('league_id', id)
+      .eq('organization_id', org.id)
+      .order('week_number', { ascending: true }),
   ])
+
+  const weekPhaseList = ((weekPhases ?? []) as { week_number: number; phase: SchedulePhase }[])
 
   const canImportCsv = await canAccess(org.id, 'csv_import')
 
@@ -145,10 +157,16 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
     a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
   )
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const maxGameWeek = (mappedGames as any[]).reduce((m: number, g: any) => Math.max(m, g.weekNumber ?? 0), 0)
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {/* Game list */}
       <div className="md:col-span-2">
+        {weekPhaseList.length > 0 && (
+          <SchedulePhaseSummary weekPhases={weekPhaseList} className="mb-4" />
+        )}
         <ScheduleTable
           games={mappedGames}
           teams={teams ?? []}
@@ -167,6 +185,9 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
         <div className="space-y-4">
           {/* Slot assignment — shown when template games exist and real teams are available */}
           <AssignSlotsCard leagueId={id} slotLabels={slotLabels} teams={teams ?? []} />
+          {eventType !== 'tournament' && (
+            <WeekPhasesEditor leagueId={id} initialPhases={weekPhaseList} maxGameWeek={maxGameWeek} />
+          )}
           <RoundRobinGenerator leagueId={id} teamCount={(teams ?? []).length} maxTeams={maxParticipants} sport={sport} />
           <AddGameForm leagueId={id} sport={sport} teams={teams ?? []} pools={pools ?? []} />
           <DelayScheduleControl leagueId={id} mode="games" />
