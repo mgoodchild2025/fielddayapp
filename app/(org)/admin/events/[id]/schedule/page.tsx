@@ -41,7 +41,6 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
         home_team_label, away_team_label,
         home_team:teams!games_home_team_id_fkey(name),
         away_team:teams!games_away_team_id_fkey(name),
-        pool:pools!games_pool_id_fkey(name),
         game_results(home_score, away_score, status, sets)
       `)
       .eq('league_id', id)
@@ -80,11 +79,15 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const schedulePublished: boolean = (league as any)?.schedule_published ?? false
 
+  // Map pool id → name from the separately-fetched pools list (robust regardless
+  // of PostgREST embed resolution).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const poolNameById = new Map<string, string>((pools ?? []).map((p: any) => [p.id as string, p.name as string]))
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mappedGames = (games ?? []).map((game: any) => {
     const home = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team
     const away = Array.isArray(game.away_team) ? game.away_team[0] : game.away_team
-    const pool = Array.isArray(game.pool) ? game.pool[0] : game.pool
     const result = Array.isArray(game.game_results) ? game.game_results[0] : game.game_results
     const { date: dateLabel, time: timeLabel } = formatGameTime(game.scheduled_at, timezone)
 
@@ -100,7 +103,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
       homeTeamName: home?.name ?? game.home_team_label ?? 'TBD',
       awayTeamName: away?.name ?? game.away_team_label ?? 'TBD',
       poolId: game.pool_id ?? null,
-      poolName: pool?.name ?? null,
+      poolName: game.pool_id ? (poolNameById.get(game.pool_id) ?? null) : null,
       dateLabel,
       timeLabel,
       // YYYY-MM-DD in org timezone — used for "Print Day" URL param
@@ -119,6 +122,16 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
           }
         : null,
     }
+  })
+
+  // Sort by date/time, then by court/rink/field (natural order so "Court 10"
+  // follows "Court 9"). Undated games and games without a court sort last.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(mappedGames as any[]).sort((a: any, b: any) => {
+    const at = a.scheduledAt ?? '￿'
+    const bt = b.scheduledAt ?? '￿'
+    if (at !== bt) return at < bt ? -1 : 1
+    return (a.court ?? '￿').localeCompare(b.court ?? '￿', undefined, { numeric: true, sensitivity: 'base' })
   })
 
   // Collect unique unmatched slot labels from the current game list
