@@ -34,7 +34,7 @@ export async function fetchLeaguePlayoffGames(
     .select(`
       id, name, bracket_size, published_at,
       bracket_matches(
-        id, round_number, team1_id, team2_id, team1_label, team2_label,
+        id, round_number, match_number, team1_id, team2_id, team1_label, team2_label,
         is_bye, score1, score2, sets, status, scheduled_at, court
       )
     `)
@@ -65,7 +65,7 @@ export async function fetchLeaguePlayoffGames(
       games.push({
         matchId: m.id as string,
         bracketName: b.name as string,
-        roundLabel: getRoundName(m.round_number as number, b.bracket_size as number),
+        roundLabel: getRoundName(m.round_number as number, b.bracket_size as number, m.match_number as number),
         scheduledAt: m.scheduled_at ?? null,
         court: m.court ?? null,
         team1Id: m.team1_id ?? null,

@@ -81,7 +81,7 @@ export function nextPowerOf2(n: number): number {
   return Math.pow(2, Math.ceil(Math.log2(n)))
 }
 
-export function getRoundName(roundNumber: number, bracketSize: number): string {
+export function getRoundName(roundNumber: number, bracketSize: number, matchNumber?: number): string {
   // Grand Final
   if (roundNumber >= GF_ROUND) return 'Grand Final'
   // Losers bracket
@@ -93,6 +93,8 @@ export function getRoundName(roundNumber: number, bracketSize: number): string {
     if (lbIndex === totalLbRounds - 1) return 'LB Semi-Finals'
     return `LB Round ${lbIndex}`
   }
+  // Third-place match shares the final round but is its 2nd match.
+  if (roundNumber === 1 && matchNumber === 2) return 'Third Place'
   // All-play brackets have non-power-of-2 rounds
   if (bracketSize === 6) {
     if (roundNumber === 3) return 'First Round'
