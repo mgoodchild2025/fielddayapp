@@ -281,6 +281,10 @@ type GameRow = {
   pool_id?: string | null
   poolName?: string | null
   isPlayoff?: boolean
+  /** Bracket/tier name (e.g. "Gold") for playoff rows. */
+  playoffTier?: string | null
+  /** Round label (e.g. "Semifinal") for playoff rows. */
+  playoffRound?: string | null
   home_team_id: string | null
   away_team_id: string | null
   home_team_label: string | null
@@ -371,6 +375,9 @@ function DateGroup({
                   {game.court && <><span>·</span><span>Court {game.court}</span></>}
                   {game.week_number && showWeek && <><span>·</span><span>Wk {game.week_number}</span></>}
                   {showKind && <GameKindBadge poolName={game.poolName} isPlayoff={game.isPlayoff} className="not-italic" />}
+                  {game.isPlayoff && (game.playoffTier || game.playoffRound) && (
+                    <span className="text-gray-500">{[game.playoffTier, game.playoffRound].filter(Boolean).join(' · ')}</span>
+                  )}
                   {isForfeit && <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 not-italic">Forfeit</span>}
                 </div>
                 {/* Teams + scores */}
@@ -459,6 +466,9 @@ function DateGroup({
                     {game.court && <span>Court {game.court}</span>}
                     {game.week_number && showWeek && <><span>·</span><span>Wk {game.week_number}</span></>}
                     {showKind && <GameKindBadge poolName={game.poolName} isPlayoff={game.isPlayoff} />}
+                    {game.isPlayoff && (game.playoffTier || game.playoffRound) && (
+                      <span>{[game.playoffTier, game.playoffRound].filter(Boolean).join(' · ')}</span>
+                    )}
                     {game.cancellation_reason && (game.status === 'cancelled' || game.status === 'postponed') && (
                       <span className="italic">{game.cancellation_reason}</span>
                     )}
@@ -1150,6 +1160,8 @@ export default async function EventDetailPage({
         pool_id: null,
         poolName: null,
         isPlayoff: true,
+        playoffTier: pg.bracketName,
+        playoffRound: pg.roundLabel,
         home_team_id: pg.team1Id,
         away_team_id: pg.team2Id,
         home_team_label: pg.team1Name,
