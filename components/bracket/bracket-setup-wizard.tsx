@@ -162,16 +162,19 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
 
   // ── Preview (bracket exists) ────────────────────────────────────────────────
   if (bracket) {
-    const isScaffold = bracket.status === 'scaffold'
-    const canSeedNow = isScaffold && seededTeams.length >= 2
+    // "Seeded" is driven by whether matches carry real teams — not by status —
+    // so publishing an unseeded (scaffold) bracket doesn't hide the Seed button.
+    const isSeeded = (bracket.matches ?? []).some((m) => m.team1Id || m.team2Id)
+    const isPublished = bracket.status === 'active'
+    const canSeedNow = !isSeeded && seededTeams.length >= 2
 
     return (
       <div className="space-y-6">
-        {/* Scaffold notice */}
-        {isScaffold && (
+        {/* Unseeded notice */}
+        {!isSeeded && (
           <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900">
             <p className="font-semibold mb-1">📋 Template bracket — teams not yet assigned</p>
-            <p>Match slots show placeholder seeds. Once teams are registered you can seed the bracket with real team data.</p>
+            <p>Match slots show placeholder seeds. You can set dates/courts and publish now so the slots appear on the schedule; seed with real teams whenever they&rsquo;re known.</p>
           </div>
         )}
 
@@ -180,7 +183,9 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
           <div>
             <p className="font-semibold">{bracket.name}</p>
             <p className="text-xs text-gray-500 mt-0.5">
-              {bracket.status === 'active' ? '✓ Published — visible to the public' : isScaffold ? 'Template — dates can be set now' : 'Draft — only visible to admins'}
+              {isPublished
+                ? (isSeeded ? '✓ Published — visible to the public' : '✓ Published — showing placeholders until seeded')
+                : (isSeeded ? 'Draft — only visible to admins' : 'Template — set dates, then publish or seed')}
             </p>
           </div>
           {isOrgAdmin && (
@@ -195,16 +200,14 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
                   {isPending ? 'Seeding…' : `Seed with ${seededTeams.length} Teams →`}
                 </button>
               )}
-              {!isScaffold && (
-                <button
-                  onClick={handlePublish}
-                  disabled={isPending}
-                  className="px-4 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60"
-                  style={{ backgroundColor: 'var(--brand-primary)' }}
-                >
-                  {isPending ? 'Publishing…' : bracket.status === 'active' ? 'Republish' : 'Publish Bracket'}
-                </button>
-              )}
+              <button
+                onClick={handlePublish}
+                disabled={isPending}
+                className="px-4 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60"
+                style={{ backgroundColor: 'var(--brand-primary)' }}
+              >
+                {isPending ? 'Publishing…' : isPublished ? 'Republish' : 'Publish Bracket'}
+              </button>
               <button
                 onClick={handleDelete}
                 disabled={isPending}

@@ -792,6 +792,7 @@ export async function updateMatchSchedule(input: {
   if (error) return { error: error.message }
 
   revalidatePath(`/admin/events/${input.leagueId}/bracket`)
+  revalidatePath('/events/[slug]', 'page')
   return { error: null }
 }
 
