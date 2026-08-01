@@ -242,6 +242,10 @@ function TierBracketCard({
   const colorClass = tierColors[tier.name] ?? 'text-purple-600 bg-purple-50 border-purple-200'
 
   const isScaffold = tier.bracket?.status === 'scaffold'
+  // Seeded/published are independent: an unseeded (scaffold) bracket can be
+  // published so its slots appear on the schedule, then seeded later.
+  const isSeeded = !!bracket?.matches?.some((m) => m.team1Id || m.team2Id)
+  const isPublished = bracket?.status === 'active'
 
   function handleSeed() {
     if (!tier.bracketId) return
@@ -340,7 +344,7 @@ function TierBracketCard({
                   <Printer className="w-3.5 h-3.5" />
                 </a>
               )}
-              {isScaffold ? (
+              {!isSeeded && (
                 <button
                   onClick={handleSeed}
                   disabled={isPending}
@@ -350,23 +354,20 @@ function TierBracketCard({
                 >
                   {isPending ? 'Seeding…' : 'Seed Bracket →'}
                 </button>
-              ) : tier.bracket.status !== 'active' ? (
-                <button
-                  onClick={handlePublish}
-                  disabled={isPending}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60"
-                  style={{ backgroundColor: 'var(--brand-primary)' }}
-                >
-                  {isPending ? '…' : 'Publish'}
-                </button>
-              ) : (
-                <button
-                  onClick={handlePublish}
-                  disabled={isPending}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium border text-gray-600 hover:bg-gray-50 disabled:opacity-60"
-                >
-                  {isPending ? '…' : 'Republish'}
-                </button>
+              )}
+              <button
+                onClick={handlePublish}
+                disabled={isPending}
+                className={isPublished
+                  ? 'px-3 py-1.5 rounded-lg text-xs font-medium border text-gray-600 hover:bg-gray-50 disabled:opacity-60'
+                  : 'px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60'}
+                style={isPublished ? undefined : { backgroundColor: 'var(--brand-primary)' }}
+                title={isPublished ? undefined : 'Make the bracket visible on the public schedule'}
+              >
+                {isPending ? '…' : isPublished ? 'Republish' : 'Publish'}
+              </button>
+              {isScaffold && (
+                <span className="text-[11px] text-gray-400 self-center">Publish to show slots on the schedule</span>
               )}
               {hasBestLoserPending && (
                 <button
