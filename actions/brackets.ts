@@ -612,6 +612,41 @@ export async function publishBracket(bracketId: string, leagueId: string) {
   return { error: null }
 }
 
+// ── unpublishBracket ──────────────────────────────────────────────────────────
+
+/**
+ * Hide a published bracket from the public schedule and Bracket tab without
+ * deleting it. Clears published_at and reverts status to a draft state
+ * (scaffold if still unseeded, otherwise seeding). Seeding/matches are kept.
+ */
+export async function unpublishBracket(bracketId: string, leagueId: string) {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  // Revert to 'scaffold' when no match has a real team yet, else 'seeding'.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: seededMatch } = await (db as any).from('bracket_matches')
+    .select('id')
+    .eq('bracket_id', bracketId)
+    .eq('organization_id', org.id)
+    .or('team1_id.not.is.null,team2_id.not.is.null')
+    .limit(1)
+    .maybeSingle()
+  const revertStatus = seededMatch ? 'seeding' : 'scaffold'
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any).from('brackets')
+    .update({ status: revertStatus, published_at: null })
+    .eq('id', bracketId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${leagueId}/bracket`)
+  revalidatePath('/events/[slug]', 'page')
+  return { error: null }
+}
+
 // ── deleteBracket ─────────────────────────────────────────────────────────────
 
 export async function deleteBracket(bracketId: string, leagueId: string) {
