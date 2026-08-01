@@ -12,6 +12,7 @@ import { getEventSponsors } from '@/actions/event-sponsors'
 import { EventSponsorStrip } from '@/components/sponsors/event-sponsor-strip'
 import { CaptainScoreEntry } from '@/components/scores/captain-score-entry'
 import { GameKindBadge } from '@/components/schedule/game-kind-badge'
+import { ScheduleFilterBar } from '@/components/events/schedule-filter-bar'
 import { GameRsvpButton } from '@/components/schedule/game-rsvp-button'
 import { GameAttendancePanel } from '@/components/schedule/game-attendance-panel'
 import { EventRulesModal } from '@/components/events/event-rules-modal'
@@ -551,10 +552,10 @@ export default async function EventDetailPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ tab?: string; invite?: string; mode?: string; standingsView?: string; join?: string }>
+  searchParams: Promise<{ tab?: string; invite?: string; mode?: string; standingsView?: string; join?: string; scheduleView?: string; scheduleTeam?: string }>
 }) {
   const { slug } = await params
-  const { tab: rawTab, invite: inviteToken, mode: urlMode, standingsView, join: joinParam } = await searchParams
+  const { tab: rawTab, invite: inviteToken, mode: urlMode, standingsView, join: joinParam, scheduleView, scheduleTeam } = await searchParams
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
 
@@ -1429,8 +1430,27 @@ export default async function EventDetailPage({
   // ── Schedule grouping ─────────────────────────────────────────────────────
 
   const now = new Date()
+
+  // Team filter options (every team that appears in the schedule), sorted by name.
+  const scheduleTeamMap = new Map<string, string>()
+  for (const g of games) {
+    const home = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
+    const away = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
+    if (home?.id && home.name) scheduleTeamMap.set(home.id, home.name)
+    if (away?.id && away.name) scheduleTeamMap.set(away.id, away.name)
+  }
+  const scheduleTeamOptions = Array.from(scheduleTeamMap.entries())
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  // Apply the team filter (if any) before grouping.
+  const teamFilter = scheduleTeam && scheduleTeamMap.has(scheduleTeam) ? scheduleTeam : 'all'
+  const scheduleGames = teamFilter === 'all'
+    ? games
+    : games.filter((g) => g.home_team_id === teamFilter || g.away_team_id === teamFilter)
+
   const byDate = new Map<string, GameRow[]>()
-  for (const game of games) {
+  for (const game of scheduleGames) {
     const { date } = formatGameTime(game.scheduled_at, timezone)
     if (!byDate.has(date)) byDate.set(date, [])
     byDate.get(date)!.push(game)
@@ -1438,6 +1458,11 @@ export default async function EventDetailPage({
   const dateGroups = Array.from(byDate.entries())
   const upcomingGroups = dateGroups.filter(([, g]) => new Date(g[0].scheduled_at) >= now)
   const pastGroups = dateGroups.filter(([, g]) => new Date(g[0].scheduled_at) < now)
+  // Default to Upcoming, unless there are no upcoming games (season over) → Results.
+  const activeScheduleView: 'upcoming' | 'results' =
+    scheduleView === 'results' || (scheduleView !== 'upcoming' && upcomingGroups.length === 0 && pastGroups.length > 0)
+      ? 'results'
+      : 'upcoming'
   // Only surface the Regular Season / Pool badge when the event actually mixes
   // pool and non-pool games.
   const scheduleHasPools = games.some((g) => !!g.poolName)
@@ -2180,28 +2205,39 @@ export default async function EventDetailPage({
             {games.length === 0 ? (
               <p className="text-gray-400 text-center py-16">No games scheduled yet.</p>
             ) : (
-              <div className="space-y-10">
-                {upcomingGroups.length > 0 && (
-                  <section>
-                    <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-4">Upcoming</p>
+              <>
+                <ScheduleFilterBar
+                  view={activeScheduleView}
+                  teamFilter={teamFilter}
+                  teams={scheduleTeamOptions}
+                  myTeamIds={Array.from(myTeamIds)}
+                />
+                {activeScheduleView === 'upcoming' ? (
+                  upcomingGroups.length > 0 ? (
                     <div className="space-y-6">
                       {upcomingGroups.map(([date, dayGames]) => (
                         <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast={false} captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} myTeamIds={myTeamIds} myRsvps={myRsvps} captainAttendance={captainAttendance} showWeek={league.event_type !== 'tournament'} showKind={scheduleHasPools} />
                       ))}
                     </div>
-                  </section>
-                )}
-                {pastGroups.length > 0 && (
-                  <section>
-                    <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-4">Results</p>
+                  ) : (
+                    <p className="text-gray-400 text-center py-16">
+                      {teamFilter === 'all' ? 'No upcoming games.' : 'No upcoming games for this team.'}
+                    </p>
+                  )
+                ) : (
+                  pastGroups.length > 0 ? (
                     <div className="space-y-6">
                       {[...pastGroups].reverse().map(([date, dayGames]) => (
                         <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} myTeamIds={myTeamIds} myRsvps={myRsvps} captainAttendance={captainAttendance} showWeek={league.event_type !== 'tournament'} showKind={scheduleHasPools} />
                       ))}
                     </div>
-                  </section>
+                  ) : (
+                    <p className="text-gray-400 text-center py-16">
+                      {teamFilter === 'all' ? 'No results yet.' : 'No results yet for this team.'}
+                    </p>
+                  )
                 )}
-              </div>
+              </>
             )}
           </div>
         )}
