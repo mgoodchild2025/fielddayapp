@@ -115,6 +115,12 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
   const [isClearing, setIsClearing] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState<'all' | 'needs' | 'cancelled'>('all')
+  // Jump to a specific week (leagues) or date (tournaments); 'all' shows everything.
+  const [jumpFilter, setJumpFilter] = useState<string>('all')
+  // Date-group order — default newest first so recently-played games are on top.
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
+  // Hide date groups where every game already has a score.
+  const [hideCompleted, setHideCompleted] = useState(false)
   // Track status overrides applied optimistically within this session
   const [statusOverrides, setStatusOverrides] = useState<Map<string, { status: string; reason: string | null }>>(new Map())
 
@@ -188,15 +194,36 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
   })
 
   const allVisible = gamesWithOverrides.filter((g) => !deletedIds.has(g.id))
-  const visible = allVisible.filter((g) => {
-    if (filter === 'needs') return needsScore(g) && g.status === 'scheduled'
-    if (filter === 'cancelled') return g.status === 'cancelled' || g.status === 'postponed'
-    return true
-  })
+
+  // Jump options: weeks for leagues, dates for tournaments.
+  const weekOptions = showWeek
+    ? Array.from(new Set(allVisible.map((g) => g.weekNumber).filter((w): w is number => w != null))).sort((a, b) => a - b)
+    : []
+  const dateOptions = !showWeek
+    ? Array.from(new Map(allVisible.filter((g) => g.dateKey).map((g) => [g.dateKey, g.dateLabel] as const)).entries())
+    : []
+
+  const visible = allVisible
+    .filter((g) => {
+      if (filter === 'needs') return needsScore(g) && g.status === 'scheduled'
+      if (filter === 'cancelled') return g.status === 'cancelled' || g.status === 'postponed'
+      return true
+    })
+    .filter((g) => {
+      if (jumpFilter === 'all') return true
+      return showWeek ? String(g.weekNumber ?? '') === jumpFilter : g.dateKey === jumpFilter
+    })
   const needsCount = allVisible.filter((g) => needsScore(g) && g.status === 'scheduled').length
   const cancelledCount = allVisible.filter((g) => g.status === 'cancelled' || g.status === 'postponed').length
 
-  const groups = groupByDate(visible)
+  let groups = groupByDate(visible)
+  if (hideCompleted) {
+    // Keep only date groups that still have a game awaiting a score.
+    groups = groups.filter((grp) => grp.games.some((g) => needsScore(g) && g.status === 'scheduled'))
+  }
+  if (sortOrder === 'newest') {
+    groups = [...groups].reverse()
+  }
 
   // Selection state relative to currently visible games
   const visibleIds = visible.map(g => g.id)
@@ -295,6 +322,43 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
             </span>
           </button>
         )}
+        {/* Jump to a week (leagues) or date (tournaments) */}
+        {(weekOptions.length > 1 || dateOptions.length > 1) && (
+          <select
+            value={jumpFilter}
+            onChange={(e) => setJumpFilter(e.target.value)}
+            className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 focus:outline-none cursor-pointer"
+            title={showWeek ? 'Jump to week' : 'Jump to date'}
+          >
+            <option value="all">{showWeek ? 'All weeks' : 'All dates'}</option>
+            {showWeek
+              ? weekOptions.map((w) => <option key={w} value={String(w)}>Week {w}</option>)
+              : dateOptions.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+          </select>
+        )}
+
+        {/* Date-group order */}
+        <button
+          onClick={() => setSortOrder((o) => (o === 'newest' ? 'oldest' : 'newest'))}
+          className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+          title="Toggle date order"
+        >
+          {sortOrder === 'newest' ? 'Newest first' : 'Oldest first'}
+        </button>
+
+        {/* Hide fully-scored dates */}
+        {needsCount > 0 && (
+          <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={hideCompleted}
+              onChange={(e) => setHideCompleted(e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-gray-300"
+            />
+            Hide completed
+          </label>
+        )}
+
         {isAdmin && allVisible.length > 0 && (
           <a
             href={`${printBase}?type=full`}
@@ -455,7 +519,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
           </div>
         )) : (
           <div className="bg-white rounded-lg border px-4 py-12 text-center text-gray-400 text-sm">
-            {filter === 'needs' ? 'All games have scores — nice work! 🎉' : filter === 'cancelled' ? 'No cancelled or postponed games.' : 'No games scheduled yet.'}
+            {hideCompleted ? 'No games awaiting scores in this view. 🎉' : filter === 'needs' ? 'All games have scores — nice work! 🎉' : filter === 'cancelled' ? 'No cancelled or postponed games.' : jumpFilter !== 'all' ? 'No games in this selection.' : 'No games scheduled yet.'}
           </div>
         )}
       </div>
@@ -608,7 +672,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
           </div>
         ) : (
           <div className="px-4 py-12 text-center text-gray-400">
-            {filter === 'needs' ? 'All games have scores — nice work! 🎉' : filter === 'cancelled' ? 'No cancelled or postponed games.' : 'No games scheduled yet. Add a game or import from CSV.'}
+            {hideCompleted ? 'No games awaiting scores in this view. 🎉' : filter === 'needs' ? 'All games have scores — nice work! 🎉' : filter === 'cancelled' ? 'No cancelled or postponed games.' : jumpFilter !== 'all' ? 'No games in this selection.' : 'No games scheduled yet. Add a game or import from CSV.'}
           </div>
         )}
       </div>
