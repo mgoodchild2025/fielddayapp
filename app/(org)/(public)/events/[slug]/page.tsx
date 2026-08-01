@@ -1197,6 +1197,8 @@ export default async function EventDetailPage({
   let divisions: { id: string; name: string; sort_order: number }[] = []
   let pools: { id: string; name: string; sort_order: number }[] = []
   let poolStandingsTeams: TeamStat[] = []
+  // Cross-pool overall ranking (all games), matching the admin standings tab.
+  let overallStandingsTeams: TeamStat[] = []
   let standingsPtsMethod: PtsMethod = 'wins'
   let standingsVolleyballMode: VolleyballMode = 'match_based'
   let hasRegularSeasonGames = false
@@ -1227,6 +1229,8 @@ export default async function EventDetailPage({
 
     const record = new Map<string, TeamStatTotals>()
     const poolRecord = new Map<string, TeamStatTotals>()
+    // combinedRecord = all games (regular + pool) → drives the overall cross-pool table
+    const combinedRecord = new Map<string, TeamStatTotals>()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const leagueTeamIds = new Set<string>((teamsData ?? []).map((t: any) => t.id as string))
 
@@ -1236,11 +1240,13 @@ export default async function EventDetailPage({
       const { home_team_id: ht, away_team_id: at, pool_id: gamePool } = game
       if (!ht || !at || !leagueTeamIds.has(ht) || !leagueTeamIds.has(at)) continue
 
-      accumulateGameResult(gamePool ? poolRecord : record, {
+      const input = {
         homeTeamId: ht, awayTeamId: at,
         homeScore: r.home_score, awayScore: r.away_score,
         sets: r.sets, isForfeit: r.is_forfeit, forfeitTeamId: r.forfeit_team_id,
-      }, isVolleyballLeague)
+      }
+      accumulateGameResult(gamePool ? poolRecord : record, input, isVolleyballLeague)
+      accumulateGameResult(combinedRecord, input, isVolleyballLeague)
     }
 
     hasRegularSeasonGames = record.size > 0
@@ -1262,6 +1268,16 @@ export default async function EventDetailPage({
         division_id: t.division_id ?? null,
         pool_id: t.pool_id ?? null,
         ...(poolRecord.get(t.id) ?? emptyTeamStat()),
+      }))
+    overallStandingsTeams = (teamsData ?? [])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((t: any) => t.pool_id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((t: any) => ({
+        id: t.id, name: t.name,
+        division_id: t.division_id ?? null,
+        pool_id: t.pool_id ?? null,
+        ...(combinedRecord.get(t.id) ?? emptyTeamStat()),
       }))
     standingsPtsMethod = leaguePtsMethod
     standingsVolleyballMode = leagueVolleyballMode
@@ -2213,6 +2229,15 @@ export default async function EventDetailPage({
                     </div>
                   )
                 })}
+
+                {/* Overall standings across all pools — mirrors the admin standings tab */}
+                {overallStandingsTeams.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-gray-300 mb-1">Overall Standings</p>
+                    <p className="text-xs text-gray-500 mb-2">All teams ranked together across pool play.</p>
+                    <StandingsTable teams={overallStandingsTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
+                  </div>
+                )}
               </div>
             ) : (
               /* Regular season standings (or empty state) */
