@@ -13,6 +13,7 @@ import type { LeaderboardPlayer } from '@/components/stats/stats-leaderboard'
 import type { SeasonResult, H2HRecord } from '@/components/teams/team-stats-client'
 import { formatGameTime } from '@/lib/format-time'
 import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, type TeamStatTotals, type PtsMethod, type VolleyballMode } from '@/lib/standings'
+import { fetchLeaguePlayoffGames } from '@/lib/playoff-games'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -101,6 +102,9 @@ export default async function TeamStatsPage({
   // Pool names for the Regular Season / Pool badge on results
   const { data: poolRows } = await (db as any).from('pools').select('id, name').eq('league_id', leagueId).eq('organization_id', org.id)
   const poolNameById = new Map<string, string>(((poolRows ?? []) as any[]).map((p: any) => [p.id as string, p.name as string]))
+
+  // Published playoff bracket games involving this team
+  const playoffGames = await fetchLeaguePlayoffGames(db, org.id, leagueId)
 
   // ── Sport-specific scoring label ─────────────────────────────────────────
   function scoringLabel(s: string | null): string {
@@ -228,7 +232,58 @@ export default async function TeamStatsPage({
       outcome,
     })
   }
-  const resultsHavePools = seasonResults.some((r) => !!r.poolName)
+
+  // Append this team's playoff bracket games (team1 treated as home).
+  for (const pg of playoffGames) {
+    const isTeam1 = pg.team1Id === teamId
+    const isTeam2 = pg.team2Id === teamId
+    if (!isTeam1 && !isTeam2) continue
+    // Skip matches that are neither scheduled nor played yet.
+    if (!pg.scheduledAt && !(pg.score1 != null && pg.score2 != null)) continue
+
+    const isHome = isTeam1
+    const oppId = isHome ? pg.team2Id : pg.team1Id
+    const oppName = isHome ? pg.team2Name : pg.team1Name
+    let outcome: SeasonResult['outcome'] = 'upcoming'
+    if (pg.status === 'completed' && pg.score1 != null && pg.score2 != null) {
+      const my = isHome ? pg.score1 : pg.score2
+      const their = isHome ? pg.score2 : pg.score1
+      outcome = my > their ? 'W' : my < their ? 'L' : 'T'
+    }
+    let setScores: { mine: number; theirs: number }[] | null = null
+    if (isVolleyball && Array.isArray(pg.sets) && pg.sets.length > 0) {
+      setScores = pg.sets.map((s) => ({
+        mine: isHome ? s.home : s.away,
+        theirs: isHome ? s.away : s.home,
+      }))
+    }
+
+    seasonResults.push({
+      gameId: pg.matchId,
+      scheduledAt: pg.scheduledAt ?? '',
+      dateLabel: pg.scheduledAt ? formatGameTime(pg.scheduledAt, timezone).date : 'TBD',
+      opponentId: oppId ?? '',
+      opponentName: oppName,
+      opponentColor: null,
+      opponentLogoUrl: null,
+      homeScore: pg.score1,
+      awayScore: pg.score2,
+      setScores,
+      poolName: null,
+      isPlayoff: true,
+      isHome,
+      outcome,
+    })
+  }
+
+  // Keep everything in date order (unscheduled playoff games sort last).
+  seasonResults.sort((a, b) => {
+    const at = a.scheduledAt || '￿'
+    const bt = b.scheduledAt || '￿'
+    return at < bt ? -1 : at > bt ? 1 : 0
+  })
+
+  const resultsHavePools = seasonResults.some((r) => !!r.poolName || !!r.isPlayoff)
 
   // ── Build H2H ─────────────────────────────────────────────────────────────
   const h2hMap = new Map<string, H2HRecord>()
