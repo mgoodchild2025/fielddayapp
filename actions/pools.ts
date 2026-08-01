@@ -224,6 +224,23 @@ export async function generatePoolSchedule(input: {
   if (!teams || teams.length < 2)
     return { error: 'Need at least 2 teams in the pool', count: 0 }
 
+  // Continue week numbering after the regular season so pool play doesn't
+  // restart at week 1. Offset by the highest regular-season (non-pool) week —
+  // using non-pool games so every pool starts at the same week rather than
+  // stacking after each other.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: lastRegularGame } = await (db as any)
+    .from('games')
+    .select('week_number')
+    .eq('league_id', input.leagueId)
+    .eq('organization_id', org.id)
+    .is('pool_id', null)
+    .not('week_number', 'is', null)
+    .order('week_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const weekOffset: number = (lastRegularGame?.week_number as number | null) ?? 0
+
   const { generateRoundRobin, assignDates } = await import('@/lib/scheduler')
   let fixtures = generateRoundRobin(teams)
   if (input.maxRounds && input.maxRounds > 0) {
@@ -246,7 +263,7 @@ export async function generatePoolSchedule(input: {
     home_team_id: g.homeTeamId,
     away_team_id: g.awayTeamId,
     scheduled_at: g.scheduledAt,
-    week_number: g.weekNumber,
+    week_number: g.weekNumber + weekOffset,
     court: g.court,
   }))
 
