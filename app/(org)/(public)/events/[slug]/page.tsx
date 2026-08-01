@@ -2186,87 +2186,91 @@ export default async function EventDetailPage({
         )}
 
         {/* ──────────────── STANDINGS TAB ──────────────── */}
-        {activeTab === 'standings' && (
-          <div className="bg-gray-900 rounded-xl p-4 sm:p-6">
-            {/* Sub-tabs — only when BOTH regular season and pool play have recorded results */}
-            {hasRegularSeasonGames && hasPoolGames && (
-              <div className="flex gap-1 mb-5 border-b border-gray-700">
-                {(['regular', 'pool'] as const).map((view) => {
-                  const label = view === 'regular' ? 'Regular Season' : 'Pool Play'
-                  const href = `?tab=standings&standingsView=${view}`
-                  const active = (standingsView ?? 'regular') === view
-                  return (
-                    <a
-                      key={view}
-                      href={href}
-                      className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                        active
-                          ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]'
-                          : 'border-transparent text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      {label}
-                    </a>
-                  )
-                })}
-              </div>
-            )}
+        {activeTab === 'standings' && (() => {
+          // Regular Season, Pool Play and Overall are each their own sub-tab.
+          // Regular Season only appears when such games exist; Pool Play and
+          // Overall appear whenever pool games exist.
+          const views: { key: 'regular' | 'pool' | 'overall'; label: string }[] = []
+          if (hasRegularSeasonGames) views.push({ key: 'regular', label: 'Regular Season' })
+          if (hasPoolGames) views.push({ key: 'pool', label: 'Pool Play' })
+          if (hasPoolGames && overallStandingsTeams.length > 0) views.push({ key: 'overall', label: 'Overall' })
 
-            {/* Determine which view to render:
-                - If only pool games exist → always show pool standings
-                - If both exist → respect standingsView param (default 'regular')
-                - Otherwise → show regular season */}
-            {(hasPoolGames && !hasRegularSeasonGames) || (hasPoolGames && hasRegularSeasonGames && (standingsView ?? 'regular') === 'pool') ? (
-              /* Pool play standings */
-              <div className="space-y-8">
-                {pools.map((pool) => {
-                  const poolTeams = poolStandingsTeams.filter((t) => t.pool_id === pool.id)
-                  if (poolTeams.length === 0) return null
-                  return (
-                    <div key={pool.id}>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-gray-300 mb-2">{pool.name}</p>
-                      <StandingsTable teams={poolTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
-                    </div>
-                  )
-                })}
+          const activeView =
+            views.find((v) => v.key === standingsView)?.key ?? views[0]?.key ?? 'regular'
 
-                {/* Overall standings across all pools — mirrors the admin standings tab */}
-                {overallStandingsTeams.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-widest text-gray-300 mb-1">Overall Standings</p>
-                    <p className="text-xs text-gray-500 mb-2">All teams ranked together across pool play.</p>
-                    <StandingsTable teams={overallStandingsTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Regular season standings (or empty state) */
-              !hasRegularSeasonGames ? (
-                <p className="text-gray-400 text-center py-16">No games recorded yet.</p>
-              ) : divisions.length > 0 ? (
-                <div className="space-y-8">
-                  {divisions.map((div) => {
-                    const divTeams = standingsTeams.filter((t) => t.division_id === div.id)
+          return (
+            <div className="bg-gray-900 rounded-xl p-4 sm:p-6">
+              {/* Sub-tabs — shown whenever more than one view is available */}
+              {views.length > 1 && (
+                <div className="flex gap-1 mb-5 border-b border-gray-700">
+                  {views.map((v) => {
+                    const active = v.key === activeView
                     return (
-                      <div key={div.id}>
-                        <p className="text-xs font-semibold uppercase tracking-widest text-gray-300 mb-2">{div.name}</p>
-                        <StandingsTable teams={divTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
+                      <a
+                        key={v.key}
+                        href={`?tab=standings&standingsView=${v.key}`}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                          active
+                            ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]'
+                            : 'border-transparent text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        {v.label}
+                      </a>
+                    )
+                  })}
+                </div>
+              )}
+
+              {views.length === 0 ? (
+                <p className="text-gray-400 text-center py-16">No games recorded yet.</p>
+              ) : activeView === 'overall' ? (
+                /* Overall standings across all pools — mirrors the admin standings tab */
+                <div>
+                  <p className="text-xs text-gray-500 mb-3">All teams ranked together across pool play — used for playoff seeding.</p>
+                  <StandingsTable teams={overallStandingsTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
+                </div>
+              ) : activeView === 'pool' ? (
+                /* Pool play standings */
+                <div className="space-y-8">
+                  {pools.map((pool) => {
+                    const poolTeams = poolStandingsTeams.filter((t) => t.pool_id === pool.id)
+                    if (poolTeams.length === 0) return null
+                    return (
+                      <div key={pool.id}>
+                        <p className="text-xs font-semibold uppercase tracking-widest text-gray-300 mb-2">{pool.name}</p>
+                        <StandingsTable teams={poolTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
                       </div>
                     )
                   })}
-                  {standingsTeams.filter((t) => !t.division_id).length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Unassigned</p>
-                      <StandingsTable teams={standingsTeams.filter((t) => !t.division_id)} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
-                    </div>
-                  )}
                 </div>
               ) : (
-                <StandingsTable teams={standingsTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
-              )
-            )}
-          </div>
-        )}
+                /* Regular season standings */
+                divisions.length > 0 ? (
+                  <div className="space-y-8">
+                    {divisions.map((div) => {
+                      const divTeams = standingsTeams.filter((t) => t.division_id === div.id)
+                      return (
+                        <div key={div.id}>
+                          <p className="text-xs font-semibold uppercase tracking-widest text-gray-300 mb-2">{div.name}</p>
+                          <StandingsTable teams={divTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
+                        </div>
+                      )
+                    })}
+                    {standingsTeams.filter((t) => !t.division_id).length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Unassigned</p>
+                        <StandingsTable teams={standingsTeams.filter((t) => !t.division_id)} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <StandingsTable teams={standingsTeams} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
+                )
+              )}
+            </div>
+          )
+        })()}
 
         {/* ──────────────── BRACKET TAB ──────────────── */}
         {activeTab === 'bracket' && (
