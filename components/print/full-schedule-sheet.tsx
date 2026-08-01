@@ -6,6 +6,7 @@ interface Game {
   scheduledAt: string
   court: string | null
   weekNumber: number | null
+  poolName?: string | null
   homeTeamName: string
   awayTeamName: string
   /** When printing a team schedule, mark which side is "my team" */
@@ -47,6 +48,7 @@ export function FullScheduleSheet({ games, leagueName, orgName, timezone, sport,
   const dateGroups = groupByDate(games, timezone)
   const venueLbl = venueLabel(sport)
   const isTeamView = !!teamName
+  const hasPools = games.some((g) => g.poolName)
   const generatedDate = new Intl.DateTimeFormat('en-US', {
     month: 'short', day: 'numeric', year: 'numeric', timeZone: timezone,
   }).format(new Date())
@@ -93,6 +95,7 @@ export function FullScheduleSheet({ games, leagueName, orgName, timezone, sport,
               <tr className="border-b-2 border-gray-800 text-xs text-gray-600">
                 <th className="text-left py-1 pr-3 font-semibold w-16">Time</th>
                 <th className="text-left py-1 pr-3 font-semibold w-14">{venueLbl}</th>
+                {!isTeamView && hasPools && <th className="text-left py-1 pr-3 font-semibold w-16">Pool</th>}
                 {!isTeamView && <th className="text-center py-1 px-2 font-semibold w-6">Wk</th>}
                 {isTeamView
                   ? <th className="text-left py-1 font-semibold">Opponent</th>
@@ -133,6 +136,7 @@ export function FullScheduleSheet({ games, leagueName, orgName, timezone, sport,
                   <tr key={game.id} className="border-b border-gray-200">
                     <td className="py-2 pr-3 font-medium tabular-nums">{time}</td>
                     <td className="py-2 pr-3 text-gray-500">{game.court ?? '—'}</td>
+                    {hasPools && <td className="py-2 pr-3 text-gray-500 text-xs">{game.poolName ?? '—'}</td>}
                     <td className="py-2 px-2 text-center text-gray-500 text-xs">{game.weekNumber ?? '—'}</td>
                     <td className={`py-2 pr-3 ${homeStyle}`}>{game.homeTeamName}</td>
                     <td className="py-2 px-3">
