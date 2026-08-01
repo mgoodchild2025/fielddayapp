@@ -41,6 +41,28 @@ export async function createPool(leagueId: string, name: string) {
   return { error: null }
 }
 
+export async function renamePool(poolId: string, leagueId: string, name: string) {
+  if (!name.trim()) return { error: 'Name required' }
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  await requireOrgMember(org, ['org_admin', 'league_admin'])
+
+  const db = createServiceRoleClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
+    .from('pools')
+    .update({ name: name.trim() })
+    .eq('id', poolId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${leagueId}/pools`)
+  return { error: null }
+}
+
 export async function deletePool(poolId: string, leagueId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)

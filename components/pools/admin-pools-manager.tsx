@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useMemo } from 'react'
-import { createPool, deletePool, setTeamPool, generatePoolSchedule, seedPoolsFromStandings, reorderTeamInPool } from '@/actions/pools'
+import { createPool, deletePool, renamePool, setTeamPool, generatePoolSchedule, seedPoolsFromStandings, reorderTeamInPool } from '@/actions/pools'
 
 interface Pool {
   id: string
@@ -305,7 +305,24 @@ export function AdminPoolsManager({ leagueId, initialPools, initialTeams, standi
   const [teams, setTeams] = useState(initialTeams)
   const [newName, setNewName] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
+  const [editingPoolId, setEditingPoolId] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState('')
   const [isPending, startTransition] = useTransition()
+
+  function handleRename(poolId: string) {
+    const name = editingName.trim()
+    if (!name) return
+    setEditingPoolId(null)
+    // Optimistic update; revert on error
+    const prevName = pools.find((p) => p.id === poolId)?.name
+    setPools((prev) => prev.map((p) => (p.id === poolId ? { ...p, name } : p)))
+    startTransition(async () => {
+      const result = await renamePool(poolId, leagueId, name)
+      if (result.error && prevName !== undefined) {
+        setPools((prev) => prev.map((p) => (p.id === poolId ? { ...p, name: prevName } : p)))
+      }
+    })
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -415,7 +432,41 @@ export function AdminPoolsManager({ leagueId, initialPools, initialTeams, standi
         return (
           <div key={pool.id} className="bg-white border rounded-lg overflow-hidden">
             <div className="flex items-center justify-between px-5 py-3 border-b bg-gray-50">
-              <p className="font-semibold text-sm">{pool.name}</p>
+              {editingPoolId === pool.id ? (
+                <form
+                  onSubmit={(e) => { e.preventDefault(); handleRename(pool.id) }}
+                  className="flex items-center gap-2 flex-1 mr-3"
+                >
+                  <input
+                    autoFocus
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Escape') setEditingPoolId(null) }}
+                    className="flex-1 border rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                  />
+                  <button type="submit" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingPoolId(null)}
+                    className="text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    Cancel
+                  </button>
+                </form>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-sm">{pool.name}</p>
+                  <button
+                    onClick={() => { setEditingPoolId(pool.id); setEditingName(pool.name) }}
+                    disabled={isPending}
+                    className="text-xs text-gray-400 hover:text-gray-700 hover:underline disabled:opacity-40"
+                  >
+                    Rename
+                  </button>
+                </div>
+              )}
               <button
                 onClick={() => handleDelete(pool.id)}
                 disabled={isPending}
