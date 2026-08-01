@@ -22,7 +22,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
   const canDoubleElimination = await canAccess(org.id, 'double_elimination')
 
   // ── Load context ────────────────────────────────────────────────────────────
-  const [{ data: league }, { data: divisions }, { data: poolsData }, { data: teams }, { data: results }, { count: unsettledCount }] = await Promise.all([
+  const [{ data: league }, { data: divisions }, { data: poolsData }, { data: teams }, { data: results }, { count: unsettledCount }, { data: branding }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues').select('id, name, event_type, status, sport').eq('id', leagueId).eq('organization_id', org.id).single(),
     db.from('divisions').select('id, name').eq('league_id', leagueId).eq('organization_id', org.id),
@@ -42,7 +42,11 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
       .eq('league_id', leagueId)
       .eq('organization_id', org.id)
       .eq('status', 'scheduled'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (db as any).from('org_branding').select('timezone').eq('organization_id', org.id).single(),
   ])
+
+  const timezone: string = (branding as { timezone?: string | null } | null)?.timezone ?? 'America/Toronto'
 
   // ── Build standings ─────────────────────────────────────────────────────────
   const record: Record<string, TeamStanding> = {}
@@ -251,6 +255,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
       <PlayoffConfigWizard
         leagueId={leagueId}
         sport={league?.sport ?? undefined}
+        timezone={timezone}
         isOrgAdmin={scope.isOrgAdmin}
         seededTeams={seededTeams}
         allTeams={allTeams}
