@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { TeamAvatar } from '@/components/ui/team-avatar'
+import { GameKindBadge } from '@/components/schedule/game-kind-badge'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,8 @@ export type SeasonResult = {
   awayScore: number | null
   /** Per-set scores from this team's perspective (volleyball only). */
   setScores: { mine: number; theirs: number }[] | null
+  /** Pool name when this was a pool match; null for regular-season games. */
+  poolName?: string | null
   isHome: boolean
   outcome: 'W' | 'L' | 'T' | 'upcoming'
 }
@@ -75,7 +78,7 @@ function SetScores({ sets }: { sets: { mine: number; theirs: number }[] }) {
 
 // ── Season results list ─────────────────────────────────────────────────────
 
-function ResultRow({ result }: { result: SeasonResult }) {
+function ResultRow({ result, showKind }: { result: SeasonResult; showKind?: boolean }) {
   const myScore = result.isHome ? result.homeScore : result.awayScore
   const theirScore = result.isHome ? result.awayScore : result.homeScore
   const hasSets = !!result.setScores && result.setScores.length > 0
@@ -105,9 +108,15 @@ function ResultRow({ result }: { result: SeasonResult }) {
           ) : (
             <span className="block text-sm font-medium text-gray-700 truncate">{result.opponentName}</span>
           )}
-          {hasSets && (
-            <span className="block sm:hidden mt-0.5">
-              <SetScores sets={result.setScores!} />
+          {(showKind || (hasSets)) && (
+            <span className="flex items-center gap-1.5 mt-0.5 sm:hidden">
+              {showKind && <GameKindBadge poolName={result.poolName} />}
+              {hasSets && <SetScores sets={result.setScores!} />}
+            </span>
+          )}
+          {showKind && (
+            <span className="hidden sm:block mt-0.5">
+              <GameKindBadge poolName={result.poolName} />
             </span>
           )}
         </div>
@@ -136,9 +145,11 @@ function ResultRow({ result }: { result: SeasonResult }) {
 function ResultsList({
   pastResults,
   upcomingResults,
+  showKind,
 }: {
   pastResults: SeasonResult[]
   upcomingResults: SeasonResult[]
+  showKind?: boolean
 }) {
   if (pastResults.length === 0 && upcomingResults.length === 0) {
     return (
@@ -149,15 +160,15 @@ function ResultsList({
   }
   return (
     <div className="bg-white rounded-xl border overflow-hidden divide-y">
-      {pastResults.map(r => <ResultRow key={r.gameId} result={r} />)}
-      {upcomingResults.map(r => <ResultRow key={r.gameId} result={r} />)}
+      {pastResults.map(r => <ResultRow key={r.gameId} result={r} showKind={showKind} />)}
+      {upcomingResults.map(r => <ResultRow key={r.gameId} result={r} showKind={showKind} />)}
     </div>
   )
 }
 
 // ── H2H accordion ─────────────────────────────────────────────────────────────
 
-function H2HRow({ record }: { record: H2HRecord }) {
+function H2HRow({ record, showKind }: { record: H2HRecord; showKind?: boolean }) {
   const [open, setOpen] = useState(false)
   const { opponentId, opponentName, opponentColor, opponentLogoUrl, wins, draws, losses, goalsFor, goalsAgainst, games } = record
   const gd = goalsFor - goalsAgainst
@@ -215,6 +226,7 @@ function H2HRow({ record }: { record: H2HRecord }) {
                 <span className="text-xs text-gray-500 flex-1 tabular-nums">
                   {g.outcome === 'upcoming' ? 'Upcoming' : `${myScore ?? '?'}–${theirScore ?? '?'}`}
                 </span>
+                {showKind && <GameKindBadge poolName={g.poolName} />}
                 {hasSets && <SetScores sets={g.setScores!} />}
                 <OutcomeBadge outcome={g.outcome} />
               </Link>
@@ -226,7 +238,7 @@ function H2HRow({ record }: { record: H2HRecord }) {
   )
 }
 
-function H2HList({ h2h }: { h2h: H2HRecord[] }) {
+function H2HList({ h2h, showKind }: { h2h: H2HRecord[]; showKind?: boolean }) {
   if (h2h.length === 0) {
     return (
       <p className="text-sm text-gray-400 text-center py-8 bg-white rounded-xl border">
@@ -237,7 +249,7 @@ function H2HList({ h2h }: { h2h: H2HRecord[] }) {
   return (
     <div className="space-y-2">
       {h2h.map(record => (
-        <H2HRow key={record.opponentId} record={record} />
+        <H2HRow key={record.opponentId} record={record} showKind={showKind} />
       ))}
     </div>
   )
@@ -249,11 +261,13 @@ interface TabsProps {
   pastResults: SeasonResult[]
   upcomingResults: SeasonResult[]
   h2h: H2HRecord[]
+  /** Show a Regular Season / Pool badge on each game (team played pool games). */
+  showKind?: boolean
   /** Player-stats leaderboard, rendered on its own tab when provided. */
   playersSlot?: React.ReactNode
 }
 
-export function TeamStatsTabs({ pastResults, upcomingResults, h2h, playersSlot }: TabsProps) {
+export function TeamStatsTabs({ pastResults, upcomingResults, h2h, showKind, playersSlot }: TabsProps) {
   const tabs: { key: 'results' | 'h2h' | 'players'; label: string }[] = [
     { key: 'results', label: 'Results' },
     { key: 'h2h', label: 'Head to Head' },
@@ -283,8 +297,8 @@ export function TeamStatsTabs({ pastResults, upcomingResults, h2h, playersSlot }
         })}
       </div>
 
-      {tab === 'results' && <ResultsList pastResults={pastResults} upcomingResults={upcomingResults} />}
-      {tab === 'h2h' && <H2HList h2h={h2h} />}
+      {tab === 'results' && <ResultsList pastResults={pastResults} upcomingResults={upcomingResults} showKind={showKind} />}
+      {tab === 'h2h' && <H2HList h2h={h2h} showKind={showKind} />}
       {tab === 'players' && playersSlot}
     </div>
   )

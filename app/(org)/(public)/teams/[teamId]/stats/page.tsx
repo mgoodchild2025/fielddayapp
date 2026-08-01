@@ -55,6 +55,7 @@ export default async function TeamStatsPage({
     // Games involving this team
     (db as any).from('games').select(`
       id, scheduled_at, court, week_number, status, home_team_id, away_team_id,
+      pool_id,
       home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
       away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
       game_results(home_score, away_score, status, sets)
@@ -96,6 +97,10 @@ export default async function TeamStatsPage({
   const teamGames = (teamGamesResult.data ?? []) as any[]
   const allLeagueGames = (allLeagueGamesResult.data ?? []) as any[]
   const allTeamIds = ((allLeagueTeamsResult.data ?? []) as { id: string }[]).map(t => t.id)
+
+  // Pool names for the Regular Season / Pool badge on results
+  const { data: poolRows } = await (db as any).from('pools').select('id, name').eq('league_id', leagueId).eq('organization_id', org.id)
+  const poolNameById = new Map<string, string>(((poolRows ?? []) as any[]).map((p: any) => [p.id as string, p.name as string]))
 
   // ── Sport-specific scoring label ─────────────────────────────────────────
   function scoringLabel(s: string | null): string {
@@ -218,10 +223,12 @@ export default async function TeamStatsPage({
       homeScore: result?.home_score ?? null,
       awayScore: result?.away_score ?? null,
       setScores,
+      poolName: g.pool_id ? (poolNameById.get(g.pool_id) ?? null) : null,
       isHome,
       outcome,
     })
   }
+  const resultsHavePools = seasonResults.some((r) => !!r.poolName)
 
   // ── Build H2H ─────────────────────────────────────────────────────────────
   const h2hMap = new Map<string, H2HRecord>()
@@ -374,6 +381,7 @@ export default async function TeamStatsPage({
           pastResults={pastResults}
           upcomingResults={upcomingResults}
           h2h={h2hList}
+          showKind={resultsHavePools}
           playersSlot={
             statDefs.length > 0
               ? <StatsLeaderboard statDefs={statDefs} players={leaderboardPlayers} />
