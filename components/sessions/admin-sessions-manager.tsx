@@ -3,6 +3,10 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSession, updateSession, cancelSession, reopenSession, deleteSession } from '@/actions/sessions'
+import { moveRegistrationToSession } from '@/actions/registrations'
+import { AdminAddRegistrant } from '@/components/registration/admin-add-registrant'
+
+interface SessionOption { id: string; label: string }
 
 interface RosterEntry {
   name: string
@@ -10,6 +14,8 @@ interface RosterEntry {
   payment: 'paid' | 'owed' | 'free'
   /** A full-pass holder who attends every session (vs a single-session drop-in). */
   allSessions: boolean
+  /** Drop-in registration id — present (and movable) for per-session registrations. */
+  registrationId?: string
 }
 
 interface Session {
@@ -37,6 +43,8 @@ interface Props {
   seasonRegistrantCount?: number
   /** League-level max_participants — used as capacity fallback when session has no capacity set */
   eventCapacity?: number | null
+  /** All sessions (id + label) — used for the move-to-session picker and add-player. */
+  sessionOptions?: SessionOption[]
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -86,33 +94,105 @@ function PaymentBadge({ payment }: { payment: RosterEntry['payment'] }) {
   return null
 }
 
-function RosterPanel({ roster }: { roster: RosterEntry[] }) {
-  if (roster.length === 0) {
-    return (
-      <div className="bg-gray-50 border border-t-0 rounded-b-lg px-4 py-3 text-xs text-gray-400">
-        No one has registered for this session yet.
-      </div>
-    )
-  }
+/** Per-registrant "Move to another session" control. */
+function MoveControl({
+  registrationId,
+  leagueId,
+  currentSessionId,
+  sessionOptions,
+}: {
+  registrationId: string
+  leagueId: string
+  currentSessionId: string
+  sessionOptions: SessionOption[]
+}) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const targets = sessionOptions.filter((s) => s.id !== currentSessionId)
+  if (targets.length === 0) return null
+
+  return (
+    <span className="flex items-center gap-1">
+      <select
+        defaultValue=""
+        disabled={pending}
+        onChange={(e) => {
+          const sessionId = e.target.value
+          if (!sessionId) return
+          setError(null)
+          startTransition(async () => {
+            const res = await moveRegistrationToSession({ registrationId, leagueId, sessionId })
+            if (res.error) { setError(res.error); return }
+            router.refresh()
+          })
+        }}
+        className="border rounded-md px-1.5 py-0.5 text-[11px] bg-white text-gray-600 focus:outline-none disabled:opacity-50"
+        title="Move to another session"
+      >
+        <option value="">{pending ? 'Moving…' : 'Move to…'}</option>
+        {targets.map((s) => (
+          <option key={s.id} value={s.id}>{s.label}</option>
+        ))}
+      </select>
+      {error && <span className="text-[10px] text-red-600">{error}</span>}
+    </span>
+  )
+}
+
+function RosterPanel({
+  roster,
+  sessionId,
+  leagueId,
+  sessionOptions = [],
+}: {
+  roster: RosterEntry[]
+  sessionId: string
+  leagueId: string
+  sessionOptions?: SessionOption[]
+}) {
   return (
     <div className="bg-gray-50 border border-t-0 rounded-b-lg px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
-        Registered ({roster.length})
-      </p>
-      <ul className="divide-y divide-gray-200">
-        {roster.map((r, i) => (
-          <li key={i} className="flex items-center gap-2 py-1.5 text-sm">
-            <span className="text-gray-800">{r.name}</span>
-            {r.isGuest && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600">Guest</span>
-            )}
-            {r.allSessions && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">All sessions</span>
-            )}
-            <span className="ml-auto"><PaymentBadge payment={r.payment} /></span>
-          </li>
-        ))}
-      </ul>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+          Registered ({roster.length})
+        </p>
+        <AdminAddRegistrant
+          leagueId={leagueId}
+          sessions={sessionOptions}
+          defaultSessionId={sessionId}
+          triggerLabel="Add player"
+          triggerClassName="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--brand-primary)] hover:underline"
+        />
+      </div>
+      {roster.length === 0 ? (
+        <p className="text-xs text-gray-400">No one has registered for this session yet.</p>
+      ) : (
+        <ul className="divide-y divide-gray-200">
+          {roster.map((r, i) => (
+            <li key={r.registrationId ?? i} className="flex items-center gap-2 py-1.5 text-sm">
+              <span className="text-gray-800">{r.name}</span>
+              {r.isGuest && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600">Guest</span>
+              )}
+              {r.allSessions && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">All sessions</span>
+              )}
+              <span className="ml-auto flex items-center gap-2">
+                <PaymentBadge payment={r.payment} />
+                {r.registrationId && (
+                  <MoveControl
+                    registrationId={r.registrationId}
+                    leagueId={leagueId}
+                    currentSessionId={sessionId}
+                    sessionOptions={sessionOptions}
+                  />
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
@@ -347,7 +427,7 @@ function EditForm({ session, leagueId, timezone, onDone }: { session: Session; l
 
 // ── Main manager ──────────────────────────────────────────────────────────────
 
-export function AdminSessionsManager({ leagueId, initialSessions, timezone, registrationMode, seasonRegistrantCount = 0, eventCapacity = null }: Props) {
+export function AdminSessionsManager({ leagueId, initialSessions, timezone, registrationMode, seasonRegistrantCount = 0, eventCapacity = null, sessionOptions = [] }: Props) {
   const router = useRouter()
   const [showCreate, setShowCreate] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -403,26 +483,22 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
                     // Full-pass holders (seasonRegistrantCount) attend every session;
                     // session-mode events add their per-session sign-ups on top.
                     const count = seasonRegistrantCount + (registrationMode === 'season' ? 0 : s.registered_count) + (s.dropin_count ?? 0)
-                    const hasRoster = (s.roster?.length ?? 0) > 0
                     const isOpen = expandedId === s.id
                     return (
                       <button
                         type="button"
                         onClick={() => setExpandedId(isOpen ? null : s.id)}
-                        disabled={!hasRoster}
-                        className={`flex items-center gap-1.5 ${hasRoster ? 'hover:opacity-70 cursor-pointer' : 'cursor-default'}`}
+                        className="flex items-center gap-1.5 hover:opacity-70 cursor-pointer"
                         aria-expanded={isOpen}
-                        title={hasRoster ? 'View who registered' : undefined}
+                        title="View roster / add players"
                       >
                         <SpotsLabel
                           count={count}
                           capacity={s.capacity ?? (registrationMode === 'season' ? eventCapacity : null)}
                         />
-                        {hasRoster && (
-                          <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        )}
+                        <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
                       </button>
                     )
                   })()}
@@ -498,7 +574,14 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
                     )}
                   </div>
                 </div>
-                {expandedId === s.id && <RosterPanel roster={s.roster ?? []} />}
+                {expandedId === s.id && (
+                  <RosterPanel
+                    roster={s.roster ?? []}
+                    sessionId={s.id}
+                    leagueId={leagueId}
+                    sessionOptions={sessionOptions}
+                  />
+                )}
                 </>
               )}
             </div>

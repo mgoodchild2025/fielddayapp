@@ -9,7 +9,20 @@ type Method = 'cash' | 'etransfer' | 'cheque' | 'card' | 'other'
 
 interface SessionOption { id: string; label: string }
 
-export function AdminAddRegistrant({ leagueId, sessions = [] }: { leagueId: string; sessions?: SessionOption[] }) {
+export function AdminAddRegistrant({
+  leagueId,
+  sessions = [],
+  defaultSessionId,
+  triggerLabel = 'Add registrant',
+  triggerClassName,
+}: {
+  leagueId: string
+  sessions?: SessionOption[]
+  /** Preselect a session (e.g. adding to a specific session). */
+  defaultSessionId?: string
+  triggerLabel?: string
+  triggerClassName?: string
+}) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
@@ -22,13 +35,13 @@ export function AdminAddRegistrant({ leagueId, sessions = [] }: { leagueId: stri
   const [method, setMethod] = useState<Method>('cash')
   const [notes, setNotes] = useState('')
   // '' = all sessions (full pass); otherwise a specific session id.
-  const [sessionId, setSessionId] = useState('')
+  const [sessionId, setSessionId] = useState(defaultSessionId ?? '')
 
   const hasSessions = sessions.length > 0
 
   function close() {
     setOpen(false)
-    setFullName(''); setEmail(''); setPhone(''); setAmount(''); setMethod('cash'); setNotes(''); setSessionId('')
+    setFullName(''); setEmail(''); setPhone(''); setAmount(''); setMethod('cash'); setNotes(''); setSessionId(defaultSessionId ?? '')
     setError(null)
   }
 
@@ -59,10 +72,10 @@ export function AdminAddRegistrant({ leagueId, sessions = [] }: { leagueId: stri
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-white"
-        style={{ backgroundColor: 'var(--brand-primary)' }}
+        className={triggerClassName ?? 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-white'}
+        style={triggerClassName ? undefined : { backgroundColor: 'var(--brand-primary)' }}
       >
-        <Plus className="w-4 h-4" /> Add registrant
+        <Plus className="w-4 h-4" /> {triggerLabel}
       </button>
     )
   }

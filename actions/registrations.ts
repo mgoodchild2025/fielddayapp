@@ -217,6 +217,89 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
   return { data: { registrationId: data.id }, error: null }
 }
 
+const moveRegistrationSchema = z.object({
+  registrationId: z.string().uuid(),
+  leagueId: z.string().uuid(),
+  sessionId: z.string().uuid(),
+})
+
+/**
+ * Move a drop-in registration to a different session (e.g. the player picked
+ * the wrong one). Admin-only. Checks the target session belongs to the league,
+ * isn't full, and the player isn't already registered for it.
+ */
+export async function moveRegistrationToSession(input: z.infer<typeof moveRegistrationSchema>) {
+  const parsed = moveRegistrationSchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid input' }
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const db = createServiceRoleClient()
+  const { data: caller } = await db
+    .from('org_members').select('role')
+    .eq('organization_id', org.id).eq('user_id', user.id).single()
+  if (!caller || !['org_admin', 'league_admin'].includes(caller.role)) return { error: 'Unauthorized' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: reg } = await (db as any)
+    .from('registrations')
+    .select('id, user_id, session_id')
+    .eq('id', parsed.data.registrationId)
+    .eq('organization_id', org.id)
+    .eq('league_id', parsed.data.leagueId)
+    .maybeSingle()
+  if (!reg) return { error: 'Registration not found' }
+  if (reg.session_id === parsed.data.sessionId) return { error: null } // already there
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: session } = await (db as any)
+    .from('event_sessions')
+    .select('id, capacity')
+    .eq('id', parsed.data.sessionId)
+    .eq('league_id', parsed.data.leagueId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (!session) return { error: 'Session not found' }
+
+  // Don't move into a session the player is already in.
+  if (reg.user_id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existing } = await (db as any)
+      .from('registrations').select('id')
+      .eq('league_id', parsed.data.leagueId)
+      .eq('user_id', reg.user_id)
+      .eq('session_id', parsed.data.sessionId)
+      .eq('status', 'active')
+      .neq('id', reg.id)
+      .maybeSingle()
+    if (existing) return { error: 'This player is already registered for that session.' }
+  }
+
+  // Capacity check on the target session.
+  if (session.capacity != null) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { count } = await (db as any)
+      .from('registrations').select('id', { count: 'exact', head: true })
+      .eq('session_id', parsed.data.sessionId).eq('status', 'active')
+    if ((count ?? 0) >= session.capacity) return { error: 'That session is full.' }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any)
+    .from('registrations')
+    .update({ session_id: parsed.data.sessionId })
+    .eq('id', reg.id)
+    .eq('organization_id', org.id)
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${parsed.data.leagueId}/sessions`)
+  return { error: null }
+}
+
 export async function removeRegistration(registrationId: string, leagueId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)

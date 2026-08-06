@@ -52,7 +52,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
 
   // A per-session registrant entry. `allSessions` marks a full-pass holder who
   // attends every session, rather than a per-session drop-in.
-  type RosterEntry = { name: string; isGuest: boolean; payment: 'paid' | 'owed' | 'free'; allSessions: boolean }
+  type RosterEntry = { name: string; isGuest: boolean; payment: 'paid' | 'owed' | 'free'; allSessions: boolean; registrationId?: string }
 
   // Resolve a paid / owed / free status for a set of registration ids in one query.
   async function resolvePayments(regIds: string[]): Promise<Map<string, 'paid' | 'owed'>> {
@@ -157,6 +157,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
           isGuest: !r.user_id,
           payment: paymentByReg.get(r.id) ?? 'free',
           allSessions: false,
+          registrationId: r.id,
         })
       }
 
@@ -276,6 +277,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
         registrationMode={registrationMode}
         seasonRegistrantCount={seasonRegistrantCount}
         eventCapacity={eventCapacity}
+        sessionOptions={sessionOptions}
       />
     </div>
   )
