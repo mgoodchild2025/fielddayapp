@@ -302,9 +302,10 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   let seededTeams: TeamStanding[] = []
 
   if (bracket.seeding_method === 'standings') {
-    // 'regular_only' matches the public Overall Standings tab: only games where pool_id IS NULL.
-    // Pool-play games are excluded so seeding order matches what admins see in standings.
-    const { standings, ptsMethod, volleyballMode } = await computeStandings(db, leagueId, org.id, 'regular_only')
+    // 'all' = overall standings (regular season + pool play combined), matching
+    // the public "Overall Standings" tab. For events with no pool games this is
+    // simply the regular-season order; when both exist, pool results are folded in.
+    const { standings, ptsMethod, volleyballMode } = await computeStandings(db, leagueId, org.id, 'all')
 
     // Sort the full standings once so all tier slicing operates on the correct order.
     // seedFromStandings sorts internally, but slicing an unsorted array first would
