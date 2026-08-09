@@ -9,7 +9,12 @@ import { SendWaiverRemindersButton } from '@/components/registrations/send-waive
 import { CopyWaiverLink } from '@/components/waivers/copy-waiver-link'
 import { AdminAddRegistrant } from '@/components/registration/admin-add-registrant'
 import { AdminInstallmentRow } from '@/components/payments/admin-installment-row'
+import { EditPaymentForm } from '@/components/payments/edit-payment-form'
 import type { InstallmentRow } from '@/components/payments/installment-schedule'
+
+type PaymentEditStatus = 'paid' | 'pending' | 'refunded'
+type PaymentEditMethod = 'cash' | 'etransfer' | 'cheque' | 'stripe' | 'card' | 'other'
+const EDIT_METHODS = new Set(['cash', 'etransfer', 'cheque', 'stripe', 'card', 'other'])
 
 const regStatusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -322,19 +327,38 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                             : 'Team unpaid'}
                         </span>
                       )
-                    })() : payment ? (
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                          paymentStatusColors[payment.status] ?? 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {payment.status === 'paid' || payment.status === 'manual'
-                          ? `$${(payment.amount_cents / 100).toFixed(0)} ${payment.currency.toUpperCase()} · ${payment.payment_method}`
-                          : payment.status}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-400">free</span>
-                    )}
+                    })() : (() => {
+                      const badge = payment ? (
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                            paymentStatusColors[payment.status] ?? 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {payment.status === 'paid' || payment.status === 'manual'
+                            ? `$${(payment.amount_cents / 100).toFixed(0)} ${payment.currency.toUpperCase()} · ${payment.payment_method}`
+                            : payment.status}
+                        </span>
+                      ) : (
+                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-dashed border-gray-300">free</span>
+                      )
+                      if (!isOrgAdmin) return badge
+                      const defaultStatus: PaymentEditStatus =
+                        payment?.status === 'paid' || payment?.status === 'manual' ? 'paid'
+                          : payment?.status === 'refunded' ? 'refunded' : 'pending'
+                      const defaultMethod: PaymentEditMethod =
+                        payment?.payment_method && EDIT_METHODS.has(payment.payment_method)
+                          ? (payment.payment_method as PaymentEditMethod) : 'etransfer'
+                      return (
+                        <EditPaymentForm
+                          registrationId={reg.id}
+                          hasPayment={!!payment}
+                          defaultAmountCents={payment?.amount_cents ?? leagueAny?.price_cents ?? 0}
+                          defaultStatus={defaultStatus}
+                          defaultMethod={defaultMethod}
+                          trigger={badge}
+                        />
+                      )
+                    })()}
                   </td>
                   <td className="px-4 py-3">
                     {reg.waiver_signature_id ? (

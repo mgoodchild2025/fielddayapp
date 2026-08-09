@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { adminUpdateRegistrationPayment } from '@/actions/payments'
 
 type Status = 'paid' | 'pending' | 'refunded'
@@ -14,11 +15,14 @@ interface Props {
   defaultStatus?: Status
   defaultMethod?: Method
   defaultNotes?: string | null
+  /** Custom closed-state trigger (e.g. the payment badge). Defaults to a button. */
+  trigger?: React.ReactNode
 }
 
 export function EditPaymentForm({
-  registrationId, hasPayment, defaultAmountCents, defaultStatus = 'paid', defaultMethod = 'etransfer', defaultNotes,
+  registrationId, hasPayment, defaultAmountCents, defaultStatus = 'paid', defaultMethod = 'etransfer', defaultNotes, trigger,
 }: Props) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [status, setStatus] = useState<Status>(defaultStatus)
   const [method, setMethod] = useState<Method>(defaultMethod)
@@ -37,11 +41,18 @@ export function EditPaymentForm({
         registrationId, amountCents: cents, status, method, notes: notes || undefined,
       })
       if (res.error) setError(res.error)
-      else setOpen(false)
+      else { setOpen(false); router.refresh() }
     })
   }
 
   if (!open) {
+    if (trigger) {
+      return (
+        <button type="button" onClick={() => setOpen(true)} className="text-left" title="Edit payment">
+          {trigger}
+        </button>
+      )
+    }
     return (
       <button
         onClick={() => setOpen(true)}
