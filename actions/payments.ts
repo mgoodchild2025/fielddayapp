@@ -645,5 +645,6 @@ export async function adminUpdateRegistrationPayment(input: z.infer<typeof admin
   })
 
   revalidatePath('/admin/payments')
+  if (reg.league_id) revalidatePath(`/admin/events/${reg.league_id}/registrations`)
   return { error: null }
 }
