@@ -80,14 +80,42 @@ function defaultPayMethod(m?: string | null): (typeof VALID_METHODS)[number] {
   return (VALID_METHODS as readonly string[]).includes(m ?? '') ? (m as (typeof VALID_METHODS)[number]) : 'etransfer'
 }
 
+/** Per-player events edit via the clickable status badge, so the Actions
+ *  column is only used by the per-team Mark-as-Paid flow. */
 function hasPaymentAction(r: Row, isOrgAdmin: boolean) {
   if (!isOrgAdmin || !r.league) return false
   if (r.league.payment_mode === 'per_team') return needsAction(r) && !!r.player
-  return true
+  return false
 }
 
-/** Org-admin payment control: per-team events keep the (team-aware) Mark-as-Paid
- *  flow; per-player events get the editable form that also handles free events. */
+/** Whether the payment status badge itself opens the inline editor (per-player,
+ *  org-admin), mirroring the event registrations screen. */
+function badgeIsEditable(r: Row, isOrgAdmin: boolean) {
+  return isOrgAdmin && !!r.league && r.league.payment_mode !== 'per_team'
+}
+
+/** The payment status pill — clickable to edit for per-player events. */
+function StatusBadge({ r, isOrgAdmin, className = '' }: { r: Row; isOrgAdmin: boolean; className?: string }) {
+  const badge = (
+    <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${statusColors[r.paymentStatus] ?? 'bg-gray-100 text-gray-600'} ${className}`}>
+      {r.paymentStatus}
+    </span>
+  )
+  if (!badgeIsEditable(r, isOrgAdmin)) return badge
+  return (
+    <EditPaymentForm
+      registrationId={r.id}
+      hasPayment={!!r.payment}
+      defaultAmountCents={effectivePriceCents(r)}
+      defaultStatus={defaultPayStatus(r.payment?.status)}
+      defaultMethod={defaultPayMethod(r.payment?.payment_method)}
+      defaultNotes={r.payment?.notes}
+      trigger={badge}
+    />
+  )
+}
+
+/** Org-admin payment control — per-team events keep the (team-aware) Mark-as-Paid flow. */
 function PaymentAction({ r, isOrgAdmin }: { r: Row; isOrgAdmin: boolean }) {
   if (!isOrgAdmin || !r.league) return null
   if (r.league.payment_mode === 'per_team') {
@@ -102,16 +130,7 @@ function PaymentAction({ r, isOrgAdmin }: { r: Row; isOrgAdmin: boolean }) {
       />
     )
   }
-  return (
-    <EditPaymentForm
-      registrationId={r.id}
-      hasPayment={!!r.payment}
-      defaultAmountCents={effectivePriceCents(r)}
-      defaultStatus={defaultPayStatus(r.payment?.status)}
-      defaultMethod={defaultPayMethod(r.payment?.payment_method)}
-      defaultNotes={r.payment?.notes}
-    />
-  )
+  return null
 }
 
 export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgAdmin?: boolean }) {
@@ -138,7 +157,7 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
         if (!playerMatch && !eventMatch) return false
       }
       if (statusFilter !== 'all') {
-        if (statusFilter === 'unpaid' && r.paymentStatus !== 'unpaid' && r.paymentStatus !== 'pending') return false
+        if (statusFilter === 'unpaid' && r.paymentStatus !== 'unpaid' && r.paymentStatus !== 'pending' && r.paymentStatus !== 'failed') return false
         if (statusFilter !== 'unpaid' && r.paymentStatus !== statusFilter) return false
       }
       if (eventFilter !== 'all' && r.league?.id !== eventFilter) return false
@@ -154,7 +173,10 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
       .filter(r => r.payment?.status === 'paid')
       .reduce((sum, r) => sum + (r.payment?.amount_cents ?? 0), 0),
     paidCount: filtered.filter(r => r.paymentStatus === 'paid').length,
-    unpaidCount: filtered.filter(r => r.paymentStatus === 'unpaid').length,
+    // "Unpaid" = anything still owed: unpaid, pending, or failed.
+    unpaidCount: filtered.filter(r =>
+      r.paymentStatus === 'unpaid' || r.paymentStatus === 'pending' || r.paymentStatus === 'failed'
+    ).length,
   }), [filtered])
 
   // Reset to page 1 whenever the filters change so stale pages don't linger
@@ -268,9 +290,7 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${statusColors[r.paymentStatus] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {r.paymentStatus}
-                    </span>
+                    <StatusBadge r={r} isOrgAdmin={isOrgAdmin} />
                   </td>
                   <td className="px-4 py-3 text-gray-500 capitalize text-xs">
                     {r.payment?.payment_method ?? '—'}
@@ -313,9 +333,7 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
                     </span>
                   )}
                 </div>
-                <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium capitalize ${statusColors[r.paymentStatus] ?? 'bg-gray-100 text-gray-600'}`}>
-                  {r.paymentStatus}
-                </span>
+                <StatusBadge r={r} isOrgAdmin={isOrgAdmin} className="shrink-0" />
               </div>
 
               {/* Event + amount row */}
