@@ -414,7 +414,7 @@ export async function POST(request: NextRequest) {
         supabase.from('profiles').select('full_name, email').eq('id', userId).single(),
         (supabase as any).from('leagues').select('id, name, slug, sport, event_type, checkin_enabled, payment_mode, price_cents, currency, calendar_token, season_start_date, game_start_time, game_end_time, days_of_week, venue_name, venue_address, venue_maps_url').eq('id', leagueId ?? '').single(),
         supabase.from('organizations').select('name, slug').eq('id', orgId).single(),
-        (supabase as any).from('registrations').select('user_id, checkin_token').eq('id', registrationId).single(),
+        (supabase as any).from('registrations').select('user_id, checkin_token, session_id').eq('id', registrationId).single(),
       ])
 
       if (profile?.email && league?.name) {
@@ -438,10 +438,18 @@ export async function POST(request: NextRequest) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const calToken = await ensureCalendarToken(supabase as any, 'leagues', leagueId ?? '', (league as any)?.calendar_token)
           if (calToken) {
-            const { webcalUrl, googleUrl } = calendarSubscribeUrls(calHost, `/api/events/${leagueSlug}/calendar.ics?token=${calToken}`)
+            // Single-session (drop-in) registration → calendar link for just that
+            // session; a full pass / season registration → the whole schedule.
+            const bookedSessionId = (reg as { session_id?: string | null } | null)?.session_id ?? null
+            const feedPath = `/api/events/${leagueSlug}/calendar.ics?token=${calToken}` +
+              (bookedSessionId ? `&session=${bookedSessionId}` : '')
+            const { webcalUrl, googleUrl } = calendarSubscribeUrls(calHost, feedPath)
             calendarCtaHtml = buildCalendarCtaHtml({
               webcalUrl, googleUrl,
-              subtext: 'Stay in sync automatically as games and sessions are added or updated.',  // team calendar
+              heading: bookedSessionId ? 'Add your session to your calendar' : 'Add the schedule to your calendar',
+              subtext: bookedSessionId
+                ? 'Adds the session you booked — it stays in sync if the time changes.'
+                : 'Stay in sync automatically as games and sessions are added or updated.',
             })
           }
         }

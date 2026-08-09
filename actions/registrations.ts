@@ -410,10 +410,18 @@ export async function activateRegistration(registrationId: string) {
       const host = headersList.get('host') ?? ''
       const token = await ensureCalendarToken(db2, 'leagues', league.id, league.calendar_token)
       if (host && token) {
-        const { webcalUrl, googleUrl } = calendarSubscribeUrls(host, `/api/events/${league.slug}/calendar.ics?token=${token}`)
+        // A single-session (drop-in) registration gets a calendar link for just
+        // that session; a full pass / season registration gets the whole schedule.
+        const bookedSessionId = (reg as { session_id?: string | null }).session_id ?? null
+        const feedPath = `/api/events/${league.slug}/calendar.ics?token=${token}` +
+          (bookedSessionId ? `&session=${bookedSessionId}` : '')
+        const { webcalUrl, googleUrl } = calendarSubscribeUrls(host, feedPath)
         calendarCtaHtml = buildCalendarCtaHtml({
           webcalUrl, googleUrl,
-          subtext: 'Stay in sync automatically as sessions are added, moved, or cancelled.',
+          heading: bookedSessionId ? 'Add your session to your calendar' : 'Add the schedule to your calendar',
+          subtext: bookedSessionId
+            ? 'Adds the session you booked — it stays in sync if the time changes.'
+            : 'Stay in sync automatically as sessions are added, moved, or cancelled.',
         })
       }
     }
