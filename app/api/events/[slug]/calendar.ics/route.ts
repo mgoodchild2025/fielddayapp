@@ -76,25 +76,35 @@ export async function GET(
   // Fetch the event's sessions (past 90 days → future) and any games ──────────
   const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
 
+  // Optional single-session feed: `?session=<id>` scopes the calendar to just
+  // that session (e.g. a player who booked one drop-in session), skipping games.
+  const sessionFilter = request.nextUrl.searchParams.get('session')
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let sessionsQuery = (db as any)
+    .from('event_sessions')
+    .select('id, scheduled_at, duration_minutes, location_override, notes, status')
+    .eq('league_id', league.id)
+    .order('scheduled_at', { ascending: true })
+  sessionsQuery = sessionFilter
+    ? sessionsQuery.eq('id', sessionFilter)
+    : sessionsQuery.gte('scheduled_at', since)
+
   const [{ data: sessions }, { data: games }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
-      .from('event_sessions')
-      .select('id, scheduled_at, duration_minutes, location_override, notes, status')
-      .eq('league_id', league.id)
-      .gte('scheduled_at', since)
-      .order('scheduled_at', { ascending: true }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
-      .from('games')
-      .select(`
-        id, scheduled_at, court, week_number, status,
-        home_team:teams!games_home_team_id_fkey(name),
-        away_team:teams!games_away_team_id_fkey(name)
-      `)
-      .eq('league_id', league.id)
-      .gte('scheduled_at', since)
-      .order('scheduled_at', { ascending: true }),
+    sessionsQuery,
+    sessionFilter
+      ? Promise.resolve({ data: [] })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      : (db as any)
+          .from('games')
+          .select(`
+            id, scheduled_at, court, week_number, status,
+            home_team:teams!games_home_team_id_fkey(name),
+            away_team:teams!games_away_team_id_fkey(name)
+          `)
+          .eq('league_id', league.id)
+          .gte('scheduled_at', since)
+          .order('scheduled_at', { ascending: true }),
   ])
 
   // Build host for description links ──────────────────────────────────────────
