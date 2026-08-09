@@ -793,6 +793,10 @@ export default async function EventDetailPage({
         .order('scheduled_at', { ascending: true })
     : { data: null }
 
+  // When an event runs multiple sessions, each session shows its own spots-left,
+  // so the event-level "Players" capacity card would be redundant/confusing.
+  const hasMultipleSessions = (sessions?.length ?? 0) > 1
+
   // Players who register via the registration + payment flow are rows in
   // `registrations` (session_id set), not session_registrations — count both so
   // each session's "spots left" is accurate.
@@ -1747,8 +1751,8 @@ export default async function EventDetailPage({
                   )}
                 </div>
               )}
-              {/* Live capacity card — per-player */}
-              {paymentMode !== 'per_team' && maxParticipants !== null && (
+              {/* Live capacity card — per-player (hidden when sessions carry their own spots-left) */}
+              {paymentMode !== 'per_team' && maxParticipants !== null && !hasMultipleSessions && (
                 <div className={`rounded-lg border p-4 ${isFull ? 'bg-red-50 border-red-200' : playerUrgent ? 'bg-amber-50 border-amber-200' : 'bg-white'}`}>
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Players</p>
                   {isFull ? (

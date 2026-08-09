@@ -364,7 +364,8 @@ export default async function DashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const g of allLeagueResults as any[]) {
     if (g.status !== 'completed') continue
-    if (g.pool_id) continue  // pool games are separate on standings page
+    // Include pool-play games too so the dashboard reflects OVERALL standings
+    // (regular + pool combined), matching the event's Overall Standings tab.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = Array.isArray(g.game_results) ? g.game_results[0] : g.game_results as any
     if (!result || result.status !== 'confirmed') continue
