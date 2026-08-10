@@ -277,6 +277,8 @@ export async function sendRegistrationAdminNotification({
   paymentMethod?: RegistrationPaymentMethod | null
 }) {
   const displayName = playerName ?? playerEmail ?? 'A player'
+  // Defensive: never render a blank event name if a caller omits it.
+  const eventName = leagueName?.trim() || 'an event'
   const emailLine = playerEmail
     ? `<p style="color:#444;font-size:15px;margin:4px 0;"><strong>Email:</strong> ${playerEmail}</p>`
     : ''
@@ -286,7 +288,7 @@ export async function sendRegistrationAdminNotification({
     replyTo: REPLY_TO,
     headers: EMAIL_HEADERS,
     to,
-    subject: `New registration — ${leagueName}`,
+    subject: `New registration — ${eventName}`,
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
         <h1 style="font-size:22px;font-weight:bold;margin-bottom:4px;">New Registration 🎉</h1>
@@ -295,7 +297,7 @@ export async function sendRegistrationAdminNotification({
         <div style="margin:24px 0;padding:16px 20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
           <p style="color:#444;font-size:15px;margin:4px 0;"><strong>Player:</strong> ${esc(displayName)}</p>
           ${emailLine}
-          <p style="color:#444;font-size:15px;margin:4px 0;"><strong>Event:</strong> ${esc(leagueName)}</p>
+          <p style="color:#444;font-size:15px;margin:4px 0;"><strong>Event:</strong> ${esc(eventName)}</p>
           ${paymentMethodLine(paymentMethod)}
         </div>
 
