@@ -7,6 +7,7 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { DashboardClient } from '@/components/dashboard/dashboard-client'
 import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, type TeamStatTotals, type PtsMethod, type VolleyballMode } from '@/lib/standings'
+import { fetchPlayerPlayoffGameRows } from '@/lib/playoff-games'
 import type {
   DashboardTeam,
   PendingAction,
@@ -302,6 +303,16 @@ export default async function DashboardPage() {
     recentGamesRaw  = rg  ?? []
     allLeagueResults = alr ?? []
     leagueTeams     = lt  ?? []
+
+    // Merge the player's upcoming published playoff matches (read-only bracket
+    // games) so they appear alongside regular games in Next / same-day.
+    const playoffRows = await fetchPlayerPlayoffGameRows(db, org.id, leagueIds, teamIds)
+    const upcomingPlayoff = playoffRows.filter((p) => p.status !== 'completed' && p.scheduled_at >= now)
+    if (upcomingPlayoff.length > 0) {
+      upcomingGames = [...upcomingGames, ...upcomingPlayoff].sort((a, b) =>
+        a.scheduled_at < b.scheduled_at ? -1 : a.scheduled_at > b.scheduled_at ? 1 : 0,
+      )
+    }
     myRsvpRows      = mrr ?? []
     pendingRegs     = pr  ?? []
     waiverSig          = ws
@@ -437,6 +448,8 @@ export default async function DashboardPage() {
       rsvpIn: rsvpInCount,
       rsvpOut: rsvpOutCount,
       myRsvp: myRsvpMap.get(g.id as string) ?? null,
+      isPlayoff: !!g.isPlayoff,
+      playoffLabel: g.isPlayoff ? [g.playoffTier, g.playoffRound].filter(Boolean).join(' · ') : null,
     }
   }
 

@@ -145,9 +145,9 @@ export function MyGamesClient({
           className={`relative border rounded-md p-3 transition-shadow hover:shadow-md bg-white${isCancelled ? ' opacity-60' : ''}`}
         >
           <Link
-            href={`/games/${g.id}`}
+            href={g.isPlayoff ? `/events/${league?.slug ?? ''}?tab=bracket` : `/games/${g.id}`}
             className="absolute inset-0 rounded-md"
-            aria-label="View game details"
+            aria-label={g.isPlayoff ? 'View bracket' : 'View game details'}
           />
           <div className="flex items-start justify-between gap-2">
             <p className="text-sm text-gray-500">
@@ -158,6 +158,11 @@ export function MyGamesClient({
               {isSubGame && (
                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-50 border border-violet-100 text-violet-600 leading-tight">
                   Sub
+                </span>
+              )}
+              {g.isPlayoff && (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 leading-tight">
+                  Playoff
                 </span>
               )}
               {isCancelled ? (
@@ -188,10 +193,13 @@ export function MyGamesClient({
               href={awayTeam?.id ? `/teams/${awayTeam.id}/stats` : undefined}
             />
           </div>
-          <p className="text-xs text-gray-400 mt-0.5">{league?.name}</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {[league?.name, g.isPlayoff ? [g.playoffTier, g.playoffRound].filter(Boolean).join(' · ') : null].filter(Boolean).join(' · ')}
+          </p>
 
-          {/* RSVP + attendance — only for non-cancelled games */}
-          {!isCancelled && (attendance || myTeamId) && (
+          {/* RSVP + attendance — only for non-cancelled, non-playoff games
+              (playoff bracket games are read-only). */}
+          {!isCancelled && !g.isPlayoff && (attendance || myTeamId) && (
             <div className="relative z-10 mt-2 flex items-center gap-3 flex-wrap">
               {attendance && captainTeamIdForGame && (
                 <GameAttendancePanel

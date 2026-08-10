@@ -39,6 +39,9 @@ export type NextGameItem = {
   rsvpIn: number
   rsvpOut: number
   myRsvp: 'in' | 'out' | null
+  /** Read-only playoff bracket game — no RSVP; shows a Playoff badge. */
+  isPlayoff?: boolean
+  playoffLabel?: string | null
 }
 
 /** The soonest upcoming pickup / drop-in / session event */
@@ -202,7 +205,9 @@ function GameHero({
       {/* Dark header */}
       <div className="flex items-center justify-between px-5 py-2.5" style={{ backgroundColor: 'var(--brand-secondary)' }}>
         <span className="text-xs font-bold uppercase tracking-widest text-white/50">
-          {item.weekNumber ? `Week ${item.weekNumber} · ${item.leagueName}` : item.leagueName}
+          {item.isPlayoff
+            ? `🏆 ${[item.leagueName, item.playoffLabel].filter(Boolean).join(' · ')}`
+            : item.weekNumber ? `Week ${item.weekNumber} · ${item.leagueName}` : item.leagueName}
         </span>
         <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-emerald-400 bg-emerald-400/10 border border-emerald-400/20">
           {daysUntil(item.scheduledAt, timezone)}
@@ -262,40 +267,46 @@ function GameHero({
         </div>
       </div>
 
-      {/* RSVP footer */}
-      <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-t border-gray-100">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-            {rsvpIn} in
+      {/* RSVP footer — bracket games are read-only */}
+      {item.isPlayoff ? (
+        <div className="px-5 py-2.5 bg-gray-50 border-t border-gray-100 text-center">
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Playoff game</span>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-t border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+              {rsvpIn} in
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
+              {rsvpOut} out
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-            <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
-            {rsvpOut} out
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onRsvp('out')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                myRsvp === 'out'
+                  ? 'bg-red-50 border-red-200 text-red-600'
+                  : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+              }`}
+            >
+              {myRsvp === 'out' ? '✗ Can\'t make it' : 'Can\'t make it'}
+            </button>
+            <button
+              onClick={() => onRsvp('in')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                myRsvp === 'in' ? 'opacity-100' : 'opacity-70 hover:opacity-100'
+              } text-white`}
+              style={{ backgroundColor: 'var(--brand-primary)' }}
+            >
+              {myRsvp === 'in' ? '✓ I\'m in' : 'I\'m in'}
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => onRsvp('out')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-              myRsvp === 'out'
-                ? 'bg-red-50 border-red-200 text-red-600'
-                : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-            }`}
-          >
-            {myRsvp === 'out' ? '✗ Can\'t make it' : 'Can\'t make it'}
-          </button>
-          <button
-            onClick={() => onRsvp('in')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              myRsvp === 'in' ? 'opacity-100' : 'opacity-70 hover:opacity-100'
-            } text-white`}
-            style={{ backgroundColor: 'var(--brand-primary)' }}
-          >
-            {myRsvp === 'in' ? '✓ I\'m in' : 'I\'m in'}
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -322,30 +333,40 @@ function SameDayGameRow({
           <p className="text-sm font-semibold text-gray-900 truncate">vs {item.opponentName}</p>
           <p className="text-xs text-gray-500">
             {formatTime(item.scheduledAt, timezone)}{item.court ? ` · ${item.court}` : ''}
-            <span className="text-gray-300"> · </span>
-            <span className="text-emerald-600">{rsvpIn} in</span>
-            <span className="text-gray-300"> / </span>
-            <span className="text-red-400">{rsvpOut} out</span>
+            {item.isPlayoff ? (
+              item.playoffLabel ? <><span className="text-gray-300"> · </span>{item.playoffLabel}</> : null
+            ) : (
+              <>
+                <span className="text-gray-300"> · </span>
+                <span className="text-emerald-600">{rsvpIn} in</span>
+                <span className="text-gray-300"> / </span>
+                <span className="text-red-400">{rsvpOut} out</span>
+              </>
+            )}
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-1.5 shrink-0">
-        <button
-          onClick={() => onRsvp('out')}
-          className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
-            myRsvp === 'out' ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-          }`}
-        >
-          {myRsvp === 'out' ? '✗ Out' : 'Out'}
-        </button>
-        <button
-          onClick={() => onRsvp('in')}
-          className={`px-2.5 py-1 rounded-lg text-xs font-semibold text-white transition-all ${myRsvp === 'in' ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
-          style={{ backgroundColor: 'var(--brand-primary)' }}
-        >
-          {myRsvp === 'in' ? '✓ In' : 'In'}
-        </button>
-      </div>
+      {item.isPlayoff ? (
+        <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Playoff</span>
+      ) : (
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={() => onRsvp('out')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
+              myRsvp === 'out' ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+            }`}
+          >
+            {myRsvp === 'out' ? '✗ Out' : 'Out'}
+          </button>
+          <button
+            onClick={() => onRsvp('in')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold text-white transition-all ${myRsvp === 'in' ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
+            style={{ backgroundColor: 'var(--brand-primary)' }}
+          >
+            {myRsvp === 'in' ? '✓ In' : 'In'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -481,7 +502,7 @@ export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = 
   function handleHeroRsvp(status: 'in' | 'out') {
     if (!nextItem || nextItem.kind !== 'game') return
     handleRsvp(nextItem.id, nextItem.teamId, status)
-    for (const g of sameDayGames) rsvpSameDayGame(g, status)
+    for (const g of sameDayGames) if (!g.isPlayoff) rsvpSameDayGame(g, status)
   }
 
   // ── Empty state (no active teams AND no upcoming sessions) ────────────────
