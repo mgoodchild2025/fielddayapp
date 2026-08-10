@@ -179,3 +179,87 @@ export async function fetchPlayerPlayoffGameRows(
   }
   return rows
 }
+
+/** A playoff match shaped like the reminder cron's `games` query rows. */
+export interface PlayoffReminderRow {
+  id: string
+  organization_id: string
+  scheduled_at: string
+  court: string | null
+  league_id: string | null
+  home_team_id: string | null
+  away_team_id: string | null
+  home_team: { id: string; name: string } | null
+  away_team: { id: string; name: string } | null
+  leagues: { name: string; sport: string | null } | null
+  /** Marks these as bracket matches (dedup/logging must not FK them to games). */
+  is_playoff: true
+}
+
+/**
+ * Fetch upcoming playoff bracket matches (from published brackets) with both
+ * teams determined and a scheduled time in [fromIso, toIso], shaped like the
+ * reminder cron's `games` rows so they can be folded into email/SMS reminders.
+ * Runs org-agnostically (the cron spans all orgs).
+ */
+export async function fetchUpcomingPlayoffReminderRows(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  fromIso: string,
+  toIso: string,
+): Promise<PlayoffReminderRow[]> {
+  const { data: matches } = await db
+    .from('bracket_matches')
+    .select(`
+      id, team1_id, team2_id, scheduled_at, court, status, organization_id,
+      bracket:brackets!bracket_matches_bracket_id_fkey(id, league_id, published_at)
+    `)
+    .gte('scheduled_at', fromIso)
+    .lte('scheduled_at', toIso)
+    .not('team1_id', 'is', null)
+    .not('team2_id', 'is', null)
+    .in('status', ['pending', 'ready'])
+
+  if (!matches || matches.length === 0) return []
+
+  // Keep only matches whose bracket is published.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const published = (matches as any[]).filter((m) => {
+    const b = Array.isArray(m.bracket) ? m.bracket[0] : m.bracket
+    return b && b.published_at != null
+  })
+  if (published.length === 0) return []
+
+  const teamIds = [...new Set(published.flatMap((m) => [m.team1_id, m.team2_id]).filter(Boolean))] as string[]
+  const leagueIds = [...new Set(published.map((m) => {
+    const b = Array.isArray(m.bracket) ? m.bracket[0] : m.bracket
+    return b?.league_id
+  }).filter(Boolean))] as string[]
+
+  const [{ data: teamRows }, { data: leagueRows }] = await Promise.all([
+    db.from('teams').select('id, name').in('id', teamIds),
+    db.from('leagues').select('id, name, sport').in('id', leagueIds),
+  ])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const teamName = new Map<string, string>((teamRows ?? []).map((t: any) => [t.id, t.name]))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leagueInfo = new Map<string, { name: string; sport: string | null }>((leagueRows ?? []).map((l: any) => [l.id, { name: l.name, sport: l.sport ?? null }]))
+
+  return published.map((m) => {
+    const b = Array.isArray(m.bracket) ? m.bracket[0] : m.bracket
+    const lg = b?.league_id ? leagueInfo.get(b.league_id) ?? null : null
+    return {
+      id: m.id as string,
+      organization_id: m.organization_id as string,
+      scheduled_at: m.scheduled_at as string,
+      court: m.court ?? null,
+      league_id: b?.league_id ?? null,
+      home_team_id: m.team1_id ?? null,
+      away_team_id: m.team2_id ?? null,
+      home_team: m.team1_id ? { id: m.team1_id, name: teamName.get(m.team1_id) ?? 'TBD' } : null,
+      away_team: m.team2_id ? { id: m.team2_id, name: teamName.get(m.team2_id) ?? 'TBD' } : null,
+      leagues: lg,
+      is_playoff: true as const,
+    }
+  })
+}
