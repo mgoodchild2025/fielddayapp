@@ -6,6 +6,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { MyGamesClient } from './_client'
+import { fetchPlayerPlayoffGameRows } from '@/lib/playoff-games'
 import Link from 'next/link'
 
 export default async function SchedulePage() {
@@ -41,7 +42,7 @@ export default async function SchedulePage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('team_members').select(`
       id, role,
-      team:teams!team_members_team_id_fkey(id, name)
+      team:teams!team_members_team_id_fkey(id, name, league_id)
     `).eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active'),
   ])
 
@@ -259,9 +260,19 @@ export default async function SchedulePage() {
 
   // ── Merge and split upcoming vs past ──────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // The player's published playoff bracket matches — read-only, merged in as
+  // game items so they appear alongside regular games in My Games.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const myLeagueIds = [...new Set((myTeams ?? []).map((mt: any) => {
+    const team = Array.isArray(mt.team) ? mt.team[0] : mt.team
+    return team?.league_id as string | undefined
+  }).filter(Boolean) as string[])]
+  const playoffRows = await fetchPlayerPlayoffGameRows(db, org.id, myLeagueIds, [...myTeamIds])
+
   const allItems: { _type: 'game' | 'session'; scheduled_at: string; data: any }[] = [
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...relevantGames.map((g: any) => ({ _type: 'game' as const, scheduled_at: g.scheduled_at, data: g })),
+    ...playoffRows.map((g) => ({ _type: 'game' as const, scheduled_at: g.scheduled_at, data: g })),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...allSessions.map((s: any) => ({ _type: 'session' as const, scheduled_at: s.scheduled_at, data: s })),
   ].sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at))

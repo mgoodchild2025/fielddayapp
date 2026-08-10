@@ -6,6 +6,7 @@ import { deliverAnnouncementEmails } from '@/actions/messages'
 import { formatCourtLabel } from '@/lib/venue-label'
 import { sendPlatformAlert } from '@/actions/platform-settings'
 import { buildCaptainPrepEmail, type PrepPlayer } from '@/lib/emails/captain-prep'
+import { fetchUpcomingPlayoffReminderRows } from '@/lib/playoff-games'
 import { purgeLeagueData } from '@/lib/purge-league'
 import { fetchRecentUploads, youTubeWatchUrl, youTubeEmbedUrl } from '@/lib/youtube'
 
@@ -90,11 +91,17 @@ export async function GET(req: NextRequest) {
     .gte('scheduled_at', now.toISOString())
     .lte('scheduled_at', in48h.toISOString())
 
+  // Fold in upcoming playoff bracket matches (same shape) so playoff games get
+  // reminders too. Fetched once for the widest window; each section filters it.
+  const playoffReminderRows = await fetchUpcomingPlayoffReminderRows(supabase, now.toISOString(), in48h.toISOString())
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const reminderGamesAll = [...((reminderGames as any[]) ?? []), ...playoffReminderRows]
+
   // Collect personalized game-reminder emails across all orgs; batch-send after the loop
   // to avoid Resend's 5 req/s rate limit.
   const reminderEmailBatch: Array<{ from: string; to: string; subject: string; html: string }> = []
 
-  if ((reminderGames ?? []).length > 0) {
+  if (reminderGamesAll.length > 0) {
     // Fetch org branding (timezone) and org names
     type RGGame = {
       id: string; organization_id: string; scheduled_at: string; court: string | null
@@ -103,7 +110,7 @@ export async function GET(req: NextRequest) {
       away_team: { id: string; name: string } | null
       leagues: { name: string; sport?: string | null } | { name: string; sport?: string | null }[] | null
     }
-    const rgOrgIds = [...new Set((reminderGames as RGGame[]).map(g => g.organization_id))]
+    const rgOrgIds = [...new Set((reminderGamesAll as RGGame[]).map(g => g.organization_id))]
     const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
     const [{ data: rgBranding }, { data: rgOrgs }, { data: rgNotifSettings }] = await Promise.all([
       supabase.from('org_branding').select('organization_id, timezone').in('organization_id', rgOrgIds),
@@ -122,7 +129,7 @@ export async function GET(req: NextRequest) {
 
     // Group games by org
     const rgGamesByOrg = new Map<string, RGGame[]>()
-    for (const g of (reminderGames as RGGame[]) ?? []) {
+    for (const g of (reminderGamesAll as RGGame[])) {
       if (!rgGamesByOrg.has(g.organization_id)) rgGamesByOrg.set(g.organization_id, [])
       rgGamesByOrg.get(g.organization_id)!.push(g)
     }
@@ -482,9 +489,15 @@ export async function GET(req: NextRequest) {
       .lte('scheduled_at', in24h.toISOString()) as { data: GameRow[] | null; error: unknown }
 
     if (gamesErr) sms_diagnostics.games_query_error = JSON.stringify(gamesErr)
-    sms_diagnostics.upcoming_games_in_window = (smsGames ?? []).length
+    // Fold in playoff bracket matches within the 24h window (game_id FK dropped
+    // on game_sms_reminder_logs so bracket-match ids can be logged).
+    const smsGamesAll: GameRow[] = [
+      ...((smsGames as GameRow[]) ?? []),
+      ...(playoffReminderRows.filter(p => p.scheduled_at <= in24h.toISOString()) as unknown as GameRow[]),
+    ]
+    sms_diagnostics.upcoming_games_in_window = smsGamesAll.length
 
-    const gameIds = (smsGames ?? []).map(g => g.id)
+    const gameIds = smsGamesAll.map(g => g.id)
 
     // Fetch already-sent logs for these games
     const { data: sentLogs } = gameIds.length > 0
@@ -498,7 +511,7 @@ export async function GET(req: NextRequest) {
     const sentSet = new Set((sentLogs ?? []).map(l => `${l.game_id}:${l.minutes_before}`))
     const gameSkips: Record<string, string[]> = {}
 
-    for (const game of smsGames ?? []) {
+    for (const game of smsGamesAll) {
       const orgId = game.organization_id
       const skipReasons: string[] = []
 
@@ -663,11 +676,18 @@ export async function GET(req: NextRequest) {
     .lte('scheduled_at', in16h.toISOString())
 
   if (gameDayGamesErr) gameDay_diagnostics.games_error = JSON.stringify(gameDayGamesErr)
-  gameDay_diagnostics.games_in_window = (gameDayGames ?? []).length
+  // Fold in playoff bracket matches within the 16h window. Dedup is per-player-
+  // per-day (player_game_day_sms_logs), so no game_id FK concern.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const gameDayGamesAll: any[] = [
+    ...((gameDayGames as any[]) ?? []),
+    ...playoffReminderRows.filter(p => p.scheduled_at <= in16h.toISOString()),
+  ]
+  gameDay_diagnostics.games_in_window = gameDayGamesAll.length
 
-  if ((gameDayGames ?? []).length > 0) {
+  if (gameDayGamesAll.length > 0) {
     // Fetch org branding for timezone + org names for all orgs in the result set
-    const gameDayOrgIds = [...new Set((gameDayGames as { organization_id: string }[]).map(g => g.organization_id))]
+    const gameDayOrgIds = [...new Set((gameDayGamesAll as { organization_id: string }[]).map(g => g.organization_id))]
 
     const [{ data: brandingRows }, { data: gameDayOrgRows }] = await Promise.all([
       supabase.from('org_branding').select('organization_id, timezone').in('organization_id', gameDayOrgIds),
@@ -685,7 +705,7 @@ export async function GET(req: NextRequest) {
       leagues: { name: string; sport?: string | null } | { name: string; sport?: string | null }[] | null
     }
     const gamesByOrg = new Map<string, GDGame[]>()
-    for (const g of (gameDayGames as GDGame[]) ?? []) {
+    for (const g of (gameDayGamesAll as GDGame[])) {
       if (!gamesByOrg.has(g.organization_id)) gamesByOrg.set(g.organization_id, [])
       gamesByOrg.get(g.organization_id)!.push(g)
     }
