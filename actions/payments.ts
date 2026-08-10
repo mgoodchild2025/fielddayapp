@@ -244,7 +244,7 @@ export async function selectOfflinePayment(
       .eq('id', parsed.data.registrationId).maybeSingle(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues')
-      .select('id, price_cents, currency, payment_methods, payment_instructions')
+      .select('id, name, price_cents, currency, payment_methods, payment_instructions')
       .eq('id', parsed.data.leagueId).eq('organization_id', org.id).maybeSingle(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('org_payment_settings')
@@ -367,7 +367,7 @@ export async function selectOfflineTeamPayment(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('teams').select('id, organization_id, league_id').eq('id', parsed.data.teamId).maybeSingle(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('id, price_cents, currency, payment_methods, payment_instructions')
+    (db as any).from('leagues').select('id, name, price_cents, currency, payment_methods, payment_instructions')
       .eq('id', parsed.data.leagueId).eq('organization_id', org.id).maybeSingle(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('org_payment_settings')
