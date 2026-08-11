@@ -68,14 +68,40 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
   }
 
   if (leagueCap?.payment_mode !== 'per_team' && leagueCap?.max_participants) {
-    const { count } = await db
-      .from('registrations')
-      .select('*', { count: 'exact', head: true })
-      .eq('league_id', parsed.data.leagueId)
-      .eq('organization_id', org.id)
-      .in('status', ['pending', 'active'])
-    if ((count ?? 0) >= leagueCap.max_participants) {
-      return { data: null, error: 'EVENT_FULL' }
+    const sessionId = parsed.data.session_id ?? null
+    if (sessionId) {
+      // Session registration: the cap applies PER SESSION. Use the session's own
+      // capacity when set, otherwise the event max as the per-session limit.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: sess } = await (db as any)
+        .from('event_sessions')
+        .select('capacity')
+        .eq('id', sessionId)
+        .eq('organization_id', org.id)
+        .maybeSingle()
+      const cap = sess?.capacity ?? leagueCap.max_participants
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { count } = await (db as any)
+        .from('registrations')
+        .select('*', { count: 'exact', head: true })
+        .eq('league_id', parsed.data.leagueId)
+        .eq('organization_id', org.id)
+        .eq('session_id', sessionId)
+        .in('status', ['pending', 'active'])
+      if ((count ?? 0) >= cap) {
+        return { data: null, error: 'EVENT_FULL' }
+      }
+    } else {
+      // Event-wide cap (season / non-session registrations).
+      const { count } = await db
+        .from('registrations')
+        .select('*', { count: 'exact', head: true })
+        .eq('league_id', parsed.data.leagueId)
+        .eq('organization_id', org.id)
+        .in('status', ['pending', 'active'])
+      if ((count ?? 0) >= leagueCap.max_participants) {
+        return { data: null, error: 'EVENT_FULL' }
+      }
     }
   }
 
