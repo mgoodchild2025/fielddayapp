@@ -188,21 +188,46 @@ export async function POST(request: NextRequest) {
     db2.from('leagues').select('name, price_cents, currency, drop_in_price_cents, max_participants, payment_mode, early_bird_price_cents, early_bird_deadline').eq('id', leagueId).single(),
     db2.from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', orgId).maybeSingle(),
     db2.from('profiles').select('email').eq('id', userId).single(),
-    db2.from('registrations').select('registration_type').eq('id', registrationId).single(),
+    db2.from('registrations').select('registration_type, session_id').eq('id', registrationId).single(),
   ])
 
   if (!league) return NextResponse.json({ error: 'League not found' }, { status: 404 })
 
   // ── Capacity guard: per-player events ────────────────────────────────────
+  // For session-based drop-ins the cap applies PER SESSION (the session's own
+  // capacity when set, otherwise the event max); otherwise it's the event-wide
+  // max. The pending registration for this player already exists, so the count
+  // includes it — hence the strict `>` comparison.
   if (league.payment_mode !== 'per_team' && league.max_participants) {
-    const { count: regCount } = await db
-      .from('registrations')
-      .select('*', { count: 'exact', head: true })
-      .eq('league_id', leagueId)
-      .eq('organization_id', orgId)
-      .in('status', ['pending', 'active'])
-    if ((regCount ?? 0) > league.max_participants) {
-      return NextResponse.json({ error: 'This event is full — no more spots available.' }, { status: 409 })
+    const sessionId = registration?.session_id ?? null
+    if (sessionId) {
+      const { data: sess } = await db2
+        .from('event_sessions')
+        .select('capacity')
+        .eq('id', sessionId)
+        .eq('organization_id', orgId)
+        .maybeSingle()
+      const cap = sess?.capacity ?? league.max_participants
+      const { count: regCount } = await db
+        .from('registrations')
+        .select('*', { count: 'exact', head: true })
+        .eq('league_id', leagueId)
+        .eq('organization_id', orgId)
+        .eq('session_id', sessionId)
+        .in('status', ['pending', 'active'])
+      if ((regCount ?? 0) > cap) {
+        return NextResponse.json({ error: 'This event is full — no more spots available.' }, { status: 409 })
+      }
+    } else {
+      const { count: regCount } = await db
+        .from('registrations')
+        .select('*', { count: 'exact', head: true })
+        .eq('league_id', leagueId)
+        .eq('organization_id', orgId)
+        .in('status', ['pending', 'active'])
+      if ((regCount ?? 0) > league.max_participants) {
+        return NextResponse.json({ error: 'This event is full — no more spots available.' }, { status: 409 })
+      }
     }
   }
 
