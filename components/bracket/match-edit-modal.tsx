@@ -3,9 +3,10 @@
 import { useState, useTransition, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { overrideBracketSlot, updateMatchSchedule } from '@/actions/brackets'
+import { overrideBracketSlot, updateMatchSchedule, updateMatchRouting } from '@/actions/brackets'
 import { adminClearScore } from '@/actions/scores'
 import type { BracketMatchData } from './bracket-view'
+import { useRoutingTargets } from './bracket-routing'
 import { useBracketTimezone } from './bracket-timezone'
 import { parseLocalToUtc } from '@/lib/format-time'
 
@@ -71,6 +72,23 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
   const [scheduledAt, setScheduledAt] = useState(() => isoToTzInput(match.scheduledAt, timezone))
   const [notes, setNotes] = useState(match.notes ?? '')
 
+  // Routing — where this match's winner/loser advance to (may be another bracket)
+  const routingTargets = useRoutingTargets().filter((t) => t.id !== match.id)
+  const [winnerToMatchId, setWinnerToMatchId] = useState<string>(match.winnerToMatchId ?? '')
+  const [winnerToSlot, setWinnerToSlot] = useState<number>(match.winnerToSlot ?? 1)
+  const [loserToMatchId, setLoserToMatchId] = useState<string>(match.loserToMatchId ?? '')
+  const [loserToSlot, setLoserToSlot] = useState<number>(match.loserToSlot ?? 1)
+
+  // Group routing options by bracket for the <optgroup> pickers.
+  const routingGroups = Array.from(
+    routingTargets.reduce((acc, t) => {
+      const list = acc.get(t.bracketName) ?? []
+      list.push(t)
+      acc.set(t.bracketName, list)
+      return acc
+    }, new Map<string, typeof routingTargets>())
+  )
+
   // Close on Escape
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
@@ -121,6 +139,25 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
           scheduledAt: utcIso,
           court: court || undefined,
           notes: notes || undefined,
+        })
+        if (r?.error) errors.push(r.error)
+      }
+
+      // Update routing (winner/loser destinations) if anything changed
+      const routingChanged =
+        winnerToMatchId !== (match.winnerToMatchId ?? '') ||
+        loserToMatchId !== (match.loserToMatchId ?? '') ||
+        (!!winnerToMatchId && winnerToSlot !== (match.winnerToSlot ?? 1)) ||
+        (!!loserToMatchId && loserToSlot !== (match.loserToSlot ?? 1))
+
+      if (routingChanged) {
+        const r = await updateMatchRouting({
+          matchId: match.id,
+          leagueId,
+          winnerToMatchId: winnerToMatchId || null,
+          winnerToSlot: winnerToMatchId ? (winnerToSlot as 1 | 2) : null,
+          loserToMatchId: loserToMatchId || null,
+          loserToSlot: loserToMatchId ? (loserToSlot as 1 | 2) : null,
         })
         if (r?.error) errors.push(r.error)
       }
@@ -238,6 +275,76 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
               />
             </div>
           </div>
+
+          {/* Routing — where the winner/loser advance to (can cross tiers) */}
+          {routingTargets.length > 0 && (
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Routing</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  Send the winner or loser into any match — including another tier (e.g. a Gold loser dropping into Silver).
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Winner advances to</label>
+                <div className="flex gap-2">
+                  <select
+                    value={winnerToMatchId}
+                    onChange={(e) => setWinnerToMatchId(e.target.value)}
+                    className="flex-1 border rounded-md px-3 py-2 text-sm min-w-0"
+                  >
+                    <option value="">— Champion (no next match) —</option>
+                    {routingGroups.map(([bracketName, targets]) => (
+                      <optgroup key={bracketName} label={bracketName}>
+                        {targets.map((t) => (
+                          <option key={t.id} value={t.id}>{t.bracketName} · {t.label}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  <select
+                    value={winnerToSlot}
+                    onChange={(e) => setWinnerToSlot(Number(e.target.value))}
+                    disabled={!winnerToMatchId}
+                    className="border rounded-md px-2 py-2 text-sm disabled:opacity-40"
+                  >
+                    <option value={1}>Slot 1</option>
+                    <option value={2}>Slot 2</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Loser advances to</label>
+                <div className="flex gap-2">
+                  <select
+                    value={loserToMatchId}
+                    onChange={(e) => setLoserToMatchId(e.target.value)}
+                    className="flex-1 border rounded-md px-3 py-2 text-sm min-w-0"
+                  >
+                    <option value="">— Eliminated (no next match) —</option>
+                    {routingGroups.map(([bracketName, targets]) => (
+                      <optgroup key={bracketName} label={bracketName}>
+                        {targets.map((t) => (
+                          <option key={t.id} value={t.id}>{t.bracketName} · {t.label}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  <select
+                    value={loserToSlot}
+                    onChange={(e) => setLoserToSlot(Number(e.target.value))}
+                    disabled={!loserToMatchId}
+                    className="border rounded-md px-2 py-2 text-sm disabled:opacity-40"
+                  >
+                    <option value={1}>Slot 1</option>
+                    <option value={2}>Slot 2</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Danger zone — clear score */}
           {match.status === 'completed' && match.gameId && (

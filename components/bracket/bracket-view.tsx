@@ -39,8 +39,12 @@ export interface BracketMatchData {
   court: string | null
   notes: string | null
   winnerToMatchId: string | null
+  /** Slot (1 or 2) the winner fills in winnerToMatchId. Populated on the admin bracket page. */
+  winnerToSlot?: number | null
   /** Set on the seeds-3v4 match in a 6-team bracket — loser also advances to the other semifinal */
   loserToMatchId: string | null
+  /** Slot (1 or 2) the loser fills in loserToMatchId. Populated on the admin bracket page. */
+  loserToSlot?: number | null
   gameId: string | null
 }
 

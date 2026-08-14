@@ -833,6 +833,65 @@ export async function updateMatchSchedule(input: {
 }
 
 /**
+ * Set where a match's winner and loser advance to — including a match in a
+ * *different* bracket (e.g. a Gold quarterfinal loser dropping into a Silver
+ * match). The runtime (advanceWinner / advanceLoser) already follows these
+ * ids across brackets, so this is a thin editor over the routing columns.
+ *
+ * Pass a null match id to clear that route (winner = champion / loser =
+ * eliminated). Slots default to 1 when a target is given without one.
+ */
+export async function updateMatchRouting(input: {
+  matchId: string
+  leagueId: string
+  winnerToMatchId: string | null
+  winnerToSlot: 1 | 2 | null
+  loserToMatchId: string | null
+  loserToSlot: 1 | 2 | null
+}) {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  const targetIds = [input.winnerToMatchId, input.loserToMatchId].filter(Boolean) as string[]
+
+  // A match cannot route into itself (would create an advancement loop).
+  if (targetIds.includes(input.matchId)) {
+    return { error: 'A match cannot advance into itself.' }
+  }
+
+  // Every routing target must be a bracket match owned by this org.
+  if (targetIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: targets } = await (db as any)
+      .from('bracket_matches')
+      .select('id')
+      .in('id', targetIds)
+      .eq('organization_id', org.id)
+    const found = new Set((targets ?? []).map((t: { id: string }) => t.id))
+    if (targetIds.some((id) => !found.has(id))) {
+      return { error: 'One or more routing targets could not be found.' }
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (db as any).from('bracket_matches')
+    .update({
+      winner_to_match_id: input.winnerToMatchId,
+      winner_to_slot: input.winnerToMatchId ? (input.winnerToSlot ?? 1) : null,
+      loser_to_match_id: input.loserToMatchId,
+      loser_to_slot: input.loserToMatchId ? (input.loserToSlot ?? 1) : null,
+    })
+    .eq('id', input.matchId)
+    .eq('organization_id', org.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${input.leagueId}/bracket`)
+  revalidatePath('/events/[slug]', 'page')
+  return { error: null }
+}
+
+/**
  * Delay all of today's remaining (unplayed) playoff matches forward by N minutes.
  * Shifts bracket matches across all of the league's brackets that are scheduled
  * on or after the start of the current local day and aren't completed/byes.
