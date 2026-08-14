@@ -6,7 +6,8 @@ import { Printer, Trash2 } from 'lucide-react'
 import { savePlayoffConfig, generateAllTierBrackets, deletePlayoffConfig } from '@/actions/playoff-config'
 import { publishBracket, unpublishBracket, deleteBracket, seedBracket, clearBracketSeeding, advanceBestLoser } from '@/actions/brackets'
 import { BracketView, type BracketData, type TeamRef } from './bracket-view'
-import type { TeamStanding, BracketRecommendation } from '@/lib/bracket'
+import { BracketRoutingProvider, type RoutingTarget } from './bracket-routing'
+import { getRoundName, type TeamStanding, type BracketRecommendation } from '@/lib/bracket'
 import type { TierInput, PoolSeedingMethod } from '@/actions/playoff-config'
 
 // ── Tier name suggestions ─────────────────────────────────────────────────────
@@ -795,7 +796,23 @@ export function PlayoffConfigWizard({
   // ── MANAGE MODE: config + at least one bracket exists ─────────────────────
 
   if (existingConfig && hasBrackets && step !== 'tiers') {
+    // Flatten every match across every tier's bracket into routing targets so
+    // an admin can send a winner/loser into a match in *another* tier.
+    const routingTargets: RoutingTarget[] = existingConfig.tiers.flatMap((tier) => {
+      const b = tier.bracket
+      if (!b) return []
+      return [...(b.matches ?? [])]
+        .sort((a, c) => a.roundNumber - c.roundNumber || a.matchNumber - c.matchNumber)
+        .map((m) => ({
+          id: m.id,
+          bracketId: b.id,
+          bracketName: tier.name,
+          label: `${getRoundName(m.roundNumber, b.bracketSize, m.matchNumber)} · Match ${m.matchNumber}`,
+        }))
+    })
+
     return (
+      <BracketRoutingProvider targets={routingTargets}>
       <div className="space-y-4">
         {/* Header bar */}
         <ManageHeader
@@ -828,6 +845,7 @@ export function PlayoffConfigWizard({
           />
         ))}
       </div>
+      </BracketRoutingProvider>
     )
   }
 
