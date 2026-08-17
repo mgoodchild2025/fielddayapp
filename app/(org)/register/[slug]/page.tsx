@@ -433,7 +433,7 @@ export default async function RegisterLeaguePage({
   // of the player's own device timezone.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: regBranding } = await (db as any)
-    .from('org_branding').select('timezone').eq('organization_id', org.id).maybeSingle()
+    .from('org_branding').select('timezone, logo_url').eq('organization_id', org.id).maybeSingle()
   const orgTimezone: string = regBranding?.timezone ?? 'America/Toronto'
 
   // If the player already consented to the CURRENT Fieldday Privacy Policy version
@@ -566,7 +566,9 @@ export default async function RegisterLeaguePage({
   }))
 
   return (
-    <RegistrationFlow
+    <div style={{ backgroundColor: 'var(--brand-bg)' }}>
+      <OrgNav org={org} logoUrl={regBranding?.logo_url ?? null} />
+      <RegistrationFlow
       org={org}
       league={league as never}
       waiver={waiver}
@@ -598,6 +600,8 @@ export default async function RegisterLeaguePage({
       timezone={orgTimezone}
       preselectedSessionId={preselectedSessionId}
       paymentPlan={paymentPlan}
-    />
+      />
+      <Footer org={org} />
+    </div>
   )
 }
