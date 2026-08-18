@@ -10,7 +10,7 @@ interface Registration {
   checkinToken: string
   checkedInAt: string | null
   isWalkIn?: boolean
-  sessionRegistrationId?: string  // present when in session mode
+  sessionRegistrationId?: string | null  // present when in session mode
 }
 
 interface Props {

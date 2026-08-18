@@ -21,8 +21,8 @@ export async function GET(_req: NextRequest) {
     }
 
     // Auth: must be org_admin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: member } = await (db as any)
+
+    const { data: member } = await db
       .from('org_members')
       .select('role')
       .eq('organization_id', org.id)
@@ -34,8 +34,8 @@ export async function GET(_req: NextRequest) {
     }
 
     // Check subscription status — deny if past the export window
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: subscription } = await (db as any)
+
+    const { data: subscription } = await db
       .from('subscriptions')
       .select('status, current_period_end')
       .eq('organization_id', org.id)
@@ -59,20 +59,20 @@ export async function GET(_req: NextRequest) {
       { data: registrationRows },
       { data: teamMemberRows },
     ] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('org_members')
-        .select('user_id, role, status, created_at')
+
+      db.from('org_members')
+        .select('user_id, role, status, joined_at')
         .eq('organization_id', org.id),
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('registrations')
+
+      db.from('registrations')
         .select('user_id')
         .eq('organization_id', org.id)
         .not('user_id', 'is', null),
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('team_members')
-        .select('user_id, team_id, role, status, created_at, teams(name)')
+
+      db.from('team_members')
+        .select('user_id, team_id, role, status, joined_at, teams(name)')
         .eq('organization_id', org.id)
         .not('user_id', 'is', null),
     ])
@@ -113,36 +113,36 @@ export async function GET(_req: NextRequest) {
       { data: gameRsvps },
       authUsersResult,
     ] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('profiles')
-        .select('id, full_name, email, phone, date_of_birth, gender, avatar_url, created_at')
+
+      db.from('profiles')
+        .select('id, full_name, email, phone, avatar_url, created_at')
         .in('id', userIds),
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('player_details')
-        .select('user_id, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship, jersey_size, notes, created_at')
+
+      db.from('player_details')
+        .select('user_id, emergency_contact_name, emergency_contact_phone, t_shirt_size, skill_level, how_did_you_hear, updated_at')
         .eq('organization_id', org.id),
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('registrations')
-        .select('user_id, league_id, status, amount_paid_cents, created_at, leagues(name, sport)')
+
+      db.from('registrations')
+        .select('user_id, league_id, status, created_at, leagues(name, sport)')
         .eq('organization_id', org.id)
         .not('user_id', 'is', null),
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('waiver_signatures')
+
+      db.from('waiver_signatures')
         .select('user_id, waiver_id, signed_at, waivers(title)')
         .eq('organization_id', org.id)
         .not('user_id', 'is', null),
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('payments')
-        .select('user_id, amount_cents, currency, status, created_at, description')
+
+      db.from('payments')
+        .select('user_id, amount_cents, currency, status, created_at, notes')
         .eq('organization_id', org.id)
         .not('user_id', 'is', null),
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('game_rsvps')
+
+      db.from('game_rsvps')
         .select('user_id, game_id, status, created_at')
         .eq('organization_id', org.id)
         .not('user_id', 'is', null),
@@ -174,6 +174,7 @@ export async function GET(_req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const teamsByUser = new Map<string, any[]>()
     for (const tm of teamMemberRows ?? []) {
+      if (!tm.user_id) continue
       const list = teamsByUser.get(tm.user_id) ?? []
       list.push(tm)
       teamsByUser.set(tm.user_id, list)
@@ -182,6 +183,7 @@ export async function GET(_req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const registrationsByUser = new Map<string, any[]>()
     for (const r of allRegistrations ?? []) {
+      if (!r.user_id) continue
       const list = registrationsByUser.get(r.user_id) ?? []
       list.push(r)
       registrationsByUser.set(r.user_id, list)
@@ -190,6 +192,7 @@ export async function GET(_req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const waiversByUser = new Map<string, any[]>()
     for (const ws of waiverSignatures ?? []) {
+      if (!ws.user_id) continue
       const list = waiversByUser.get(ws.user_id) ?? []
       list.push(ws)
       waiversByUser.set(ws.user_id, list)
@@ -198,6 +201,7 @@ export async function GET(_req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const paymentsByUser = new Map<string, any[]>()
     for (const p of payments ?? []) {
+      if (!p.user_id) continue
       const list = paymentsByUser.get(p.user_id) ?? []
       list.push(p)
       paymentsByUser.set(p.user_id, list)
@@ -206,6 +210,7 @@ export async function GET(_req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rsvpsByUser = new Map<string, any[]>()
     for (const r of gameRsvps ?? []) {
+      if (!r.user_id) continue
       const list = rsvpsByUser.get(r.user_id) ?? []
       list.push(r)
       rsvpsByUser.set(r.user_id, list)
@@ -224,16 +229,12 @@ export async function GET(_req: NextRequest) {
         full_name: profile.full_name,
         email: profile.email,
         phone: profile.phone,
-        date_of_birth: profile.date_of_birth,
-        gender: profile.gender,
         avatar_url: profile.avatar_url,
         created_at: profile.created_at,
       } : authUser ? {
         full_name: authUser.user_metadata?.full_name ?? null,
         email: authUser.email ?? null,
         phone: authUser.phone ?? null,
-        date_of_birth: null,
-        gender: null,
         avatar_url: null,
         created_at: authUser.created_at,
       } : null
@@ -243,22 +244,21 @@ export async function GET(_req: NextRequest) {
         membership: orgMembership ? {
           role: orgMembership.role,
           status: orgMembership.status,
-          joined_at: orgMembership.created_at,
+          joined_at: orgMembership.joined_at,
         } : null,
         profile: profileData,
         player_details: details ? {
           emergency_contact_name: details.emergency_contact_name,
           emergency_contact_phone: details.emergency_contact_phone,
-          emergency_contact_relationship: details.emergency_contact_relationship,
-          jersey_size: details.jersey_size,
-          notes: details.notes,
+          t_shirt_size: details.t_shirt_size,
+          skill_level: details.skill_level,
+          how_did_you_hear: details.how_did_you_hear,
         } : null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         registrations: (registrationsByUser.get(userId) ?? []).map((r: any) => ({
           league: r.leagues?.name,
           sport: r.leagues?.sport,
           status: r.status,
-          amount_paid_cents: r.amount_paid_cents,
           registered_at: r.created_at,
         })),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -266,7 +266,7 @@ export async function GET(_req: NextRequest) {
           team: tm.teams?.name,
           role: tm.role,
           status: tm.status,
-          joined_at: tm.created_at,
+          joined_at: tm.joined_at,
         })),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         waiver_signatures: (waiversByUser.get(userId) ?? []).map((ws: any) => ({
@@ -278,7 +278,7 @@ export async function GET(_req: NextRequest) {
           amount_cents: p.amount_cents,
           currency: p.currency,
           status: p.status,
-          description: p.description,
+          notes: p.notes,
           date: p.created_at,
         })),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -291,8 +291,8 @@ export async function GET(_req: NextRequest) {
     })
 
     // Log the export event
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('org_data_retention_logs').insert({
+
+    await db.from('org_data_retention_logs').insert({
       organization_id: org.id,
       event_type: 'export',
       triggered_by: 'admin',

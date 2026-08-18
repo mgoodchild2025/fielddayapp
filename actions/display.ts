@@ -9,6 +9,7 @@ import type {
   DisplayConfig, DisplayData, DisplayGame, DisplayStanding, DisplayBracketMatch,
 } from '@/lib/display-types'
 import { defaultConfig, ZONE_COUNT } from '@/lib/display-types'
+import type { Json } from '@/types/database'
 import { getEventSponsors } from '@/actions/event-sponsors'
 import {
   sortStandings, isVolleyballSport, accumulateGameResult, emptyTeamStat,
@@ -22,8 +23,8 @@ export async function getDisplayConfig(
   screen: number,
 ): Promise<{ config: DisplayConfig; enabled: boolean } | null> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('event_display_configs')
     .select('config, enabled')
     .eq('league_id', leagueId)
@@ -46,14 +47,14 @@ export async function saveDisplayConfig(
     await requireOrgMember(org, ['org_admin', 'league_admin'])
 
     const db = createServiceRoleClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any)
+
+    const { error } = await db
       .from('event_display_configs')
       .upsert({
         league_id:       leagueId,
         organization_id: org.id,
         screen_number:   screen,
-        config,
+        config: config as unknown as Json,
         enabled,
         updated_at:      new Date().toISOString(),
       }, { onConflict: 'league_id,screen_number' })
@@ -76,8 +77,8 @@ export async function deleteDisplayScreen(
     await requireOrgMember(org, ['org_admin', 'league_admin'])
 
     const db = createServiceRoleClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any)
+
+    await db
       .from('event_display_configs')
       .delete()
       .eq('league_id', leagueId)
@@ -107,11 +108,11 @@ export async function getDisplayData(
 
   // Base queries always needed
   const [{ data: leagueRow }, { data: brandingRow }, { data: poolsData }, { data: orgRow }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('id, name, sport, standings_pts_method, volleyball_standings_mode').eq('id', leagueId).single(),
+
+    db.from('leagues').select('id, name, sport, standings_pts_method, volleyball_standings_mode').eq('id', leagueId).single(),
     db.from('org_branding').select('logo_url').eq('organization_id', orgId).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('pools').select('id, name, sort_order')
+
+    db.from('pools').select('id, name, sort_order')
       .eq('league_id', leagueId).eq('organization_id', orgId).order('sort_order'),
     db.from('organizations').select('name').eq('id', orgId).single(),
   ])
@@ -123,24 +124,24 @@ export async function getDisplayData(
   //  - Otherwise prefer the most recent stream tied to THIS event, else org-wide.
   let liveStream: { platform: string; title: string | null; url: string; embed_url: string | null } | null = null
   if (config.live_stream_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: pinned } = await (db as any)
+
+    const { data: pinned } = await db
       .from('live_streams')
       .select('platform, title, url, embed_url')
       .eq('organization_id', orgId).eq('id', config.live_stream_id).eq('status', 'live')
       .maybeSingle()
     liveStream = (pinned as typeof liveStream) ?? null
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: eventLive } = await (db as any)
+
+    const { data: eventLive } = await db
       .from('live_streams')
       .select('platform, title, url, embed_url')
       .eq('organization_id', orgId).eq('league_id', leagueId).eq('status', 'live')
       .order('started_at', { ascending: false }).limit(1).maybeSingle()
     liveStream = (eventLive as typeof liveStream) ?? null
     if (!liveStream) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: orgLive } = await (db as any)
+
+      const { data: orgLive } = await db
         .from('live_streams')
         .select('platform, title, url, embed_url')
         .eq('organization_id', orgId).is('league_id', null).eq('status', 'live')
@@ -150,8 +151,8 @@ export async function getDisplayData(
   }
 
   // Team lookup by name — used to enrich label-based games (no FK) with color/logo
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: allTeamsData } = await (db as any)
+
+  const { data: allTeamsData } = await db
     .from('teams').select('name, color, logo_url')
     .eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active')
   type TeamMeta = { color: string | null; logo_url: string | null }
@@ -175,8 +176,8 @@ export async function getDisplayData(
     const dayStartUtc = new Date(dayStartLocal.getTime() + tzOffset * 60000)
     const dayEndUtc   = new Date(dayEndLocal.getTime()   + tzOffset * 60000)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let q = (db as any)
+
+    let q = db
       .from('games')
       .select(`
         id, scheduled_at, court, status, pool_id,
@@ -240,9 +241,9 @@ export async function getDisplayData(
   if (needsStandings) {
 
     const [{ data: teamsData }, { data: resultsData }] = await Promise.all([
-      (db as any).from('teams').select('id, name, color, logo_url, pool_id')
+      db.from('teams').select('id, name, color, logo_url, pool_id')
         .eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
-      (db as any).from('game_results')
+      db.from('game_results')
         .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
         .eq('organization_id', orgId)
         .eq('status', 'confirmed'),
@@ -269,7 +270,8 @@ export async function getDisplayData(
       const input = {
         homeTeamId: ht, awayTeamId: at,
         homeScore: r.home_score, awayScore: r.away_score,
-        sets: r.sets, isForfeit: r.is_forfeit, forfeitTeamId: r.forfeit_team_id,
+        sets: r.sets as { home: number; away: number }[] | null,
+        isForfeit: r.is_forfeit, forfeitTeamId: r.forfeit_team_id,
       }
       accumulateGameResult(combinedRecords, input, isVb)
       if (g.pool_id) accumulateGameResult(poolRecords, input, isVb)
@@ -324,8 +326,8 @@ export async function getDisplayData(
     type BracketRef = { bracketId: string; tierName: string | null }
     const bracketRefs: BracketRef[] = []
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: configRow } = await (db as any)
+
+    const { data: configRow } = await db
       .from('playoff_configs')
       .select('id')
       .eq('league_id', leagueId)
@@ -333,8 +335,8 @@ export async function getDisplayData(
       .maybeSingle() as { data: { id: string } | null }
 
     if (configRow) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: tiersData } = await (db as any)
+
+      const { data: tiersData } = await db
         .from('playoff_tiers')
         .select('name, bracket_id, sort_order')
         .eq('config_id', configRow.id)
@@ -348,8 +350,8 @@ export async function getDisplayData(
 
     // Fallback: no tiers configured — fetch the most recently created bracket
     if (bracketRefs.length === 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: bracketRow } = await (db as any)
+
+      const { data: bracketRow } = await db
         .from('brackets')
         .select('id')
         .eq('league_id', leagueId)
@@ -364,8 +366,8 @@ export async function getDisplayData(
     if (bracketRefs.length > 0) {
 
       const fetchMatches = async (bracketId: string): Promise<DisplayBracketMatch[]> => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: matchesData } = await (db as any)
+
+        const { data: matchesData } = await db
           .from('bracket_matches')
           .select(`
             id, round_number, match_number, score1, score2, status,
@@ -441,8 +443,8 @@ export async function getDisplayScreens(
   leagueId: string,
 ): Promise<{ screen_number: number; enabled: boolean }[]> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('event_display_configs')
     .select('screen_number, enabled')
     .eq('league_id', leagueId)

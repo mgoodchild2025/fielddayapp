@@ -126,8 +126,8 @@ export async function createLeague(
   const db = createServiceRoleClient()
   // datetime-local inputs are wall-clock in the org's timezone — convert to UTC.
   const tz = await getOrgTimezone(db, org.id)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+
+  const { data, error } = await db
     .from('leagues')
     .insert({
       organization_id: org.id,
@@ -197,13 +197,13 @@ export async function createLeague(
     .single()
 
   if (creatorProfile?.email) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('league_organizers').insert({
+
+    await db.from('league_organizers').insert({
       organization_id: org.id,
       league_id: data.id,
-      user_id: auth.userId,
+      user_id: auth.userId!,
       invited_email: creatorProfile.email,
-      invited_by: auth.userId,
+      invited_by: auth.userId!,
       status: 'active',
       expires_at: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString(),
     }).select('id').single()
@@ -227,8 +227,8 @@ export async function updateLeagueStatus(leagueId: string, status: LeagueStatus)
 
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: prior } = await (db as any)
+
+  const { data: prior } = await db
     .from('leagues').select('name, status, notify_on_open').eq('id', leagueId).eq('organization_id', org.id).single()
 
   const { error } = await db
@@ -285,12 +285,12 @@ export async function deleteLeague(leagueId: string) {
   if (auth.error) return { error: auth.error }
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues').select('name').eq('id', leagueId).eq('organization_id', org.id).single()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('leagues')
     .update({ deleted_at: new Date().toISOString(), deleted_by: auth.userId! })
     .eq('id', leagueId)
@@ -321,12 +321,12 @@ export async function restoreLeague(leagueId: string) {
   if (auth.error) return { error: auth.error }
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues').select('name').eq('id', leagueId).eq('organization_id', org.id).single()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('leagues')
     .update({ deleted_at: null, deleted_by: null })
     .eq('id', leagueId)
@@ -406,17 +406,24 @@ export async function updateLeague(
     if ('registration_closes_at' in u) u.registration_closes_at = localDateTimeToUtc(u.registration_closes_at, tz)
     if ('early_bird_deadline' in u)    u.early_bird_deadline    = localDateTimeToUtc(u.early_bird_deadline, tz)
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('leagues')
-    .update(updates)
+    // standings_pts_method / volleyball_standings_mode are NOT NULL in the DB
+    // — a null would fail at runtime, so drop them (undefined keys are
+    // omitted from the update).
+    .update({
+      ...updates,
+      standings_pts_method: updates.standings_pts_method ?? undefined,
+      volleyball_standings_mode: updates.volleyball_standings_mode ?? undefined,
+    })
     .eq('id', leagueId)
     .eq('organization_id', org.id)
 
   if (error) return { data: null, error: error.message }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: lg } = await (db as any)
+
+  const { data: lg } = await db
     .from('leagues').select('name').eq('id', leagueId).eq('organization_id', org.id).single()
   await recordAuditLog({
     orgId: org.id,
@@ -482,8 +489,8 @@ export async function uploadEventLogo(
   const { data: { publicUrl } } = db.storage.from('event-logos').getPublicUrl(path)
   const url = `${publicUrl}?t=${Date.now()}`
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('leagues').update({ logo_url: url }).eq('id', leagueId).eq('organization_id', org.id)
+
+  await db.from('leagues').update({ logo_url: url }).eq('id', leagueId).eq('organization_id', org.id)
 
   revalidatePath(`/admin/events/${leagueId}`)
   revalidatePath('/', 'layout')
@@ -504,8 +511,8 @@ export async function removeEventLogo(
     await db.storage.from('event-logos').remove(existing.map(f => `${org.id}/${leagueId}/${f.name}`))
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('leagues').update({ logo_url: null }).eq('id', leagueId).eq('organization_id', org.id)
+
+  await db.from('leagues').update({ logo_url: null }).eq('id', leagueId).eq('organization_id', org.id)
 
   revalidatePath(`/admin/events/${leagueId}`)
   revalidatePath('/', 'layout')
@@ -544,9 +551,9 @@ export async function uploadLeaguePdf(
   const { data: { publicUrl } } = db.storage.from('org-documents').getPublicUrl(path)
   const url = `${publicUrl}?t=${Date.now()}`
 
-  const col = docType === 'rules' ? 'rules_pdf_url' : 'format_pdf_url'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('leagues').update({ [col]: url }).eq('id', leagueId).eq('organization_id', org.id)
+  await db.from('leagues')
+    .update(docType === 'rules' ? { rules_pdf_url: url } : { format_pdf_url: url })
+    .eq('id', leagueId).eq('organization_id', org.id)
 
   revalidatePath(`/admin/events/${leagueId}`)
   return { url, error: null }
@@ -564,9 +571,9 @@ export async function removeLeaguePdf(
   const path = `${org.id}/leagues/${leagueId}/${docType}.pdf`
   await db.storage.from('org-documents').remove([path])
 
-  const col = docType === 'rules' ? 'rules_pdf_url' : 'format_pdf_url'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('leagues').update({ [col]: null }).eq('id', leagueId).eq('organization_id', org.id)
+  await db.from('leagues')
+    .update(docType === 'rules' ? { rules_pdf_url: null } : { format_pdf_url: null })
+    .eq('id', leagueId).eq('organization_id', org.id)
 
   revalidatePath(`/admin/events/${leagueId}`)
   return { error: null }

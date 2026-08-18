@@ -14,8 +14,8 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: sig } = await (db as any)
+
+  const { data: sig } = await db
     .from('waiver_signatures')
     .select(`
       id, signed_at, signature_name, ip_address, guardian_relationship,
@@ -132,7 +132,7 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
           <div>
             <dt className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">Signed At</dt>
             <dd className="font-medium">
-              {new Date(sig.signed_at).toLocaleDateString('en-CA', {
+              {new Date(sig.signed_at ?? Date.now()).toLocaleDateString('en-CA', {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
@@ -141,7 +141,7 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
               })}
             </dd>
             <dd className="text-gray-500 text-xs">
-              {new Date(sig.signed_at).toLocaleTimeString('en-CA', {
+              {new Date(sig.signed_at ?? Date.now()).toLocaleTimeString('en-CA', {
                 hour: 'numeric',
                 minute: '2-digit',
                 second: '2-digit',
@@ -204,8 +204,8 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
             )}
           </div>
           <div className="text-right text-xs text-gray-400">
-            <p>{new Date(sig.signed_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric', timeZone: timezone })}</p>
-            <p>{new Date(sig.signed_at).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone: timezone })}</p>
+            <p>{new Date(sig.signed_at ?? Date.now()).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric', timeZone: timezone })}</p>
+            <p>{new Date(sig.signed_at ?? Date.now()).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone: timezone })}</p>
           </div>
         </div>
       </div>
