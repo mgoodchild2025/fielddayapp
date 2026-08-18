@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
   if (orgId && leagueId && key) {
     try {
       const db = createServiceRoleClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).rpc('bump_sponsor_stats', { p_org: orgId, p_league: leagueId, p_keys: [key], p_kind: 'click' })
+
+      await db.rpc('bump_sponsor_stats', { p_org: orgId, p_league: leagueId, p_keys: [key], p_kind: 'click' })
     } catch {
       // never block the redirect on analytics
     }

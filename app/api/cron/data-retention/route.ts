@@ -49,8 +49,8 @@ export async function GET(req: NextRequest) {
     // Find canceled subscriptions that are past the 90-day de-identification deadline
     const deidentifyBefore = new Date(now.getTime() - DEIDENTIFY_AFTER_DAYS * 24 * 60 * 60 * 1000)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: expiredSubs, error: subsError } = await (db as any)
+
+    const { data: expiredSubs, error: subsError } = await db
       .from('subscriptions')
       .select('organization_id, current_period_end')
       .eq('status', 'canceled')
@@ -70,8 +70,8 @@ export async function GET(req: NextRequest) {
     }
 
     // Filter out orgs already de-identified
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: orgs } = await (db as any)
+
+    const { data: orgs } = await db
       .from('organizations')
       .select('id, name')
       .in('id', candidateOrgIds)

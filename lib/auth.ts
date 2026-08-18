@@ -126,8 +126,8 @@ export async function requirePlatformAdmin(): Promise<{ userId: string; email: s
   if (!user) throw new Error('Not authenticated')
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (db as any)
+
+  const { data: profile } = await db
     .from('profiles').select('platform_role').eq('id', user.id).single()
   if (profile?.platform_role !== 'platform_admin') throw new Error('Platform admin required')
 

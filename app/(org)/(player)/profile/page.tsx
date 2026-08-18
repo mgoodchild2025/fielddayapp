@@ -20,12 +20,12 @@ export default async function ProfilePage() {
   if (!user) redirect('/login')
 
   const [{ data: profile }, { data: playerDetails }, { data: branding }, mfa] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('profiles').select('*').eq('id', user.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('player_details').select('*').eq('organization_id', org.id).eq('user_id', user.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
+
+    db.from('profiles').select('*').eq('id', user.id).single(),
+
+    db.from('player_details').select('*').eq('organization_id', org.id).eq('user_id', user.id).single(),
+
+    db.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
     getMfaStatus(),
   ])
 

@@ -32,17 +32,17 @@ export default async function BracketPrintPage({
 
   // Org name + timezone
   const [{ data: branding }, { data: orgRow }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('timezone').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('organizations').select('name').eq('id', org.id).single(),
+
+    db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
+
+    db.from('organizations').select('name').eq('id', org.id).single(),
   ])
   const timezone = branding?.timezone ?? 'America/Toronto'
   const orgName = orgRow?.name ?? 'Fieldday'
 
   // League info
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues')
     .select('name, sport')
     .eq('id', id)
@@ -54,8 +54,8 @@ export default async function BracketPrintPage({
   const sport: string = league.sport ?? ''
 
   // Bracket + matches
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawBracket } = await (db as any)
+
+  const { data: rawBracket } = await db
     .from('brackets')
     .select(`
       id, name, bracket_size, bracket_type, status,

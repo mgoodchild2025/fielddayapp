@@ -26,8 +26,8 @@ export async function upsertRsvp(gameId: string, teamId: string, status: 'in' | 
   if (!user) return { error: 'Not authenticated' }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('game_rsvps')
     .upsert(
       {
@@ -68,29 +68,29 @@ async function notifyRsvpOut({
 }) {
   // Fetch game, player profile, team captains, and org admins in parallel
   const [gameRes, profileRes, captainRes, adminRes, brandingRes] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('games').select(`
+
+    db.from('games').select(`
       id, scheduled_at, court,
       home_team:teams!games_home_team_id_fkey(id, name),
       away_team:teams!games_away_team_id_fkey(id, name),
       leagues(name)
     `).eq('id', gameId).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('profiles').select('full_name').eq('id', userId).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('team_members')
+
+    db.from('profiles').select('full_name').eq('id', userId).single(),
+
+    db.from('team_members')
       .select('user_id, profiles!team_members_user_id_fkey(full_name, phone, sms_opted_in)')
       .eq('team_id', teamId)
       .eq('role', 'captain')
       .eq('status', 'active'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_members')
+
+    db.from('org_members')
       .select('user_id')
       .eq('organization_id', orgId)
       .in('role', ['org_admin', 'league_admin'])
       .eq('status', 'active'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('timezone').eq('organization_id', orgId).single(),
+
+    db.from('org_branding').select('timezone').eq('organization_id', orgId).single(),
   ])
 
   const game = gameRes.data
@@ -184,15 +184,15 @@ export async function getGameAttendanceDetails(gameId: string, teamId: string): 
 
   // Fetch all active roster members + all RSVPs for this game in parallel
   const [{ data: members }, { data: rsvps }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('team_members')
       .select('user_id, role, profile:profiles!team_members_user_id_fkey(full_name)')
       .eq('team_id', teamId)
       .eq('organization_id', org.id)
       .eq('status', 'active'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('game_rsvps')
       .select('user_id, status')
       .eq('game_id', gameId)

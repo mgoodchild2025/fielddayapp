@@ -11,8 +11,8 @@ export default async function SponsorsPage() {
   await requireOrgMember(org, ['org_admin'])
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: sponsors } = await (db as any)
+
+  const { data: sponsors } = await db
     .from('org_sponsors')
     .select('id, name, logo_url, website_url, tier, display_order')
     .eq('organization_id', org.id)

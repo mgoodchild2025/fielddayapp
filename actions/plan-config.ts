@@ -19,8 +19,8 @@ export async function savePlanConfigs(rows: PlanConfigRow[]): Promise<{ error: s
 
   const supabase = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+
+  const { error } = await supabase
     .from('plan_configs')
     .upsert(
       rows.map((r) => ({
@@ -63,8 +63,8 @@ export async function saveOrgFeatureOverride(
 ): Promise<{ error: string | null }> {
   await requirePlatformAdmin()
   const supabase = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+
+  const { error } = await supabase
     .from('org_feature_overrides')
     .upsert(
       { organization_id: orgId, feature, enabled, limit_value: limitValue, note, updated_at: new Date().toISOString() },

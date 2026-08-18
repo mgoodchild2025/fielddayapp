@@ -35,8 +35,8 @@ export default async function PlatformAdminLayout({
 
     // No factor enrolled — check / start grace period
     const db = createServiceRoleClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: profileRow } = await (db as any)
+
+    const { data: profileRow } = await db
       .from('profiles')
       .select('mfa_grace_until')
       .eq('id', user.id)
@@ -50,8 +50,8 @@ export default async function PlatformAdminLayout({
 
     if (!graceUntil) {
       const graceEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('profiles').update({ mfa_grace_until: graceEnd.toISOString() }).eq('id', user.id)
+
+      await db.from('profiles').update({ mfa_grace_until: graceEnd.toISOString() }).eq('id', user.id)
       mfaGraceDaysLeft = 14
     } else if (graceUntil <= now) {
       redirect('/mfa/setup?redirect=/super')

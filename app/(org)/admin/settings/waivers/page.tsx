@@ -9,8 +9,8 @@ export default async function AdminWaiversPage() {
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: waivers } = await (db as any)
+
+  const { data: waivers } = await db
     .from('waivers')
     .select('*')
     .eq('organization_id', org.id)
@@ -18,8 +18,8 @@ export default async function AdminWaiversPage() {
     .order('created_at', { ascending: false })
 
   // Fetch signature counts for all waivers in one query
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: sigCounts } = await (db as any)
+
+  const { data: sigCounts } = await db
     .from('waiver_signatures')
     .select('waiver_id')
     .in('waiver_id', (waivers ?? []).map((w: { id: string }) => w.id))

@@ -21,8 +21,8 @@ export default async function EventMediaAdminPage({ params }: { params: Promise<
   }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues').select('id').eq('id', id).eq('organization_id', org.id).single()
   if (!league) notFound()
 

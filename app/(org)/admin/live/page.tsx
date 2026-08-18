@@ -21,7 +21,7 @@ export default async function LivePage() {
   const db = createServiceRoleClient()
 
   const { data: events } = allowed
-    ? await (db as any)
+    ? await db
         .from('leagues')
         .select('id, name')
         .eq('organization_id', org.id)

@@ -37,8 +37,8 @@ export default async function SuperErrorsPage() {
 
   // Last 7 days, newest first; grouped by digest below.
   const since = new Date(Date.now() - 7 * 86400_000).toISOString()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+
+  const { data, error } = await db
     .from('error_logs')
     .select('id, created_at, digest, message, stack, path, method, router_kind, organization_id')
     .gte('created_at', since)

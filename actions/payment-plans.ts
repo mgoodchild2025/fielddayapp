@@ -81,8 +81,8 @@ export async function adminMarkInstallmentPaid(
   const supabase = createServiceRoleClient()
 
   // Fetch installment + enrollment + registration to verify ownership
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: inst } = await (supabase as any)
+
+  const { data: inst } = await supabase
     .from('payment_plan_installments')
     .select(`
       id, amount_cents, installment_number, status,
@@ -102,8 +102,8 @@ export async function adminMarkInstallmentPaid(
   if (inst.status === 'paid') return { error: null } // idempotent
 
   // Insert a manual payments row
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: paymentRow, error: paymentErr } = await (supabase as any)
+
+  const { data: paymentRow, error: paymentErr } = await supabase
     .from('payments')
     .insert({
       organization_id: org.id,
@@ -121,8 +121,8 @@ export async function adminMarkInstallmentPaid(
   if (paymentErr) return { error: paymentErr.message }
 
   // Mark the instalment paid
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: instErr } = await (supabase as any)
+
+  const { error: instErr } = await supabase
     .from('payment_plan_installments')
     .update({ status: 'paid', payment_id: paymentRow.id })
     .eq('id', installmentId)
@@ -130,8 +130,8 @@ export async function adminMarkInstallmentPaid(
   if (instErr) return { error: instErr.message }
 
   // Check if all instalments in the enrollment are now paid
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: remaining } = await (supabase as any)
+
+  const { data: remaining } = await supabase
     .from('payment_plan_installments')
     .select('id')
     .eq('enrollment_id', enrollment.id)
@@ -139,8 +139,8 @@ export async function adminMarkInstallmentPaid(
     .limit(1)
 
   if (!remaining || remaining.length === 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+
+    await supabase
       .from('payment_plan_enrollments')
       .update({ status: 'completed' })
       .eq('id', enrollment.id)

@@ -38,8 +38,8 @@ export async function consentRequestMeta(): Promise<{ ip: string | null; userAge
 export async function recordConsents(rows: ConsentRow[]): Promise<{ error: string | null }> {
   if (rows.length === 0) return { error: null }
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('player_consents').insert(
+
+  const { error } = await db.from('player_consents').insert(
     rows.map((r) => ({
       organization_id: r.organization_id,
       user_id: r.user_id,
@@ -67,8 +67,8 @@ export async function getMarketingConsent(
   userId: string
 ): Promise<{ email: boolean; sms: boolean }> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('player_consents')
     .select('consent_type, consent_given, withdrawn_at, consented_at')
     .eq('organization_id', orgId)
@@ -113,16 +113,16 @@ export async function setMarketingConsent(
     }])
   } else {
     // Withdraw the latest active row of this type
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: active } = await (db as any)
+
+    const { data: active } = await db
       .from('player_consents')
       .select('id')
       .eq('organization_id', org.id).eq('user_id', user.id)
       .eq('consent_type', type).eq('consent_given', true).is('withdrawn_at', null)
       .order('consented_at', { ascending: false }).limit(1).maybeSingle()
     if (active) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('player_consents')
+
+      await db.from('player_consents')
         .update({ withdrawn_at: new Date().toISOString() }).eq('id', active.id)
     }
   }
@@ -149,8 +149,8 @@ export async function getPlayerPendingReconsent(orgId: string, userId: string): 
   const db = createServiceRoleClient()
 
   // Latest published privacy-policy version that requires reconsent
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: versions } = await (db as any)
+
+  const { data: versions } = await db
     .from('legal_document_versions')
     .select('id, version, published_at, requires_reconsent, reconsent_summary, document:legal_documents!legal_document_versions_document_id_fkey(slug, title)')
     .eq('requires_reconsent', true)
@@ -160,8 +160,8 @@ export async function getPlayerPendingReconsent(orgId: string, userId: string): 
   if (!v) return null
 
   // The player's most recent privacy consent in this org
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: last } = await (db as any)
+
+  const { data: last } = await db
     .from('player_consents')
     .select('consented_at')
     .eq('organization_id', orgId).eq('user_id', userId)
@@ -217,8 +217,8 @@ export async function getMarketingConsentBatch(
   if (userIds.length === 0) return { email, sms }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('player_consents')
     .select('user_id, consent_type, consent_given, withdrawn_at, consented_at')
     .eq('organization_id', orgId)
@@ -246,8 +246,8 @@ export async function getMarketingConsentBatch(
  */
 export async function getMarketingOptInUserIds(orgId: string): Promise<string[]> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('player_consents')
     .select('user_id, consent_given, withdrawn_at, consented_at')
     .eq('organization_id', orgId)
@@ -274,16 +274,16 @@ export async function unsubscribeMarketing(
   type: 'marketing_email' | 'marketing_sms'
 ): Promise<{ error: string | null }> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: active } = await (db as any)
+
+  const { data: active } = await db
     .from('player_consents')
     .select('id')
     .eq('organization_id', orgId).eq('user_id', userId)
     .eq('consent_type', type).eq('consent_given', true).is('withdrawn_at', null)
     .order('consented_at', { ascending: false }).limit(1).maybeSingle()
   if (active) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('player_consents')
+
+    await db.from('player_consents')
       .update({ withdrawn_at: new Date().toISOString() }).eq('id', active.id)
   } else {
     // No active row → record an explicit opt-out so the suppression sticks
@@ -295,8 +295,8 @@ export async function unsubscribeMarketing(
 /** Player-facing summary of accepted privacy/waiver consents (Legal Agreements view). */
 export async function getPlayerConsentSummary(orgId: string, userId: string) {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('player_consents')
     .select('consent_type, document_slug, document_version, consented_at')
     .eq('organization_id', orgId)

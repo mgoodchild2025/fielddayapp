@@ -38,7 +38,7 @@ interface Props {
 function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId: string; teamCount: number }) {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const [result, setResult] = useState<{ error?: string; count?: number } | null>(null)
+  const [result, setResult] = useState<{ error?: string | null; count?: number } | null>(null)
   const [startDate, setStartDate] = useState('')
   const [gameTime, setGameTime] = useState('10:00')
   const [daysBetween, setDaysBetween] = useState('0')

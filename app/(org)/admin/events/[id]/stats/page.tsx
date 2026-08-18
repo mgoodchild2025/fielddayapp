@@ -30,15 +30,15 @@ export default async function AdminStatsPage({
   const service = createServiceRoleClient()
 
   const [{ data: league }, { data: branding }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (service as any)
+
+    service
       .from('leagues')
       .select('id, name, sport')
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (service as any)
+
+    service
       .from('org_branding')
       .select('timezone')
       .eq('organization_id', org.id)

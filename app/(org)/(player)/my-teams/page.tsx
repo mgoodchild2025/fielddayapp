@@ -25,10 +25,10 @@ export default async function MyTeamsPage() {
   if (!user) redirect('/login')
 
   const [{ data: branding }, { data: memberships }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('team_members').select(`
+
+    db.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
+
+    db.from('team_members').select(`
       id, role,
       team:teams!team_members_team_id_fkey(
         id, name, color, logo_url,

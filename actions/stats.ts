@@ -322,8 +322,8 @@ export async function updateStatsPublic(
 
   if (!adminMember) return { error: 'Admin access required' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+
+  const { error } = await supabase
     .from('leagues')
     .update({ stats_public: statsPublic })
     .eq('id', leagueId)

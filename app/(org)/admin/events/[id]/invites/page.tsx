@@ -11,15 +11,15 @@ export default async function AdminInvitesPage({ params }: { params: Promise<{ i
   const db = createServiceRoleClient()
 
   const [{ data: league }, { data: invites }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('leagues')
       .select('id, name, event_type, pickup_join_policy, drop_in_price_cents')
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('pickup_invites')
       .select('id, email, status, invite_type, invited_at')
       .eq('league_id', id)

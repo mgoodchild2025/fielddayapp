@@ -24,8 +24,8 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
   }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues').select('id').eq('id', id).eq('organization_id', org.id).single()
   if (!league) notFound()
 
@@ -34,11 +34,11 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
     getEventExpenses(id),
     getEventRevenue(id),
     getEventBudget(id),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('event_sessions').select('id, scheduled_at')
+
+    db.from('event_sessions').select('id, scheduled_at')
       .eq('league_id', id).eq('organization_id', org.id).order('scheduled_at', { ascending: true }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('timezone').eq('organization_id', org.id).maybeSingle(),
+
+    db.from('org_branding').select('timezone').eq('organization_id', org.id).maybeSingle(),
   ])
 
   const timezone = branding?.timezone ?? 'America/Toronto'

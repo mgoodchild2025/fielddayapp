@@ -28,8 +28,8 @@ export default async function EventAdminLayout({
   const org = await getCurrentOrg(headersList)
   const supabase = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (supabase as any)
+
+  const { data: league } = await supabase
     .from('leagues')
     .select('id, name, status, event_type, pickup_join_policy')
     .eq('id', id)

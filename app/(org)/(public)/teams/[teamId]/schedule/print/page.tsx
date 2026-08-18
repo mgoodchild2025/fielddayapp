@@ -22,25 +22,25 @@ export default async function TeamSchedulePrintPage({
 
   // Parallel: branding, team info, user's team membership, org admin check
   const [{ data: branding }, { data: orgRow }, { data: team }, { data: myMembership }, { data: orgMember }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('timezone').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('organizations').select('name').eq('id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('teams')
+
+    db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
+
+    db.from('organizations').select('name').eq('id', org.id).single(),
+
+    db.from('teams')
       .select('id, name, league_id, league:leagues!teams_league_id_fkey(name, sport)')
       .eq('id', teamId)
       .eq('organization_id', org.id)
       .single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('team_members')
+
+    db.from('team_members')
       .select('id')
       .eq('team_id', teamId)
       .eq('user_id', user.id)
       .eq('status', 'active')
       .maybeSingle(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_members')
+
+    db.from('org_members')
       .select('role')
       .eq('organization_id', org.id)
       .eq('user_id', user.id)
@@ -61,8 +61,8 @@ export default async function TeamSchedulePrintPage({
   const sport: string = league?.sport ?? ''
 
   // Fetch ALL future games involving this team (no past cutoff for printing)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawGames } = await (db as any)
+
+  const { data: rawGames } = await db
     .from('games')
     .select(`
       id, scheduled_at, court, week_number, status,

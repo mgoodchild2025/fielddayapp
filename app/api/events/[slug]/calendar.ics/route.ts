@@ -58,8 +58,8 @@ export async function GET(
   const db = createServiceRoleClient()
 
   // Validate token against the event (league) ────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league, error: leagueErr } = await (db as any)
+
+  const { data: league, error: leagueErr } = await db
     .from('leagues')
     .select('id, name, slug, calendar_token, venue_name, venue_address')
     .eq('slug', slug)
@@ -80,8 +80,8 @@ export async function GET(
   // that session (e.g. a player who booked one drop-in session), skipping games.
   const sessionFilter = request.nextUrl.searchParams.get('session')
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let sessionsQuery = (db as any)
+
+  let sessionsQuery = db
     .from('event_sessions')
     .select('id, scheduled_at, duration_minutes, location_override, notes, status')
     .eq('league_id', league.id)
@@ -94,8 +94,8 @@ export async function GET(
     sessionsQuery,
     sessionFilter
       ? Promise.resolve({ data: [] })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      : (db as any)
+
+      : db
           .from('games')
           .select(`
             id, scheduled_at, court, week_number, status,

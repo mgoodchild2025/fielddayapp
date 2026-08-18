@@ -200,8 +200,8 @@ export async function getLimit(orgId: string, feature: LimitFeature): Promise<nu
 /** Returns the count of active leagues for an org. */
 export async function getActiveLeagueCount(orgId: string): Promise<number> {
   const supabase = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { count } = await (supabase as any)
+
+  const { count } = await supabase
     .from('leagues')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', orgId)

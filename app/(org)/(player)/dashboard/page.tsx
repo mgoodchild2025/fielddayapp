@@ -41,11 +41,11 @@ export default async function DashboardPage() {
     { data: seasonPassRegs },
   ] = await Promise.all([
     db.from('profiles').select('full_name').eq('id', user.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
+
+    db.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
     // Active team memberships
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('team_members').select(`
+
+    db.from('team_members').select(`
       id, role,
       team:teams!team_members_team_id_fkey(
         id, name, color, logo_url,
@@ -57,8 +57,8 @@ export default async function DashboardPage() {
       .eq('status', 'active'),
 
     // Session path 1: explicit session registrations
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('session_registrations').select(`
+
+    db.from('session_registrations').select(`
       id, session_id, status,
       session:event_sessions!session_registrations_session_id_fkey(
         id, scheduled_at, duration_minutes, location_override,
@@ -70,8 +70,8 @@ export default async function DashboardPage() {
       .eq('status', 'registered'),
 
     // Session path 2: drop-in registrations with a session_id
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('registrations').select(`
+
+    db.from('registrations').select(`
       id, session_id,
       session:event_sessions!registrations_session_id_fkey(
         id, scheduled_at, duration_minutes, location_override,
@@ -84,8 +84,8 @@ export default async function DashboardPage() {
       .in('status', ['active', 'pending']),
 
     // Session path 3: season-pass registrations (league-level, not session-level)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('registrations').select('league_id')
+
+    db.from('registrations').select('league_id')
       .eq('user_id', user.id)
       .eq('organization_id', org.id)
       .is('session_id', null)
@@ -103,8 +103,8 @@ export default async function DashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let seasonSessionRows: any[] = []
   if (seasonLeagueIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (db as any).from('event_sessions').select(`
+
+    const { data } = await db.from('event_sessions').select(`
       id, scheduled_at, duration_minutes, location_override,
       league:leagues!event_sessions_league_id_fkey(id, name, slug, event_type, sport)
     `)
@@ -210,8 +210,8 @@ export default async function DashboardPage() {
       { data: pp },
     ] = await Promise.all([
       // Upcoming scheduled games for any of user's teams
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('games').select(`
+
+      db.from('games').select(`
         id, scheduled_at, court, week_number, status, home_team_id, away_team_id, league_id,
         home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
         away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
@@ -225,8 +225,8 @@ export default async function DashboardPage() {
         .limit(30),
 
       // Recent past games with scores
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('games').select(`
+
+      db.from('games').select(`
         id, scheduled_at, home_team_id, away_team_id,
         home_team:teams!games_home_team_id_fkey(id, name),
         away_team:teams!games_away_team_id_fkey(id, name),
@@ -242,8 +242,8 @@ export default async function DashboardPage() {
       // All confirmed results in these leagues (for standings computation)
       // pool_id included so we can exclude pool games from regular-season standings
       // sets + forfeit fields included so accumulateGameResult can mirror the standings tab
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('games').select(`
+
+      db.from('games').select(`
         id, home_team_id, away_team_id, league_id, status, pool_id,
         game_results(home_score, away_score, status, sets, is_forfeit, forfeit_team_id)
       `)
@@ -253,18 +253,18 @@ export default async function DashboardPage() {
       // Active teams in these leagues (for standings + denominator)
       // status='active' matches the standings page filter — inactive/dropped teams are excluded
       leagueIds.length > 0
-        ? (db as any).from('teams').select('id, league_id').in('league_id', leagueIds).eq('status', 'active')
+        ? db.from('teams').select('id, league_id').in('league_id', leagueIds).eq('status', 'active')
         : Promise.resolve({ data: [] }),
 
       // User's own RSVPs for upcoming games
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('game_rsvps').select('game_id, status')
+
+      db.from('game_rsvps').select('game_id, status')
         .eq('user_id', user.id)
         .eq('organization_id', org.id),
 
       // Pending registrations for active leagues (action needed)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('registrations').select(`
+
+      db.from('registrations').select(`
         id, status,
         league:leagues!registrations_league_id_fkey(name, slug)
       `)
@@ -288,8 +288,8 @@ export default async function DashboardPage() {
         .maybeSingle(),
 
       // Pending offline payments (cash / etransfer / cheque) for this player
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('payments').select(`
+
+      db.from('payments').select(`
         id, payment_method, amount_cents, currency,
         league:leagues!payments_league_id_fkey(name, slug)
       `)
@@ -335,8 +335,8 @@ export default async function DashboardPage() {
 
   if (firstGame) {
     const myTeamId = teamIdSet.has(firstGame.home_team_id) ? firstGame.home_team_id : firstGame.away_team_id
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: firstGameRsvpRows } = await (db as any)
+
+    const { data: firstGameRsvpRows } = await db
       .from('game_rsvps')
       .select('team_id, status')
       .eq('game_id', firstGame.id)
@@ -469,8 +469,8 @@ export default async function DashboardPage() {
       const ids = sameDayRaw.map((g) => g.id as string)
       const myTeamByGame = new Map<string, string>()
       for (const g of sameDayRaw) myTeamByGame.set(g.id, teamIdSet.has(g.home_team_id) ? g.home_team_id : g.away_team_id)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: rrows } = await (db as any).from('game_rsvps').select('game_id, team_id, status').in('game_id', ids)
+
+      const { data: rrows } = await db.from('game_rsvps').select('game_id, team_id, status').in('game_id', ids)
       const counts = new Map<string, { in: number; out: number }>()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const r of (rrows ?? []) as any[]) {

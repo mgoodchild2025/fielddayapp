@@ -14,8 +14,8 @@ export async function sendWaiverReminders(leagueId: string): Promise<{ sent: num
   const db = createServiceRoleClient()
 
   // Fetch the league (including waiver configuration)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues')
     .select('id, name, slug, waiver_version_id')
     .eq('id', leagueId)
@@ -40,8 +40,8 @@ export async function sendWaiverReminders(leagueId: string): Promise<{ sent: num
   }
 
   // Fetch active registrations that have not yet signed the waiver
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: registrations } = await (db as any)
+
+  const { data: registrations } = await db
     .from('registrations')
     .select('id, user_id, profiles!registrations_user_id_fkey(full_name, email)')
     .eq('league_id', leagueId)

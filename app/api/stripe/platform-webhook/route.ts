@@ -153,8 +153,8 @@ export async function POST(request: NextRequest) {
     const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id
 
     if (customerId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: sub } = await (db as any)
+
+      const { data: sub } = await db
         .from('subscriptions')
         .select('organization_id, plan_tier')
         .eq('stripe_customer_id', customerId)
@@ -162,8 +162,8 @@ export async function POST(request: NextRequest) {
 
       if (sub) {
         // Update subscription status to past_due
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (db as any)
+
+        await db
           .from('subscriptions')
           .update({ status: 'past_due', updated_at: new Date().toISOString() })
           .eq('organization_id', sub.organization_id)
@@ -211,8 +211,8 @@ export async function POST(request: NextRequest) {
 
       // Only alert if the price actually changed (not just metadata updates etc.)
       if (newPriceId && oldPriceId && newPriceId !== oldPriceId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: sub } = await (db as any)
+
+        const { data: sub } = await db
           .from('subscriptions')
           .select('organization_id, plan_tier')
           .eq('stripe_customer_id', customerId)
@@ -256,8 +256,8 @@ export async function POST(request: NextRequest) {
     const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id
 
     if (customerId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: sub } = await (db as any)
+
+      const { data: sub } = await db
         .from('subscriptions')
         .select('organization_id, plan_tier')
         .eq('stripe_customer_id', customerId)

@@ -28,8 +28,8 @@ export async function upsertStaffMember(
   const db = createServiceRoleClient()
 
   if (id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any)
+
+    const { error } = await db
       .from('org_staff')
       .update({ name: parsed.data.name, role: parsed.data.role || null, bio: parsed.data.bio || null })
       .eq('id', id).eq('organization_id', org.id)
@@ -38,14 +38,14 @@ export async function upsertStaffMember(
     return { id, error: null }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: maxRow } = await (db as any)
+
+  const { data: maxRow } = await db
     .from('org_staff').select('display_order').eq('organization_id', org.id)
     .order('display_order', { ascending: false }).limit(1).maybeSingle()
   const display_order = ((maxRow as { display_order: number } | null)?.display_order ?? -1) + 1
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+
+  const { data, error } = await db
     .from('org_staff')
     .insert({ organization_id: org.id, ...parsed.data, role: parsed.data.role || null, bio: parsed.data.bio || null, display_order })
     .select('id').single()
@@ -60,8 +60,8 @@ export async function deleteStaffMember(staffId: string): Promise<{ error: strin
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('org_staff').delete().eq('id', staffId).eq('organization_id', org.id)
+
+  const { error } = await db.from('org_staff').delete().eq('id', staffId).eq('organization_id', org.id)
   if (error) return { error: error.message }
   revalidatePath('/'); revalidatePath('/admin/settings/website/staff')
   return { error: null }
@@ -95,8 +95,8 @@ export async function uploadStaffAvatar(
   const { data: { publicUrl } } = db.storage.from('org-branding').getPublicUrl(path)
   const url = `${publicUrl}?t=${Date.now()}`
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('org_staff').update({ avatar_url: url }).eq('id', staffId).eq('organization_id', org.id)
+
+  await db.from('org_staff').update({ avatar_url: url }).eq('id', staffId).eq('organization_id', org.id)
   revalidatePath('/'); revalidatePath('/admin/settings/website/staff')
   return { url, error: null }
 }

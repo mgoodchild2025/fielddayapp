@@ -21,8 +21,8 @@ export default async function SubInvitePage({
 
   const [invite, { data: branding }, supabase] = await Promise.all([
     getGameSubInviteDetails(token),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
+
+    db.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
     createServerClient(),
   ])
 
@@ -126,15 +126,15 @@ export default async function SubInvitePage({
 
   // ── Logged in — check for existing waiver signature ───────────────────────
   const [existingSigRes, waiverRes] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('waiver_signatures')
+
+    db.from('waiver_signatures')
       .select('id')
       .eq('organization_id', org.id)
       .eq('user_id', user.id)
       .maybeSingle(),
     // Fetch the org's active waiver (if any)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('waivers')
+
+    db.from('waivers')
       .select('id, title, content')
       .eq('organization_id', org.id)
       .eq('is_active', true)

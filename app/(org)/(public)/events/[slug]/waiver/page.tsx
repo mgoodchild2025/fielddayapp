@@ -25,8 +25,8 @@ export default async function GuestWaiverPage({
     { data: { user } },
   ] = await Promise.all([
     db.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('leagues')
       .select('id, name, slug, waiver_version_id')
       .eq('slug', slug)
@@ -89,8 +89,8 @@ export default async function GuestWaiverPage({
   if (user) {
     const [{ data: profile }, { data: existingSig }] = await Promise.all([
       db.from('profiles').select('full_name, email').eq('id', user.id).single(),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any)
+
+      db
         .from('waiver_signatures')
         .select('id')
         .eq('organization_id', org.id)

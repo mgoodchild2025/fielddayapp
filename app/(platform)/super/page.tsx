@@ -38,8 +38,8 @@ export default async function PlatformSuperPage() {
   }
 
   // Org admins (name) per org
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: adminRows } = await (supabase as any)
+
+  const { data: adminRows } = await supabase
     .from('org_members')
     .select('organization_id, profile:profiles!org_members_user_id_fkey(full_name, email)')
     .eq('role', 'org_admin')

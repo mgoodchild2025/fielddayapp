@@ -36,17 +36,17 @@ export default async function SchedulePrintPage({
 
   // Org branding (timezone + org name)
   const [{ data: branding }, { data: orgRow }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('timezone').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('organizations').select('name').eq('id', org.id).single(),
+
+    db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
+
+    db.from('organizations').select('name').eq('id', org.id).single(),
   ])
   const timezone = branding?.timezone ?? 'America/Toronto'
   const orgName = orgRow?.name ?? 'Fieldday'
 
   // League info
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues')
     .select('name, sport')
     .eq('id', id)
@@ -61,8 +61,8 @@ export default async function SchedulePrintPage({
   if (type === 'full') {
 
     const [{ data: rawGames }, { data: poolRows }] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any)
+
+      db
         .from('games')
         .select(`
           id, scheduled_at, court, week_number, pool_id,
@@ -74,8 +74,8 @@ export default async function SchedulePrintPage({
         .eq('organization_id', org.id)
         .neq('status', 'cancelled')
         .order('scheduled_at', { ascending: true }),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('pools').select('id, name').eq('league_id', id).eq('organization_id', org.id),
+
+      db.from('pools').select('id, name').eq('league_id', id).eq('organization_id', org.id),
     ])
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const poolNameById = new Map<string, string>((poolRows ?? []).map((p: any) => [p.id as string, p.name as string]))
@@ -116,8 +116,8 @@ export default async function SchedulePrintPage({
 
 
     const [{ data: rawGames }, { data: poolRows }] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any)
+
+      db
         .from('games')
         .select(`
           id, scheduled_at, court, week_number, pool_id,
@@ -130,8 +130,8 @@ export default async function SchedulePrintPage({
         .gte('scheduled_at', dayStart)
         .lte('scheduled_at', dayEnd)
         .order('scheduled_at', { ascending: true }),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('pools').select('id, name').eq('league_id', id).eq('organization_id', org.id),
+
+      db.from('pools').select('id, name').eq('league_id', id).eq('organization_id', org.id),
     ])
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const poolNameById = new Map<string, string>((poolRows ?? []).map((p: any) => [p.id as string, p.name as string]))
@@ -170,8 +170,8 @@ export default async function SchedulePrintPage({
   if (type === 'scoresheet' && gameIds) {
     const ids = gameIds.split(',').filter(Boolean).slice(0, 60)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rawGames } = await (db as any)
+
+    const { data: rawGames } = await db
       .from('games')
       .select(`
         id, scheduled_at, court, week_number,
@@ -220,8 +220,8 @@ export default async function SchedulePrintPage({
 
   // ─── Score Sheet or Stat Sheet ─────────────────────────────────────────────
   if ((type === 'scoresheet' || type === 'statsheet') && gameId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rawGame } = await (db as any)
+
+    const { data: rawGame } = await db
       .from('games')
       .select(`
         id, scheduled_at, court, week_number,

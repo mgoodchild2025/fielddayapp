@@ -23,8 +23,8 @@ export default async function AdminGalleryPage() {
 
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: photos } = await (db as any)
+
+  const { data: photos } = await db
     .from('org_photos')
     .select('id, url, caption, display_order, featured')
     .eq('organization_id', org.id)

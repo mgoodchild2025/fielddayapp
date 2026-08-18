@@ -19,18 +19,18 @@ export default async function EventsPage() {
   const [{ data: leagues }, { data: branding }, { data: orgMember }] = await Promise.all([
 
     // select('*') so this still works before migration 168 (new columns absent).
-    (db as any)
+    db
       .from('leagues')
       .select('*')
       .eq('organization_id', org.id)
       .is('deleted_at', null)
       .not('status', 'in', '(draft,archived)')
       .order('created_at', { ascending: false }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
+
+    db.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
     user
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? (db as any).from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single()
+
+      ? db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single()
       : Promise.resolve({ data: null }),
   ])
 
@@ -38,8 +38,8 @@ export default async function EventsPage() {
 
   // Advertised "coming soon" drafts — separate query so it degrades to empty if
   // migration 168 (advertised column) hasn't been applied yet.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: comingSoonRaw } = await (db as any)
+
+  const { data: comingSoonRaw } = await db
     .from('leagues')
     .select('*')
     .eq('organization_id', org.id)
@@ -63,8 +63,8 @@ export default async function EventsPage() {
 
   const teamCountMap = new Map<string, number>()
   if (openIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: teamRows } = await (db as any)
+
+    const { data: teamRows } = await db
       .from('teams')
       .select('league_id')
       .in('league_id', openIds)

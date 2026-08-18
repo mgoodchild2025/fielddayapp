@@ -22,8 +22,8 @@ export default async function ShopPage() {
 
   const [items, { data: branding }] = await Promise.all([
     getShopItems(org.id),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url, tagline').eq('organization_id', org.id).single(),
+
+    db.from('org_branding').select('logo_url, tagline').eq('organization_id', org.id).single(),
   ])
 
   const logoUrl = branding?.logo_url ?? null

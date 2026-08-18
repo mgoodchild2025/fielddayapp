@@ -57,8 +57,8 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
 
   // ── Custom domain: sync with Railway ──────────────────────────────────────
   // Read the current branding row so we know what domain (if any) is already registered.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (service as any)
+
+  const { data: existing } = await service
     .from('org_branding')
     .select('custom_domain, railway_domain_id')
     .eq('organization_id', orgId)
@@ -137,8 +137,8 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
   // Done separately so that missing columns (migrations not yet applied) never
   // prevent the branding fields above from saving.
   if (needsRailwayRegistration && newRailwayId !== railwayId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (service as any)
+
+    await service
       .from('org_branding')
       .update({
         railway_domain_id:  newRailwayId,
@@ -199,8 +199,8 @@ export async function refreshDnsStatus(orgId: string): Promise<{ records: Railwa
   if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
     return { records: null, error: 'Unauthorized' }
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: branding } = await (service as any)
+
+  const { data: branding } = await service
     .from('org_branding')
     .select('custom_domain, railway_domain_id')
     .eq('organization_id', orgId)
@@ -221,8 +221,8 @@ export async function refreshDnsStatus(orgId: string): Promise<{ records: Railwa
     }
     railwayDomainId = result.id
     // Persist the recovered ID and DNS records for future calls
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (service as any)
+
+    await service
       .from('org_branding')
       .update({
         railway_domain_id:   result.id,
@@ -251,8 +251,8 @@ export async function refreshDnsStatus(orgId: string): Promise<{ records: Railwa
   const records = await verifyCnameRecords(rawRecords, branding?.custom_domain ?? undefined)
 
   // Persist latest DNS records back to DB so the page load always shows both records
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (service as any)
+
+  await service
     .from('org_branding')
     .update({
       railway_cname_host:  records.find((r) => r.recordType === 'CNAME')?.hostlabel  ?? null,
@@ -292,8 +292,8 @@ export async function updateCheckinSound(
     return { error: 'Unauthorized' }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (service as any)
+
+  const { error } = await service
     .from('org_branding')
     .upsert({ organization_id: orgId, checkin_sound: sound }, { onConflict: 'organization_id' })
 

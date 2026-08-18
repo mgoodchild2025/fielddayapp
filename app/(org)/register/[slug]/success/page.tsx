@@ -24,18 +24,18 @@ export default async function RegistrationSuccessPage({
   const { data: { user } } = await supabase.auth.getUser()
 
   const [{ data: branding }, { data: league }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('id, name, sport, season_start_date, event_type, checkin_enabled').eq('organization_id', org.id).eq('slug', slug).single(),
+
+    db.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
+
+    db.from('leagues').select('id, name, sport, season_start_date, event_type, checkin_enabled').eq('organization_id', org.id).eq('slug', slug).single(),
   ])
 
   // Verify-on-return fallback: if Stripe redirected back with a session_id but the
   // webhook hasn't fired yet (or isn't configured — common in sandbox), confirm the
   // payment directly so it doesn't sit "pending". Mirrors the team page fallback.
   if (sessionId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: pay } = await (db as any)
+
+    const { data: pay } = await db
       .from('payments')
       .select('id, status, registration_id')
       .eq('organization_id', org.id)
@@ -43,8 +43,8 @@ export default async function RegistrationSuccessPage({
       .maybeSingle()
 
     if (pay && pay.status !== 'paid') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: ps } = await (db as any)
+
+      const { data: ps } = await db
         .from('org_payment_settings')
         .select('stripe_secret_key')
         .eq('organization_id', org.id)
@@ -58,22 +58,22 @@ export default async function RegistrationSuccessPage({
           const session = await orgStripe.checkout.sessions.retrieve(sessionId)
           if (session.payment_status === 'paid') {
             const paidAt = new Date((session.created ?? Math.floor(Date.now() / 1000)) * 1000).toISOString()
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (db as any).from('payments').update({
+
+            await db.from('payments').update({
               status: 'paid',
               paid_at: paidAt,
               stripe_payment_intent_id: (session.payment_intent as string) ?? null,
             }).eq('id', pay.id)
 
             if (pay.registration_id) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              await (db as any).from('registrations').update({ status: 'active' }).eq('id', pay.registration_id)
+
+              await db.from('registrations').update({ status: 'active' }).eq('id', pay.registration_id)
             }
 
             const merchIds = (session.metadata?.merchOrderIds ?? '').split(',').filter(Boolean)
             if (merchIds.length > 0) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              await (db as any).from('merchandise_orders').update({ status: 'paid' }).in('id', merchIds)
+
+              await db.from('merchandise_orders').update({ status: 'paid' }).in('id', merchIds)
             }
           }
         } catch (err) {
@@ -86,7 +86,7 @@ export default async function RegistrationSuccessPage({
   // Fetch the player's registration to get their check-in token
 
   const { data: registration } = user && league
-    ? await (db as any)
+    ? await db
         .from('registrations')
         .select('checkin_token, status')
         .eq('league_id', league.id)
@@ -99,8 +99,8 @@ export default async function RegistrationSuccessPage({
     : { data: null }
 
   const { data: profile } = user
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ? await (db as any).from('profiles').select('full_name').eq('id', user.id).single()
+
+    ? await db.from('profiles').select('full_name').eq('id', user.id).single()
     : { data: null }
 
   const SPORT_EMOJI: Record<string, string> = {

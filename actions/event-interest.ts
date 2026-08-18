@@ -39,8 +39,8 @@ export async function recordEventInterest(
   }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues')
     .select('id, organization_id, status, advertised, registration_opens_at')
     .eq('id', parsed.data.leagueId)
@@ -66,8 +66,8 @@ export async function recordEventInterest(
   const email = parsed.data.email.toLowerCase()
   const name = parsed.data.name?.trim() || null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('event_interest').insert({
+
+  const { error } = await db.from('event_interest').insert({
     organization_id: org.id,
     league_id: league.id,
     email,
@@ -81,8 +81,8 @@ export async function recordEventInterest(
     // prior unsubscribe so re-signing-up re-subscribes them.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((error as any).code === '23505') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('event_interest')
+
+      await db.from('event_interest')
         .update({ unsubscribed_at: null })
         .eq('league_id', league.id)
         .eq('email', email)
@@ -97,8 +97,8 @@ export async function recordEventInterest(
 /** One-click unsubscribe from an event's notify-me list (signed token gate). */
 export async function unsubscribeInterest(interestId: string): Promise<{ error: string | null }> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('event_interest')
+
+  await db.from('event_interest')
     .update({ unsubscribed_at: new Date().toISOString() })
     .eq('id', interestId)
   return { error: null }
@@ -112,8 +112,8 @@ export async function unsubscribeInterest(interestId: string): Promise<{ error: 
  */
 export async function notifyInterestList(leagueId: string, orgId: string): Promise<void> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rows } = await (db as any)
+
+  const { data: rows } = await db
     .from('event_interest')
     .select('id, email')
     .eq('league_id', leagueId)
@@ -123,11 +123,11 @@ export async function notifyInterestList(leagueId: string, orgId: string): Promi
   const recipients = (rows ?? []) as { id: string; email: string }[]
   if (recipients.length === 0) return
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues').select('name, slug, season_start_date').eq('id', leagueId).maybeSingle()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: org } = await (db as any)
+
+  const { data: org } = await db
     .from('organizations').select('name, slug').eq('id', orgId).maybeSingle()
   if (!league || !org) return
 
@@ -152,8 +152,8 @@ export async function notifyInterestList(leagueId: string, orgId: string): Promi
 
   await sendEmailBatch(emails)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('event_interest')
+
+  await db.from('event_interest')
     .update({ notified_at: new Date().toISOString() })
     .in('id', recipients.map((r) => r.id))
 }
@@ -186,13 +186,13 @@ export async function adminAddInterest(
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) return { error: 'Enter a valid email.' }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues').select('id').eq('id', leagueId).eq('organization_id', auth.orgId).maybeSingle()
   if (!league) return { error: 'Event not found.' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('event_interest').insert({
+
+  const { error } = await db.from('event_interest').insert({
     organization_id: auth.orgId,
     league_id: leagueId,
     email: e,
@@ -203,8 +203,8 @@ export async function adminAddInterest(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((error as any).code === '23505') {
       // Already on the list — clear any unsubscribe so they're active again.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('event_interest')
+
+      await db.from('event_interest')
         .update({ unsubscribed_at: null }).eq('league_id', leagueId).eq('email', e)
       revalidatePath(`/admin/events/${leagueId}/promote`)
       return { error: null }
@@ -222,8 +222,8 @@ export async function adminRemoveInterest(
   const auth = await assertInterestAdmin()
   if ('error' in auth) return { error: auth.error }
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('event_interest')
+
+  await db.from('event_interest')
     .delete().eq('id', interestId).eq('organization_id', auth.orgId)
   revalidatePath(`/admin/events/${leagueId}/promote`)
   return { error: null }
@@ -236,8 +236,8 @@ export async function adminSetInterestUnsubscribed(
   const auth = await assertInterestAdmin()
   if ('error' in auth) return { error: auth.error }
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('event_interest')
+
+  await db.from('event_interest')
     .update({ unsubscribed_at: unsubscribed ? new Date().toISOString() : null })
     .eq('id', interestId).eq('organization_id', auth.orgId)
   revalidatePath(`/admin/events/${leagueId}/promote`)

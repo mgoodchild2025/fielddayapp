@@ -26,15 +26,15 @@ export default async function SelfCheckInEventPage({
   const db = createServiceRoleClient()
 
   const [{ data: branding }, { data: league }, { data: profile }, { data: captainRows }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url, timezone, checkin_sound').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('id, name').eq('id', leagueId).eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+
+    db.from('org_branding').select('logo_url, timezone, checkin_sound').eq('organization_id', org.id).single(),
+
+    db.from('leagues').select('id, name').eq('id', leagueId).eq('organization_id', org.id).single(),
+
+    db.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
     // Check if the user is a captain/coach for any team in this org
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('team_members')
       .select('team_id, team:teams!team_members_team_id_fkey(id, name, league_id)')
       .eq('user_id', user.id)

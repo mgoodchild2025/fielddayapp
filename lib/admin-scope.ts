@@ -27,8 +27,8 @@ export async function getAdminScope(orgId: string): Promise<AdminScope> {
   // explicit eq() filters below.
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: member } = await (db as any)
+
+  const { data: member } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', orgId)
@@ -43,8 +43,8 @@ export async function getAdminScope(orgId: string): Promise<AdminScope> {
   }
 
   // league_admin — fetch their specific event assignments
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: assignments } = await (db as any)
+
+  const { data: assignments } = await db
     .from('league_organizers')
     .select('league_id')
     .eq('organization_id', orgId)

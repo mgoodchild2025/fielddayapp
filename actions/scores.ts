@@ -211,8 +211,8 @@ export async function recordForfeit(input: z.infer<typeof recordForfeitSchema>) 
     .single()
   if (!adminMember) return { data: null, error: 'Admin access required' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: game } = await (db as any)
+
+  const { data: game } = await db
     .from('games')
     .select('id, league_id, home_team_id, away_team_id, league:leagues!games_league_id_fkey(sport)')
     .eq('id', parsed.data.gameId)
@@ -246,7 +246,7 @@ export async function recordForfeit(input: z.infer<typeof recordForfeitSchema>) 
     }
   }
 
-  const { error: upsertError } = await (db as any)
+  const { error: upsertError } = await db
     .from('game_results')
     .upsert(
       {
@@ -266,7 +266,7 @@ export async function recordForfeit(input: z.infer<typeof recordForfeitSchema>) 
     )
   if (upsertError) return { data: null, error: upsertError.message }
 
-  await (db as any).from('games').update({ status: 'completed' }).eq('id', parsed.data.gameId)
+  await db.from('games').update({ status: 'completed' }).eq('id', parsed.data.gameId)
 
   const leagueId = parsed.data.leagueId ?? game.league_id
 

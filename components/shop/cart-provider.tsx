@@ -87,20 +87,20 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
     itemId: string, variantId: string | null, quantity: number
   ): Promise<string | null> => {
     const uid = userIdRef.current
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const q = (db as any).from('cart_items').select('id').eq('organization_id', orgId).eq('item_id', itemId)
+
+    const q = db.from('cart_items').select('id').eq('organization_id', orgId).eq('item_id', itemId)
     const { data: existing } = await (variantId ? q.eq('variant_id', variantId) : q.is('variant_id', null)).maybeSingle()
 
     if (existing?.id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('cart_items').update({ quantity, updated_at: new Date().toISOString() }).eq('id', existing.id)
+
+      await db.from('cart_items').update({ quantity, updated_at: new Date().toISOString() }).eq('id', existing.id)
       return existing.id as string
     }
 
     if (!uid) return null
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: inserted, error } = await (db as any)
+
+    const { data: inserted, error } = await db
       .from('cart_items')
       .insert({ user_id: uid, organization_id: orgId, item_id: itemId, variant_id: variantId ?? null, quantity })
       .select('id')
@@ -110,14 +110,14 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
   }, [db, orgId])
 
   const dbDelete = useCallback(async (cartItemId: string) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any).from('cart_items').delete().eq('id', cartItemId)
+
+    const { error } = await db.from('cart_items').delete().eq('id', cartItemId)
     if (error) console.error('[cart] delete error:', error.message)
   }, [db])
 
   const dbClear = useCallback(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any).from('cart_items').delete().eq('organization_id', orgId)
+
+    const { error } = await db.from('cart_items').delete().eq('organization_id', orgId)
     if (error) console.error('[cart] clear error:', error.message)
   }, [db, orgId])
 
@@ -130,8 +130,8 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
     let cancelled = false
     ;(async () => {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (db as any)
+
+        const { data, error } = await db
           .from('cart_items')
           .select('id, quantity, item_id, variant_id')
           .eq('organization_id', orgId)
@@ -147,11 +147,11 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
 
 
         const [{ data: itemRows }, { data: variantRows }] = await Promise.all([
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (db as any).from('merchandise_items').select('id, name, price_cents, currency, image_url').in('id', itemIds),
+
+          db.from('merchandise_items').select('id, name, price_cents, currency, image_url').in('id', itemIds),
           variantIds.length > 0
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ? (db as any).from('merchandise_variants').select('id, label').in('id', variantIds)
+
+            ? db.from('merchandise_variants').select('id, label').in('id', variantIds)
             : Promise.resolve({ data: [] }),
         ])
 

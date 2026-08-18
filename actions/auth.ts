@@ -290,8 +290,8 @@ export async function updateProfile(input: z.infer<typeof updateProfileSchema>) 
 
   const db = createServiceRoleClient()
   const [profileRes, detailsRes] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('profiles').update({
+
+    db.from('profiles').update({
       full_name: parsed.data.full_name,
       phone: parsed.data.phone ? toE164(parsed.data.phone) : null,
       email_reminders_enabled: parsed.data.email_reminders_enabled ?? true,

@@ -31,8 +31,8 @@ export async function applySubscriptionDeletion(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let row: any = null
   if (customerId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await (db as any)
+
+    const r = await db
       .from('subscriptions')
       .select('organization_id, plan_tier, pending_plan_tier')
       .eq('stripe_customer_id', customerId)
@@ -40,8 +40,8 @@ export async function applySubscriptionDeletion(
     row = r.data
   }
   if (!row && subscription.metadata?.organization_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await (db as any)
+
+    const r = await db
       .from('subscriptions')
       .select('organization_id, plan_tier, pending_plan_tier')
       .eq('organization_id', subscription.metadata.organization_id)
@@ -70,8 +70,8 @@ export async function applySubscriptionDeletion(
           ...(pm ? { default_payment_method: pm } : {}),
           metadata: { organization_id: orgId, plan_tier: pending },
         })
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (db as any)
+
+        await db
           .from('subscriptions')
           .update({
             plan_tier: pending,
@@ -93,8 +93,8 @@ export async function applySubscriptionDeletion(
   }
 
   // Default: drop to Free and clear Stripe ids.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('subscriptions')
     .update({
       status: 'active',

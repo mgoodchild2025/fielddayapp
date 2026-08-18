@@ -28,8 +28,8 @@ export default async function JoinTeamPage({
   const logoUrl = (branding as { logo_url?: string | null } | null)?.logo_url ?? null
 
   // Look up team by code
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: team } = await (db as any)
+
+  const { data: team } = await db
     .from('teams')
     .select(`
       id, name, color, logo_url, team_code,

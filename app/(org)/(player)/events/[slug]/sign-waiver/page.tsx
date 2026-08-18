@@ -23,16 +23,16 @@ export default async function SignWaiverPage({
   const db = createServiceRoleClient()
 
   // Fetch branding for logo
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: branding } = await (db as any)
+
+  const { data: branding } = await db
     .from('org_branding')
     .select('logo_url')
     .eq('organization_id', org.id)
     .single()
 
   // Fetch league by slug
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues')
     .select('id, name, slug, waiver_version_id')
     .eq('organization_id', org.id)
@@ -44,8 +44,8 @@ export default async function SignWaiverPage({
   }
 
   // Fetch the waiver
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: waiver } = await (db as any)
+
+  const { data: waiver } = await db
     .from('waivers')
     .select('id, title, content')
     .eq('id', league.waiver_version_id)
@@ -57,8 +57,8 @@ export default async function SignWaiverPage({
 
   // Check if the player has already signed the waiver for this specific event.
   // Scoped to league_id so signing for a different event doesn't block this one.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (db as any)
+
+  const { data: existing } = await db
     .from('waiver_signatures')
     .select('id, signed_at')
     .eq('waiver_id', waiver.id)
@@ -78,8 +78,8 @@ export default async function SignWaiverPage({
   }
 
   // Fetch player profile for name
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (db as any)
+
+  const { data: profile } = await db
     .from('profiles')
     .select('full_name')
     .eq('id', user.id)

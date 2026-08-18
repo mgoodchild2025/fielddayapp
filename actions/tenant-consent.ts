@@ -46,8 +46,8 @@ export interface ConsentDoc {
 export async function getTenantConsentDocs(): Promise<ConsentDoc[] | null> {
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: docs } = await (db as any)
+
+  const { data: docs } = await db
     .from('legal_documents')
     .select('slug, title, version, effective_date, published_content, is_published')
     .in('slug', TENANT_CONSENT_SLUGS)
@@ -61,8 +61,8 @@ export async function getTenantConsentDocs(): Promise<ConsentDoc[] | null> {
     if (!d || !d.is_published || !d.version) return null  // any missing = block onboarding
 
     // Get the version row id for this version
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: versionRow } = await (db as any)
+
+    const { data: versionRow } = await db
       .from('legal_document_versions')
       .select('id')
       .eq('version', d.version)
@@ -109,8 +109,8 @@ export async function getPendingReacceptance(orgId: string): Promise<PendingReac
 
   for (const slug of TENANT_CONSENT_SLUGS) {
     // Get latest published version that requires_reconsent
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: latestRequired } = await (db as any)
+
+    const { data: latestRequired } = await db
       .from('legal_document_versions')
       .select(`
         id, version, effective_date, published_at, requires_reconsent, reconsent_summary,
@@ -126,8 +126,8 @@ export async function getPendingReacceptance(orgId: string): Promise<PendingReac
     if (!forSlug) continue  // no reconsent-requiring version for this doc
 
     // Get the org's most recent acceptance for this slug
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: lastAcceptance } = await (db as any)
+
+    const { data: lastAcceptance } = await db
       .from('tenant_acceptances')
       .select('accepted_at')
       .eq('organization_id', orgId)
@@ -160,8 +160,8 @@ export async function getPendingReacceptance(orgId: string): Promise<PendingReac
 export async function getOrgAcceptances(orgId: string): Promise<TenantAcceptance[]> {
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('tenant_acceptances')
     .select(`
       *,
@@ -199,8 +199,8 @@ export async function searchAcceptances({
   await requirePlatformAdmin()
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let q = (db as any)
+
+  let q = db
     .from('tenant_acceptances')
     .select(`
       *,
@@ -249,8 +249,8 @@ export async function recordManualAcceptance(input: {
     await requirePlatformAdmin()
     const db = createServiceRoleClient()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any).from('tenant_acceptances').insert({
+
+    const { error } = await db.from('tenant_acceptances').insert({
       organization_id: input.organizationId,
       accepted_by_user_id: input.acceptedByUserId,
       document_slug: input.documentSlug,
@@ -281,8 +281,8 @@ export async function submitReacceptance(
     if (!user) return { error: 'Not authenticated' }
 
     const db = createServiceRoleClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: member } = await (db as any)
+
+    const { data: member } = await db
       .from('org_members')
       .select('role')
       .eq('organization_id', orgId)

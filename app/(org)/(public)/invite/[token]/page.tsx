@@ -23,8 +23,8 @@ export default async function InvitePage({
   const db = createServiceRoleClient()
   const [invite, { data: branding }, supabase] = await Promise.all([
     getInviteDetails(token),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
+
+    db.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
     createServerClient(),
   ])
 

@@ -34,12 +34,12 @@ export default async function CheckInPrintPage({
   const origin = `${protocol}://${host}`
 
   const [leagueRes, brandingRes, orgRes] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('id, name, event_type').eq('id', id).eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('timezone').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('organizations').select('name').eq('id', org.id).single(),
+
+    db.from('leagues').select('id, name, event_type').eq('id', id).eq('organization_id', org.id).single(),
+
+    db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
+
+    db.from('organizations').select('name').eq('id', org.id).single(),
   ])
 
   const league = leagueRes.data
@@ -55,8 +55,8 @@ export default async function CheckInPrintPage({
   let checkinUrl: string
 
   if (isSessionType) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: session } = await (db as any)
+
+    const { data: session } = await db
       .from('event_sessions')
       .select('id, scheduled_at')
       .eq('id', sessionId)

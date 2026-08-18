@@ -62,8 +62,8 @@ const SELECT = 'id, league_id, uploaded_by, cloudinary_url, thumbnail_url, media
 /** Approved media for one event (public gallery). */
 export async function getApprovedEventMedia(leagueId: string): Promise<EventMediaItem[]> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('event_media').select(SELECT)
     .eq('league_id', leagueId).eq('status', 'approved')
     .order('created_at', { ascending: false })
@@ -73,8 +73,8 @@ export async function getApprovedEventMedia(leagueId: string): Promise<EventMedi
 /** All media for one event, any status (admin moderation queue). */
 export async function getEventMediaForAdmin(leagueId: string): Promise<EventMediaItem[]> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('event_media').select(SELECT)
     .eq('league_id', leagueId)
     .order('created_at', { ascending: false })
@@ -84,16 +84,16 @@ export async function getEventMediaForAdmin(leagueId: string): Promise<EventMedi
 /** Approved media across all of an org's events (org-wide /media page). */
 export async function getOrgApprovedEventMedia(orgId: string, limit = 60): Promise<EventMediaItem[]> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('event_media').select(SELECT)
     .eq('organization_id', orgId).eq('status', 'approved')
     .order('created_at', { ascending: false }).limit(limit)
   const rows = (data ?? []) as Row[]
   if (rows.length === 0) return []
   const leagueIds = [...new Set(rows.map((r) => r.league_id))]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: leagues } = await (db as any).from('leagues').select('id, name').in('id', leagueIds)
+
+  const { data: leagues } = await db.from('leagues').select('id, name').in('id', leagueIds)
   const leagueNames = new Map<string, string>()
   for (const l of (leagues ?? []) as { id: string; name: string }[]) leagueNames.set(l.id, l.name)
   return mapRows(db, rows, leagueNames)
@@ -131,13 +131,13 @@ export async function recordEventMediaUpload(input: z.infer<typeof recordSchema>
     .eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
   if (!member) return { error: 'Not a member of this organization.' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues').select('id').eq('id', parsed.data.leagueId).eq('organization_id', org.id).maybeSingle()
   if (!league) return { error: 'Event not found.' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('event_media').insert({
+
+  const { error } = await db.from('event_media').insert({
     organization_id: org.id,
     league_id: parsed.data.leagueId,
     uploaded_by: user.id,
@@ -179,8 +179,8 @@ export async function moderateEventMedia(id: string, action: 'approve' | 'hide')
   const fields = action === 'approve'
     ? { status: 'approved', approved_by: adminId, approved_at: new Date().toISOString() }
     : { status: 'hidden' }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: row, error } = await (db as any)
+
+  const { data: row, error } = await db
     .from('event_media').update(fields)
     .eq('id', id).eq('organization_id', org.id).select('league_id').single()
   if (error) return { error: error.message }
@@ -197,14 +197,14 @@ export async function deleteEventMedia(id: string): Promise<{ error: string | nu
   if (!adminId) return { error: 'Unauthorized' }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: row } = await (db as any)
+
+  const { data: row } = await db
     .from('event_media').select('league_id, cloudinary_public_id, media_type')
     .eq('id', id).eq('organization_id', org.id).single()
   if (!row) return { error: 'Not found' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('event_media').delete().eq('id', id).eq('organization_id', org.id)
+
+  const { error } = await db.from('event_media').delete().eq('id', id).eq('organization_id', org.id)
   if (error) return { error: error.message }
 
   await destroyAsset(row.cloudinary_public_id, row.media_type === 'video' ? 'video' : 'image')
@@ -240,8 +240,8 @@ export async function exportOrgEventMedia(): Promise<{ error: string | null; dat
     .eq('organization_id', org.id).eq('user_id', user.id).single()
   if (member?.role !== 'org_admin') return { error: 'Only org admins can export media.', data: null }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rows } = await (db as any)
+
+  const { data: rows } = await db
     .from('event_media')
     .select('league_id, uploaded_by, cloudinary_url, cloudinary_public_id, media_type, caption, status, created_at')
     .eq('organization_id', org.id)
@@ -262,7 +262,7 @@ export async function exportOrgEventMedia(): Promise<{ error: string | null; dat
   const userIds = [...new Set(media.map((m) => m.uploaded_by).filter(Boolean) as string[])]
 
   const [{ data: leagues }, { data: profiles }] = await Promise.all([
-    (db as any).from('leagues').select('id, name').in('id', leagueIds),
+    db.from('leagues').select('id, name').in('id', leagueIds),
     userIds.length > 0 ? db.from('profiles').select('id, full_name').in('id', userIds) : Promise.resolve({ data: [] }),
   ])
   const leagueName = new Map<string, string>()

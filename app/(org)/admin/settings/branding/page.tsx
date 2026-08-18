@@ -11,8 +11,8 @@ export default async function AdminBrandingPage() {
   const org = await getCurrentOrg(headersList)
   const service = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: branding } = await (service as any)
+
+  const { data: branding } = await service
     .from('org_branding')
     .select('*')
     .eq('organization_id', org.id)

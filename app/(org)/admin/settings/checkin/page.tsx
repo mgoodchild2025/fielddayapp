@@ -8,8 +8,8 @@ export default async function AdminCheckinPage() {
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: branding } = await (db as any)
+
+  const { data: branding } = await db
     .from('org_branding')
     .select('*')
     .eq('organization_id', org.id)
