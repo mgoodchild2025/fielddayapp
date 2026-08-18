@@ -3,7 +3,7 @@ import { z } from 'zod'
 import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
-import { createEnrollment } from '@/actions/payment-plans'
+import { createEnrollment } from '@/lib/payment-plans'
 
 const playerSchema = z.object({
   leagueId: z.string().uuid(),

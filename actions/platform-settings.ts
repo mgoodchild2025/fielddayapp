@@ -2,22 +2,9 @@
 
 import { revalidatePath } from 'next/cache'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { createServerClient } from '@/lib/supabase/server'
-import { sendEmail } from '@/lib/email'
+import { requirePlatformAdmin } from '@/lib/auth'
+import { ALERT_KEYS, sendPlatformAlert } from '@/lib/platform-alerts'
 import { platformEnvFor, type StripeMode } from '@/lib/stripe-platform'
-
-/** Throw unless the current session belongs to a platform admin. */
-async function requirePlatformAdmin(): Promise<{ userId: string; email: string | null }> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-  const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (db as any)
-    .from('profiles').select('platform_role').eq('id', user.id).single()
-  if (profile?.platform_role !== 'platform_admin') throw new Error('Platform admin required')
-  return { userId: user.id, email: user.email ?? null }
-}
 
 // ── Platform Stripe mode (test / live) ──────────────────────────────────────
 
@@ -29,6 +16,7 @@ export interface PlatformStripeModeInfo {
 
 /** Current mode + whether each mode's keys are present in env. */
 export async function getPlatformStripeModeInfo(): Promise<PlatformStripeModeInfo> {
+  await requirePlatformAdmin()
   const service = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = await (service as any)
@@ -91,6 +79,7 @@ export interface GlobalMaintenanceSettings {
 }
 
 export async function getGlobalMaintenance(): Promise<GlobalMaintenanceSettings> {
+  await requirePlatformAdmin()
   const service = createServiceRoleClient()
   const { data } = await service
     .from('platform_settings')
@@ -110,6 +99,7 @@ export async function setGlobalMaintenance(
   message: string | null,
   until: string | null,
 ): Promise<{ error: string | null }> {
+  await requirePlatformAdmin()
   const service = createServiceRoleClient()
   const now = new Date().toISOString()
 
@@ -140,6 +130,7 @@ export async function setGlobalMaintenance(
 }
 
 export async function setSignupsEnabled(enabled: boolean) {
+  await requirePlatformAdmin()
   const service = createServiceRoleClient()
   await service
     .from('platform_settings')
@@ -153,6 +144,7 @@ export async function setSignupsEnabled(enabled: boolean) {
 }
 
 export async function getSignupsEnabled(): Promise<boolean> {
+  await requirePlatformAdmin()
   const service = createServiceRoleClient()
   const { data } = await service
     .from('platform_settings')
@@ -164,6 +156,7 @@ export async function getSignupsEnabled(): Promise<boolean> {
 
 /** Returns the configured new-org notification email, or null if not set. */
 export async function getNewOrgNotificationEmail(): Promise<string | null> {
+  await requirePlatformAdmin()
   const service = createServiceRoleClient()
   const { data } = await service
     .from('platform_settings')
@@ -176,6 +169,7 @@ export async function getNewOrgNotificationEmail(): Promise<string | null> {
 export async function setNewOrgNotificationEmail(
   email: string | null
 ): Promise<{ error: string | null }> {
+  await requirePlatformAdmin()
   const service = createServiceRoleClient()
 
   if (email && email.trim()) {
@@ -203,13 +197,6 @@ export async function setNewOrgNotificationEmail(
 
 // ── Platform Alerts ───────────────────────────────────────────────────────────
 
-export type AlertType =
-  | 'new_org'
-  | 'subscription_change'
-  | 'trial_expiring'
-  | 'billing_failure'
-  | 'account_deletion'
-
 export interface PlatformAlerts {
   email: string | null          // recipient — null means all platform admins
   newOrg: boolean
@@ -219,15 +206,8 @@ export interface PlatformAlerts {
   accountDeletion: boolean
 }
 
-const ALERT_KEYS: Record<keyof Omit<PlatformAlerts, 'email'>, string> = {
-  newOrg:             'alert_new_org',
-  subscriptionChange: 'alert_subscription_change',
-  trialExpiring:      'alert_trial_expiring',
-  billingFailure:     'alert_billing_failure',
-  accountDeletion:    'alert_account_deletion',
-}
-
 export async function getPlatformAlerts(): Promise<PlatformAlerts> {
+  await requirePlatformAdmin()
   const service = createServiceRoleClient()
   const { data } = await service
     .from('platform_settings')
@@ -249,6 +229,7 @@ export async function getPlatformAlerts(): Promise<PlatformAlerts> {
 export async function setPlatformAlerts(
   alerts: PlatformAlerts
 ): Promise<{ error: string | null }> {
+  await requirePlatformAdmin()
   const service = createServiceRoleClient()
   const now = new Date().toISOString()
 
@@ -275,49 +256,6 @@ export async function setPlatformAlerts(
   return { error: null }
 }
 
-/**
- * Send a platform alert email if the given alert type is enabled.
- * Call-sites don't need to check settings — this function handles it.
- */
-export async function sendPlatformAlert(
-  type: AlertType,
-  subject: string,
-  html: string
-): Promise<void> {
-  try {
-    const service = createServiceRoleClient()
-
-    // Read alert settings
-    const { data: settings } = await service
-      .from('platform_settings')
-      .select('key, value')
-      .in('key', ['alert_email', ALERT_KEYS[type as keyof typeof ALERT_KEYS]])
-
-    const map = new Map((settings ?? []).map((r: { key: string; value: string }) => [r.key, r.value]))
-    const enabled = map.get(ALERT_KEYS[type as keyof typeof ALERT_KEYS]) !== 'false'
-    if (!enabled) return
-
-    // Determine recipients
-    const alertEmail = map.get('alert_email')?.trim() || null
-
-    let recipients: string[] = []
-    if (alertEmail) {
-      recipients = [alertEmail]
-    } else {
-      // Fall back to all platform admin emails
-      const { data: admins } = await service
-        .from('profiles')
-        .select('email')
-        .eq('platform_role', 'platform_admin')
-        .not('email', 'is', null)
-      recipients = (admins ?? []).map((a: { email: string }) => a.email).filter(Boolean)
-    }
-
-    if (recipients.length === 0) return
-
-    await Promise.all(recipients.map(to => sendEmail({ to, subject, html })))
-  } catch (err) {
-    // Alerts are non-fatal — log but don't throw
-    console.error('[platform-alert] failed to send alert:', type, err)
-  }
-}
+// sendPlatformAlert moved to lib/platform-alerts.ts — it is called from cron
+// routes, webhooks, and signup flows (no admin session), so it must not be a
+// publicly invokable server action.

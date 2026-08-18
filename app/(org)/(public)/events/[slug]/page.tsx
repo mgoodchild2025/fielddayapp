@@ -52,7 +52,7 @@ import { EventMediaUpload } from '@/components/media/event-media-upload'
 import { EventMediaGallery } from '@/components/media/event-media-gallery'
 import { SocialEmbeds } from '@/components/media/social-embeds'
 import { isCloudinaryConfigured, cloudinaryApiKey, CLOUD_NAME } from '@/lib/cloudinary'
-import { getEnrollmentForRegistration } from '@/actions/payment-plans'
+import { getEnrollmentForRegistration } from '@/lib/payment-plans'
 import { PlayerInstallmentSchedule } from '@/components/payments/player-installment-schedule'
 
 // ── Tab nav ───────────────────────────────────────────────────────────────────

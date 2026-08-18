@@ -7,7 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getPlatformStripe } from '@/lib/stripe-platform'
 import { getCurrentOrg } from '@/lib/tenant'
 import { sendEmail } from '@/lib/email'
-import { sendPlatformAlert } from '@/actions/platform-settings'
+import { sendPlatformAlert } from '@/lib/platform-alerts'
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 import { isUpgrade, tierLabel } from '@/lib/plan-tiers'
 

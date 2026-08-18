@@ -3,8 +3,9 @@
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getResend, FROM_EMAIL } from '@/lib/resend'
-import { sendPlatformAlert } from './platform-settings'
-import { getTenantConsentDocs, writeAcceptanceRows } from './tenant-consent'
+import { sendPlatformAlert } from '@/lib/platform-alerts'
+import { getTenantConsentDocs } from './tenant-consent'
+import { writeAcceptanceRows } from '@/lib/tenant-consent'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 const LOGO_URL = `https://${PLATFORM_DOMAIN}/Fieldday-Icon.png`
