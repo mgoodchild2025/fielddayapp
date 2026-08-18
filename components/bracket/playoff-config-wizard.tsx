@@ -9,6 +9,8 @@ import { BracketView, type BracketData, type TeamRef } from './bracket-view'
 import { BracketRoutingProvider, type RoutingTarget } from './bracket-routing'
 import { getRoundName, type TeamStanding, type BracketRecommendation } from '@/lib/bracket'
 import type { TierInput, PoolSeedingMethod } from '@/actions/playoff-config'
+import { applicableTemplates, describeTiers, type TierTemplateSpec } from '@/lib/playoff-templates'
+import { listPlayoffTemplates, savePlayoffTemplate, deletePlayoffTemplate, type SavedPlayoffTemplate } from '@/actions/playoff-templates'
 
 // ── Tier name suggestions ─────────────────────────────────────────────────────
 
@@ -731,6 +733,55 @@ export function PlayoffConfigWizard({
   // Manual seed overrides: seed# → teamId
   const [seedOverrides, setSeedOverrides] = useState<Record<number, string>>({})
 
+  // Org-saved playoff format templates (flexible brackets Phase 3)
+  const [savedTemplates, setSavedTemplates] = useState<SavedPlayoffTemplate[]>([])
+  useEffect(() => {
+    listPlayoffTemplates().then(setSavedTemplates).catch(() => {})
+  }, [])
+
+  /** Apply a template's tier layout and jump to the tiers step for review. */
+  function applyTemplate(specs: TierTemplateSpec[]) {
+    setTiers(specs.map((t) => ({
+      name: t.name,
+      seedFrom: t.seedFrom,
+      seedTo: t.seedTo,
+      bracketType: t.bracketType,
+      thirdPlaceGame: t.thirdPlaceGame,
+      inflowFromTierIndex: t.inflowFromTierIndex,
+      byeSeeds: t.byeSeeds,
+    })))
+    setStep('tiers')
+  }
+
+  function handleSaveAsTemplate() {
+    const name = window.prompt('Template name (e.g. "10-team Gold/Silver drop-down"):')?.trim()
+    if (!name) return
+    const teamCount = Math.max(...tiers.map((t) => t.seedTo), 2)
+    const specs: TierTemplateSpec[] = tiers.map((t) => ({
+      name: t.name,
+      seedFrom: t.seedFrom,
+      seedTo: t.seedTo,
+      bracketType: t.bracketType,
+      thirdPlaceGame: t.thirdPlaceGame,
+      inflowFromTierIndex: t.inflowFromTierIndex ?? null,
+      byeSeeds: t.byeSeeds ?? 0,
+    }))
+    startTransition(async () => {
+      const r = await savePlayoffTemplate({ name, teamCount, tiers: specs })
+      if (r.error) { setErr(r.error); return }
+      setGenMsg(`Saved template "${name}".`)
+      listPlayoffTemplates().then(setSavedTemplates).catch(() => {})
+    })
+  }
+
+  function handleDeleteTemplate(id: string, name: string) {
+    if (!confirm(`Delete the saved template "${name}"?`)) return
+    startTransition(async () => {
+      await deletePlayoffTemplate(id)
+      listPlayoffTemplates().then(setSavedTemplates).catch(() => {})
+    })
+  }
+
   // Manage mode: tiers that have brackets get a refresh counter
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -959,12 +1010,20 @@ export function PlayoffConfigWizard({
               />
             ))}
           </div>
-          <div className="px-4 py-2 border-t">
+          <div className="px-4 py-2 border-t flex items-center justify-between">
             <button
               onClick={addTier}
               className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
             >
               <span className="text-lg leading-none">+</span> Add tier
+            </button>
+            <button
+              onClick={handleSaveAsTemplate}
+              disabled={isPending}
+              className="text-xs text-gray-400 hover:text-gray-600 disabled:opacity-50"
+              title="Save this tier layout as a reusable format template"
+            >
+              Save as template…
             </button>
           </div>
         </div>
@@ -1252,6 +1311,48 @@ export function PlayoffConfigWizard({
       >
         Preview Tier Split →
       </button>
+
+      {/* ── Format templates (flexible brackets Phase 3) ────────────────── */}
+      {totalTeams >= 2 && (
+        <div className="bg-white rounded-xl border p-5">
+          <p className="text-sm font-semibold text-gray-700 mb-1">Or start from a format</p>
+          <p className="text-xs text-gray-400 mb-3">
+            Ready-made playoff shapes for {totalTeams} teams — including cross-tier drop-downs. You can fine-tune everything on the next step.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {applicableTemplates(totalTeams).map(({ template, tiers: tmplTiers }) => (
+              <button
+                key={template.id}
+                type="button"
+                onClick={() => applyTemplate(tmplTiers)}
+                className="text-left border rounded-lg px-3.5 py-3 hover:border-blue-400 hover:bg-blue-50/40 transition-colors"
+              >
+                <p className="text-sm font-semibold text-gray-800">{template.name}</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">{template.description}</p>
+                <p className="text-[11px] font-medium text-blue-700 mt-1.5">{describeTiers(tmplTiers)}</p>
+              </button>
+            ))}
+            {savedTemplates.map((t) => (
+              <div
+                key={t.id}
+                className="relative text-left border rounded-lg px-3.5 py-3 hover:border-blue-400 hover:bg-blue-50/40 transition-colors"
+              >
+                <button type="button" onClick={() => applyTemplate(t.tiers)} className="text-left w-full">
+                  <p className="text-sm font-semibold text-gray-800">{t.name}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Saved template · built for {t.teamCount} teams</p>
+                  <p className="text-[11px] font-medium text-blue-700 mt-1.5">{describeTiers(t.tiers)}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteTemplate(t.id, t.name)}
+                  className="absolute top-2 right-2 text-gray-300 hover:text-red-400 text-sm leading-none"
+                  title="Delete template"
+                >×</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

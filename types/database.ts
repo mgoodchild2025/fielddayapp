@@ -3117,6 +3117,41 @@ export type Database = {
           },
         ]
       }
+      org_playoff_templates: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+          team_count: number
+          tiers: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          organization_id: string
+          team_count: number
+          tiers: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          team_count?: number
+          tiers?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_playoff_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_site_content: {
         Row: {
           content: Json
