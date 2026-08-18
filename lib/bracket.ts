@@ -63,6 +63,10 @@ export interface BracketMatchSpec {
   loserToRoundNumber: number | null    // for double elimination: LB round loser drops into
   loserToMatchNumber: number | null
   loserToSlot: 1 | 2 | null
+  /** 1-based index of the cross-tier inflow feeding slot 1 (Nth loser of the source round). */
+  team1InflowIndex?: number | null
+  /** 1-based index of the cross-tier inflow feeding slot 2. */
+  team2InflowIndex?: number | null
 }
 
 export interface BracketSpec {
@@ -366,6 +370,159 @@ export function generateSingleEliminationSpec(
   }
 
   return { bracketSize, rounds, matches, thirdPlaceMatch }
+}
+
+// ── Inflow bracket generator (flexible brackets Phase 2) ─────────────────────
+//
+// Lays out a bracket from { direct seeds, inflow slots, bye seeds } instead of
+// a single power-of-2 size. Used for tiers that RECEIVE another tier's losers,
+// e.g. Silver = seeds 9-10 (both byed to the semis) + the 4 Gold-QF losers:
+//
+//   Entry round (2 matches):  R1-A: inflow1 v inflow2   R1-B: inflow3 v inflow4
+//   Semis:                    seed1 v W(R1-A)           seed2 v W(R1-B)
+//   Final:                    W(SemiA) v W(SemiB)
+//
+// Structure: the entry round holds (direct − bye) seeds + all inflow slots;
+// its winners join the bye seeds in a standard single-elim "main" bracket of
+// mainSize = entryMatches + byeSeeds teams. Round numbering follows the main
+// bracket's power-of-2 scheme (…4=quarters, 2=semis, 1=final); the entry round
+// sits one level above at roundNumber = mainSize.
+
+export interface InflowBracketOptions {
+  /** Seeds that belong to this tier directly (tier-relative 1..directSeeds). */
+  directSeeds: number
+  /** Slots fed by another bracket's round losers. */
+  inflowCount: number
+  /** How many of the top direct seeds skip the entry round. */
+  byeSeeds: number
+  thirdPlaceGame?: boolean
+}
+
+export interface InflowSlotRef {
+  roundNumber: number
+  matchNumber: number
+  slot: 1 | 2
+  /** 1-based: the Nth loser (by match number) of the source round fills this slot. */
+  inflowIndex: number
+}
+
+/**
+ * Validate an inflow-bracket shape. Returns an error message, or null when the
+ * combination lays out cleanly.
+ */
+export function validateInflowBracket(opts: InflowBracketOptions): string | null {
+  const { directSeeds, inflowCount, byeSeeds } = opts
+  if (inflowCount < 2) return 'A drop-down tier needs at least 2 incoming losers.'
+  if (byeSeeds > directSeeds) return 'More byes than the tier has seeds.'
+  const entryTeams = inflowCount + (directSeeds - byeSeeds)
+  if (entryTeams % 2 !== 0) {
+    return `The entry round has ${entryTeams} teams (${inflowCount} drop-downs + ${directSeeds - byeSeeds} seeds) — it must be an even number. Adjust the byes or the seed range.`
+  }
+  const mainSize = entryTeams / 2 + byeSeeds
+  if (mainSize < 2 || (mainSize & (mainSize - 1)) !== 0) {
+    return `After the entry round, ${mainSize} teams remain (${entryTeams / 2} winners + ${byeSeeds} byes) — that must be a power of 2 (2, 4, 8, …). Adjust the byes or the seed range.`
+  }
+  return null
+}
+
+export function generateInflowBracketSpec(
+  opts: InflowBracketOptions,
+): BracketSpec & { inflowSlots: InflowSlotRef[] } {
+  const { directSeeds, inflowCount, byeSeeds, thirdPlaceGame = false } = opts
+  const invalid = validateInflowBracket(opts)
+  if (invalid) throw new Error(invalid)
+
+  const entryTeams = inflowCount + (directSeeds - byeSeeds)
+  const entryMatches = entryTeams / 2
+  const mainSize = entryMatches + byeSeeds
+  const entryRound = mainSize          // one power level above the main first round
+  const mainFirstRound = mainSize / 2  // e.g. 2 = semis when mainSize is 4
+
+  const matches: BracketMatchSpec[] = []
+  const inflowSlots: InflowSlotRef[] = []
+
+  // ── Entry-round slot assignment ────────────────────────────────────────────
+  // Non-bye direct seeds first (they host the drop-downs where counts allow),
+  // then inflow slots in source-match order.
+  type EntrySlot = { seed: number | null; inflowIndex: number | null }
+  const entrySlots: EntrySlot[] = []
+  for (let s = byeSeeds + 1; s <= directSeeds; s++) entrySlots.push({ seed: s, inflowIndex: null })
+  for (let i = 1; i <= inflowCount; i++) entrySlots.push({ seed: null, inflowIndex: i })
+
+  // ── Main-round slot assignment ─────────────────────────────────────────────
+  // Byes take one slot-1 per match first (so byes meet entry winners, not each
+  // other, whenever possible); entry winners fill the remaining slots in order.
+  const mainSlotOrder: { matchNumber: number; slot: 1 | 2 }[] = []
+  for (let m = 1; m <= mainFirstRound; m++) mainSlotOrder.push({ matchNumber: m, slot: 1 })
+  for (let m = 1; m <= mainFirstRound; m++) mainSlotOrder.push({ matchNumber: m, slot: 2 })
+  const byePlacements = mainSlotOrder.slice(0, byeSeeds)
+  const winnerPlacements = mainSlotOrder.slice(byeSeeds, byeSeeds + entryMatches)
+
+  // ── Entry-round matches ────────────────────────────────────────────────────
+  for (let m = 1; m <= entryMatches; m++) {
+    const s1 = entrySlots[(m - 1) * 2]
+    const s2 = entrySlots[(m - 1) * 2 + 1]
+    const target = winnerPlacements[m - 1]
+    matches.push({
+      roundNumber: entryRound,
+      matchNumber: m,
+      team1Seed: s1.seed,
+      team2Seed: s2.seed,
+      isBye: false,
+      winnerToRoundNumber: mainFirstRound,
+      winnerToMatchNumber: target.matchNumber,
+      winnerToSlot: target.slot,
+      loserToRoundNumber: null,
+      loserToMatchNumber: null,
+      loserToSlot: null,
+      team1InflowIndex: s1.inflowIndex,
+      team2InflowIndex: s2.inflowIndex,
+    })
+    if (s1.inflowIndex) inflowSlots.push({ roundNumber: entryRound, matchNumber: m, slot: 1, inflowIndex: s1.inflowIndex })
+    if (s2.inflowIndex) inflowSlots.push({ roundNumber: entryRound, matchNumber: m, slot: 2, inflowIndex: s2.inflowIndex })
+  }
+
+  // ── Main bracket (standard single elim from mainFirstRound down) ──────────
+  const byeSeedAt = new Map<string, number>()
+  byePlacements.forEach((p, i) => byeSeedAt.set(`${p.matchNumber}:${p.slot}`, i + 1))
+
+  for (let round = mainFirstRound; round >= 1; round = Math.floor(round / 2)) {
+    const isFinal = round === 1
+    for (let m = 1; m <= round; m++) {
+      matches.push({
+        roundNumber: round,
+        matchNumber: m,
+        team1Seed: round === mainFirstRound ? (byeSeedAt.get(`${m}:1`) ?? null) : null,
+        team2Seed: round === mainFirstRound ? (byeSeedAt.get(`${m}:2`) ?? null) : null,
+        isBye: false,
+        winnerToRoundNumber: isFinal ? null : round / 2,
+        winnerToMatchNumber: isFinal ? null : Math.ceil(m / 2),
+        winnerToSlot: isFinal ? null : (m % 2 === 1 ? 1 : 2),
+        loserToRoundNumber: thirdPlaceGame && round === 2 ? 1 : null,
+        loserToMatchNumber: thirdPlaceGame && round === 2 ? 2 : null,
+        loserToSlot: thirdPlaceGame && round === 2 ? (m === 1 ? 1 : 2) : null,
+      })
+    }
+  }
+
+  const thirdPlaceMatch: BracketMatchSpec | null = thirdPlaceGame && mainFirstRound > 1
+    ? {
+        roundNumber: 1, matchNumber: 2, team1Seed: null, team2Seed: null, isBye: false,
+        winnerToRoundNumber: null, winnerToMatchNumber: null, winnerToSlot: null,
+        loserToRoundNumber: null, loserToMatchNumber: null, loserToSlot: null,
+      }
+    : null
+
+  const rounds: number[] = [entryRound]
+  for (let r = mainFirstRound; r >= 1; r = Math.floor(r / 2)) rounds.push(r)
+
+  return {
+    bracketSize: directSeeds + inflowCount,
+    rounds,
+    matches,
+    thirdPlaceMatch,
+    inflowSlots,
+  }
 }
 
 // ── Double elimination generator ──────────────────────────────────────────────

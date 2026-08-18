@@ -8,6 +8,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { parseLocalToUtc, formatGameTime } from '@/lib/format-time'
+import { getInflowContext, inflowSpecFromContext, clearInboundRoutes, wireLeagueTierInflows } from '@/lib/tier-inflows'
 import type { TablesUpdate } from '@/types/database'
 import { notifyScheduleDelay } from '@/lib/notify-schedule-delay'
 import {
@@ -206,19 +207,25 @@ export async function scaffoldBracket(bracketId: string, leagueId: string) {
     scheduleMap.set(`${m.round_number}:${m.match_number}`, { scheduled_at: m.scheduled_at, court: m.court, notes: m.notes })
   }
 
-  const spec = bracket.bracket_type === 'all_play'
-    ? (bracket.teams_advancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec(bracket.third_place_game))
-    : bracket.bracket_type === 'double_elimination'
-      ? generateDoubleEliminationSpec(bracket.teams_advancing)
-      : generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
+  // Tiers that receive cross-tier drop-downs rebuild with the inflow shape
+  // (flexible brackets Phase 2) — the standard generators would destroy it.
+  const inflowCtx = await getInflowContext(db, bracketId)
+  const spec = inflowCtx
+    ? inflowSpecFromContext(inflowCtx, bracket.third_place_game)
+    : bracket.bracket_type === 'all_play'
+      ? (bracket.teams_advancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec(bracket.third_place_game))
+      : bracket.bracket_type === 'double_elimination'
+        ? generateDoubleEliminationSpec(bracket.teams_advancing)
+        : generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
 
   const allMatchSpecs = [
     ...spec.matches,
     ...(spec.thirdPlaceMatch ? [spec.thirdPlaceMatch] : []),
   ]
 
-  // Delete existing matches
-
+  // Delete existing matches (clearing routes other brackets point at us first —
+  // the self-FKs have no ON DELETE and stale cross-tier routes must not survive)
+  await clearInboundRoutes(db, bracketId)
   await db.from('bracket_matches').delete().eq('bracket_id', bracketId)
 
   // Insert placeholder matches with seed labels
@@ -265,6 +272,9 @@ export async function scaffoldBracket(bracketId: string, leagueId: string) {
 
   await wireMatchReferences(db, allMatchSpecs, matchIdLookup)
 
+  // Restore cross-tier drop-down routes in both directions (this bracket may
+  // feed another tier, receive from one, or neither — the pass is idempotent).
+  await wireLeagueTierInflows(db, org.id, leagueId)
 
   await db.from('brackets').update({ status: 'scaffold' }).eq('id', bracketId)
 
@@ -463,11 +473,15 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   }
 
   // Generate the bracket structure — must match the spec used during scaffold.
-  const spec = bracket.bracket_type === 'all_play'
-    ? (bracket.teams_advancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec(bracket.third_place_game))
-    : bracket.bracket_type === 'double_elimination'
-      ? generateDoubleEliminationSpec(bracket.teams_advancing)
-      : generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
+  // Inflow receivers (flexible brackets Phase 2) rebuild with the inflow shape.
+  const seedInflowCtx = await getInflowContext(db, bracketId)
+  const spec = seedInflowCtx
+    ? inflowSpecFromContext(seedInflowCtx, bracket.third_place_game)
+    : bracket.bracket_type === 'all_play'
+      ? (bracket.teams_advancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec(bracket.third_place_game))
+      : bracket.bracket_type === 'double_elimination'
+        ? generateDoubleEliminationSpec(bracket.teams_advancing)
+        : generateSingleEliminationSpec(bracket.teams_advancing, bracket.third_place_game)
 
   const seedMap = new Map(seededTeams.map((t) => [t.seed!, t.teamId]))
 
@@ -482,8 +496,9 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
     scheduleMap.set(`${m.round_number}:${m.match_number}`, { scheduled_at: m.scheduled_at, court: m.court, notes: m.notes })
   }
 
-  // Delete existing matches
-
+  // Delete existing matches (clearing inbound cross-bracket routes first —
+  // the self-FKs have no ON DELETE clause)
+  await clearInboundRoutes(db, bracketId)
   await db.from('bracket_matches').delete().eq('bracket_id', bracketId)
 
   const allMatchSpecs = [
@@ -529,6 +544,10 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   }
 
   await wireMatchReferences(db, allMatchSpecs, matchIdLookup)
+
+  // Restore cross-tier drop-down routes in both directions before byes
+  // auto-advance (a bye's loser route must exist when advanceWinner runs).
+  await wireLeagueTierInflows(db, org.id, leagueId)
 
   // Auto-advance byes
   for (const m of allMatchSpecs.filter((m: BracketMatchSpec) => m.isBye)) {
@@ -658,6 +677,8 @@ export async function deleteBracket(bracketId: string, leagueId: string) {
   const org = await getOrgAndRequireAdmin()
   const db = createServiceRoleClient()
 
+  // Clear routes other brackets point at these matches (self-FKs, no ON DELETE)
+  await clearInboundRoutes(db, bracketId)
 
   await db.from('bracket_matches').delete().eq('bracket_id', bracketId).eq('organization_id', org.id)
 

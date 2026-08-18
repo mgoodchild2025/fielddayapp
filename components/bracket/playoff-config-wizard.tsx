@@ -30,6 +30,10 @@ interface TierConfig {
   seedTo: number
   bracketType: 'single_elimination' | 'double_elimination' | 'all_play'
   thirdPlaceGame: boolean
+  /** Index of the tier (above this one) whose first-round losers drop in. */
+  inflowFromTierIndex?: number | null
+  /** Top N direct seeds skip the entry round (inflow tiers only). */
+  byeSeeds?: number
 }
 
 export interface ExistingTier {
@@ -40,6 +44,8 @@ export interface ExistingTier {
   seedTo: number
   bracketType: 'single_elimination' | 'double_elimination' | 'all_play'
   thirdPlaceGame: boolean
+  inflowFromTierId: string | null
+  byeSeeds: number
   bracketId: string | null
   bracket: BracketData | null
 }
@@ -96,6 +102,7 @@ function TierRow({
   tier,
   index,
   totalTeams,
+  allTiers,
   onChange,
   onRemove,
   canRemove,
@@ -108,9 +115,19 @@ function TierRow({
   onRemove: () => void
   canRemove: boolean
   canDoubleElimination?: boolean
+  /** Full tier list — used to offer earlier tiers as drop-down sources. */
+  allTiers?: TierConfig[]
 }) {
   const seedOptions: number[] = []
   for (let i = 1; i <= totalTeams; i++) seedOptions.push(i)
+
+  // Cross-tier drop-downs: this tier can receive the first-round losers of an
+  // earlier single-elimination tier (e.g. Gold QF losers drop into Silver).
+  const dropDownSources = (allTiers ?? [])
+    .map((t, i) => ({ tier: t, index: i }))
+    .filter((s) => s.index < index && s.tier.bracketType === 'single_elimination')
+  const hasInflow = tier.inflowFromTierIndex !== null && tier.inflowFromTierIndex !== undefined
+  const tierTeamCount = tier.seedTo - tier.seedFrom + 1
 
   return (
     <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 items-center py-2 border-b last:border-0">
@@ -190,6 +207,41 @@ function TierRow({
           title="Remove tier"
         >×</button>
       ) : <span className="w-6" />}
+
+      {/* Cross-tier drop-down settings (flexible brackets Phase 2) */}
+      {tier.bracketType === 'single_elimination' && dropDownSources.length > 0 && (
+        <div className="col-span-full flex flex-wrap items-center gap-2 pb-2 -mt-0.5 text-xs text-gray-500">
+          <span className="text-gray-400">↳</span>
+          <span>Receives losers from</span>
+          <select
+            value={hasInflow ? String(tier.inflowFromTierIndex) : ''}
+            onChange={(e) => onChange({
+              inflowFromTierIndex: e.target.value === '' ? null : Number(e.target.value),
+            })}
+            className="border rounded px-1.5 py-1 text-xs"
+          >
+            <option value="">— no drop-downs —</option>
+            {dropDownSources.map((s) => (
+              <option key={s.index} value={s.index}>{s.tier.name || `Tier ${s.index + 1}`} · round 1</option>
+            ))}
+          </select>
+          {hasInflow && (
+            <>
+              <span>· top</span>
+              <select
+                value={Math.min(tier.byeSeeds ?? 0, tierTeamCount)}
+                onChange={(e) => onChange({ byeSeeds: Number(e.target.value) })}
+                className="border rounded px-1.5 py-1 text-xs"
+              >
+                {Array.from({ length: tierTeamCount + 1 }, (_, n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+              <span>seed{(tier.byeSeeds ?? 0) === 1 ? '' : 's'} bye past the entry round</span>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -667,6 +719,11 @@ export function PlayoffConfigWizard({
           seedTo: t.seedTo,
           bracketType: t.bracketType,
           thirdPlaceGame: t.thirdPlaceGame,
+          // Resolve the stored source tier id back to its index in this list
+          inflowFromTierIndex: t.inflowFromTierId
+            ? (() => { const idx = existingConfig.tiers.findIndex((s) => s.id === t.inflowFromTierId); return idx >= 0 ? idx : null })()
+            : null,
+          byeSeeds: t.byeSeeds ?? 0,
         }))
       : buildTiersFromCount(defaultTotal, 1)
   )
@@ -686,7 +743,16 @@ export function PlayoffConfigWizard({
   }
 
   function removeTier(i: number) {
-    setTiers((prev) => prev.filter((_, idx) => idx !== i))
+    setTiers((prev) => prev
+      .filter((_, idx) => idx !== i)
+      // Re-point inflow references at their shifted indexes; drop references
+      // to the removed tier.
+      .map((t) => {
+        const src = t.inflowFromTierIndex
+        if (src === null || src === undefined) return t
+        if (src === i) return { ...t, inflowFromTierIndex: null, byeSeeds: 0 }
+        return src > i ? { ...t, inflowFromTierIndex: src - 1 } : t
+      }))
   }
 
   function addTier() {
@@ -744,6 +810,8 @@ export function PlayoffConfigWizard({
         seedTo: t.seedTo,
         bracketType: t.bracketType,
         thirdPlaceGame: t.thirdPlaceGame,
+        inflowFromTierIndex: t.inflowFromTierIndex ?? null,
+        byeSeeds: t.inflowFromTierIndex !== null && t.inflowFromTierIndex !== undefined ? (t.byeSeeds ?? 0) : 0,
       }))
 
       const usesPoolAdvance = seedingMethod === 'pool_results' || seedingMethod === 'pool_results_alternating'
@@ -887,6 +955,7 @@ export function PlayoffConfigWizard({
                 onRemove={() => removeTier(i)}
                 canRemove={tiers.length > 1}
                 canDoubleElimination={canDoubleElimination}
+                allTiers={tiers}
               />
             ))}
           </div>

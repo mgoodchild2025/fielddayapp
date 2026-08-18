@@ -186,7 +186,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
 
     const { data: tiersData } = await db
       .from('playoff_tiers')
-      .select('id, name, sort_order, seed_from, seed_to, bracket_type, third_place_game, bracket_id')
+      .select('id, name, sort_order, seed_from, seed_to, bracket_type, third_place_game, bracket_id, inflow_from_tier_id, bye_seeds')
       .eq('config_id', configRow.id)
       .eq('organization_id', org.id)
       .order('sort_order', { ascending: true })
@@ -195,6 +195,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
     type RawTier = {
       id: string; name: string; sort_order: number; seed_from: number; seed_to: number
       bracket_type: string; third_place_game: boolean; bracket_id: string | null
+      inflow_from_tier_id: string | null; bye_seeds: number
     }
     const sortedTiers: RawTier[] = (tiersData ?? [])
 
@@ -235,6 +236,8 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
         seedTo: t.seed_to,
         bracketType: (t.bracket_type === 'double_elimination' ? 'double_elimination' : t.bracket_type === 'all_play' ? 'all_play' : 'single_elimination') as 'single_elimination' | 'double_elimination' | 'all_play',
         thirdPlaceGame: t.third_place_game,
+        inflowFromTierId: t.inflow_from_tier_id ?? null,
+        byeSeeds: t.bye_seeds ?? 0,
         bracketId: t.bracket_id,
         bracket: t.bracket_id ? buildBracketData(bracketMap.get(t.bracket_id)!) : null,
       })),
