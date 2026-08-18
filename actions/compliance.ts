@@ -1,19 +1,7 @@
 'use server'
 
-import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-
-async function requirePlatformAdmin(): Promise<void> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-
-  const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (db as any)
-    .from('profiles').select('platform_role').eq('id', user.id).single()
-  if (profile?.platform_role !== 'platform_admin') throw new Error('Platform admin required')
-}
+import { requirePlatformAdmin } from '@/lib/auth'
 
 export interface OrgComplianceRow {
   orgId: string

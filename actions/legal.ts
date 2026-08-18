@@ -1,7 +1,7 @@
 'use server'
 
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { createServerClient } from '@/lib/supabase/server'
+import { requirePlatformAdmin } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -35,26 +35,7 @@ export interface LegalDocumentVersion {
   published_by_email?: string | null
 }
 
-// ── Auth helper ────────────────────────────────────────────────────────────────
-
-async function requirePlatformAdmin(): Promise<string> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-
-  const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (db as any)
-    .from('profiles')
-    .select('platform_role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.platform_role !== 'platform_admin') {
-    throw new Error('Platform admin role required')
-  }
-  return user.id
-}
+// ── Auth helper: canonical requirePlatformAdmin lives in lib/auth.ts ──────────
 
 // ── Public reads ───────────────────────────────────────────────────────────────
 
@@ -178,7 +159,7 @@ export async function publishDocument(
   },
 ): Promise<{ error: string | null }> {
   try {
-    const userId = await requirePlatformAdmin()
+    const { userId } = await requirePlatformAdmin()
     const db = createServiceRoleClient()
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

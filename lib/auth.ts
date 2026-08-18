@@ -112,3 +112,24 @@ export async function assertOrgAdmin(
 
   return { userId: user.id, role: member.role as OrgRole }
 }
+
+/**
+ * Throw unless the current session belongs to a platform admin.
+ *
+ * For platform-level server actions ('use server' exports are publicly
+ * invokable POST endpoints — page-level gating alone does NOT protect them).
+ * Canonical version of the guard previously copy-pasted across action files.
+ */
+export async function requirePlatformAdmin(): Promise<{ userId: string; email: string | null }> {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const db = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile } = await (db as any)
+    .from('profiles').select('platform_role').eq('id', user.id).single()
+  if (profile?.platform_role !== 'platform_admin') throw new Error('Platform admin required')
+
+  return { userId: user.id, email: user.email ?? null }
+}

@@ -1,4 +1,7 @@
-'use server'
+// NOT a 'use server' file on purpose: these are internal email helpers called
+// only from other server code (actions, webhook routes). Marking them as
+// server actions would make every export a publicly invokable POST endpoint —
+// an open email relay through the platform's Resend account.
 
 import { getResend, FROM_EMAIL, REPLY_TO, EMAIL_HEADERS } from '@/lib/resend'
 

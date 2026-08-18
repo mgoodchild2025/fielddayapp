@@ -19,7 +19,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { sendPlatformAlert } from '@/actions/platform-settings'
+import { sendPlatformAlert } from '@/lib/platform-alerts'
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 import { constructPlatformEvent, platformEnvFor } from '@/lib/stripe-platform'
 import { applySubscriptionDeletion } from '@/lib/billing-downgrade'

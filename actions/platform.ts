@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { requirePlatformAdmin } from '@/lib/auth'
 import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
 import { destroyAssets } from '@/lib/cloudinary'
 
@@ -20,6 +21,7 @@ const createOrgSchema = z.object({
 })
 
 export async function createOrganization(input: z.infer<typeof createOrgSchema> & { adminEmail?: string }) {
+  await requirePlatformAdmin()
   const { adminEmail, ...rest } = input
   const parsed = createOrgSchema.safeParse(rest)
   if (!parsed.success) return { data: null, error: parsed.error.issues[0]?.message ?? 'Invalid input' }
@@ -81,6 +83,7 @@ const updateOrgSchema = z.object({
 })
 
 export async function updateOrganization(input: z.infer<typeof updateOrgSchema>) {
+  await requirePlatformAdmin()
   const parsed = updateOrgSchema.safeParse(input)
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid input' }
 
@@ -118,6 +121,7 @@ const updateSubscriptionSchema = z.object({
 })
 
 export async function updateSubscription(input: z.infer<typeof updateSubscriptionSchema>) {
+  await requirePlatformAdmin()
   const parsed = updateSubscriptionSchema.safeParse(input)
   if (!parsed.success) return { error: 'Invalid input' }
 
@@ -145,6 +149,7 @@ export async function updateSubscription(input: z.infer<typeof updateSubscriptio
 // ─── Set Org Admin ────────────────────────────────────────────────────────────
 
 export async function setOrgAdmin(orgId: string, email: string) {
+  await requirePlatformAdmin()
   if (!email) return { error: 'Email is required' }
 
   const supabase = createServiceRoleClient()
@@ -190,6 +195,7 @@ export async function setOrgAdmin(orgId: string, email: string) {
 // ─── Impersonation ────────────────────────────────────────────────────────────
 
 export async function startImpersonation(orgId: string): Promise<{ redirect: string }> {
+  await requirePlatformAdmin()
   const jar = await cookies()
   jar.set(IMPERSONATE_COOKIE, orgId, {
     httpOnly: true,
@@ -213,6 +219,8 @@ export async function startImpersonation(orgId: string): Promise<{ redirect: str
   return { redirect: '/admin/dashboard' }
 }
 
+// Deliberately unguarded: only clears the caller's own impersonation cookie —
+// no privilege involved, and guarding would trap an admin whose session expired.
 export async function exitImpersonation(): Promise<{ redirect: string }> {
   const jar = await cookies()
   const orgId = jar.get(IMPERSONATE_COOKIE)?.value
@@ -237,6 +245,7 @@ export async function exitImpersonation(): Promise<{ redirect: string }> {
 // ─── Delete Organisation ──────────────────────────────────────────────────────
 
 export async function deleteOrganization(orgId: string): Promise<{ error: string | null }> {
+  await requirePlatformAdmin()
   if (!orgId) return { error: 'Invalid org ID' }
 
   const supabase = createServiceRoleClient()
@@ -285,6 +294,7 @@ export async function setOrgMaintenance(
   message: string | null,
   until: string | null,  // ISO 8601 or null
 ): Promise<{ error: string | null }> {
+  await requirePlatformAdmin()
   const supabase = createServiceRoleClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any)
@@ -307,6 +317,7 @@ export async function setOrgMaintenance(
 // ─── Suspend / Activate Organisation ─────────────────────────────────────────
 
 export async function setOrgStatus(orgId: string, status: 'active' | 'suspended' | 'trial') {
+  await requirePlatformAdmin()
   const supabase = createServiceRoleClient()
   const { error } = await supabase
     .from('organizations')

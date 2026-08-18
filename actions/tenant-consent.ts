@@ -2,6 +2,8 @@
 
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createServerClient } from '@/lib/supabase/server'
+import { requirePlatformAdmin } from '@/lib/auth'
+import { writeAcceptanceRows } from '@/lib/tenant-consent'
 import { headers } from 'next/headers'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -38,20 +40,7 @@ export interface ConsentDoc {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function requirePlatformAdmin(): Promise<string> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-
-  const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (db as any)
-    .from('profiles').select('platform_role').eq('id', user.id).single()
-
-  if (profile?.platform_role !== 'platform_admin') throw new Error('Platform admin required')
-  return user.id
-}
+// (canonical requirePlatformAdmin guard lives in lib/auth.ts)
 
 /** Fetch the three published tenant consent documents. Returns null if any is missing. */
 export async function getTenantConsentDocs(): Promise<ConsentDoc[] | null> {
@@ -94,41 +83,8 @@ export async function getTenantConsentDocs(): Promise<ConsentDoc[] | null> {
   return results
 }
 
-/** Write one acceptance row per document in a single batch insert. Service role only. */
-export async function writeAcceptanceRows({
-  organizationId,
-  userId,
-  docs,
-  acceptanceType,
-  ipAddress,
-  userAgent,
-}: {
-  organizationId: string
-  userId: string
-  docs: ConsentDoc[]
-  acceptanceType: 'onboarding' | 'reacceptance' | 'manual'
-  ipAddress: string | null
-  userAgent: string | null
-}): Promise<{ error: string | null }> {
-  const db = createServiceRoleClient()
-
-  const rows = docs.map((doc) => ({
-    organization_id: organizationId,
-    accepted_by_user_id: userId,
-    document_slug: doc.slug,
-    document_version: doc.version,
-    document_version_id: doc.versionId,
-    acceptance_type: acceptanceType,
-    accepted_at: new Date().toISOString(),
-    ip_address: ipAddress,
-    user_agent: userAgent,
-    notes: null,
-  }))
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('tenant_acceptances').insert(rows)
-  return { error: error?.message ?? null }
-}
+// writeAcceptanceRows moved to lib/tenant-consent.ts — it is only called
+// server-side (org signup, reacceptance) and must not be a public action.
 
 // ── Check for pending reacceptance ────────────────────────────────────────────
 
