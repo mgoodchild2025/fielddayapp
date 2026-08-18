@@ -4,6 +4,7 @@ import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { createEnrollment } from '@/lib/payment-plans'
+import { checkoutRateLimiter, getClientIp } from '@/lib/rate-limit'
 
 const playerSchema = z.object({
   leagueId: z.string().uuid(),
@@ -29,6 +30,9 @@ const teamSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
+  if (checkoutRateLimiter.check(getClientIp(request)).limited) {
+    return NextResponse.json({ error: 'Too many requests — please wait a few minutes and try again.' }, { status: 429 })
+  }
   const body = await request.json()
   const db = createServiceRoleClient()
 

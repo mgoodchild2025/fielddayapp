@@ -8,8 +8,21 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { toE164 } from '@/lib/twilio'
 import { z } from 'zod'
 import { optionalPhone } from '@/lib/validation'
+import { createRateLimiter } from '@/lib/rate-limit'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
+
+// Credential endpoints are brute-force / spam targets — rate-limit by IP.
+// The per-account limiter (ip+email) stops targeted password guessing while
+// the looser per-IP cap still allows shared NATs (gyms, offices) to sign in.
+const loginAccountLimiter = createRateLimiter({ windowMs: 5 * 60_000, max: 5 })
+const loginIpLimiter = createRateLimiter({ windowMs: 5 * 60_000, max: 20 })
+const signUpLimiter = createRateLimiter({ windowMs: 10 * 60_000, max: 5 })
+
+async function clientIp(): Promise<string> {
+  const h = await headers()
+  return h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? 'unknown'
+}
 
 /** Returns true for internal/loopback addresses that should never appear in emails. */
 function isInternalHost(host: string): boolean {
@@ -69,6 +82,14 @@ export async function login(input: { email: string; password: string; redirectTo
   const parsed = loginSchema.safeParse(input)
   if (!parsed.success) return { data: null, error: 'Invalid input' }
 
+  const ip = await clientIp()
+  if (
+    loginAccountLimiter.check(`${ip}:${parsed.data.email.toLowerCase()}`).limited ||
+    loginIpLimiter.check(ip).limited
+  ) {
+    return { data: null, error: 'Too many sign-in attempts. Please wait a few minutes and try again.' }
+  }
+
   const supabase = await createServerClient()
   const { error } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
@@ -123,6 +144,10 @@ const signUpSchema = z.object({
 export async function signUp(input: { email: string; password: string; fullName: string; redirectTo?: string }) {
   const parsed = signUpSchema.safeParse(input)
   if (!parsed.success) return { data: null, error: 'Invalid input' }
+
+  if (signUpLimiter.check(await clientIp()).limited) {
+    return { data: null, error: 'Too many sign-up attempts. Please wait a few minutes and try again.' }
+  }
 
   const headersList = await headers()
   const origin = getPublicOrigin(headersList) // real public domain (org subdomain, etc.)

@@ -73,3 +73,10 @@ export function getClientIp(request: Request): string {
   if (forwarded) return forwarded.split(',')[0].trim()
   return (request as { headers: Headers }).headers.get('x-real-ip') ?? 'unknown'
 }
+
+/**
+ * Shared limiter for the Stripe checkout routes. One instance across all
+ * checkout endpoints: a legitimate user performs a handful of checkouts,
+ * while each attempt creates Stripe sessions + DB rows — cap the abuse cost.
+ */
+export const checkoutRateLimiter = createRateLimiter({ windowMs: 5 * 60_000, max: 15 })

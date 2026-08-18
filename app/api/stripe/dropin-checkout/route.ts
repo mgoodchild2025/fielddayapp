@@ -3,6 +3,7 @@ import { z } from 'zod'
 import Stripe from 'stripe'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { checkoutRateLimiter, getClientIp } from '@/lib/rate-limit'
 
 const schema = z.object({
   orgId: z.string().uuid(),
@@ -19,6 +20,9 @@ const schema = z.object({
  * drop-in registration for the session and records the paid payment.
  */
 export async function POST(request: NextRequest) {
+  if (checkoutRateLimiter.check(getClientIp(request)).limited) {
+    return NextResponse.json({ error: 'Too many requests — please wait a few minutes and try again.' }, { status: 429 })
+  }
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
