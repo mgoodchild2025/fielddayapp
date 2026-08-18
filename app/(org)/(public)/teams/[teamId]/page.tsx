@@ -118,7 +118,7 @@ export default async function TeamDetailPage({
   const isPerTeam = paymentMode === 'per_team' && leaguePriceCents > 0
 
   // Fetch team payment status + captain's own registration in parallel (per-team only)
-  let [{ data: teamPayment }, { data: myLeagueRegistration }] = isPerTeam
+  const [teamPaymentRes, myLeagueRegistrationRes] = isPerTeam
     ? await Promise.all([
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (db as any)
@@ -137,6 +137,8 @@ export default async function TeamDetailPage({
           .maybeSingle(),
       ])
     : [{ data: null }, { data: null }]
+  let teamPayment = teamPaymentRes.data
+  const myLeagueRegistration = myLeagueRegistrationRes.data
 
   // If Stripe redirected back with session_id but the webhook hasn't fired yet,
   // verify the session directly and mark the payment paid immediately.
@@ -151,8 +153,7 @@ export default async function TeamDetailPage({
 
       if (paymentSettings?.stripe_secret_key) {
         const Stripe = (await import('stripe')).default
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const orgStripe = new Stripe(paymentSettings.stripe_secret_key, { apiVersion: '2026-04-22.dahlia' as any })
+        const orgStripe = new Stripe(paymentSettings.stripe_secret_key, { apiVersion: '2026-05-27.dahlia' })
         const session = await orgStripe.checkout.sessions.retrieve(sessionId)
         if (session.payment_status === 'paid') {
           const paidAt = new Date(session.created * 1000).toISOString()
@@ -277,7 +278,7 @@ export default async function TeamDetailPage({
       .maybeSingle()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     teamAcceptedMethods = resolveLeagueMethods((league as any)?.payment_methods, orgPay)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     teamOfflineInstructions =
       ((league as any)?.payment_instructions?.trim() || null) ??
       (orgPay?.registration_manual_instructions ?? null)

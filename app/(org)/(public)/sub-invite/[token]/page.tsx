@@ -142,7 +142,7 @@ export default async function SubInvitePage({
   ])
 
   const hasExistingWaiver = !!existingSigRes.data
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const waiver = (waiverRes.data as { id: string; title: string; content: string } | null) ?? null
 
   return (

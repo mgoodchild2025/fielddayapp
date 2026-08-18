@@ -147,7 +147,7 @@ export default async function AdminStandingsPage({
   const volleyballMode: VolleyballMode = (league.volleyball_standings_mode ?? 'match_based') as VolleyballMode
   const isVolleyball = VOLLEYBALL_SPORTS.has(sport)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: teamsData }, { data: divsData }, { data: poolsData }, { data: resultsData }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('teams').select('id, name, division_id, pool_id').eq('league_id', id).eq('organization_id', org.id).eq('status', 'active'),

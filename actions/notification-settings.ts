@@ -56,7 +56,7 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: notif }, { data: reminders }] = await Promise.all([
     (db as any)
       .from('org_notification_settings')

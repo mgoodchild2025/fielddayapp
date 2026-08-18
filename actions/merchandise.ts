@@ -197,7 +197,7 @@ export async function getLeagueMerchandise(leagueId: string): Promise<LeagueMerc
     typedRows.map((r) => [r.item_id, r.price_override_cents])
   )
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: items }, { data: variants }, { data: activeOrders }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('merchandise_items')

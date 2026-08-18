@@ -88,9 +88,9 @@ export default async function TeamSchedulePage({
   // ── RSVP + captain attendance + game subs (mirrors /schedule page) ──────────
   let myRsvps: { gameId: string; status: 'in' | 'out' }[] = []
   let captainTeamIds: string[] = []
-  let captainAttendance: { gameId: string; in: number; out: number; total: number }[] = []
+  const captainAttendance: { gameId: string; in: number; out: number; total: number }[] = []
   let mySubGameIds: string[] = []
-  let captainGameSubs: { gameId: string; teamId: string; subs: GameSub[] }[] = []
+  const captainGameSubs: { gameId: string; teamId: string; subs: GameSub[] }[] = []
 
   if (games.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

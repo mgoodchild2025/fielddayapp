@@ -51,7 +51,7 @@ export default async function SchedulePage() {
   // Filter out games from leagues with unpublished schedules
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const publishedGames = (allGames ?? []).filter((g: any) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const league = Array.isArray(g.league) ? g.league[0] : g.league
     return league?.schedule_published !== false
   })
@@ -60,7 +60,7 @@ export default async function SchedulePage() {
   // 1. session_registrations rows (explicit per-session pickup signup)
   // 2. registrations.session_id (drop-in registered through normal event flow)
   // 3. All sessions for leagues where they hold a season-pass registration
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: mySessionRegs }, { data: myRegWithSession }, { data: mySeasonRegs }] = await Promise.all([
     (db as any)
       .from('session_registrations')
@@ -138,7 +138,7 @@ export default async function SchedulePage() {
   }
 
   // Merge sessions from all three sources, deduplicate by session id
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const seenSessionIds = new Set<string>()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allSessions: any[] = [
@@ -157,19 +157,19 @@ export default async function SchedulePage() {
     })
 
   // ── RSVP + captain attendance ─────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   let myRsvps: { gameId: string; status: 'in' | 'out' }[] = []
   let captainTeamIds: string[] = []
-  let captainAttendance: { gameId: string; in: number; out: number; total: number }[] = []
+  const captainAttendance: { gameId: string; in: number; out: number; total: number }[] = []
   // Game subs: which games this user is subbing in, and subs per game for captains
   let mySubGameIds: string[] = []
-  let captainGameSubs: { gameId: string; teamId: string; subs: import('@/actions/game-subs').GameSub[] }[] = []
+  const captainGameSubs: { gameId: string; teamId: string; subs: import('@/actions/game-subs').GameSub[] }[] = []
 
   if (relevantGames.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const gameIds = relevantGames.map((g: any) => g.id as string)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [{ data: captainships }, { data: rsvpData }, { data: mySubRows }] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any).from('team_members').select('team_id').eq('user_id', user.id).eq('role', 'captain').eq('status', 'active'),
@@ -187,7 +187,7 @@ export default async function SchedulePage() {
 
     if (captainTeamIds.length > 0) {
       const captainTeamIdSet = new Set(captainTeamIds)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [{ data: teamMemberRows }, { data: teamRsvpRows }, { data: captainSubRows }] = await Promise.all([
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (db as any).from('team_members').select('team_id').in('team_id', captainTeamIds).eq('status', 'active'),
@@ -217,7 +217,7 @@ export default async function SchedulePage() {
       }
 
       // Group subs by game_id
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const subsByGame = new Map<string, import('@/actions/game-subs').GameSub[]>()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const row of (captainSubRows ?? []) as any[]) {
@@ -259,7 +259,7 @@ export default async function SchedulePage() {
   }
 
   // ── Merge and split upcoming vs past ──────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   // The player's published playoff bracket matches — read-only, merged in as
   // game items so they appear alongside regular games in My Games.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

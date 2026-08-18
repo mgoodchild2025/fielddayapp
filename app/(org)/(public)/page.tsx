@@ -8,7 +8,7 @@ import { ProHome } from '@/components/site-themes/pro/pro-home'
 async function OrgHomePage({ orgId }: { orgId: string }) {
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: org }, { data: branding }, { data: leagues }, { data: siteContent }, { data: photos }, { data: sponsors }, { data: staff }, { data: recentResultsRaw }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('organizations').select('id, slug, name').eq('id', orgId).single(),
@@ -17,7 +17,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
       .select('tagline, hero_image_url, logo_url, site_theme, contact_email, timezone, social_instagram, social_facebook, social_x, social_tiktok, social_youtube')
       .eq('organization_id', orgId)
       .single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     // select('*') (not a named column list) so this still works before migration
     // 168 adds advertised/featured/teaser_text — the columns are simply absent.
     (db as any).from('leagues')

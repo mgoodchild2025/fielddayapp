@@ -577,7 +577,7 @@ export default async function EventDetailPage({
   const db = createServiceRoleClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: league }, { data: branding }] = await Promise.all([
     // Note: draft events are NOT filtered out here so advertised "coming soon"
     // events can render a teaser. The gate below decides visibility.
@@ -703,7 +703,7 @@ export default async function EventDetailPage({
   const returnPath = `/events/${slug}${inviteToken ? `?invite=${inviteToken}${urlMode ? `&mode=${urlMode}` : ''}` : ''}`
 
   // Check for published bracket (lightweight — just need to know if one exists)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: publishedBracketMeta } = isTeamBased
     ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (db as any)
@@ -781,7 +781,7 @@ export default async function EventDetailPage({
   // ── Overview data ─────────────────────────────────────────────────────────
 
   // Sessions (pickup/drop-in)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: sessions } = isSessionBased
     ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (db as any)
@@ -819,7 +819,7 @@ export default async function EventDetailPage({
     : { count: 0 }
   const fullPass = fullPassCount ?? 0
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: mySessionRegs } = (isSessionBased && !isSeasonPickup && !isPickupEvent && user)
     ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (db as any)
@@ -831,7 +831,7 @@ export default async function EventDetailPage({
     : { data: null }
   const mySessionIds = new Set((mySessionRegs ?? []).map((r: { session_id: string }) => r.session_id))
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: mySeasonRegistration } = ((isPickupEvent || isSeasonPickup) && user)
     ? await (db as any).from('registrations').select('id, status')
         .eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id)
@@ -841,7 +841,7 @@ export default async function EventDetailPage({
   // For per-session drop-in events, fetch all of the player's paid registrations so we can
   // check per-session whether they've already been through the waiver + payment flow.
   // Each drop-in registration covers exactly one session (session_id is set on the row).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: myDropInRegistrations } = (isSessionBased && !isSeasonPickup && user)
     ? await (db as any).from('registrations').select('id, session_id, status')
         .eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id)
@@ -858,7 +858,7 @@ export default async function EventDetailPage({
 
   // An event-level registration is required before joining sessions when the event
   // has a waiver or a drop-in fee (so waiver/payment are collected at registration time).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const sessionRegistrationRequired = isSessionBased && !isSeasonPickup && (
     !!(league as any).waiver_version_id ||
     !!(league as any).drop_in_price_cents
@@ -902,7 +902,7 @@ export default async function EventDetailPage({
 
   // Teams list (for open-registration team events)
   const canJoinTeam = isTeamBased && league.team_join_policy !== 'admin_only'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: teams } = isTeamBased
     ? await (db as any)
         .from('teams')
@@ -913,12 +913,12 @@ export default async function EventDetailPage({
         .order('name')
     : { data: null }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: myMemberships } = (user && teams)
     ? await (db as any).from('team_members').select('team_id').eq('user_id', user.id).in('team_id', teams.map((t: { id: string }) => t.id))
     : { data: null }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: myRequests } = (user && teams)
     ? await (db as any).from('team_join_requests').select('team_id, status').eq('user_id', user.id).eq('status', 'pending').in('team_id', teams.map((t: { id: string }) => t.id))
     : { data: null }
@@ -926,7 +926,7 @@ export default async function EventDetailPage({
   const myTeamIds = new Set<string>(myMemberships?.map((m: { team_id: string }) => m.team_id) ?? [])
   const myRequestTeamIds = new Set<string>(myRequests?.map((r: { team_id: string }) => r.team_id) ?? [])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: myRegistration } = (user && isTeamBased)
     ? await (db as any).from('registrations').select('id, status').eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
     : { data: null }
@@ -939,7 +939,7 @@ export default async function EventDetailPage({
 
   // Fetch any pending offline payment for this player on this league
   // Used to show a reminder notice beneath the "✓ You're registered" banner.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   let myPendingPayment: { payment_method: string; amount_cents: number; currency: string } | null = null
   if (user && myRegistration?.id && !myEnrollment) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -978,7 +978,7 @@ export default async function EventDetailPage({
   }
 
   // Also check org admin status for visibility bypass
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: orgMember } = user
     ? await (db as any).from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
     : { data: null }
@@ -988,7 +988,7 @@ export default async function EventDetailPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const joinPolicy = (league as any).team_join_policy as string | null
   // For captain_invite leagues: check if the user already has a membership or pending invitation
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   let hasTeamAccess = false
   if (user && !isOrgAdmin && joinPolicy === 'captain_invite' && teams) {
     const tIds = teams.map((t: { id: string }) => t.id)
@@ -1114,12 +1114,12 @@ export default async function EventDetailPage({
 
   let games: GameRow[] = []
   let schedulePhaseList: { week_number: number; phase: SchedulePhase }[] = []
-  let captainTeamIds = new Set<string>()
-  let myRsvps = new Map<string, 'in' | 'out'>()
-  let captainAttendance = new Map<string, { in: number; out: number; total: number }>()
+  const captainTeamIds = new Set<string>()
+  const myRsvps = new Map<string, 'in' | 'out'>()
+  const captainAttendance = new Map<string, { in: number; out: number; total: number }>()
 
   if (activeTab === 'schedule' && isTeamBased) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [{ data: gamesData }, { data: poolRows }, { data: weekPhaseRows }] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any)
@@ -1183,7 +1183,7 @@ export default async function EventDetailPage({
 
     if (user && games.length > 0) {
       const gameIds = games.map((g) => g.id)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [{ data: captainships }, { data: rsvpData }] = await Promise.all([
         (db as any)
           .from('team_members')
@@ -1206,7 +1206,7 @@ export default async function EventDetailPage({
       // Fetch team-wide RSVP counts + roster sizes for all teams the user captains
       if (captainTeamIds.size > 0) {
         const captainTeamIdArray = [...captainTeamIds]
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const [{ data: teamMemberRows }, { data: teamRsvpRows }] = await Promise.all([
           (db as any)
             .from('team_members')
@@ -1285,7 +1285,7 @@ export default async function EventDetailPage({
     const leagueVolleyballMode: VolleyballMode = ((league as any).volleyball_standings_mode ?? 'match_based') as VolleyballMode
     const isVolleyballLeague = VOLLEYBALL_SPORTS.has(leagueSport)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [{ data: teamsData }, { data: divsData }, { data: poolsData }, { data: resultsData }] = await Promise.all([
       (db as any).from('teams').select('id, name, division_id, pool_id').eq('league_id', league.id).eq('organization_id', org.id).eq('status', 'active'),
       (db as any).from('divisions').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
@@ -1627,7 +1627,7 @@ export default async function EventDetailPage({
                       .join(' / ')}
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {((league as any).game_start_time || (league as any).game_end_time) && (() => {
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
                       const fmt = (t: string) => {
                         const [h, m] = t.split(':').map(Number)
                         const period = h >= 12 ? 'PM' : 'AM'
@@ -1778,7 +1778,7 @@ export default async function EventDetailPage({
                 <div className="bg-white rounded-lg border p-4 col-span-2 sm:col-span-1">
                   <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Days</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    { }
                     {(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const)
                       .filter((d) => (league as any).days_of_week.includes(d))
                       .map((d) => {

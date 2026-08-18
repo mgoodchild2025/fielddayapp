@@ -103,7 +103,7 @@ export async function getShopPnl(orgId: string): Promise<ShopPnl> {
   const itemIds = [...new Set(typedOrders.map((o) => o.item_id))]
   const variantIds = [...new Set(typedOrders.map((o) => o.variant_id).filter(Boolean) as string[])]
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: items }, { data: variants }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('merchandise_items').select('id, name, cost_cents').in('id', itemIds),
@@ -527,7 +527,7 @@ export type OrgPnl = {
 export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: payments }, { data: merchOrders }, { data: expenses }, { data: overhead }, { data: leagues }, { data: otherRevenue }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('payments').select('amount_cents, league_id')
@@ -661,7 +661,7 @@ export type EventBudget = {
 export async function getEventBudget(leagueId: string): Promise<EventBudget> {
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: budget }, { data: league }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('event_budgets')

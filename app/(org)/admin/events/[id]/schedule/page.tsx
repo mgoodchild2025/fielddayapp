@@ -32,7 +32,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
     .single()
   const timezone = branding?.timezone ?? 'America/Toronto'
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: games }, { data: teams }, { data: league }, { data: pools }, { data: weekPhases }] = await Promise.all([
     // Cast to any — Supabase types may not yet reflect home_team_label/away_team_label columns
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

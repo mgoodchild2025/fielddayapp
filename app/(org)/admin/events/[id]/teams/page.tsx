@@ -64,7 +64,7 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
     { data: registrations },
     { data: assignedMembers },
     { data: waiverDef },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     { data: pendingInvites } ,
   ] = await Promise.all([
     // League slug + sport for invite URLs and positions

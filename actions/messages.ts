@@ -316,7 +316,7 @@ async function deliverAnnouncement(
   if (userIds.size === 0 && rawEmails.size === 0) return
 
   // ── 3. Fetch profiles for all recipients in one query ─────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: profiles } = userIds.size > 0
     ? await (service as any)
         .from('profiles')

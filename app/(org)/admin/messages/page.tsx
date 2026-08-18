@@ -12,7 +12,7 @@ export default async function AdminMessagesPage() {
   const canSms = await canAccess(org.id, 'sms_notifications')
 
   // Load leagues, teams, and players for audience selection
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: leagues }, { data: teamsRaw }, { data: membersRaw }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)

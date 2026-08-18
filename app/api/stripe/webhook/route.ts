@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Send confirmation to each member
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [{ data: league }, { data: org }, { data: teamRow }] = await Promise.all([
         (supabase as any).from('leagues').select('name, sport, event_type, checkin_enabled, season_start_date, game_start_time, game_end_time, days_of_week, venue_name, venue_address, venue_maps_url').eq('id', leagueId).single(),
         supabase.from('organizations').select('name, slug').eq('id', orgId).single(),
@@ -409,7 +409,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [{ data: profile }, { data: league }, { data: org }, { data: reg }] = await Promise.all([
         supabase.from('profiles').select('full_name, email').eq('id', userId).single(),
         (supabase as any).from('leagues').select('id, name, slug, sport, event_type, checkin_enabled, payment_mode, price_cents, currency, calendar_token, season_start_date, game_start_time, game_end_time, days_of_week, venue_name, venue_address, venue_maps_url').eq('id', leagueId ?? '').single(),
@@ -630,7 +630,7 @@ export async function POST(request: NextRequest) {
         .eq('stripe_payment_intent_id', pi.id)
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [{ data: league }, { data: profile }, { data: org }, { data: admins }] = await Promise.all([
       leagueId
         ? supabase.from('leagues').select('name').eq('id', leagueId).single()

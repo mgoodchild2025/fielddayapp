@@ -54,7 +54,7 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
   const clearedRef = useRef(false)
 
   // Single shared browser-client instance
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   const db = useCallback(() => createClient(), [])()
 
   // userId comes from the server-side layout — available synchronously, no race condition
@@ -145,7 +145,7 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
         const itemIds    = [...new Set((data as { item_id: string }[]).map(r => r.item_id))]
         const variantIds = [...new Set((data as { variant_id: string | null }[]).map(r => r.variant_id).filter(Boolean) as string[])]
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const [{ data: itemRows }, { data: variantRows }] = await Promise.all([
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (db as any).from('merchandise_items').select('id, name, price_cents, currency, image_url').in('id', itemIds),

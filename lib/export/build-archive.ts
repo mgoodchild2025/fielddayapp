@@ -199,7 +199,7 @@ export async function buildArchive(db: any, orgId: string, requestedByEmail: str
   await addFile('teams/rosters.csv', toCsvBytes(rostersCsv, ['roster_id','team_id','player_id','role','status','joined_at']), rostersCsv.length)
 
   // ── players/players.csv ───────────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const playersCsv = userIds.map((uid) => {
     const p = profileMap.get(uid)
     const a = authMap.get(uid)

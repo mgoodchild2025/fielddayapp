@@ -89,7 +89,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
 
   // Fetch session dates separately — only works after migration 095 has been applied.
   // Gracefully degrades: if session_id column doesn't exist yet, sessionMap is empty.
-  let sessionMap = new Map<string, string>()
+  const sessionMap = new Map<string, string>()
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: sessionRows } = await (db as any)
@@ -168,7 +168,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
 
   // Fetch payment plan enrollments for all registrations (for 💳 Plan badge)
   const regIds = rows.map((r: { id: string }) => r.id)
-  let enrollmentsByRegId = new Map<string, InstallmentRow[]>()
+  const enrollmentsByRegId = new Map<string, InstallmentRow[]>()
   if (regIds.length > 0) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -40,7 +40,7 @@ export default async function PrivacyPage() {
           Privacy &amp; Your Data
         </h1>
         <p className="text-sm text-gray-500 mb-8">
-          Under Canada's <em>Personal Information Protection and Electronic Documents Act</em> (PIPEDA),
+          Under Canada&apos;s <em>Personal Information Protection and Electronic Documents Act</em> (PIPEDA),
           you have the right to access, correct, and request deletion of your personal information.
         </p>
 

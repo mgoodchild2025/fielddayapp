@@ -8,6 +8,7 @@
  * Backup code operations use the service role client for DB access.
  */
 
+import { randomBytes } from 'node:crypto'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { recordAuditLog, type AuditAction } from '@/lib/audit'
@@ -48,7 +49,6 @@ const BACKUP_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 /** Generate a single backup code in XXXXX-XXXXX format */
 function generateSingleBackupCode(): string {
-  const { randomBytes } = require('crypto') as typeof import('crypto')
   const bytes = randomBytes(10)
   let code = ''
   for (let i = 0; i < 10; i++) {

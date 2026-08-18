@@ -197,7 +197,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
       organizer_email: (fd.get('organizer_email') as string) || undefined,
       organizer_phone: (fd.get('organizer_phone') as string) || undefined,
       team_join_policy: (fd.get('team_join_policy') as 'open' | 'captain_invite' | 'admin_only') || 'open',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       registration_mode: (fd.get('registration_mode') as string) || 'session',
       schedule_visibility: (fd.get('schedule_visibility') as 'public' | 'participants') || 'public',
       standings_visibility: (fd.get('standings_visibility') as 'public' | 'participants') || 'public',

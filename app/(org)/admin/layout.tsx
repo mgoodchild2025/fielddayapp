@@ -110,7 +110,7 @@ export default async function AdminLayout({
 
   // Fetch subscription + plan limits in parallel for banners
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: subscription }, playerLimit, leagueLimit, activeLeagueCount, { count: playerCount }, enforcement] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)

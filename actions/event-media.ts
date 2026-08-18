@@ -260,7 +260,7 @@ export async function exportOrgEventMedia(): Promise<{ error: string | null; dat
   // Resolve event + uploader names for the manifest.
   const leagueIds = [...new Set(media.map((m) => m.league_id))]
   const userIds = [...new Set(media.map((m) => m.uploaded_by).filter(Boolean) as string[])]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: leagues }, { data: profiles }] = await Promise.all([
     (db as any).from('leagues').select('id, name').in('id', leagueIds),
     userIds.length > 0 ? db.from('profiles').select('id, full_name').in('id', userIds) : Promise.resolve({ data: [] }),

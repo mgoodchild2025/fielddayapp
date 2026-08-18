@@ -107,14 +107,14 @@ export function getRoundName(roundNumber: number, bracketSize: number, matchNumb
     if (roundNumber === 2) return 'Semi-Finals'
     if (roundNumber === 1) return 'Final'
   }
-  // Winners bracket (standard)
+  // Winners bracket (standard). roundNumber = matches in the round, so the
+  // round contains roundNumber * 2 teams. (The old bracketSize / roundNumber
+  // formula mislabelled early rounds — e.g. a 16-team first round, round
+  // number 8, came out as "Round of 4" instead of "Round of 16".)
   if (roundNumber === 1) return 'Final'
   if (roundNumber === 2) return 'Semi-Finals'
   if (roundNumber === 4) return 'Quarter-Finals'
-  const matchesInRound = bracketSize / roundNumber
-  if (matchesInRound === 16) return 'Round of 32'
-  if (matchesInRound === 8) return 'Round of 16'
-  return `Round of ${matchesInRound * 2}`
+  return `Round of ${roundNumber * 2}`
 }
 
 // ── Standard bracket seeding ──────────────────────────────────────────────────
@@ -283,6 +283,11 @@ export function generateSingleEliminationSpec(
     const team1Seed = isBye ? (realSeed1 ?? realSeed2) : realSeed1
     const team2Seed = isBye ? null : realSeed2
 
+    // In a 4-team bracket the first round IS the semifinals — its losers feed
+    // the third-place match. (Larger brackets wire this in the middle-rounds
+    // loop below.)
+    const isSemis = firstRound === 2
+
     matches.push({
       roundNumber: firstRound,
       matchNumber: matchNum,
@@ -292,9 +297,9 @@ export function generateSingleEliminationSpec(
       winnerToRoundNumber: nextRound >= 1 ? nextRound : null,
       winnerToMatchNumber: nextRound >= 1 ? nextMatchNum : null,
       winnerToSlot: nextRound >= 1 ? nextSlot : null,
-      loserToMatchNumber: null,
-      loserToRoundNumber: null,
-      loserToSlot: null,
+      loserToRoundNumber: thirdPlaceGame && isSemis ? 1 : null,
+      loserToMatchNumber: thirdPlaceGame && isSemis ? 2 : null,
+      loserToSlot: thirdPlaceGame && isSemis ? (matchNum === 1 ? 1 : 2) : null,
     })
   }
 
@@ -323,6 +328,9 @@ export function generateSingleEliminationSpec(
   }
 
   // ── Final ─────────────────────────────────────────────────────────────────
+  // The final's loser is the runner-up — it must NOT route anywhere. (It
+  // previously pointed at the third-place match, which let the runner-up
+  // clobber a semifinal loser's slot after the final completed.)
   if (firstRound > 1) {
     matches.push({
       roundNumber: 1,
@@ -333,9 +341,9 @@ export function generateSingleEliminationSpec(
       winnerToRoundNumber: null,
       winnerToMatchNumber: null,
       winnerToSlot: null,
-      loserToRoundNumber: thirdPlaceGame ? 1 : null,
-      loserToMatchNumber: thirdPlaceGame ? 2 : null,
-      loserToSlot: thirdPlaceGame ? null : null,
+      loserToRoundNumber: null,
+      loserToMatchNumber: null,
+      loserToSlot: null,
     })
   }
 

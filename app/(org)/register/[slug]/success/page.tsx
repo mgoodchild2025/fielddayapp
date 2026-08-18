@@ -84,7 +84,7 @@ export default async function RegistrationSuccessPage({
   }
 
   // Fetch the player's registration to get their check-in token
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: registration } = user && league
     ? await (db as any)
         .from('registrations')

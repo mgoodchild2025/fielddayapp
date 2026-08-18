@@ -46,7 +46,7 @@ export async function getInviteDetails(token: string): Promise<InviteDetails | n
 
   if (!invite) return null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: team }, { data: inviter }] = await Promise.all([
     (db as any).from('teams').select('name, color, league_id').eq('id', invite.team_id).single(),
     db.from('profiles').select('full_name').eq('id', invite.invited_by).single(),
@@ -125,7 +125,7 @@ export async function sendTeamInvite(input: z.infer<typeof sendInviteSchema>) {
 
   const email = parsed.data.email.toLowerCase()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: team }, { data: inviterProfile }] = await Promise.all([
     (db as any).from('teams').select('id, name, league_id, leagues!teams_league_id_fkey(name)').eq('id', parsed.data.teamId).eq('organization_id', org.id).single(),
     db.from('profiles').select('full_name').eq('id', user.id).single(),
@@ -440,7 +440,7 @@ export async function resendTeamInvite(inviteId: string) {
   const declineUrl = `${origin}/invite/${token}?action=decline`
 
   // Fetch team + inviter profile
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: team }, { data: inviterProfile }] = await Promise.all([
     (db as any).from('teams').select('name, leagues!teams_league_id_fkey(name)').eq('id', invite.team_id).single(),
     db.from('profiles').select('full_name').eq('id', user.id).single(),

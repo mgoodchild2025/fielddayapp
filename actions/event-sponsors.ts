@@ -30,7 +30,7 @@ const TIER_RANK: Record<string, number> = { gold: 0, silver: 1, bronze: 2, stand
  */
 export async function getEventSponsors(leagueId: string, orgId: string): Promise<ResolvedSponsor[]> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: league }, { data: links }, { data: orgSponsors }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues').select('show_org_sponsors').eq('id', leagueId).single(),
@@ -111,7 +111,7 @@ export async function getEventSponsorPageData(leagueId: string): Promise<{
   await requireOrgMember(org, ['org_admin', 'league_admin'])
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: league }, { data: rows }, { data: orgSponsors }, { data: statRows }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues').select('show_org_sponsors').eq('id', leagueId).eq('organization_id', org.id).single(),
