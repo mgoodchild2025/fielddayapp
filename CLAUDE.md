@@ -59,6 +59,9 @@ app/(org)/
 - `registrations` — player registrations to leagues
 - `games` — scheduled games (home/away teams, court, week, status)
 - `game_results` — scores (status: pending → confirmed)
+- `playoff_configs` / `playoff_tiers` — playoff setup (tiers with seed ranges; tiers carry `inflow_from_tier_id` + `bye_seeds` for cross-tier drop-downs)
+- `brackets` / `bracket_matches` — generated brackets; matches carry `winner_to_match_id` / `loser_to_match_id` (+ slot) routing and `is_bye`
+- `org_playoff_templates` — org-saved playoff format templates (tiers as JSONB)
 - `payments` — Stripe payment records
 - `waivers` / `waiver_signatures` — waiver management
 - `notifications` — in-app notifications
@@ -75,6 +78,27 @@ This adds: `team_join_requests` table, `venue_*`/`organizer_*`/`age_group`/`team
 - **Admins**: Admin → Leagues → [League] → Schedule — each game row has inline `AdminScoreEntry` component. Saves as `confirmed` immediately (no two-step).
 - **Captains**: Public `/schedule` — past games show `CaptainScoreEntry`. One captain submits (status: `pending`), opposing captain confirms (status: `confirmed`).
 - **Actions**: `submitScore`, `confirmScore`, `adminSetScore` in `actions/scores.ts`
+
+## Playoffs & brackets
+Admin → Events → [Event] → Bracket renders `PlayoffConfigWizard` (`components/bracket/playoff-config-wizard.tsx`). Lifecycle per tier bracket: **scaffold** (placeholder labels, no teams) → **seed** (teams assigned from standings) → **publish** (`status='active'`, visible to players). Publishing before seeding is allowed; unpublish keeps seeding.
+
+### Structure
+- A `playoff_config` holds ordered `playoff_tiers` (Gold/Silver/…), each mapping a seed range to its own bracket. "Generate All Brackets" (`generateAllTierBrackets` in `actions/playoff-config.ts`) scaffolds every tier and is safe to re-run — tiers whose brackets have recorded scores are skipped.
+- Generators live in `lib/bracket.ts` (pure, tested): single elim (byes for non-power-of-2), double elim (LB rounds numbered `100+`, grand final `200`), 6/14-team all-play, and `generateInflowBracketSpec` for drop-down receivers.
+
+### Cross-tier drop-downs (flexible brackets)
+- A tier may declare `inflow_from_tier_id` (+ `bye_seeds`): it receives the source tier's first-round losers; its top N direct seeds bye past the entry round. Example: 10 teams → Gold seeds 1–8; Silver = seeds 9–10 (2 byes to semis) + the 4 Gold QF losers.
+- `lib/tier-inflows.ts` is the single source of truth for cross-bracket wiring: `wireLeagueTierInflows` (idempotent; re-run after ANY scaffold/seed rebuild of either side) and `clearInboundRoutes` (must run before deleting a bracket's matches — the `bracket_matches` self-FKs have **no ON DELETE**, so deleting referenced rows otherwise violates the constraint).
+- `scaffoldBracket`/`seedBracket` (`actions/brackets.ts`) detect inflow receivers via `getInflowContext` and rebuild with the inflow spec — never assume the standard generator shape for a receiver.
+- Runtime advancement (`advanceWinner`/`advanceLoser`) follows `winner_to_match_id`/`loser_to_match_id` wherever they point, including into another bracket.
+- Admins can also hand-edit any match's routing (winner/loser destination + slot, across brackets) in the Edit Match modal via `updateMatchRouting`.
+
+### Format templates
+- Built-ins in `lib/playoff-templates.ts` (parameterized by team count; `applicableTemplates` only offers shapes that validate). Org-saved templates in `org_playoff_templates` via `actions/playoff-templates.ts`; "Save as template…" on the wizard's tiers step.
+
+### Constraints
+- Drop-downs only flow downward (source tier must be earlier in the list — rules out cycles); both source and receiver must be single elimination.
+- Inflow shape rule: entry-round teams (`inflow + direct − byes`) must be even, and entry winners + byes must total a power of 2 (`validateInflowBracket` produces the admin-facing message).
 
 ## Game status management (cancel / postpone / restore)
 Admins can change a game's status from the **Edit Game** modal (pencil icon on any row in Admin → Leagues → [League] → Schedule).
