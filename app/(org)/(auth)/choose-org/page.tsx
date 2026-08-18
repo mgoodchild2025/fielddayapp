@@ -21,8 +21,8 @@ export default async function ChooseOrgPage() {
   const db = createServiceRoleClient()
 
   // Fetch orgs the user belongs to
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: memberships } = await (db as any)
+
+  const { data: memberships } = await db
     .from('org_members')
     .select(`
       role, status,

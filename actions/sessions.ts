@@ -105,8 +105,8 @@ export async function createSession(
   const rows = scheduledIsos.map((iso) => ({ ...base, scheduled_at: iso }))
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('event_sessions').insert(rows)
+
+  const { error } = await db.from('event_sessions').insert(rows)
 
   if (error) return { error: error.message }
 
@@ -144,8 +144,8 @@ export async function updateSession(
     ? parseLocalToUtc(d.scheduled_at.slice(0, sep), d.scheduled_at.slice(sep + 1), timezone)
     : d.scheduled_at
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('event_sessions')
     .update({
       scheduled_at: scheduledAtUtc,
@@ -171,8 +171,8 @@ export async function cancelSession(sessionId: string, leagueId: string) {
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('event_sessions')
     .update({ status: 'cancelled' })
     .eq('id', sessionId)
@@ -192,8 +192,8 @@ export async function reopenSession(sessionId: string, leagueId: string) {
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('event_sessions')
     .update({ status: 'open' })
     .eq('id', sessionId)
@@ -213,8 +213,8 @@ export async function deleteSession(sessionId: string, leagueId: string) {
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('event_sessions')
     .delete()
     .eq('id', sessionId)
@@ -237,8 +237,8 @@ export async function joinSession(sessionId: string, leagueId: string) {
 
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues')
     .select('pickup_join_policy')
     .eq('id', leagueId)
@@ -246,8 +246,8 @@ export async function joinSession(sessionId: string, leagueId: string) {
     .single()
 
   if (league?.pickup_join_policy === 'private') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: invite } = await (db as any)
+
+    const { data: invite } = await db
       .from('pickup_invites')
       .select('id')
       .eq('league_id', leagueId)
@@ -257,8 +257,8 @@ export async function joinSession(sessionId: string, leagueId: string) {
     if (!invite) return { error: 'This event is invite only' }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: session } = await (db as any)
+
+  const { data: session } = await db
     .from('event_sessions')
     .select('id, capacity, status')
     .eq('id', sessionId)
@@ -269,8 +269,8 @@ export async function joinSession(sessionId: string, leagueId: string) {
   if (session.status === 'cancelled') return { error: 'This session has been cancelled' }
 
   if (session.capacity !== null) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { count } = await (db as any)
+
+    const { count } = await db
       .from('session_registrations')
       .select('*', { count: 'exact', head: true })
       .eq('session_id', sessionId)
@@ -280,8 +280,8 @@ export async function joinSession(sessionId: string, leagueId: string) {
   }
 
   // Upsert: handles re-joining after cancelling
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('session_registrations')
     .upsert(
       {
@@ -298,8 +298,8 @@ export async function joinSession(sessionId: string, leagueId: string) {
 
   // Mark invite as accepted on first join
   if (league?.pickup_join_policy === 'private') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any)
+
+    await db
       .from('pickup_invites')
       .update({ status: 'accepted' })
       .eq('league_id', leagueId)
@@ -322,8 +322,8 @@ export async function leaveSession(sessionId: string, leagueId: string) {
   const db = createServiceRoleClient()
 
   // Cancel in session_registrations (legacy join-button flow)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: srError } = await (db as any)
+
+  const { error: srError } = await db
     .from('session_registrations')
     .update({ status: 'cancelled' })
     .eq('session_id', sessionId)
@@ -334,8 +334,8 @@ export async function leaveSession(sessionId: string, leagueId: string) {
 
   // Also cancel any drop-in registration created via the registration flow
   // (registrations table rows with registration_type='drop_in' and session_id set)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('registrations')
     .update({ status: 'cancelled' })
     .eq('session_id', sessionId)

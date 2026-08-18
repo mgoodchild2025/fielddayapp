@@ -42,10 +42,10 @@ export default async function TeamDetailPage({
   const db = createServiceRoleClient()
 
   const [{ data: branding }, { data: team }, { data: myMembership }, { data: orgMember }, { data: joinRequests }, { data: orgBranding }, pendingInvitesResult] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
+
+    db
       .from('teams')
       .select(`
         id, name, color, logo_url, team_code, league_id, calendar_token,
@@ -81,8 +81,8 @@ export default async function TeamDetailPage({
       .eq('organization_id', org.id)
       .eq('status', 'pending'),
     db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('team_invitations')
       .select('id, token, invited_email, role, created_at, expires_at, invited_by')
       .eq('team_id', teamId)
@@ -96,8 +96,8 @@ export default async function TeamDetailPage({
   // Lazy-generate calendar token on first view — one-time write, no per-request cost after that
   let calendarToken = (team as { calendar_token?: string | null }).calendar_token ?? null
   if (!calendarToken) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updated } = await (db as any)
+
+    const { data: updated } = await db
       .from('teams')
       .update({ calendar_token: crypto.randomUUID() })
       .eq('id', teamId)
@@ -120,8 +120,8 @@ export default async function TeamDetailPage({
   // Fetch team payment status + captain's own registration in parallel (per-team only)
   const [teamPaymentRes, myLeagueRegistrationRes] = isPerTeam
     ? await Promise.all([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any)
+
+        db
           .from('payments')
           .select('id, status, paid_at, amount_cents')
           .eq('team_id', teamId)
@@ -144,8 +144,8 @@ export default async function TeamDetailPage({
   // verify the session directly and mark the payment paid immediately.
   if (paymentResult === 'success' && sessionId && teamPayment && teamPayment.status !== 'paid') {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: paymentSettings } = await (db as any)
+
+      const { data: paymentSettings } = await db
         .from('org_payment_settings')
         .select('stripe_secret_key')
         .eq('organization_id', org.id)
@@ -157,8 +157,8 @@ export default async function TeamDetailPage({
         const session = await orgStripe.checkout.sessions.retrieve(sessionId)
         if (session.payment_status === 'paid') {
           const paidAt = new Date(session.created * 1000).toISOString()
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (db as any)
+
+          await db
             .from('payments')
             .update({ status: 'paid', paid_at: paidAt })
             .eq('id', (teamPayment as { id: string }).id)
@@ -270,8 +270,8 @@ export default async function TeamDetailPage({
   let teamAcceptedMethods: ReturnType<typeof resolveLeagueMethods> = []
   let teamOfflineInstructions: string | null = null
   if (isManager && isPerTeam) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: orgPay } = await (db as any)
+
+    const { data: orgPay } = await db
       .from('org_payment_settings')
       .select('stripe_secret_key, registration_payment_mode, registration_manual_instructions')
       .eq('organization_id', org.id)

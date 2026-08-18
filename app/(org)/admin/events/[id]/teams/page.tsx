@@ -30,16 +30,16 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
 
   // Fetch unique slot labels (template games with no team assigned yet)
   const [{ data: homeSlotGames }, { data: awaySlotGames }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('games')
       .select('home_team_label')
       .eq('league_id', id)
       .eq('organization_id', org.id)
       .is('home_team_id', null)
       .not('home_team_label', 'is', null),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('games')
       .select('away_team_label')
       .eq('league_id', id)
@@ -68,16 +68,16 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
     { data: pendingInvites } ,
   ] = await Promise.all([
     // League slug + sport for invite URLs and positions
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('leagues')
       .select('slug, sport')
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
     // Teams with full member roster + positions + avatars
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('teams')
       .select(`
         id, name, color, logo_url, team_code, created_at,
@@ -119,8 +119,8 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
     db.from('waivers').select('id').eq('organization_id', org.id).eq('is_active', true).maybeSingle(),
     // Pending email invitations for all league teams
     leagueTeamIds.length > 0
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? (db as any)
+
+      ? db
           .from('team_invitations')
           .select('id, token, team_id, invited_email, role, created_at, expires_at, invited_by')
           .eq('organization_id', org.id)

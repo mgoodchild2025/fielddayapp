@@ -148,8 +148,8 @@ export async function orgSignup(input: z.infer<typeof signupSchema>) {
 
   await Promise.all([
     service.from('org_branding').insert({ organization_id: org.id }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (service as any).from('subscriptions').insert({
+
+    service.from('subscriptions').insert({
       organization_id: org.id,
       plan_tier: plan,
       status: isFree ? 'active' : 'trialing',

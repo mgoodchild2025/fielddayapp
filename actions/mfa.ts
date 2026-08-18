@@ -145,8 +145,8 @@ export async function verifyEnrollment(
   if (user) {
     const db = createServiceRoleClient()
     // Delete old codes first
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('mfa_backup_codes').delete().eq('user_id', user.id)
+
+    await db.from('mfa_backup_codes').delete().eq('user_id', user.id)
 
     // Insert new hashed codes
     const rows = await Promise.all(
@@ -155,8 +155,8 @@ export async function verifyEnrollment(
         code_hash: await hashBackupCode(c),
       }))
     )
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('mfa_backup_codes').insert(rows)
+
+    await db.from('mfa_backup_codes').insert(rows)
 
     await logMfaAudit('mfa.enrolled', user)
   }
@@ -224,8 +224,8 @@ export async function unenrollMfa(
   const { data: { user } } = await supabase.auth.getUser()
   if (user) {
     const db = createServiceRoleClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('mfa_backup_codes').delete().eq('user_id', user.id)
+
+    await db.from('mfa_backup_codes').delete().eq('user_id', user.id)
     await logMfaAudit('mfa.disabled', user)
   }
 
@@ -256,8 +256,8 @@ export async function verifyBackupCode(
   const inputHash = await hashBackupCode(code)
 
   // Find an unused matching code
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: codes } = await (db as any)
+
+  const { data: codes } = await db
     .from('mfa_backup_codes')
     .select('id, code_hash')
     .eq('user_id', user.id)
@@ -268,8 +268,8 @@ export async function verifyBackupCode(
   if (!match) return { error: 'Invalid or already-used backup code.' }
 
   // Mark as used
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('mfa_backup_codes').update({ used_at: new Date().toISOString() }).eq('id', match.id)
+
+  await db.from('mfa_backup_codes').update({ used_at: new Date().toISOString() }).eq('id', match.id)
 
   // Unenroll all TOTP factors via admin API (service role required)
   const { data: factors } = await supabase.auth.mfa.listFactors()
@@ -279,8 +279,8 @@ export async function verifyBackupCode(
   }
 
   // Grant 1-hour grace so the admin can re-enroll immediately without being locked out
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('profiles')
     .update({ mfa_grace_until: new Date(Date.now() + 60 * 60 * 1000).toISOString() })
     .eq('id', user.id)

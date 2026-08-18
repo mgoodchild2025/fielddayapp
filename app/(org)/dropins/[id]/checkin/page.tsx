@@ -21,8 +21,8 @@ export default async function DropInCheckInPage({
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+
+    supabase
       .from('org_branding')
       .select('checkin_sound')
       .eq('organization_id', org.id)

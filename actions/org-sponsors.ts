@@ -28,8 +28,8 @@ export async function upsertSponsor(
   const db = createServiceRoleClient()
 
   if (id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any)
+
+    const { error } = await db
       .from('org_sponsors')
       .update({ name: parsed.data.name, website_url: parsed.data.website_url || null, tier: parsed.data.tier })
       .eq('id', id)
@@ -39,14 +39,14 @@ export async function upsertSponsor(
     return { id, error: null }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: maxRow } = await (db as any)
+
+  const { data: maxRow } = await db
     .from('org_sponsors').select('display_order').eq('organization_id', org.id)
     .order('display_order', { ascending: false }).limit(1).maybeSingle()
   const display_order = ((maxRow as { display_order: number } | null)?.display_order ?? -1) + 1
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+
+  const { data, error } = await db
     .from('org_sponsors')
     .insert({ organization_id: org.id, ...parsed.data, website_url: parsed.data.website_url || null, display_order })
     .select('id').single()
@@ -62,8 +62,8 @@ export async function deleteSponsor(sponsorId: string): Promise<{ error: string 
 
   const db = createServiceRoleClient()
   // Remove logo from storage if present
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: row } = await (db as any).from('org_sponsors').select('logo_url').eq('id', sponsorId).eq('organization_id', org.id).single()
+
+  const { data: row } = await db.from('org_sponsors').select('logo_url').eq('id', sponsorId).eq('organization_id', org.id).single()
   if (row?.logo_url) {
     const url: string = row.logo_url
     const prefix = `/org-branding/`
@@ -74,8 +74,8 @@ export async function deleteSponsor(sponsorId: string): Promise<{ error: string 
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('org_sponsors').delete().eq('id', sponsorId).eq('organization_id', org.id)
+
+  const { error } = await db.from('org_sponsors').delete().eq('id', sponsorId).eq('organization_id', org.id)
   if (error) return { error: error.message }
   revalidatePath('/'); revalidatePath('/admin/settings/website/sponsors')
   return { error: null }
@@ -110,8 +110,8 @@ export async function uploadSponsorLogo(
   const { data: { publicUrl } } = db.storage.from('org-branding').getPublicUrl(path)
   const url = `${publicUrl}?t=${Date.now()}`
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('org_sponsors').update({ logo_url: url }).eq('id', sponsorId).eq('organization_id', org.id)
+
+  await db.from('org_sponsors').update({ logo_url: url }).eq('id', sponsorId).eq('organization_id', org.id)
   revalidatePath('/'); revalidatePath('/admin/settings/website/sponsors')
   return { url, error: null }
 }

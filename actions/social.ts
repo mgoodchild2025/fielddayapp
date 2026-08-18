@@ -32,8 +32,8 @@ export type SyncedItem = {
 
 export async function getYouTubeConnection(orgId: string): Promise<SocialConnection | null> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('social_connections')
     .select('id, platform, account_handle, external_account_id, sync_enabled, live_sync_enabled, last_synced_at')
     .eq('organization_id', orgId)
@@ -55,8 +55,8 @@ export async function connectYouTube(input: string): Promise<{ error: string | n
   if (error || !channel) return { error: error ?? 'Could not resolve channel.' }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: upErr } = await (db as any)
+
+  const { error: upErr } = await db
     .from('social_connections')
     .upsert(
       {
@@ -81,8 +81,8 @@ export async function disconnectYouTube(): Promise<{ error: string | null }> {
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin', 'league_admin'])
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('social_connections').delete().eq('organization_id', org.id).eq('platform', 'youtube')
+
+  await db.from('social_connections').delete().eq('organization_id', org.id).eq('platform', 'youtube')
   revalidatePath('/admin/settings/integrations')
   return { error: null }
 }
@@ -90,8 +90,8 @@ export async function disconnectYouTube(): Promise<{ error: string | null }> {
 /** Admin: list synced items (the moderation queue) for an org. */
 export async function listSyncedItems(orgId: string): Promise<SyncedItem[]> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('social_media_items')
     .select('id, platform, type, media_url, thumbnail_url, caption, posted_at, approved, hidden')
     .eq('organization_id', orgId)
@@ -106,8 +106,8 @@ export async function setItemApproval(itemId: string, approved: boolean): Promis
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin', 'league_admin'])
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('social_media_items')
     .update({ approved, hidden: !approved })
     .eq('id', itemId)
@@ -121,8 +121,8 @@ export async function setItemApproval(itemId: string, approved: boolean): Promis
 /** Public: approved videos for the gallery / display. */
 export async function getApprovedVideos(orgId: string, limit = 12): Promise<SyncedItem[]> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('social_media_items')
     .select('id, platform, type, media_url, thumbnail_url, caption, posted_at, approved, hidden')
     .eq('organization_id', orgId)

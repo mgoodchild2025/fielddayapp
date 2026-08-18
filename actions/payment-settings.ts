@@ -27,8 +27,8 @@ export async function savePaymentSettings(input: { stripeSecretKey: string; stri
 
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('org_payment_settings')
     .upsert(
       {
@@ -78,8 +78,8 @@ export async function saveShopPaymentSettings(input: {
 
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('org_payment_settings')
     .upsert(
       {
@@ -118,8 +118,8 @@ export async function saveRegistrationPaymentSettings(input: {
 
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('org_payment_settings')
     .upsert(
       {

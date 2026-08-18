@@ -21,8 +21,8 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('event_sessions')
       .select(`
         id, scheduled_at, duration_minutes, capacity,
@@ -33,8 +33,8 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
       .eq('organization_id', org.id)
       .order('scheduled_at', { ascending: true }),
     db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_payment_settings').select('stripe_secret_key').eq('organization_id', org.id).maybeSingle(),
+
+    db.from('org_payment_settings').select('stripe_secret_key').eq('organization_id', org.id).maybeSingle(),
   ])
 
   const timezone = branding?.timezone ?? 'America/Toronto'
@@ -58,8 +58,8 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   async function resolvePayments(regIds: string[]): Promise<Map<string, 'paid' | 'owed'>> {
     const map = new Map<string, 'paid' | 'owed'>()
     if (regIds.length === 0) return map
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: pays } = await (db as any)
+
+    const { data: pays } = await db
       .from('payments').select('registration_id, status')
       .eq('organization_id', org.id).in('registration_id', regIds)
     for (const p of (pays ?? [])) {
@@ -75,8 +75,8 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   // Full-pass registrants: season-type (no session_id) active registrations attend
   // EVERY session of this event — including sessions added later. We fetch names so
   // each session's roster can list them, tagged "All sessions".
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: seasonRegs } = await (db as any)
+
+  const { data: seasonRegs } = await db
     .from('registrations')
     .select(`id, user_id, guest_name, profile:profiles!registrations_user_id_fkey(full_name)`)
     .eq('league_id', id)
@@ -109,8 +109,8 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   if (sessionIds.length > 0) {
     try {
       // New flow: drop-in registrations carrying a session_id.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: dropInRegs } = await (db as any)
+
+      const { data: dropInRegs } = await db
         .from('registrations')
         .select(`
           id, session_id, user_id, guest_name,
@@ -123,8 +123,8 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
         .in('session_id', sessionIds)
 
       // Old flow: session_registrations (join-button) with profile name.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: sessionRegs } = await (db as any)
+
+      const { data: sessionRegs } = await db
         .from('session_registrations')
         .select(`
           session_id, user_id,

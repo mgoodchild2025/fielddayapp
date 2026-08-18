@@ -19,8 +19,8 @@ export default async function EventMerchandisePage({
 
   const [allItems, leagueMerchRows] = await Promise.all([
     getMerchandiseItems(org.id),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('league_merchandise')
       .select('item_id, price_override_cents')
       .eq('league_id', leagueId)

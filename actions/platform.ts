@@ -54,8 +54,8 @@ export async function createOrganization(input: z.infer<typeof createOrgSchema> 
   // Bootstrap branding + subscription records
   await Promise.all([
     supabase.from('org_branding').insert({ organization_id: org.id }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from('subscriptions').insert({
+
+    supabase.from('subscriptions').insert({
       organization_id: org.id,
       plan_tier: parsed.data.plan_tier,
       status: 'trialing',
@@ -127,8 +127,8 @@ export async function updateSubscription(input: z.infer<typeof updateSubscriptio
 
   const supabase = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+
+  const { error } = await supabase
     .from('subscriptions')
     .upsert(
       {
@@ -266,8 +266,8 @@ export async function deleteOrganization(orgId: string): Promise<{ error: string
   // Purge the org's Cloudinary-hosted event media BEFORE the cascade below
   // deletes event_media — otherwise the public_id index is lost and the assets
   // are orphaned on Cloudinary forever. Best-effort.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: media } = await (supabase as any)
+
+  const { data: media } = await supabase
     .from('event_media').select('cloudinary_public_id, media_type').eq('organization_id', orgId)
   await destroyAssets(
     ((media ?? []) as { cloudinary_public_id: string; media_type: string }[]).map((m) => ({
@@ -278,8 +278,8 @@ export async function deleteOrganization(orgId: string): Promise<{ error: string
 
   // Purge via RPC so the org delete + its ON DELETE CASCADE (including the
   // append-only tenant_acceptances rows) happen atomically with the purge flag.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any).rpc('purge_organization', { p_org_id: orgId })
+
+  const { error } = await supabase.rpc('purge_organization', { p_org_id: orgId })
   if (error) return { error: error.message }
 
   revalidatePath('/super')
@@ -296,8 +296,8 @@ export async function setOrgMaintenance(
 ): Promise<{ error: string | null }> {
   await requirePlatformAdmin()
   const supabase = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+
+  const { error } = await supabase
     .from('organizations')
     .update({
       maintenance_mode: enabled,

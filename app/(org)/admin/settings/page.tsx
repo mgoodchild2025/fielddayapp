@@ -17,13 +17,13 @@ export default async function AdminSettingsPage() {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (user) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: m } = await (db as any).from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single()
+
+    const { data: m } = await db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single()
     if (m?.role === 'league_admin') redirect('/admin/events')
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: subscription } = await (db as any)
+
+  const { data: subscription } = await db
     .from('subscriptions')
     .select('plan_tier, status')
     .eq('organization_id', org.id)

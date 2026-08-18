@@ -35,7 +35,7 @@ export async function writeAcceptanceRows({
     notes: null,
   }))
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('tenant_acceptances').insert(rows)
+
+  const { error } = await db.from('tenant_acceptances').insert(rows)
   return { error: error?.message ?? null }
 }

@@ -23,8 +23,8 @@ export async function setWeekPhase(
   const db = createServiceRoleClient()
 
   if (phase === null) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any)
+
+    const { error } = await db
       .from('week_phases')
       .delete()
       .eq('league_id', leagueId)
@@ -32,8 +32,8 @@ export async function setWeekPhase(
       .eq('week_number', weekNumber)
     if (error) return { error: error.message }
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any)
+
+    const { error } = await db
       .from('week_phases')
       .upsert(
         { organization_id: org.id, league_id: leagueId, week_number: weekNumber, phase },

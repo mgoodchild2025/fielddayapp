@@ -33,8 +33,8 @@ export async function GET(req: NextRequest) {
     const results: string[] = []
 
     // Find all subscriptions that are hibernating and past their resume date
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: toResume } = await (db as any)
+
+    const { data: toResume } = await db
       .from('subscriptions')
       .select('organization_id, stripe_subscription_id, pre_hibernate_tier')
       .eq('status', 'hibernating')
@@ -67,8 +67,8 @@ export async function GET(req: NextRequest) {
         }
 
         // Update DB
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (db as any)
+
+        await db
           .from('subscriptions')
           .update({
             status: 'active',

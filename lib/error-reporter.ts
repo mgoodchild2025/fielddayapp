@@ -69,8 +69,8 @@ export async function reportServerError(
     let shouldAlert = false
     try {
       const since = new Date(Date.now() - ALERT_QUIET_HOURS * 3600_000).toISOString()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: recent, error: qErr } = await (db as any)
+
+      const { data: recent, error: qErr } = await db
         .from('error_logs')
         .select('id')
         .eq('digest', digest)
@@ -79,8 +79,8 @@ export async function reportServerError(
       shouldAlert = !qErr && (recent?.length ?? 0) === 0
     } catch { /* table may not exist yet */ }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('error_logs').insert({
+
+    await db.from('error_logs').insert({
       digest,
       message,
       stack,
@@ -108,8 +108,8 @@ export async function reportServerError(
       // Opportunistic retention cleanup — runs at most once per digest per
       // quiet window, so it adds no per-request cost.
       const cutoff = new Date(Date.now() - RETENTION_DAYS * 86400_000).toISOString()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('error_logs').delete().lt('created_at', cutoff)
+
+      await db.from('error_logs').delete().lt('created_at', cutoff)
     }
   } catch (reporterErr) {
     // Never let the reporter mask the original failure.

@@ -31,8 +31,8 @@ export async function GET(req: NextRequest) {
   const db = createServiceRoleClient()
 
   // Fetch job
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: job, error: jobFetchError } = await (db as any)
+
+  const { data: job, error: jobFetchError } = await db
     .from('org_export_jobs')
     .select('id, organization_id, requested_by, status')
     .eq('id', jobId)
@@ -47,16 +47,16 @@ export async function GET(req: NextRequest) {
   }
 
   // Mark as processing
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('org_export_jobs').update({
+
+  await db.from('org_export_jobs').update({
     status: 'processing',
     started_at: new Date().toISOString(),
   }).eq('id', jobId)
 
   try {
     // Get requesting user's email for manifest + notification
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: profile } = await (db as any)
+
+    const { data: profile } = await db
       .from('profiles')
       .select('email, full_name')
       .eq('id', job.requested_by)
@@ -72,8 +72,8 @@ export async function GET(req: NextRequest) {
     const now = new Date()
     const timestamp = now.toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: orgRow } = await (db as any)
+
+    const { data: orgRow } = await db
       .from('organizations')
       .select('slug')
       .eq('id', job.organization_id)
@@ -97,8 +97,8 @@ export async function GET(req: NextRequest) {
     const expiresAt = new Date(now.getTime() + EXPORT_TTL_DAYS * 24 * 60 * 60 * 1000)
 
     // Mark job as ready
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('org_export_jobs').update({
+
+    await db.from('org_export_jobs').update({
       status: 'ready',
       storage_path: storagePath,
       archive_size_bytes: zipBytes.length,
@@ -136,8 +136,8 @@ export async function GET(req: NextRequest) {
     console.error('[export/process] failed:', err)
 
     // Mark job as failed
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('org_export_jobs').update({
+
+    await db.from('org_export_jobs').update({
       status: 'failed',
       error_message: msg,
       completed_at: new Date().toISOString(),

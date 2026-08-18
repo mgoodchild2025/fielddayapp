@@ -33,16 +33,16 @@ export default async function DisplayAdminPage({
   // Fetch pools and bracket tiers for filter options
 
   const [{ data: poolsData }, { data: configRow }] = await Promise.all([
-    (db as any).from('pools').select('id, name').eq('league_id', id).eq('organization_id', org.id).order('sort_order'),
-    (db as any).from('playoff_configs').select('id').eq('league_id', id).eq('organization_id', org.id).maybeSingle(),
+    db.from('pools').select('id, name').eq('league_id', id).eq('organization_id', org.id).order('sort_order'),
+    db.from('playoff_configs').select('id').eq('league_id', id).eq('organization_id', org.id).maybeSingle(),
   ])
   const pools: { id: string; name: string }[] = poolsData ?? []
 
   // Bracket tiers (Gold / Silver / Bronze etc.) — used to populate the tier picker
   let bracketTiers: { name: string }[] = []
   if (configRow?.id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: tiersData } = await (db as any)
+
+    const { data: tiersData } = await db
       .from('playoff_tiers')
       .select('name')
       .eq('config_id', configRow.id)

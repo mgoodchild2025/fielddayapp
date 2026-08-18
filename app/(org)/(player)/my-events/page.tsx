@@ -21,10 +21,10 @@ export default async function MyEventsPage() {
   const protocol = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https'
 
   const [{ data: branding }, { data: registrations }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('registrations').select(`
+
+    db.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
+
+    db.from('registrations').select(`
       id, status, checkin_token, created_at, session_id, registration_type,
       league:leagues!registrations_league_id_fkey(
         id, name, slug, league_status:status, event_type, sport, logo_url, season_start_date, season_end_date, checkin_enabled
@@ -44,8 +44,8 @@ export default async function MyEventsPage() {
   const sessionDateMap = new Map<string, string>()
   if (sessionIds.length > 0) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: sessionRows } = await (db as any)
+
+      const { data: sessionRows } = await db
         .from('event_sessions')
         .select('id, scheduled_at')
         .in('id', sessionIds)
@@ -56,8 +56,8 @@ export default async function MyEventsPage() {
   }
 
   // Fetch branding timezone for session date formatting
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: brandingTz } = await (db as any)
+
+  const { data: brandingTz } = await db
     .from('org_branding').select('timezone').eq('organization_id', org.id).single()
   const timezone = brandingTz?.timezone ?? 'America/Toronto'
 
@@ -96,8 +96,8 @@ export default async function MyEventsPage() {
   // ── 1. league / tournament → games table ──────────────────────────────────
   if (teamBasedLeagueIds.length > 0) {
     // Player's teams in these leagues
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: myTeamRows } = await (db as any)
+
+    const { data: myTeamRows } = await db
       .from('team_members')
       .select('team_id, team:teams!team_members_team_id_fkey(league_id)')
       .eq('user_id', user.id)
@@ -111,8 +111,8 @@ export default async function MyEventsPage() {
       if (lid && teamBasedLeagueIds.includes(lid)) teamIdsByLeague.set(lid, row.team_id)
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: allLeagueGames } = await (db as any)
+
+    const { data: allLeagueGames } = await db
       .from('games')
       .select('league_id, scheduled_at, home_team_id, away_team_id, status, leagues:leagues!games_league_id_fkey(name, slug, schedule_published)')
       .eq('organization_id', org.id)
@@ -146,8 +146,8 @@ export default async function MyEventsPage() {
   // Only for leagues where the player doesn't already have a specific session registration
   const sessionLeaguesNeedingDots = sessionBasedLeagueIds.filter(id => !leaguesWithSpecificSession.has(id))
   if (sessionLeaguesNeedingDots.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: sessions } = await (db as any)
+
+    const { data: sessions } = await db
       .from('event_sessions')
       .select('league_id, scheduled_at, status')
       .eq('organization_id', org.id)

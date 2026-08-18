@@ -22,8 +22,8 @@ export async function GET(_req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     // Must be org_admin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: member } = await (db as any)
+
+    const { data: member } = await db
       .from('org_members')
       .select('role')
       .eq('organization_id', org.id)
@@ -35,8 +35,8 @@ export async function GET(_req: NextRequest) {
     }
 
     // Get the most recent job for this org
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: job } = await (db as any)
+
+    const { data: job } = await db
       .from('org_export_jobs')
       .select('id, status, archive_size_bytes, error_message, requested_at, completed_at, expires_at, downloaded_at')
       .eq('organization_id', org.id)

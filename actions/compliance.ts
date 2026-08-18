@@ -56,16 +56,16 @@ export async function getPlatformComplianceOverview(): Promise<PlatformComplianc
   const db = createServiceRoleClient()
 
   // ── Organizations ──────────────────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: orgRows } = await (db as any)
+
+  const { data: orgRows } = await db
     .from('organizations')
     .select('id, name, slug')
     .order('name', { ascending: true })
   const orgs = (orgRows ?? []) as { id: string; name: string; slug: string }[]
 
   // ── Reconsent threshold (latest published privacy-policy requiring reconsent) ─
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: versions } = await (db as any)
+
+  const { data: versions } = await db
     .from('legal_document_versions')
     .select('version, published_at, requires_reconsent, document:legal_documents!legal_document_versions_document_id_fkey(slug)')
     .eq('requires_reconsent', true)
@@ -80,8 +80,8 @@ export async function getPlatformComplianceOverview(): Promise<PlatformComplianc
   const records: ConsentRecord[] = []
   const PAGE = 1000
   for (let from = 0; ; from += PAGE) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: page } = await (db as any)
+
+    const { data: page } = await db
       .from('player_consents')
       .select('organization_id, user_id, consent_type, consent_given, withdrawn_at, consented_at')
       .order('consented_at', { ascending: false })

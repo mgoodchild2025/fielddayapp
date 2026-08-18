@@ -22,8 +22,8 @@ export default async function AdminDiscountsPage() {
   const supabase = createServiceRoleClient()
 
   const [{ data: rawCodes }, { data: leagues }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+
+    supabase
       .from('discount_codes')
       .select('*, league:leagues!discount_codes_league_id_fkey(name)')
       .eq('organization_id', org.id)

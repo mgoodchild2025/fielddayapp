@@ -42,8 +42,8 @@ export default async function AdminPositionsPage() {
     .not('sport', 'is', null)
 
   // Get all sports this org has custom positions for
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: customRows } = await (db as any)
+
+  const { data: customRows } = await db
     .from('sport_positions')
     .select('sport')
     .eq('organization_id', org.id)
@@ -53,8 +53,8 @@ export default async function AdminPositionsPage() {
   const allSports = Array.from(new Set([...leagueSports, ...customSports]))
 
   // Also include all platform-default sports so admins can customise proactively
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: platformSports } = await (db as any)
+
+  const { data: platformSports } = await db
     .from('sport_positions')
     .select('sport')
     .is('organization_id', null)
@@ -71,8 +71,8 @@ export default async function AdminPositionsPage() {
 
     let positions: SportPosition[] = []
     if (isCustom) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (db as any)
+
+      const { data } = await db
         .from('sport_positions')
         .select('id, sport, name, display_order, organization_id')
         .eq('organization_id', org.id)
@@ -80,8 +80,8 @@ export default async function AdminPositionsPage() {
         .order('display_order')
       positions = (data ?? []) as SportPosition[]
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (db as any)
+
+      const { data } = await db
         .from('sport_positions')
         .select('id, sport, name, display_order, organization_id')
         .is('organization_id', null)

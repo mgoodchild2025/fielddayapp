@@ -37,17 +37,17 @@ export default async function SelfCheckInSessionPage({
   const db = createServiceRoleClient()
 
   const [{ data: branding }, { data: session }, { data: profile }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url, timezone, checkin_sound').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db.from('org_branding').select('logo_url, timezone, checkin_sound').eq('organization_id', org.id).single(),
+
+    db
       .from('event_sessions')
       .select('id, scheduled_at, league_id, league:leagues!event_sessions_league_id_fkey(name)')
       .eq('id', sessionId)
       .eq('organization_id', org.id)
       .maybeSingle(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+
+    db.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
   ])
 
   const timezone = branding?.timezone ?? 'America/Toronto'

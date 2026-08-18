@@ -19,8 +19,8 @@ export default async function AdminDashboardPage() {
   // League admins don't have access to the dashboard — send them to events
   const { data: { user } } = await supabase.auth.getUser()
   if (user) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: m } = await (db as any).from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single()
+
+    const { data: m } = await db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single()
     if (m?.role === 'league_admin') redirect('/admin/events')
   }
 
@@ -36,19 +36,19 @@ export default async function AdminDashboardPage() {
     { data: upcomingGames },
     { data: upcomingSessions },
   ] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).is('deleted_at', null).neq('status', 'archived'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_members').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).eq('status', 'active'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('payments').select('amount_cents, currency, status, created_at, user_id, payer:profiles!payments_user_id_fkey(full_name), registration:registrations!payments_registration_id_fkey(guest_name)').eq('organization_id', org.id).order('created_at', { ascending: false }).limit(5),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('id, name, slug, status').eq('organization_id', org.id).is('deleted_at', null).in('status', ['registration_open', 'active']).limit(5),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url, onboarding_dismissed_at, website_configured_at, timezone').eq('organization_id', org.id).maybeSingle(),
+
+    db.from('leagues').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).is('deleted_at', null).neq('status', 'archived'),
+
+    db.from('org_members').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).eq('status', 'active'),
+
+    db.from('payments').select('amount_cents, currency, status, created_at, user_id, payer:profiles!payments_user_id_fkey(full_name), registration:registrations!payments_registration_id_fkey(guest_name)').eq('organization_id', org.id).order('created_at', { ascending: false }).limit(5),
+
+    db.from('leagues').select('id, name, slug, status').eq('organization_id', org.id).is('deleted_at', null).in('status', ['registration_open', 'active']).limit(5),
+
+    db.from('org_branding').select('logo_url, onboarding_dismissed_at, website_configured_at, timezone').eq('organization_id', org.id).maybeSingle(),
     // Games in the next 7 days
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('games')
+
+    db.from('games')
       .select('id, scheduled_at, court, status, home_team:teams!games_home_team_id_fkey(name), away_team:teams!games_away_team_id_fkey(name), league:leagues!games_league_id_fkey(id, name, game_start_time, game_end_time)')
       .eq('organization_id', org.id)
       .eq('status', 'scheduled')
@@ -57,8 +57,8 @@ export default async function AdminDashboardPage() {
       .order('scheduled_at', { ascending: true })
       .limit(20),
     // Sessions in the next 7 days
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('event_sessions')
+
+    db.from('event_sessions')
       .select('id, scheduled_at, duration_minutes, capacity, league:leagues!event_sessions_league_id_fkey(id, name, game_start_time, game_end_time)')
       .eq('organization_id', org.id)
       .eq('status', 'open')

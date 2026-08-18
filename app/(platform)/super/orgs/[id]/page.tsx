@@ -36,8 +36,8 @@ export default async function PlatformOrgDetailPage({
   const supabase = createServiceRoleClient()
 
   const [orgRes, membersRes, leaguesRes, paymentsRes] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+
+    supabase
       .from('organizations')
       .select('*, subscriptions(*), org_branding(custom_domain, logo_url)')
       .eq('id', id)

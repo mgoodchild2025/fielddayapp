@@ -20,8 +20,8 @@ export default async function OrgAcceptancesPage({ params }: Props) {
   const { id } = await params
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: org } = await (db as any)
+
+  const { data: org } = await db
     .from('organizations')
     .select('id, name, slug')
     .eq('id', id)
@@ -48,8 +48,8 @@ export default async function OrgAcceptancesPage({ params }: Props) {
   })
 
   // Fetch version list for manual acceptance form
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: versionData } = await (db as any)
+
+  const { data: versionData } = await db
     .from('legal_document_versions')
     .select(`
       id, version, published_at,

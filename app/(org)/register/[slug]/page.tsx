@@ -36,8 +36,8 @@ export default async function RegisterLeaguePage({
   const { data: { user } } = await supabase.auth.getUser()
 
   // registration_open: open to all. active: only team-invited players (guard below).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues')
     .select('*')
     .eq('organization_id', org.id)
@@ -65,8 +65,8 @@ export default async function RegisterLeaguePage({
   let invitedEmail: string | null = null
   let hasValidInvite = false
   if (isPickupType && eventPolicy === 'private' && inviteParam) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: inviteRow } = await (db as any)
+
+    const { data: inviteRow } = await db
       .from('pickup_invites')
       .select('email')
       .eq('organization_id', org.id)
@@ -90,25 +90,25 @@ export default async function RegisterLeaguePage({
   if (!user) {
     if (isDropIn && guestEligible) {
       const [{ data: gBranding }, { data: gSettings }, gWaiver, { data: gRawSessions }] = await Promise.all([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).maybeSingle(),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', org.id).maybeSingle(),
+
+        db.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).maybeSingle(),
+
+        db.from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', org.id).maybeSingle(),
         (async () => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const sel = (q: any) => q.select('id, title, content')
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           if ((league as any).waiver_version_id) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data } = await sel((db as any).from('waivers')).eq('id', (league as any).waiver_version_id).maybeSingle()
+            const { data } = await sel(db.from('waivers')).eq('id', (league as any).waiver_version_id).maybeSingle()
             return data
           }
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data } = await sel((db as any).from('waivers')).eq('organization_id', org.id).eq('is_active', true).maybeSingle()
+
+          const { data } = await sel(db.from('waivers')).eq('organization_id', org.id).eq('is_active', true).maybeSingle()
           return data
         })(),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).from('event_sessions')
+
+        db.from('event_sessions')
           .select('id, scheduled_at, capacity, registered:session_registrations(count)')
           .eq('league_id', league.id).eq('organization_id', org.id).eq('status', 'open')
           .gte('scheduled_at', new Date().toISOString()).order('scheduled_at', { ascending: true }).limit(20),
@@ -157,8 +157,8 @@ export default async function RegisterLeaguePage({
 
   // ── Team join policy enforcement ──────────────────────────────────────────
   // Org admins bypass all policy gates
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: orgMemberCheck } = await (db as any)
+
+  const { data: orgMemberCheck } = await db
     .from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
   const isOrgAdminCheck = ['org_admin', 'league_admin'].includes(orgMemberCheck?.role ?? '')
 
@@ -171,8 +171,8 @@ export default async function RegisterLeaguePage({
   }
   if (!isOrgAdminCheck && joinPolicy === 'captain_invite') {
     // Allow if the user already has an active team membership or a pending invitation in this league
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: teamRows } = await (db as any)
+
+    const { data: teamRows } = await db
       .from('teams').select('id').eq('league_id', (league as any).id).eq('organization_id', org.id)
     const teamIds = (teamRows ?? []).map((t: { id: string }) => t.id) as string[]
 
@@ -180,8 +180,8 @@ export default async function RegisterLeaguePage({
       ? await Promise.all([
           db.from('team_members').select('id').eq('user_id', user.id).in('team_id', teamIds).eq('status', 'active').limit(1).maybeSingle(),
           user.email
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ? (db as any).from('team_invitations').select('id').in('team_id', teamIds).eq('invited_email', user.email.toLowerCase()).eq('status', 'pending').limit(1).maybeSingle()
+
+            ? db.from('team_invitations').select('id').in('team_id', teamIds).eq('invited_email', user.email.toLowerCase()).eq('status', 'pending').limit(1).maybeSingle()
             : Promise.resolve({ data: null }),
         ])
       : [{ data: null }, { data: null }]
@@ -204,8 +204,8 @@ export default async function RegisterLeaguePage({
     // matches the signed-in user's email.
     let invited = hasValidInvite
     if (!invited && user.email) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: invite } = await (db as any)
+
+      const { data: invite } = await db
         .from('pickup_invites')
         .select('id')
         .eq('league_id', league.id)
@@ -219,28 +219,28 @@ export default async function RegisterLeaguePage({
   }
 
   const [{ data: playerDetails }, { data: existingReg }, { data: profile }, { data: connectAccount }, { data: captainTeam }, { data: rawTeams }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('player_details').select('*').eq('organization_id', org.id).eq('user_id', user.id).single(),
+
+    db.from('player_details').select('*').eq('organization_id', org.id).eq('user_id', user.id).single(),
     // For invite-based drop-ins, don't resume (each invite = fresh registration).
     // For open dropin-type events, resume existing registration like a normal event.
     isDropIn && !isOpenDropIn
       ? Promise.resolve({ data: null })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      : (db as any).from('registrations')
+
+      : db.from('registrations')
           .select('id, status, waiver_signature_id')
           .eq('organization_id', org.id)
           .eq('league_id', league.id)
           .eq('user_id', user.id)
           .eq('registration_type', 'season')
           .maybeSingle(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('profiles').select('*').eq('id', user.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', org.id).maybeSingle(),
+
+    db.from('profiles').select('*').eq('id', user.id).single(),
+
+    db.from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', org.id).maybeSingle(),
     // Check if the user is already on any team in this league (any role).
     // Query starts from teams so league_id is filtered on the primary table (reliable).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('teams')
       .select('id, name, team_members!inner(role)')
       .eq('league_id', league.id)
@@ -251,8 +251,8 @@ export default async function RegisterLeaguePage({
     // Fetch teams for per-team events (player browse/join step)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (league as any).payment_mode === 'per_team'
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? (db as any)
+
+      ? db
           .from('teams')
           .select('id, name, max_team_size, team_members!team_members_team_id_fkey(id)')
           .eq('league_id', league.id)
@@ -329,8 +329,8 @@ export default async function RegisterLeaguePage({
   // Fetch upcoming sessions for drop-in registration (session picker step)
 
   const { data: rawSessions } = isDropIn
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ? await (db as any)
+
+    ? await db
         .from('event_sessions')
         .select('id, scheduled_at, capacity, registered:session_registrations(count)')
         .eq('league_id', league.id)
@@ -370,8 +370,8 @@ export default async function RegisterLeaguePage({
   type PaymentPlanRow = { id: string; name: string; installments: number; interval_days: number; upfront_percent: number }
   let paymentPlan: PaymentPlanRow | null = null
   if (hasPaymentPlans && !isDropIn && !isPerTeamLeague) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: planRow } = await (db as any)
+
+    const { data: planRow } = await db
       .from('payment_plans')
       .select('id, name, installments, interval_days, upfront_percent')
       .eq('league_id', league.id)
@@ -401,12 +401,12 @@ export default async function RegisterLeaguePage({
   // Use the league's specific waiver if set, otherwise fall back to the org-wide active waiver
   let waiver = null
   if (league.waiver_version_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (db as any).from('waivers').select('*').eq('id', league.waiver_version_id).single()
+
+    const { data } = await db.from('waivers').select('*').eq('id', league.waiver_version_id).single()
     waiver = data
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (db as any).from('waivers').select('*').eq('organization_id', org.id).eq('is_active', true).single()
+
+    const { data } = await db.from('waivers').select('*').eq('organization_id', org.id).eq('is_active', true).single()
     waiver = data
   }
 
@@ -415,8 +415,8 @@ export default async function RegisterLeaguePage({
   let priorWaiverSignatureId: string | null = null
   if (isDropIn && waiver) {
     const yearStart = `${new Date().getFullYear()}-01-01`
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: priorSig } = await (db as any)
+
+    const { data: priorSig } = await db
       .from('waiver_signatures')
       .select('id')
       .eq('organization_id', org.id)
@@ -431,8 +431,8 @@ export default async function RegisterLeaguePage({
 
   // Org timezone — so drop-in session dates/times render correctly regardless
   // of the player's own device timezone.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: regBranding } = await (db as any)
+
+  const { data: regBranding } = await db
     .from('org_branding').select('timezone, logo_url').eq('organization_id', org.id).maybeSingle()
   const orgTimezone: string = regBranding?.timezone ?? 'America/Toronto'
 
@@ -440,21 +440,21 @@ export default async function RegisterLeaguePage({
   // in this org, don't make them re-consent (only required when the policy changes).
   let privacyAlreadyAccepted = false
   {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: privDoc } = await (db as any)
+
+    const { data: privDoc } = await db
       .from('legal_documents').select('id').eq('slug', 'privacy-policy').maybeSingle()
     if (privDoc) {
       // Resolve the same version createRegistration records (latest published).
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: ver } = await (db as any)
+
+      const { data: ver } = await db
         .from('legal_document_versions')
         .select('id')
         .eq('document_id', privDoc.id)
         .order('published_at', { ascending: false })
         .limit(1).maybeSingle()
       if (ver?.id) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: existing } = await (db as any)
+
+        const { data: existing } = await db
           .from('player_consents')
           .select('id')
           .eq('organization_id', org.id)
@@ -504,8 +504,8 @@ export default async function RegisterLeaguePage({
     // Check if they have a completed payment.
     // Query for any paid/manual record directly — avoids maybeSingle() issues when
     // multiple 'pending' Stripe sessions exist for the same registration.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: completedPayment } = await (db as any)
+
+    const { data: completedPayment } = await db
       .from('payments')
       .select('status')
       .eq('registration_id', existingReg.id)

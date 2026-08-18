@@ -24,8 +24,8 @@ export default async function OrganizerInvitePage({
   const [invite, supabase, { data: branding }] = await Promise.all([
     getOrganizerInviteDetails(token),
     createServerClient(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
+
+    db.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
   ])
 
   const {

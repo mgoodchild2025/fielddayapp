@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     // Must be org_admin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: member } = await (db as any)
+
+    const { data: member } = await db
       .from('org_members')
       .select('role')
       .eq('organization_id', org.id)
@@ -43,8 +43,8 @@ export async function POST(req: NextRequest) {
 
     // Rate limit: count exports in the last 24 hours
     const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_HOURS * 60 * 60 * 1000).toISOString()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { count } = await (db as any)
+
+    const { count } = await db
       .from('org_export_jobs')
       .select('id', { count: 'exact', head: true })
       .eq('organization_id', org.id)
@@ -64,8 +64,8 @@ export async function POST(req: NextRequest) {
       ?? null
 
     // Create job record
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: job, error: jobError } = await (db as any)
+
+    const { data: job, error: jobError } = await db
       .from('org_export_jobs')
       .insert({
         organization_id: org.id,

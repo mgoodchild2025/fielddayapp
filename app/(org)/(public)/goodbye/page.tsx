@@ -7,8 +7,8 @@ export default async function GoodbyePage() {
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: branding } = await (db as any)
+
+  const { data: branding } = await db
     .from('org_branding')
     .select('logo_url, contact_email')
     .eq('organization_id', org.id)

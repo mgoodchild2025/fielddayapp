@@ -27,10 +27,10 @@ export default async function SchedulePage() {
     { data: allGames },
     { data: myTeams },
   ] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('games').select(`
+
+    db.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
+
+    db.from('games').select(`
       id, scheduled_at, court, week_number, status,
       home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
       away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
@@ -39,8 +39,8 @@ export default async function SchedulePage() {
       .eq('organization_id', org.id)
       .gte('scheduled_at', pastBound)
       .order('scheduled_at', { ascending: true }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('team_members').select(`
+
+    db.from('team_members').select(`
       id, role,
       team:teams!team_members_team_id_fkey(id, name, league_id)
     `).eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active'),
@@ -62,7 +62,7 @@ export default async function SchedulePage() {
   // 3. All sessions for leagues where they hold a season-pass registration
 
   const [{ data: mySessionRegs }, { data: myRegWithSession }, { data: mySeasonRegs }] = await Promise.all([
-    (db as any)
+    db
       .from('session_registrations')
       .select(`
         id, session_id, status,
@@ -75,7 +75,7 @@ export default async function SchedulePage() {
       .eq('user_id', user.id)
       .eq('status', 'registered'),
     // Drop-in registrations with a specific session_id
-    (db as any)
+    db
       .from('registrations')
       .select(`
         id, session_id,
@@ -89,7 +89,7 @@ export default async function SchedulePage() {
       .not('session_id', 'is', null)
       .in('status', ['active', 'pending']),
     // Season-pass registrations — player attends all sessions for the league
-    (db as any)
+    db
       .from('registrations')
       .select('league_id')
       .eq('organization_id', org.id)
@@ -122,8 +122,8 @@ export default async function SchedulePage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let seasonSessions: any[] = []
   if (seasonLeagueIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rows } = await (db as any)
+
+    const { data: rows } = await db
       .from('event_sessions')
       .select(`
         id, scheduled_at, duration_minutes, location_override,
@@ -171,13 +171,13 @@ export default async function SchedulePage() {
 
 
     const [{ data: captainships }, { data: rsvpData }, { data: mySubRows }] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('team_members').select('team_id').eq('user_id', user.id).eq('role', 'captain').eq('status', 'active'),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('game_rsvps').select('game_id, status').eq('user_id', user.id).in('game_id', gameIds),
+
+      db.from('team_members').select('team_id').eq('user_id', user.id).eq('role', 'captain').eq('status', 'active'),
+
+      db.from('game_rsvps').select('game_id, status').eq('user_id', user.id).in('game_id', gameIds),
       // Confirmed game_subs for this user (to show "Sub" badge on game cards)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('game_subs').select('game_id').eq('user_id', user.id).eq('organization_id', org.id).eq('status', 'confirmed').in('game_id', gameIds),
+
+      db.from('game_subs').select('game_id').eq('user_id', user.id).eq('organization_id', org.id).eq('status', 'confirmed').in('game_id', gameIds),
     ])
 
     captainTeamIds = (captainships ?? []).map((c: { team_id: string }) => c.team_id)
@@ -189,13 +189,13 @@ export default async function SchedulePage() {
       const captainTeamIdSet = new Set(captainTeamIds)
 
       const [{ data: teamMemberRows }, { data: teamRsvpRows }, { data: captainSubRows }] = await Promise.all([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).from('team_members').select('team_id').in('team_id', captainTeamIds).eq('status', 'active'),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).from('game_rsvps').select('game_id, team_id, status').in('team_id', captainTeamIds).in('game_id', gameIds),
+
+        db.from('team_members').select('team_id').in('team_id', captainTeamIds).eq('status', 'active'),
+
+        db.from('game_rsvps').select('game_id, team_id, status').in('team_id', captainTeamIds).in('game_id', gameIds),
         // Game subs for captain's games (for invite panel)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).from('game_subs').select(`
+
+        db.from('game_subs').select(`
           id, game_id, team_id, user_id, invited_email, status, message, expires_at, created_at,
           inviter:profiles!game_subs_invited_by_fkey(full_name)
         `).in('team_id', captainTeamIds).in('game_id', gameIds).in('status', ['invited', 'confirmed']),

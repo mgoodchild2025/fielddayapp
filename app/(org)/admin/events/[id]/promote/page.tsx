@@ -12,8 +12,8 @@ export default async function PromoteEventPage({ params }: { params: Promise<{ i
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues')
     .select('id, name, slug')
     .eq('id', id)
@@ -23,17 +23,17 @@ export default async function PromoteEventPage({ params }: { params: Promise<{ i
 
   const [canSms, { data: interestRowsRaw }, { data: branding }, { data: promosRaw }] = await Promise.all([
     canAccess(org.id, 'sms_notifications'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('event_interest')
+
+    db.from('event_interest')
       .select('id, name, email, created_at, notified_at, unsubscribed_at')
       .eq('league_id', id)
       .eq('organization_id', org.id)
       .order('created_at', { ascending: false }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('timezone').eq('organization_id', org.id).maybeSingle(),
+
+    db.from('org_branding').select('timezone').eq('organization_id', org.id).maybeSingle(),
     // Promotions previously sent for this event (so admins can see what went out)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('announcements')
+
+    db.from('announcements')
       .select('id, title, body, audience_type, channel, sent_at, scheduled_for, created_at')
       .eq('organization_id', org.id)
       .eq('league_id', id)

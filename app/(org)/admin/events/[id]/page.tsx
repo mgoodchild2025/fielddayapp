@@ -55,18 +55,18 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     canCoOrganizers,
     canPaymentPlans,
   ] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('*').eq('id', id).eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('registrations').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('teams').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('games').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('waivers').select('id, title, version').eq('organization_id', org.id).order('created_at', { ascending: false }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('league_rule_templates').select('id, title, content').eq('organization_id', org.id).order('created_at', { ascending: false }),
+
+    db.from('leagues').select('*').eq('id', id).eq('organization_id', org.id).single(),
+
+    db.from('registrations').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
+
+    db.from('teams').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
+
+    db.from('games').select('*', { count: 'exact', head: true }).eq('league_id', id).eq('organization_id', org.id),
+
+    db.from('waivers').select('id, title, version').eq('organization_id', org.id).order('created_at', { ascending: false }),
+
+    db.from('league_rule_templates').select('id, title, content').eq('organization_id', org.id).order('created_at', { ascending: false }),
     getLeagueOrganizers(id),
     canAccess(org.id, 'early_bird_pricing'),
     getMerchandiseOrders(id),
@@ -81,7 +81,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
   const { data: { user: currentUser } } = await supabase.auth.getUser()
 
   const { data: currentMember } = currentUser
-    ? await (db as any).from('org_members').select('role').eq('organization_id', org.id).eq('user_id', currentUser.id).single()
+    ? await db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', currentUser.id).single()
     : { data: null }
   const isOrgAdmin = currentMember?.role === 'org_admin'
 
@@ -89,8 +89,8 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
   const isTeamBased = (league as { league_type?: string }).league_type === 'team'
   let existingPaymentPlan: { id?: string; name: string; installments: number; interval_days: number; upfront_percent: number; enabled: boolean } | null = null
   if (canPaymentPlans && isTeamBased) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: planRow } = await (db as any)
+
+    const { data: planRow } = await db
       .from('payment_plans')
       .select('id, name, installments, interval_days, upfront_percent, enabled')
       .eq('league_id', id)

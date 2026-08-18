@@ -18,8 +18,8 @@ export interface PlatformStripeModeInfo {
 export async function getPlatformStripeModeInfo(): Promise<PlatformStripeModeInfo> {
   await requirePlatformAdmin()
   const service = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (service as any)
+
+  const { data } = await service
     .from('platform_settings').select('value').eq('key', 'platform_stripe_mode').maybeSingle()
   const live = platformEnvFor('live')
   const test = platformEnvFor('test')

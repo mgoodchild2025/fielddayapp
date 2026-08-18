@@ -15,8 +15,8 @@ export default async function GalleryPage() {
 
   const [{ data: branding }, { data: photos }, videos, eventMedia] = await Promise.all([
     db.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('org_photos')
       .select('id, url, caption, display_order')
       .eq('organization_id', org.id)

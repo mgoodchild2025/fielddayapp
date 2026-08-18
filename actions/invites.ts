@@ -45,8 +45,8 @@ export async function invitePlayerToPickup(
 
   // For drop-in invites, block if there's already a pending drop-in invite for this email
   if (inviteType === 'drop_in') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing } = await (db as any)
+
+    const { data: existing } = await db
       .from('pickup_invites')
       .select('id')
       .eq('league_id', leagueId)
@@ -57,8 +57,8 @@ export async function invitePlayerToPickup(
     if (existing) return { error: 'This player already has a pending drop-in invite' }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: invite, error: insertError } = await (db as any)
+
+  const { data: invite, error: insertError } = await db
     .from('pickup_invites')
     .insert({
       organization_id: org.id,
@@ -100,8 +100,8 @@ export async function revokePickupInvite(inviteId: string, leagueId: string) {
   const { error, org, db } = await requireOrgAdmin()
   if (error) return { error }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: deleteError } = await (db as any)
+
+  const { error: deleteError } = await db
     .from('pickup_invites')
     .delete()
     .eq('id', inviteId)
@@ -117,8 +117,8 @@ export async function getPickupInvites(leagueId: string) {
   const { error, org, db } = await requireOrgAdmin()
   if (error) return { data: null, error }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error: fetchError } = await (db as any)
+
+  const { data, error: fetchError } = await db
     .from('pickup_invites')
     .select('id, email, status, invite_type, invited_at')
     .eq('league_id', leagueId)
@@ -131,8 +131,8 @@ export async function getPickupInvites(leagueId: string) {
 
 export async function checkPickupInvite(leagueId: string, userEmail: string) {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('pickup_invites')
     .select('id')
     .eq('league_id', leagueId)
@@ -146,8 +146,8 @@ export async function checkPickupInvite(leagueId: string, userEmail: string) {
 
 export async function checkDropInInvite(leagueId: string, userEmail: string) {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('pickup_invites')
     .select('id')
     .eq('league_id', leagueId)
@@ -161,8 +161,8 @@ export async function checkDropInInvite(leagueId: string, userEmail: string) {
 
 export async function acceptPickupInvite(leagueId: string, userEmail: string) {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('pickup_invites')
     .update({ status: 'accepted' })
     .eq('league_id', leagueId)
@@ -173,8 +173,8 @@ export async function acceptPickupInvite(leagueId: string, userEmail: string) {
 
 export async function acceptDropInInvite(leagueId: string, userEmail: string) {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('pickup_invites')
     .update({ status: 'accepted' })
     .eq('league_id', leagueId)

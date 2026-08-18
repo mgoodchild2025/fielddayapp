@@ -25,22 +25,22 @@ export default async function TeamSchedulePage({
 
   // Parallel: branding, team info, viewer's team memberships, org admin check
   const [{ data: branding }, { data: team }, { data: myTeams }, { data: orgMember }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('teams')
+
+    db.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
+
+    db.from('teams')
       .select('id, name, color, logo_url')
       .eq('id', teamId)
       .eq('organization_id', org.id)
       .single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('team_members')
+
+    db.from('team_members')
       .select('team_id, role')
       .eq('organization_id', org.id)
       .eq('user_id', user.id)
       .eq('status', 'active'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_members')
+
+    db.from('org_members')
       .select('role')
       .eq('organization_id', org.id)
       .eq('user_id', user.id)
@@ -64,8 +64,8 @@ export default async function TeamSchedulePage({
   const nowIso = new Date().toISOString()
 
   // Fetch all games involving this team within the 60-day lookback window
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawGames } = await (db as any)
+
+  const { data: rawGames } = await db
     .from('games')
     .select(`
       id, scheduled_at, court, week_number, status,
@@ -97,12 +97,12 @@ export default async function TeamSchedulePage({
     const gameIds = games.map((g: any) => g.id as string)
 
     const [{ data: captainships }, { data: rsvpData }, { data: mySubRows }] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('team_members').select('team_id').eq('user_id', user.id).eq('role', 'captain').eq('status', 'active'),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('game_rsvps').select('game_id, status').eq('user_id', user.id).in('game_id', gameIds),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('game_subs').select('game_id').eq('user_id', user.id).eq('organization_id', org.id).eq('status', 'confirmed').in('game_id', gameIds),
+
+      db.from('team_members').select('team_id').eq('user_id', user.id).eq('role', 'captain').eq('status', 'active'),
+
+      db.from('game_rsvps').select('game_id, status').eq('user_id', user.id).in('game_id', gameIds),
+
+      db.from('game_subs').select('game_id').eq('user_id', user.id).eq('organization_id', org.id).eq('status', 'confirmed').in('game_id', gameIds),
     ])
 
     captainTeamIds = (captainships ?? []).map((c: { team_id: string }) => c.team_id)
@@ -113,12 +113,12 @@ export default async function TeamSchedulePage({
     if (captainTeamIds.length > 0) {
       const captainTeamIdSet = new Set(captainTeamIds)
       const [{ data: teamMemberRows }, { data: teamRsvpRows }, { data: captainSubRows }] = await Promise.all([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).from('team_members').select('team_id').in('team_id', captainTeamIds).eq('status', 'active'),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).from('game_rsvps').select('game_id, team_id, status').in('team_id', captainTeamIds).in('game_id', gameIds),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).from('game_subs').select(`
+
+        db.from('team_members').select('team_id').in('team_id', captainTeamIds).eq('status', 'active'),
+
+        db.from('game_rsvps').select('game_id, team_id, status').in('team_id', captainTeamIds).in('game_id', gameIds),
+
+        db.from('game_subs').select(`
           id, game_id, team_id, user_id, invited_email, status, message, expires_at, created_at,
           inviter:profiles!game_subs_invited_by_fkey(full_name)
         `).in('team_id', captainTeamIds).in('game_id', gameIds).in('status', ['invited', 'confirmed']),

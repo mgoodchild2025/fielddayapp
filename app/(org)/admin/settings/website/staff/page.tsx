@@ -11,8 +11,8 @@ export default async function StaffPage() {
   await requireOrgMember(org, ['org_admin'])
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: staff } = await (db as any)
+
+  const { data: staff } = await db
     .from('org_staff')
     .select('id, name, role, bio, avatar_url, display_order')
     .eq('organization_id', org.id)

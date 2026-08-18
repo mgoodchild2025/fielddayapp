@@ -14,22 +14,22 @@ export default async function AdminMessagesPage() {
   // Load leagues, teams, and players for audience selection
 
   const [{ data: leagues }, { data: teamsRaw }, { data: membersRaw }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('leagues')
       .select('id, name')
       .eq('organization_id', org.id)
       .neq('status', 'archived')
       .order('created_at', { ascending: false }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('teams')
       .select('id, name, league_id, league:leagues!teams_league_id_fkey(name)')
       .eq('organization_id', org.id)
       .eq('status', 'active')
       .order('name', { ascending: true }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('org_members')
       .select('user_id, profile:profiles!org_members_user_id_fkey(full_name, email)')
       .eq('organization_id', org.id)
@@ -76,8 +76,8 @@ export default async function AdminMessagesPage() {
   }
 
   // Load recent announcements
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: announcements } = await (db as any)
+
+  const { data: announcements } = await db
     .from('announcements')
     .select(`
       id, title, body, audience_type, created_at, sent_at, recipient_user_ids,

@@ -29,10 +29,10 @@ export default async function LoginPage({
   if (orgId) {
     const db = createServiceRoleClient()
     const [orgRes, brandingRes] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('organizations').select('name').eq('id', orgId).single(),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('org_branding').select('logo_url, tagline').eq('organization_id', orgId).single(),
+
+      db.from('organizations').select('name').eq('id', orgId).single(),
+
+      db.from('org_branding').select('logo_url, tagline').eq('organization_id', orgId).single(),
     ])
     orgName = orgRes.data?.name ?? null
     logoUrl = brandingRes.data?.logo_url ?? null

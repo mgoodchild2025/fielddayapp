@@ -22,8 +22,8 @@ export default async function AdminCalendarPage({
   const db = createServiceRoleClient()
 
   // Org timezone
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: branding } = await (db as any)
+
+  const { data: branding } = await db
     .from('org_branding')
     .select('timezone')
     .eq('organization_id', org.id)
@@ -42,8 +42,8 @@ export default async function AdminCalendarPage({
   // Statuses to include: always show active events; include draft when toggled
   const statuses = ['registration_open', 'active', 'completed', ...(showDrafts ? ['draft'] : [])]
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawLeagues } = await (db as any)
+
+  const { data: rawLeagues } = await db
     .from('leagues')
     .select('id, name, slug, status, event_type, season_start_date, season_end_date, game_start_time, game_end_time, days_of_week')
     .eq('organization_id', org.id)
@@ -62,8 +62,8 @@ export default async function AdminCalendarPage({
 
   const sessionDatesByLeague = new Map<string, string[]>()
   if (undatedSessionLeagueIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rawSessions } = await (db as any)
+
+    const { data: rawSessions } = await db
       .from('event_sessions')
       .select('league_id, scheduled_at')
       .eq('organization_id', org.id)

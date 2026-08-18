@@ -28,14 +28,14 @@ export default async function StandingsPage() {
   }
 
   const [{ data: branding }, { data: leaguesRaw }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('org_branding')
       .select('logo_url, tagline, contact_email, social_instagram, social_facebook, social_x, social_tiktok')
       .eq('organization_id', org.id)
       .single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('leagues')
       .select('id, name, slug, event_type, status, season_start_date')
       .eq('organization_id', org.id)

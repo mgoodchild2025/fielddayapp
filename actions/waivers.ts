@@ -252,7 +252,7 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
   // with an accurate timestamp for that event.
   // NOTE: Supabase query builder is immutable — must reassign, not mutate in place.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let existingQuery: any = (db as any)
+  let existingQuery: any = db
     .from('waiver_signatures')
     .select('id')
     .eq('organization_id', org.id)
@@ -270,8 +270,8 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
   if (existing) {
     signatureId = existing.id
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
+
+    const { data, error } = await db
       .from('waiver_signatures')
       .insert({
         organization_id: org.id,
@@ -315,8 +315,8 @@ export async function signWaiver(input: z.infer<typeof signWaiverSchema>) {
   // Append a waiver consent row to the ledger (additive; waiver_signatures
   // remains the authoritative record). Only on a fresh signature.
   if (!existing) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: waiverRow } = await (db as any)
+
+    const { data: waiverRow } = await db
       .from('waivers').select('version').eq('id', parsed.data.waiverId).maybeSingle()
     await recordConsents([{
       organization_id: org.id,
@@ -378,8 +378,8 @@ export async function signWaiverAsGuest(input: z.infer<typeof signWaiverGuestSch
   if (!waiver) return { data: null, alreadySigned: false, error: 'Waiver not found' }
 
   // Idempotency: if same email already signed this waiver for this league, return success
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (db as any)
+
+  const { data: existing } = await db
     .from('waiver_signatures')
     .select('id')
     .eq('organization_id', parsed.data.orgId)
@@ -402,8 +402,8 @@ export async function signWaiverAsGuest(input: z.infer<typeof signWaiverGuestSch
     .maybeSingle()
 
   if (profile?.id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: authExisting } = await (db as any)
+
+    const { data: authExisting } = await db
       .from('waiver_signatures')
       .select('id')
       .eq('organization_id', parsed.data.orgId)
@@ -416,8 +416,8 @@ export async function signWaiverAsGuest(input: z.infer<typeof signWaiverGuestSch
       return { data: { signatureId: authExisting.id }, alreadySigned: true, error: null }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: newSig, error: sigErr } = await (db as any)
+
+    const { data: newSig, error: sigErr } = await db
       .from('waiver_signatures')
       .insert({
         organization_id: parsed.data.orgId,
@@ -448,8 +448,8 @@ export async function signWaiverAsGuest(input: z.infer<typeof signWaiverGuestSch
   }
 
   // Pure guest insert (no matching account)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: newSig, error: sigErr } = await (db as any)
+
+  const { data: newSig, error: sigErr } = await db
     .from('waiver_signatures')
     .insert({
       organization_id: parsed.data.orgId,

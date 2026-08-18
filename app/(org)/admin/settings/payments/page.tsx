@@ -12,8 +12,8 @@ export default async function PaymentSettingsPage() {
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: settings } = await (db as any)
+
+  const { data: settings } = await db
     .from('org_payment_settings')
     .select('stripe_secret_key, stripe_webhook_secret, shop_payment_mode, manual_payment_instructions, registration_payment_mode, registration_manual_instructions')
     .eq('organization_id', org.id)

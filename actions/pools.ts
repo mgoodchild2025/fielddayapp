@@ -15,8 +15,8 @@ export async function createPool(leagueId: string, name: string) {
 
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (db as any)
+
+  const { data: existing } = await db
     .from('pools')
     .select('sort_order')
     .eq('league_id', leagueId)
@@ -27,8 +27,8 @@ export async function createPool(leagueId: string, name: string) {
 
   const nextOrder = (existing?.sort_order ?? -1) + 1
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('pools').insert({
+
+  const { error } = await db.from('pools').insert({
     league_id: leagueId,
     organization_id: org.id,
     name: name.trim(),
@@ -50,8 +50,8 @@ export async function renamePool(poolId: string, leagueId: string, name: string)
 
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('pools')
     .update({ name: name.trim() })
     .eq('id', poolId)
@@ -77,15 +77,15 @@ export async function deletePool(poolId: string, leagueId: string) {
     .eq('pool_id' as never, poolId)
     .eq('organization_id', org.id)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('games')
     .update({ pool_id: null })
     .eq('pool_id', poolId)
     .eq('organization_id', org.id)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('pools')
     .delete()
     .eq('id', poolId)
@@ -111,8 +111,8 @@ export async function setTeamPool(
   // When assigning to a pool, place the team at the end
   let poolSortOrder = 0
   if (poolId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing } = await (db as any)
+
+    const { data: existing } = await db
       .from('teams')
       .select('id')
       .eq('pool_id', poolId)
@@ -167,8 +167,8 @@ export async function seedPoolsFromStandings(
   const db = createServiceRoleClient()
 
   // Delete all existing pools for this league (cascades team/game pool_id nullification)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existingPools } = await (db as any)
+
+  const { data: existingPools } = await db
     .from('pools')
     .select('id')
     .eq('league_id', leagueId)
@@ -177,17 +177,17 @@ export async function seedPoolsFromStandings(
   for (const p of (existingPools ?? [])) {
     // Unassign teams and games first
     await db.from('teams').update({ pool_id: null } as never).eq('pool_id' as never, p.id).eq('organization_id', org.id)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('games').update({ pool_id: null }).eq('pool_id', p.id).eq('organization_id', org.id)
+
+    await db.from('games').update({ pool_id: null }).eq('pool_id', p.id).eq('organization_id', org.id)
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('pools').delete().eq('league_id', leagueId).eq('organization_id', org.id)
+
+  await db.from('pools').delete().eq('league_id', leagueId).eq('organization_id', org.id)
 
   // Insert new pools in order
   for (let i = 0; i < pools.length; i++) {
     const pool = pools[i]
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: newPool, error: insertError } = await (db as any)
+
+    const { data: newPool, error: insertError } = await db
       .from('pools')
       .insert({ league_id: leagueId, organization_id: org.id, name: pool.name.trim(), sort_order: i })
       .select('id')
@@ -250,8 +250,8 @@ export async function generatePoolSchedule(input: {
   // restart at week 1. Offset by the highest regular-season (non-pool) week —
   // using non-pool games so every pool starts at the same week rather than
   // stacking after each other.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: lastRegularGame } = await (db as any)
+
+  const { data: lastRegularGame } = await db
     .from('games')
     .select('week_number')
     .eq('league_id', input.leagueId)
@@ -289,8 +289,8 @@ export async function generatePoolSchedule(input: {
     court: g.court,
   }))
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('games').insert(games)
+
+  const { error } = await db.from('games').insert(games)
   if (error) return { error: error.message, count: 0 }
 
   revalidatePath(`/admin/events/${input.leagueId}/pools`)

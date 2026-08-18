@@ -10,8 +10,8 @@ export default async function AdminTeamsPage() {
   const db = createServiceRoleClient()
   const scope = await getAdminScope(org.id)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (db as any)
+
+  let query = db
     .from('teams')
     .select(`
       id, name, color, logo_url, status,

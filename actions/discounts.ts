@@ -35,8 +35,8 @@ export async function createDiscount(input: z.infer<typeof discountSchema>) {
     .single()
   if (existing) return { error: `Code "${parsed.data.code}" already exists` }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any).from('discount_codes').insert({
+
+  const { error } = await supabase.from('discount_codes').insert({
     organization_id: org.id,
     ...parsed.data,
     max_uses: parsed.data.max_uses ?? null,
@@ -58,8 +58,8 @@ export async function updateDiscount(id: string, input: Partial<z.infer<typeof d
   if (auth.error) return { error: auth.error }
   const supabase = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+
+  const { error } = await supabase
     .from('discount_codes')
     .update({ ...input, updated_at: new Date().toISOString() })
     .eq('id', id)

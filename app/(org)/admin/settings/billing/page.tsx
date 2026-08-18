@@ -19,8 +19,8 @@ export default async function BillingPage({
 
   const [subscription, { count: activeLeagueCount }, { count: playerCount }] = await Promise.all([
     getSubscription(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('leagues')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', org.id)

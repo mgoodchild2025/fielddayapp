@@ -46,16 +46,16 @@ export async function getCurrentLiveStream(orgId: string, leagueId?: string | nu
   const cols = 'id, platform, title, url, embed_url, status, started_at, league_id'
 
   if (leagueId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: eventStream } = await (db as any)
+
+    const { data: eventStream } = await db
       .from('live_streams').select(cols)
       .eq('organization_id', orgId).eq('league_id', leagueId).eq('status', 'live')
       .order('started_at', { ascending: false }).limit(1).maybeSingle()
     if (eventStream) return eventStream as LiveStream
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: orgStream } = await (db as any)
+
+  const { data: orgStream } = await db
     .from('live_streams').select(cols)
     .eq('organization_id', orgId).is('league_id', null).eq('status', 'live')
     .order('started_at', { ascending: false }).limit(1).maybeSingle()
@@ -65,8 +65,8 @@ export async function getCurrentLiveStream(orgId: string, leagueId?: string | nu
 /** All currently-live streams for an org (admin management). */
 export async function getActiveLiveStreams(orgId: string): Promise<LiveStream[]> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('live_streams')
     .select('id, platform, title, url, embed_url, status, started_at, league_id, detected_via')
     .eq('organization_id', orgId).eq('status', 'live')
@@ -108,14 +108,14 @@ export async function goLive(input: z.infer<typeof goLiveSchema>): Promise<{ err
   // same link shouldn't create a duplicate). Different streams stay live
   // concurrently, so two games can each run their own stream and be assigned to
   // separate display screens.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('live_streams')
     .update({ status: 'ended', ended_at: new Date().toISOString() })
     .eq('organization_id', org.id).eq('status', 'live').eq('url', parsed.data.url)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('live_streams')
     .insert({
       organization_id: org.id,
@@ -142,8 +142,8 @@ export async function endLiveStream(id: string): Promise<{ error: string | null 
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('live_streams')
     .update({ status: 'ended', ended_at: new Date().toISOString() })
     .eq('id', id).eq('organization_id', org.id).eq('status', 'live')

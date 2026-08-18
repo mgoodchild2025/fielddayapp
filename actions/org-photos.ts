@@ -43,8 +43,8 @@ export async function uploadOrgPhoto(
   const { data: { publicUrl } } = db.storage.from('org-photos').getPublicUrl(path)
 
   // Get current max display_order so new photo goes to the end
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: maxRow } = await (db as any)
+
+  const { data: maxRow } = await db
     .from('org_photos')
     .select('display_order')
     .eq('organization_id', org.id)
@@ -54,8 +54,8 @@ export async function uploadOrgPhoto(
 
   const display_order = ((maxRow as { display_order: number } | null)?.display_order ?? -1) + 1
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: inserted, error: dbErr } = await (db as any)
+
+  const { data: inserted, error: dbErr } = await db
     .from('org_photos')
     .insert({ organization_id: org.id, url: publicUrl, display_order })
     .select('id')
@@ -81,8 +81,8 @@ export async function updatePhotoCaption(
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('org_photos')
     .update({ caption: caption || null })
     .eq('id', photoId)
@@ -106,8 +106,8 @@ export async function deleteOrgPhoto(photoId: string): Promise<{ error: string |
   const db = createServiceRoleClient()
 
   // Fetch the row first so we can remove the file from storage
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: photo } = await (db as any)
+
+  const { data: photo } = await db
     .from('org_photos')
     .select('url')
     .eq('id', photoId)
@@ -125,8 +125,8 @@ export async function deleteOrgPhoto(photoId: string): Promise<{ error: string |
     await db.storage.from('org-photos').remove([storagePath])
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('org_photos')
     .delete()
     .eq('id', photoId)
@@ -160,8 +160,8 @@ export async function reorderOrgPhotos(
   // Update each photo's display_order
   await Promise.all(
     parsed.data.map((item) =>
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any)
+
+      db
         .from('org_photos')
         .update({ display_order: item.display_order })
         .eq('id', item.id)
@@ -187,8 +187,8 @@ export async function togglePhotoFeatured(
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('org_photos')
     .update({ featured })
     .eq('id', photoId)
@@ -215,8 +215,8 @@ export async function rotateOrgPhoto(
   const db = createServiceRoleClient()
 
   // Fetch the current URL for this photo
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: photo } = await (db as any)
+
+  const { data: photo } = await db
     .from('org_photos')
     .select('url')
     .eq('id', photoId)
@@ -258,8 +258,8 @@ export async function rotateOrgPhoto(
   const { data: { publicUrl } } = db.storage.from('org-photos').getPublicUrl(newPath)
   const newUrl = `${publicUrl}?t=${Date.now()}`
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('org_photos')
     .update({ url: newUrl })
     .eq('id', photoId)

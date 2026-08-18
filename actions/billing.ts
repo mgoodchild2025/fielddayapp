@@ -87,8 +87,8 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
         .select('stripe_subscription_id, status, current_period_end')
         .eq('organization_id', org.id)
         .single(),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any)
+
+      supabase
         .from('leagues')
         .select('*', { count: 'exact', head: true })
         .eq('organization_id', org.id)
@@ -129,8 +129,8 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
         return { error: `Could not schedule the downgrade: ${(err as any)?.message ?? 'unknown error'}` }
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
+
+      await supabase
         .from('subscriptions')
         .update({
           cancel_at_period_end: true,
@@ -156,8 +156,8 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
     }
 
     // No Stripe subscription (trial / canceled / already free) → switch now.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateError } = await (supabase as any)
+
+    const { error: updateError } = await supabase
       .from('subscriptions')
       .update({
         plan_tier: 'free',
@@ -323,8 +323,8 @@ export async function changeSubscriptionPlan(
     const { org, user } = await requireOrgAdmin()
     const supabase = createServiceRoleClient()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: sub } = await (supabase as any)
+
+    const { data: sub } = await supabase
       .from('subscriptions')
       .select('stripe_subscription_id, plan_tier, status, current_period_end')
       .eq('organization_id', org.id)
@@ -361,8 +361,8 @@ export async function changeSubscriptionPlan(
         metadata: { plan_tier: tier },
       })
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
+
+      await supabase
         .from('subscriptions')
         .update({
           plan_tier: tier,
@@ -392,8 +392,8 @@ export async function changeSubscriptionPlan(
     // Downgrade → schedule for period end (keep current tier until then).
     await stripe.subscriptions.update(sub.stripe_subscription_id, { cancel_at_period_end: true })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+
+    await supabase
       .from('subscriptions')
       .update({
         cancel_at_period_end: true,
@@ -433,8 +433,8 @@ export async function cancelScheduledDowngrade(): Promise<{ error: string | null
     const { org, user } = await requireOrgAdmin()
     const supabase = createServiceRoleClient()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: sub } = await (supabase as any)
+
+    const { data: sub } = await supabase
       .from('subscriptions')
       .select('stripe_subscription_id, pending_plan_tier, plan_tier')
       .eq('organization_id', org.id)
@@ -446,8 +446,8 @@ export async function cancelScheduledDowngrade(): Promise<{ error: string | null
     const { stripe } = await getPlatformStripe()
     await stripe.subscriptions.update(sub.stripe_subscription_id, { cancel_at_period_end: false })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+
+    await supabase
       .from('subscriptions')
       .update({
         cancel_at_period_end: false,
@@ -486,8 +486,8 @@ export async function hibernateSubscription(
     const { org, user } = await requireOrgAdmin()
     const supabase = createServiceRoleClient()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: sub } = await (supabase as any)
+
+    const { data: sub } = await supabase
       .from('subscriptions')
       .select('stripe_subscription_id, stripe_customer_id, plan_tier, status')
       .eq('organization_id', org.id)
@@ -516,8 +516,8 @@ export async function hibernateSubscription(
       }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+
+    await supabase
       .from('subscriptions')
       .update({
         status: 'hibernating',
@@ -560,8 +560,8 @@ export async function resumeFromHibernation(): Promise<{ error: string | null }>
     const { org, user } = await requireOrgAdmin()
     const supabase = createServiceRoleClient()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: sub } = await (supabase as any)
+
+    const { data: sub } = await supabase
       .from('subscriptions')
       .select('stripe_subscription_id, pre_hibernate_tier, status')
       .eq('organization_id', org.id)
@@ -588,8 +588,8 @@ export async function resumeFromHibernation(): Promise<{ error: string | null }>
       }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+
+    await supabase
       .from('subscriptions')
       .update({
         status: 'active',

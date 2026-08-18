@@ -14,8 +14,8 @@ export async function purgeLeagueData(
 ): Promise<{ error: string | null }> {
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues').select('name').eq('id', leagueId).eq('organization_id', orgId).single()
 
   // Delete child records in safe order (cascade may not cover everything)
@@ -25,13 +25,13 @@ export async function purgeLeagueData(
         .data?.map((t) => t.id) ?? []
     )
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: brackets } = await (db as any).from('brackets').select('id').eq('league_id', leagueId).eq('organization_id', orgId)
+
+  const { data: brackets } = await db.from('brackets').select('id').eq('league_id', leagueId).eq('organization_id', orgId)
   if (brackets && brackets.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('bracket_matches').delete().in('bracket_id', brackets.map((b: { id: string }) => b.id))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('brackets').delete().eq('league_id', leagueId).eq('organization_id', orgId)
+
+    await db.from('bracket_matches').delete().in('bracket_id', brackets.map((b: { id: string }) => b.id))
+
+    await db.from('brackets').delete().eq('league_id', leagueId).eq('organization_id', orgId)
   }
 
   await db.from('game_results').delete().eq('organization_id', orgId)

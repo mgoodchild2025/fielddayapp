@@ -14,8 +14,8 @@ export default async function WaiverQrPage({
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues')
     .select('id, name, slug, waiver_version_id')
     .eq('slug', slug)

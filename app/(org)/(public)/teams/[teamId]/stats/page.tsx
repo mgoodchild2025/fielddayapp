@@ -30,7 +30,7 @@ export default async function TeamStatsPage({
   // Team stats are publicly viewable — no auth required
 
   // ── Fetch team + league info ──────────────────────────────────────────────
-  const { data: team } = await (db as any).from('teams').select(`
+  const { data: team } = await db.from('teams').select(`
     id, name, color, logo_url, league_id,
     league:leagues!teams_league_id_fkey(id, name, slug, sport, status, standings_pts_method, volleyball_standings_mode)
   `).eq('id', teamId).eq('organization_id', org.id).maybeSingle()
@@ -51,10 +51,10 @@ export default async function TeamStatsPage({
     seasonTotals,
     teamMembersResult,
   ] = await Promise.all([
-    (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
+    db.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
 
     // Games involving this team
-    (db as any).from('games').select(`
+    db.from('games').select(`
       id, scheduled_at, court, week_number, status, home_team_id, away_team_id,
       pool_id,
       home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
@@ -68,7 +68,7 @@ export default async function TeamStatsPage({
       .order('scheduled_at', { ascending: true }),
 
     // All league games (for standings)
-    (db as any).from('games').select(`
+    db.from('games').select(`
       id, home_team_id, away_team_id,
       game_results(home_score, away_score, status, sets, is_forfeit, forfeit_team_id)
     `)
@@ -83,7 +83,7 @@ export default async function TeamStatsPage({
     leagueId ? getLeagueStatTotals(leagueId, org.id) : Promise.resolve({} as Record<string, Record<string, number>>),
 
     // Active team members with profiles
-    (db as any).from('team_members').select(`
+    db.from('team_members').select(`
       user_id,
       profile:profiles!team_members_user_id_fkey(id, full_name, avatar_url)
     `)
@@ -100,7 +100,7 @@ export default async function TeamStatsPage({
   const allTeamIds = ((allLeagueTeamsResult.data ?? []) as { id: string }[]).map(t => t.id)
 
   // Pool names for the Regular Season / Pool badge on results
-  const { data: poolRows } = await (db as any).from('pools').select('id, name').eq('league_id', leagueId).eq('organization_id', org.id)
+  const { data: poolRows } = await db.from('pools').select('id, name').eq('league_id', leagueId).eq('organization_id', org.id)
   const poolNameById = new Map<string, string>(((poolRows ?? []) as any[]).map((p: any) => [p.id as string, p.name as string]))
 
   // Published playoff bracket games involving this team

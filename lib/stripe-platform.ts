@@ -58,8 +58,8 @@ export function platformEnvFor(mode: StripeMode): {
 export async function getPlatformStripeMode(): Promise<StripeMode> {
   try {
     const db = createServiceRoleClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (db as any)
+
+    const { data } = await db
       .from('platform_settings')
       .select('value')
       .eq('key', 'platform_stripe_mode')

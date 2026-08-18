@@ -22,10 +22,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
   const db = createServiceRoleClient()
   const [{ data: org }, { data: branding }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('organizations').select('name').eq('id', orgId).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding')
+
+    db.from('organizations').select('name').eq('id', orgId).single(),
+
+    db.from('org_branding')
       .select('logo_url, tagline, hero_image_url')
       .eq('organization_id', orgId)
       .single(),
@@ -95,22 +95,22 @@ export default async function OrgLayout({
     { data: platformSettings },
     { data: subscriptionRow },
   ] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db2 as any).from('org_branding').select('*').eq('organization_id', orgId).single(),
+
+    db2.from('org_branding').select('*').eq('organization_id', orgId).single(),
     supabase.auth.getUser(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db2 as any)
+
+    db2
       .from('organizations')
       .select('name, maintenance_mode, maintenance_message, maintenance_until')
       .eq('id', orgId)
       .single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db2 as any)
+
+    db2
       .from('platform_settings')
       .select('key, value')
       .in('key', ['maintenance_mode_all', 'maintenance_mode_message', 'maintenance_mode_until']),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db2 as any)
+
+    db2
       .from('subscriptions')
       .select('status, hibernate_until')
       .eq('organization_id', orgId)
@@ -137,8 +137,8 @@ export default async function OrgLayout({
   // Check platform_role for bypass — needed for maintenance and hibernation gates
   let isPlatformAdmin = false
   if ((globalOn || orgOn || isHibernating) && user) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: profile } = await (db2 as any)
+
+    const { data: profile } = await db2
       .from('profiles')
       .select('platform_role')
       .eq('id', user.id)

@@ -35,8 +35,8 @@ async function requireSocialAdmin(orgId: string): Promise<string | null> {
 /** Approved curated posts pinned to one event, newest first. */
 export async function getCuratedSocialPosts(leagueId: string): Promise<CuratedSocialPost[]> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('social_media_items')
     .select('id, platform, external_id, media_url, embed_url, thumbnail_url, caption')
     .eq('league_id', leagueId).eq('source', 'curated').eq('approved', true).eq('hidden', false)
@@ -63,8 +63,8 @@ export async function addCuratedSocialPost(leagueId: string, url: string): Promi
 
   // Verify league belongs to org.
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues').select('id').eq('id', leagueId).eq('organization_id', org.id).maybeSingle()
   if (!league) return { error: 'Event not found.' }
 
@@ -95,8 +95,8 @@ export async function addCuratedSocialPost(leagueId: string, url: string): Promi
     caption = oembed?.title ?? null
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('social_media_items').upsert({
+
+  const { error } = await db.from('social_media_items').upsert({
     organization_id: org.id,
     league_id: leagueId,
     connection_id: null,
@@ -125,8 +125,8 @@ export async function removeCuratedSocialPost(id: string, leagueId: string): Pro
   if (!adminId) return { error: 'Unauthorized' }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('social_media_items').delete()
     .eq('id', id).eq('organization_id', org.id).eq('source', 'curated')
   if (error) return { error: error.message }

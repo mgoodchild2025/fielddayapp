@@ -32,14 +32,14 @@ export async function getEventSponsors(leagueId: string, orgId: string): Promise
   const db = createServiceRoleClient()
 
   const [{ data: league }, { data: links }, { data: orgSponsors }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('show_org_sponsors').eq('id', leagueId).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('event_sponsors')
+
+    db.from('leagues').select('show_org_sponsors').eq('id', leagueId).single(),
+
+    db.from('event_sponsors')
       .select('id, sponsor_id, name, logo_url, website_url, ad_image_url, tier, display_order, org:org_sponsors(name, logo_url, website_url, tier)')
       .eq('league_id', leagueId).eq('organization_id', orgId).order('display_order'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_sponsors')
+
+    db.from('org_sponsors')
       .select('id, name, logo_url, website_url, tier, display_order')
       .eq('organization_id', orgId).order('display_order'),
   ])
@@ -113,16 +113,16 @@ export async function getEventSponsorPageData(leagueId: string): Promise<{
 
 
   const [{ data: league }, { data: rows }, { data: orgSponsors }, { data: statRows }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('show_org_sponsors').eq('id', leagueId).eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('event_sponsors')
+
+    db.from('leagues').select('show_org_sponsors').eq('id', leagueId).eq('organization_id', org.id).single(),
+
+    db.from('event_sponsors')
       .select('id, sponsor_id, name, logo_url, website_url, ad_image_url, tier, display_order, org:org_sponsors(name, logo_url, website_url)')
       .eq('league_id', leagueId).eq('organization_id', org.id).order('display_order'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_sponsors').select('id, name, logo_url, tier').eq('organization_id', org.id).order('display_order'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('sponsor_stats').select('sponsor_key, impressions, clicks').eq('league_id', leagueId),
+
+    db.from('org_sponsors').select('id, name, logo_url, tier').eq('organization_id', org.id).order('display_order'),
+
+    db.from('sponsor_stats').select('sponsor_key, impressions, clicks').eq('league_id', leagueId),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -162,8 +162,8 @@ export async function getEventSponsorPageData(leagueId: string): Promise<{
 // ── Admin: mutations ────────────────────────────────────────────────────────
 
 async function nextOrder(db: ReturnType<typeof createServiceRoleClient>, leagueId: string, orgId: string): Promise<number> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any).from('event_sponsors')
+
+  const { data } = await db.from('event_sponsors')
     .select('display_order').eq('league_id', leagueId).eq('organization_id', orgId)
     .order('display_order', { ascending: false }).limit(1).maybeSingle()
   return ((data as { display_order: number } | null)?.display_order ?? -1) + 1
@@ -174,8 +174,8 @@ export async function setShowOrgSponsors(leagueId: string, value: boolean): Prom
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin', 'league_admin'])
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('leagues').update({ show_org_sponsors: value }).eq('id', leagueId).eq('organization_id', org.id)
+
+  const { error } = await db.from('leagues').update({ show_org_sponsors: value }).eq('id', leagueId).eq('organization_id', org.id)
   if (error) return { error: error.message }
   revalidatePath(`/admin/events/${leagueId}/sponsors`)
   return { error: null }
@@ -187,8 +187,8 @@ export async function linkOrgSponsor(leagueId: string, sponsorId: string): Promi
   await requireOrgMember(org, ['org_admin', 'league_admin'])
   const db = createServiceRoleClient()
   const display_order = await nextOrder(db, leagueId, org.id)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('event_sponsors')
+
+  const { error } = await db.from('event_sponsors')
     .insert({ organization_id: org.id, league_id: leagueId, sponsor_id: sponsorId, display_order })
   if (error) return { error: error.message }
   revalidatePath(`/admin/events/${leagueId}/sponsors`)
@@ -218,8 +218,8 @@ export async function addEventOnlySponsor(formData: FormData): Promise<{ error: 
 
   // Insert the row first to get an id for the logo path
   const display_order = await nextOrder(db, parsed.data.leagueId, org.id)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: inserted, error } = await (db as any).from('event_sponsors')
+
+  const { data: inserted, error } = await db.from('event_sponsors')
     .insert({
       organization_id: org.id, league_id: parsed.data.leagueId,
       name: parsed.data.name, website_url: parsed.data.website_url || null,
@@ -244,8 +244,8 @@ export async function addEventOnlySponsor(formData: FormData): Promise<{ error: 
     const { error: upErr } = await db.storage.from('org-branding').upload(path, uploadBytes, { contentType: uploadType, upsert: true })
     if (!upErr) {
       const { data: { publicUrl } } = db.storage.from('org-branding').getPublicUrl(path)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('event_sponsors').update({ logo_url: `${publicUrl}?t=${Date.now()}` }).eq('id', id)
+
+      await db.from('event_sponsors').update({ logo_url: `${publicUrl}?t=${Date.now()}` }).eq('id', id)
     }
   }
 
@@ -258,8 +258,8 @@ export async function removeEventSponsor(id: string, leagueId: string): Promise<
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin', 'league_admin'])
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('event_sponsors').delete().eq('id', id).eq('organization_id', org.id)
+
+  const { error } = await db.from('event_sponsors').delete().eq('id', id).eq('organization_id', org.id)
   if (error) return { error: error.message }
   revalidatePath(`/admin/events/${leagueId}/sponsors`)
   return { error: null }
@@ -288,8 +288,8 @@ export async function uploadEventSponsorAd(id: string, leagueId: string, formDat
   const { error: upErr } = await db.storage.from('org-branding').upload(path, uploadBytes, { contentType: uploadType, upsert: true })
   if (upErr) return { error: upErr.message }
   const { data: { publicUrl } } = db.storage.from('org-branding').getPublicUrl(path)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('event_sponsors')
+
+  const { error } = await db.from('event_sponsors')
     .update({ ad_image_url: `${publicUrl}?t=${Date.now()}` }).eq('id', id).eq('organization_id', org.id)
   if (error) return { error: error.message }
   revalidatePath(`/admin/events/${leagueId}/sponsors`)
@@ -301,8 +301,8 @@ export async function removeEventSponsorAd(id: string, leagueId: string): Promis
   const org = await getCurrentOrg(headersList)
   await requireOrgMember(org, ['org_admin', 'league_admin'])
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('event_sponsors').update({ ad_image_url: null }).eq('id', id).eq('organization_id', org.id)
+
+  const { error } = await db.from('event_sponsors').update({ ad_image_url: null }).eq('id', id).eq('organization_id', org.id)
   if (error) return { error: error.message }
   revalidatePath(`/admin/events/${leagueId}/sponsors`)
   return { error: null }
@@ -315,8 +315,8 @@ export async function recordSponsorImpressions(orgId: string, leagueId: string, 
   if (!keys.length) return
   try {
     const db = createServiceRoleClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).rpc('bump_sponsor_stats', { p_org: orgId, p_league: leagueId, p_keys: keys, p_kind: 'impression' })
+
+    await db.rpc('bump_sponsor_stats', { p_org: orgId, p_league: leagueId, p_keys: keys, p_kind: 'impression' })
   } catch {
     // analytics must never break the display
   }

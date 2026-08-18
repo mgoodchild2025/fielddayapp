@@ -63,12 +63,12 @@ export async function inviteGameSub(
 
   // Verify caller is captain/coach of the team or an org admin
   const [{ data: teamMember }, { data: orgMember }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('team_members').select('role')
+
+    db.from('team_members').select('role')
       .eq('team_id', teamId).eq('user_id', user.id)
       .eq('organization_id', org.id).eq('status', 'active').maybeSingle(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_members').select('role')
+
+    db.from('org_members').select('role')
       .eq('organization_id', org.id).eq('user_id', user.id).maybeSingle(),
   ])
 
@@ -80,17 +80,17 @@ export async function inviteGameSub(
 
   // Fetch game + team + inviter info in parallel
   const [gameRes, inviterRes, brandingRes] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('games').select(`
+
+    db.from('games').select(`
       id, scheduled_at, court,
       home_team:teams!games_home_team_id_fkey(id, name),
       away_team:teams!games_away_team_id_fkey(id, name),
       league:leagues!games_league_id_fkey(id, name, slug)
     `).eq('id', gameId).eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('profiles').select('full_name').eq('id', user.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('timezone').eq('organization_id', org.id).single(),
+
+    db.from('profiles').select('full_name').eq('id', user.id).single(),
+
+    db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
   ])
 
   const game = gameRes.data
@@ -112,8 +112,8 @@ export async function inviteGameSub(
   const inviterName = inviterRes.data?.full_name ?? 'A captain'
 
   // Delete any stale 'invited' row for this email+game+team before inserting
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('game_subs')
     .delete()
     .eq('game_id', gameId)
@@ -122,8 +122,8 @@ export async function inviteGameSub(
     .eq('status', 'invited')
 
   // Create the invite row
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: sub, error: insertError } = await (db as any)
+
+  const { data: sub, error: insertError } = await db
     .from('game_subs')
     .insert({
       organization_id: org.id,
@@ -139,13 +139,13 @@ export async function inviteGameSub(
   if (insertError) return { error: insertError.message }
 
   // In-app notification if the invitee already has an account
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: inviteeProfile } = await (db as any)
+
+  const { data: inviteeProfile } = await db
     .from('profiles').select('id').eq('email', normalizedEmail).maybeSingle()
 
   if (inviteeProfile?.id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('notifications').insert({
+
+    await db.from('notifications').insert({
       organization_id: org.id,
       user_id: inviteeProfile.id,
       type: 'sub_invited',
@@ -192,8 +192,8 @@ export async function getGameSubInviteDetails(
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('game_subs')
     .select(`
       id, game_id, team_id, invited_email, status, message, expires_at, invited_by,
@@ -262,8 +262,8 @@ export async function getGameSubsForGame(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { subs: [], error: 'Not authenticated' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+
+  const { data, error } = await db
     .from('game_subs')
     .select(`
       id, game_id, team_id, user_id, invited_email, status, message, expires_at, created_at,
@@ -311,8 +311,8 @@ export async function confirmGameSub(
   if (!user) return { error: 'Not authenticated' }
 
   // Fetch the invite
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: sub } = await (db as any)
+
+  const { data: sub } = await db
     .from('game_subs')
     .select('id, game_id, team_id, invited_email, status, expires_at, invited_by')
     .eq('token', token)
@@ -330,8 +330,8 @@ export async function confirmGameSub(
     return { error: `This invite was sent to ${sub.invited_email} — please sign in with that account` }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: updateErr } = await (db as any)
+
+  const { error: updateErr } = await db
     .from('game_subs')
     .update({
       status: 'confirmed',
@@ -343,8 +343,8 @@ export async function confirmGameSub(
   if (updateErr) return { error: updateErr.message }
 
   // Ensure org membership
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('org_members').upsert({
+
+  await db.from('org_members').upsert({
     organization_id: org.id,
     user_id: user.id,
     role: 'player',
@@ -352,8 +352,8 @@ export async function confirmGameSub(
   }, { onConflict: 'organization_id,user_id', ignoreDuplicates: true })
 
   // Add game_rsvps 'in' entry so they show in the attendance count
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('game_rsvps').upsert({
+
+  await db.from('game_rsvps').upsert({
     organization_id: org.id,
     game_id: sub.game_id,
     user_id: user.id,
@@ -364,8 +364,8 @@ export async function confirmGameSub(
 
   // Notify the captain
   const playerName = profile?.full_name ?? sub.invited_email
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('notifications').insert({
+
+  await db.from('notifications').insert({
     organization_id: org.id,
     user_id: sub.invited_by,
     type: 'sub_confirmed',
@@ -392,8 +392,8 @@ export async function declineGameSub(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: sub } = await (db as any)
+
+  const { data: sub } = await db
     .from('game_subs')
     .select('id, game_id, team_id, invited_email, status, invited_by')
     .eq('token', token)
@@ -409,13 +409,13 @@ export async function declineGameSub(
     return { error: 'Email mismatch' }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('game_subs').update({ status: 'declined' }).eq('id', sub.id)
+
+  await db.from('game_subs').update({ status: 'declined' }).eq('id', sub.id)
 
   // Notify captain
   const playerName = profile?.full_name ?? sub.invited_email
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('notifications').insert({
+
+  await db.from('notifications').insert({
     organization_id: org.id,
     user_id: sub.invited_by,
     type: 'sub_declined',
@@ -443,8 +443,8 @@ export async function removeGameSub(
   if (!user) return { error: 'Not authenticated' }
 
   // Fetch the row so we can verify auth and get game/team ids
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: sub } = await (db as any)
+
+  const { data: sub } = await db
     .from('game_subs')
     .select('id, game_id, team_id, user_id, status')
     .eq('id', gameSubId)
@@ -455,12 +455,12 @@ export async function removeGameSub(
 
   // Auth: captain/coach of that team or org admin
   const [{ data: tm }, { data: om }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('team_members').select('role')
+
+    db.from('team_members').select('role')
       .eq('team_id', sub.team_id).eq('user_id', user.id)
       .eq('organization_id', org.id).eq('status', 'active').maybeSingle(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_members').select('role')
+
+    db.from('org_members').select('role')
       .eq('organization_id', org.id).eq('user_id', user.id).maybeSingle(),
   ])
 
@@ -469,13 +469,13 @@ export async function removeGameSub(
   if (!isCaptain && !isOrgAdmin) return { error: 'Not authorized' }
 
   // Remove the game_subs row
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('game_subs').delete().eq('id', gameSubId)
+
+  await db.from('game_subs').delete().eq('id', gameSubId)
 
   // If confirmed, also remove the game_rsvp entry
   if (sub.status === 'confirmed' && sub.user_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('game_rsvps')
+
+    await db.from('game_rsvps')
       .delete()
       .eq('game_id', sub.game_id)
       .eq('user_id', sub.user_id)

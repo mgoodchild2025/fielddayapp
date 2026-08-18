@@ -24,8 +24,8 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
   const scope = await getAdminScope(org.id)
   const isOrgAdmin = scope.isOrgAdmin
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: branding } = await (db as any)
+
+  const { data: branding } = await db
     .from('org_branding')
     .select('timezone')
     .eq('organization_id', org.id)
@@ -35,8 +35,8 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
 
   const [{ data: games }, { data: teams }, { data: league }, { data: pools }, { data: weekPhases }] = await Promise.all([
     // Cast to any — Supabase types may not yet reflect home_team_label/away_team_label columns
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('games')
       .select(`
         id, scheduled_at, court, week_number, status, cancellation_reason,
@@ -49,29 +49,29 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
       .eq('league_id', id)
       .eq('organization_id', org.id)
       .order('scheduled_at', { ascending: true }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('teams')
       .select('id, name')
       .eq('league_id', id)
       .eq('organization_id', org.id)
       .order('name'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('leagues')
       .select('sport, max_participants, schedule_published, event_type')
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('pools')
       .select('id, name')
       .eq('league_id', id)
       .eq('organization_id', org.id)
       .order('sort_order', { ascending: true }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('week_phases')
       .select('week_number, phase')
       .eq('league_id', id)

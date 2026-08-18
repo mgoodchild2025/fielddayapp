@@ -48,7 +48,7 @@ export async function getInviteDetails(token: string): Promise<InviteDetails | n
 
 
   const [{ data: team }, { data: inviter }] = await Promise.all([
-    (db as any).from('teams').select('name, color, league_id').eq('id', invite.team_id).single(),
+    db.from('teams').select('name, color, league_id').eq('id', invite.team_id).single(),
     db.from('profiles').select('full_name').eq('id', invite.invited_by).single(),
   ])
 
@@ -57,8 +57,8 @@ export async function getInviteDetails(token: string): Promise<InviteDetails | n
   const leagueId = (team as any)?.league_id ?? null
   const [leagueResult, { count: memberCount }] = await Promise.all([
     leagueId
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? (db as any).from('leagues').select('name, slug, max_team_size').eq('id', leagueId).single()
+
+      ? db.from('leagues').select('name, slug, max_team_size').eq('id', leagueId).single()
       : Promise.resolve({ data: null }),
     db.from('team_members').select('*', { count: 'exact', head: true }).eq('team_id', invite.team_id).eq('status', 'active'),
   ])
@@ -127,7 +127,7 @@ export async function sendTeamInvite(input: z.infer<typeof sendInviteSchema>) {
 
 
   const [{ data: team }, { data: inviterProfile }] = await Promise.all([
-    (db as any).from('teams').select('id, name, league_id, leagues!teams_league_id_fkey(name)').eq('id', parsed.data.teamId).eq('organization_id', org.id).single(),
+    db.from('teams').select('id, name, league_id, leagues!teams_league_id_fkey(name)').eq('id', parsed.data.teamId).eq('organization_id', org.id).single(),
     db.from('profiles').select('full_name').eq('id', user.id).single(),
   ])
 
@@ -268,8 +268,8 @@ export async function acceptTeamInvitation(token: string) {
   }
 
   // Add to team
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: memberError } = await (db as any).from('team_members').upsert({
+
+  const { error: memberError } = await db.from('team_members').upsert({
     organization_id: org.id,
     team_id: invite.team_id,
     user_id: user.id,
@@ -299,8 +299,8 @@ export async function acceptTeamInvitation(token: string) {
     .eq('type', 'team_invite')
 
   // Fetch team + league info for registration check and notification
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: team } = await (db as any)
+
+  const { data: team } = await db
     .from('teams')
     .select('name, league_id, team_code, leagues!teams_league_id_fkey(slug, status)')
     .eq('id', invite.team_id)
@@ -442,7 +442,7 @@ export async function resendTeamInvite(inviteId: string) {
   // Fetch team + inviter profile
 
   const [{ data: team }, { data: inviterProfile }] = await Promise.all([
-    (db as any).from('teams').select('name, leagues!teams_league_id_fkey(name)').eq('id', invite.team_id).single(),
+    db.from('teams').select('name, leagues!teams_league_id_fkey(name)').eq('id', invite.team_id).single(),
     db.from('profiles').select('full_name').eq('id', user.id).single(),
   ])
 

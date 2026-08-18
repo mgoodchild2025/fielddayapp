@@ -23,8 +23,8 @@ export async function loadCart(orgId: string): Promise<StoredCartItem[]> {
   if (!user) return []
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+
+  const { data, error } = await db
     .from('cart_items')
     .select(`
       id,
@@ -72,8 +72,8 @@ export async function saveCartItem(
   const db = createServiceRoleClient()
 
   // Check for existing row (NULL-safe variant match)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (db as any)
+
+  let query = db
     .from('cart_items')
     .select('id')
     .eq('organization_id', orgId)
@@ -85,16 +85,16 @@ export async function saveCartItem(
   const { data: existing } = await query.maybeSingle()
 
   if (existing?.id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any)
+
+    await db
       .from('cart_items')
       .update({ quantity, updated_at: new Date().toISOString() })
       .eq('id', existing.id)
     return existing.id as string
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: inserted, error: insertError } = await (db as any)
+
+  const { data: inserted, error: insertError } = await db
     .from('cart_items')
     .insert({
       organization_id: orgId,
@@ -118,8 +118,8 @@ export async function deleteCartItem(cartItemId: string): Promise<void> {
   if (!user) return
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('cart_items')
     .delete()
     .eq('id', cartItemId)
@@ -134,8 +134,8 @@ export async function clearCartItems(orgId: string): Promise<void> {
   if (!user) return
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('cart_items')
     .delete()
     .eq('organization_id', orgId)

@@ -27,8 +27,8 @@ export default async function WaiverSignaturesPage({ searchParams }: Props) {
   // Single query against waiver_signatures for the whole org.
   // Covers all cases: registered players, guests, standalone signings via shareable link.
   // league_name (stored column) is used as fallback when the league has been deleted.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawSigs } = await (db as any)
+
+  const { data: rawSigs } = await db
     .from('waiver_signatures')
     .select(`
       id, signed_at, signature_name, ip_address, guardian_relationship,

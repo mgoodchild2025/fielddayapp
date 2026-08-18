@@ -15,8 +15,8 @@ export default async function NewEventPage() {
       .select('id, title, version')
       .eq('organization_id', org.id)
       .order('created_at', { ascending: false }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('league_rule_templates')
       .select('id, title, content')
       .eq('organization_id', org.id)

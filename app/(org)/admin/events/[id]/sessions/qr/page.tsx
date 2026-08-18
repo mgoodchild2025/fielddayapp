@@ -22,8 +22,8 @@ export default async function SessionsQrPage({
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues')
     .select('id, name, slug, drop_in_price_cents, price_cents, currency, pickup_join_policy, access_token')
     .eq('id', id).eq('organization_id', org.id).single()
