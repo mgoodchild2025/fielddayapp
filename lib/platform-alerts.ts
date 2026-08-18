@@ -74,3 +74,38 @@ export async function sendPlatformAlert(
     console.error('[platform-alert] failed to send alert:', type, err)
   }
 }
+
+/**
+ * Email the platform team about a server error. No per-type toggle — used by
+ * the error reporter (lib/error-reporter.ts), which throttles per error digest
+ * so this only fires for new/recurring-after-quiet errors.
+ */
+export async function sendErrorAlert(subject: string, html: string): Promise<void> {
+  try {
+    const service = createServiceRoleClient()
+
+    const { data } = await service
+      .from('platform_settings')
+      .select('value')
+      .eq('key', 'alert_email')
+      .maybeSingle()
+    const alertEmail = data?.value?.trim() || null
+
+    let recipients: string[] = []
+    if (alertEmail) {
+      recipients = [alertEmail]
+    } else {
+      const { data: admins } = await service
+        .from('profiles')
+        .select('email')
+        .eq('platform_role', 'platform_admin')
+        .not('email', 'is', null)
+      recipients = (admins ?? []).map((a: { email: string }) => a.email).filter(Boolean)
+    }
+
+    if (recipients.length === 0) return
+    await Promise.all(recipients.map(to => sendEmail({ to, subject, html })))
+  } catch (err) {
+    console.error('[platform-alert] failed to send error alert:', err)
+  }
+}

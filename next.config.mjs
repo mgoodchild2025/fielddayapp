@@ -51,9 +51,9 @@ const nextConfig = {
       bodySizeLimit: '11mb',
     },
   },
-  // Supabase-generated types (types/database.ts) are stale until regenerated
-  // after each migration. Disable build-time TS errors to unblock deployments.
-  typescript: { ignoreBuildErrors: true },
+  // tsc is clean (0 errors) and CI gates every PR on type-check — builds now
+  // enforce types again. (Was ignoreBuildErrors: true while the Stripe/tiptap
+  // baseline errors existed.)
   // Native-module packages that can't be bundled by webpack.
   // Declared as external so Next.js requires them from node_modules at runtime.
   serverExternalPackages: ['twilio', 'sharp'],

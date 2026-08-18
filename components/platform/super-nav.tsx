@@ -10,6 +10,7 @@ const LINKS = [
   { href: '/super/settings/plans', label: 'Plan Config' },
   { href: '/super/legal', label: 'Legal Docs' },
   { href: '/super/compliance', label: 'Compliance' },
+  { href: '/super/errors', label: 'Errors' },
 ]
 
 export function SuperNav({ email, stripeTest }: { email: string; stripeTest: boolean }) {
