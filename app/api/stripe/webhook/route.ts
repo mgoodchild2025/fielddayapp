@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: paymentSettings } = await (supabase as any)
+
+  const { data: paymentSettings } = await supabase
     .from('org_payment_settings')
     .select('stripe_secret_key, stripe_webhook_secret')
     .eq('organization_id', orgId)
@@ -45,8 +45,8 @@ export async function POST(request: NextRequest) {
   // re-send confirmation + admin emails. Degrades gracefully (processes without
   // dedup) if the table isn't present yet — e.g. migration 167 not yet applied.
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: claimErr } = await (supabase as any)
+
+    const { error: claimErr } = await supabase
       .from('stripe_processed_events')
       .insert({ event_id: event.id, organization_id: orgId })
     if (claimErr?.code === '23505') {
@@ -94,10 +94,10 @@ export async function POST(request: NextRequest) {
       // Send confirmation to each member
 
       const [{ data: league }, { data: org }, { data: teamRow }] = await Promise.all([
-        (supabase as any).from('leagues').select('name, sport, event_type, checkin_enabled, season_start_date, game_start_time, game_end_time, days_of_week, venue_name, venue_address, venue_maps_url').eq('id', leagueId).single(),
+        supabase.from('leagues').select('name, sport, event_type, checkin_enabled, season_start_date, game_start_time, game_end_time, days_of_week, venue_name, venue_address, venue_maps_url').eq('id', leagueId).single(),
         supabase.from('organizations').select('name, slug').eq('id', orgId).single(),
         // Fetch the team's calendar_token so we can send a team-specific calendar link
-        (supabase as any).from('teams').select('calendar_token').eq('id', teamId).single(),
+        supabase.from('teams').select('calendar_token').eq('id', teamId).single(),
       ])
 
       if (userIds.length > 0 && league?.name) {
@@ -180,8 +180,8 @@ export async function POST(request: NextRequest) {
       const { merchOrderIds: rawShopOrderIds } = session.metadata ?? {}
       const shopOrderIds = rawShopOrderIds?.split(',').filter(Boolean) ?? []
       if (shopOrderIds.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any)
+
+        await supabase
           .from('merchandise_orders')
           .update({ status: 'paid', paid_at: new Date().toISOString() })
           .in('id', shopOrderIds)
@@ -197,8 +197,8 @@ export async function POST(request: NextRequest) {
       // client-side clear on the success page (covers users who close the tab, and
       // avoids the purchased items lingering on next load).
       if (userId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any)
+
+        await supabase
           .from('cart_items')
           .delete()
           .eq('user_id', userId)
@@ -213,8 +213,8 @@ export async function POST(request: NextRequest) {
       if (dropinLeagueId) {
         const nowIso = new Date().toISOString()
         // Create the guest drop-in registration (active + checked in on the spot).
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: reg } = await (supabase as any)
+
+        const { data: reg } = await supabase
           .from('registrations')
           .insert({
             organization_id: orgId,
@@ -231,8 +231,8 @@ export async function POST(request: NextRequest) {
           .select('id')
           .single()
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any).from('payments').insert({
+
+        await supabase.from('payments').insert({
           organization_id: orgId,
           registration_id: reg?.id ?? null,
           user_id: null,
@@ -257,8 +257,8 @@ export async function POST(request: NextRequest) {
       const { registrationId: guestRegId, paymentId: guestPayId } = session.metadata ?? {}
       const nowIso = new Date().toISOString()
       if (guestPayId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any).from('payments').update({
+
+        await supabase.from('payments').update({
           status: 'paid',
           paid_at: nowIso,
           stripe_payment_intent_id: session.payment_intent as string,
@@ -266,8 +266,8 @@ export async function POST(request: NextRequest) {
         }).eq('id', guestPayId)
       }
       if (guestRegId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any).from('registrations')
+
+        await supabase.from('registrations')
           .update({ status: 'active' }).eq('id', guestRegId).eq('organization_id', orgId)
       }
       return NextResponse.json({ received: true })
@@ -280,15 +280,15 @@ export async function POST(request: NextRequest) {
         const now = new Date().toISOString()
 
         // 1. Insert a payments row for this instalment
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: newPayment } = await (supabase as any)
+
+        const { data: newPayment } = await supabase
           .from('payments')
           .insert({
             organization_id: orgId,
             registration_id: registrationId,
             user_id: userId,
             league_id: leagueId ?? null,
-            amount_cents: session.amount_total,
+            amount_cents: session.amount_total ?? 0,
             currency: session.currency ?? 'cad',
             status: 'paid',
             payment_method: 'stripe',
@@ -301,8 +301,8 @@ export async function POST(request: NextRequest) {
           .single()
 
         // 2. Mark the instalment paid and clear the dedup session id
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any)
+
+        await supabase
           .from('payment_plan_installments')
           .update({
             status: 'paid',
@@ -319,13 +319,13 @@ export async function POST(request: NextRequest) {
             .eq('id', registrationId)
 
           // Send registration confirmation email (fire-and-forget)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: regData } = await (supabase as any)
+
+          const { data: regData } = await supabase
             .from('registrations')
             .select('profiles!registrations_user_id_fkey(email, full_name), leagues(name)')
             .eq('id', registrationId)
             .single()
-          const { data: orgData } = await (supabase as any)
+          const { data: orgData } = await supabase
             .from('organizations')
             .select('name')
             .eq('id', orgId)
@@ -343,16 +343,16 @@ export async function POST(request: NextRequest) {
         }
 
         // 4. Check if all instalments are now paid → complete the enrollment
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { count: remainingCount } = await (supabase as any)
+
+        const { count: remainingCount } = await supabase
           .from('payment_plan_installments')
           .select('id', { count: 'exact', head: true })
           .eq('enrollment_id', enrollmentId)
           .eq('status', 'pending')
 
         if (remainingCount === 0) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (supabase as any)
+
+          await supabase
             .from('payment_plan_enrollments')
             .update({ status: 'completed' })
             .eq('id', enrollmentId)
@@ -385,15 +385,15 @@ export async function POST(request: NextRequest) {
         const orderIds = rawMerchOrderIds.split(',').filter(Boolean)
         if (orderIds.length > 0) {
           // Find the payment record we just updated to get its id
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: paymentRecord } = await (supabase as any)
+
+          const { data: paymentRecord } = await supabase
             .from('payments')
             .select('id')
             .eq('stripe_checkout_session_id', session.id)
             .single()
 
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (supabase as any)
+
+          await supabase
             .from('merchandise_orders')
             .update({
               status: 'paid',
@@ -412,9 +412,9 @@ export async function POST(request: NextRequest) {
 
       const [{ data: profile }, { data: league }, { data: org }, { data: reg }] = await Promise.all([
         supabase.from('profiles').select('full_name, email').eq('id', userId).single(),
-        (supabase as any).from('leagues').select('id, name, slug, sport, event_type, checkin_enabled, payment_mode, price_cents, currency, calendar_token, season_start_date, game_start_time, game_end_time, days_of_week, venue_name, venue_address, venue_maps_url').eq('id', leagueId ?? '').single(),
+        supabase.from('leagues').select('id, name, slug, sport, event_type, checkin_enabled, payment_mode, price_cents, currency, calendar_token, season_start_date, game_start_time, game_end_time, days_of_week, venue_name, venue_address, venue_maps_url').eq('id', leagueId ?? '').single(),
         supabase.from('organizations').select('name, slug').eq('id', orgId).single(),
-        (supabase as any).from('registrations').select('user_id, checkin_token, session_id').eq('id', registrationId).single(),
+        supabase.from('registrations').select('user_id, checkin_token, session_id').eq('id', registrationId).single(),
       ])
 
       if (profile?.email && league?.name) {
@@ -517,8 +517,8 @@ export async function POST(request: NextRequest) {
             const leagueCurrency = (league as { currency?: string } | null)?.currency ?? 'cad'
 
             // Upsert team payment record so the team page shows payment as complete
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data: existingTeamPay } = await (supabase as any)
+
+            const { data: existingTeamPay } = await supabase
               .from('payments')
               .select('id, status')
               .eq('team_id', captainTeamId)
@@ -533,8 +533,8 @@ export async function POST(request: NextRequest) {
                 stripe_payment_intent_id: session.payment_intent as string,
               }).eq('id', existingTeamPay.id)
             } else if (!existingTeamPay) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              await (supabase as any).from('payments').insert({
+
+              await supabase.from('payments').insert({
                 organization_id: orgId,
                 team_id: captainTeamId,
                 league_id: leagueId,
@@ -580,8 +580,8 @@ export async function POST(request: NextRequest) {
       const orderIds = rawIds?.split(',').filter(Boolean) ?? []
       if (orderIds.length > 0) {
         // Fetch the pending orders so we know which variants to restore
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: pendingOrders } = await (supabase as any)
+
+        const { data: pendingOrders } = await supabase
           .from('merchandise_orders')
           .select('id, variant_id, quantity')
           .in('id', orderIds)
@@ -590,16 +590,16 @@ export async function POST(request: NextRequest) {
         // Restore stock: for each variant, re-read current qty and add back
         for (const order of (pendingOrders ?? []) as { id: string; variant_id: string | null; quantity: number }[]) {
           if (!order.variant_id) continue
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: variant } = await (supabase as any)
+
+          const { data: variant } = await supabase
             .from('merchandise_variants')
             .select('stock_quantity')
             .eq('id', order.variant_id)
             .single()
 
           if (variant && variant.stock_quantity !== null) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (supabase as any)
+
+            await supabase
               .from('merchandise_variants')
               .update({ stock_quantity: variant.stock_quantity + order.quantity })
               .eq('id', order.variant_id)
@@ -607,8 +607,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Delete the abandoned pending orders (they were never paid)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any)
+
+        await supabase
           .from('merchandise_orders')
           .delete()
           .in('id', orderIds)
@@ -639,8 +639,8 @@ export async function POST(request: NextRequest) {
         ? supabase.from('profiles').select('full_name, email').eq('id', userId).single()
         : Promise.resolve({ data: null }),
       supabase.from('organizations').select('name').eq('id', failOrgId ?? '').single(),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any)
+
+      supabase
         .from('org_members')
         .select('user_id, profile:profiles!org_members_user_id_fkey(email, full_name)')
         .eq('organization_id', failOrgId ?? '')
@@ -661,8 +661,8 @@ export async function POST(request: NextRequest) {
     // Notify org admins — in-app + email. Never let this break the webhook.
     try {
       // Respect the per-org toggle (default on when no settings row exists).
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: notifSettings } = await (supabase as any)
+
+      const { data: notifSettings } = await supabase
         .from('org_notification_settings')
         .select('payment_failure_notifications_enabled')
         .eq('organization_id', failOrgId ?? '')
@@ -684,8 +684,8 @@ export async function POST(request: NextRequest) {
           data: { leagueId: leagueId ?? null, registrationId: registrationId ?? null, userId: userId ?? null },
         }))
       if (notifRows.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any).from('notifications').insert(notifRows)
+
+        await supabase.from('notifications').insert(notifRows)
       }
 
       const adminEmails = adminRows.flatMap((a) => {

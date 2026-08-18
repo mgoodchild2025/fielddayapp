@@ -54,8 +54,8 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
   }
 
   // ── League status + capacity check ──────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: leagueCap } = await (db as any)
+
+  const { data: leagueCap } = await db
     .from('leagues')
     .select('status, payment_mode, max_participants')
     .eq('id', parsed.data.leagueId)
@@ -72,16 +72,16 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
     if (sessionId) {
       // Session registration: the cap applies PER SESSION. Use the session's own
       // capacity when set, otherwise the event max as the per-session limit.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: sess } = await (db as any)
+
+      const { data: sess } = await db
         .from('event_sessions')
         .select('capacity')
         .eq('id', sessionId)
         .eq('organization_id', org.id)
         .maybeSingle()
       const cap = sess?.capacity ?? leagueCap.max_participants
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { count } = await (db as any)
+
+      const { count } = await db
         .from('registrations')
         .select('*', { count: 'exact', head: true })
         .eq('league_id', parsed.data.leagueId)
@@ -107,8 +107,8 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
 
   // Check for existing registration (skip dedup for drop-in — each invite creates a fresh reg)
   if (parsed.data.registration_type === 'season') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing } = await (db as any)
+
+    const { data: existing } = await db
       .from('registrations')
       .select('id, status')
       .eq('organization_id', org.id)
@@ -163,14 +163,14 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
 
     // Privacy policy (required) — link to the current published 'privacy' version
     if (c.privacyAccepted) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: privDoc } = await (db as any)
+
+      const { data: privDoc } = await db
         .from('legal_documents').select('id, slug').eq('slug', 'privacy-policy').maybeSingle()
       let legalVersionId: string | null = null
       let versionLabel: string | null = null
       if (privDoc) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: ver } = await (db as any)
+
+        const { data: ver } = await db
           .from('legal_document_versions')
           .select('id, version')
           .eq('document_id', privDoc.id)
@@ -183,8 +183,8 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
       // (existing players only re-consent when the policy changes).
       let alreadyOnFile = false
       if (legalVersionId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: existingConsent } = await (db as any)
+
+        const { data: existingConsent } = await db
           .from('player_consents')
           .select('id')
           .eq('organization_id', org.id)
@@ -270,8 +270,8 @@ export async function moveRegistrationToSession(input: z.infer<typeof moveRegist
     .eq('organization_id', org.id).eq('user_id', user.id).single()
   if (!caller || !['org_admin', 'league_admin'].includes(caller.role)) return { error: 'Unauthorized' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reg } = await (db as any)
+
+  const { data: reg } = await db
     .from('registrations')
     .select('id, user_id, session_id')
     .eq('id', parsed.data.registrationId)
@@ -281,8 +281,8 @@ export async function moveRegistrationToSession(input: z.infer<typeof moveRegist
   if (!reg) return { error: 'Registration not found' }
   if (reg.session_id === parsed.data.sessionId) return { error: null } // already there
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: session } = await (db as any)
+
+  const { data: session } = await db
     .from('event_sessions')
     .select('id, capacity')
     .eq('id', parsed.data.sessionId)
@@ -293,8 +293,8 @@ export async function moveRegistrationToSession(input: z.infer<typeof moveRegist
 
   // Don't move into a session the player is already in.
   if (reg.user_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing } = await (db as any)
+
+    const { data: existing } = await db
       .from('registrations').select('id')
       .eq('league_id', parsed.data.leagueId)
       .eq('user_id', reg.user_id)
@@ -307,15 +307,15 @@ export async function moveRegistrationToSession(input: z.infer<typeof moveRegist
 
   // Capacity check on the target session.
   if (session.capacity != null) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { count } = await (db as any)
+
+    const { count } = await db
       .from('registrations').select('id', { count: 'exact', head: true })
       .eq('session_id', parsed.data.sessionId).eq('status', 'active')
     if ((count ?? 0) >= session.capacity) return { error: 'That session is full.' }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('registrations')
     .update({ session_id: parsed.data.sessionId })
     .eq('id', reg.id)
@@ -334,8 +334,8 @@ export async function removeRegistration(registrationId: string, leagueId: strin
   const db = createServiceRoleClient()
 
   // Fetch the registration to get the user_id before deleting
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reg, error: fetchError } = await (db as any)
+
+  const { data: reg, error: fetchError } = await db
     .from('registrations')
     .select('user_id, profiles:profiles!registrations_user_id_fkey(full_name, email)')
     .eq('id', registrationId)
@@ -351,7 +351,7 @@ export async function removeRegistration(registrationId: string, leagueId: strin
     .eq('league_id', leagueId)
     .eq('organization_id', org.id)
 
-  if (teams && teams.length > 0) {
+  if (teams && teams.length > 0 && reg.user_id) { // guests have no team memberships
     const teamIds = teams.map(t => t.id)
     await db
       .from('team_members')
@@ -402,8 +402,8 @@ export async function activateRegistration(registrationId: string) {
   const supabase = await createServerClient()
   const db2 = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reg, error: fetchError } = await (db2 as any)
+
+  const { data: reg, error: fetchError } = await db2
     .from('registrations')
     .select('*, checkin_token, profiles!registrations_user_id_fkey(full_name, email), leagues!registrations_league_id_fkey(id, name, slug, sport, event_type, checkin_enabled, calendar_token, price_cents, drop_in_price_cents, payment_mode, season_start_date, game_start_time, game_end_time, days_of_week, venue_name, venue_address, venue_maps_url)')
     .eq('id', registrationId)
@@ -497,8 +497,8 @@ export async function activateRegistration(registrationId: string) {
   if (isFreeLeague) {
     try {
       const service = createServiceRoleClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: notifSettings } = await (service as any)
+
+      const { data: notifSettings } = await service
         .from('org_notification_settings')
         .select('registration_notifications_enabled, registration_notification_email')
         .eq('organization_id', org.id)
@@ -605,8 +605,8 @@ export async function adminAddRegistrant(input: z.infer<typeof adminAddRegistran
     .eq('organization_id', org.id).eq('user_id', user.id).single()
   if (!caller || !['org_admin', 'league_admin'].includes(caller.role)) return { error: 'Unauthorized' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues').select('id, name').eq('id', parsed.data.leagueId).eq('organization_id', org.id).maybeSingle()
   if (!league) return { error: 'Event not found' }
 
@@ -639,8 +639,8 @@ export async function adminAddRegistrant(input: z.infer<typeof adminAddRegistran
 
     // Duplicate check is scope-aware: a specific-session add only conflicts with
     // the same session; a full-pass add conflicts with an existing full pass.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let dupeQuery = (db as any)
+
+    let dupeQuery = db
       .from('registrations').select('id')
       .eq('league_id', parsed.data.leagueId).eq('user_id', registrantUserId)
     if (parsed.data.sessionId) {
@@ -658,8 +658,8 @@ export async function adminAddRegistrant(input: z.infer<typeof adminAddRegistran
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reg, error: regErr } = await (db as any)
+
+  const { data: reg, error: regErr } = await db
     .from('registrations')
     .insert({
       organization_id: org.id,
@@ -679,8 +679,8 @@ export async function adminAddRegistrant(input: z.infer<typeof adminAddRegistran
   if (regErr || !reg) return { error: regErr?.message ?? 'Could not create the registration' }
 
   if (parsed.data.amountCents > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: payErr } = await (db as any).from('payments').insert({
+
+    const { error: payErr } = await db.from('payments').insert({
       organization_id: org.id,
       registration_id: reg.id,
       user_id: registrantUserId,
@@ -764,8 +764,8 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
 
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues')
     .select('id, name, slug, status, event_type, league_type, pickup_join_policy, drop_in_price_cents, price_cents, currency')
     .eq('id', parsed.data.leagueId)
@@ -785,8 +785,8 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
     if (!parsed.data.inviteToken) {
       return { error: 'This event is invite only.', registrationId: null, needsPayment: false, slug: null }
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: inviteRow } = await (db as any)
+
+    const { data: inviteRow } = await db
       .from('pickup_invites')
       .select('id, email')
       .eq('organization_id', org.id)
@@ -806,8 +806,8 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
 
   const priceCents: number = league.drop_in_price_cents ?? league.price_cents ?? 0
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: settings } = await (db as any)
+
+  const { data: settings } = await db
     .from('org_payment_settings')
     .select('stripe_secret_key, registration_payment_mode')
     .eq('organization_id', org.id)
@@ -827,8 +827,8 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
 
   if (registrantUserId) {
     // Avoid a duplicate drop-in row for the same session.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const dupeQuery = (db as any)
+
+    const dupeQuery = db
       .from('registrations').select('id, status')
       .eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', registrantUserId)
       .eq('registration_type', 'drop_in')
@@ -839,8 +839,8 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reg, error: regErr } = await (db as any)
+
+  const { data: reg, error: regErr } = await db
     .from('registrations')
     .insert({
       organization_id: org.id,
@@ -861,8 +861,8 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
   // Pay-at-the-venue (no online payment available, but there's a fee): record a
   // pending payment so the organizer can see the amount owed and reconcile it.
   if (!needsOnlinePayment && priceCents > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('payments').insert({
+
+    await db.from('payments').insert({
       organization_id: org.id,
       registration_id: reg.id,
       user_id: registrantUserId,
@@ -879,8 +879,8 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
   // For online-paid events the registration is still 'pending', so leave the invite
   // usable until payment completes rather than burning it on an abandoned checkout.
   if (acceptedInviteId && !needsOnlinePayment) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('pickup_invites').update({ status: 'accepted' }).eq('id', acceptedInviteId)
+
+    await db.from('pickup_invites').update({ status: 'accepted' }).eq('id', acceptedInviteId)
   }
 
   return { error: null, registrationId: reg.id as string, needsPayment: needsOnlinePayment, slug: league.slug as string, priceCents }
@@ -911,8 +911,8 @@ export async function claimGuestRegistration(input: z.infer<typeof claimGuestSch
 
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reg } = await (db as any)
+
+  const { data: reg } = await db
     .from('registrations')
     .select('id, user_id, guest_name, guest_email, guest_phone')
     .eq('id', parsed.data.registrationId)
@@ -937,15 +937,15 @@ export async function claimGuestRegistration(input: z.infer<typeof claimGuestSch
   const newUserId = created.user.id
 
   await db.from('profiles').update({
-    full_name: reg.guest_name ?? null,
+    full_name: reg.guest_name ?? '', // profiles.full_name is NOT NULL
     phone: reg.guest_phone ? toE164(reg.guest_phone) : null,
   }).eq('id', newUserId)
 
   await ensureOrgMembership(db, org.id, newUserId, email)
 
   // Move the registration onto the account and clear the inline guest fields.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('registrations').update({
+
+  await db.from('registrations').update({
     user_id: newUserId,
     guest_name: null,
     guest_email: null,
@@ -953,13 +953,13 @@ export async function claimGuestRegistration(input: z.infer<typeof claimGuestSch
   }).eq('id', reg.id).eq('organization_id', org.id)
 
   // Re-home any guest waiver signatures for this email so they appear in account history.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('waiver_signatures').update({ user_id: newUserId, guest_name: null, guest_email: null })
+
+  await db.from('waiver_signatures').update({ user_id: newUserId, guest_name: null, guest_email: null })
     .eq('organization_id', org.id).is('user_id', null).ilike('guest_email', email)
 
   // Attach any other paid guest payments for this registration to the account.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('payments').update({ user_id: newUserId })
+
+  await db.from('payments').update({ user_id: newUserId })
     .eq('organization_id', org.id).eq('registration_id', reg.id).is('user_id', null)
 
   return { error: null, email }

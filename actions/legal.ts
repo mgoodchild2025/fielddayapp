@@ -41,8 +41,8 @@ export interface LegalDocumentVersion {
 
 export async function listPublishedDocuments(): Promise<LegalDocument[]> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+
+  const { data, error } = await db
     .from('legal_documents')
     .select('*')
     .eq('is_published', true)
@@ -54,8 +54,8 @@ export async function listPublishedDocuments(): Promise<LegalDocument[]> {
 
 export async function getPublishedDocument(slug: string): Promise<LegalDocument | null> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('legal_documents')
     .select('*')
     .eq('slug', slug)
@@ -70,8 +70,8 @@ export async function getPublishedDocument(slug: string): Promise<LegalDocument 
 export async function listAllDocuments(): Promise<LegalDocument[]> {
   await requirePlatformAdmin()
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+
+  const { data, error } = await db
     .from('legal_documents')
     .select('*')
     .order('title')
@@ -83,8 +83,8 @@ export async function listAllDocuments(): Promise<LegalDocument[]> {
 export async function getDocument(slug: string): Promise<LegalDocument | null> {
   await requirePlatformAdmin()
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('legal_documents')
     .select('*')
     .eq('slug', slug)
@@ -98,8 +98,8 @@ export async function getVersionHistory(slug: string): Promise<LegalDocumentVers
   const db = createServiceRoleClient()
 
   // Get document id first
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: doc } = await (db as any)
+
+  const { data: doc } = await db
     .from('legal_documents')
     .select('id')
     .eq('slug', slug)
@@ -107,8 +107,8 @@ export async function getVersionHistory(slug: string): Promise<LegalDocumentVers
 
   if (!doc) return []
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('legal_document_versions')
     .select(`
       *,
@@ -117,7 +117,7 @@ export async function getVersionHistory(slug: string): Promise<LegalDocumentVers
     .eq('document_id', (doc as { id: string }).id)
     .order('published_at', { ascending: false })
 
-  return ((data ?? []) as Array<LegalDocumentVersion & { publisher?: { email: string } | null }>).map((v) => ({
+  return ((data ?? []) as unknown as Array<LegalDocumentVersion & { publisher?: { email: string } | null }>).map((v) => ({
     ...v,
     published_by_email: v.publisher?.email ?? null,
   }))
@@ -133,8 +133,8 @@ export async function saveDraft(
     await requirePlatformAdmin()
     const db = createServiceRoleClient()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any)
+
+    const { error } = await db
       .from('legal_documents')
       .update({ content })
       .eq('slug', slug)
@@ -162,8 +162,8 @@ export async function publishDocument(
     const { userId } = await requirePlatformAdmin()
     const db = createServiceRoleClient()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: doc } = await (db as any)
+
+    const { data: doc } = await db
       .from('legal_documents')
       .select('id, content')
       .eq('slug', slug)
@@ -174,8 +174,8 @@ export async function publishDocument(
     const docTyped = doc as { id: string; content: string }
 
     // Insert immutable version snapshot
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: vErr } = await (db as any)
+
+    const { error: vErr } = await db
       .from('legal_document_versions')
       .insert({
         document_id: docTyped.id,
@@ -191,8 +191,8 @@ export async function publishDocument(
     if (vErr) return { error: vErr.message }
 
     // Update the live document
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: dErr } = await (db as any)
+
+    const { error: dErr } = await db
       .from('legal_documents')
       .update({
         is_published: true,
@@ -226,8 +226,8 @@ export async function unpublishDocument(slug: string): Promise<{ error: string |
     await requirePlatformAdmin()
     const db = createServiceRoleClient()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any)
+
+    const { error } = await db
       .from('legal_documents')
       .update({ is_published: false })
       .eq('slug', slug)

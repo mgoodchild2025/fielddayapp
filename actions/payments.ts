@@ -43,8 +43,8 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
   // (not registration_id). selectOfflineTeamPayment creates a row with
   // payment_type = 'team' and team_id set, but registration_id = NULL.
   // The standard lookup below would miss it, so we handle it first.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: leagueRow } = await (db as any)
+
+  const { data: leagueRow } = await db
     .from('leagues')
     .select('payment_mode')
     .eq('id', parsed.data.leagueId)
@@ -53,8 +53,8 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
 
   if (leagueRow?.payment_mode === 'per_team') {
     // Resolve which team this user belongs to in this league
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: leagueTeams } = await (db as any)
+
+    const { data: leagueTeams } = await db
       .from('teams')
       .select('id')
       .eq('league_id', parsed.data.leagueId)
@@ -63,8 +63,8 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
 
     let teamId: string | null = null
     if (leagueTeamIds.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: teamMember } = await (db as any)
+
+      const { data: teamMember } = await db
         .from('team_members')
         .select('team_id')
         .eq('user_id', parsed.data.userId)
@@ -76,8 +76,8 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
 
     if (teamId) {
       // Find the pending team payment row created by selectOfflineTeamPayment
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: existingTeamPayment } = await (db as any)
+
+      const { data: existingTeamPayment } = await db
         .from('payments')
         .select('id')
         .eq('team_id', teamId)
@@ -88,8 +88,8 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
         .maybeSingle()
 
       if (existingTeamPayment) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (db as any)
+
+        const { error } = await db
           .from('payments')
           .update(paidFields)
           .eq('id', existingTeamPayment.id)
@@ -97,8 +97,8 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
       } else {
         // No pending team payment row exists yet — admin is recording a manual
         // cash payment without a prior selectOfflineTeamPayment call; create one.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (db as any).from('payments').insert({
+
+        const { error } = await db.from('payments').insert({
           organization_id: org.id,
           team_id: teamId,
           league_id: parsed.data.leagueId,
@@ -109,18 +109,18 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
       }
 
       // Activate all active team members' registrations in case any are still pending
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: members } = await (db as any)
+
+      const { data: members } = await db
         .from('team_members')
         .select('user_id')
         .eq('team_id', teamId)
         .eq('status', 'active')
       const memberUserIds: string[] = (members ?? [])
-        .map((m: { user_id: string }) => m.user_id)
-        .filter(Boolean)
+        .map((m) => m.user_id)
+        .filter((id): id is string => !!id)
       if (memberUserIds.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (db as any)
+
+        await db
           .from('registrations')
           .update({ status: 'active' })
           .eq('league_id', parsed.data.leagueId)
@@ -156,8 +156,8 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
 
   // Reconcile an existing pending payment (e.g. an offline method the player
   // chose at checkout) instead of inserting a duplicate.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (db as any)
+
+  const { data: existing } = await db
     .from('payments')
     .select('id')
     .eq('registration_id', parsed.data.registrationId)
@@ -168,12 +168,12 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
     .maybeSingle()
 
   if (existing) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any).from('payments').update(paidFields).eq('id', existing.id)
+
+    const { error } = await db.from('payments').update(paidFields).eq('id', existing.id)
     if (error) return { data: null, error: error.message }
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any).from('payments').insert({
+
+    const { error } = await db.from('payments').insert({
       organization_id: org.id,
       registration_id: parsed.data.registrationId,
       user_id: parsed.data.userId,
@@ -238,16 +238,16 @@ export async function selectOfflinePayment(
   const db = createServiceRoleClient()
 
   const [{ data: reg }, { data: league }, { data: orgPay }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('registrations')
+
+    db.from('registrations')
       .select('id, user_id, organization_id, league_id, status')
       .eq('id', parsed.data.registrationId).maybeSingle(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues')
+
+    db.from('leagues')
       .select('id, name, price_cents, currency, payment_methods, payment_instructions')
       .eq('id', parsed.data.leagueId).eq('organization_id', org.id).maybeSingle(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_payment_settings')
+
+    db.from('org_payment_settings')
       .select('stripe_secret_key, registration_payment_mode, registration_manual_instructions')
       .eq('organization_id', org.id).maybeSingle(),
   ])
@@ -275,8 +275,8 @@ export async function selectOfflinePayment(
 
   // Record a pending payment (skip when free) — reuse any existing row.
   if (amountCents > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing } = await (db as any)
+
+    const { data: existing } = await db
       .from('payments')
       .select('id, status, payment_method')
       .eq('registration_id', reg.id)
@@ -286,8 +286,8 @@ export async function selectOfflinePayment(
       .maybeSingle()
 
     if (!existing) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('payments').insert({
+
+      await db.from('payments').insert({
         organization_id: org.id,
         registration_id: reg.id,
         user_id: user.id,
@@ -301,8 +301,8 @@ export async function selectOfflinePayment(
       })
       shouldNotify = true
     } else if (existing.status !== 'paid') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('payments')
+
+      await db.from('payments')
         .update({
           payment_method: method, amount_cents: amountCents, currency, status: 'pending',
           discount_code_id: parsed.data.discountId ?? null,
@@ -364,20 +364,20 @@ export async function selectOfflineTeamPayment(
   const db = createServiceRoleClient()
 
   const [{ data: team }, { data: league }, { data: orgPay }, { data: membership }, { data: orgMember }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('teams').select('id, organization_id, league_id').eq('id', parsed.data.teamId).maybeSingle(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('id, name, price_cents, currency, payment_methods, payment_instructions')
+
+    db.from('teams').select('id, organization_id, league_id').eq('id', parsed.data.teamId).maybeSingle(),
+
+    db.from('leagues').select('id, name, price_cents, currency, payment_methods, payment_instructions')
       .eq('id', parsed.data.leagueId).eq('organization_id', org.id).maybeSingle(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_payment_settings')
+
+    db.from('org_payment_settings')
       .select('stripe_secret_key, registration_payment_mode, registration_manual_instructions')
       .eq('organization_id', org.id).maybeSingle(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('team_members').select('role')
+
+    db.from('team_members').select('role')
       .eq('team_id', parsed.data.teamId).eq('user_id', user.id).eq('status', 'active').maybeSingle(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).maybeSingle(),
+
+    db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).maybeSingle(),
   ])
 
   if (!team || team.organization_id !== org.id || !league) {
@@ -401,8 +401,8 @@ export async function selectOfflineTeamPayment(
 
   // Pending team payment (reuse existing team payment row if present).
   if (amountCents > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing } = await (db as any)
+
+    const { data: existing } = await db
       .from('payments')
       .select('id, status')
       .eq('team_id', parsed.data.teamId)
@@ -411,8 +411,8 @@ export async function selectOfflineTeamPayment(
       .maybeSingle()
 
     if (!existing) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('payments').insert({
+
+      await db.from('payments').insert({
         organization_id: org.id,
         team_id: parsed.data.teamId,
         league_id: league.id,
@@ -423,21 +423,21 @@ export async function selectOfflineTeamPayment(
         payment_method: method,
       })
     } else if (existing.status !== 'paid') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('payments')
+
+      await db.from('payments')
         .update({ payment_method: method, amount_cents: amountCents, currency, status: 'pending' })
         .eq('id', existing.id)
     }
   }
 
   // Reserve the team's spot: activate all active members' registrations.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: members } = await (db as any)
+
+  const { data: members } = await db
     .from('team_members').select('user_id').eq('team_id', parsed.data.teamId).eq('status', 'active')
-  const userIds = (members ?? []).map((m: { user_id: string }) => m.user_id).filter(Boolean)
+  const userIds = (members ?? []).map((m) => m.user_id).filter((id): id is string => !!id)
   if (userIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('registrations')
+
+    await db.from('registrations')
       .update({ status: 'active' })
       .eq('league_id', league.id)
       .in('user_id', userIds)
@@ -577,8 +577,8 @@ export async function adminUpdateRegistrationPayment(input: z.infer<typeof admin
     .eq('organization_id', org.id).eq('user_id', user.id).single()
   if (!caller || !['org_admin', 'league_admin'].includes(caller.role)) return { error: 'Unauthorized' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reg } = await (db as any)
+
+  const { data: reg } = await db
     .from('registrations')
     .select('id, user_id, league_id')
     .eq('id', parsed.data.registrationId)
@@ -595,8 +595,8 @@ export async function adminUpdateRegistrationPayment(input: z.infer<typeof admin
     paid_at: isPaid ? new Date().toISOString() : null,
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (db as any)
+
+  const { data: existing } = await db
     .from('payments')
     .select('id')
     .eq('registration_id', parsed.data.registrationId)
@@ -606,12 +606,12 @@ export async function adminUpdateRegistrationPayment(input: z.infer<typeof admin
     .maybeSingle()
 
   if (existing) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any).from('payments').update(fields).eq('id', existing.id)
+
+    const { error } = await db.from('payments').update(fields).eq('id', existing.id)
     if (error) return { error: error.message }
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any).from('payments').insert({
+
+    const { error } = await db.from('payments').insert({
       organization_id: org.id,
       registration_id: parsed.data.registrationId,
       user_id: reg.user_id,   // may be null for guest registrations

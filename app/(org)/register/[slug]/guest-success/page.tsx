@@ -22,18 +22,18 @@ export default async function GuestRegistrationSuccessPage({
   const db = createServiceRoleClient()
 
   const [{ data: branding }, { data: league }, { data: paySettings }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('id, name, sport, season_start_date, currency, payment_instructions').eq('organization_id', org.id).eq('slug', slug).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_payment_settings').select('registration_manual_instructions').eq('organization_id', org.id).maybeSingle(),
+
+    db.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
+
+    db.from('leagues').select('id, name, sport, season_start_date, currency, payment_instructions').eq('organization_id', org.id).eq('slug', slug).single(),
+
+    db.from('org_payment_settings').select('registration_manual_instructions').eq('organization_id', org.id).maybeSingle(),
   ])
 
   // Load the guest registration.
 
   const { data: registration } = regId
-    ? await (db as any)
+    ? await db
         .from('registrations')
         .select('id, status, user_id, guest_email')
         .eq('id', regId)
@@ -45,13 +45,13 @@ export default async function GuestRegistrationSuccessPage({
   // the payment directly so the registration doesn't sit "pending".
   let status: string | null = registration?.status ?? null
   if (sessionId && registration && registration.status !== 'active') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: pay } = await (db as any)
+
+    const { data: pay } = await db
       .from('payments').select('id, status').eq('organization_id', org.id)
       .eq('stripe_checkout_session_id', sessionId).maybeSingle()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: ps } = await (db as any)
+
+    const { data: ps } = await db
       .from('org_payment_settings').select('stripe_secret_key').eq('organization_id', org.id).maybeSingle()
 
     if (pay && ps?.stripe_secret_key) {
@@ -63,14 +63,14 @@ export default async function GuestRegistrationSuccessPage({
         if (checkout.payment_status === 'paid') {
           const nowIso = new Date().toISOString()
           if (pay.status !== 'paid') {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (db as any).from('payments').update({
+
+            await db.from('payments').update({
               status: 'paid', paid_at: nowIso,
               stripe_payment_intent_id: (checkout.payment_intent as string) ?? null,
             }).eq('id', pay.id)
           }
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (db as any).from('registrations').update({ status: 'active' }).eq('id', registration.id)
+
+          await db.from('registrations').update({ status: 'active' }).eq('id', registration.id)
           status = 'active'
         }
       } catch (err) {
@@ -96,8 +96,8 @@ export default async function GuestRegistrationSuccessPage({
   // i.e. there's no online payment, so the player owes the organizer at the venue.
   let amountDueCents = 0
   if (registration && status === 'active') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: pendingPay } = await (db as any)
+
+    const { data: pendingPay } = await db
       .from('payments').select('amount_cents')
       .eq('registration_id', registration.id).eq('organization_id', org.id).eq('status', 'pending')
       .order('created_at', { ascending: false }).limit(1).maybeSingle()
@@ -138,7 +138,7 @@ export default async function GuestRegistrationSuccessPage({
 
         {canClaim && !isPending && (
           <div className="mt-8">
-            <GuestAccountClaim registrationId={registration!.id} guestEmail={registration!.guest_email} />
+            <GuestAccountClaim registrationId={registration!.id} guestEmail={registration!.guest_email ?? ''} />
           </div>
         )}
 

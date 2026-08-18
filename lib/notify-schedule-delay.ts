@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { sendEmailBatch } from '@/lib/email'
 import { formatGameTime } from '@/lib/format-time'
+import type { TablesInsert } from '@/types/database'
 
 export interface DelayedEntry {
   teamIds: string[]      // home/away (or team1/team2) ids for this game/match
@@ -40,8 +41,8 @@ export async function notifyScheduleDelay(opts: {
   if (teamIds.length === 0) return
 
   // Fetch all members for the affected teams in one query
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: memberRows } = await (db as any)
+
+  const { data: memberRows } = await db
     .from('team_members')
     .select('team_id, user_id, profile:profiles!team_members_user_id_fkey(full_name, email)')
     .in('team_id', teamIds)
@@ -57,7 +58,7 @@ export async function notifyScheduleDelay(opts: {
   }
 
   const kindLabel = kind === 'match' ? 'matches' : 'games'
-  const notifications: Record<string, unknown>[] = []
+  const notifications: TablesInsert<'notifications'>[] = []
   const emails: { to: string; subject: string; html: string }[] = []
   const seenUser = new Set<string>()
 
@@ -105,8 +106,8 @@ export async function notifyScheduleDelay(opts: {
   }
 
   if (notifications.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('notifications').insert(notifications)
+
+    await db.from('notifications').insert(notifications)
   }
   if (emails.length > 0) {
     await sendEmailBatch(emails)

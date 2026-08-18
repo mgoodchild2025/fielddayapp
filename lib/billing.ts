@@ -68,12 +68,12 @@ async function _computeState(orgId: string): Promise<EnforcementState> {
   const [leagueLimit, playerLimit, { data: sub }] = await Promise.all([
     getLimit(orgId, 'max_leagues'),
     getLimit(orgId, 'max_players'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('subscriptions')
       .select('grace_ends_at')
       .eq('organization_id', orgId)
-      .single() as Promise<{ data: { grace_ends_at: string | null } | null }>,
+      .single(),
   ])
 
   const empty: EnforcementState = {
@@ -93,8 +93,8 @@ async function _computeState(orgId: string): Promise<EnforcementState> {
   // Fetch active league list + player count conditionally
   const [leagueResult, playerResult] = await Promise.all([
     leagueLimit !== null
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any)
+      ?
+        db
           .from('leagues')
           .select('id, created_at')
           .eq('organization_id', orgId)
@@ -123,8 +123,8 @@ async function _computeState(orgId: string): Promise<EnforcementState> {
   if (!overLimit) {
     // If there was an active grace period before, clear it (org came back into compliance)
     if (sub?.grace_ends_at) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any)
+
+      await db
         .from('subscriptions')
         .update({ grace_ends_at: null })
         .eq('organization_id', orgId)
@@ -138,8 +138,8 @@ async function _computeState(orgId: string): Promise<EnforcementState> {
   if (!graceEndsAt) {
     // First time over-limit: start the 14-day grace window
     graceEndsAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any)
+
+    await db
       .from('subscriptions')
       .update({ grace_ends_at: graceEndsAt.toISOString() })
       .eq('organization_id', orgId)

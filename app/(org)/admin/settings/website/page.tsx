@@ -12,21 +12,21 @@ export default async function WebsiteSettingsPage() {
   const db = createServiceRoleClient()
 
   const [{ data: branding }, { data: siteContentRows }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('org_branding')
       .select('site_theme')
       .eq('organization_id', org.id)
       .single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('org_site_content')
       .select('section_key, content')
       .eq('organization_id', org.id),
   ])
 
   const contentMap = new Map<string, Record<string, unknown>>(
-    (siteContentRows ?? []).map((r: { section_key: string; content: Record<string, unknown> }) => [r.section_key, r.content])
+    (siteContentRows ?? []).map((r) => [r.section_key, (r.content ?? {}) as Record<string, unknown>])
   )
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -44,8 +44,8 @@ export async function POST(request: NextRequest) {
     const [{ data: league }, { data: team }, { data: paymentSettings }] = await Promise.all([
       db.from('leagues').select('name, price_cents, currency, max_teams').eq('id', leagueId).single(),
       db.from('teams').select('name').eq('id', teamId).single(),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', orgId).single(),
+
+      db.from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', orgId).single(),
     ])
 
     if (!league) return NextResponse.json({ error: 'League not found' }, { status: 404 })
@@ -55,8 +55,8 @@ export async function POST(request: NextRequest) {
     let teamPriceCents: number = league.price_cents
     let teamDiscountApplied: { id: string } | null = null
     if (teamDiscountId && teamPriceCents > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: dr } = await (db as any)
+
+      const { data: dr } = await db
         .from('discount_codes')
         .select('id, type, value, active, expires_at, max_uses, use_count, applies_to')
         .eq('id', teamDiscountId).eq('organization_id', orgId).single()
@@ -79,8 +79,8 @@ export async function POST(request: NextRequest) {
     if (isManual) {
       const instructions = paymentSettings?.registration_manual_instructions ?? null
       if (teamDiscountApplied) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (db as any).rpc('increment_discount_use', { discount_id: teamDiscountApplied.id })
+
+        await db.rpc('increment_discount_use', { discount_id: teamDiscountApplied.id })
       }
       return NextResponse.json({ manual: true, instructions })
     }
@@ -101,8 +101,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Prevent duplicate payment
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing } = await (db as any)
+
+    const { data: existing } = await db
       .from('payments')
       .select('id, status')
       .eq('team_id', teamId)
@@ -114,7 +114,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'This team has already paid.' }, { status: 409 })
     }
 
-    const orgStripe = new Stripe(paymentSettings.stripe_secret_key, {
+    // Non-null: the isManual early-return above covers the missing-key case.
+    const orgStripe = new Stripe(paymentSettings.stripe_secret_key as string, {
       apiVersion: '2026-05-27.dahlia' as const,
       typescript: true,
     })
@@ -145,8 +146,8 @@ export async function POST(request: NextRequest) {
 
     // Upsert — if a pending payment already exists, replace it
     if (existing) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any)
+
+      await db
         .from('payments')
         .update({
           stripe_checkout_session_id: session.id,
@@ -155,8 +156,8 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', existing.id)
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any)
+
+      await db
         .from('payments')
         .insert({
           organization_id: orgId,
@@ -171,8 +172,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (teamDiscountApplied) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).rpc('increment_discount_use', { discount_id: teamDiscountApplied.id })
+
+      await db.rpc('increment_discount_use', { discount_id: teamDiscountApplied.id })
     }
 
     return NextResponse.json({ url: session.url })
@@ -244,8 +245,8 @@ export async function POST(request: NextRequest) {
   // Apply discount server-side (re-validate to prevent price tampering)
   let discountApplied: { id: string; type: string; value: number; cents: number } | null = null
   if (discountId && priceCents > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: discountRow } = await (db2 as any)
+
+    const { data: discountRow } = await db2
       .from('discount_codes')
       .select('id, type, value, active, expires_at, max_uses, use_count, applies_to')
       .eq('id', discountId)
@@ -274,8 +275,8 @@ export async function POST(request: NextRequest) {
     // The 'manual' payment record lets the resume logic detect the captain/player
     // already acknowledged payment — preventing the payment step from re-appearing.
     // Only insert if no completed payment record exists yet.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existingCompletedPayment } = await (db as any)
+
+    const { data: existingCompletedPayment } = await db
       .from('payments')
       .select('id')
       .eq('registration_id', registrationId)
@@ -286,8 +287,8 @@ export async function POST(request: NextRequest) {
     await Promise.all([
       db.from('registrations').update({ status: 'active' }).eq('id', registrationId),
       ...(!existingCompletedPayment ? [
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).from('payments').insert({
+
+        db.from('payments').insert({
           organization_id: orgId,
           registration_id: registrationId,
           user_id: userId,
@@ -322,15 +323,15 @@ export async function POST(request: NextRequest) {
     const variantIds = merchSelections.map((s) => s.variantId).filter(Boolean) as string[]
 
     const [{ data: merchItems }, { data: merchVariants }, { data: leagueMerchRows }] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('merchandise_items').select('id, price_cents, name, is_active').in('id', itemIds),
+
+      db.from('merchandise_items').select('id, price_cents, name, is_active').in('id', itemIds),
       variantIds.length > 0
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ? (db as any).from('merchandise_variants').select('id, item_id, label, stock_quantity').in('id', variantIds)
+
+        ? db.from('merchandise_variants').select('id, item_id, label, stock_quantity').in('id', variantIds)
         : Promise.resolve({ data: [] }),
       // Fetch price overrides for this league
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('league_merchandise')
+
+      db.from('league_merchandise')
         .select('item_id, price_override_cents')
         .eq('league_id', leagueId)
         .in('item_id', itemIds),
@@ -395,8 +396,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (orderRows.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: insertedOrders } = await (db as any)
+
+      const { data: insertedOrders } = await db
         .from('merchandise_orders')
         .insert(orderRows)
         .select('id')
@@ -417,14 +418,14 @@ export async function POST(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const merchTotalCents = merch_line_items.reduce((s: number, li: any) => s + (li.price_data.unit_amount * (li.quantity ?? 1)), 0)
   if (priceCents === 0 && merchTotalCents === 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existingPaid } = await (db as any)
+
+    const { data: existingPaid } = await db
       .from('payments').select('id').eq('registration_id', registrationId).in('status', ['paid', 'manual']).limit(1).maybeSingle()
     await Promise.all([
       db.from('registrations').update({ status: 'active' }).eq('id', registrationId),
       ...(!existingPaid ? [
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).from('payments').insert({
+
+        db.from('payments').insert({
           organization_id: orgId,
           registration_id: registrationId,
           user_id: userId,
@@ -453,8 +454,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate plan belongs to this org + league and is enabled
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: plan } = await (db as any)
+
+    const { data: plan } = await db
       .from('payment_plans')
       .select('id, name, installments, enabled')
       .eq('id', planId)
@@ -478,8 +479,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch the first instalment
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: firstInstalment } = await (db as any)
+
+    const { data: firstInstalment } = await db
       .from('payment_plan_installments')
       .select('id, installment_number, amount_cents')
       .eq('enrollment_id', enrollResult.enrollmentId)
@@ -537,8 +538,8 @@ export async function POST(request: NextRequest) {
     })
 
     // Save session ID on the instalment for dedup
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any)
+
+    await db
       .from('payment_plan_installments')
       .update({ stripe_checkout_session_id: instSession.id })
       .eq('id', firstInstalment.id)
@@ -587,8 +588,8 @@ export async function POST(request: NextRequest) {
     cancel_url: `${origin}/register/${leagueSlug}`,
   })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('payments').insert({
+
+  await db.from('payments').insert({
     organization_id: orgId,
     registration_id: registrationId,
     user_id: userId,

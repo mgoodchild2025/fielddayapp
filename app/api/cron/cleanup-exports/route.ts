@@ -27,8 +27,8 @@ export async function GET(req: NextRequest) {
 
   try {
     // Find ready jobs past their expiry date
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: expiredJobs } = await (db as any)
+
+    const { data: expiredJobs } = await db
       .from('org_export_jobs')
       .select('id, storage_path, organization_id')
       .eq('status', 'ready')
@@ -47,8 +47,8 @@ export async function GET(req: NextRequest) {
         }
 
         // Mark as expired
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (db as any).from('org_export_jobs')
+
+        await db.from('org_export_jobs')
           .update({ status: 'expired', storage_path: null })
           .eq('id', job.id)
 
@@ -61,13 +61,12 @@ export async function GET(req: NextRequest) {
 
     // Also clean up failed jobs older than 30 days (housekeeping)
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { count } = await (db as any)
+
+    const { count } = await db
       .from('org_export_jobs')
-      .delete()
+      .delete({ count: 'exact' })
       .eq('status', 'failed')
       .lt('requested_at', thirtyDaysAgo)
-      .select('id', { count: 'exact', head: true })
 
     if ((count ?? 0) > 0) {
       results.push(`✓ pruned ${count} old failed jobs`)

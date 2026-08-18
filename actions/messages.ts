@@ -97,8 +97,8 @@ export async function sendAnnouncement(input: FormData) {
   if (parsed.data.scheduled_for) {
     const [datePart, timePart] = parsed.data.scheduled_for.split('T')
     if (datePart && timePart) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: branding } = await (db as any)
+
+      const { data: branding } = await db
         .from('org_branding')
         .select('timezone')
         .eq('organization_id', org.id)
@@ -111,8 +111,8 @@ export async function sendAnnouncement(input: FormData) {
   }
   const isImmediate = !scheduledFor || scheduledFor <= new Date()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: announcement, error } = await (db as any)
+
+  const { data: announcement, error } = await db
     .from('announcements')
     .insert({
       organization_id:    org.id,
@@ -137,8 +137,8 @@ export async function sendAnnouncement(input: FormData) {
   // Persist cc intent so the scheduled (cron) path can honour "send me a copy".
   // Best-effort: ignored if migration 169 (cc columns) isn't applied yet.
   if (announcement && (parsed.data.cc_self || parsed.data.cc_admins)) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('announcements')
+
+    await db.from('announcements')
       .update({ cc_self: parsed.data.cc_self, cc_admins: parsed.data.cc_admins })
       .eq('id', announcement.id)
       .then(() => {}, () => {})
@@ -228,8 +228,8 @@ async function deliverAnnouncement(
   if (data.audience_type === 'past_participants') {
     // Anyone who has registered for any of this org's events. CASL: commercial
     // sends are consent-gated below, so only marketing opt-ins are reached.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: regs } = await (service as any)
+
+    const { data: regs } = await service
       .from('registrations')
       .select('user_id')
       .eq('organization_id', orgId)
@@ -241,8 +241,8 @@ async function deliverAnnouncement(
     for (const id of optedIn) userIds.add(id)
 
   } else if (data.audience_type === 'event_interest' && data.league_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rows } = await (service as any)
+
+    const { data: rows } = await service
       .from('event_interest')
       .select('id, email, user_id')
       .eq('league_id', data.league_id)
@@ -254,8 +254,8 @@ async function deliverAnnouncement(
     }
 
   } else if (data.audience_type === 'org') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: members } = await (service as any)
+
+    const { data: members } = await service
       .from('org_members')
       .select('user_id')
       .eq('organization_id', orgId)
@@ -263,8 +263,8 @@ async function deliverAnnouncement(
     for (const m of members ?? []) if (m.user_id) userIds.add(m.user_id)
 
   } else if (data.audience_type === 'league' && data.league_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: regs } = await (service as any)
+
+    const { data: regs } = await service
       .from('registrations')
       .select('user_id')
       .eq('league_id', data.league_id)
@@ -273,8 +273,8 @@ async function deliverAnnouncement(
     for (const r of regs ?? []) if (r.user_id) userIds.add(r.user_id)
 
   } else if (data.audience_type === 'team' && data.team_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: members } = await (service as any)
+
+    const { data: members } = await service
       .from('team_members')
       .select('user_id')
       .eq('team_id', data.team_id)
@@ -284,8 +284,8 @@ async function deliverAnnouncement(
 
   } else if (data.audience_type === 'players' && data.user_ids && data.user_ids.length > 0) {
     // Verify each selected user is actually a member of this org (scope safety)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: members } = await (service as any)
+
+    const { data: members } = await service
       .from('org_members')
       .select('user_id')
       .eq('organization_id', orgId)
@@ -303,8 +303,8 @@ async function deliverAnnouncement(
   }
 
   if (data.cc_admins) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: admins } = await (service as any)
+
+    const { data: admins } = await service
       .from('org_members')
       .select('user_id')
       .eq('organization_id', orgId)
@@ -318,13 +318,13 @@ async function deliverAnnouncement(
   // ── 3. Fetch profiles for all recipients in one query ─────────────────────
 
   const { data: profiles } = userIds.size > 0
-    ? await (service as any)
+    ? await service
         .from('profiles')
         .select('id, email, phone, sms_opted_in')
         .in('id', [...userIds])
     : { data: [] }
 
-  const recipients: Recipient[] = (profiles ?? []).map((p: { id: string; email?: string; phone?: string; sms_opted_in?: boolean }) => ({
+  const recipients: Recipient[] = (profiles ?? []).map((p) => ({
     id:           p.id,
     email:        p.email ?? null,
     phone:        p.phone ?? null,

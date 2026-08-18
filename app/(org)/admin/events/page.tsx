@@ -11,8 +11,8 @@ export default async function AdminEventsPage() {
   const db = createServiceRoleClient()
   const scope = await getAdminScope(org.id)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (db as any)
+
+  let query = db
     .from('leagues')
     .select('id, name, slug, status, event_type, sport, logo_url, price_cents, drop_in_price_cents, currency, season_start_date, venue_name, created_at')
     .eq('organization_id', org.id)
@@ -32,8 +32,8 @@ export default async function AdminEventsPage() {
   // Count soft-deleted events for the Trash link (org admins only)
   let trashCount = 0
   if (scope.isOrgAdmin) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { count } = await (db as any)
+
+    const { count } = await db
       .from('leagues')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', org.id)

@@ -61,8 +61,8 @@ export default async function AdminLayout({
         }
 
         // No factor enrolled → check or start grace period
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: profileRow } = await (db as any)
+
+        const { data: profileRow } = await db
           .from('profiles')
           .select('mfa_grace_until')
           .eq('id', user.id)
@@ -77,8 +77,8 @@ export default async function AdminLayout({
         if (!graceUntil) {
           // First time: start 14-day grace period
           const graceEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (db as any)
+
+          await db
             .from('profiles')
             .update({ mfa_grace_until: graceEnd.toISOString() })
             .eq('id', user.id)
@@ -112,12 +112,12 @@ export default async function AdminLayout({
   const db = createServiceRoleClient()
 
   const [{ data: subscription }, playerLimit, leagueLimit, activeLeagueCount, { count: playerCount }, enforcement] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('subscriptions')
       .select('status, trial_end, cancel_at_period_end, current_period_end, hibernate_until, pre_hibernate_tier')
       .eq('organization_id', org.id)
-      .single() as Promise<{ data: { status: string; trial_end: string | null; cancel_at_period_end: boolean | null; current_period_end: string | null; hibernate_until: string | null; pre_hibernate_tier: string | null } | null }>,
+      .single(),
     getLimit(org.id, 'max_players'),
     getLimit(org.id, 'max_leagues'),
     getActiveLeagueCount(org.id),

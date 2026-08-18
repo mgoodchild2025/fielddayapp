@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-interface RetentionLog {
+export interface RetentionLog {
   event_type: 'export' | 'deidentification' | 'deletion'
   triggered_by: 'admin' | 'platform_admin' | 'cron'
   player_count: number | null

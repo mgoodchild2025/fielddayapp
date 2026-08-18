@@ -20,8 +20,8 @@ async function getGameParticipants(orgId: string, homeTeamId: string | null, awa
   const teamIds = [homeTeamId, awayTeamId].filter(Boolean) as string[]
   if (!teamIds.length) return []
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('team_members')
     .select('user_id, profile:profiles!team_members_user_id_fkey(full_name, email)')
     .in('team_id', teamIds)
@@ -102,8 +102,8 @@ export async function addGame(input: z.infer<typeof addGameSchema>) {
 
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+
+  const { data, error } = await db
     .from('games')
     .insert({
       organization_id: org.id,
@@ -167,8 +167,8 @@ export async function generateRoundRobinSchedule(input: {
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: realTeams } = await (db as any)
+
+  const { data: realTeams } = await db
     .from('teams')
     .select('id, name')
     .eq('league_id', input.leagueId)
@@ -222,8 +222,8 @@ export async function generateRoundRobinSchedule(input: {
     court: g.court,
   }))
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('games').insert(games)
+
+  const { error } = await db.from('games').insert(games)
   if (error) return { error: error.message, count: 0 }
 
   revalidatePath(`/admin/events/${input.leagueId}/schedule`)
@@ -274,8 +274,8 @@ export async function updateGame(input: z.infer<typeof updateGameSchema>) {
   const homeLabel = parsed.data.homeTeamId ? null : (parsed.data.homeTeamLabel ?? null)
   const awayLabel = parsed.data.awayTeamId ? null : (parsed.data.awayTeamLabel ?? null)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('games')
     .update({
       home_team_id: parsed.data.homeTeamId ?? null,
@@ -392,16 +392,16 @@ export async function assignSlotToTeam(input: {
 
   // Apply each assignment — update both home and away slots in parallel
   const updates = input.assignments.flatMap(({ slotLabel, teamId }) => [
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('games')
       .update({ home_team_id: teamId, home_team_label: null })
       .eq('league_id', input.leagueId)
       .eq('organization_id', org.id)
       .is('home_team_id', null)
       .eq('home_team_label', slotLabel),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('games')
       .update({ away_team_id: teamId, away_team_label: null })
       .eq('league_id', input.leagueId)
@@ -446,8 +446,8 @@ export async function insertBreak(input: {
   if (!adminMember) return { error: 'Admin access required', count: 0 }
 
   // Fetch all games at-or-after the break point
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: gamesAfter, error: fetchError } = await (db as any)
+
+  const { data: gamesAfter, error: fetchError } = await db
     .from('games')
     .select('id, scheduled_at')
     .eq('league_id', input.leagueId)
@@ -462,7 +462,7 @@ export async function insertBreak(input: {
   const shiftMs = input.durationMinutes * 60 * 1000
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updates = (gamesAfter as any[]).map((g: any) =>
-    (db as any)
+    db
       .from('games')
       .update({ scheduled_at: new Date(new Date(g.scheduled_at).getTime() + shiftMs).toISOString() })
       .eq('id', g.id)
@@ -510,16 +510,16 @@ export async function delayRemainingGames(input: {
   if (!adminMember) return { error: 'Admin access required', count: 0 }
 
   // Start of today in the org's timezone → UTC bound
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: branding } = await (db as any)
+
+  const { data: branding } = await db
     .from('org_branding').select('timezone').eq('organization_id', org.id).single()
   const timezone = branding?.timezone ?? 'America/Toronto'
   const todayLocal = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date())
   const startOfTodayUtc = parseLocalToUtc(todayLocal, '00:00', timezone)
 
   // Candidate games: today onward, not cancelled/postponed
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: candidates, error: fetchError } = await (db as any)
+
+  const { data: candidates, error: fetchError } = await db
     .from('games')
     .select('id, scheduled_at, home_team_id, away_team_id, court')
     .eq('league_id', input.leagueId)
@@ -533,8 +533,8 @@ export async function delayRemainingGames(input: {
 
   // Exclude games that already have a confirmed result (already played)
   const candidateIds = (candidates as { id: string }[]).map(g => g.id)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: playedRows } = await (db as any)
+
+  const { data: playedRows } = await db
     .from('game_results')
     .select('game_id')
     .in('game_id', candidateIds)
@@ -547,8 +547,8 @@ export async function delayRemainingGames(input: {
 
   const shiftMs = input.minutes * 60 * 1000
   const updates = toShift.map(g =>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('games')
       .update({ scheduled_at: new Date(new Date(g.scheduled_at).getTime() + shiftMs).toISOString() })
       .eq('id', g.id)
@@ -565,8 +565,8 @@ export async function delayRemainingGames(input: {
 
   // Notify affected teams of their new times (org timezone)
   if (input.notify) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: leagueRow } = await (db as any)
+
+    const { data: leagueRow } = await db
       .from('leagues').select('name').eq('id', input.leagueId).single()
     await notifyScheduleDelay({
       orgId: org.id,
@@ -608,8 +608,8 @@ async function getGameForStatusChange(gameId: string) {
     .single()
   if (!adminMember) return { org: null, db: null, game: null, error: 'Admin access required' as string }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: game, error: gameError } = await (db as any)
+
+  const { data: game, error: gameError } = await db
     .from('games')
     .select(`
       home_team_id, away_team_id, scheduled_at,
@@ -643,8 +643,8 @@ export async function cancelGame(input: {
   const { org, db, game, error: authError } = await getGameForStatusChange(input.gameId)
   if (authError || !org || !db || !game) return { error: authError ?? 'Unknown error' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('games')
     .update({ status: 'cancelled', cancellation_reason: input.reason ?? null })
     .eq('id', input.gameId)
@@ -652,8 +652,8 @@ export async function cancelGame(input: {
   if (error) return { error: error.message }
 
   if (input.notify && (game.home_team_id || game.away_team_id)) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: branding } = await (db as any)
+
+    const { data: branding } = await db
       .from('org_branding')
       .select('timezone')
       .eq('organization_id', org.id)
@@ -712,8 +712,8 @@ export async function postponeGame(input: {
   const { org, db, game, error: authError } = await getGameForStatusChange(input.gameId)
   if (authError || !org || !db || !game) return { error: authError ?? 'Unknown error' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('games')
     .update({ status: 'postponed', cancellation_reason: input.reason ?? null })
     .eq('id', input.gameId)
@@ -721,8 +721,8 @@ export async function postponeGame(input: {
   if (error) return { error: error.message }
 
   if (input.notify && (game.home_team_id || game.away_team_id)) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: branding } = await (db as any)
+
+    const { data: branding } = await db
       .from('org_branding')
       .select('timezone')
       .eq('organization_id', org.id)
@@ -781,8 +781,8 @@ export async function restoreGame(input: {
   const { org, db, game, error: authError } = await getGameForStatusChange(input.gameId)
   if (authError || !org || !db || !game) return { error: authError ?? 'Unknown error' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('games')
     .update({ status: 'scheduled', cancellation_reason: null })
     .eq('id', input.gameId)
@@ -790,8 +790,8 @@ export async function restoreGame(input: {
   if (error) return { error: error.message }
 
   if (input.notify && (game.home_team_id || game.away_team_id)) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: branding } = await (db as any)
+
+    const { data: branding } = await db
       .from('org_branding')
       .select('timezone')
       .eq('organization_id', org.id)
@@ -859,8 +859,8 @@ export async function setSchedulePublished(leagueId: string, published: boolean)
 
   if (!adminMember) return { error: 'Admin access required' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('leagues')
     .update({ schedule_published: published })
     .eq('id', leagueId)
@@ -944,11 +944,11 @@ export async function generateWeeklyLeagueSchedule(input: {
   // Fetch org timezone + league sport in parallel
 
   const [{ data: branding }, { data: leagueRow }] = await Promise.all([
-    (db as any)
+    db
       .from('org_branding')
       .select('timezone')
       .eq('organization_id', org.id)
-      .single() as Promise<{ data: { timezone: string | null } | null }>,
+      .single(),
     db.from('leagues').select('sport').eq('id', input.leagueId).single(),
   ])
   const timezone: string = branding?.timezone ?? 'America/Toronto'
@@ -956,8 +956,8 @@ export async function generateWeeklyLeagueSchedule(input: {
   const vLabel = getVenueLabel((leagueRow as { sport?: string | null } | null)?.sport)
 
   // Fetch active teams for this league
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: realTeams } = await (db as any)
+
+  const { data: realTeams } = await db
     .from('teams')
     .select('id, name')
     .eq('league_id', input.leagueId)
@@ -1009,8 +1009,8 @@ export async function generateWeeklyLeagueSchedule(input: {
     court:           g.court,
   }))
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('games').insert(games)
+
+  const { error } = await db.from('games').insert(games)
   if (error) return { error: error.message, count: 0 }
 
   revalidatePath(`/admin/events/${input.leagueId}/schedule`)
@@ -1054,11 +1054,11 @@ export async function generatePickupSchedule(input: {
 
 
   const [{ data: branding }, { data: puLeagueRow }] = await Promise.all([
-    (db as any)
+    db
       .from('org_branding')
       .select('timezone')
       .eq('organization_id', org.id)
-      .single() as Promise<{ data: { timezone: string | null } | null }>,
+      .single(),
     db.from('leagues').select('sport').eq('id', input.leagueId).single(),
   ])
   const timezone: string = branding?.timezone ?? 'America/Toronto'
@@ -1097,8 +1097,8 @@ export async function generatePickupSchedule(input: {
     court:           g.court,
   }))
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('games').insert(games)
+
+  const { error } = await db.from('games').insert(games)
   if (error) return { error: error.message, count: 0 }
 
   revalidatePath(`/admin/events/${input.leagueId}/schedule`)
@@ -1113,8 +1113,8 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
   const db = createServiceRoleClient()
 
   // Get org timezone for correct UTC conversion
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: branding } = await (db as any)
+
+  const { data: branding } = await db
     .from('org_branding')
     .select('timezone')
     .eq('organization_id', org.id)
@@ -1124,14 +1124,14 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
   // Fetch all teams and pools for this league to match by name
 
   const [{ data: teams }, { data: pools }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('teams')
       .select('id, name')
       .eq('league_id', leagueId)
       .eq('organization_id', org.id),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('pools')
       .select('id, name')
       .eq('league_id', leagueId)
@@ -1162,8 +1162,8 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
     }
   })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('games').insert(games)
+
+  const { error } = await db.from('games').insert(games)
   if (error) return { data: null, error: error.message }
 
   revalidatePath(`/admin/events/${leagueId}/schedule`)

@@ -30,15 +30,15 @@ export default async function AdminPoolsPage({ params }: { params: Promise<{ id:
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('pools')
       .select('id, name, sort_order')
       .eq('league_id', id)
       .eq('organization_id', org.id)
       .order('sort_order', { ascending: true }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('teams')
       .select('id, name, pool_id, pool_sort_order')
       .eq('league_id', id)
@@ -47,8 +47,8 @@ export default async function AdminPoolsPage({ params }: { params: Promise<{ id:
       .order('pool_sort_order', { ascending: true })
       .order('name'),
     // For "seed from standings" — confirmed regular-season game results
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('game_results')
+
+    db.from('game_results')
       .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
       .eq('organization_id', org.id)
       .eq('status', 'confirmed'),
@@ -89,7 +89,7 @@ export default async function AdminPoolsPage({ params }: { params: Promise<{ id:
     accumulateGameResult(record, {
       homeTeamId: ht, awayTeamId: at,
       homeScore: r.home_score, awayScore: r.away_score,
-      sets: r.sets, isForfeit: r.is_forfeit, forfeitTeamId: r.forfeit_team_id,
+      sets: r.sets as { home: number; away: number }[] | null, isForfeit: r.is_forfeit, forfeitTeamId: r.forfeit_team_id,
     }, isVolleyball)
   }
 

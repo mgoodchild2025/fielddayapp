@@ -46,8 +46,8 @@ export async function saveWebsiteSettings(input: z.infer<typeof websiteSettingsS
 
   // Upsert hero + about + section_layout in parallel
 
-  const upsert = (key: string, content: Record<string, unknown>) =>
-    (db as any).from('org_site_content').upsert(
+  const upsert = (key: string, content: import('@/types/database').Json) =>
+    db.from('org_site_content').upsert(
       { organization_id: org.id, section_key: key, content, updated_at: now },
       { onConflict: 'organization_id,section_key' }
     )

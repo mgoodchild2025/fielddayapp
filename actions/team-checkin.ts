@@ -44,8 +44,8 @@ export async function getTeamCheckinStatus(
   if (!team) return { data: null, error: 'Team not found' }
 
   // Fetch all active team members with their profiles
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: members } = await (db as any)
+
+  const { data: members } = await db
     .from('team_members')
     .select('user_id, profile:profiles!team_members_user_id_fkey(full_name)')
     .eq('team_id', teamId)
@@ -55,7 +55,7 @@ export async function getTeamCheckinStatus(
     return { data: { teamName: team.name, members: [] }, error: null }
   }
 
-  const userIds: string[] = members.map((m: { user_id: string }) => m.user_id)
+  const userIds: string[] = members.map((m) => m.user_id).filter((id): id is string => !!id)
 
   // Fetch registrations for those users in this league
   const { data: regs } = await db

@@ -77,8 +77,8 @@ export type ShopPnl = {
 export async function getShopPnl(orgId: string): Promise<ShopPnl> {
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: orders } = await (db as any)
+
+  const { data: orders } = await db
     .from('merchandise_orders')
     .select('item_id, variant_id, quantity, unit_price_cents, discount_cents, amount_paid_cents')
     .eq('organization_id', orgId)
@@ -105,11 +105,11 @@ export async function getShopPnl(orgId: string): Promise<ShopPnl> {
 
 
   const [{ data: items }, { data: variants }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('merchandise_items').select('id, name, cost_cents').in('id', itemIds),
+
+    db.from('merchandise_items').select('id, name, cost_cents').in('id', itemIds),
     variantIds.length > 0
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? (db as any).from('merchandise_variants').select('id, cost_cents').in('id', variantIds)
+
+      ? db.from('merchandise_variants').select('id, cost_cents').in('id', variantIds)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -190,8 +190,8 @@ export type EventExpense = {
 
 export async function getEventExpenses(leagueId: string): Promise<EventExpense[]> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('event_expenses')
     .select('id, league_id, session_id, category, description, amount_cents, vendor, incurred_on, notes, created_at')
     .eq('league_id', leagueId)
@@ -221,21 +221,21 @@ export async function addEventExpense(input: {
 
   // Verify the league belongs to this org before writing.
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues').select('id').eq('id', input.leagueId).eq('organization_id', org.id).single()
   if (!league) return { error: 'Event not found.' }
 
   // If tagging a session, verify it belongs to this event.
   if (input.sessionId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: sess } = await (db as any)
+
+    const { data: sess } = await db
       .from('event_sessions').select('id').eq('id', input.sessionId).eq('league_id', input.leagueId).maybeSingle()
     if (!sess) return { error: 'Session not found for this event.' }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('event_expenses').insert({
+
+  const { error } = await db.from('event_expenses').insert({
     organization_id: org.id,
     league_id: input.leagueId,
     session_id: input.sessionId || null,
@@ -275,13 +275,13 @@ export async function addEventExpensePerSession(input: {
   if (!EXPENSE_CATEGORIES.includes(input.category)) return { error: 'Invalid category.' }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues').select('id').eq('id', input.leagueId).eq('organization_id', org.id).single()
   if (!league) return { error: 'Event not found.' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: sessions } = await (db as any)
+
+  const { data: sessions } = await db
     .from('event_sessions').select('id, scheduled_at')
     .eq('league_id', input.leagueId).eq('organization_id', org.id)
   if (!sessions || sessions.length === 0) return { error: 'This event has no sessions yet.' }
@@ -299,8 +299,8 @@ export async function addEventExpensePerSession(input: {
     created_by: auth.userId,
   }))
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('event_expenses').insert(rows)
+
+  const { error } = await db.from('event_expenses').insert(rows)
   if (error) return { error: error.message }
 
   revalidatePath(`/admin/events/${input.leagueId}/finances`)
@@ -314,8 +314,8 @@ export async function deleteEventExpense(expenseId: string, leagueId: string): P
   if ('error' in auth) return { error: auth.error }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('event_expenses').delete().eq('id', expenseId).eq('organization_id', org.id)
   if (error) return { error: error.message }
 
@@ -349,18 +349,18 @@ export async function getEventPnl(leagueId: string, orgId: string): Promise<Even
   const db = createServiceRoleClient()
 
   const [{ data: payments }, { data: merchOrders }, { data: expenses }, { data: otherRevenue }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('payments')
+
+    db.from('payments')
       .select('amount_cents, status')
       .eq('organization_id', orgId).eq('league_id', leagueId).in('status', ['paid', 'manual']),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('merchandise_orders')
+
+    db.from('merchandise_orders')
       .select('item_id, variant_id, quantity, unit_price_cents, discount_cents, amount_paid_cents')
       .eq('organization_id', orgId).eq('league_id', leagueId).in('status', ['paid', 'fulfilled']),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('event_expenses').select('amount_cents').eq('league_id', leagueId),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('event_revenue').select('amount_cents').eq('league_id', leagueId),
+
+    db.from('event_expenses').select('amount_cents').eq('league_id', leagueId),
+
+    db.from('event_revenue').select('amount_cents').eq('league_id', leagueId),
   ])
 
   const registrationRevenueCents = ((payments ?? []) as { amount_cents: number }[])
@@ -380,11 +380,11 @@ export async function getEventPnl(leagueId: string, orgId: string): Promise<Even
     const itemIds = [...new Set(orders.map((o) => o.item_id))]
     const variantIds = [...new Set(orders.map((o) => o.variant_id).filter(Boolean) as string[])]
     const [{ data: items }, { data: variants }] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('merchandise_items').select('id, cost_cents').in('id', itemIds),
+
+      db.from('merchandise_items').select('id, cost_cents').in('id', itemIds),
       variantIds.length > 0
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ? (db as any).from('merchandise_variants').select('id, cost_cents').in('id', variantIds)
+
+        ? db.from('merchandise_variants').select('id, cost_cents').in('id', variantIds)
         : Promise.resolve({ data: [] }),
     ])
     const itemCost = new Map<string, number | null>()
@@ -430,8 +430,8 @@ export type OrgOverhead = {
 
 export async function getOrgOverhead(orgId: string): Promise<OrgOverhead[]> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('org_overhead_expenses')
     .select('id, category, description, amount_cents, period, applies_to, incurred_on, notes, created_at')
     .eq('organization_id', orgId)
@@ -460,8 +460,8 @@ export async function addOrgOverhead(input: {
   if (!OVERHEAD_PERIODS.includes(input.period)) return { error: 'Invalid period.' }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('org_overhead_expenses').insert({
+
+  const { error } = await db.from('org_overhead_expenses').insert({
     organization_id: org.id,
     category: input.category,
     description: input.description.trim(),
@@ -485,8 +485,8 @@ export async function deleteOrgOverhead(id: string): Promise<{ error: string | n
   if ('error' in auth) return { error: auth.error }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('org_overhead_expenses').delete().eq('id', id).eq('organization_id', org.id)
   if (error) return { error: error.message }
 
@@ -529,21 +529,21 @@ export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
 
 
   const [{ data: payments }, { data: merchOrders }, { data: expenses }, { data: overhead }, { data: leagues }, { data: otherRevenue }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('payments').select('amount_cents, league_id')
+
+    db.from('payments').select('amount_cents, league_id')
       .eq('organization_id', orgId).in('status', ['paid', 'manual']),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('merchandise_orders')
+
+    db.from('merchandise_orders')
       .select('league_id, item_id, variant_id, quantity, unit_price_cents, discount_cents, amount_paid_cents')
       .eq('organization_id', orgId).in('status', ['paid', 'fulfilled']),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('event_expenses').select('league_id, amount_cents').eq('organization_id', orgId),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_overhead_expenses').select('amount_cents').eq('organization_id', orgId),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('id, name').eq('organization_id', orgId),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('event_revenue').select('league_id, amount_cents').eq('organization_id', orgId),
+
+    db.from('event_expenses').select('league_id, amount_cents').eq('organization_id', orgId),
+
+    db.from('org_overhead_expenses').select('amount_cents').eq('organization_id', orgId),
+
+    db.from('leagues').select('id, name').eq('organization_id', orgId),
+
+    db.from('event_revenue').select('league_id, amount_cents').eq('organization_id', orgId),
   ])
 
   const leagueName = new Map<string, string>()
@@ -571,11 +571,11 @@ export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
     const itemIds = [...new Set(orders.map((o) => o.item_id))]
     const variantIds = [...new Set(orders.map((o) => o.variant_id).filter(Boolean) as string[])]
     const [{ data: items }, { data: variants }] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('merchandise_items').select('id, cost_cents').in('id', itemIds),
+
+      db.from('merchandise_items').select('id, cost_cents').in('id', itemIds),
       variantIds.length > 0
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ? (db as any).from('merchandise_variants').select('id, cost_cents').in('id', variantIds)
+
+        ? db.from('merchandise_variants').select('id, cost_cents').in('id', variantIds)
         : Promise.resolve({ data: [] }),
     ])
     const itemCost = new Map<string, number | null>()
@@ -663,18 +663,18 @@ export async function getEventBudget(leagueId: string): Promise<EventBudget> {
 
 
   const [{ data: budget }, { data: league }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('event_budgets')
+
+    db.from('event_budgets')
       .select('id, expected_teams, expected_participants, target_margin_pct, notes')
       .eq('league_id', leagueId).maybeSingle(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('price_cents, payment_mode').eq('id', leagueId).single(),
+
+    db.from('leagues').select('price_cents, payment_mode').eq('id', leagueId).single(),
   ])
 
   let items: BudgetItem[] = []
   if (budget?.id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rows } = await (db as any)
+
+    const { data: rows } = await db
       .from('event_budget_items')
       .select('id, label, cost_type, amount_cents, sort_order')
       .eq('budget_id', budget.id)
@@ -693,7 +693,7 @@ export async function getEventBudget(leagueId: string): Promise<EventBudget> {
       : null,
     items,
     league: league
-      ? { price_cents: league.price_cents ?? 0, payment_mode: (league.payment_mode ?? 'per_player') }
+      ? { price_cents: league.price_cents ?? 0, payment_mode: (league.payment_mode ?? 'per_player') as 'per_player' | 'per_team' }
       : null,
   }
 }
@@ -720,14 +720,14 @@ export async function saveEventBudget(input: {
 
   const db = createServiceRoleClient()
   // Verify the league belongs to this org.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues').select('id').eq('id', input.leagueId).eq('organization_id', org.id).single()
   if (!league) return { error: 'Event not found.' }
 
   // Upsert the budget row (unique on league_id) and capture its id.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: budget, error: budgetErr } = await (db as any)
+
+  const { data: budget, error: budgetErr } = await db
     .from('event_budgets')
     .upsert({
       organization_id: org.id,
@@ -743,8 +743,8 @@ export async function saveEventBudget(input: {
   if (budgetErr || !budget) return { error: budgetErr?.message ?? 'Could not save budget.' }
 
   // Replace the line items.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('event_budget_items').delete().eq('budget_id', budget.id)
+
+  await db.from('event_budget_items').delete().eq('budget_id', budget.id)
   const rows = input.items
     .filter((it) => it.label.trim())
     .map((it, i) => ({
@@ -755,8 +755,8 @@ export async function saveEventBudget(input: {
       sort_order: i,
     }))
   if (rows.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: itemsErr } = await (db as any).from('event_budget_items').insert(rows)
+
+    const { error: itemsErr } = await db.from('event_budget_items').insert(rows)
     if (itemsErr) return { error: itemsErr.message }
   }
 
@@ -780,8 +780,8 @@ export type EventRevenue = {
 
 export async function getEventRevenue(leagueId: string): Promise<EventRevenue[]> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (db as any)
+
+  const { data } = await db
     .from('event_revenue')
     .select('id, league_id, category, description, amount_cents, source, received_on, notes, created_at')
     .eq('league_id', leagueId)
@@ -809,13 +809,13 @@ export async function addEventRevenue(input: {
   if (!REVENUE_CATEGORIES.includes(input.category)) return { error: 'Invalid category.' }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues').select('id').eq('id', input.leagueId).eq('organization_id', org.id).single()
   if (!league) return { error: 'Event not found.' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('event_revenue').insert({
+
+  const { error } = await db.from('event_revenue').insert({
     organization_id: org.id,
     league_id: input.leagueId,
     category: input.category,
@@ -839,8 +839,8 @@ export async function deleteEventRevenue(revenueId: string, leagueId: string): P
   if ('error' in auth) return { error: auth.error }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('event_revenue').delete().eq('id', revenueId).eq('organization_id', org.id)
   if (error) return { error: error.message }
 

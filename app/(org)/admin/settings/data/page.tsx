@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { OrgDataControls } from '@/components/settings/org-data-controls'
+import { OrgDataControls, type RetentionLog } from '@/components/settings/org-data-controls'
 import { OrgExportControls } from '@/components/settings/org-export-controls'
 import { OrgMediaExport } from '@/components/settings/org-media-export'
 
@@ -20,8 +20,8 @@ export default async function AdminDataPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: member } = await (db as any)
+
+  const { data: member } = await db
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
@@ -32,20 +32,20 @@ export default async function AdminDataPage() {
 
   // Fetch subscription + org retention state
   const [{ data: subscription }, { data: orgRow }, { data: recentLogs }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('subscriptions')
+
+    db.from('subscriptions')
       .select('status, current_period_end, plan_tier')
       .eq('organization_id', org.id)
       .single(),
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('organizations')
+
+    db.from('organizations')
       .select('data_deidentified_at')
       .eq('id', org.id)
       .single(),
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_data_retention_logs')
+
+    db.from('org_data_retention_logs')
       .select('event_type, triggered_by, player_count, created_at, notes')
       .eq('organization_id', org.id)
       .order('created_at', { ascending: false })
@@ -130,7 +130,7 @@ export default async function AdminDataPage() {
         exportWindowStatus={exportWindowStatus}
         exportWindowEndsAt={exportWindowEndsAt}
         dataDeidentifiedAt={orgRow?.data_deidentified_at ?? null}
-        recentLogs={recentLogs ?? []}
+        recentLogs={(recentLogs ?? []) as RetentionLog[]}
       />
     </div>
   )

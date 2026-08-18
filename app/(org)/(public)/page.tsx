@@ -10,17 +10,17 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
 
 
   const [{ data: org }, { data: branding }, { data: leagues }, { data: siteContent }, { data: photos }, { data: sponsors }, { data: staff }, { data: recentResultsRaw }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('organizations').select('id, slug, name').eq('id', orgId).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding')
+
+    db.from('organizations').select('id, slug, name').eq('id', orgId).single(),
+
+    db.from('org_branding')
       .select('tagline, hero_image_url, logo_url, site_theme, contact_email, timezone, social_instagram, social_facebook, social_x, social_tiktok, social_youtube')
       .eq('organization_id', orgId)
       .single(),
 
     // select('*') (not a named column list) so this still works before migration
     // 168 adds advertised/featured/teaser_text — the columns are simply absent.
-    (db as any).from('leagues')
+    db.from('leagues')
       .select('*')
       .eq('organization_id', orgId)
       .is('deleted_at', null)
@@ -28,34 +28,34 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
       .neq('status', 'archived')
       .order('season_start_date', { ascending: true })
       .limit(50),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('org_site_content')
       .select('section_key, content')
       .eq('organization_id', orgId),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('org_photos')
       .select('id, url, caption, display_order')
       .eq('organization_id', orgId)
       .eq('featured', true)
       .order('display_order', { ascending: true }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('org_sponsors')
       .select('id, name, logo_url, website_url, tier, display_order')
       .eq('organization_id', orgId)
       .order('display_order'),
     // Staff for public "Meet the Team" sections
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('org_staff')
       .select('id, name, role, bio, avatar_url, display_order')
       .eq('organization_id', orgId)
       .order('display_order'),
     // Recent confirmed results for Pro theme
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('game_results')
       .select(`
         id, home_score, away_score,
@@ -75,7 +75,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
 
   // Build a content map keyed by section_key
   const contentMap = new Map<string, Record<string, unknown>>(
-    (siteContent ?? []).map((r: { section_key: string; content: Record<string, unknown> }) => [r.section_key, r.content])
+    (siteContent ?? []).map((r) => [r.section_key, (r.content ?? {}) as Record<string, unknown>])
   )
   const heroContent = (contentMap.get('hero') ?? {}) as {
     headline?: string; subheadline?: string; cta_label?: string; cta_href?: string
@@ -104,8 +104,8 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
   const leagueList = ((leagues ?? []) as any[]) as League[]
 
   // Coming-soon: advertised draft events whose registration hasn't opened yet.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: comingSoonRaw } = await (db as any).from('leagues')
+
+  const { data: comingSoonRaw } = await db.from('leagues')
     .select('id, name, slug, event_type, sport, logo_url, status, season_start_date, price_cents, drop_in_price_cents, currency, max_teams, max_participants, payment_mode, skill_level, days_of_week, game_start_time, game_end_time, advertised, featured, registration_opens_at, teaser_text')
     .eq('organization_id', orgId)
     .is('deleted_at', null)
@@ -136,15 +136,15 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
 
   await Promise.all([
     perTeamOpenIds.length > 0
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).from('teams').select('league_id').in('league_id', perTeamOpenIds)
+      ?
+        db.from('teams').select('league_id').in('league_id', perTeamOpenIds)
           .then(({ data }: { data: { league_id: string }[] | null }) => {
             for (const t of data ?? []) teamCountMap.set(t.league_id, (teamCountMap.get(t.league_id) ?? 0) + 1)
           })
       : Promise.resolve(),
     perPlayerOpenIds.length > 0
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).from('registrations').select('league_id').in('league_id', perPlayerOpenIds).in('status', ['active', 'pending'])
+      ?
+        db.from('registrations').select('league_id').in('league_id', perPlayerOpenIds).in('status', ['active', 'pending'])
           .then(({ data }: { data: { league_id: string }[] | null }) => {
             for (const r of data ?? []) registrationCountMap.set(r.league_id, (registrationCountMap.get(r.league_id) ?? 0) + 1)
           })
