@@ -79,7 +79,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
 
   // Determine if current user is an org_admin (controls edit access on organizers panel)
   const { data: { user: currentUser } } = await supabase.auth.getUser()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: currentMember } = currentUser
     ? await (db as any).from('org_members').select('role').eq('organization_id', org.id).eq('user_id', currentUser.id).single()
     : { data: null }

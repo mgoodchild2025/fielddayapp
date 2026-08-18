@@ -489,7 +489,7 @@ export async function activateRegistration(registrationId: string) {
   // "free" here and we send a duplicate "free" notification alongside the
   // payment handler's real "awaiting e-transfer" / "paid by card" one.
   const isDropInReg = reg.registration_type === 'drop_in'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const effectivePriceCents: number = isDropInReg
     ? ((league as any)?.drop_in_price_cents ?? 0)
     : (league?.price_cents ?? 0)

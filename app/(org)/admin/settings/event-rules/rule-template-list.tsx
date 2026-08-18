@@ -114,7 +114,7 @@ function TemplateForm({
     setLoading(false)
     if (result.error) { setError(result.error); return }
     const now = new Date().toISOString()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     onSaved({
       id: (result.data as any)!.id,
       title,

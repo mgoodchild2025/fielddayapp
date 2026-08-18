@@ -15,9 +15,9 @@ export default async function EventsPage() {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: leagues }, { data: branding }, { data: orgMember }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     // select('*') so this still works before migration 168 (new columns absent).
     (db as any)
       .from('leagues')

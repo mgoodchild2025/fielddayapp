@@ -245,7 +245,7 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
         </div>
         {scrolledToBottom && (
           <div className="px-5 py-2 bg-green-50 border-t border-green-100">
-            <p className="text-xs text-green-700 font-medium">✓ You've read the full waiver</p>
+            <p className="text-xs text-green-700 font-medium">✓ You&apos;ve read the full waiver</p>
           </div>
         )}
       </div>

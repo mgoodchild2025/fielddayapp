@@ -59,7 +59,7 @@ export default async function SchedulePrintPage({
 
   // ─── Full Schedule (all games) ─────────────────────────────────────────────
   if (type === 'full') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [{ data: rawGames }, { data: poolRows }] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any)
@@ -114,7 +114,7 @@ export default async function SchedulePrintPage({
     const dayStart = parseLocalToUtc(date, '00:00', timezone)
     const dayEnd   = parseLocalToUtc(date, '23:59', timezone)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [{ data: rawGames }, { data: poolRows }] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (db as any)

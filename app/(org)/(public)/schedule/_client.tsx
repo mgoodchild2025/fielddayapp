@@ -46,7 +46,7 @@ function TeamBadge({
   )
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 function getLeague(item: ScheduleItem): { name: string; slug: string; event_type?: string } | null {
   const raw = item.data.league
   return (Array.isArray(raw) ? raw[0] : raw) ?? null

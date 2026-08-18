@@ -31,7 +31,7 @@ export default async function GuestRegistrationSuccessPage({
   ])
 
   // Load the guest registration.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: registration } = regId
     ? await (db as any)
         .from('registrations')

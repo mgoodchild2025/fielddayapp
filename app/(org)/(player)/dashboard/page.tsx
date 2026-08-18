@@ -126,7 +126,7 @@ export default async function DashboardPage() {
     return { ...s, league }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const seenSessionIds = new Set<string>()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const upcomingSessions: any[] = [
@@ -321,7 +321,7 @@ export default async function DashboardPage() {
   }
 
   // ── RSVP counts for the globally soonest game ─────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const myRsvpMap = new Map<string, 'in' | 'out'>()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const r of myRsvpRows as any[]) {
@@ -330,8 +330,8 @@ export default async function DashboardPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const firstGame = upcomingGames[0] as any | null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let firstGameRsvpCounts = { in: 0, out: 0 }
+
+  const firstGameRsvpCounts = { in: 0, out: 0 }
 
   if (firstGame) {
     const myTeamId = teamIdSet.has(firstGame.home_team_id) ? firstGame.home_team_id : firstGame.away_team_id

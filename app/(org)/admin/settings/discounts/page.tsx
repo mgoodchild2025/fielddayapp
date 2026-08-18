@@ -38,7 +38,7 @@ export default async function AdminDiscountsPage() {
   ])
 
   // Flatten the joined league name onto each code row
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const codes = (rawCodes ?? []).map((c: any) => ({
     ...c,

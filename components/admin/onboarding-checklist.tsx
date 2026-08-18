@@ -83,7 +83,7 @@ export function OnboardingChecklist({ data }: { data: OnboardingChecklistData })
           🎉
         </div>
         <div>
-          <p className="font-semibold text-emerald-900">You're all set!</p>
+          <p className="font-semibold text-emerald-900">You&apos;re all set!</p>
           <p className="text-sm text-emerald-700 mt-0.5">Your platform is configured and ready for players.</p>
         </div>
       </div>

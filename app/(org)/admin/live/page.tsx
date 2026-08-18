@@ -19,7 +19,7 @@ export default async function LivePage() {
 
   // Events available to attach a stream to (non-archived, not deleted)
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: events } = allowed
     ? await (db as any)
         .from('leagues')

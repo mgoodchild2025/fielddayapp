@@ -942,7 +942,7 @@ export async function generateWeeklyLeagueSchedule(input: {
   if (!adminMember) return { error: 'Admin access required', count: 0 }
 
   // Fetch org timezone + league sport in parallel
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: branding }, { data: leagueRow }] = await Promise.all([
     (db as any)
       .from('org_branding')
@@ -1052,7 +1052,7 @@ export async function generatePickupSchedule(input: {
     .single()
   if (!adminMember) return { error: 'Admin access required', count: 0 }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: branding }, { data: puLeagueRow }] = await Promise.all([
     (db as any)
       .from('org_branding')
@@ -1122,7 +1122,7 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
   const timezone = branding?.timezone ?? 'America/Toronto'
 
   // Fetch all teams and pools for this league to match by name
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: teams }, { data: pools }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)

@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   const results: string[] = []
 
   // 1. Deliver scheduled announcements past their send time
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let { data: due } = await (supabase as any)
     .from('announcements')

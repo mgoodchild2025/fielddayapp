@@ -64,7 +64,7 @@ export default async function MyEventsPage() {
   // Fetch scheduled dates for the calendar view, split by event type.
   // league / tournament → games table (player's team games; fallback to all published games)
   // drop_in / pickup   → event_sessions table (all upcoming sessions for the league)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   type LeagueMeta = { id: string; name: string; slug: string; event_type: string | null }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leagueMetas: LeagueMeta[] = [...new Map((registrations ?? []).map((r: any) => {
@@ -88,7 +88,7 @@ export default async function MyEventsPage() {
   }).filter(Boolean) as string[])
 
   // Game dots: { leagueId, date (YYYY-MM-DD in org tz), label }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   let gameDots: { leagueId: string; date: string; label: string; href: string }[] = []
 
   const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }) // YYYY-MM-DD

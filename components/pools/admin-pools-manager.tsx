@@ -145,7 +145,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
             </div>
             <div className="col-span-2">
               <label className="block text-xs text-gray-500 mb-0.5">
-                Court Names <span className="text-gray-400 font-normal">(optional — comma-separated, e.g. "Court A, Court B")</span>
+                Court Names <span className="text-gray-400 font-normal">(optional — comma-separated, e.g. &quot;Court A, Court B&quot;)</span>
               </label>
               <input
                 type="text" value={courtNamesRaw}

@@ -122,7 +122,7 @@ function ZoneEditor({
               onChange={(e) => onChange({ ...zone, date_filter: e.target.value as 'today' | 'all' })}
               className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white"
             >
-              <option value="today">Today's games only</option>
+              <option value="today">Today&apos;s games only</option>
               <option value="all">All games</option>
             </select>
           </div>

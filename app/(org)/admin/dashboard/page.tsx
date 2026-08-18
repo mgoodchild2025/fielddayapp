@@ -95,7 +95,7 @@ export default async function AdminDashboardPage() {
 
   // Merge + group by local date
   type UpcomingItem = { id: string; scheduled_at: string; localDate: string; type: 'game' | 'session'; label: string; sub: string; leagueId: string }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const upcomingItems: UpcomingItem[] = [
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...(upcomingGames ?? []).map((g: any) => {

@@ -238,7 +238,7 @@ export async function getDisplayData(
   let standings: DisplayStanding[] = []
   let poolStandings: DisplayStanding[] = []
   if (needsStandings) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [{ data: teamsData }, { data: resultsData }] = await Promise.all([
       (db as any).from('teams').select('id, name, color, logo_url, pool_id')
         .eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
@@ -362,7 +362,7 @@ export async function getDisplayData(
     }
 
     if (bracketRefs.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const fetchMatches = async (bracketId: string): Promise<DisplayBracketMatch[]> => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: matchesData } = await (db as any)

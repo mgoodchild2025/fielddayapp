@@ -45,7 +45,7 @@ export async function saveWebsiteSettings(input: z.infer<typeof websiteSettingsS
   const now = new Date().toISOString()
 
   // Upsert hero + about + section_layout in parallel
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const upsert = (key: string, content: Record<string, unknown>) =>
     (db as any).from('org_site_content').upsert(
       { organization_id: org.id, section_key: key, content, updated_at: now },

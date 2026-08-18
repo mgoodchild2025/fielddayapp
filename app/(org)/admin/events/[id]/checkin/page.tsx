@@ -116,7 +116,7 @@ export default async function AdminCheckInPage({
     }[] = []
 
     if (selectedSession) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const [{ data: sessionRegs }, { data: dropInRegs }] = await Promise.all([
         // Old flow: session_registrations (join-button)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

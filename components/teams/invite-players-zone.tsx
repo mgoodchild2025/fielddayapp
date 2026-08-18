@@ -134,7 +134,7 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="player@example.com"
               required
-              // eslint-disable-next-line jsx-a11y/no-autofocus
+
               autoFocus
               className="flex-1 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2"
             />

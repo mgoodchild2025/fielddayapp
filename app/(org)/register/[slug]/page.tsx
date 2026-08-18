@@ -327,7 +327,7 @@ export default async function RegisterLeaguePage({
   const teamsAtCapacity = isPerTeamLeague && leagueMaxTeams !== null && (currentTeamCount ?? 0) >= leagueMaxTeams
 
   // Fetch upcoming sessions for drop-in registration (session picker step)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: rawSessions } = isDropIn
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ? await (db as any)
