@@ -35,7 +35,11 @@ export default async function EventRulesPage() {
           Create reusable rule templates (e.g. Beach Volleyball, Court Volleyball). Each league can select a template and customise the content independently.
         </p>
       </div>
-      <RuleTemplateList templates={templates ?? []} />
+      <RuleTemplateList templates={(templates ?? []).map((t) => ({
+        ...t,
+        created_at: t.created_at ?? new Date().toISOString(),
+        updated_at: t.updated_at ?? undefined,
+      }))} />
     </div>
   )
 }

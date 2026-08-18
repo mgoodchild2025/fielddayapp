@@ -123,7 +123,7 @@ export default async function PlatformSuperPage() {
                     {memberCounts[org.id] ?? 0}
                   </td>
                   <td className="px-5 py-3 text-gray-400 text-sm whitespace-nowrap">
-                    {new Date(org.created_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    {new Date(org.created_at ?? Date.now()).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })}
                   </td>
                   <td className="px-5 py-3 whitespace-nowrap text-right">
                     <Link

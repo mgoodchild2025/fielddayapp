@@ -68,7 +68,7 @@ export async function getTeamCheckinStatus(
 
   const regByUserId = new Map<string, { id: string; checked_in_at: string | null; waiver_signature_id: string | null }>()
   for (const r of (regs ?? [])) {
-    regByUserId.set(r.user_id, r)
+    if (r.user_id) regByUserId.set(r.user_id, r) // guest regs have no user_id
   }
 
   const result: TeamMemberCheckinStatus[] = members

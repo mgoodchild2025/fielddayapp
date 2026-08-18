@@ -495,7 +495,7 @@ export default async function TeamDetailPage({
                 playerName: (profile as { full_name?: string } | null)?.full_name ?? '',
                 playerEmail: (profile as { email?: string } | null)?.email ?? '',
                 message: req.message ?? null,
-                createdAt: req.created_at,
+                createdAt: req.created_at ?? new Date().toISOString(),
               }
             })}
           />

@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
-    "db:generate-types": "supabase gen types typescript --local > types/database.ts",
+    "db:generate-types": "supabase gen types typescript --project-id orjczrkpqkizvowvqlyv --schema public > types/database.ts && echo 'NOTE: re-append the hand-written alias exports at the bottom of types/database.ts (see git diff)'",
     "seed": "tsx scripts/seed-kaboom.ts"
   },
   "dependencies": {

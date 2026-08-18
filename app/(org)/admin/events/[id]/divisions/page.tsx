@@ -46,7 +46,7 @@ export default async function AdminDivisionsPage({ params }: { params: Promise<{
   return (
     <AdminDivisionsManager
       leagueId={id}
-      initialDivisions={divisions ?? []}
+      initialDivisions={(divisions ?? []).map((d) => ({ ...d, sort_order: d.sort_order ?? 0 }))}
       initialTeams={(teams ?? []).map((t) => ({
         id: t.id,
         name: t.name,
