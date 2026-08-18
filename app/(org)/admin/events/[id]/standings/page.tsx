@@ -130,8 +130,8 @@ export default async function AdminStandingsPage({
 
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: league } = await (db as any)
+
+  const { data: league } = await db
     .from('leagues')
     .select('id, name, sport, status, event_type, standings_pts_method, volleyball_standings_mode')
     .eq('id', id)
@@ -149,21 +149,21 @@ export default async function AdminStandingsPage({
 
 
   const [{ data: teamsData }, { data: divsData }, { data: poolsData }, { data: resultsData }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('teams').select('id, name, division_id, pool_id').eq('league_id', id).eq('organization_id', org.id).eq('status', 'active'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('divisions').select('id, name, sort_order').eq('league_id', id).eq('organization_id', org.id).order('sort_order'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('pools').select('id, name, sort_order').eq('league_id', id).eq('organization_id', org.id).order('sort_order'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('game_results')
+
+    db.from('teams').select('id, name, division_id, pool_id').eq('league_id', id).eq('organization_id', org.id).eq('status', 'active'),
+
+    db.from('divisions').select('id, name, sort_order').eq('league_id', id).eq('organization_id', org.id).order('sort_order'),
+
+    db.from('pools').select('id, name, sort_order').eq('league_id', id).eq('organization_id', org.id).order('sort_order'),
+
+    db.from('game_results')
       .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
       .eq('organization_id', org.id)
       .eq('status', 'confirmed'),
   ])
 
-  const divisions: { id: string; name: string; sort_order: number }[] = divsData ?? []
-  const pools: { id: string; name: string; sort_order: number }[] = poolsData ?? []
+  const divisions: { id: string; name: string; sort_order: number }[] = (divsData ?? []).map((d) => ({ ...d, sort_order: d.sort_order ?? 0 }))
+  const pools: { id: string; name: string; sort_order: number }[] = (poolsData ?? []).map((p) => ({ ...p, sort_order: p.sort_order ?? 0 }))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leagueTeamIds = new Set<string>((teamsData ?? []).map((t: any) => t.id as string))
 
@@ -183,7 +183,7 @@ export default async function AdminStandingsPage({
     const input = {
       homeTeamId: ht, awayTeamId: at,
       homeScore: r.home_score, awayScore: r.away_score,
-      sets: r.sets, isForfeit: r.is_forfeit, forfeitTeamId: r.forfeit_team_id,
+      sets: r.sets as { home: number; away: number }[] | null, isForfeit: r.is_forfeit, forfeitTeamId: r.forfeit_team_id,
     }
     accumulateGameResult(gamePool ? poolRecord : record, input, isVolleyball)
     accumulateGameResult(combinedRecord, input, isVolleyball)

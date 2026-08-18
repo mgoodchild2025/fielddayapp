@@ -35,8 +35,8 @@ export async function GET(
     }
 
     // Must be org_admin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: member } = await (db as any)
+
+    const { data: member } = await db
       .from('org_members')
       .select('role')
       .eq('organization_id', org.id)
@@ -48,8 +48,8 @@ export async function GET(
     }
 
     // Fetch job — must belong to this org
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: job } = await (db as any)
+
+    const { data: job } = await db
       .from('org_export_jobs')
       .select('id, organization_id, status, storage_path, expires_at')
       .eq('id', jobId)
@@ -66,14 +66,17 @@ export async function GET(
 
     if (job.expires_at && new Date(job.expires_at) < new Date()) {
       // Mark as expired
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('org_export_jobs')
+
+      await db.from('org_export_jobs')
         .update({ status: 'expired' })
         .eq('id', jobId)
       return NextResponse.json({ error: 'Export has expired. Please request a new export.' }, { status: 410 })
     }
 
     // Generate signed URL (1 hour)
+    if (!job.storage_path) {
+      return NextResponse.json({ error: 'Export file not available' }, { status: 404 })
+    }
     const { data: signedData, error: signError } = await db.storage
       .from('tenant-exports')
       .createSignedUrl(job.storage_path, SIGNED_URL_EXPIRY_SECONDS)
@@ -84,8 +87,8 @@ export async function GET(
     }
 
     // Record download timestamp
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('org_export_jobs')
+
+    await db.from('org_export_jobs')
       .update({ downloaded_at: new Date().toISOString() })
       .eq('id', jobId)
 

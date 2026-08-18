@@ -19,7 +19,7 @@ type League = {
   currency: string
   season_start_date: string | null
   venue_name: string | null
-  created_at: string
+  created_at: string | null
 }
 
 const statusColors: Record<string, string> = {

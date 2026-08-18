@@ -188,16 +188,16 @@ export async function adminCreateTeam(input: z.infer<typeof adminCreateTeamSchem
   // Map template slot → real team (update matching games)
   if (parsed.data.slotLabel) {
     await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any)
+
+      db
         .from('games')
         .update({ home_team_id: team.id, home_team_label: null })
         .eq('league_id', parsed.data.leagueId)
         .eq('organization_id', org.id)
         .is('home_team_id', null)
         .eq('home_team_label', parsed.data.slotLabel),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any)
+
+      db
         .from('games')
         .update({ away_team_id: team.id, away_team_label: null })
         .eq('league_id', parsed.data.leagueId)
@@ -348,8 +348,8 @@ export async function joinTeamByCode(teamCode: string) {
   if (!user) return { data: null, error: 'Not authenticated' }
 
   // Look up team by code within this org
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: team } = await (db as any)
+
+  const { data: team } = await db
     .from('teams')
     .select('id, name, league_id, organization_id')
     .eq('team_code', code)
@@ -360,8 +360,8 @@ export async function joinTeamByCode(teamCode: string) {
   if (!team) return { data: null, error: 'Team code not found. Check the code and try again.' }
 
   // ── Team size capacity check ──────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: leagueForSize } = await (db as any)
+
+  const { data: leagueForSize } = await db
     .from('leagues')
     .select('max_team_size')
     .eq('id', team.league_id)
@@ -398,8 +398,8 @@ export async function joinTeamByCode(teamCode: string) {
   if (error) return { data: null, error: (error as { message: string }).message }
 
   // Also link any pending invite for this user's email
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (db as any).from('profiles').select('email').eq('id', user.id).single()
+
+  const { data: profile } = await db.from('profiles').select('email').eq('id', user.id).single()
   if (profile?.email) {
     await db
       .from('team_members')
@@ -423,8 +423,8 @@ export async function validateTeamCode(teamCode: string) {
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: team } = await (db as any)
+
+  const { data: team } = await db
     .from('teams')
     .select('id, name')
     .eq('team_code', code)
@@ -473,16 +473,16 @@ export async function deleteTeam(teamId: string, leagueId: string) {
   if (!member) return { error: 'Admin access required' }
 
   // Null out team references in bracket_matches (preserves bracket structure)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('bracket_matches')
+
+  await db.from('bracket_matches')
     .update({ team1_id: null, team1_seed: null })
     .eq('team1_id', teamId).eq('organization_id', org.id)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('bracket_matches')
+
+  await db.from('bracket_matches')
     .update({ team2_id: null, team2_seed: null })
     .eq('team2_id', teamId).eq('organization_id', org.id)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('bracket_matches')
+
+  await db.from('bracket_matches')
     .update({ winner_team_id: null })
     .eq('winner_team_id', teamId).eq('organization_id', org.id)
 
@@ -554,8 +554,8 @@ export async function adminAddTeamMember(input: z.infer<typeof adminAddMemberSch
 
     // Notify the player they've been added
     const [{ data: teamRow }, { data: leagueRow }] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any).from('teams').select('name, calendar_token').eq('id', parsed.data.teamId).single(),
+
+      db.from('teams').select('name, calendar_token').eq('id', parsed.data.teamId).single(),
       db.from('leagues').select('name').eq('id', parsed.data.leagueId).single(),
     ])
     if (teamRow && leagueRow) {
@@ -665,8 +665,8 @@ export async function requestToJoinTeam(teamId: string, message?: string) {
   const teamUrl = `https://${org.slug}.${platformDomain}/teams/${teamId}`
 
   // Fetch all captains + coaches on this team
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: managers } = await (db as any)
+
+  const { data: managers } = await db
     .from('team_members')
     .select('user_id, role, profiles!team_members_user_id_fkey(full_name, email)')
     .eq('team_id', teamId)
@@ -804,8 +804,8 @@ export async function approveJoinRequest(requestId: string) {
 
   // Fetch team name + player email for notification
   const [{ data: teamDetails }, { data: playerProfile }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('teams').select('name, calendar_token').eq('id', req.team_id).single(),
+
+    db.from('teams').select('name, calendar_token').eq('id', req.team_id).single(),
     db.from('profiles').select('full_name, email').eq('id', req.user_id).single(),
   ])
 
@@ -975,8 +975,8 @@ export async function sendTeamMessage(input: z.infer<typeof sendTeamMessageSchem
   // ── Build recipient user ID set ──────────────────────────────────────────
   const userIds = new Set<string>()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: members } = await (supabase as any)
+
+  const { data: members } = await supabase
     .from('team_members')
     .select('user_id')
     .eq('team_id', parsed.data.teamId)
@@ -988,8 +988,8 @@ export async function sendTeamMessage(input: z.infer<typeof sendTeamMessageSchem
   if (parsed.data.ccSelf) userIds.add(user.id)
 
   if (parsed.data.ccAdmins) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: admins } = await (db as any)
+
+    const { data: admins } = await db
       .from('org_members')
       .select('user_id')
       .eq('organization_id', org.id)
@@ -1020,8 +1020,8 @@ export async function sendTeamMessage(input: z.infer<typeof sendTeamMessageSchem
   const sendSmsChannel   = parsed.data.channel === 'sms'   || parsed.data.channel === 'both'
 
   if (sendEmailChannel || sendSmsChannel) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: profiles } = await (db as any)
+
+    const { data: profiles } = await db
       .from('profiles')
       .select('id, email, phone, sms_opted_in')
       .in('id', [...userIds])
@@ -1049,10 +1049,10 @@ export async function sendTeamMessage(input: z.infer<typeof sendTeamMessageSchem
       const orgLabel = (orgBranding as { org_name?: string } | null)?.org_name ?? org.name ?? 'Fieldday'
       const smsBody = `${orgLabel} · ${teamName}\n\n${parsed.data.subject}\n\n${parsed.data.body}\n\nReply STOP to unsubscribe.`
       const smsProfiles = (profiles ?? []).filter(
-        (p: { phone?: string; sms_opted_in?: boolean }) => p.phone && p.sms_opted_in
+        (p): p is typeof p & { phone: string } => !!p.phone && !!p.sms_opted_in
       )
       await Promise.allSettled(
-        smsProfiles.map((p: { phone: string }) => twilioSend(toE164(p.phone), smsBody))
+        smsProfiles.map((p) => twilioSend(toE164(p.phone), smsBody))
       )
     }
   }
@@ -1203,8 +1203,8 @@ export async function captainSetMemberRole(memberId: string, teamId: string, rol
   const { error, org, db } = await requireCaptainOrCoach(teamId)
   if (error) return { error }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: e } = await (db as any)
+
+  const { error: e } = await db
     .from('team_members')
     .update({ role })
     .eq('id', memberId)

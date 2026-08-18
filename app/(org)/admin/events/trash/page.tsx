@@ -18,8 +18,8 @@ export default async function EventsTrashPage() {
   if (!scope.isOrgAdmin) notFound()
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: trashed } = await (db as any)
+
+  const { data: trashed } = await db
     .from('leagues')
     .select('id, name, slug, status, event_type, season_start_date, deleted_at')
     .eq('organization_id', org.id)
@@ -27,7 +27,8 @@ export default async function EventsTrashPage() {
     .order('deleted_at', { ascending: false })
 
   type Row = { id: string; name: string; status: string; event_type: string | null; season_start_date: string | null; deleted_at: string }
-  const rows: Row[] = trashed ?? []
+  // The query filters deleted_at IS NOT NULL; the flatMap narrows the type to match.
+  const rows: Row[] = (trashed ?? []).flatMap((r) => (r.deleted_at ? [{ ...r, deleted_at: r.deleted_at }] : []))
 
   function daysLeft(deletedAt: string): number {
     const expiry = new Date(deletedAt).getTime() + RETENTION_DAYS * 24 * 60 * 60 * 1000

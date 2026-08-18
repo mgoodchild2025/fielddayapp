@@ -58,16 +58,16 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
 
 
   const [{ data: notif }, { data: reminders }] = await Promise.all([
-    (db as any)
+    db
       .from('org_notification_settings')
       .select('sms_game_reminders_enabled, email_game_reminders_enabled, email_reminder_hours_before, captain_prep_email_enabled, registration_notifications_enabled, registration_notification_email, payment_failure_notifications_enabled, merch_order_notifications_enabled')
       .eq('organization_id', org.id)
-      .single() as Promise<{ data: OrgNotifRow }>,
-    (db as any)
+      .single(),
+    db
       .from('org_sms_reminders')
       .select('id, minutes_before, message_template, enabled, sort_order')
       .eq('organization_id', org.id)
-      .order('sort_order', { ascending: true }) as Promise<{ data: OrgSmsReminderRow[] | null }>,
+      .order('sort_order', { ascending: true }),
   ])
 
   return {
@@ -116,8 +116,8 @@ export async function saveNotificationSettings(
   }
 
   // 1. Upsert master toggle + registration notification settings
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: notifErr } = await (db as any)
+
+  const { error: notifErr } = await db
     .from('org_notification_settings')
     .upsert(
       {
@@ -138,8 +138,8 @@ export async function saveNotificationSettings(
   if (notifErr) return { error: notifErr.message }
 
   // 2. Replace all reminders (delete + insert — simpler than diffing)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: delErr } = await (db as any)
+
+  const { error: delErr } = await db
     .from('org_sms_reminders')
     .delete()
     .eq('organization_id', org.id) as { error: { message: string } | null }
@@ -154,8 +154,8 @@ export async function saveNotificationSettings(
       enabled: r.enabled,
       sort_order: i,
     }))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: insErr } = await (db as any)
+
+    const { error: insErr } = await db
       .from('org_sms_reminders')
       .insert(rows) as { error: { message: string } | null }
 

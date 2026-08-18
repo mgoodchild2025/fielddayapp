@@ -23,27 +23,27 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
 
   // ── Load context ────────────────────────────────────────────────────────────
   const [{ data: league }, { data: divisions }, { data: poolsData }, { data: teams }, { data: results }, { count: unsettledCount }, { data: branding }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('id, name, event_type, status, sport').eq('id', leagueId).eq('organization_id', org.id).single(),
+
+    db.from('leagues').select('id, name, event_type, status, sport').eq('id', leagueId).eq('organization_id', org.id).single(),
     db.from('divisions').select('id, name').eq('league_id', leagueId).eq('organization_id', org.id),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('pools').select('id, name, sort_order').eq('league_id', leagueId).eq('organization_id', org.id).order('sort_order'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('teams').select('id, name, division_id, pool_id').eq('league_id', leagueId).eq('organization_id', org.id).eq('status', 'active'),
+
+    db.from('pools').select('id, name, sort_order').eq('league_id', leagueId).eq('organization_id', org.id).order('sort_order'),
+
+    db.from('teams').select('id, name, division_id, pool_id').eq('league_id', leagueId).eq('organization_id', org.id).eq('status', 'active'),
     db.from('game_results')
       .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
       .eq('organization_id', org.id)
       .eq('status', 'confirmed'),
     // Count regular season games that still need scores (status=scheduled = not yet completed/scored)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('games')
       .select('id', { count: 'exact', head: true })
       .eq('league_id', leagueId)
       .eq('organization_id', org.id)
       .eq('status', 'scheduled'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('timezone').eq('organization_id', org.id).single(),
+
+    db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
   ])
 
   const timezone: string = (branding as { timezone?: string | null } | null)?.timezone ?? 'America/Toronto'
@@ -103,7 +103,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
     teamCount: (teams ?? []).length,
     divisionCount,
     poolCount,
-    eventType: league?.event_type ?? 'league',
+    eventType: (league?.event_type ?? 'league') as 'league' | 'drop_in' | 'tournament' | 'pickup',
   })
 
   // ── All teams ref (for match-edit override dropdowns) ───────────────────────
@@ -172,8 +172,8 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
 
   // Load config + tiers + brackets as separate queries to avoid PostgREST
   // schema-cache issues with newly created tables.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: configRow } = await (db as any)
+
+  const { data: configRow } = await db
     .from('playoff_configs')
     .select('id, seeding_method, advance_per_pool')
     .eq('league_id', leagueId)
@@ -183,8 +183,8 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
   let existingConfig: ExistingConfig | null = null
 
   if (configRow) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: tiersData } = await (db as any)
+
+    const { data: tiersData } = await db
       .from('playoff_tiers')
       .select('id, name, sort_order, seed_from, seed_to, bracket_type, third_place_game, bracket_id')
       .eq('config_id', configRow.id)
@@ -203,8 +203,8 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
     const bracketMap = new Map<string, RawBracket>()
 
     if (bracketIds.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: bracketsData } = await (db as any)
+
+      const { data: bracketsData } = await db
         .from('brackets')
         .select(`
           id, name, bracket_size, bracket_type, third_place_game, status,

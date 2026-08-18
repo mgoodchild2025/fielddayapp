@@ -57,12 +57,12 @@ export default async function AdminShopPage({
   const [orders, items, paymentSettingsResult] = await Promise.all([
     getAllMerchandiseOrders(org.id),
     getMerchandiseItems(org.id),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+
+    supabase
       .from('org_payment_settings')
       .select('shop_payment_mode')
       .eq('organization_id', org.id)
-      .maybeSingle() as Promise<{ data: { shop_payment_mode: string | null } | null }>,
+      .maybeSingle(),
   ])
 
   const isManualPayment = paymentSettingsResult.data?.shop_payment_mode === 'manual'

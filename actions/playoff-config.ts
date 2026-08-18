@@ -32,8 +32,8 @@ async function computeStandings(
   orgId: string
 ): Promise<TeamStanding[]> {
   const [{ data: teams }, { data: results }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('teams').select('id, name, division_id, pool_id').eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
+
+    db.from('teams').select('id, name, division_id, pool_id').eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
     db.from('game_results')
       .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status)')
       .eq('organization_id', orgId)
@@ -124,8 +124,8 @@ async function insertBracketWithMatches(
   const seedingMethod = opts.seedingMethod ?? (poolNames.length > 0 ? 'pool_results' : 'standings')
 
   // Insert bracket row in scaffold state — teams are assigned later via "Seed Bracket"
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: bracket, error: bracketError } = await (db as any).from('brackets').insert({
+
+  const { data: bracket, error: bracketError } = await db.from('brackets').insert({
     organization_id: orgId,
     league_id: leagueId,
     name,
@@ -158,8 +158,8 @@ async function insertBracketWithMatches(
   ]
 
   // Insert scaffold matches with null team IDs and pool/seed position labels
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: insertedMatches, error: matchError } = await (db as any).from('bracket_matches').insert(
+
+  const { data: insertedMatches, error: matchError } = await db.from('bracket_matches').insert(
     allMatchSpecs.map((m: BracketMatchSpec) => {
       const isBestLoserSlot1 = bestLoserSlot?.roundNumber === m.roundNumber && bestLoserSlot?.matchNumber === m.matchNumber && bestLoserSlot?.slot === 1
       const isBestLoserSlot2 = bestLoserSlot?.roundNumber === m.roundNumber && bestLoserSlot?.matchNumber === m.matchNumber && bestLoserSlot?.slot === 2
@@ -196,8 +196,8 @@ async function insertBracketWithMatches(
     const thisId = matchIdLookup.get(`${m.roundNumber}:${m.matchNumber}`)
     const toId = matchIdLookup.get(`${m.winnerToRoundNumber}:${m.winnerToMatchNumber}`)
     if (!thisId || !toId) continue
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('bracket_matches')
+
+    await db.from('bracket_matches')
       .update({ winner_to_match_id: toId, winner_to_slot: m.winnerToSlot })
       .eq('id', thisId)
   }
@@ -208,8 +208,8 @@ async function insertBracketWithMatches(
     const thisId = matchIdLookup.get(`${m.roundNumber}:${m.matchNumber}`)
     const toId = matchIdLookup.get(`${m.loserToRoundNumber}:${m.loserToMatchNumber}`)
     if (!thisId || !toId) continue
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('bracket_matches')
+
+    await db.from('bracket_matches')
       .update({ loser_to_match_id: toId, loser_to_slot: m.loserToSlot })
       .eq('id', thisId)
   }
@@ -248,8 +248,8 @@ export async function savePlayoffConfig(input: {
   }
 
   // Upsert playoff_config
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (db as any)
+
+  const { data: existing } = await db
     .from('playoff_configs')
     .select('id')
     .eq('league_id', input.leagueId)
@@ -260,16 +260,16 @@ export async function savePlayoffConfig(input: {
 
   if (existing) {
     configId = existing.id
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('playoff_configs')
+
+    await db.from('playoff_configs')
       .update({
         seeding_method: input.seedingMethod,
         advance_per_pool: input.advancePerPool ?? null,
       })
       .eq('id', configId)
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: created, error: createErr } = await (db as any).from('playoff_configs').insert({
+
+    const { data: created, error: createErr } = await db.from('playoff_configs').insert({
       organization_id: org.id,
       league_id: input.leagueId,
       seeding_method: input.seedingMethod,
@@ -280,8 +280,8 @@ export async function savePlayoffConfig(input: {
   }
 
   // Sync tiers: delete tiers not in the new list (only those without a bracket or with no scores)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existingTiers } = await (db as any)
+
+  const { data: existingTiers } = await db
     .from('playoff_tiers')
     .select('id, bracket_id')
     .eq('config_id', configId)
@@ -290,8 +290,8 @@ export async function savePlayoffConfig(input: {
   for (const et of existingTiers ?? []) {
     if (!incomingIds.has(et.id)) {
       // Delete tier (bracket_id reference cascades via ON DELETE SET NULL)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('playoff_tiers').delete().eq('id', et.id)
+
+      await db.from('playoff_tiers').delete().eq('id', et.id)
     }
   }
 
@@ -299,8 +299,8 @@ export async function savePlayoffConfig(input: {
   for (let i = 0; i < input.tiers.length; i++) {
     const t = input.tiers[i]
     if (t.id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('playoff_tiers').update({
+
+      await db.from('playoff_tiers').update({
         name: t.name,
         sort_order: i,
         seed_from: t.seedFrom,
@@ -309,8 +309,8 @@ export async function savePlayoffConfig(input: {
         third_place_game: t.thirdPlaceGame,
       }).eq('id', t.id)
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('playoff_tiers').insert({
+
+      await db.from('playoff_tiers').insert({
         organization_id: org.id,
         config_id: configId,
         name: t.name,
@@ -338,8 +338,8 @@ export async function generateAllTierBrackets(
 
   // Load config + tiers as two separate queries (avoids PostgREST schema-cache
   // issues with newly created tables where relationship joins may not resolve yet)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: config } = await (db as any)
+
+  const { data: config } = await db
     .from('playoff_configs')
     .select('id, seeding_method, advance_per_pool')
     .eq('league_id', leagueId)
@@ -349,10 +349,10 @@ export async function generateAllTierBrackets(
   if (!config) return { error: 'No playoff config found. Save the config first.', generated: 0, skipped: 0 }
 
   const seedingMethod: PoolSeedingMethod = config.seeding_method as PoolSeedingMethod
-  const advancePerPool: number[] | null = config.advance_per_pool ?? null
+  const advancePerPool: number[] | null = (config.advance_per_pool as number[] | null) ?? null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: tiersData } = await (db as any)
+
+  const { data: tiersData } = await db
     .from('playoff_tiers')
     .select('id, name, sort_order, seed_from, seed_to, bracket_type, third_place_game, bracket_id')
     .eq('config_id', config.id)
@@ -366,8 +366,8 @@ export async function generateAllTierBrackets(
   if (tiers.length === 0) return { error: 'No tiers defined.', generated: 0, skipped: 0 }
 
   // Fetch pools — used for scaffold label generation
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: poolsData } = await (db as any)
+
+  const { data: poolsData } = await db
     .from('pools')
     .select('id, name, sort_order')
     .eq('league_id', leagueId)
@@ -384,8 +384,8 @@ export async function generateAllTierBrackets(
 
     // Check if this tier's bracket already has scores recorded → skip regeneration
     if (tier.bracket_id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { count } = await (db as any)
+
+      const { count } = await db
         .from('bracket_matches')
         .select('id', { count: 'exact', head: true })
         .eq('bracket_id', tier.bracket_id)
@@ -397,12 +397,12 @@ export async function generateAllTierBrackets(
       }
 
       // No scores — safe to delete and regenerate
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('bracket_matches').delete().eq('bracket_id', tier.bracket_id)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('brackets').delete().eq('id', tier.bracket_id)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).from('playoff_tiers').update({ bracket_id: null }).eq('id', tier.id)
+
+      await db.from('bracket_matches').delete().eq('bracket_id', tier.bracket_id)
+
+      await db.from('brackets').delete().eq('id', tier.bracket_id)
+
+      await db.from('playoff_tiers').update({ bracket_id: null }).eq('id', tier.id)
     }
 
     const teamsAdvancing = tier.seed_to - tier.seed_from + 1
@@ -462,8 +462,8 @@ export async function generateAllTierBrackets(
 
     if (error || !bracketId) { skipped++; continue }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('playoff_tiers').update({ bracket_id: bracketId }).eq('id', tier.id)
+
+    await db.from('playoff_tiers').update({ bracket_id: bracketId }).eq('id', tier.id)
     generated++
   }
 
@@ -493,8 +493,8 @@ export async function deletePlayoffConfig(leagueId: string): Promise<{ error?: s
   const org = await getOrgAndRequireAdmin()
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: config } = await (db as any)
+
+  const { data: config } = await db
     .from('playoff_configs')
     .select('id')
     .eq('league_id', leagueId)
@@ -503,10 +503,10 @@ export async function deletePlayoffConfig(leagueId: string): Promise<{ error?: s
 
   if (!config) return {}
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('playoff_tiers').delete().eq('config_id', config.id)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('playoff_configs').delete().eq('id', config.id)
+
+  await db.from('playoff_tiers').delete().eq('config_id', config.id)
+
+  await db.from('playoff_configs').delete().eq('id', config.id)
 
   revalidatePath(`/admin/events/${leagueId}/bracket`)
   return {}

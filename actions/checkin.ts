@@ -29,8 +29,8 @@ export async function checkInByToken(
   const db = createServiceRoleClient()
 
   // Fetch registration + player profile only
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reg } = await (db as any)
+
+  const { data: reg } = await db
     .from('registrations')
     .select(`
       id, league_id, user_id, checked_in_at, checked_in_by,
@@ -46,9 +46,10 @@ export async function checkInByToken(
   const playerName: string = profileData?.full_name ?? 'Unknown'
 
   // ── Per-session check-in path ──────────────────────────────────────────────
-  if (sessionId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: sessionReg } = await (db as any)
+  // Guests (user_id null) have no session_registrations row — their
+  // registration IS per-session, so they fall through to the event-level path.
+  if (sessionId && reg.user_id) {
+    const { data: sessionReg } = await db
       .from('session_registrations')
       .select('id, checked_in_at')
       .eq('session_id', sessionId)
@@ -64,8 +65,8 @@ export async function checkInByToken(
       return { status: 'already_checked_in', playerName, checkedInAt: sessionReg.checked_in_at }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any)
+
+    const { error } = await db
       .from('session_registrations')
       .update({ checked_in_at: new Date().toISOString(), checked_in_by: user.id })
       .eq('id', sessionReg.id)
@@ -84,22 +85,23 @@ export async function checkInByToken(
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('registrations')
     .update({ checked_in_at: new Date().toISOString(), checked_in_by: user.id })
     .eq('id', reg.id)
 
   if (error) return { status: 'not_found' }
 
-  // Look up the player's team for this league
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: teamMember } = await (db as any)
-    .from('team_members')
-    .select('team_id, team:teams!team_members_team_id_fkey(id, name, league_id)')
-    .eq('user_id', reg.user_id)
-    .eq('status', 'active')
-    .maybeSingle()
+  // Look up the player's team for this league (guests have no team)
+  const { data: teamMember } = reg.user_id
+    ? await db
+        .from('team_members')
+        .select('team_id, team:teams!team_members_team_id_fkey(id, name, league_id)')
+        .eq('user_id', reg.user_id)
+        .eq('status', 'active')
+        .maybeSingle()
+    : { data: null }
 
   const teamData = teamMember
     ? (Array.isArray(teamMember.team) ? teamMember.team[0] : teamMember.team)
@@ -125,8 +127,8 @@ export async function checkInWalkIn(
 
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reg } = await (db as any)
+
+  const { data: reg } = await db
     .from('registrations')
     .select('id, user_id, organization_id, profile:profiles!registrations_user_id_fkey(full_name)')
     .eq('id', registrationId)
@@ -138,10 +140,14 @@ export async function checkInWalkIn(
   const playerName: string = profileData?.full_name ?? 'Unknown'
   const now = new Date().toISOString()
 
+  // session_registrations.user_id is NOT NULL — guest registrations (no
+  // account) can't be added as session walk-ins.
+  if (!reg.user_id) return { error: 'Guest registrations cannot be added as session walk-ins.', playerName }
+
   // Upsert: create a walk-in session_registration and mark it checked in.
   // If a cancelled row already exists, update it back to registered + checked in.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('session_registrations')
     .upsert(
       {
@@ -173,8 +179,8 @@ export async function manualSessionCheckIn(
   if (!user) return { error: 'Unauthorized' }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('session_registrations')
     .update({ checked_in_at: new Date().toISOString(), checked_in_by: user.id })
     .eq('id', sessionRegistrationId)
@@ -195,8 +201,8 @@ export async function undoSessionCheckIn(
   if (!user) return { error: 'Unauthorized' }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('session_registrations')
     .update({ checked_in_at: null, checked_in_by: null })
     .eq('id', sessionRegistrationId)
@@ -211,8 +217,8 @@ export async function undoSessionCheckIn(
 export async function selfCheckIn(token: string): Promise<CheckInResult> {
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reg } = await (db as any)
+
+  const { data: reg } = await db
     .from('registrations')
     .select('id, league_id, checked_in_at, profile:profiles!registrations_user_id_fkey(full_name)')
     .eq('checkin_token', token)
@@ -229,8 +235,8 @@ export async function selfCheckIn(token: string): Promise<CheckInResult> {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('registrations')
     .update({ checked_in_at: new Date().toISOString(), checked_in_by: null })
     .eq('id', reg.id)
@@ -263,16 +269,16 @@ export async function checkInSelfForEvent(leagueId: string): Promise<SelfCheckIn
   const db = createServiceRoleClient()
 
   // Fetch the player's name
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (db as any)
+
+  const { data: profile } = await db
     .from('profiles')
     .select('full_name')
     .eq('id', user.id)
     .maybeSingle()
   const playerName: string | null = profile?.full_name ?? null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reg } = await (db as any)
+
+  const { data: reg } = await db
     .from('registrations')
     .select('id, checked_in_at')
     .eq('league_id', leagueId)
@@ -287,8 +293,8 @@ export async function checkInSelfForEvent(leagueId: string): Promise<SelfCheckIn
     return { status: 'already_checked_in', playerName: playerName ?? 'You', checkedInAt: reg.checked_in_at }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('registrations')
     .update({ checked_in_at: new Date().toISOString(), checked_in_by: null })
     .eq('id', reg.id)
@@ -309,8 +315,8 @@ export async function checkInSelfForSession(sessionId: string): Promise<SelfChec
   const db = createServiceRoleClient()
 
   // Fetch the player's name
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (db as any)
+
+  const { data: profile } = await db
     .from('profiles')
     .select('full_name')
     .eq('id', user.id)
@@ -318,8 +324,8 @@ export async function checkInSelfForSession(sessionId: string): Promise<SelfChec
   const playerName: string | null = profile?.full_name ?? null
 
   // Fetch the session to get leagueId for revalidation
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: session } = await (db as any)
+
+  const { data: session } = await db
     .from('event_sessions')
     .select('id, league_id')
     .eq('id', sessionId)
@@ -329,8 +335,8 @@ export async function checkInSelfForSession(sessionId: string): Promise<SelfChec
   if (!session) return { status: 'not_registered', playerName }
 
   // Check session_registrations first (join-button flow)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: sessionReg } = await (db as any)
+
+  const { data: sessionReg } = await db
     .from('session_registrations')
     .select('id, checked_in_at')
     .eq('session_id', sessionId)
@@ -342,8 +348,8 @@ export async function checkInSelfForSession(sessionId: string): Promise<SelfChec
     if (sessionReg.checked_in_at) {
       return { status: 'already_checked_in', playerName: playerName ?? 'You', checkedInAt: sessionReg.checked_in_at }
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any)
+
+    await db
       .from('session_registrations')
       .update({ checked_in_at: new Date().toISOString(), checked_in_by: null })
       .eq('id', sessionReg.id)
@@ -351,8 +357,8 @@ export async function checkInSelfForSession(sessionId: string): Promise<SelfChec
   }
 
   // Check registrations table (drop-in registration flow)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: dropInReg } = await (db as any)
+
+  const { data: dropInReg } = await db
     .from('registrations')
     .select('id, checked_in_at')
     .eq('session_id', sessionId)
@@ -366,8 +372,8 @@ export async function checkInSelfForSession(sessionId: string): Promise<SelfChec
     if (dropInReg.checked_in_at) {
       return { status: 'already_checked_in', playerName: playerName ?? 'You', checkedInAt: dropInReg.checked_in_at }
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any)
+
+    await db
       .from('registrations')
       .update({ checked_in_at: new Date().toISOString(), checked_in_by: null })
       .eq('id', dropInReg.id)
@@ -386,8 +392,8 @@ export async function undoCheckIn(registrationId: string, leagueId: string) {
   if (!user) return { error: 'Unauthorized' }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('registrations')
     .update({ checked_in_at: null, checked_in_by: null })
     .eq('id', registrationId)

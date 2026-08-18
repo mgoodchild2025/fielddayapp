@@ -67,10 +67,10 @@ export default async function GameMatchupPage({
 
   // ── Parallel fetch: branding, game, user's team memberships ──────────────
   const [{ data: branding }, { data: rawGame }, { data: myTeamRows }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
+
+    db
       .from('games')
       .select(`
         id, scheduled_at, court, week_number, status, league_id,
@@ -82,8 +82,8 @@ export default async function GameMatchupPage({
       .eq('id', gameId)
       .eq('organization_id', org.id)
       .single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+
+    db
       .from('team_members')
       .select('team_id, role')
       .eq('user_id', user.id)
@@ -141,19 +141,19 @@ export default async function GameMatchupPage({
 
   if (isUpcoming && (myTeamId || captainTeamIdForGame)) {
     const [{ data: rsvpData }, { data: captainships }, { data: subRows }] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      myTeamId ? (db as any).from('game_rsvps').select('status').eq('game_id', gameId).eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      captainTeamIdForGame ? (db as any).from('team_members').select('team_id').in('team_id', [captainTeamIdForGame]).eq('status', 'active') : Promise.resolve({ data: null }),
+
+      myTeamId ? db.from('game_rsvps').select('status').eq('game_id', gameId).eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
+
+      captainTeamIdForGame ? db.from('team_members').select('team_id').in('team_id', [captainTeamIdForGame]).eq('status', 'active') : Promise.resolve({ data: null }),
       // Game subs for captain's attendance panel
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      captainTeamIdForGame ? (db as any).from('game_subs').select(`
+
+      captainTeamIdForGame ? db.from('game_subs').select(`
         id, game_id, team_id, user_id, invited_email, status, message, expires_at, created_at,
         inviter:profiles!game_subs_invited_by_fkey(full_name)
       `).eq('game_id', gameId).eq('team_id', captainTeamIdForGame).in('status', ['invited', 'confirmed']) : Promise.resolve({ data: null }),
     ])
 
-    rsvpStatus = rsvpData?.status ?? null
+    rsvpStatus = (rsvpData?.status as 'in' | 'out' | null) ?? null
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     captainGameSubsList = (subRows ?? []).map((row: any) => {
@@ -174,8 +174,8 @@ export default async function GameMatchupPage({
 
     if (captainTeamIdForGame && captainships) {
       const total = (captainships as { team_id: string }[]).length
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: teamRsvps } = await (db as any)
+
+      const { data: teamRsvps } = await db
         .from('game_rsvps')
         .select('status')
         .eq('game_id', gameId)
@@ -193,8 +193,8 @@ export default async function GameMatchupPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let h2hGames: any[] = []
   if (homeTeamId && awayTeamId && rawGame.league_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: h2hRows } = await (db as any)
+
+    const { data: h2hRows } = await db
       .from('games')
       .select(`
         id, scheduled_at, court, status, week_number,

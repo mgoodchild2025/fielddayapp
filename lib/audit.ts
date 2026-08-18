@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import type { Json } from '@/types/database'
 
 /**
  * Audit log actions. Add new ones here as more system events are tracked.
@@ -66,8 +67,8 @@ export interface AuditEntry {
 export async function recordAuditLog(entry: AuditEntry): Promise<void> {
   try {
     const db = createServiceRoleClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('audit_logs').insert({
+
+    await db.from('audit_logs').insert({
       organization_id: entry.orgId,
       actor_user_id:   entry.actorUserId ?? null,
       actor_label:     entry.actorLabel ?? null,
@@ -75,7 +76,7 @@ export async function recordAuditLog(entry: AuditEntry): Promise<void> {
       target_type:     entry.targetType ?? null,
       target_id:       entry.targetId ?? null,
       target_label:    entry.targetLabel ?? null,
-      metadata:        entry.metadata ?? {},
+      metadata:        (entry.metadata ?? {}) as Json,
     })
   } catch (err) {
     console.error('[audit] failed to record log:', entry.action, err)

@@ -22,19 +22,19 @@ export default async function AuditLogPage({ searchParams }: Props) {
 
   // Org timezone — audit times are stored in UTC; format them in the org's zone.
   // Without this, a server component formats in the server's zone (UTC in prod).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: branding } = await (db as any)
+
+  const { data: branding } = await db
     .from('org_branding').select('timezone').eq('organization_id', org.id).maybeSingle()
   const timezone: string = branding?.timezone || 'America/Toronto'
 
   // Distinct actions present (for the filter dropdown)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: allActions } = await (db as any)
+
+  const { data: allActions } = await db
     .from('audit_logs').select('action').eq('organization_id', org.id)
   const actionTypes = [...new Set(((allActions ?? []) as { action: string }[]).map(a => a.action))].sort()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (db as any)
+
+  let query = db
     .from('audit_logs')
     .select('id, action, actor_label, target_type, target_label, metadata, created_at')
     .eq('organization_id', org.id)
@@ -49,7 +49,7 @@ export default async function AuditLogPage({ searchParams }: Props) {
     target_type: string | null; target_label: string | null
     metadata: Record<string, unknown> | null; created_at: string
   }
-  const rows: LogRow[] = logs ?? []
+  const rows: LogRow[] = (logs ?? []).map((l) => ({ ...l, metadata: (l.metadata ?? null) as Record<string, unknown> | null }))
 
   return (
     <div className="max-w-3xl">
