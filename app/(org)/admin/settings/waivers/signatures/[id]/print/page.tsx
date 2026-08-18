@@ -18,8 +18,8 @@ export default async function WaiverSignaturePrintPage({
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: sig } = await (db as any)
+
+  const { data: sig } = await db
     .from('waiver_signatures')
     .select(`
       id, signed_at, signature_name, ip_address, guardian_relationship,
@@ -57,14 +57,14 @@ export default async function WaiverSignaturePrintPage({
   }
   const isGuestSig = !playerProfile && (sig.guest_email || sig.guest_name)
 
-  const signedDate = new Date(sig.signed_at).toLocaleDateString('en-CA', {
+  const signedDate = new Date(sig.signed_at ?? Date.now()).toLocaleDateString('en-CA', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
     timeZone: timezone,
   })
-  const signedTime = new Date(sig.signed_at).toLocaleTimeString('en-CA', {
+  const signedTime = new Date(sig.signed_at ?? Date.now()).toLocaleTimeString('en-CA', {
     hour: 'numeric',
     minute: '2-digit',
     second: '2-digit',

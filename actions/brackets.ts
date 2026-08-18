@@ -8,6 +8,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { parseLocalToUtc, formatGameTime } from '@/lib/format-time'
+import type { TablesUpdate } from '@/types/database'
 import { notifyScheduleDelay } from '@/lib/notify-schedule-delay'
 import {
   generateSingleEliminationSpec,
@@ -43,14 +44,14 @@ async function computeStandings(
   gameFilter: 'all' | 'pool_only' | 'regular_only' = 'regular_only'
 ): Promise<{ standings: TeamStanding[]; ptsMethod: import('@/lib/bracket').StandingsSortMethod; sport: string | null; volleyballMode: 'match_based' | 'set_based' }> {
   const [{ data: teams }, { data: results }, { data: leagueRow }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('teams').select('id, name, division_id, pool_id').eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
+
+    db.from('teams').select('id, name, division_id, pool_id').eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
     db.from('game_results')
       .select('home_score, away_score, sets, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
       .eq('organization_id', orgId)
       .eq('status', 'confirmed'),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('sport, standings_pts_method, volleyball_standings_mode').eq('id', leagueId).maybeSingle(),
+
+    db.from('leagues').select('sport, standings_pts_method, volleyball_standings_mode').eq('id', leagueId).maybeSingle(),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,23 +128,26 @@ export async function createBracket(input: z.infer<typeof createBracketSchema>) 
   const db = createServiceRoleClient()
   const d = parsed.data
 
-  // Only one bracket per division (or per league if no division)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (db as any)
+  // Only one bracket per division (or per league if no division).
+  // NOTE: .eq('division_id', null) never matches SQL NULL in PostgREST — the
+  // no-division case must use .is(), otherwise the duplicate check silently
+  // passed and allowed duplicate league-level brackets.
+  const dupQuery = db
     .from('brackets')
     .select('id')
     .eq('league_id', d.leagueId)
     .eq('organization_id', org.id)
-    .eq(d.divisionId ? 'division_id' : 'division_id', d.divisionId ?? null)
-    .maybeSingle()
+  const { data: existing } = await (
+    d.divisionId ? dupQuery.eq('division_id', d.divisionId) : dupQuery.is('division_id', null)
+  ).maybeSingle()
 
   if (existing) return { error: 'A bracket already exists for this scope. Delete it first.', bracketId: null }
 
   // Double elimination doesn't need a third-place game — the LB Final loser is naturally 3rd
   const thirdPlaceGame = d.bracketType === 'double_elimination' ? false : d.thirdPlaceGame
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: bracket, error } = await (db as any).from('brackets').insert({
+
+  const { data: bracket, error } = await db.from('brackets').insert({
     organization_id: org.id,
     league_id: d.leagueId,
     division_id: d.divisionId ?? null,
@@ -171,8 +175,8 @@ export async function scaffoldBracket(bracketId: string, leagueId: string) {
   const org = await getOrgAndRequireAdmin()
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: bracket } = await (db as any)
+
+  const { data: bracket } = await db
     .from('brackets')
     .select('*')
     .eq('id', bracketId)
@@ -183,8 +187,8 @@ export async function scaffoldBracket(bracketId: string, leagueId: string) {
 
   // Read this bracket's tier offset so labels and seed numbers use global ranks
   // (e.g. Tier 2 with seed_from=9 → "Seed 9" not "Seed 1", stored seed 9 not 1)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: tierRow } = await (db as any)
+
+  const { data: tierRow } = await db
     .from('playoff_tiers')
     .select('seed_from')
     .eq('bracket_id', bracketId)
@@ -192,8 +196,8 @@ export async function scaffoldBracket(bracketId: string, leagueId: string) {
   const scaffoldSeedOffset = tierRow?.seed_from ? Math.max(0, (tierRow.seed_from as number) - 1) : 0
 
   // Preserve any schedule dates the admin may have already set
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (db as any)
+
+  const { data: existing } = await db
     .from('bracket_matches')
     .select('round_number, match_number, scheduled_at, court, notes')
     .eq('bracket_id', bracketId)
@@ -214,12 +218,12 @@ export async function scaffoldBracket(bracketId: string, leagueId: string) {
   ]
 
   // Delete existing matches
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('bracket_matches').delete().eq('bracket_id', bracketId)
+
+  await db.from('bracket_matches').delete().eq('bracket_id', bracketId)
 
   // Insert placeholder matches with seed labels
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: insertedMatches, error: insertError } = await (db as any)
+
+  const { data: insertedMatches, error: insertError } = await db
     .from('bracket_matches')
     .insert(allMatchSpecs.map((m: BracketMatchSpec) => {
       const prev = scheduleMap.get(`${m.roundNumber}:${m.matchNumber}`)
@@ -261,8 +265,8 @@ export async function scaffoldBracket(bracketId: string, leagueId: string) {
 
   await wireMatchReferences(db, allMatchSpecs, matchIdLookup)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('brackets').update({ status: 'scaffold' }).eq('id', bracketId)
+
+  await db.from('brackets').update({ status: 'scaffold' }).eq('id', bracketId)
 
   revalidatePath(`/admin/events/${leagueId}/bracket`)
   return { error: null, matchCount: allMatchSpecs.length }
@@ -277,8 +281,8 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   const org = await getOrgAndRequireAdmin()
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: bracket } = await (db as any)
+
+  const { data: bracket } = await db
     .from('brackets')
     .select('*')
     .eq('id', bracketId)
@@ -289,8 +293,8 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
 
   // Look up this bracket's tier (if any) to determine the seed offset.
   // e.g. Tier1 seed_from=1, Tier2 seed_from=9 → Tier2 skips the first 8 teams.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: tierRow } = await (db as any)
+
+  const { data: tierRow } = await db
     .from('playoff_tiers')
     .select('seed_from, seed_to')
     .eq('bracket_id', bracketId)
@@ -349,8 +353,8 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
     // Use pool-play game results for standings (not regular season games)
     const { standings, ptsMethod, volleyballMode } = await computeStandings(db, leagueId, org.id, 'pool_only')
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: pools } = await (db as any)
+
+    const { data: pools } = await db
       .from('pools')
       .select('id, name, sort_order')
       .eq('league_id', leagueId)
@@ -361,8 +365,8 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
       if (bracket.seeding_method === 'pool_tiers') {
         // Each tier maps to one pool by index.
         // Look up which index this bracket's tier has among all tiers for this league.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: tierRow } = await (db as any)
+
+        const { data: tierRow } = await db
           .from('playoff_tiers')
           .select('config_id')
           .eq('bracket_id', bracketId)
@@ -370,8 +374,8 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
 
         let tierIndex = 0
         if (tierRow?.config_id) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: allTiers } = await (db as any)
+
+          const { data: allTiers } = await db
             .from('playoff_tiers')
             .select('id, bracket_id')
             .eq('config_id', tierRow.config_id)
@@ -391,21 +395,21 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
         }
       } else {
         // Shared: fetch advance_per_pool from the config if available
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: tierRow } = await (db as any)
+
+        const { data: tierRow } = await db
           .from('playoff_tiers')
           .select('config_id')
           .eq('bracket_id', bracketId)
           .maybeSingle()
         let advancePerPool: number[] | undefined
         if (tierRow?.config_id) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: cfgRow } = await (db as any)
+
+          const { data: cfgRow } = await db
             .from('playoff_configs')
             .select('advance_per_pool')
             .eq('id', tierRow.config_id)
             .maybeSingle()
-          advancePerPool = cfgRow?.advance_per_pool ?? undefined
+          advancePerPool = (cfgRow?.advance_per_pool as number[] | null) ?? undefined
         }
 
         const poolStandings = pools.map((pool: { id: string; name: string }) => ({
@@ -468,8 +472,8 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   const seedMap = new Map(seededTeams.map((t) => [t.seed!, t.teamId]))
 
   // Preserve any schedule dates from scaffold matches
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existingMatches } = await (db as any)
+
+  const { data: existingMatches } = await db
     .from('bracket_matches')
     .select('round_number, match_number, scheduled_at, court, notes')
     .eq('bracket_id', bracketId)
@@ -479,16 +483,16 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
   }
 
   // Delete existing matches
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('bracket_matches').delete().eq('bracket_id', bracketId)
+
+  await db.from('bracket_matches').delete().eq('bracket_id', bracketId)
 
   const allMatchSpecs = [
     ...spec.matches,
     ...(spec.thirdPlaceMatch ? [spec.thirdPlaceMatch] : []),
   ]
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: insertedMatches, error: insertError } = await (db as any)
+
+  const { data: insertedMatches, error: insertError } = await db
     .from('bracket_matches')
     .insert(allMatchSpecs.map((m: BracketMatchSpec) => {
       const prev = scheduleMap.get(`${m.roundNumber}:${m.matchNumber}`)
@@ -535,8 +539,8 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
     await advanceWinner(db, org.id, bracketId, matchId, winnerId)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('brackets').update({ status: 'seeding' }).eq('id', bracketId)
+
+  await db.from('brackets').update({ status: 'seeding' }).eq('id', bracketId)
 
   revalidatePath(`/admin/events/${leagueId}/bracket`)
   revalidatePath('/events/[slug]', 'page')
@@ -568,8 +572,8 @@ async function wireMatchReferences(
 
   for (const upd of winnerUpdates) {
     if (!upd) continue
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('bracket_matches')
+
+    await db.from('bracket_matches')
       .update({ winner_to_match_id: upd.winner_to_match_id, winner_to_slot: upd.winner_to_slot })
       .eq('id', upd.id)
   }
@@ -587,8 +591,8 @@ async function wireMatchReferences(
 
   for (const upd of loserUpdates) {
     if (!upd) continue
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('bracket_matches')
+
+    await db.from('bracket_matches')
       .update({ loser_to_match_id: upd.loser_to_match_id, loser_to_slot: upd.loser_to_slot })
       .eq('id', upd.id)
   }
@@ -600,8 +604,8 @@ export async function publishBracket(bracketId: string, leagueId: string) {
   const org = await getOrgAndRequireAdmin()
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('brackets')
+
+  const { error } = await db.from('brackets')
     .update({ status: 'active', published_at: new Date().toISOString() })
     .eq('id', bracketId)
     .eq('organization_id', org.id)
@@ -625,8 +629,8 @@ export async function unpublishBracket(bracketId: string, leagueId: string) {
   const db = createServiceRoleClient()
 
   // Revert to 'scaffold' when no match has a real team yet, else 'seeding'.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: seededMatch } = await (db as any).from('bracket_matches')
+
+  const { data: seededMatch } = await db.from('bracket_matches')
     .select('id')
     .eq('bracket_id', bracketId)
     .eq('organization_id', org.id)
@@ -635,8 +639,8 @@ export async function unpublishBracket(bracketId: string, leagueId: string) {
     .maybeSingle()
   const revertStatus = seededMatch ? 'seeding' : 'scaffold'
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('brackets')
+
+  const { error } = await db.from('brackets')
     .update({ status: revertStatus, published_at: null })
     .eq('id', bracketId)
     .eq('organization_id', org.id)
@@ -654,10 +658,10 @@ export async function deleteBracket(bracketId: string, leagueId: string) {
   const org = await getOrgAndRequireAdmin()
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('bracket_matches').delete().eq('bracket_id', bracketId).eq('organization_id', org.id)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('brackets').delete().eq('id', bracketId).eq('organization_id', org.id)
+
+  await db.from('bracket_matches').delete().eq('bracket_id', bracketId).eq('organization_id', org.id)
+
+  await db.from('brackets').delete().eq('id', bracketId).eq('organization_id', org.id)
 
   revalidatePath(`/admin/events/${leagueId}/bracket`)
   return { error: null }
@@ -672,8 +676,8 @@ export async function advanceWinner(
   matchId: string,
   winnerTeamId: string
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: match } = await (db as any)
+
+  const { data: match } = await db
     .from('bracket_matches')
     .select('winner_to_match_id, winner_to_slot')
     .eq('id', matchId)
@@ -683,8 +687,8 @@ export async function advanceWinner(
 
   const updateField = match.winner_to_slot === 1 ? 'team1_id' : 'team2_id'
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: nextMatch } = await (db as any)
+
+  const { data: nextMatch } = await db
     .from('bracket_matches')
     .select('id, team1_id, team2_id')
     .eq('id', match.winner_to_match_id)
@@ -695,12 +699,12 @@ export async function advanceWinner(
   const otherTeamField = match.winner_to_slot === 1 ? 'team2_id' : 'team1_id'
   const bothFilled = nextMatch[otherTeamField] !== null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('bracket_matches')
+
+  await db.from('bracket_matches')
     .update({
       [updateField]: winnerTeamId,
       status: bothFilled ? 'ready' : 'pending',
-    })
+    } as TablesUpdate<'bracket_matches'>)
     .eq('id', match.winner_to_match_id)
 }
 
@@ -713,8 +717,8 @@ async function advanceLoser(
   matchId: string,
   loserTeamId: string
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: match } = await (db as any)
+
+  const { data: match } = await db
     .from('bracket_matches')
     .select('loser_to_match_id, loser_to_slot')
     .eq('id', matchId)
@@ -724,8 +728,8 @@ async function advanceLoser(
 
   const updateField = match.loser_to_slot === 1 ? 'team1_id' : 'team2_id'
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: nextMatch } = await (db as any)
+
+  const { data: nextMatch } = await db
     .from('bracket_matches')
     .select('id, team1_id, team2_id')
     .eq('id', match.loser_to_match_id)
@@ -736,12 +740,12 @@ async function advanceLoser(
   const otherTeamField = match.loser_to_slot === 1 ? 'team2_id' : 'team1_id'
   const bothFilled = nextMatch[otherTeamField] !== null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('bracket_matches')
+
+  await db.from('bracket_matches')
     .update({
       [updateField]: loserTeamId,
       status: bothFilled ? 'ready' : 'pending',
-    })
+    } as TablesUpdate<'bracket_matches'>)
     .eq('id', match.loser_to_match_id)
 }
 
@@ -769,8 +773,8 @@ export async function recordBracketScore(input: z.infer<typeof bracketScoreSchem
 
   const winnerSlot = d.score1 > d.score2 ? 1 : 2
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: match } = await (db as any)
+
+  const { data: match } = await db
     .from('bracket_matches')
     .select('team1_id, team2_id')
     .eq('id', d.matchId)
@@ -784,8 +788,8 @@ export async function recordBracketScore(input: z.infer<typeof bracketScoreSchem
   const loserTeamId = winnerSlot === 1 ? match.team2_id : match.team1_id
   if (!winnerTeamId) return { error: 'Teams not yet determined for this match' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: updateError } = await (db as any).from('bracket_matches')
+
+  const { error: updateError } = await db.from('bracket_matches')
     .update({
       score1: d.score1,
       score2: d.score2,
@@ -815,8 +819,8 @@ export async function updateMatchSchedule(input: {
   const org = await getOrgAndRequireAdmin()
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('bracket_matches')
+
+  const { error } = await db.from('bracket_matches')
     .update({
       scheduled_at: input.scheduledAt || null,
       court: input.court || null,
@@ -861,8 +865,8 @@ export async function updateMatchRouting(input: {
 
   // Every routing target must be a bracket match owned by this org.
   if (targetIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: targets } = await (db as any)
+
+    const { data: targets } = await db
       .from('bracket_matches')
       .select('id')
       .in('id', targetIds)
@@ -873,8 +877,8 @@ export async function updateMatchRouting(input: {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('bracket_matches')
+
+  const { error } = await db.from('bracket_matches')
     .update({
       winner_to_match_id: input.winnerToMatchId,
       winner_to_slot: input.winnerToMatchId ? (input.winnerToSlot ?? 1) : null,
@@ -909,23 +913,23 @@ export async function delayRemainingBracketMatches(input: {
   const db = createServiceRoleClient()
 
   // Org timezone → start of today UTC bound
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: branding } = await (db as any)
+
+  const { data: branding } = await db
     .from('org_branding').select('timezone').eq('organization_id', org.id).single()
   const timezone = branding?.timezone ?? 'America/Toronto'
   const todayLocal = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date())
   const startOfTodayUtc = parseLocalToUtc(todayLocal, '00:00', timezone)
 
   // All brackets for this league
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: brackets } = await (db as any)
+
+  const { data: brackets } = await db
     .from('brackets').select('id').eq('league_id', input.leagueId).eq('organization_id', org.id)
   const bracketIds = (brackets ?? []).map((b: { id: string }) => b.id)
   if (bracketIds.length === 0) return { error: null, count: 0 }
 
   // Today's remaining, unplayed matches with a scheduled time
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: matches, error: fetchError } = await (db as any)
+
+  const { data: matches, error: fetchError } = await db
     .from('bracket_matches')
     .select('id, scheduled_at, team1_id, team2_id, court')
     .in('bracket_id', bracketIds)
@@ -941,8 +945,8 @@ export async function delayRemainingBracketMatches(input: {
   const shiftMs = input.minutes * 60 * 1000
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updates = (matches as any[]).map(m =>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('bracket_matches')
+
+    db.from('bracket_matches')
       .update({ scheduled_at: new Date(new Date(m.scheduled_at).getTime() + shiftMs).toISOString() })
       .eq('id', m.id).eq('organization_id', org.id)
   )
@@ -957,8 +961,8 @@ export async function delayRemainingBracketMatches(input: {
 
   // Notify affected teams of their new times (org timezone)
   if (input.notify) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: leagueRow } = await (db as any)
+
+    const { data: leagueRow } = await db
       .from('leagues').select('name').eq('id', input.leagueId).single()
     await notifyScheduleDelay({
       orgId: org.id,
@@ -994,8 +998,8 @@ export async function overrideBracketSlot(input: {
   const org = await getOrgAndRequireAdmin()
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: match } = await (db as any)
+
+  const { data: match } = await db
     .from('bracket_matches')
     .select('id, status, team1_id, team2_id')
     .eq('id', input.matchId)
@@ -1012,9 +1016,9 @@ export async function overrideBracketSlot(input: {
 
   const newStatus = input.teamId && otherTeamId ? 'ready' : 'pending'
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any).from('bracket_matches')
-    .update({ [updateField]: input.teamId, status: newStatus })
+
+  const { error } = await db.from('bracket_matches')
+    .update({ [updateField]: input.teamId, status: newStatus } as TablesUpdate<'bracket_matches'>)
     .eq('id', input.matchId)
 
   if (error) return { error: error.message }
@@ -1038,8 +1042,8 @@ export async function swapBracketTeams(input: {
 
   const matchIds = [input.slotA.matchId, input.slotB.matchId]
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: matches } = await (db as any)
+
+  const { data: matches } = await db
     .from('bracket_matches')
     .select('id, status, team1_id, team2_id, team1_seed, team2_seed')
     .in('id', matchIds)
@@ -1075,14 +1079,14 @@ export async function swapBracketTeams(input: {
   const statusA = teamB && otherA ? 'ready' : 'pending'
   const statusB = teamA && otherB ? 'ready' : 'pending'
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('bracket_matches')
-    .update({ [fieldA]: teamB, [seedFieldA]: seedB, status: statusA })
+
+  await db.from('bracket_matches')
+    .update({ [fieldA]: teamB, [seedFieldA]: seedB, status: statusA } as TablesUpdate<'bracket_matches'>)
     .eq('id', input.slotA.matchId)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('bracket_matches')
-    .update({ [fieldB]: teamA, [seedFieldB]: seedA, status: statusB })
+
+  await db.from('bracket_matches')
+    .update({ [fieldB]: teamA, [seedFieldB]: seedA, status: statusB } as TablesUpdate<'bracket_matches'>)
     .eq('id', input.slotB.matchId)
 
   revalidatePath(`/admin/events/${input.leagueId}/bracket`)
@@ -1097,8 +1101,8 @@ export async function swapBracketTeams(input: {
 export async function reverseBracketAdvancement(gameId: string, orgId: string): Promise<{ error: string | null }> {
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: match } = await (db as any)
+
+  const { data: match } = await db
     .from('bracket_matches')
     .select('id, winner_to_match_id, winner_to_slot, loser_to_match_id, loser_to_slot, brackets!bracket_matches_bracket_id_fkey(league_id)')
     .eq('game_id', gameId)
@@ -1108,10 +1112,10 @@ export async function reverseBracketAdvancement(gameId: string, orgId: string): 
   if (!match) return { error: null } // not a bracket game
 
   // Block if any downstream match is already completed
-  const downstreamIds = [match.winner_to_match_id, match.loser_to_match_id].filter(Boolean)
+  const downstreamIds = [match.winner_to_match_id, match.loser_to_match_id].filter((x): x is string => !!x)
   if (downstreamIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: downstream } = await (db as any)
+
+    const { data: downstream } = await db
       .from('bracket_matches')
       .select('status')
       .in('id', downstreamIds)
@@ -1125,24 +1129,24 @@ export async function reverseBracketAdvancement(gameId: string, orgId: string): 
   // Clear winner slot in next match
   if (match.winner_to_match_id) {
     const field = match.winner_to_slot === 1 ? 'team1_id' : 'team2_id'
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('bracket_matches')
-      .update({ [field]: null, status: 'pending', winner_team_id: null })
+
+    await db.from('bracket_matches')
+      .update({ [field]: null, status: 'pending', winner_team_id: null } as TablesUpdate<'bracket_matches'>)
       .eq('id', match.winner_to_match_id)
   }
 
   // Clear loser slot in loser-bracket match (double elimination)
   if (match.loser_to_match_id) {
     const field = match.loser_to_slot === 1 ? 'team1_id' : 'team2_id'
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('bracket_matches')
-      .update({ [field]: null, status: 'pending' })
+
+    await db.from('bracket_matches')
+      .update({ [field]: null, status: 'pending' } as TablesUpdate<'bracket_matches'>)
       .eq('id', match.loser_to_match_id)
   }
 
   // Reset this match back to ready (teams still present, score/winner cleared)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('bracket_matches')
+
+  await db.from('bracket_matches')
     .update({ score1: null, score2: null, winner_team_id: null, status: 'ready' })
     .eq('id', match.id)
 
@@ -1165,8 +1169,8 @@ export async function clearBracketSeeding(bracketId: string, leagueId: string) {
   const org = await getOrgAndRequireAdmin()
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: matches } = await (db as any)
+
+  const { data: matches } = await db
     .from('bracket_matches')
     .select('id, status, is_bye')
     .eq('bracket_id', bracketId)
@@ -1177,8 +1181,8 @@ export async function clearBracketSeeding(bracketId: string, leagueId: string) {
   const hasScores = (matches as { status: string }[]).some((m) => m.status === 'completed')
   if (hasScores) return { error: 'Cannot clear seeding while matches have scores recorded. Clear all scores first.' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('bracket_matches')
     .update({
       team1_id: null,
@@ -1199,8 +1203,8 @@ export async function clearBracketSeeding(bracketId: string, leagueId: string) {
   if (error) return { error: error.message }
 
   // Reset bracket status back to scaffold so it can be re-seeded
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('brackets')
     .update({ status: 'scaffold' })
     .eq('id', bracketId)
@@ -1240,10 +1244,10 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
   const db = createServiceRoleClient()
 
   // Load bracket + all matches
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: bracket } = await (db as any)
+
+  const { data: bracket } = await db
     .from('brackets')
-    .select('id, teams_advancing, bracket_type')
+    .select('id, teams_advancing, bracket_type, third_place_game')
     .eq('id', bracketId)
     .eq('organization_id', org.id)
     .single()
@@ -1265,8 +1269,8 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
   const { bestLoserSlot } = spec
   if (!bestLoserSlot) return { error: 'Bracket spec has no best loser slot defined' }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: allMatches } = await (db as any)
+
+  const { data: allMatches } = await db
     .from('bracket_matches')
     .select('id, round_number, match_number, team1_id, team2_id, winner_team_id, status, score1, score2, sets')
     .eq('bracket_id', bracketId)
@@ -1299,8 +1303,8 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
   }
 
   // Load team names
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: teamRows } = await (db as any)
+
+  const { data: teamRows } = await db
     .from('teams')
     .select('id, name')
     .in('id', loserIds)
@@ -1310,8 +1314,8 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
   const teamMap = new Map<string, string>(((teamRows ?? []) as TeamRow[]).map((t) => [t.id, t.name]))
 
   // Fetch all confirmed regular-season and pool-play game results for the league
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: resultRows } = await (db as any)
+
+  const { data: resultRows } = await db
     .from('game_results')
     .select('home_score, away_score, sets, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, status)')
     .eq('organization_id', org.id)
@@ -1402,8 +1406,8 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
   // Place the best loser in the target slot defined by the spec
   const isSlot1 = bestLoserSlot.slot === 1
   const otherSlotFilled = isSlot1 ? !!targetMatch.team2_id : !!targetMatch.team1_id
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('bracket_matches')
     .update(isSlot1
       ? { team1_id: best.teamId, team1_label: null, status: otherSlotFilled ? 'ready' : 'pending' }
@@ -1426,10 +1430,10 @@ export async function advanceBracketFromScore(
 ) {
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: match } = await (db as any)
+
+  const { data: match } = await db
     .from('bracket_matches')
-    .select('id, bracket_id, team1_id, team2_id, brackets!bracket_matches_bracket_id_fkey(league_id)')
+    .select('id, bracket_id, team1_id, team2_id, status, brackets!bracket_matches_bracket_id_fkey(league_id)')
     .eq('game_id', gameId)
     .eq('organization_id', orgId)
     .maybeSingle()
@@ -1445,8 +1449,8 @@ export async function advanceBracketFromScore(
   const league = Array.isArray(match.brackets) ? match.brackets[0] : match.brackets
   const leagueId = (league as { league_id: string } | null)?.league_id
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).from('bracket_matches')
+
+  await db.from('bracket_matches')
     .update({
       score1: homeScore,
       score2: awayScore,

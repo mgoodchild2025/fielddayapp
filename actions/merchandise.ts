@@ -144,8 +144,8 @@ async function getCallerRole(orgId: string) {
 export async function getMerchandiseItems(orgId: string): Promise<MerchItem[]> {
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: items, error } = await (db as any)
+
+  const { data: items, error } = await db
     .from('merchandise_items')
     .select('*')
     .eq('organization_id', orgId)
@@ -153,11 +153,11 @@ export async function getMerchandiseItems(orgId: string): Promise<MerchItem[]> {
 
   if (error || !items) return []
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: variants } = await (db as any)
+
+  const { data: variants } = await db
     .from('merchandise_variants')
     .select('*')
-    .in('item_id', (items as MerchItem[]).map((i) => i.id))
+    .in('item_id', (items as unknown as MerchItem[]).map((i) => i.id))
     .order('sort_order', { ascending: true })
 
   const variantsByItem = new Map<string, MerchVariant[]>()
@@ -167,7 +167,7 @@ export async function getMerchandiseItems(orgId: string): Promise<MerchItem[]> {
     variantsByItem.set(v.item_id, arr)
   }
 
-  return (items as MerchItem[]).map((item) => ({
+  return (items as unknown as MerchItem[]).map((item) => ({
     ...item,
     variants: variantsByItem.get(item.id) ?? [],
   }))
@@ -183,8 +183,8 @@ export async function getMerchandiseItems(orgId: string): Promise<MerchItem[]> {
 export async function getLeagueMerchandise(leagueId: string): Promise<LeagueMerchItem[]> {
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rows, error } = await (db as any)
+
+  const { data: rows, error } = await db
     .from('league_merchandise')
     .select('item_id, price_override_cents')
     .eq('league_id', leagueId)
@@ -199,20 +199,20 @@ export async function getLeagueMerchandise(leagueId: string): Promise<LeagueMerc
 
 
   const [{ data: items }, { data: variants }, { data: activeOrders }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('merchandise_items')
+
+    db.from('merchandise_items')
       .select('*')
       .in('id', itemIds)
       .eq('is_active', true)
       .order('created_at', { ascending: true }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('merchandise_variants')
+
+    db.from('merchandise_variants')
       .select('*')
       .in('item_id', itemIds)
       .order('sort_order', { ascending: true }),
     // Active order quantities per variant — used for stock enforcement
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('merchandise_orders')
+
+    db.from('merchandise_orders')
       .select('variant_id, quantity')
       .eq('league_id', leagueId)
       .in('status', ['pending', 'paid'])
@@ -245,7 +245,7 @@ export async function getLeagueMerchandise(leagueId: string): Promise<LeagueMerc
     variantsByItem.set(v.item_id, arr)
   }
 
-  return (items as MerchItem[]).map((item) => {
+  return (items as unknown as MerchItem[]).map((item) => {
     const priceOverride = priceOverrideMap.get(item.id) ?? null
     return {
       ...item,
@@ -260,8 +260,8 @@ export async function getLeagueMerchandise(leagueId: string): Promise<LeagueMerc
 export async function getMerchandiseOrders(leagueId: string): Promise<MerchOrder[]> {
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: orders, error } = await (db as any)
+
+  const { data: orders, error } = await db
     .from('merchandise_orders')
     .select('*')
     .eq('league_id', leagueId)
@@ -278,15 +278,15 @@ export async function getMerchandiseOrders(leagueId: string): Promise<MerchOrder
 
   const [{ data: profiles }, { data: items }, { data: variantRows }, { data: discountCodes }, { data: paidByProfiles }] = await Promise.all([
     db.from('profiles').select('id, full_name, email').in('id', userIds),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('merchandise_items').select('id, name').in('id', itemIds),
+
+    db.from('merchandise_items').select('id, name').in('id', itemIds),
     variantIds.length > 0
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? (db as any).from('merchandise_variants').select('id, label').in('id', variantIds)
+
+      ? db.from('merchandise_variants').select('id, label').in('id', variantIds)
       : Promise.resolve({ data: [] }),
     discountCodeIds.length > 0
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? (db as any).from('discount_codes').select('id, code').in('id', discountCodeIds)
+
+      ? db.from('discount_codes').select('id, code').in('id', discountCodeIds)
       : Promise.resolve({ data: [] }),
     paidByIds.length > 0
       ? db.from('profiles').select('id, full_name').in('id', paidByIds)
@@ -374,8 +374,8 @@ export async function uploadMerchandiseImage(
   const url = `${publicUrl}?t=${Date.now()}`
 
   // Persist on the item row
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('merchandise_items')
     .update({ image_url: url })
     .eq('id', itemId)
@@ -425,17 +425,17 @@ export async function uploadMerchandiseGalleryImage(
   const url = `${publicUrl}?t=${Date.now()}`
 
   // Append to additional_images array
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: item } = await (db as any)
+
+  const { data: item } = await db
     .from('merchandise_items')
     .select('additional_images')
     .eq('id', itemId)
     .eq('organization_id', org.id)
     .single()
 
-  const existing: string[] = item?.additional_images ?? []
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+  const existing: string[] = (item?.additional_images as string[] | null) ?? []
+
+  await db
     .from('merchandise_items')
     .update({ additional_images: [...existing, url] })
     .eq('id', itemId)
@@ -459,17 +459,17 @@ export async function removeMerchandiseGalleryImage(
 
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: item } = await (db as any)
+
+  const { data: item } = await db
     .from('merchandise_items')
     .select('additional_images')
     .eq('id', itemId)
     .eq('organization_id', org.id)
     .single()
 
-  const existing: string[] = item?.additional_images ?? []
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+  const existing: string[] = (item?.additional_images as string[] | null) ?? []
+
+  await db
     .from('merchandise_items')
     .update({ additional_images: existing.filter((u: string) => u !== imageUrl) })
     .eq('id', itemId)
@@ -516,8 +516,8 @@ export async function upsertMerchandiseItem(data: {
   }
 
   if (data.id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any)
+
+    const { error } = await db
       .from('merchandise_items')
       .update(row)
       .eq('id', data.id)
@@ -527,8 +527,8 @@ export async function upsertMerchandiseItem(data: {
     revalidatePath('/admin/settings/merchandise')
     return { error: null, id: data.id }
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: inserted, error } = await (db as any)
+
+    const { data: inserted, error } = await db
       .from('merchandise_items')
       .insert(row)
       .select('id')
@@ -550,8 +550,8 @@ export async function deleteMerchandiseItem(itemId: string): Promise<{ error: st
   }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('merchandise_items')
     .update({ is_active: false })
     .eq('id', itemId)
@@ -577,8 +577,8 @@ export async function upsertMerchandiseVariants(
   const db = createServiceRoleClient()
 
   // Verify the item belongs to this org
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: item } = await (db as any)
+
+  const { data: item } = await db
     .from('merchandise_items')
     .select('id')
     .eq('id', itemId)
@@ -588,8 +588,8 @@ export async function upsertMerchandiseVariants(
   if (!item) return { error: 'Item not found' }
 
   // Delete all existing variants then re-insert
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: delErr } = await (db as any)
+
+  const { error: delErr } = await db
     .from('merchandise_variants')
     .delete()
     .eq('item_id', itemId)
@@ -603,8 +603,8 @@ export async function upsertMerchandiseVariants(
       stock_quantity: v.stock_quantity ?? null,
       sort_order: i,
     }))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: insErr } = await (db as any)
+
+    const { error: insErr } = await db
       .from('merchandise_variants')
       .insert(rows)
 
@@ -631,15 +631,15 @@ export async function toggleLeagueMerchandise(
   const db = createServiceRoleClient()
 
   if (enabled) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any)
+
+    const { error } = await db
       .from('league_merchandise')
       .upsert({ league_id: leagueId, item_id: itemId }, { onConflict: 'league_id,item_id', ignoreDuplicates: true })
 
     if (error) return { error: error.message }
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any)
+
+    const { error } = await db
       .from('league_merchandise')
       .delete()
       .eq('league_id', leagueId)
@@ -666,8 +666,8 @@ export async function updateLeagueMerchandisePrice(
   }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('league_merchandise')
     .update({ price_override_cents: priceOverrideCents })
     .eq('league_id', leagueId)
@@ -704,8 +704,8 @@ export async function createMerchandiseOrders(
     status: 'pending',
   }))
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+
+  const { data, error } = await db
     .from('merchandise_orders')
     .insert(rows)
     .select('id')
@@ -732,8 +732,8 @@ export async function markMerchandiseOrderPaid(
   const db = createServiceRoleClient()
 
   // Fetch current status so we know whether to advance it or leave it at fulfilled
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: current } = await (db as any)
+
+  const { data: current } = await db
     .from('merchandise_orders')
     .select('status')
     .eq('id', orderId)
@@ -749,8 +749,8 @@ export async function markMerchandiseOrderPaid(
   const newStatus = current.status === 'fulfilled' ? 'fulfilled' : 'paid'
 
   // Fetch the order's standard price to determine if an override is needed
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: orderRow } = await (db as any)
+
+  const { data: orderRow } = await db
     .from('merchandise_orders')
     .select('unit_price_cents, quantity, discount_cents')
     .eq('id', orderId)
@@ -766,8 +766,8 @@ export async function markMerchandiseOrderPaid(
     ? amountCents
     : null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('merchandise_orders')
     .update({
       status: newStatus,
@@ -803,8 +803,8 @@ export async function fulfillMerchandiseOrder(orderId: string): Promise<{ error:
   }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('merchandise_orders')
     .update({ status: 'fulfilled', fulfilled_at: new Date().toISOString() })
     .eq('id', orderId)
@@ -824,8 +824,8 @@ export async function fulfillAllMerchandiseOrders(leagueId: string): Promise<{ e
   }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+
+  const { data, error } = await db
     .from('merchandise_orders')
     .update({ status: 'fulfilled', fulfilled_at: new Date().toISOString() })
     .eq('league_id', leagueId)
@@ -840,8 +840,8 @@ export async function fulfillAllMerchandiseOrders(leagueId: string): Promise<{ e
 /** Cancel all pending orders for a registration (player abandoned checkout). */
 export async function cancelMerchandiseOrders(registrationId: string): Promise<{ error: string | null }> {
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('merchandise_orders')
     .update({ status: 'cancelled' })
     .eq('registration_id', registrationId)
@@ -891,8 +891,8 @@ export async function recordInPersonSale(input: {
 
   // Validate items belong to this org (and resolve variant ↔ item).
   const itemIds = [...new Set(lines.map((l) => l.itemId))]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: items } = await (db as any)
+
+  const { data: items } = await db
     .from('merchandise_items')
     .select('id')
     .eq('organization_id', org.id)
@@ -924,8 +924,8 @@ export async function recordInPersonSale(input: {
     notes: input.notes?.trim() || null,
   }))
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: inserted, error } = await (db as any)
+
+  const { data: inserted, error } = await db
     .from('merchandise_orders')
     .insert(rows)
     .select('id')
@@ -938,16 +938,16 @@ export async function recordInPersonSale(input: {
   for (const l of lines) {
     const table = l.variantId ? 'merchandise_variants' : 'merchandise_items'
     const id = l.variantId ?? l.itemId
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: row } = await (db as any)
+
+    const { data: row } = await db
       .from(table)
       .select('stock_quantity')
       .eq('id', id)
       .single() as { data: { stock_quantity: number | null } | null }
     if (!row || row.stock_quantity === null) continue // untracked / unlimited
     const newQty = Math.max(0, row.stock_quantity - l.quantity)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from(table).update({ stock_quantity: newQty }).eq('id', id)
+
+    await db.from(table).update({ stock_quantity: newQty }).eq('id', id)
   }
 
   // Low-stock alert (uses the freshly decremented values).
@@ -963,8 +963,8 @@ export async function recordInPersonSale(input: {
 export async function getShopItems(orgId: string): Promise<ShopItem[]> {
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: items, error } = await (db as any)
+
+  const { data: items, error } = await db
     .from('merchandise_items')
     .select('id, name, description, price_cents, currency, image_url, additional_images')
     .eq('organization_id', orgId)
@@ -976,8 +976,8 @@ export async function getShopItems(orgId: string): Promise<ShopItem[]> {
 
   const itemIds = (items as ShopItem[]).map((i) => i.id)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: variants } = await (db as any)
+
+  const { data: variants } = await db
     .from('merchandise_variants')
     .select('id, item_id, label, stock_quantity, sort_order')
     .in('item_id', itemIds)
@@ -1005,8 +1005,8 @@ export async function getShopItems(orgId: string): Promise<ShopItem[]> {
 export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: orders, error } = await (db as any)
+
+  const { data: orders, error } = await db
     .from('merchandise_orders')
     .select('*')
     .eq('organization_id', orgId)
@@ -1024,15 +1024,15 @@ export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
 
   const [{ data: profiles }, { data: items }, { data: variantRows }, { data: discountCodes }, { data: paidByProfiles }] = await Promise.all([
     db.from('profiles').select('id, full_name, email').in('id', userIds),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('merchandise_items').select('id, name').in('id', itemIds),
+
+    db.from('merchandise_items').select('id, name').in('id', itemIds),
     variantIds.length > 0
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? (db as any).from('merchandise_variants').select('id, label').in('id', variantIds)
+
+      ? db.from('merchandise_variants').select('id, label').in('id', variantIds)
       : Promise.resolve({ data: [] }),
     discountCodeIds.length > 0
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? (db as any).from('discount_codes').select('id, code').in('id', discountCodeIds)
+
+      ? db.from('discount_codes').select('id, code').in('id', discountCodeIds)
       : Promise.resolve({ data: [] }),
     paidByIds.length > 0
       ? db.from('profiles').select('id, full_name').in('id', paidByIds)
@@ -1075,8 +1075,8 @@ export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
 export async function getAllMerchandiseOrders(orgId: string): Promise<MerchOrder[]> {
   const db = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: orders, error } = await (db as any)
+
+  const { data: orders, error } = await db
     .from('merchandise_orders')
     .select('*')
     .eq('organization_id', orgId)
@@ -1094,18 +1094,18 @@ export async function getAllMerchandiseOrders(orgId: string): Promise<MerchOrder
 
   const [{ data: profiles }, { data: items }, { data: variantRows }, { data: leagues }, { data: discountCodes }, { data: paidByProfiles }] = await Promise.all([
     db.from('profiles').select('id, full_name, email').in('id', userIds),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('merchandise_items').select('id, name').in('id', itemIds),
+
+    db.from('merchandise_items').select('id, name').in('id', itemIds),
     variantIds.length > 0
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? (db as any).from('merchandise_variants').select('id, label').in('id', variantIds)
+
+      ? db.from('merchandise_variants').select('id, label').in('id', variantIds)
       : Promise.resolve({ data: [] }),
     leagueIds.length > 0
       ? db.from('leagues').select('id, name').in('id', leagueIds)
       : Promise.resolve({ data: [] }),
     discountCodeIds.length > 0
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? (db as any).from('discount_codes').select('id, code').in('id', discountCodeIds)
+
+      ? db.from('discount_codes').select('id, code').in('id', discountCodeIds)
       : Promise.resolve({ data: [] }),
     paidByIds.length > 0
       ? db.from('profiles').select('id, full_name').in('id', paidByIds)
@@ -1159,8 +1159,8 @@ export async function fulfillAllOrgOrders(orgId: string): Promise<{ error: strin
   }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+
+  const { data, error } = await db
     .from('merchandise_orders')
     .update({ status: 'fulfilled', fulfilled_at: new Date().toISOString() })
     .eq('organization_id', orgId)
@@ -1198,8 +1198,8 @@ export async function checkAndNotifyLowStock(
   const db = createServiceRoleClient()
 
   // Fetch the paid orders to know which items/variants were affected
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: orders } = await (db as any)
+
+  const { data: orders } = await db
     .from('merchandise_orders')
     .select('item_id, variant_id, quantity')
     .in('id', orderIds)
@@ -1213,16 +1213,16 @@ export async function checkAndNotifyLowStock(
   const variantIds = [...new Set(typedOrders.map((o) => o.variant_id).filter(Boolean) as string[])]
 
   // Fetch items with their thresholds and stock
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: items } = await (db as any)
+
+  const { data: items } = await db
     .from('merchandise_items')
     .select('id, name, stock_quantity, low_stock_threshold')
     .in('id', itemIds)
 
   // Fetch affected variants with their stock
   const { data: variants } = variantIds.length > 0
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ? await (db as any)
+
+    ? await db
         .from('merchandise_variants')
         .select('id, item_id, label, stock_quantity')
         .in('id', variantIds)
@@ -1274,8 +1274,8 @@ export async function checkAndNotifyLowStock(
   if (!alerts.length) return
 
   // Fetch org admin user ids and emails
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: admins } = await (db as any)
+
+  const { data: admins } = await db
     .from('org_members')
     .select('user_id, profiles(full_name, email)')
     .eq('organization_id', orgId)
@@ -1295,8 +1295,8 @@ export async function checkAndNotifyLowStock(
   const body = alertLines.slice(0, 3).join(' · ') + (alertLines.length > 3 ? ` (+${alertLines.length - 3} more)` : '')
 
   // Insert in-app notifications for all org admins
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('notifications')
     .insert(
       typedAdmins.map((admin) => ({
@@ -1391,8 +1391,8 @@ export async function fulfillAllShopOrders(orgId: string): Promise<{ error: stri
   }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+
+  const { data, error } = await db
     .from('merchandise_orders')
     .update({ status: 'fulfilled', fulfilled_at: new Date().toISOString() })
     .eq('organization_id', orgId)
@@ -1414,8 +1414,8 @@ export async function setItemShopEnabled(itemId: string, shopEnabled: boolean): 
   }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+
+  const { error } = await db
     .from('merchandise_items')
     .update({ shop_enabled: shopEnabled })
     .eq('id', itemId)

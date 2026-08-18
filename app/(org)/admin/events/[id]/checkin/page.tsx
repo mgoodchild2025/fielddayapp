@@ -74,10 +74,10 @@ export default async function AdminCheckInPage({
   const db = createServiceRoleClient()
 
   const [leagueRes, brandingRes] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('id, name, event_type').eq('id', id).eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('org_branding').select('timezone, checkin_sound').eq('organization_id', org.id).single(),
+
+    db.from('leagues').select('id, name, event_type').eq('id', id).eq('organization_id', org.id).single(),
+
+    db.from('org_branding').select('timezone, checkin_sound').eq('organization_id', org.id).single(),
   ])
 
   const league = leagueRes.data
@@ -91,8 +91,8 @@ export default async function AdminCheckInPage({
   // ── Session-based check-in (drop_in / pickup) ──────────────────────────────
   if (isSessionEvent) {
     // Fetch all sessions for this event, ordered by scheduled_at
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: sessions } = await (db as any)
+
+    const { data: sessions } = await db
       .from('event_sessions')
       .select('id, scheduled_at, capacity, status')
       .eq('league_id', id)
@@ -112,15 +112,15 @@ export default async function AdminCheckInPage({
       checkinToken: string
       checkedInAt: string | null
       isWalkIn: boolean
-      sessionRegistrationId: string
+      sessionRegistrationId: string | null
     }[] = []
 
     if (selectedSession) {
 
       const [{ data: sessionRegs }, { data: dropInRegs }] = await Promise.all([
         // Old flow: session_registrations (join-button)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any)
+
+        db
           .from('session_registrations')
           .select(`
             id, user_id, checked_in_at, is_walk_in, status,
@@ -130,8 +130,8 @@ export default async function AdminCheckInPage({
           .eq('organization_id', org.id)
           .eq('status', 'registered'),
         // New flow: registrations with session_id (registration + payment flow)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any)
+
+        db
           .from('registrations')
           .select(`
             id, user_id, checked_in_at, checkin_token, status, guest_name,
@@ -144,12 +144,12 @@ export default async function AdminCheckInPage({
       ])
 
       // Build a set of user IDs already covered by session_registrations to avoid duplicates
-      const sessionRegUserIds = new Set((sessionRegs ?? []).map((r: { user_id: string }) => r.user_id))
+      const sessionRegUserIds = new Set((sessionRegs ?? []).map((r) => r.user_id))
 
       // Fetch checkin_tokens for session_registrations users (stored on the event registration)
-      const srUserIds = (sessionRegs ?? []).map((r: { user_id: string }) => r.user_id)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: eventRegsForSr } = srUserIds.length > 0 ? await (db as any)
+      const srUserIds = (sessionRegs ?? []).map((r) => r.user_id).filter((uid): uid is string => !!uid)
+
+      const { data: eventRegsForSr } = srUserIds.length > 0 ? await db
         .from('registrations')
         .select('id, user_id, checkin_token')
         .eq('league_id', id)
@@ -158,21 +158,15 @@ export default async function AdminCheckInPage({
 
       const eventRegByUserId = new Map<string, { id: string; checkin_token: string }>()
       for (const er of (eventRegsForSr ?? [])) {
-        eventRegByUserId.set(er.user_id, { id: er.id, checkin_token: er.checkin_token })
+        if (er.user_id) eventRegByUserId.set(er.user_id, { id: er.id, checkin_token: er.checkin_token })
       }
 
       // Rows from session_registrations (old join-button flow)
-      const srRows = (sessionRegs ?? []).map((sr: {
-        id: string
-        user_id: string
-        checked_in_at: string | null
-        is_walk_in: boolean
-        profile: { full_name: string } | { full_name: string }[] | null
-      }) => {
+      const srRows = (sessionRegs ?? []).map((sr) => {
         const profile = Array.isArray(sr.profile) ? sr.profile[0] : sr.profile
-        const eventReg = eventRegByUserId.get(sr.user_id)
+        const eventReg = sr.user_id ? eventRegByUserId.get(sr.user_id) : undefined
         return {
-          id: eventReg?.id ?? sr.user_id,
+          id: eventReg?.id ?? sr.user_id ?? sr.id,
           playerName: profile?.full_name ?? 'Unknown',
           teamName: null,
           checkinToken: eventReg?.checkin_token ?? '',
@@ -184,15 +178,8 @@ export default async function AdminCheckInPage({
 
       // Rows from registrations table (new registration-flow drop-ins), deduped
       const drRows = (dropInRegs ?? [])
-        .filter((r: { user_id: string }) => !sessionRegUserIds.has(r.user_id))
-        .map((r: {
-          id: string
-          user_id: string
-          checked_in_at: string | null
-          checkin_token: string
-          guest_name: string | null
-          profile: { full_name: string } | { full_name: string }[] | null
-        }) => {
+        .filter((r) => !r.user_id || !sessionRegUserIds.has(r.user_id))
+        .map((r) => {
           const profile = Array.isArray(r.profile) ? r.profile[0] : r.profile
           return {
             id: r.id,
@@ -305,8 +292,8 @@ export default async function AdminCheckInPage({
 
   // ── Event-level check-in (league / tournament) ─────────────────────────────
   // Fetch teams for the "Check In by Team" selector
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: teamsData } = await (db as any)
+
+  const { data: teamsData } = await db
     .from('teams')
     .select('id, name')
     .eq('league_id', id)
@@ -316,8 +303,8 @@ export default async function AdminCheckInPage({
 
   const teams: { id: string; name: string }[] = teamsData ?? []
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: registrations } = await (db as any)
+
+  const { data: registrations } = await db
     .from('registrations')
     .select(`
       id, checked_in_at, checkin_token, user_id,
@@ -329,31 +316,25 @@ export default async function AdminCheckInPage({
     .order('checked_in_at', { ascending: false, nullsFirst: false })
 
   // Fetch team names separately — no direct FK from registrations to team_members
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: teamMembers } = await (db as any)
+
+  const { data: teamMembers } = await db
     .from('team_members')
     .select('user_id, team:teams!team_members_team_id_fkey(name, league_id)')
     .eq('status', 'active')
-    .in('user_id', (registrations ?? []).map((r: { user_id: string }) => r.user_id))
+    .in('user_id', (registrations ?? []).map((r) => r.user_id).filter((uid): uid is string => !!uid))
 
   const teamByUserId = new Map<string, string>()
   for (const tm of (teamMembers ?? [])) {
     const team = Array.isArray(tm.team) ? tm.team[0] : tm.team
-    if (team?.league_id === id) teamByUserId.set(tm.user_id, team.name)
+    if (tm.user_id && team?.league_id === id) teamByUserId.set(tm.user_id, team.name)
   }
 
-  const eventRows = (registrations ?? []).map((reg: {
-    id: string
-    checked_in_at: string | null
-    checkin_token: string
-    user_id: string
-    user_profile: { full_name: string } | { full_name: string }[] | null
-  }) => {
+  const eventRows = (registrations ?? []).map((reg) => {
     const profile = Array.isArray(reg.user_profile) ? reg.user_profile[0] : reg.user_profile
     return {
       id: reg.id,
       playerName: profile?.full_name ?? 'Unknown',
-      teamName: teamByUserId.get(reg.user_id) ?? null,
+      teamName: (reg.user_id ? teamByUserId.get(reg.user_id) : null) ?? null,
       checkinToken: reg.checkin_token,
       checkedInAt: reg.checked_in_at,
     }

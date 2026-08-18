@@ -26,8 +26,8 @@ export async function GET(req: NextRequest) {
 
   // 1. Deliver scheduled announcements past their send time
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let { data: due } = await (supabase as any)
+
+  let { data: due } = await supabase
     .from('announcements')
     .select('id, organization_id, title, body, audience_type, league_id, team_id, recipient_user_ids, channel, message_class, cc_self, cc_admins, sent_by')
     .is('sent_at', null)
@@ -35,10 +35,10 @@ export async function GET(req: NextRequest) {
     .lte('scheduled_for', now.toISOString())
   if (!due) {
     // Fallback for before migration 169 (cc_self/cc_admins) is applied.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const retry = await (supabase as any)
+
+    const retry = await supabase
       .from('announcements')
-      .select('id, organization_id, title, body, audience_type, league_id, team_id, recipient_user_ids, channel, message_class, sent_by')
+      .select('id, organization_id, title, body, audience_type, league_id, team_id, recipient_user_ids, channel, message_class, cc_self, cc_admins, sent_by')
       .is('sent_at', null)
       .eq('email_sent', false)
       .lte('scheduled_for', now.toISOString())
@@ -53,8 +53,8 @@ export async function GET(req: NextRequest) {
       league_id: ann.league_id ?? undefined,
       team_id: ann.team_id ?? undefined,
       user_ids: ann.recipient_user_ids ?? undefined,
-      channel: ann.channel ?? 'email',
-      message_class: ann.message_class ?? 'transactional',
+      channel: (ann.channel ?? 'email') as 'email' | 'sms' | 'both',
+      message_class: (ann.message_class ?? 'transactional') as 'transactional' | 'commercial',
       // Carry the sender + cc intent so "send me a copy" works on scheduled sends.
       cc_self: ann.cc_self ?? false,
       cc_admins: ann.cc_admins ?? false,
@@ -78,8 +78,8 @@ export async function GET(req: NextRequest) {
   //    result to games whose calendar date in the org's timezone equals exactly tomorrow.
   const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000)  // kept for SMS section
   const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reminderGames } = await (supabase as any)
+
+  const { data: reminderGames } = await supabase
     .from('games')
     .select(`
       id, organization_id, scheduled_at, court, league_id,
@@ -115,11 +115,11 @@ export async function GET(req: NextRequest) {
     const [{ data: rgBranding }, { data: rgOrgs }, { data: rgNotifSettings }] = await Promise.all([
       supabase.from('org_branding').select('organization_id, timezone').in('organization_id', rgOrgIds),
       supabase.from('organizations').select('id, name, slug').in('id', rgOrgIds),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any)
+
+      supabase
         .from('org_notification_settings')
         .select('organization_id, email_game_reminders_enabled, email_reminder_hours_before')
-        .in('organization_id', rgOrgIds) as Promise<{ data: { organization_id: string; email_game_reminders_enabled: boolean; email_reminder_hours_before: number }[] | null }>,
+        .in('organization_id', rgOrgIds),
     ])
     const rgTimezoneByOrg = new Map((rgBranding ?? []).map(b => [b.organization_id, b.timezone ?? 'America/Toronto']))
     const rgOrgNameById = new Map((rgOrgs ?? []).map(o => [o.id, o.name]))
@@ -192,8 +192,8 @@ export async function GET(req: NextRequest) {
               .in('team_id', allTeamIds)
           : Promise.resolve({ data: [] as unknown[] }),
         allPickupLeagueIds.length > 0
-          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (supabase as any)
+          ?
+            supabase
               .from('registrations')
               .select('user_id, league_id')
               .in('league_id', allPickupLeagueIds)
@@ -214,8 +214,8 @@ export async function GET(req: NextRequest) {
 
       if (allPickupLeagueIds.length > 0 && (pickupRegs ?? []).length > 0) {
         const pickupUserIds = [...new Set((pickupRegs as { user_id: string; league_id: string }[]).map(r => r.user_id).filter(Boolean))]
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: pickupProfiles } = await (supabase as any)
+
+        const { data: pickupProfiles } = await supabase
           .from('profiles').select('id, email, full_name, email_reminders_enabled').in('id', pickupUserIds)
         type PickupProfile = { id: string; email?: string; full_name?: string; email_reminders_enabled?: boolean }
         const profileById = new Map<string, PickupProfile>((pickupProfiles ?? []).map((p: PickupProfile) => [p.id, p]))
@@ -231,8 +231,8 @@ export async function GET(req: NextRequest) {
       // Add confirmed game subs across all in-window games
       const allOrgGameIds = orgGamesInWindow.map(g => g.id as string)
       if (allOrgGameIds.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: subRows } = await (supabase as any)
+
+        const { data: subRows } = await supabase
           .from('game_subs')
           .select('user_id, game_id, profiles!game_subs_user_id_fkey(email, full_name, email_reminders_enabled)')
           .eq('organization_id', orgId).eq('status', 'confirmed').not('user_id', 'is', null).in('game_id', allOrgGameIds)
@@ -249,8 +249,8 @@ export async function GET(req: NextRequest) {
       // Process each local date group separately — one digest email per player per date
       for (const [gameLocalDate, gamesForDate] of gamesByDate) {
         const rgUserIds = [...rgPlayerMap.keys()]
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: rgSentForDate } = await (supabase as any)
+
+        const { data: rgSentForDate } = await supabase
           .from('player_email_reminder_logs')
           .select('user_id')
           .eq('organization_id', orgId)
@@ -283,8 +283,8 @@ export async function GET(req: NextRequest) {
           if (myGames.length === 0) continue
 
           // Claim send slot atomically — PK conflict on UNIQUE(user_id, organization_id, log_date) prevents duplicates
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { error: rgClaimErr } = await (supabase as any)
+
+          const { error: rgClaimErr } = await supabase
             .from('player_email_reminder_logs')
             .insert({ user_id: userId, organization_id: orgId, log_date: gameLocalDate })
           if (rgClaimErr) {
@@ -344,8 +344,8 @@ export async function GET(req: NextRequest) {
 
   // 3. Payment reminders — overdue installments
   const paymentEmailBatch: Array<{ from: string; to: string; subject: string; html: string }> = []
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: overdueInstallments } = await (supabase as any)
+
+  const { data: overdueInstallments } = await supabase
     .from('payment_plan_installments')
     .select(`
       id, enrollment_id, amount_cents, due_date,
@@ -406,8 +406,8 @@ export async function GET(req: NextRequest) {
       </div>`,
     })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+
+    await supabase
       .from('payment_plan_installments')
       .update({ reminder_sent: now.toISOString() })
       .eq('id', inst.id)
@@ -438,15 +438,15 @@ export async function GET(req: NextRequest) {
 
   // Fetch all enabled reminder configs and master toggles
   const [{ data: reminderConfigs, error: reminderConfigsErr }, { data: notifSettings }] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+
+    supabase
       .from('org_sms_reminders')
       .select('organization_id, minutes_before, message_template')
-      .eq('enabled', true) as Promise<{ data: ReminderConfig[] | null; error: unknown }>,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
+      .eq('enabled', true),
+
+    supabase
       .from('org_notification_settings')
-      .select('organization_id, sms_game_reminders_enabled') as Promise<{ data: NotifSetting[] | null }>,
+      .select('organization_id, sms_game_reminders_enabled'),
   ])
 
   if (reminderConfigsErr) sms_diagnostics.reminder_config_error = JSON.stringify(reminderConfigsErr)
@@ -481,8 +481,8 @@ export async function GET(req: NextRequest) {
     const orgTimezoneById = new Map((smsBranding ?? []).map(b => [b.organization_id, b.timezone ?? 'America/Toronto']))
 
     // Fetch all upcoming games in the next 24h (widest possible reminder window)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: smsGames, error: gamesErr } = await (supabase as any)
+
+    const { data: smsGames, error: gamesErr } = await supabase
       .from('games')
       .select('id, organization_id, scheduled_at, league_id, home_team_id, away_team_id, court, leagues(name, sport)')
       .gte('scheduled_at', now.toISOString())
@@ -501,8 +501,8 @@ export async function GET(req: NextRequest) {
 
     // Fetch already-sent logs for these games
     const { data: sentLogs } = gameIds.length > 0
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? await (supabase as any)
+
+      ? await supabase
           .from('game_sms_reminder_logs')
           .select('game_id, minutes_before')
           .in('game_id', gameIds) as { data: LogRow[] | null }
@@ -565,8 +565,8 @@ export async function GET(req: NextRequest) {
         // Claim the send slot atomically before doing any work.
         // Plain INSERT — if the row already exists (PK conflict on game_id+minutes_before),
         // Postgres returns error code 23505 and we skip, preventing duplicate sends.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: claimErr } = await (supabase as any)
+
+        const { error: claimErr } = await supabase
           .from('game_sms_reminder_logs')
           .insert({ game_id: game.id, minutes_before: reminder.minutes_before })
         if (claimErr) {
@@ -584,19 +584,19 @@ export async function GET(req: NextRequest) {
         let allPlayers: ({ phone?: string | null; sms_opted_in?: boolean | null } | null)[]
         if (isPickup) {
           // Pickup game: gather opted-in registrants of the game's league
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: pickupRegRows } = await (supabase as any)
+
+          const { data: pickupRegRows } = await supabase
             .from('registrations')
             .select('user_id')
-            .eq('league_id', game.league_id)
+            .eq('league_id', game.league_id ?? '')
             .in('status', ['active', 'pending'])
-          const pickupUserIds = [...new Set((pickupRegRows ?? []).map((r: { user_id: string }) => r.user_id).filter(Boolean))]
+          const pickupUserIds = [...new Set((pickupRegRows ?? []).map((r) => r.user_id).filter((uid): uid is string => !!uid))]
           if (pickupUserIds.length === 0) {
             skipReasons.push(`${reminder.minutes_before}min:no_pickup_registrants`)
             continue
           }
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: pickupProfiles } = await (supabase as any)
+
+          const { data: pickupProfiles } = await supabase
             .from('profiles')
             .select('phone, sms_opted_in')
             .in('id', pickupUserIds)
@@ -662,8 +662,8 @@ export async function GET(req: NextRequest) {
   // We query games in the next 16 hours across all orgs, then group by org timezone
   const in16h = new Date(now.getTime() + 16 * 60 * 60 * 1000)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: gameDayGames, error: gameDayGamesErr } = await (supabase as any)
+
+  const { data: gameDayGames, error: gameDayGamesErr } = await supabase
     .from('games')
     .select(`
       id, organization_id, scheduled_at, court, league_id,
@@ -758,16 +758,16 @@ export async function GET(req: NextRequest) {
 
       // Include opted-in registrants of pickup leagues with games today
       if (pickupLeagueIds.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: pickupRegRows } = await (supabase as any)
+
+        const { data: pickupRegRows } = await supabase
           .from('registrations')
           .select('user_id, league_id')
           .in('league_id', pickupLeagueIds)
           .in('status', ['active', 'pending'])
-        const pickupUserIds = [...new Set((pickupRegRows ?? []).map((r: { user_id: string }) => r.user_id).filter(Boolean))]
+        const pickupUserIds = [...new Set((pickupRegRows ?? []).map((r) => r.user_id).filter((uid): uid is string => !!uid))]
         if (pickupUserIds.length > 0) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: pickupProfiles } = await (supabase as any)
+
+          const { data: pickupProfiles } = await supabase
             .from('profiles')
             .select('id, phone, full_name, sms_opted_in, sms_game_day_enabled')
             .in('id', pickupUserIds)
@@ -788,8 +788,8 @@ export async function GET(req: NextRequest) {
       // Include confirmed game subs for today's games
       const smsGameIds = orgGames.map(g => g.id as string)
       if (smsGameIds.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: smsSubRows } = await (supabase as any)
+
+        const { data: smsSubRows } = await supabase
           .from('game_subs')
           .select('user_id, game_id, profiles!game_subs_user_id_fkey(phone, full_name, sms_opted_in, sms_game_day_enabled)')
           .eq('organization_id', orgId)
@@ -812,8 +812,8 @@ export async function GET(req: NextRequest) {
 
       // Check already-sent logs for today
       const userIds = [...playerMap.keys()]
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: sentToday } = await (supabase as any)
+
+      const { data: sentToday } = await supabase
         .from('player_game_day_sms_logs')
         .select('user_id')
         .eq('organization_id', orgId)
@@ -844,8 +844,8 @@ export async function GET(req: NextRequest) {
         // concurrent cron runs. Upsert was unreliable here because the table has an auto-generated
         // UUID primary key — every upsert payload without an explicit id generated a new UUID,
         // so the PK conflict never fired and every upsert inserted a new row.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: claimErr } = await (supabase as any)
+
+        const { error: claimErr } = await supabase
           .from('player_game_day_sms_logs')
           .insert({ user_id: userId, organization_id: orgId, log_date: todayLocal })
         if (claimErr) {
@@ -899,8 +899,8 @@ export async function GET(req: NextRequest) {
   const win48Start = new Date(now.getTime() + 18 * 60 * 60 * 1000).toISOString().split('T')[0]
   const win48End   = new Date(now.getTime() + 54 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: waiverLeagues } = await (supabase as any)
+
+  const { data: waiverLeagues } = await supabase
     .from('leagues')
     .select('id, name, slug, organization_id, season_start_date')
     .in('status', ['active', 'registration_open'])
@@ -940,8 +940,8 @@ export async function GET(req: NextRequest) {
       }).format(new Date(`${league.season_start_date}T12:00:00`))
 
       // Fetch all teams in this league
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: wlTeams } = await (supabase as any)
+
+      const { data: wlTeams } = await supabase
         .from('teams')
         .select('id, name')
         .eq('league_id', league.id)
@@ -953,27 +953,27 @@ export async function GET(req: NextRequest) {
       const teamIds = (wlTeams as { id: string; name: string }[]).map(t => t.id)
 
       // Fetch all active team members for these teams (captains, coaches, players)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: wlMembers } = await (supabase as any)
+
+      const { data: wlMembers } = await supabase
         .from('team_members')
         .select('team_id, user_id, role, profiles!team_members_user_id_fkey(full_name, email)')
         .in('team_id', teamIds)
         .eq('status', 'active')
 
       // Fetch active registrations for this league
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: wlRegs } = await (supabase as any)
+
+      const { data: wlRegs } = await supabase
         .from('registrations')
         .select('user_id')
         .eq('league_id', league.id)
         .eq('organization_id', league.organization_id)
         .in('status', ['active', 'pending'])
 
-      const registeredUserIds = new Set((wlRegs ?? []).map((r: { user_id: string }) => r.user_id))
+      const registeredUserIds = new Set((wlRegs ?? []).map((r) => r.user_id))
 
       // Fetch already-sent log entries for this league's teams
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: wlLogs } = await (supabase as any)
+
+      const { data: wlLogs } = await supabase
         .from('league_waiver_reminder_logs')
         .select('team_id')
         .eq('league_id', league.id)
@@ -1013,8 +1013,8 @@ export async function GET(req: NextRequest) {
         if (unregistered.length === 0) continue // everyone's registered — no email needed
 
         // Claim the send slot before sending
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: logErr } = await (supabase as any)
+
+        const { error: logErr } = await supabase
           .from('league_waiver_reminder_logs')
           .insert({ league_id: league.id, team_id: team.id })
         if (logErr) {
@@ -1078,8 +1078,8 @@ export async function GET(req: NextRequest) {
   const cp48Start = new Date(now.getTime() + 42 * 60 * 60 * 1000).toISOString().split('T')[0]
   const cp48End   = new Date(now.getTime() + 54 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: cpLeagues } = await (supabase as any)
+
+  const { data: cpLeagues } = await supabase
     .from('leagues')
     .select('id, name, slug, organization_id, season_start_date, waiver_version_id, venue_name, venue_address')
     .in('status', ['active', 'registration_open'])
@@ -1093,8 +1093,8 @@ export async function GET(req: NextRequest) {
     const [{ data: cpBranding }, { data: cpOrgs }, { data: cpNotif }] = await Promise.all([
       supabase.from('org_branding').select('organization_id, timezone').in('organization_id', cpOrgIds),
       supabase.from('organizations').select('id, name, slug').in('id', cpOrgIds),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any)
+
+      supabase
         .from('org_notification_settings')
         .select('organization_id, captain_prep_email_enabled')
         .in('organization_id', cpOrgIds),
@@ -1131,8 +1131,8 @@ export async function GET(req: NextRequest) {
       }).format(new Date(`${league.season_start_date}T12:00:00`))
 
       // Teams in this league
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: cpTeams } = await (supabase as any)
+
+      const { data: cpTeams } = await supabase
         .from('teams').select('id, name')
         .eq('league_id', league.id).eq('organization_id', league.organization_id).eq('status', 'active')
       if (!cpTeams || cpTeams.length === 0) continue
@@ -1140,21 +1140,21 @@ export async function GET(req: NextRequest) {
 
       // Members, registrations (with waiver status), pending invitations, and prior logs
       const [{ data: cpMembers }, { data: cpRegs }, { data: cpInvites }, { data: cpLogs }] = await Promise.all([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase as any).from('team_members')
+
+        supabase.from('team_members')
           .select('team_id, user_id, role, profiles!team_members_user_id_fkey(full_name, email)')
           .in('team_id', teamIds).eq('status', 'active'),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase as any).from('registrations')
+
+        supabase.from('registrations')
           .select('user_id, status, waiver_signature_id')
           .eq('league_id', league.id).eq('organization_id', league.organization_id)
           .in('status', ['active', 'pending']),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase as any).from('team_invitations')
+
+        supabase.from('team_invitations')
           .select('team_id, invited_email, role, status')
           .in('team_id', teamIds).eq('status', 'pending'),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase as any).from('league_captain_prep_logs')
+
+        supabase.from('league_captain_prep_logs')
           .select('team_id').eq('league_id', league.id).in('team_id', teamIds),
       ])
 
@@ -1206,8 +1206,8 @@ export async function GET(req: NextRequest) {
           .map(inv => ({ name: inv.invited_email, email: null }))
 
         // Claim the send slot (dedup) before building/sending
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: logErr } = await (supabase as any)
+
+        const { error: logErr } = await supabase
           .from('league_captain_prep_logs')
           .insert({ league_id: league.id, team_id: team.id })
         if (logErr) {
@@ -1258,8 +1258,8 @@ export async function GET(req: NextRequest) {
 
   for (const trial of expiringTrials ?? []) {
     // Dedup: skip if we already sent an alert for this org's trial
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing } = await (supabase as any)
+
+    const { data: existing } = await supabase
       .from('platform_settings')
       .select('value')
       .eq('key', `trial_alert_sent_${trial.organization_id}`)
@@ -1291,8 +1291,8 @@ export async function GET(req: NextRequest) {
     )
 
     // Mark as sent so we don't fire again on the next cron run
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+
+    await supabase
       .from('platform_settings')
       .upsert({ key: `trial_alert_sent_${trial.organization_id}`, value: now.toISOString(), updated_at: now.toISOString() }, { onConflict: 'key' })
 
@@ -1309,8 +1309,8 @@ export async function GET(req: NextRequest) {
 
   for (const trial of expiredTrials ?? []) {
     // Downgrade to free plan
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: downgradeErr } = await (supabase as any)
+
+    const { error: downgradeErr } = await supabase
       .from('subscriptions')
       .update({
         plan_tier: 'free',
@@ -1392,8 +1392,8 @@ export async function GET(req: NextRequest) {
 
   // 9. Auto-purge events soft-deleted more than 30 days ago
   const purgeCutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: toPurge } = await (supabase as any)
+
+  const { data: toPurge } = await supabase
     .from('leagues')
     .select('id, organization_id, name')
     .not('deleted_at', 'is', null)
@@ -1408,8 +1408,8 @@ export async function GET(req: NextRequest) {
   // 10. YouTube auto-sync — uploads → moderation queue, + live detection.
   //     Cheap quota usage (~2 units/channel/run via playlistItems + videos).
   if (process.env.YOUTUBE_API_KEY) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: ytConns } = await (supabase as any)
+
+    const { data: ytConns } = await supabase
       .from('social_connections')
       .select('id, organization_id, external_account_id, uploads_playlist_id, sync_enabled, live_sync_enabled')
       .eq('platform', 'youtube')
@@ -1422,8 +1422,8 @@ export async function GET(req: NextRequest) {
 
       // Upsert each upload into the moderation queue (approved=false on first sight)
       for (const v of videos) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any)
+
+        await supabase
           .from('social_media_items')
           .upsert(
             {
@@ -1445,8 +1445,8 @@ export async function GET(req: NextRequest) {
       // Live detection — a currently-live broadcast shows liveBroadcastContent='live'
       if (conn.live_sync_enabled) {
         const liveVid = videos.find(v => v.liveBroadcastContent === 'live')
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: existingApiLive } = await (supabase as any)
+
+        const { data: existingApiLive } = await supabase
           .from('live_streams')
           .select('id, url')
           .eq('organization_id', conn.organization_id)
@@ -1458,13 +1458,13 @@ export async function GET(req: NextRequest) {
           const watch = youTubeWatchUrl(liveVid.videoId)
           if (!existingApiLive) {
             // Don't override a manual live stream that's currently active
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data: manualLive } = await (supabase as any)
+
+            const { data: manualLive } = await supabase
               .from('live_streams').select('id').eq('organization_id', conn.organization_id)
               .eq('status', 'live').eq('detected_via', 'manual').maybeSingle()
             if (!manualLive) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              await (supabase as any).from('live_streams').insert({
+
+              await supabase.from('live_streams').insert({
                 organization_id: conn.organization_id,
                 platform: 'youtube',
                 title: liveVid.title,
@@ -1478,16 +1478,16 @@ export async function GET(req: NextRequest) {
           }
         } else if (existingApiLive) {
           // Stream ended → clear the api-detected live row
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (supabase as any).from('live_streams')
+
+          await supabase.from('live_streams')
             .update({ status: 'ended', ended_at: now.toISOString() })
             .eq('id', existingApiLive.id)
           results.push(`youtube live ended for org ${conn.organization_id}`)
         }
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from('social_connections')
+
+      await supabase.from('social_connections')
         .update({ last_synced_at: now.toISOString() }).eq('id', conn.id)
       results.push(`youtube synced ${videos.length} video(s) for org ${conn.organization_id}`)
     }
@@ -1500,8 +1500,8 @@ export async function GET(req: NextRequest) {
   //   day before (org-local date). Deduped via session_reminder_logs.
   // ──────────────────────────────────────────────────────────────────────────
   {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sdb = supabase as any
+
+    const sdb = supabase
     const SESSION_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
     const sessionWindowEnd = new Date(now.getTime() + 48 * 60 * 60 * 1000)
 
@@ -1566,7 +1566,7 @@ export async function GET(req: NextRequest) {
           .select('user_id')
           .eq('session_id', session.id)
           .eq('status', 'registered')
-        const userIds = [...new Set((regRows ?? []).map((r: { user_id: string }) => r.user_id).filter(Boolean))] as string[]
+        const userIds = [...new Set((regRows ?? []).map((r) => r.user_id).filter((uid): uid is string => !!uid))] as string[]
         if (userIds.length === 0) continue
 
         // Who has already been reminded for this session
