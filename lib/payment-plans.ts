@@ -94,8 +94,8 @@ export async function getEnrollmentForRegistration(
 ): Promise<EnrollmentWithInstallments | null> {
   const supabase = createServiceRoleClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: enrollment } = await (supabase as any)
+
+  const { data: enrollment } = await supabase
     .from('payment_plan_enrollments')
     .select(`
       id, total_cents, status,

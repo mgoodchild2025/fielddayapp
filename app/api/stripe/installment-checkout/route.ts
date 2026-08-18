@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
   const db = createServiceRoleClient()
 
   // ── Fetch installment + enrollment + registration + league ─────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: installment } = await (db as any)
+
+  const { data: installment } = await db
     .from('payment_plan_installments')
     .select(`
       id, installment_number, amount_cents, status, stripe_checkout_session_id,
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   // ── Dedup: return existing session if one was already created ──────────────
   if (installment.stripe_checkout_session_id) {
     // Check the session is still open before reusing it
-    const orgSettings = await (db as any)
+    const orgSettings = await db
       .from('org_payment_settings')
       .select('stripe_secret_key')
       .eq('organization_id', installment.organization_id)
@@ -99,8 +99,8 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Load org Stripe key ────────────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: paymentSettings } = await (db as any)
+
+  const { data: paymentSettings } = await db
     .from('org_payment_settings')
     .select('stripe_secret_key')
     .eq('organization_id', installment.organization_id)
@@ -113,8 +113,8 @@ export async function POST(req: NextRequest) {
   const orgStripe = new Stripe(paymentSettings.stripe_secret_key, { apiVersion: '2026-05-27.dahlia' as const })
 
   // Total instalment count for the display label
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { count: totalInstCount } = await (db as any)
+
+  const { count: totalInstCount } = await db
     .from('payment_plan_installments')
     .select('id', { count: 'exact', head: true })
     .eq('enrollment_id', enrollment.id)
@@ -164,8 +164,8 @@ export async function POST(req: NextRequest) {
   })
 
   // ── Save session ID on installment (dedup guard) ──────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any)
+
+  await db
     .from('payment_plan_installments')
     .update({ stripe_checkout_session_id: session.id })
     .eq('id', installmentId)

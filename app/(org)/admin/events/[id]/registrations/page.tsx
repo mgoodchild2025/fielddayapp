@@ -40,8 +40,8 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
 
   const [{ data: branding }, { data: league }, { data: activeWaiver }] = await Promise.all([
     db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('leagues').select('name, slug, waiver_version_id, event_type, registration_mode, payment_mode, price_cents, currency').eq('id', id).eq('organization_id', org.id).single(),
+
+    db.from('leagues').select('name, slug, waiver_version_id, event_type, registration_mode, payment_mode, price_cents, currency').eq('id', id).eq('organization_id', org.id).single(),
     db.from('waivers').select('id').eq('organization_id', org.id).eq('is_active', true).maybeSingle(),
   ])
   const timezone = branding?.timezone ?? 'America/Toronto'
@@ -54,8 +54,8 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   const hasSessions = leagueAny?.event_type === 'drop_in' || leagueAny?.event_type === 'pickup'
   let sessionOptions: { id: string; label: string }[] = []
   if (hasSessions) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: sessionRows } = await (db as any)
+
+    const { data: sessionRows } = await db
       .from('event_sessions')
       .select('id, scheduled_at, status')
       .eq('league_id', id)
@@ -72,8 +72,8 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   const leagueSlug = (league as { slug?: string } | null)?.slug ?? ''
   const hasWaiverConfigured = !!(league as { waiver_version_id?: string | null } | null)?.waiver_version_id || !!activeWaiver
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: registrations } = await (db as any)
+
+  const { data: registrations } = await db
     .from('registrations')
     .select(`
       id, status, created_at, user_id, waiver_signature_id, checked_in_at,
@@ -91,8 +91,8 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   // Gracefully degrades: if session_id column doesn't exist yet, sessionMap is empty.
   const sessionMap = new Map<string, string>()
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: sessionRows } = await (db as any)
+
+    const { data: sessionRows } = await db
       .from('registrations')
       .select('id, session_id, session:event_sessions(scheduled_at)')
       .in('id', rows.map((r: { id: string }) => r.id))
@@ -108,8 +108,8 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   // works before migration 161 adds the guest_* columns.
   const guestMap = new Map<string, { name: string | null; email: string | null }>()
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: guestRows } = await (db as any)
+
+    const { data: guestRows } = await db
       .from('registrations')
       .select('id, guest_name, guest_email')
       .eq('league_id', id)
@@ -128,17 +128,17 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   type TeamPay = { teamName: string; status: string | null; amount_cents: number | null; currency: string | null }
   const teamPaymentByUserId = new Map<string, TeamPay>()
   if (showTeamPayment) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: teams } = await (db as any)
+
+    const { data: teams } = await db
       .from('teams').select('id, name').eq('league_id', id).eq('organization_id', org.id)
     const teamIds = (teams ?? []).map((t: { id: string }) => t.id)
     const teamNameById = new Map<string, string>((teams ?? []).map((t: { id: string; name: string }) => [t.id, t.name]))
     if (teamIds.length > 0) {
       const [{ data: members }, { data: teamPays }] = await Promise.all([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).from('team_members').select('user_id, team_id').in('team_id', teamIds).eq('status', 'active'),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any).from('payments').select('team_id, status, amount_cents, currency')
+
+        db.from('team_members').select('user_id, team_id').in('team_id', teamIds).eq('status', 'active'),
+
+        db.from('payments').select('team_id, status, amount_cents, currency')
           .eq('league_id', id).eq('organization_id', org.id).eq('payment_type', 'team').in('team_id', teamIds),
       ])
       // Prefer a paid row per team; otherwise keep whatever exists (pending/failed).
@@ -171,8 +171,8 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   const enrollmentsByRegId = new Map<string, InstallmentRow[]>()
   if (regIds.length > 0) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: enrollmentRows } = await (db as any)
+
+      const { data: enrollmentRows } = await db
         .from('payment_plan_enrollments')
         .select(`
           registration_id,
