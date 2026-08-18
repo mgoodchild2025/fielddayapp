@@ -218,7 +218,7 @@ export default async function PlayerManagementPage({
           </span>
           <span>
             Member since{' '}
-            {new Date(orgMember.joined_at).toLocaleDateString('en-CA', {
+            {new Date(orgMember.joined_at ?? Date.now()).toLocaleDateString('en-CA', {
               month: 'short',
               year: 'numeric',
             })}

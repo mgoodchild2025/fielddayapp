@@ -13,8 +13,7 @@ export async function dismissOnboardingChecklist(): Promise<{ error: string | nu
   if (auth.error) return { error: auth.error }
 
   const db = createServiceRoleClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { error } = await db
     .from('org_branding')
     .update({ onboarding_dismissed_at: new Date().toISOString() })
     .eq('organization_id', org.id)
