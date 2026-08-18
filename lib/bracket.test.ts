@@ -7,6 +7,8 @@ import {
   generateDoubleEliminationSpec,
   generate6TeamBracketSpec,
   generate14TeamAllPlaySpec,
+  generateInflowBracketSpec,
+  validateInflowBracket,
   seedFromStandings,
   LB_ROUND_BASE,
   GF_ROUND,
@@ -324,5 +326,91 @@ describe('seedFromStandings', () => {
       standing('setWinner', { wins: 1, setWins: 9, setLosses: 3 }),
     ], 2, 'wins', 'set_based')
     expect(seeded[0].teamId).toBe('setWinner')
+  })
+})
+
+// ── Inflow bracket generator (flexible brackets Phase 2) ─────────────────────
+
+describe('validateInflowBracket', () => {
+  it('accepts the 10-team Gold/Silver shape (2 direct, 2 byes, 4 inflow)', () => {
+    expect(validateInflowBracket({ directSeeds: 2, inflowCount: 4, byeSeeds: 2 })).toBeNull()
+  })
+
+  it('rejects odd entry rounds and non-power-of-2 main brackets', () => {
+    // 3 entry teams
+    expect(validateInflowBracket({ directSeeds: 1, inflowCount: 2, byeSeeds: 0 })).toMatch(/even number/)
+    // entry 4 → 2 winners + 1 bye = 3 main teams
+    expect(validateInflowBracket({ directSeeds: 1, inflowCount: 4, byeSeeds: 1 })).toMatch(/power of 2/)
+  })
+
+  it('rejects more byes than seeds and too few inflows', () => {
+    expect(validateInflowBracket({ directSeeds: 1, inflowCount: 4, byeSeeds: 2 })).toMatch(/More byes/)
+    expect(validateInflowBracket({ directSeeds: 4, inflowCount: 1, byeSeeds: 0 })).toMatch(/at least 2/)
+  })
+})
+
+describe('generateInflowBracketSpec', () => {
+  it('lays out the Silver tier of the 10-team scenario', () => {
+    // Seeds 9-10 (tier-relative 1-2) bye to the semis; 4 Gold-QF losers play R1.
+    const spec = generateInflowBracketSpec({ directSeeds: 2, inflowCount: 4, byeSeeds: 2 })
+
+    expect(spec.bracketSize).toBe(6)
+    expect(spec.rounds).toEqual([4, 2, 1])
+    expect(spec.matches).toHaveLength(5) // 2 entry + 2 semis + final
+
+    // Entry round: both matches are pure inflow, indices 1&2 / 3&4
+    const entry = spec.matches.filter((m) => m.roundNumber === 4)
+    expect(entry).toHaveLength(2)
+    expect(entry.map((m) => [m.team1InflowIndex, m.team2InflowIndex])).toEqual([[1, 2], [3, 4]])
+    expect(entry.every((m) => m.team1Seed === null && m.team2Seed === null)).toBe(true)
+    expect(spec.inflowSlots).toHaveLength(4)
+
+    // Semis: bye seeds 1 & 2 hold slot 1; entry winners fill slot 2
+    const semis = spec.matches.filter((m) => m.roundNumber === 2)
+    expect(semis.map((m) => m.team1Seed)).toEqual([1, 2])
+    expect(entry.map((m) => [m.winnerToMatchNumber, m.winnerToSlot])).toEqual([[1, 2], [2, 2]])
+
+    expectAllReferencesResolve(spec)
+    expectNoSlotCollisions(spec)
+  })
+
+  it('handles mixed entry rounds (non-bye seeds play the drop-downs)', () => {
+    // 4 direct seeds, no byes, 4 inflow → entry of 8 → main of 4
+    const spec = generateInflowBracketSpec({ directSeeds: 4, inflowCount: 4, byeSeeds: 0 })
+    const entry = spec.matches.filter((m) => m.roundNumber === 4 && spec.rounds[0] === 4 ? m.roundNumber === spec.rounds[0] : false)
+    const entryRound = spec.rounds[0]
+    const entryMatches = spec.matches.filter((m) => m.roundNumber === entryRound)
+    expect(entryMatches).toHaveLength(4)
+    // Direct seeds 1-4 occupy the first four entry slots, inflows the rest
+    const slotContents = entryMatches.flatMap((m) => [
+      m.team1Seed ?? `in${m.team1InflowIndex}`,
+      m.team2Seed ?? `in${m.team2InflowIndex}`,
+    ])
+    expect(slotContents).toEqual([1, 2, 3, 4, 'in1', 'in2', 'in3', 'in4'])
+    expectAllReferencesResolve(spec)
+    expectNoSlotCollisions(spec)
+  })
+
+  it('supports a third-place game on the main bracket', () => {
+    const spec = generateInflowBracketSpec({ directSeeds: 2, inflowCount: 4, byeSeeds: 2, thirdPlaceGame: true })
+    expect(spec.thirdPlaceMatch).not.toBeNull()
+    const semis = spec.matches.filter((m) => m.roundNumber === 2)
+    expect(semis.every((m) => m.loserToRoundNumber === 1 && m.loserToMatchNumber === 2)).toBe(true)
+    expectAllReferencesResolve(spec)
+    expectNoSlotCollisions(spec)
+  })
+
+  it('collapses to a single final when only 2 teams remain after entry', () => {
+    // 2 inflow losers + 1 bye seed → entry of 2 → main of 2 (the final itself)
+    const spec = generateInflowBracketSpec({ directSeeds: 1, inflowCount: 2, byeSeeds: 1 })
+    expect(spec.rounds).toEqual([2, 1])
+    const final = spec.matches.find((m) => m.roundNumber === 1)!
+    expect(final.team1Seed).toBe(1) // the bye seed waits in the final
+    expect(final.winnerToRoundNumber).toBeNull()
+    const entry = spec.matches.filter((m) => m.roundNumber === 2)
+    expect(entry).toHaveLength(1)
+    expect(entry[0].winnerToSlot).toBe(2)
+    expectAllReferencesResolve(spec)
+    expectNoSlotCollisions(spec)
   })
 })

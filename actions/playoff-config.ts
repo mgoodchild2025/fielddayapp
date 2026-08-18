@@ -10,10 +10,14 @@ import {
   generateDoubleEliminationSpec,
   generate6TeamBracketSpec,
   generate14TeamAllPlaySpec,
+  generateInflowBracketSpec,
+  validateInflowBracket,
   nextPowerOf2,
   type TeamStanding,
   type BracketMatchSpec,
+  type InflowSlotRef,
 } from '@/lib/bracket'
+import { wireLeagueTierInflows, sourceLoserCount, clearInboundRoutes } from '@/lib/tier-inflows'
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 
@@ -112,15 +116,35 @@ async function insertBracketWithMatches(
     seedingMethod?: string  // if provided, stored on the bracket row
     labelMode?: 'block' | 'alternating' | 'single'
     perPool?: number  // for block label calculation
+    /** Cross-tier drop-down: this bracket also receives another tier's losers. */
+    inflow?: {
+      count: number
+      byeSeeds: number
+      /** Scaffold labels for the inflow slots, indexed by inflowIndex - 1. */
+      labels: string[]
+    }
   }
-): Promise<{ bracketId: string | null; error: string | null }> {
-  const { name, bracketType, teamsAdvancing, thirdPlaceGame, poolNames, seedOffset } = opts
+): Promise<{ bracketId: string | null; error: string | null; inflowSlotIds: { inflowIndex: number; matchId: string; slot: 1 | 2 }[] }> {
+  const { name, bracketType, teamsAdvancing, thirdPlaceGame, poolNames, seedOffset, inflow } = opts
   const isAllPlay = bracketType === 'all_play'
   // is6Team: only all_play brackets use the 6-team spec (bracketSize = 6, all teams play R1).
   // A 6-team single_elimination bracket uses bracketSize=8 with 2 byes via generateSingleEliminationSpec.
   const is6Team = isAllPlay && teamsAdvancing === 6
-  const bracketSize = (is6Team || (isAllPlay && teamsAdvancing === 14)) ? teamsAdvancing : nextPowerOf2(teamsAdvancing)
   const actualThirdPlace = bracketType === 'double_elimination' ? false : thirdPlaceGame
+
+  // Inflow brackets size themselves from { direct seeds, inflow, byes }.
+  const inflowSpec = inflow
+    ? generateInflowBracketSpec({
+        directSeeds: teamsAdvancing,
+        inflowCount: inflow.count,
+        byeSeeds: inflow.byeSeeds,
+        thirdPlaceGame: actualThirdPlace,
+      })
+    : null
+
+  const bracketSize = inflowSpec
+    ? inflowSpec.bracketSize
+    : (is6Team || (isAllPlay && teamsAdvancing === 14)) ? teamsAdvancing : nextPowerOf2(teamsAdvancing)
   const seedingMethod = opts.seedingMethod ?? (poolNames.length > 0 ? 'pool_results' : 'standings')
 
   // Insert bracket row in scaffold state — teams are assigned later via "Seed Bracket"
@@ -137,18 +161,18 @@ async function insertBracketWithMatches(
     status: 'scaffold',
   }).select('id').single()
 
-  if (bracketError || !bracket) return { bracketId: null, error: bracketError?.message ?? 'Failed to create bracket' }
+  if (bracketError || !bracket) return { bracketId: null, error: bracketError?.message ?? 'Failed to create bracket', inflowSlotIds: [] }
 
   const bracketId = bracket.id as string
 
   // Generate match spec
-  const spec = isAllPlay
+  const spec = inflowSpec ?? (isAllPlay
     ? (teamsAdvancing === 14 ? generate14TeamAllPlaySpec() : generate6TeamBracketSpec(actualThirdPlace))
     : bracketType === 'double_elimination'
       ? generateDoubleEliminationSpec(teamsAdvancing)
       : is6Team
         ? generate6TeamBracketSpec()
-        : generateSingleEliminationSpec(teamsAdvancing, actualThirdPlace)
+        : generateSingleEliminationSpec(teamsAdvancing, actualThirdPlace))
 
   const { bestLoserSlot } = spec
 
@@ -170,8 +194,12 @@ async function insertBracketWithMatches(
         match_number: m.matchNumber,
         team1_id: null,
         team2_id: null,
-        team1_label: isBestLoserSlot1 ? 'Best Loser' : (m.team1Seed ? seedLabel(m.team1Seed, poolNames, seedOffset, opts.labelMode, opts.perPool) : null),
-        team2_label: m.isBye ? 'Bye' : (isBestLoserSlot2 ? 'Best Loser' : (m.team2Seed ? seedLabel(m.team2Seed, poolNames, seedOffset, opts.labelMode, opts.perPool) : null)),
+        team1_label: isBestLoserSlot1 ? 'Best Loser'
+          : m.team1InflowIndex ? (inflow?.labels[m.team1InflowIndex - 1] ?? 'Drop-down')
+          : (m.team1Seed ? seedLabel(m.team1Seed, poolNames, seedOffset, opts.labelMode, opts.perPool) : null),
+        team2_label: m.isBye ? 'Bye' : (isBestLoserSlot2 ? 'Best Loser'
+          : m.team2InflowIndex ? (inflow?.labels[m.team2InflowIndex - 1] ?? 'Drop-down')
+          : (m.team2Seed ? seedLabel(m.team2Seed, poolNames, seedOffset, opts.labelMode, opts.perPool) : null)),
         // Store global seed (e.g. 9 for the 1st seed of Tier 2 with seed_from=9)
         // so the bracket view shows the correct overall rank, not a tier-relative rank.
         team1_seed: isBestLoserSlot1 ? null : (m.team1Seed ? m.team1Seed + seedOffset : null),
@@ -182,12 +210,19 @@ async function insertBracketWithMatches(
     })
   ).select('id, round_number, match_number')
 
-  if (matchError) return { bracketId: null, error: matchError.message }
+  if (matchError) return { bracketId: null, error: matchError.message, inflowSlotIds: [] }
 
   // Build lookup + wire references
   const matchIdLookup = new Map<string, string>()
   for (const m of insertedMatches ?? []) {
     matchIdLookup.set(`${m.round_number}:${m.match_number}`, m.id)
+  }
+
+  // Resolve inflow slot positions → inserted match ids (for cross-tier wiring)
+  const inflowSlotIds: { inflowIndex: number; matchId: string; slot: 1 | 2 }[] = []
+  for (const s of (inflowSpec?.inflowSlots ?? []) as InflowSlotRef[]) {
+    const id = matchIdLookup.get(`${s.roundNumber}:${s.matchNumber}`)
+    if (id) inflowSlotIds.push({ inflowIndex: s.inflowIndex, matchId: id, slot: s.slot })
   }
 
   // Winner references
@@ -214,7 +249,7 @@ async function insertBracketWithMatches(
       .eq('id', thisId)
   }
 
-  return { bracketId, error: null }
+  return { bracketId, error: null, inflowSlotIds }
 }
 
 // ── savePlayoffConfig ─────────────────────────────────────────────────────────
@@ -226,6 +261,14 @@ export interface TierInput {
   seedTo: number
   bracketType: 'single_elimination' | 'double_elimination' | 'all_play'
   thirdPlaceGame: boolean
+  /**
+   * Index (into this tiers array) of the tier whose first-round losers drop
+   * into this tier's bracket. Must point at an EARLIER tier (drop-downs flow
+   * downward), which also rules out cycles. null/undefined = no inflow.
+   */
+  inflowFromTierIndex?: number | null
+  /** Top N of this tier's direct seeds skip its entry round (inflow tiers only). */
+  byeSeeds?: number
 }
 
 export type PoolSeedingMethod = 'standings' | 'pool_results' | 'pool_results_alternating' | 'pool_tiers' | 'pool_results_flat' | 'manual'
@@ -244,6 +287,19 @@ export async function savePlayoffConfig(input: {
   for (let i = 1; i < sortedTiers.length; i++) {
     if (sortedTiers[i].seedFrom <= sortedTiers[i - 1].seedTo) {
       return { error: 'Tier seed ranges must not overlap.', configId: null }
+    }
+  }
+
+  // Validate inflow references: a tier may only receive losers from an EARLIER
+  // tier in the list (drop-downs flow downward — this also rules out cycles).
+  for (let i = 0; i < input.tiers.length; i++) {
+    const src = input.tiers[i].inflowFromTierIndex
+    if (src === null || src === undefined) continue
+    if (src < 0 || src >= input.tiers.length || src === i) {
+      return { error: `Tier "${input.tiers[i].name}" has an invalid drop-down source.`, configId: null }
+    }
+    if (src >= i) {
+      return { error: `Tier "${input.tiers[i].name}" can only receive losers from a tier above it.`, configId: null }
     }
   }
 
@@ -295,7 +351,9 @@ export async function savePlayoffConfig(input: {
     }
   }
 
-  // Upsert each tier
+  // Upsert each tier, collecting ids so inflow references (given as array
+  // indexes — new tiers have no id yet) can be resolved in a second pass.
+  const tierIds: (string | null)[] = []
   for (let i = 0; i < input.tiers.length; i++) {
     const t = input.tiers[i]
     if (t.id) {
@@ -307,10 +365,12 @@ export async function savePlayoffConfig(input: {
         seed_to: t.seedTo,
         bracket_type: t.bracketType,
         third_place_game: t.thirdPlaceGame,
+        bye_seeds: t.byeSeeds ?? 0,
       }).eq('id', t.id)
+      tierIds.push(t.id)
     } else {
 
-      await db.from('playoff_tiers').insert({
+      const { data: createdTier } = await db.from('playoff_tiers').insert({
         organization_id: org.id,
         config_id: configId,
         name: t.name,
@@ -319,8 +379,23 @@ export async function savePlayoffConfig(input: {
         seed_to: t.seedTo,
         bracket_type: t.bracketType,
         third_place_game: t.thirdPlaceGame,
-      })
+        bye_seeds: t.byeSeeds ?? 0,
+      }).select('id').single()
+      tierIds.push(createdTier?.id ?? null)
     }
+  }
+
+  // Second pass: resolve inflow indexes → tier ids.
+  for (let i = 0; i < input.tiers.length; i++) {
+    const tierId = tierIds[i]
+    if (!tierId) continue
+    const srcIdx = input.tiers[i].inflowFromTierIndex
+    const srcId = srcIdx !== null && srcIdx !== undefined ? tierIds[srcIdx] : null
+
+    await db.from('playoff_tiers').update({
+      inflow_from_tier_id: srcId,
+      inflow_round: 1, // v1: always the source tier's first round
+    }).eq('id', tierId)
   }
 
   revalidatePath(`/admin/events/${input.leagueId}/bracket`)
@@ -354,13 +429,14 @@ export async function generateAllTierBrackets(
 
   const { data: tiersData } = await db
     .from('playoff_tiers')
-    .select('id, name, sort_order, seed_from, seed_to, bracket_type, third_place_game, bracket_id')
+    .select('id, name, sort_order, seed_from, seed_to, bracket_type, third_place_game, bracket_id, inflow_from_tier_id, bye_seeds')
     .eq('config_id', config.id)
     .eq('organization_id', org.id)
 
   const tiers = ((tiersData ?? []) as {
     id: string; name: string; sort_order: number; seed_from: number; seed_to: number
     bracket_type: string; third_place_game: boolean; bracket_id: string | null
+    inflow_from_tier_id: string | null; bye_seeds: number
   }[]).sort((a, b) => a.sort_order - b.sort_order)
 
   if (tiers.length === 0) return { error: 'No tiers defined.', generated: 0, skipped: 0 }
@@ -379,6 +455,11 @@ export async function generateAllTierBrackets(
   let generated = 0
   let skipped = 0
 
+  // Final bracket id per tier (fresh or retained) — used by the cross-tier
+  // wiring pass below. Tiers are sorted by sort_order and inflow sources are
+  // validated to come earlier, so a source's bracket exists before its receiver.
+  const bracketIdByTier = new Map<string, string>()
+
   for (let tierIdx = 0; tierIdx < tiers.length; tierIdx++) {
     const tier = tiers[tierIdx]
 
@@ -392,12 +473,15 @@ export async function generateAllTierBrackets(
         .eq('status', 'completed')
 
       if ((count ?? 0) > 0) {
+        bracketIdByTier.set(tier.id, tier.bracket_id)
         skipped++
         continue
       }
 
-      // No scores — safe to delete and regenerate
-
+      // No scores — safe to delete and regenerate. Clear any routes other
+      // brackets point at these matches first (self-FKs have no ON DELETE);
+      // the wiring pass below restores them against the fresh matches.
+      await clearInboundRoutes(db, tier.bracket_id)
       await db.from('bracket_matches').delete().eq('bracket_id', tier.bracket_id)
 
       await db.from('brackets').delete().eq('id', tier.bracket_id)
@@ -406,9 +490,46 @@ export async function generateAllTierBrackets(
     }
 
     const teamsAdvancing = tier.seed_to - tier.seed_from + 1
-    if (teamsAdvancing < 2) {
+    // Inflow tiers can be as small as one direct seed (drop-downs fill the rest).
+    if (teamsAdvancing < (tier.inflow_from_tier_id ? 1 : 2)) {
       skipped++
       continue
+    }
+
+    // ── Cross-tier inflow validation (flexible brackets Phase 2) ────────────
+    let inflowOpts: { count: number; byeSeeds: number; labels: string[] } | undefined
+    if (tier.inflow_from_tier_id) {
+      const srcTier = tiers.find((t) => t.id === tier.inflow_from_tier_id)
+      if (!srcTier) {
+        return { error: `Tier "${tier.name}": its drop-down source tier no longer exists.`, generated, skipped }
+      }
+      if (srcTier.sort_order >= tier.sort_order) {
+        return { error: `Tier "${tier.name}" can only receive losers from a tier above it.`, generated, skipped }
+      }
+      if (srcTier.bracket_type !== 'single_elimination') {
+        return { error: `Tier "${tier.name}": drop-downs are only supported from single-elimination tiers ("${srcTier.name}" is ${srcTier.bracket_type.replace('_', ' ')}).`, generated, skipped }
+      }
+      if (tier.bracket_type !== 'single_elimination') {
+        return { error: `Tier "${tier.name}": a tier that receives drop-downs must be single elimination.`, generated, skipped }
+      }
+
+      const inflowCount = sourceLoserCount(srcTier.seed_to - srcTier.seed_from + 1)
+      const shapeError = validateInflowBracket({
+        directSeeds: teamsAdvancing,
+        inflowCount,
+        byeSeeds: tier.bye_seeds ?? 0,
+      })
+      if (shapeError) {
+        return { error: `Tier "${tier.name}": ${shapeError}`, generated, skipped }
+      }
+
+      inflowOpts = {
+        count: inflowCount,
+        byeSeeds: tier.bye_seeds ?? 0,
+        // Provisional labels — the wiring pass below replaces them with the
+        // precise source match ("Loser of Gold Quarter-Finals M2").
+        labels: Array.from({ length: inflowCount }, (_, i) => `${srcTier.name} drop-down ${i + 1}`),
+      }
     }
 
     // Determine scaffold label config based on seeding method
@@ -458,14 +579,23 @@ export async function generateAllTierBrackets(
       seedingMethod,
       labelMode,
       perPool,
+      inflow: inflowOpts,
     })
 
     if (error || !bracketId) { skipped++; continue }
 
 
     await db.from('playoff_tiers').update({ bracket_id: bracketId }).eq('id', tier.id)
+    bracketIdByTier.set(tier.id, bracketId)
     generated++
   }
+
+  // ── Cross-tier wiring pass (flexible brackets Phase 2) ────────────────────
+  // Point each source tier's first-round losers at the receiving tier's inflow
+  // slots. Runs after ALL brackets exist so it also repairs routes when one
+  // side regenerated and the other was kept (scores already recorded).
+  const wire = await wireLeagueTierInflows(db, org.id, leagueId)
+  if (wire.error) return { error: wire.error, generated, skipped }
 
   revalidatePath(`/admin/events/${leagueId}/bracket`)
   revalidatePath('/events/[slug]', 'page')

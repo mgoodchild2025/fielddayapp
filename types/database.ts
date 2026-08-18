@@ -4034,9 +4034,12 @@ export type Database = {
         Row: {
           bracket_id: string | null
           bracket_type: string
+          bye_seeds: number
           config_id: string
           created_at: string
           id: string
+          inflow_from_tier_id: string | null
+          inflow_round: number
           name: string
           organization_id: string
           seed_from: number
@@ -4047,9 +4050,12 @@ export type Database = {
         Insert: {
           bracket_id?: string | null
           bracket_type?: string
+          bye_seeds?: number
           config_id: string
           created_at?: string
           id?: string
+          inflow_from_tier_id?: string | null
+          inflow_round?: number
           name: string
           organization_id: string
           seed_from: number
@@ -4060,9 +4066,12 @@ export type Database = {
         Update: {
           bracket_id?: string | null
           bracket_type?: string
+          bye_seeds?: number
           config_id?: string
           created_at?: string
           id?: string
+          inflow_from_tier_id?: string | null
+          inflow_round?: number
           name?: string
           organization_id?: string
           seed_from?: number
@@ -4083,6 +4092,13 @@ export type Database = {
             columns: ["config_id"]
             isOneToOne: false
             referencedRelation: "playoff_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playoff_tiers_inflow_from_tier_id_fkey"
+            columns: ["inflow_from_tier_id"]
+            isOneToOne: false
+            referencedRelation: "playoff_tiers"
             referencedColumns: ["id"]
           },
           {
