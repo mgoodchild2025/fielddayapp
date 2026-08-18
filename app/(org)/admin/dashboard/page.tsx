@@ -41,7 +41,7 @@ export default async function AdminDashboardPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('org_members').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).eq('status', 'active'),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any).from('payments').select('amount_cents, currency, status, created_at, user_id').eq('organization_id', org.id).order('created_at', { ascending: false }).limit(5),
+    (db as any).from('payments').select('amount_cents, currency, status, created_at, user_id, payer:profiles!payments_user_id_fkey(full_name), registration:registrations!payments_registration_id_fkey(guest_name)').eq('organization_id', org.id).order('created_at', { ascending: false }).limit(5),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).from('leagues').select('id, name, slug, status').eq('organization_id', org.id).is('deleted_at', null).in('status', ['registration_open', 'active']).limit(5),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -207,15 +207,23 @@ export default async function AdminDashboardPage() {
           </div>
           <div className="space-y-2">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {(recentPayments as any[])?.map((p: any) => (
+            {(recentPayments as any[])?.map((p: any) => {
+              const payer = Array.isArray(p.payer) ? p.payer[0] : p.payer
+              const reg = Array.isArray(p.registration) ? p.registration[0] : p.registration
+              const payerName = payer?.full_name || reg?.guest_name || null
+              return (
               <div key={p.created_at} className="flex items-center justify-between py-2 border-b last:border-0">
-                <span className="text-sm text-gray-600">{new Date(p.created_at).toLocaleDateString()}</span>
-                <div className="flex items-center gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">{payerName ?? 'Unknown'}</p>
+                  <span className="text-xs text-gray-500">{new Date(p.created_at).toLocaleDateString()}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{p.status}</span>
                   <span className="font-semibold">${(p.amount_cents / 100).toFixed(0)}</span>
                 </div>
               </div>
-            ))}
+              )
+            })}
             {(!recentPayments || recentPayments.length === 0) && (
               <p className="text-sm text-gray-400 py-4 text-center">No payments yet</p>
             )}
