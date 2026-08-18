@@ -3391,6 +3391,7 @@ export type Database = {
           payment_id: string | null
           reminder_sent: string | null
           status: string
+          stripe_checkout_session_id: string | null
         }
         Insert: {
           amount_cents: number
@@ -3403,6 +3404,7 @@ export type Database = {
           payment_id?: string | null
           reminder_sent?: string | null
           status?: string
+          stripe_checkout_session_id?: string | null
         }
         Update: {
           amount_cents?: number
@@ -3415,6 +3417,7 @@ export type Database = {
           payment_id?: string | null
           reminder_sent?: string | null
           status?: string
+          stripe_checkout_session_id?: string | null
         }
         Relationships: [
           {
@@ -4408,6 +4411,13 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "event_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_registrations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -5480,7 +5490,6 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
 // ── Hand-written aliases (preserved across regenerations) ────────────────────
 // Regenerate the block above with: pnpm db:generate-types
 
