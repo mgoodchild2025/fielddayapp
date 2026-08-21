@@ -763,6 +763,7 @@ export type Database = {
           league_id: string
           notes: string | null
           organization_id: string
+          pricing_model: string | null
           target_margin_pct: number
           updated_at: string
         }
@@ -774,6 +775,7 @@ export type Database = {
           league_id: string
           notes?: string | null
           organization_id: string
+          pricing_model?: string | null
           target_margin_pct?: number
           updated_at?: string
         }
@@ -785,6 +787,7 @@ export type Database = {
           league_id?: string
           notes?: string | null
           organization_id?: string
+          pricing_model?: string | null
           target_margin_pct?: number
           updated_at?: string
         }

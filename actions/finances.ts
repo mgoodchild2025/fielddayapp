@@ -646,12 +646,17 @@ export type BudgetItem = {
   sort_order: number
 }
 
+/** Billing model a plan is costed against. */
+export type BudgetPricingModel = 'per_player' | 'per_team'
+
 export type EventBudget = {
   budget: {
     expected_teams: number
     expected_participants: number
     target_margin_pct: number
     notes: string | null
+    /** Null = follow the league's payment_mode. */
+    pricing_model: BudgetPricingModel | null
   } | null
   items: BudgetItem[]
   /** League's current price + mode, for the "profit at current price" projection. */
@@ -665,7 +670,7 @@ export async function getEventBudget(leagueId: string): Promise<EventBudget> {
   const [{ data: budget }, { data: league }] = await Promise.all([
 
     db.from('event_budgets')
-      .select('id, expected_teams, expected_participants, target_margin_pct, notes')
+      .select('id, expected_teams, expected_participants, target_margin_pct, notes, pricing_model')
       .eq('league_id', leagueId).maybeSingle(),
 
     db.from('leagues').select('price_cents, payment_mode').eq('id', leagueId).single(),
@@ -689,6 +694,7 @@ export async function getEventBudget(leagueId: string): Promise<EventBudget> {
           expected_participants: budget.expected_participants,
           target_margin_pct: Number(budget.target_margin_pct),
           notes: budget.notes ?? null,
+          pricing_model: (budget.pricing_model as BudgetPricingModel | null) ?? null,
         }
       : null,
     items,
@@ -704,6 +710,8 @@ export async function saveEventBudget(input: {
   expectedParticipants: number
   targetMarginPct: number   // fraction 0–0.99
   notes?: string | null
+  /** Billing model to cost the plan against; null follows the event's own mode. */
+  pricingModel?: BudgetPricingModel | null
   items: { label: string; costType: BudgetCostType; amountCents: number }[]
 }): Promise<{ error: string | null }> {
   const headersList = await headers()
@@ -713,6 +721,9 @@ export async function saveEventBudget(input: {
 
   const margin = Number(input.targetMarginPct)
   if (!Number.isFinite(margin) || margin < 0 || margin >= 1) return { error: 'Target margin must be between 0 and 99%.' }
+  if (input.pricingModel && input.pricingModel !== 'per_player' && input.pricingModel !== 'per_team') {
+    return { error: 'Invalid pricing model.' }
+  }
   for (const it of input.items) {
     if (!BUDGET_COST_TYPES.includes(it.costType)) return { error: 'Invalid cost type.' }
     if (!Number.isFinite(it.amountCents) || it.amountCents < 0) return { error: 'Enter valid cost amounts.' }
@@ -735,6 +746,7 @@ export async function saveEventBudget(input: {
       expected_teams: Math.max(0, Math.round(input.expectedTeams) || 0),
       expected_participants: Math.max(0, Math.round(input.expectedParticipants) || 0),
       target_margin_pct: margin,
+      pricing_model: input.pricingModel ?? null,
       notes: input.notes?.trim() || null,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'league_id' })
