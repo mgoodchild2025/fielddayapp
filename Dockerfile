@@ -1,12 +1,18 @@
 # ── Stage 1: Install dependencies ─────────────────────────────────────────────
+# This project uses pnpm (see "packageManager" in package.json); there is no
+# package-lock.json, so npm ci cannot install it.
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN corepack enable
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 # ── Stage 2: Build ────────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 WORKDIR /app
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN corepack enable
 
 # Only NEXT_PUBLIC_* variables are baked into the client JS bundle at build
 # time. Runtime-only secrets (service role keys, API keys, webhooks) are never
@@ -26,7 +32,7 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build && cp -r .next/static .next/standalone/.next/static
+RUN pnpm build && cp -r .next/static .next/standalone/.next/static
 
 # ── Stage 3: Production runtime ───────────────────────────────────────────────
 FROM node:22-alpine AS runner
