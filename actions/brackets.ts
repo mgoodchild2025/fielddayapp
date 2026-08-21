@@ -9,6 +9,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { parseLocalToUtc, formatGameTime } from '@/lib/format-time'
 import { getInflowContext, inflowSpecFromContext, clearInboundRoutes, wireLeagueTierInflows } from '@/lib/tier-inflows'
+import { applyRoster, renumberSeeds, EMPTY_ROSTER, type PlayoffRoster } from '@/lib/playoff-roster'
 import type { TablesUpdate } from '@/types/database'
 import { notifyScheduleDelay } from '@/lib/notify-schedule-delay'
 import {
@@ -306,20 +307,60 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
 
   const { data: tierRow } = await db
     .from('playoff_tiers')
-    .select('seed_from, seed_to')
+    .select('seed_from, seed_to, config_id')
     .eq('bracket_id', bracketId)
     .maybeSingle()
   // seed_from is 1-based; convert to 0-based skip count (0 = no skip = top of standings)
   const seedOffset = tierRow?.seed_from ? Math.max(0, (tierRow.seed_from as number) - 1) : 0
 
+  // ── Playoff roster (Phase A) ────────────────────────────────────────────────
+  // The admin's field: teams sitting out are dropped under EVERY seeding method
+  // (everyone below shifts up), and a saved custom order replaces the computed
+  // one outright. Persisted on the config, so it survives every re-seed.
+  let roster: PlayoffRoster = EMPTY_ROSTER
+  if (tierRow?.config_id) {
+
+    const { data: rosterRow } = await db
+      .from('playoff_configs')
+      .select('custom_seed_order, excluded_team_ids')
+      .eq('id', tierRow.config_id)
+      .maybeSingle()
+    if (rosterRow) {
+      roster = {
+        customOrder: rosterRow.custom_seed_order ?? null,
+        excluded: rosterRow.excluded_team_ids ?? [],
+      }
+    }
+  }
+  const excludedIds = new Set(roster.excluded)
+  /** Drops teams sitting out before any seeding maths sees them. */
+  const eligible = <T extends { teamId: string }>(list: T[]): T[] =>
+    excludedIds.size === 0 ? list : list.filter((t) => !excludedIds.has(t.teamId))
+
   // Compute standings based on seeding method
   let seededTeams: TeamStanding[] = []
 
-  if (bracket.seeding_method === 'standings') {
+  if (roster.customOrder && roster.customOrder.length > 0) {
+    // Hand-ordered field: the admin's order IS the seeding, whatever the
+    // method would have computed. Standings still supply records for the
+    // diagnostic list and the fallback order for teams added since the roster
+    // was saved (applyRoster appends them).
+    const statsScope = String(bracket.seeding_method).startsWith('pool') ? 'pool_only' : 'all'
+    const { standings, ptsMethod, volleyballMode } = await computeStandings(db, leagueId, org.id, statsScope)
+    const pool = bracket.division_id
+      ? standings.filter((t) => t.divisionId === bracket.division_id)
+      : standings
+    const ordered = applyRoster(
+      seedFromStandings(pool, pool.length, ptsMethod, volleyballMode),
+      roster
+    )
+    seededTeams = renumberSeeds(ordered.slice(seedOffset, seedOffset + bracket.teams_advancing))
+  } else if (bracket.seeding_method === 'standings' || bracket.seeding_method === 'manual') {
     // 'all' = overall standings (regular season + pool play combined), matching
     // the public "Overall Standings" tab. For events with no pool games this is
     // simply the regular-season order; when both exist, pool results are folded in.
-    const { standings, ptsMethod, volleyballMode } = await computeStandings(db, leagueId, org.id, 'all')
+    const { standings: allStandings, ptsMethod, volleyballMode } = await computeStandings(db, leagueId, org.id, 'all')
+    const standings = eligible(allStandings)
 
     // Sort the full standings once so all tier slicing operates on the correct order.
     // seedFromStandings sorts internally, but slicing an unsorted array first would
@@ -361,7 +402,8 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
     bracket.seeding_method === 'pool_tiers'
   ) {
     // Use pool-play game results for standings (not regular season games)
-    const { standings, ptsMethod, volleyballMode } = await computeStandings(db, leagueId, org.id, 'pool_only')
+    const { standings: poolStandingsAll, ptsMethod, volleyballMode } = await computeStandings(db, leagueId, org.id, 'pool_only')
+    const standings = eligible(poolStandingsAll)
 
 
     const { data: pools } = await db
@@ -438,9 +480,10 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
     const hasPoolData = poolOnlyStandings.some((t) => t.wins > 0 || t.losses > 0 || t.ties > 0)
     // If no pool-play game data exists (no pool_id set on games, or no confirmed results),
     // fall back to full-season standings so seeding is at least deterministic.
-    const { standings } = hasPoolData
+    const { standings: flatStandings } = hasPoolData
       ? { standings: poolOnlyStandings }
       : await computeStandings(db, leagueId, org.id, 'regular_only')
+    const standings = eligible(flatStandings)
     const sortedStandings = seedFromStandings(standings, standings.length, ptsMethod, volleyballMode)
     const sliced = sortedStandings.slice(seedOffset, seedOffset + bracket.teams_advancing)
     seededTeams = sliced.map((t, i) => ({ ...t, seed: i + 1 }))

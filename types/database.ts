@@ -4030,6 +4030,8 @@ export type Database = {
         Row: {
           advance_per_pool: Json | null
           created_at: string
+          custom_seed_order: string[] | null
+          excluded_team_ids: string[]
           id: string
           league_id: string
           organization_id: string
@@ -4038,6 +4040,8 @@ export type Database = {
         Insert: {
           advance_per_pool?: Json | null
           created_at?: string
+          custom_seed_order?: string[] | null
+          excluded_team_ids?: string[]
           id?: string
           league_id: string
           organization_id: string
@@ -4046,6 +4050,8 @@ export type Database = {
         Update: {
           advance_per_pool?: Json | null
           created_at?: string
+          custom_seed_order?: string[] | null
+          excluded_team_ids?: string[]
           id?: string
           league_id?: string
           organization_id?: string

@@ -175,7 +175,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
 
   const { data: configRow } = await db
     .from('playoff_configs')
-    .select('id, seeding_method, advance_per_pool')
+    .select('id, seeding_method, advance_per_pool, custom_seed_order, excluded_team_ids')
     .eq('league_id', leagueId)
     .eq('organization_id', org.id)
     .maybeSingle()
@@ -228,6 +228,11 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
       id: configRow.id,
       seedingMethod: configRow.seeding_method as PoolSeedingMethod,
       advancePerPool: configRow.advance_per_pool as number[] | null ?? undefined,
+      // Playoff roster (Phase A) — the saved field and its order
+      roster: {
+        customOrder: configRow.custom_seed_order ?? null,
+        excluded: configRow.excluded_team_ids ?? [],
+      },
       tiers: sortedTiers.map((t) => ({
         id: t.id,
         name: t.name,

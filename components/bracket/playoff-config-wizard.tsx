@@ -10,6 +10,8 @@ import { BracketRoutingProvider, type RoutingTarget } from './bracket-routing'
 import { getRoundName, type TeamStanding, type BracketRecommendation } from '@/lib/bracket'
 import type { TierInput, PoolSeedingMethod } from '@/actions/playoff-config'
 import { applicableTemplates, describeTiers, type TierTemplateSpec } from '@/lib/playoff-templates'
+import { applyRoster, rosterIsActive, EMPTY_ROSTER, type PlayoffRoster } from '@/lib/playoff-roster'
+import { PlayoffRosterPanel } from './playoff-roster-panel'
 import { listPlayoffTemplates, savePlayoffTemplate, deletePlayoffTemplate, type SavedPlayoffTemplate } from '@/actions/playoff-templates'
 
 // ── Tier name suggestions ─────────────────────────────────────────────────────
@@ -56,6 +58,8 @@ export interface ExistingConfig {
   id: string
   seedingMethod: PoolSeedingMethod
   advancePerPool?: number[]
+  /** Saved playoff roster — the field and its order (Phase A). */
+  roster: PlayoffRoster
   tiers: ExistingTier[]
 }
 
@@ -626,6 +630,9 @@ function ManageHeader({
         </p>
         <p className="text-xs text-gray-400 mt-0.5">
           Seeds 1–{maxSeed} · {seededTeams.length} team{seededTeams.length !== 1 ? 's' : ''} registered
+          {existingConfig.roster.excluded.length > 0 &&
+            ` · ${existingConfig.roster.excluded.length} sitting out`}
+          {(existingConfig.roster.customOrder?.length ?? 0) > 0 && ' · custom seed order'}
         </p>
       </div>
 
@@ -635,7 +642,7 @@ function ManageHeader({
             onClick={onEditTiers}
             className="px-3 py-1.5 rounded-lg text-xs font-medium border text-gray-600 hover:bg-gray-50"
           >
-            ✎ Edit Tiers
+            ✎ Edit Tiers &amp; Roster
           </button>
 
           {/* ⋯ More options */}
@@ -708,8 +715,8 @@ export function PlayoffConfigWizard({
     (pools.length >= 2 ? pools.map(() => Math.floor((existingConfig ? Math.max(...existingConfig.tiers.map(t => t.seedTo), 2) : defaultTotal) / pools.length)) : [])
   const [advancePerPool, setAdvancePerPool] = useState<number[]>(defaultAdvancePerPool)
 
-  // Step: 'setup' → 'tiers' → 'seed' (manual only) → manage
-  const [step, setStep] = useState<'setup' | 'tiers' | 'seed'>('setup')
+  // Step: 'setup' → 'tiers' → manage
+  const [step, setStep] = useState<'setup' | 'tiers'>('setup')
 
   // Editable tiers table
   const [tiers, setTiers] = useState<TierConfig[]>(() =>
@@ -730,8 +737,12 @@ export function PlayoffConfigWizard({
       : buildTiersFromCount(defaultTotal, 1)
   )
 
-  // Manual seed overrides: seed# → teamId
-  const [seedOverrides, setSeedOverrides] = useState<Record<number, string>>({})
+  // Playoff roster: who's in the field and in what order (persisted on the config)
+  const [roster, setRoster] = useState<PlayoffRoster>(existingConfig?.roster ?? EMPTY_ROSTER)
+
+  // The field the brackets will actually be seeded from — standings order with
+  // sat-out teams removed and any hand-picked order applied.
+  const rosterField = applyRoster(seededTeams, roster)
 
   // Org-saved playoff format templates (flexible brackets Phase 3)
   const [savedTemplates, setSavedTemplates] = useState<SavedPlayoffTemplate[]>([])
@@ -871,11 +882,12 @@ export function PlayoffConfigWizard({
         seedingMethod,
         advancePerPool: usesPoolAdvance && advancePerPool.length > 0 ? advancePerPool : undefined,
         tiers: tierInputs,
+        roster,
       })
       if (r.error) { setErr(r.error); return }
 
       if (thenGenerate) {
-        const g = await generateAllTierBrackets(leagueId, seedOverrides)
+        const g = await generateAllTierBrackets(leagueId)
         if (g.error) { setErr(g.error); return }
         setGenMsg(`Generated ${g.generated} bracket${g.generated !== 1 ? 's' : ''}${g.skipped > 0 ? ` · ${g.skipped} skipped (in progress)` : ''}.`)
       }
@@ -891,7 +903,7 @@ export function PlayoffConfigWizard({
     setErr(null)
     setGenMsg(null)
     startTransition(async () => {
-      const g = await generateAllTierBrackets(leagueId, seedOverrides)
+      const g = await generateAllTierBrackets(leagueId)
       if (g.error) { setErr(g.error); return }
       setGenMsg(`Generated ${g.generated} bracket${g.generated !== 1 ? 's' : ''}${g.skipped > 0 ? ` · ${g.skipped} skipped (scores recorded)` : ''}.`)
       setRefreshKey((k) => k + 1)
@@ -908,6 +920,7 @@ export function PlayoffConfigWizard({
       // Reset wizard to fresh setup state so the user sees the wizard again
       setStep('setup')
       setTiers(buildTiersFromCount(defaultTotal, 1))
+      setRoster(EMPTY_ROSTER)
       router.refresh()
     })
   }
@@ -978,7 +991,11 @@ export function PlayoffConfigWizard({
         {/* Info */}
         {seededTeams.length > 0 && (
           <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-blue-800">
-            <p className="font-semibold mb-0.5">{seededTeams.length} teams ranked by standings</p>
+            <p className="font-semibold mb-0.5">
+              {rosterIsActive(roster)
+                ? `${rosterField.length} teams in the playoff field${roster.excluded.length > 0 ? ` · ${roster.excluded.length} sitting out` : ''}`
+                : `${seededTeams.length} teams ranked by standings`}
+            </p>
             <p className="text-xs">Assign seed ranges to each tier. Every team that falls in a tier&apos;s range will be placed in that bracket.</p>
           </div>
         )}
@@ -1028,6 +1045,17 @@ export function PlayoffConfigWizard({
           </div>
         </div>
 
+        {/* Playoff roster — the field and its order (Phase A) */}
+        {seededTeams.length > 0 && (
+          <PlayoffRosterPanel
+            teams={seededTeams}
+            roster={roster}
+            onChange={setRoster}
+            seedsNeeded={Math.max(...tiers.map((t) => t.seedTo), 0)}
+            disabled={isPending}
+          />
+        )}
+
         {/* Team preview */}
         {seededTeams.length > 0 && (
           <div className="bg-white rounded-xl border overflow-hidden">
@@ -1036,7 +1064,7 @@ export function PlayoffConfigWizard({
             </div>
             <div className="divide-y">
               {tiers.map((tier, i) => {
-                const tierTeams = seededTeams.filter(
+                const tierTeams = rosterField.filter(
                   (t, idx) => idx + 1 >= tier.seedFrom && idx + 1 <= tier.seedTo
                 )
                 return (
@@ -1091,7 +1119,7 @@ export function PlayoffConfigWizard({
                       ? 'Seeds assigned by W-L record + point differential'
                       : m === 'pool_results'
                         ? `Seed from pool play standings — choose order below`
-                        : 'You choose which team gets each seed'}
+                        : 'Start from standings, then order the field yourself in the Playoff Roster below'}
                   </p>
                 </button>
               )
