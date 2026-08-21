@@ -134,7 +134,7 @@ export function BudgetPlanner({ leagueId, initial }: { leagueId: string; initial
             <p className="text-xs font-medium text-gray-600">Projected costs</p>
             {lines.map((l) => (
               <div key={l.key} className="flex items-center gap-2">
-                <input value={l.label} onChange={(e) => updateLine(l.key, { label: e.target.value })} placeholder="e.g. Gym rental" className="flex-1 border rounded px-2 py-1.5 text-sm" />
+                <input value={l.label} onChange={(e) => updateLine(l.key, { label: e.target.value })} placeholder="e.g. Gym rental" className="flex-1 min-w-0 border rounded px-2 py-1.5 text-sm" />
                 <select value={l.costType} onChange={(e) => updateLine(l.key, { costType: e.target.value as BudgetCostType })} className="border rounded px-1.5 py-1.5 text-sm bg-white shrink-0">
                   {(['fixed', 'per_team', 'per_player'] as BudgetCostType[]).map((t) => <option key={t} value={t}>{COST_TYPE_LABELS[t]}</option>)}
                 </select>
