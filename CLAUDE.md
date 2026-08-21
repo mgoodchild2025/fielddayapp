@@ -59,7 +59,7 @@ app/(org)/
 - `registrations` — player registrations to leagues
 - `games` — scheduled games (home/away teams, court, week, status)
 - `game_results` — scores (status: pending → confirmed)
-- `playoff_configs` / `playoff_tiers` — playoff setup (tiers with seed ranges; tiers carry `inflow_from_tier_id` + `bye_seeds` for cross-tier drop-downs)
+- `playoff_configs` / `playoff_tiers` — playoff setup (config carries the playoff roster: `custom_seed_order` + `excluded_team_ids`; tiers carry seed ranges plus `inflow_from_tier_id` + `bye_seeds` for cross-tier drop-downs)
 - `brackets` / `bracket_matches` — generated brackets; matches carry `winner_to_match_id` / `loser_to_match_id` (+ slot) routing and `is_bye`
 - `org_playoff_templates` — org-saved playoff format templates (tiers as JSONB)
 - `payments` — Stripe payment records
@@ -92,6 +92,12 @@ Admin → Events → [Event] → Bracket renders `PlayoffConfigWizard` (`compone
 - `scaffoldBracket`/`seedBracket` (`actions/brackets.ts`) detect inflow receivers via `getInflowContext` and rebuild with the inflow spec — never assume the standard generator shape for a receiver.
 - Runtime advancement (`advanceWinner`/`advanceLoser`) follows `winner_to_match_id`/`loser_to_match_id` wherever they point, including into another bracket.
 - Admins can also hand-edit any match's routing (winner/loser destination + slot, across brackets) in the Edit Match modal via `updateMatchRouting`.
+
+### Playoff roster & persistent seeding
+- The **roster** is the admin's answer to *who is in the field and in what order*: `playoff_configs.excluded_team_ids` (teams sitting out) and `playoff_configs.custom_seed_order` (ordered team ids; null = standings order). Edited on the wizard's tiers step (`components/bracket/playoff-roster-panel.tsx`), saved with the config, so it survives reload, re-seed and regeneration.
+- `lib/playoff-roster.ts` is the pure logic (`applyRoster`, `moveInField`, `renumberSeeds`) and is tested. Exclusions apply under **every** seeding method — teams below a sat-out team shift up. A custom order **replaces** the computed order outright (pool/division seeding included); teams missing from a stale order are appended in standings order, so nobody is silently dropped.
+- `seedBracket` (`actions/brackets.ts`) loads the roster via the bracket's tier → config and applies it before tier slicing. `generateAllTierBrackets` scaffolds with flat "Seed N" labels when a custom order exists (position labels like "1st - Pool A" would be wrong).
+- `savePlayoffConfig` persists the roster when passed one (omit to leave it untouched); `savePlayoffRoster` updates it alone from an existing config.
 
 ### Format templates
 - Built-ins in `lib/playoff-templates.ts` (parameterized by team count; `applicableTemplates` only offers shapes that validate). Org-saved templates in `org_playoff_templates` via `actions/playoff-templates.ts`; "Save as template…" on the wizard's tiers step.

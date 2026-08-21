@@ -18,6 +18,7 @@ import {
   type InflowSlotRef,
 } from '@/lib/bracket'
 import { wireLeagueTierInflows, sourceLoserCount, clearInboundRoutes } from '@/lib/tier-inflows'
+import { EMPTY_ROSTER, type PlayoffRoster } from '@/lib/playoff-roster'
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 
@@ -252,6 +253,70 @@ async function insertBracketWithMatches(
   return { bracketId, error: null, inflowSlotIds }
 }
 
+// ── Playoff roster (Phase A) ──────────────────────────────────────────────────
+// The field and its order live on the config so every seed, re-seed and
+// regeneration honours the admin's roster instead of the raw standings.
+
+/** Maps a roster onto its two config columns (empty order stored as null). */
+function rosterColumns(roster: PlayoffRoster) {
+  return {
+    custom_seed_order: roster.customOrder && roster.customOrder.length > 0 ? roster.customOrder : null,
+    excluded_team_ids: roster.excluded,
+  }
+}
+
+/** Reads the roster for a league. Missing config or columns → empty roster. */
+export async function getPlayoffRoster(leagueId: string): Promise<PlayoffRoster> {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  const { data } = await db
+    .from('playoff_configs')
+    .select('custom_seed_order, excluded_team_ids')
+    .eq('league_id', leagueId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+
+  if (!data) return EMPTY_ROSTER
+  return {
+    customOrder: data.custom_seed_order ?? null,
+    excluded: data.excluded_team_ids ?? [],
+  }
+}
+
+/**
+ * Saves the roster on its own — used from the manage view, where the tiers are
+ * already saved and the admin only wants to sit a team out or reorder the
+ * field before re-seeding. Requires an existing config (the wizard's
+ * "Save & Generate" path persists the roster through savePlayoffConfig).
+ */
+export async function savePlayoffRoster(input: {
+  leagueId: string
+  roster: PlayoffRoster
+}): Promise<{ error: string | null }> {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  const { data: config } = await db
+    .from('playoff_configs')
+    .select('id')
+    .eq('league_id', input.leagueId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+
+  if (!config) return { error: 'Save your playoff tiers first — the roster is stored with them.' }
+
+  const { error } = await db
+    .from('playoff_configs')
+    .update(rosterColumns(input.roster))
+    .eq('id', config.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${input.leagueId}/bracket`)
+  return { error: null }
+}
+
 // ── savePlayoffConfig ─────────────────────────────────────────────────────────
 
 export interface TierInput {
@@ -278,6 +343,11 @@ export async function savePlayoffConfig(input: {
   seedingMethod: PoolSeedingMethod
   advancePerPool?: number[]
   tiers: TierInput[]
+  /**
+   * Playoff roster (Phase A). Omit to leave a saved roster untouched; pass
+   * `{ customOrder: null, excluded: [] }` to reset to standings order.
+   */
+  roster?: PlayoffRoster
 }): Promise<{ error: string | null; configId: string | null }> {
   const org = await getOrgAndRequireAdmin()
   const db = createServiceRoleClient()
@@ -321,6 +391,7 @@ export async function savePlayoffConfig(input: {
       .update({
         seeding_method: input.seedingMethod,
         advance_per_pool: input.advancePerPool ?? null,
+        ...(input.roster ? rosterColumns(input.roster) : {}),
       })
       .eq('id', configId)
   } else {
@@ -330,6 +401,7 @@ export async function savePlayoffConfig(input: {
       league_id: input.leagueId,
       seeding_method: input.seedingMethod,
       advance_per_pool: input.advancePerPool ?? null,
+      ...(input.roster ? rosterColumns(input.roster) : {}),
     }).select('id').single()
     if (createErr || !created) return { error: createErr?.message ?? 'Failed to create config', configId: null }
     configId = created.id
@@ -405,8 +477,7 @@ export async function savePlayoffConfig(input: {
 // ── generateAllTierBrackets ───────────────────────────────────────────────────
 
 export async function generateAllTierBrackets(
-  leagueId: string,
-  seedOverrides?: Record<number, string>  // global seed# → teamId overrides (for manual seeding)
+  leagueId: string
 ): Promise<{ error: string | null; generated: number; skipped: number }> {
   const org = await getOrgAndRequireAdmin()
   const db = createServiceRoleClient()
@@ -416,7 +487,7 @@ export async function generateAllTierBrackets(
 
   const { data: config } = await db
     .from('playoff_configs')
-    .select('id, seeding_method, advance_per_pool')
+    .select('id, seeding_method, advance_per_pool, custom_seed_order, excluded_team_ids')
     .eq('league_id', leagueId)
     .eq('organization_id', org.id)
     .maybeSingle()
@@ -425,6 +496,10 @@ export async function generateAllTierBrackets(
 
   const seedingMethod: PoolSeedingMethod = config.seeding_method as PoolSeedingMethod
   const advancePerPool: number[] | null = (config.advance_per_pool as number[] | null) ?? null
+  // A hand-ordered field makes position labels ("1st - Pool A") wrong, so a
+  // custom order scaffolds with flat seed labels instead. Seeding itself reads
+  // the roster from the config again (seedBracket).
+  const customOrdered = ((config.custom_seed_order as string[] | null) ?? []).length > 0
 
 
   const { data: tiersData } = await db
@@ -538,7 +613,12 @@ export async function generateAllTierBrackets(
     let tierSeedOffset: number
     let perPool: number | undefined
 
-    if (seedingMethod === 'pool_tiers') {
+    if (customOrdered) {
+      // Flat "Seed N" labels — the admin's order isn't derivable from pools.
+      tierPoolNames = []
+      labelMode = 'alternating'
+      tierSeedOffset = tier.seed_from - 1
+    } else if (seedingMethod === 'pool_tiers') {
       // Each tier maps to one pool by index; seeds start at 1 within the tier
       tierPoolNames = allPoolNames[tierIdx] ? [allPoolNames[tierIdx]] : []
       labelMode = 'single'
@@ -608,10 +688,9 @@ export async function generateAllTierBrackets(
 
 export async function reseedTierBracket(
   tierId: string,
-  leagueId: string,
-  seedOverrides?: Record<number, string>
+  leagueId: string
 ): Promise<{ error?: string }> {
-  return generateAllTierBrackets(leagueId, seedOverrides)
+  return generateAllTierBrackets(leagueId)
     .then((r) => r.error ? { error: r.error } : {})
 }
 
