@@ -37,7 +37,7 @@ export function PlayerBioCard({ bio, size = 'md' }: { bio: BioCardData; size?: '
   ].filter(Boolean)
 
   return (
-    <div className={`flex items-end gap-4 ${tv ? 'gap-8' : ''}`}>
+    <div className={`flex items-end gap-4 text-white ${tv ? 'gap-8' : ''}`}>
       {/* Photo */}
       <div
         className={`shrink-0 overflow-hidden rounded-lg border border-white/10 bg-gradient-to-b from-gray-700 to-gray-900 ${
