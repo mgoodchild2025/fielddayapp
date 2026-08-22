@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { countDropInRegsBySession } from '@/lib/session-counts'
 import { getSeasonPassQuote, type SeasonPassQuote } from '@/lib/season-pass'
+import { EventPodium, type PodiumMedal } from '@/components/medals/event-podium'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { JoinTeamByCode } from '@/components/teams/join-team-by-code'
@@ -828,6 +829,26 @@ export default async function EventDetailPage({
         .or('registration_type.eq.season,registration_type.is.null')
     : { count: 0 }
   const fullPass = fullPassCount ?? 0
+
+  // Final results: the event's awarded medals (podium first, then tier titles)
+  const { data: podiumRows } = await db
+    .from('medals')
+    .select('id, placement, label, team_name, medal_recipients(display_name)')
+    .eq('league_id', league.id)
+    .eq('organization_id', org.id)
+  const PODIUM_ORDER: Record<string, number> = { gold: 0, silver: 1, bronze: 2, tier_champion: 3 }
+  const podiumMedals: PodiumMedal[] = ((podiumRows ?? []) as {
+    id: string; placement: string; label: string; team_name: string
+    medal_recipients: { display_name: string }[]
+  }[])
+    .sort((a, b) => (PODIUM_ORDER[a.placement] ?? 9) - (PODIUM_ORDER[b.placement] ?? 9))
+    .map((m) => ({
+      id: m.id,
+      placement: m.placement as PodiumMedal['placement'],
+      label: m.label,
+      teamName: m.team_name,
+      recipients: (m.medal_recipients ?? []).map((r) => r.display_name),
+    }))
 
   // Season-pass quote (drop-in events): what the pass costs right now. Prorated
   // when the event has proration on; the same helper prices the actual charge.
@@ -1961,6 +1982,9 @@ export default async function EventDetailPage({
                 </div>
               </div>
             )}
+
+            {/* Final results — the podium, once medals are awarded */}
+            {podiumMedals.length > 0 && <EventPodium medals={podiumMedals} />}
 
             {/* Rules */}
             {league.rules_content && (
