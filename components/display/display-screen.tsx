@@ -90,7 +90,7 @@ function ZoneRenderer({
     case 'sponsors':
       return <SponsorsZone sponsors={data.sponsors} theme={theme} />
     case 'showcase':
-      return <ShowcaseZone showcase={data.showcase} config={config as Extract<ZoneConfig, { type: 'showcase' }>} theme={theme} />
+      return <ShowcaseZone showcase={data.showcase} config={config as Extract<ZoneConfig, { type: 'showcase' }>} theme={theme} timezone={data.timezone} />
     case 'empty':
     default:
       return null

@@ -260,6 +260,22 @@ function ZoneEditor({
             </div>
             <p className="text-[11px] text-gray-400 mt-1">Bios rotate only players who opted in on their profile.</p>
           </div>
+          {zone.source !== 'photos' && (
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={zone.lineups === true}
+                onChange={(e) => onChange({ ...zone, lineups: e.target.checked })}
+                className="mt-0.5 rounded"
+              />
+              <span className="text-xs text-gray-200">
+                Starting lineups
+                <span className="block text-[11px] text-gray-400">
+                  When a game is up within 45 min, open with the matchup and both rosters&apos; cards.
+                </span>
+              </span>
+            </label>
+          )}
           <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="block text-xs text-gray-200 mb-1">Transition</label>
@@ -437,7 +453,25 @@ function ScreenEditor({
 
       {/* Layout picker */}
       <div>
-        <p className="text-sm font-semibold text-gray-200 mb-3">Layout</p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-semibold text-gray-200">Layout</p>
+          {/* One-click Photo Wall: full-bleed photo showcase + a QR inviting uploads.
+              The QR points at the public event page, where the gallery lives. */}
+          <button
+            type="button"
+            onClick={() => setConfig({
+              layout: 'main_sidebar',
+              zones: [
+                { type: 'showcase', source: 'photos', transition: 'kenburns', seconds: 8, order: 'newest' },
+                { type: 'qr_code', url: displayBaseUrl.replace(/\/display$/, ''), label: '📸 Add your photos' },
+              ],
+            })}
+            className="text-xs font-medium text-gray-300 border border-gray-600 rounded-md px-2.5 py-1 hover:bg-gray-700"
+            title="Set this screen to a photo wall: rotating event photos plus a QR code players scan to add theirs"
+          >
+            📸 Photo wall preset
+          </button>
+        </div>
         <div className="grid grid-cols-4 gap-2">
           {LAYOUTS.map((l) => (
             <button

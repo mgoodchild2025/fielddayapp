@@ -428,7 +428,7 @@ export async function getDisplayData(
   // (show_on_displays) and aren't admin-hidden. Photos: the event's approved
   // gallery. Both re-read on the display's refresh cycle, so a photo approved
   // courtside joins the rotation within a minute.
-  const showcase: DisplayData['showcase'] = { bios: [], photos: [] }
+  const showcase: DisplayData['showcase'] = { bios: [], photos: [], nextGame: null }
   if (needsShowcase) {
     const showcaseZone = config.zones.find((z) => z.type === 'showcase') as Extract<ZoneConfig, { type: 'showcase' }> | undefined
     const wantBios = showcaseZone?.source !== 'photos'
@@ -465,7 +465,7 @@ export async function getDisplayData(
             .in('user_id', regUserIds),
           db.from('profiles').select('id, full_name, avatar_url').in('id', regUserIds),
           db.from('team_members')
-            .select('user_id, position, team:teams!team_members_team_id_fkey(name, league_id)')
+            .select('user_id, position, team:teams!team_members_team_id_fkey(id, name, league_id)')
             .in('user_id', regUserIds)
             .eq('status', 'active'),
           db.from('medal_recipients')
@@ -474,13 +474,54 @@ export async function getDisplayData(
             .in('user_id', regUserIds),
         ])
 
+        // Podium teams in THIS event → gold card treatment (champion spotlight)
+        const { data: leagueMedals } = await db
+          .from('medals')
+          .select('team_id, placement, label')
+          .eq('league_id', leagueId).eq('organization_id', orgId)
+        const PODIUM_ORDER: Record<string, number> = { gold: 0, silver: 1, bronze: 2, tier_champion: 3 }
+        const championByTeam = new Map<string, { placement: 'gold' | 'silver' | 'bronze' | 'tier_champion'; label: string }>()
+        for (const m of (leagueMedals ?? []).sort((a, b) => (PODIUM_ORDER[a.placement] ?? 9) - (PODIUM_ORDER[b.placement] ?? 9))) {
+          if (m.team_id && !championByTeam.has(m.team_id)) {
+            championByTeam.set(m.team_id, { placement: m.placement as 'gold' | 'silver' | 'bronze' | 'tier_champion', label: m.label })
+          }
+        }
+
+        // Next scheduled game with both teams set → starting-lineup intros
+        const { data: nextGameRow } = await db
+          .from('games')
+          .select('scheduled_at, court, home_team_id, away_team_id')
+          .eq('league_id', leagueId).eq('organization_id', orgId)
+          .eq('status', 'scheduled')
+          .gte('scheduled_at', new Date().toISOString())
+          .not('home_team_id', 'is', null)
+          .not('away_team_id', 'is', null)
+          .order('scheduled_at', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+        if (nextGameRow?.home_team_id && nextGameRow?.away_team_id) {
+          const { data: gameTeams } = await db
+            .from('teams')
+            .select('id, name')
+            .in('id', [nextGameRow.home_team_id, nextGameRow.away_team_id])
+          const nameOf = new Map((gameTeams ?? []).map((t) => [t.id, t.name]))
+          showcase.nextGame = {
+            homeTeamId: nextGameRow.home_team_id,
+            homeTeamName: nameOf.get(nextGameRow.home_team_id) ?? 'Home',
+            awayTeamId: nextGameRow.away_team_id,
+            awayTeamName: nameOf.get(nextGameRow.away_team_id) ?? 'Away',
+            scheduledAt: nextGameRow.scheduled_at,
+            court: nextGameRow.court ?? null,
+          }
+        }
+
         const profileById = new Map((profiles ?? []).map((p) => [p.id, p]))
         // Team name for THIS league only
-        const teamByUser = new Map<string, { name: string; position: string | null }>()
+        const teamByUser = new Map<string, { id: string; name: string; position: string | null }>()
         for (const m of memberships ?? []) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const team = Array.isArray(m.team) ? m.team[0] : m.team as any
-          if (team?.league_id === leagueId && m.user_id) teamByUser.set(m.user_id, { name: team.name, position: m.position ?? null })
+          if (team?.league_id === leagueId && m.user_id) teamByUser.set(m.user_id, { id: team.id, name: team.name, position: m.position ?? null })
         }
         const shelfCounts = new Map<string, Record<string, number>>()
         for (const r of medalRows ?? []) {
@@ -508,12 +549,14 @@ export async function getDisplayData(
             name: profile?.full_name ?? 'Player',
             photoUrl: b.hero_photo_url ?? profile?.avatar_url ?? null,
             teamName: team?.name ?? null,
+            teamId: team?.id ?? null,
             position: b.position ?? team?.position ?? null,
             jerseyNumber: b.jersey_number,
             hometown: b.hometown,
             yearsPlaying: b.years_playing,
             tagline: b.tagline,
             medalShelf: shelfFor(b.user_id),
+            champion: team?.id ? (championByTeam.get(team.id) ?? null) : null,
           }
         })
       }
