@@ -1683,8 +1683,30 @@ export async function addBracketRound(input: {
     roundNumber = Math.max(...rounds) + 1
   } else {
     const min = Math.min(...rounds)
-    if (min <= 1) return { error: 'Round 1 is the last round. Add matches to it instead, or add an earlier round.', roundNumber: null }
-    roundNumber = min - 1
+    if (min <= 1) {
+      // Round 1 (the internal "final") is taken — e.g. a small tier pre-lays
+      // its opening round AT round 1. Round numbers are only sort keys (routes
+      // are held by match id), so shift every round up by one and take the
+      // freed slot. Highest round first, to dodge the
+      // unique(bracket_id, round_number, match_number) constraint.
+      for (const r of [...rounds].sort((a, b) => b - a)) {
+        await db.from('bracket_matches')
+          .update({ round_number: r + 1 })
+          .eq('bracket_id', input.bracketId)
+          .eq('round_number', r)
+      }
+      // Stored round names are keyed by round number — remap them too.
+      const names = (bracket.round_names as Record<string, string> | null) ?? null
+      if (names && Object.keys(names).length > 0) {
+        const shifted: Record<string, string> = {}
+        for (const [k, v] of Object.entries(names)) shifted[String(Number(k) + 1)] = v
+        await db.from('brackets').update({ round_names: shifted }).eq('id', input.bracketId)
+        bracket.round_names = shifted // keep the naming write below consistent
+      }
+      roundNumber = 1
+    } else {
+      roundNumber = min - 1
+    }
   }
 
   const { error } = await db.from('bracket_matches').insert(
