@@ -324,7 +324,7 @@ export interface TierInput {
   name: string
   seedFrom: number
   seedTo: number
-  bracketType: 'single_elimination' | 'double_elimination' | 'all_play'
+  bracketType: 'single_elimination' | 'double_elimination' | 'all_play' | 'custom'
   thirdPlaceGame: boolean
   /**
    * Index (into this tiers array) of the tier whose first-round losers drop
@@ -370,6 +370,11 @@ export async function savePlayoffConfig(input: {
     }
     if (src >= i) {
       return { error: `Tier "${input.tiers[i].name}" can only receive losers from a tier above it.`, configId: null }
+    }
+    // Receivers must be single elimination — hand-built and other shapes have
+    // no generated entry round for drop-downs to land in.
+    if (input.tiers[i].bracketType !== 'single_elimination') {
+      return { error: `Tier "${input.tiers[i].name}" must be single elimination to receive drop-downs.`, configId: null }
     }
   }
 
@@ -474,6 +479,51 @@ export async function savePlayoffConfig(input: {
   return { error: null, configId }
 }
 
+// ── insertCustomBracket (manual brackets M1) ─────────────────────────────────
+// Creates a hand-built bracket with one pre-laid first round of empty matches:
+// ceil(teams/2) matches, no teams, no labels, no routing. Round numbers follow
+// the engine's convention (round number = matches in the round), so getRoundName
+// stays sensible; the admin edits everything from here with the per-match tools.
+
+async function insertCustomBracket(
+  db: ReturnType<typeof createServiceRoleClient>,
+  orgId: string,
+  leagueId: string,
+  name: string,
+  teamCount: number
+): Promise<{ bracketId: string | null; error: string | null }> {
+  const matchCount = Math.max(1, Math.ceil(teamCount / 2))
+
+  const { data: bracket, error } = await db.from('brackets').insert({
+    organization_id: orgId,
+    league_id: leagueId,
+    name,
+    bracket_type: 'custom',
+    seeding_method: 'manual',
+    bracket_size: Math.max(2, teamCount),
+    teams_advancing: Math.max(2, teamCount),
+    third_place_game: false,
+    status: 'setup',
+  }).select('id').single()
+  if (error || !bracket) return { bracketId: null, error: error?.message ?? 'Failed to create bracket' }
+
+  const { error: matchErr } = await db.from('bracket_matches').insert(
+    Array.from({ length: matchCount }, (_, i) => ({
+      organization_id: orgId,
+      bracket_id: bracket.id,
+      round_number: matchCount,
+      match_number: i + 1,
+      team1_id: null,
+      team2_id: null,
+      is_bye: false,
+      status: 'pending',
+    }))
+  )
+  if (matchErr) return { bracketId: null, error: matchErr.message }
+
+  return { bracketId: bracket.id as string, error: null }
+}
+
 // ── generateAllTierBrackets ───────────────────────────────────────────────────
 
 export async function generateAllTierBrackets(
@@ -537,6 +587,26 @@ export async function generateAllTierBrackets(
 
   for (let tierIdx = 0; tierIdx < tiers.length; tierIdx++) {
     const tier = tiers[tierIdx]
+
+    // ── Custom (hand-built) tiers ────────────────────────────────────────────
+    // The generators never own a custom bracket's shape. First run: create the
+    // bracket with a pre-laid first round of empty matches (per-match tools do
+    // the rest). Every later run: leave it exactly as the admin built it.
+    if (tier.bracket_type === 'custom') {
+      if (tier.bracket_id) {
+        bracketIdByTier.set(tier.id, tier.bracket_id)
+        skipped++
+        continue
+      }
+      const teamCount = tier.seed_to - tier.seed_from + 1
+      const { bracketId, error } = await insertCustomBracket(db, org.id, leagueId, tier.name, teamCount)
+      if (error || !bracketId) { skipped++; continue }
+
+      await db.from('playoff_tiers').update({ bracket_id: bracketId }).eq('id', tier.id)
+      bracketIdByTier.set(tier.id, bracketId)
+      generated++
+      continue
+    }
 
     // Check if this tier's bracket already has scores recorded → skip regeneration
     if (tier.bracket_id) {

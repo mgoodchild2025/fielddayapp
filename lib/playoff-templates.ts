@@ -16,7 +16,7 @@ export interface TierTemplateSpec {
   name: string
   seedFrom: number
   seedTo: number
-  bracketType: 'single_elimination' | 'double_elimination' | 'all_play'
+  bracketType: 'single_elimination' | 'double_elimination' | 'all_play' | 'custom'
   thirdPlaceGame: boolean
   inflowFromTierIndex: number | null
   byeSeeds: number
@@ -165,6 +165,7 @@ export function describeTiers(tiers: TierTemplateSpec[]): string {
       if (t.byeSeeds > 0) bits.push(`${t.byeSeeds} bye${t.byeSeeds === 1 ? '' : 's'}`)
       if (t.bracketType === 'double_elimination') bits.push('double elim')
       if (t.bracketType === 'all_play') bits.push('all-play')
+      if (t.bracketType === 'custom') bits.push('hand-built')
       if (t.thirdPlaceGame) bits.push('3rd place')
       return `${t.name} ${range}${bits.length ? ` (${bits.join(', ')})` : ''}`
     })

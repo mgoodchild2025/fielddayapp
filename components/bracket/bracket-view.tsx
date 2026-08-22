@@ -52,7 +52,7 @@ export interface BracketData {
   id: string
   name: string
   bracketSize: number
-  bracketType: 'single_elimination' | 'double_elimination' | 'all_play'
+  bracketType: 'single_elimination' | 'double_elimination' | 'all_play' | 'custom'
   thirdPlaceGame: boolean
   status: string
   matches: BracketMatchData[]
