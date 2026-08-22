@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { canAccess } from '@/lib/features'
 import { PlayoffConfigWizard } from '@/components/bracket/playoff-config-wizard'
+import { AdminMedalsPanel, type AdminMedalRow } from '@/components/medals/admin-medals-panel'
 import { DelayScheduleControl } from '@/components/schedule/delay-schedule-control'
 import { recommendBracket, seedFromStandings, seedFromDivisionStandings, seedFromPoolStandings, type TeamStanding } from '@/lib/bracket'
 import type { BracketData, BracketMatchData, TeamRef } from '@/components/bracket/bracket-view'
@@ -253,6 +254,28 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
     }
   }
 
+  // Awarded medals — who won what, exactly as trophy cases show it
+  const { data: medalRows } = await db
+    .from('medals')
+    .select('id, placement, label, team_name, awarded_at, medal_recipients(display_name)')
+    .eq('league_id', leagueId)
+    .eq('organization_id', org.id)
+    .order('awarded_at', { ascending: false })
+  const PLACEMENT_ORDER: Record<string, number> = { gold: 0, silver: 1, bronze: 2, tier_champion: 3 }
+  const awardedMedals: AdminMedalRow[] = ((medalRows ?? []) as {
+    id: string; placement: string; label: string; team_name: string; awarded_at: string
+    medal_recipients: { display_name: string }[]
+  }[])
+    .sort((a, b) => (PLACEMENT_ORDER[a.placement] ?? 9) - (PLACEMENT_ORDER[b.placement] ?? 9))
+    .map((m) => ({
+      id: m.id,
+      placement: m.placement as AdminMedalRow['placement'],
+      label: m.label,
+      teamName: m.team_name,
+      awardedAt: m.awarded_at,
+      recipients: (m.medal_recipients ?? []).map((r) => r.display_name),
+    }))
+
   return (
     <div>
       <div className="flex items-start justify-between mb-6">
@@ -265,6 +288,12 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
       {scope.isOrgAdmin && existingConfig && (
         <div className="max-w-sm mb-6">
           <DelayScheduleControl leagueId={leagueId} mode="bracket" />
+        </div>
+      )}
+
+      {awardedMedals.length > 0 && (
+        <div className="mb-6">
+          <AdminMedalsPanel medals={awardedMedals} leagueId={leagueId} />
         </div>
       )}
 
