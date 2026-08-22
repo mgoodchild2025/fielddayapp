@@ -17,17 +17,32 @@ type Slide =
   | { kind: 'bio'; bio: Bio; lineupTeam?: string | null }
   | { kind: 'photo'; url: string; caption: string | null }
   | { kind: 'matchup'; game: NonNullable<DisplayData['showcase']['nextGame']> }
+  | { kind: 'banner'; banner: DisplayData['showcase']['banners'][number] }
 
 /** Starting lineups play when the next game is within this window. */
 const LINEUP_WINDOW_MS = 45 * 60 * 1000
 
 function buildPlaylist(
   showcase: DisplayData['showcase'],
-  source: 'bios' | 'photos' | 'both',
+  source: 'bios' | 'photos' | 'both' | 'banners',
   order: 'shuffle' | 'newest',
   seed: number,
   lineups: boolean
 ): Slide[] {
+  // Championship banners: the Hall of Champions sweeping the gym TV.
+  // Newest-first is chronology — shuffle applies when chosen.
+  if (source === 'banners') {
+    const slides: Slide[] = showcase.banners.map((banner) => ({ kind: 'banner' as const, banner }))
+    if (order !== 'shuffle') return slides
+    let s = seed
+    const a = [...slides]
+    for (let i = a.length - 1; i > 0; i--) {
+      s = (s * 9301 + 49297) % 233280
+      const j = Math.floor((s / 233280) * (i + 1))
+      ;[a[i], a[j]] = [a[j], a[i]]
+    }
+    return a
+  }
   // Starting lineups (S3): when a game is coming up, open with a matchup
   // slide, then the two rosters' opted-in cards back-to-back (home, then
   // away), before the normal rotation. Lineup bios are pulled out of the
@@ -125,7 +140,7 @@ export function ShowcaseZone({
   // Preload the next photo
   useEffect(() => {
     const next = playlist[(index + 1) % playlist.length]
-    if (!next || next.kind === 'matchup') return
+    if (!next || next.kind === 'matchup' || next.kind === 'banner') return
     if (next.kind === 'photo') {
       const img = new Image()
       img.src = next.url
@@ -172,7 +187,30 @@ export function ShowcaseZone({
           transition: 'opacity .4s ease-in',
         }}
       >
-        {slide.kind === 'matchup' ? (
+        {slide.kind === 'banner' ? (
+          <div className="flex h-full items-start justify-center pt-[4%]">
+            <div
+              className="w-[min(46vh,80%)] px-8 pb-24 pt-12 text-center text-[#f5efdd] shadow-2xl"
+              style={{
+                backgroundColor: 'var(--brand-primary, #24406e)',
+                clipPath: 'polygon(0 0, 100% 0, 100% 84%, 50% 100%, 0 84%)',
+              }}
+            >
+              <p className="showcase-anim text-7xl font-bold tracking-wide text-[#e9c96a]"
+                 style={{ fontFamily: 'var(--brand-heading-font)', animation: 'showcase-chyron .6s ease-out .15s both' }}>
+                {slide.banner.year}
+              </p>
+              <p className="showcase-anim mt-4 text-4xl font-bold uppercase leading-tight"
+                 style={{ fontFamily: 'var(--brand-heading-font)', animation: 'showcase-chyron .7s ease-out .35s both' }}>
+                {slide.banner.teamName}
+              </p>
+              <p className="showcase-anim mt-4 font-mono text-base uppercase tracking-[.25em] opacity-75"
+                 style={{ animation: 'showcase-chyron .7s ease-out .55s both' }}>
+                {slide.banner.leagueName} Champions
+              </p>
+            </div>
+          </div>
+        ) : slide.kind === 'matchup' ? (
           <div className="flex h-full flex-col items-center justify-center gap-6 p-[6%] text-center text-white">
             <p className="showcase-anim font-mono text-lg uppercase tracking-[.3em] text-white/80"
                style={{ animation: 'showcase-chyron .6s ease-out .2s both' }}>

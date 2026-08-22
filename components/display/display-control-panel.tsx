@@ -245,6 +245,7 @@ function ZoneEditor({
                 { value: 'bios', label: 'Player bios' },
                 { value: 'photos', label: 'Event photos' },
                 { value: 'both', label: 'Both' },
+                { value: 'banners', label: '🏆 Banners' },
               ] as const).map((opt) => (
                 <button
                   key={opt.value}
@@ -258,9 +259,13 @@ function ZoneEditor({
                 </button>
               ))}
             </div>
-            <p className="text-[11px] text-gray-300 mt-1">Bios rotate only players who opted in on their profile.</p>
+            <p className="text-[11px] text-gray-300 mt-1">
+              {zone.source === 'banners'
+                ? 'The Hall of Champions: every championship banner the org has hung, org-wide.'
+                : 'Bios rotate only players who opted in on their profile.'}
+            </p>
           </div>
-          {zone.source !== 'photos' && (
+          {zone.source !== 'photos' && zone.source !== 'banners' && (
             <label className="flex items-start gap-2 cursor-pointer">
               <input
                 type="checkbox"
