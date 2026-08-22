@@ -37,7 +37,7 @@ export function QrZone({ config, theme }: Props) {
         </p>
       )}
       {config.url && (
-        <p className={`text-sm text-center break-all ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
+        <p className={`text-sm text-center break-all ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
           {config.url}
         </p>
       )}

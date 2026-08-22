@@ -29,7 +29,7 @@ export function ClockZone({ timezone, theme }: Props) {
       <p className={`text-7xl font-bold tabular-nums tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
         {time}
       </p>
-      <p className={`text-xl ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
+      <p className={`text-xl ${isDark ? 'text-zinc-300' : 'text-gray-600'}`}>
         {date}
       </p>
     </div>

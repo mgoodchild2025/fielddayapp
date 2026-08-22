@@ -24,7 +24,7 @@ export function SponsorsZone({ sponsors, theme }: { sponsors: DisplaySponsor[]; 
   if (playlist.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className={`text-xl ${isDark ? 'text-zinc-600' : 'text-gray-300'}`}>No sponsors yet</p>
+        <p className={`text-xl ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>No sponsors yet</p>
       </div>
     )
   }
@@ -32,7 +32,7 @@ export function SponsorsZone({ sponsors, theme }: { sponsors: DisplaySponsor[]; 
   const s = playlist[idx % playlist.length]
   return (
     <div className="flex flex-col items-center justify-center h-full gap-5 px-8">
-      <p className={`text-sm font-semibold uppercase tracking-widest ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
+      <p className={`text-sm font-semibold uppercase tracking-widest ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
         Our Sponsors
       </p>
       {s.logo_url ? (
