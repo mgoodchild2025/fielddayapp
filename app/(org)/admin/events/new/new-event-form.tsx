@@ -98,7 +98,7 @@ const schema = z.object({
   max_team_size: z.number().default(8),
   team_join_policy: z.enum(['open', 'captain_invite', 'admin_only']).default('open'),
   pickup_join_policy: z.enum(['public', 'link', 'private']).default('public'),
-  registration_mode: z.enum(['session', 'season']).default('season'),
+  registration_mode: z.enum(['session', 'season', 'both']).default('season'),
   drop_in_price_cents: z.number().min(0).optional(),
   season_start_date: z.string().optional(),
   season_end_date: z.string().optional(),
@@ -613,10 +613,11 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Registration Mode
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       {[
                         { value: 'session', label: 'Per session', desc: 'Players join individual sessions' },
                         { value: 'season', label: 'Season pass', desc: 'Register once, attend all sessions' },
+                        { value: 'both', label: 'Both', desc: 'Players pick: a pass or single sessions' },
                       ].map((opt) => (
                         <label
                           key={opt.value}

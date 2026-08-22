@@ -3,6 +3,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { countDropInRegsBySession } from '@/lib/session-counts'
+import { getSeasonPassQuote, type SeasonPassQuote } from '@/lib/season-pass'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { JoinTeamByCode } from '@/components/teams/join-team-by-code'
@@ -639,6 +640,12 @@ export default async function EventDetailPage({
   const isSessionBased = league.event_type === 'drop_in'  // pickup is always season, not session-based
   const isTeamBased = league.event_type === 'league' || league.event_type === 'tournament'
   const isSeasonPickup = isPickupEvent || (league.event_type === 'drop_in' && league.registration_mode === 'season')
+  // 'both' mode (drop-in): the season pass and per-session sign-up are offered
+  // side by side. isSeasonPickup stays false there, so every per-session gate
+  // below behaves exactly like session mode — only the season-side gates use
+  // these wider flags.
+  const offersSeasonPass = isPickupEvent || (league.event_type === 'drop_in' && ['season', 'both'].includes(league.registration_mode ?? ''))
+  const offersBoth = league.event_type === 'drop_in' && league.registration_mode === 'both'
   const isPrivatePickup = (isPickupEvent || isSessionBased) && league.pickup_join_policy === 'private'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dropInPriceCents: number | null = (league as any).drop_in_price_cents ?? null
@@ -819,6 +826,20 @@ export default async function EventDetailPage({
     : { count: 0 }
   const fullPass = fullPassCount ?? 0
 
+  // Season-pass quote (drop-in events): what the pass costs right now. Prorated
+  // when the event has proration on; the same helper prices the actual charge.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const seasonPassQuote: SeasonPassQuote | null = (offersSeasonPass && league.event_type === 'drop_in' && ((league as any).price_cents ?? 0) > 0)
+    ? await getSeasonPassQuote(db, org.id, league.id, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fullPriceCents: (league as any).price_cents as number,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        prorate: !!(league as any).season_pass_prorate,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        floorCents: ((league as any).drop_in_price_cents as number | null) ?? null,
+      })
+    : null
+
 
   const { data: mySessionRegs } = (isSessionBased && !isSeasonPickup && !isPickupEvent && user)
     ?
@@ -832,7 +853,7 @@ export default async function EventDetailPage({
   const mySessionIds = new Set((mySessionRegs ?? []).map((r: { session_id: string }) => r.session_id))
 
 
-  const { data: mySeasonRegistration } = ((isPickupEvent || isSeasonPickup) && user)
+  const { data: mySeasonRegistration } = (offersSeasonPass && user)
     ? await db.from('registrations').select('id, status')
         .eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id)
         .eq('registration_type', 'season').maybeSingle()
@@ -1106,7 +1127,7 @@ export default async function EventDetailPage({
         ? teamsAtCapacity
           ? { href: `/register/${league.slug}`, label: 'Join a Team →' }
           : { href: `/register/${league.slug}`, label: 'Register Now' }
-        : isSeasonPickup && !mySeasonRegistration && isRegOpen && !isFull && (!isPrivatePickup || hasSeasonInvite)
+        : offersSeasonPass && !mySeasonRegistration && isRegOpen && !isFull && (!isPrivatePickup || hasSeasonInvite)
         ? { href: `/register/${league.slug}`, label: 'Register for the Season' }
         : null
       : null
@@ -1948,8 +1969,8 @@ export default async function EventDetailPage({
               </div>
             )}
 
-            {/* Season pickup CTA */}
-            {isSeasonPickup && (
+            {/* Season pass CTA — season mode, both mode, and pickup events */}
+            {offersSeasonPass && (
               mySeasonRegistration ? (
                 <>
                   <div className="w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide bg-green-50 border border-green-200 text-green-700" style={{ fontFamily: 'var(--brand-heading-font)' }}>
@@ -1969,13 +1990,31 @@ export default async function EventDetailPage({
               ) : isRegOpen ? (
                 <>
                   {(!isPrivatePickup || hasSeasonInvite) && (
-                    <Link
-                      href={`/register/${league.slug}`}
-                      className="inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90"
-                      style={{ backgroundColor: 'var(--brand-primary)', fontFamily: 'var(--brand-heading-font)' }}
-                    >
-                      Register for the Season
-                    </Link>
+                    <div>
+                      <Link
+                        href={`/register/${league.slug}`}
+                        className="inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90"
+                        style={{ backgroundColor: 'var(--brand-primary)', fontFamily: 'var(--brand-heading-font)' }}
+                      >
+                        {offersBoth ? 'Get a Season Pass' : 'Register for the Season'}
+                      </Link>
+                      {seasonPassQuote && (
+                        <p className="text-center text-sm text-gray-300 mt-2">
+                          {seasonPassQuote.prorated ? (
+                            <>
+                              <s className="text-gray-500">${(seasonPassQuote.fullPriceCents / 100).toFixed(0)}</s>{' '}
+                              <span className="font-semibold text-white">${(seasonPassQuote.priceCents / 100).toFixed(seasonPassQuote.priceCents % 100 === 0 ? 0 : 2)}</span>
+                              {' — covers the remaining '}{seasonPassQuote.remainingSessions} of {seasonPassQuote.totalSessions} sessions
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-semibold text-white">${(seasonPassQuote.fullPriceCents / 100).toFixed(0)}</span>
+                              {seasonPassQuote.totalSessions > 0 && <>{' — covers all '}{seasonPassQuote.totalSessions} sessions</>}
+                            </>
+                          )}
+                        </p>
+                      )}
+                    </div>
                   )}
                   {isPrivatePickup && !hasSeasonInvite && !user && (
                     <Link
@@ -2078,7 +2117,7 @@ export default async function EventDetailPage({
                               </p>
                               {isCancelled && <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
                               {!isSeasonPickup && isJoined && !isCancelled && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Joined ✓</span>}
-                              {isSeasonPickup && mySeasonRegistration && !isCancelled && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Enrolled ✓</span>}
+                              {offersSeasonPass && mySeasonRegistration && !isCancelled && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Enrolled ✓</span>}
                             </div>
                             <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
                               <span>{s.duration_minutes} min</span>
@@ -2092,7 +2131,7 @@ export default async function EventDetailPage({
                             </div>
                             {s.notes && <p className="text-xs text-gray-400 mt-1">{s.notes}</p>}
                           </div>
-                          {!isSeasonPickup && (
+                          {!isSeasonPickup && !mySeasonRegistration && (
                             <div className="shrink-0">
                               {isPrivatePickup ? (
                                 hasSeasonInvite ? (

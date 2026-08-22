@@ -14,6 +14,7 @@ interface League {
   sport: string | null
   event_type: string
   registration_mode: string
+  season_pass_prorate?: boolean
   price_cents: number
   drop_in_price_cents: number | null
   payment_methods: string[] | null
@@ -199,6 +200,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
       team_join_policy: (fd.get('team_join_policy') as 'open' | 'captain_invite' | 'admin_only') || 'open',
 
       registration_mode: (fd.get('registration_mode') as string) || 'session',
+      season_pass_prorate: fd.get('season_pass_prorate') === 'on',
       schedule_visibility: (fd.get('schedule_visibility') as 'public' | 'participants') || 'public',
       standings_visibility: (fd.get('standings_visibility') as 'public' | 'participants') || 'public',
       bracket_visibility: (fd.get('bracket_visibility') as 'public' | 'participants') || 'public',
@@ -300,10 +302,11 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
         {league.event_type === 'drop_in' && (
           <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 space-y-3">
             <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide">Registration Mode</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {[
                 { value: 'session', label: 'Per session', desc: 'Players join individual sessions' },
                 { value: 'season', label: 'Season pass', desc: 'Register once, attend all sessions' },
+                { value: 'both', label: 'Both', desc: 'Players pick: a pass for the season, or single sessions' },
               ].map((opt) => (
                 <label key={opt.value} className={`flex flex-col gap-0.5 p-3 rounded-md border cursor-pointer transition-colors ${league.registration_mode === opt.value ? 'border-blue-500 bg-white' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
                   <input type="radio" name="registration_mode" value={opt.value} defaultChecked={league.registration_mode === opt.value} className="sr-only" />
@@ -312,6 +315,21 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
                 </label>
               ))}
             </div>
+            <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                name="season_pass_prorate"
+                defaultChecked={league.season_pass_prorate ?? false}
+                className="mt-0.5 rounded"
+              />
+              <span>
+                <span className="font-medium">Prorate the season pass</span>
+                <span className="block text-xs text-gray-500">
+                  The pass price drops as sessions are played — full price × remaining ÷ total, rounded up to the
+                  dollar, never below the drop-in price. Applies at purchase; sold passes never change.
+                </span>
+              </span>
+            </label>
           </div>
         )}
         {league.event_type === 'pickup' && (
