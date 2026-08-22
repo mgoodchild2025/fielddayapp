@@ -24,7 +24,7 @@ export type ZoneConfig =
   | { type: 'logo' }
   | { type: 'live' }
   | { type: 'sponsors' }
-  | { type: 'showcase'; source: 'bios' | 'photos' | 'both'; transition: 'fade' | 'slide' | 'kenburns'; seconds: number; order: 'shuffle' | 'newest' }
+  | { type: 'showcase'; source: 'bios' | 'photos' | 'both'; transition: 'fade' | 'slide' | 'kenburns'; seconds: number; order: 'shuffle' | 'newest'; lineups?: boolean }
   | { type: 'empty' }
 
 export interface SponsorBannerConfig {
@@ -186,10 +186,18 @@ export interface DisplayData {
   /** Showcase zone content: opted-in player bio cards + approved event photos. */
   showcase:  {
     bios: {
-      name: string; photoUrl: string | null; teamName: string | null; position: string | null
+      name: string; photoUrl: string | null; teamName: string | null; teamId: string | null; position: string | null
       jerseyNumber: string | null; hometown: string | null; yearsPlaying: number | null
       tagline: string | null; medalShelf: string | null
+      /** Set when the player's team medalled in this event — drives the gold card treatment. */
+      champion: { placement: 'gold' | 'silver' | 'bronze' | 'tier_champion'; label: string } | null
     }[]
     photos: { url: string; caption: string | null }[]
+    /** Next scheduled game with both teams set — drives starting-lineup intros. */
+    nextGame: {
+      homeTeamId: string; homeTeamName: string
+      awayTeamId: string; awayTeamName: string
+      scheduledAt: string; court: string | null
+    } | null
   }
 }

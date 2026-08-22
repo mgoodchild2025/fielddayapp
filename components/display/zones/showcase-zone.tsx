@@ -11,17 +11,49 @@ import { PlayerBioCard } from '@/components/bios/player-bio-card'
  * prefers-reduced-motion; preloads the next image.
  */
 
+type Bio = DisplayData['showcase']['bios'][number]
+
 type Slide =
-  | { kind: 'bio'; bio: DisplayData['showcase']['bios'][number] }
+  | { kind: 'bio'; bio: Bio; lineupTeam?: string | null }
   | { kind: 'photo'; url: string; caption: string | null }
+  | { kind: 'matchup'; game: NonNullable<DisplayData['showcase']['nextGame']> }
+
+/** Starting lineups play when the next game is within this window. */
+const LINEUP_WINDOW_MS = 45 * 60 * 1000
 
 function buildPlaylist(
   showcase: DisplayData['showcase'],
   source: 'bios' | 'photos' | 'both',
   order: 'shuffle' | 'newest',
-  seed: number
+  seed: number,
+  lineups: boolean
 ): Slide[] {
-  const bios: Slide[] = source !== 'photos' ? showcase.bios.map((bio) => ({ kind: 'bio' as const, bio })) : []
+  // Starting lineups (S3): when a game is coming up, open with a matchup
+  // slide, then the two rosters' opted-in cards back-to-back (home, then
+  // away), before the normal rotation. Lineup bios are pulled out of the
+  // tail so nobody airs twice in a cycle.
+  let lineupSlides: Slide[] = []
+  let lineupUserKeys = new Set<string>()
+  const game = showcase.nextGame
+  if (
+    lineups && source !== 'photos' && game &&
+    new Date(game.scheduledAt).getTime() - Date.now() <= LINEUP_WINDOW_MS &&
+    new Date(game.scheduledAt).getTime() >= Date.now()
+  ) {
+    const home = showcase.bios.filter((b) => b.teamId === game.homeTeamId)
+    const away = showcase.bios.filter((b) => b.teamId === game.awayTeamId)
+    if (home.length + away.length > 0) {
+      lineupSlides = [
+        { kind: 'matchup', game },
+        ...home.map((bio) => ({ kind: 'bio' as const, bio, lineupTeam: game.homeTeamName })),
+        ...away.map((bio) => ({ kind: 'bio' as const, bio, lineupTeam: game.awayTeamName })),
+      ]
+      lineupUserKeys = new Set([...home, ...away].map((b) => b.name + (b.teamId ?? '')))
+    }
+  }
+
+  const restBios = showcase.bios.filter((b) => !lineupUserKeys.has(b.name + (b.teamId ?? '')))
+  const bios: Slide[] = source !== 'photos' ? restBios.map((bio) => ({ kind: 'bio' as const, bio })) : []
   const photos: Slide[] = source !== 'bios' ? showcase.photos.map((p) => ({ kind: 'photo' as const, url: p.url, caption: p.caption })) : []
 
   // Deterministic-ish shuffle from the seed so re-renders within a refresh
@@ -37,6 +69,8 @@ function buildPlaylist(
     return a
   }
 
+  const withLineups = (rest: Slide[]): Slide[] => [...lineupSlides, ...rest]
+
   if (source === 'both' && bios.length > 0 && photos.length > 0) {
     // Interleave: roughly two photos, then a bio
     const ps = order === 'shuffle' ? shuffle(photos) : photos
@@ -48,25 +82,27 @@ function buildPlaylist(
       if ((i + 1) % 2 === 0 && bi < bs.length) mixed.push(bs[bi++])
     })
     while (bi < bs.length) mixed.push(bs[bi++])
-    return mixed
+    return withLineups(mixed)
   }
   const all = [...photos, ...bios]
-  return order === 'shuffle' ? shuffle(all) : all
+  return withLineups(order === 'shuffle' ? shuffle(all) : all)
 }
 
 export function ShowcaseZone({
   showcase,
   config,
   theme,
+  timezone = 'America/Toronto',
 }: {
   showcase: DisplayData['showcase']
   config: Extract<ZoneConfig, { type: 'showcase' }>
   theme: 'dark' | 'light'
+  timezone?: string
 }) {
   const [seed] = useState(() => Math.floor(Date.now() / 60000)) // stable within the refresh cycle
   const playlist = useMemo(
-    () => buildPlaylist(showcase, config.source, config.order, seed),
-    [showcase, config.source, config.order, seed]
+    () => buildPlaylist(showcase, config.source, config.order, seed, config.lineups === true),
+    [showcase, config.source, config.order, seed, config.lineups]
   )
   const [index, setIndex] = useState(0)
   const [entering, setEntering] = useState(true)
@@ -89,10 +125,11 @@ export function ShowcaseZone({
   // Preload the next photo
   useEffect(() => {
     const next = playlist[(index + 1) % playlist.length]
-    if (next?.kind === 'photo') {
+    if (!next || next.kind === 'matchup') return
+    if (next.kind === 'photo') {
       const img = new Image()
       img.src = next.url
-    } else if (next?.kind === 'bio' && next.bio.photoUrl) {
+    } else if (next.kind === 'bio' && next.bio.photoUrl) {
       const img = new Image()
       img.src = next.bio.photoUrl
     }
@@ -135,7 +172,25 @@ export function ShowcaseZone({
           transition: 'opacity .4s ease-in',
         }}
       >
-        {slide.kind === 'photo' ? (
+        {slide.kind === 'matchup' ? (
+          <div className="flex h-full flex-col items-center justify-center gap-6 p-[6%] text-center text-white">
+            <p className="showcase-anim font-mono text-lg uppercase tracking-[.3em] text-white/60"
+               style={{ animation: 'showcase-chyron .6s ease-out .2s both' }}>
+              Up Next
+            </p>
+            <p className="showcase-anim text-6xl font-bold uppercase leading-tight"
+               style={{ fontFamily: 'var(--brand-heading-font)', animation: 'showcase-chyron .7s ease-out .4s both' }}>
+              {slide.game.homeTeamName}
+              <span className="mx-5 text-white/40">vs</span>
+              {slide.game.awayTeamName}
+            </p>
+            <p className="showcase-anim text-2xl uppercase tracking-wide text-white/70"
+               style={{ animation: 'showcase-chyron .7s ease-out .6s both' }}>
+              {new Date(slide.game.scheduledAt).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone: timezone })}
+              {slide.game.court ? ` · Court ${slide.game.court}` : ''}
+            </p>
+          </div>
+        ) : slide.kind === 'photo' ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -161,7 +216,24 @@ export function ShowcaseZone({
                 style={t === 'kenburns' ? { animation: `showcase-kenburns ${seconds + 2}s linear both` } : undefined} />
             )}
             <div className="showcase-anim relative" style={{ animation: 'showcase-chyron .7s ease-out .35s both' }}>
-              <PlayerBioCard bio={slide.bio} size="tv" />
+              {slide.lineupTeam && (
+                <p className="mb-4 inline-block bg-white/10 px-4 py-1.5 font-mono text-base uppercase tracking-[.25em] text-white/80">
+                  Starting Lineup · {slide.lineupTeam}
+                </p>
+              )}
+              {slide.bio.champion && (
+                <p className={`mb-4 ${slide.lineupTeam ? 'ml-3' : ''} inline-block px-4 py-1.5 font-mono text-base uppercase tracking-[.25em] ${
+                  slide.bio.champion.placement === 'gold' ? 'bg-amber-400/90 text-amber-950'
+                  : slide.bio.champion.placement === 'silver' ? 'bg-gray-300/90 text-gray-800'
+                  : slide.bio.champion.placement === 'bronze' ? 'bg-orange-400/90 text-orange-950'
+                  : 'bg-purple-400/90 text-purple-950'
+                }`}>
+                  {slide.bio.champion.placement === 'gold' ? '🥇' : slide.bio.champion.placement === 'silver' ? '🥈' : slide.bio.champion.placement === 'bronze' ? '🥉' : '🏆'} {slide.bio.champion.label}
+                </p>
+              )}
+              <div className={slide.bio.champion?.placement === 'gold' ? 'rounded-xl p-4 -m-4 ring-2 ring-amber-400/60 shadow-[0_0_60px_rgba(224,182,77,.25)]' : undefined}>
+                <PlayerBioCard bio={slide.bio} size="tv" />
+              </div>
             </div>
           </div>
         )}
