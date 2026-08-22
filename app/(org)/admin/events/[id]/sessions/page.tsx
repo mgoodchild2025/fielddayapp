@@ -31,6 +31,8 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
       `)
       .eq('league_id', id)
       .eq('organization_id', org.id)
+      // Aliased embeds are filtered by their alias; exclude cancelled sign-ups
+      .eq('registered.status', 'registered')
       .order('scheduled_at', { ascending: true }),
     db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
 
