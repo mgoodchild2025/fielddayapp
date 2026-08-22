@@ -462,7 +462,7 @@ export default async function TeamDetailPage({
                       <PlayerAvatar avatarUrl={profile?.avatar_url ?? null} name={profile?.full_name ?? '?'} size="sm" />
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">
-                          <BioNameButton bio={cardFor(m.user_id, profile?.full_name ?? '—', profile?.avatar_url ?? null, m.position)}>
+                          <BioNameButton bio={cardFor(m.user_id, profile?.full_name ?? '—', profile?.avatar_url ?? null, m.position)} userId={m.user_id}>
                             {profile?.full_name ?? '—'}
                           </BioNameButton>
                           {isMe && <span className="ml-1.5 text-xs text-gray-400">(you)</span>}

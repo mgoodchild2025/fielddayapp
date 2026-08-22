@@ -9,6 +9,8 @@ import { DashboardClient } from '@/components/dashboard/dashboard-client'
 import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, type TeamStatTotals, type PtsMethod, type VolleyballMode } from '@/lib/standings'
 import { fetchPlayerPlayoffGameRows } from '@/lib/playoff-games'
 import { getPlayerMedals } from '@/lib/medal-queries'
+import { getPlayerCareer } from '@/lib/career'
+import type { BioCardData } from '@/components/bios/player-bio-card'
 import type {
   DashboardTeam,
   PendingAction,
@@ -41,7 +43,7 @@ export default async function DashboardPage() {
     { data: dropInRegRows },
     { data: seasonPassRegs },
   ] = await Promise.all([
-    db.from('profiles').select('full_name').eq('id', user.id).single(),
+    db.from('profiles').select('full_name, avatar_url').eq('id', user.id).single(),
 
     db.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
     // Active team memberships
@@ -655,6 +657,33 @@ export default async function DashboardPage() {
   // Trophy case — the player's medals in this org, newest first
   const myMedals = await getPlayerMedals(db, org.id, user.id)
 
+  // My card (card flip C2): bio front + career back
+  const [{ data: myBioRow }, myCareer] = await Promise.all([
+    db.from('player_bios')
+      .select('hero_photo_url, jersey_number, position, hometown, years_playing, tagline, hidden_by_admin')
+      .eq('organization_id', org.id).eq('user_id', user.id).maybeSingle(),
+    getPlayerCareer(db, org.id, user.id),
+  ])
+  const shelfCounts = myMedals.reduce(
+    (acc, m) => { acc[m.placement] = (acc[m.placement] ?? 0) + 1; return acc },
+    {} as Record<string, number>
+  )
+  const myShelf = (['gold', 'silver', 'bronze', 'tier_champion'] as const)
+    .map((k) => ({ k, n: shelfCounts[k] ?? 0 }))
+    .filter(({ n }) => n > 0)
+    .map(({ k, n }) => ({ gold: '🥇', silver: '🥈', bronze: '🥉', tier_champion: '🏆' }[k].repeat(Math.min(n, 3)) + (n > 3 ? `×${n}` : '')))
+    .join(' ') || null
+  const myCardBio: BioCardData = {
+    name: profileRow?.full_name ?? 'Player',
+    photoUrl: myBioRow?.hero_photo_url ?? (profileRow as { avatar_url?: string | null } | null)?.avatar_url ?? null,
+    position: myBioRow?.position ?? null,
+    jerseyNumber: myBioRow?.jersey_number ?? null,
+    hometown: myBioRow?.hometown ?? null,
+    yearsPlaying: myBioRow?.years_playing ?? null,
+    tagline: myBioRow?.tagline ?? null,
+    medalShelf: myShelf,
+  }
+
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
@@ -662,6 +691,8 @@ export default async function DashboardPage() {
         <DashboardClient
           firstName={firstName}
           medals={myMedals}
+          myCardBio={myCardBio}
+          myCareer={myCareer}
           timezone={timezone}
           nextItem={nextItem}
           sameDayGames={sameDayGames}

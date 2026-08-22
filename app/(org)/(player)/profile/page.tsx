@@ -5,6 +5,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getPlayerMedals } from '@/lib/medal-queries'
+import { getPlayerCareer } from '@/lib/career'
 import { MedalCase } from '@/components/medals/medal-case'
 import { BioEditor } from '@/components/bios/bio-editor'
 import { OrgNav } from '@/components/layout/org-nav'
@@ -34,6 +35,7 @@ export default async function ProfilePage() {
 
   // Trophy case, grouped by year (newest year first — loader sorts newest first)
   const myMedals = await getPlayerMedals(db, org.id, user.id)
+  const myCareer = await getPlayerCareer(db, org.id, user.id)
 
   // Bio card: current values + the medal shelf the card shows
   const { data: myBio } = await db
@@ -84,6 +86,7 @@ export default async function ProfilePage() {
             avatarUrl={profile?.avatar_url ?? null}
             medalShelf={medalShelf}
             positions={[]}
+            career={myCareer}
           />
         </div>
 

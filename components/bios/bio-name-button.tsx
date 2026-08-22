@@ -2,18 +2,34 @@
 
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { PlayerBioCard, type BioCardData } from './player-bio-card'
+import { getCareerForUser } from '@/actions/career'
+import type { PlayerCareer } from '@/lib/career'
+import type { BioCardData } from './player-bio-card'
+import { BioFlipCard } from './bio-flip-card'
 
-/** Roster name → tap → the player's broadcast card in a modal. */
-export function BioNameButton({ bio, children }: { bio: BioCardData; children: React.ReactNode }) {
+/**
+ * Roster name → tap → the player's card in a modal, flippable to the career
+ * back. The career loads lazily on open (fetching every roster member's
+ * career up-front would be N queries nobody may look at).
+ */
+export function BioNameButton({ bio, userId, children }: { bio: BioCardData; userId: string | null; children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
+  const [career, setCareer] = useState<PlayerCareer | null>(null)
+
+  function handleOpen() {
+    setOpen(true)
+    if (userId && !career) {
+      getCareerForUser(userId).then((r) => { if (r.career) setCareer(r.career) }).catch(() => {})
+    }
+  }
+
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={handleOpen}
         className="text-left hover:underline decoration-dotted underline-offset-2"
-        title="View bio card"
+        title="View player card"
       >
         {children}
       </button>
@@ -21,17 +37,17 @@ export function BioNameButton({ bio, children }: { bio: BioCardData; children: R
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
           onClick={() => setOpen(false)}
-          role="dialog" aria-modal="true" aria-label={`${bio.name} bio card`}
+          role="dialog" aria-modal="true" aria-label={`${bio.name} player card`}
         >
           <div
-            className="w-full max-w-md rounded-2xl bg-gray-900 p-6 text-white shadow-2xl"
+            className="w-full max-w-md"
             onClick={(e) => e.stopPropagation()}
           >
-            <PlayerBioCard bio={bio} />
+            <BioFlipCard bio={bio} career={career} />
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="mt-5 w-full rounded-md border border-white/20 py-1.5 text-xs text-white/60 hover:bg-white/5"
+              className="mt-3 w-full rounded-md border border-white/20 py-1.5 text-xs text-white/60 hover:bg-white/5"
             >
               Close
             </button>

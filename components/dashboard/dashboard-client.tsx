@@ -2,6 +2,9 @@
 
 import { useState, useTransition } from 'react'
 import { MedalCase, type MedalView } from '@/components/medals/medal-case'
+import { BioFlipCard } from '@/components/bios/bio-flip-card'
+import type { BioCardData } from '@/components/bios/player-bio-card'
+import type { PlayerCareer } from '@/lib/career'
 import Link from 'next/link'
 import {
   CalendarDays,
@@ -113,6 +116,9 @@ interface Props {
   logoUrl: string | null
   /** Trophy case: the player's medals, newest first. */
   medals?: MedalView[]
+  /** My card (flip): bio front + career back. */
+  myCardBio?: BioCardData | null
+  myCareer?: PlayerCareer | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -444,7 +450,7 @@ function SessionHero({ item, timezone }: { item: NextSessionItem; timezone: stri
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = [], teams, pendingActions, medals = [] }: Props) {
+export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null }: Props) {
   const [activeIdx, setActiveIdx] = useState(0)
 
   // RSVP state — only relevant when nextItem is a game
@@ -541,6 +547,12 @@ export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = 
         {medals.length > 0 && (
           <div className="mt-3">
             <MedalCase medals={medals} isOwner title="Your trophy case" />
+          </div>
+        )}
+        {myCardBio && (
+          <div className="mt-4 max-w-md">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">My card</p>
+            <BioFlipCard bio={myCardBio} career={myCareer} />
           </div>
         )}
       </div>
