@@ -4,6 +4,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import Link from 'next/link'
 import { EventsTable } from '@/components/admin/events-table'
+import { BackfillMedalsButton } from '@/components/medals/backfill-medals-button'
 
 export default async function AdminEventsPage() {
   const headersList = await headers()
@@ -49,6 +50,7 @@ export default async function AdminEventsPage() {
           <p className="text-sm text-gray-500 mt-1">{leagues?.length ?? 0} event{leagues?.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex items-center gap-3">
+          {scope.isOrgAdmin && <BackfillMedalsButton />}
           {scope.isOrgAdmin && trashCount > 0 && (
             <Link
               href="/admin/events/trash"

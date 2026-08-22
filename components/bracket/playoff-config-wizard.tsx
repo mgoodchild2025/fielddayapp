@@ -4,6 +4,7 @@ import { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Printer, Trash2 } from 'lucide-react'
 import { savePlayoffConfig, generateAllTierBrackets, deletePlayoffConfig } from '@/actions/playoff-config'
+import { awardLeagueMedals } from '@/actions/medals'
 import { publishBracket, unpublishBracket, deleteBracket, seedBracket, clearBracketSeeding, advanceBestLoser } from '@/actions/brackets'
 import { BracketView, type BracketData, type TeamRef } from './bracket-view'
 import { BracketBuilder } from './bracket-builder'
@@ -597,6 +598,7 @@ function ManageHeader({
   onEditTiers,
   onRegenerate,
   onDeleteConfig,
+  onAwardMedals,
 }: {
   existingConfig: ExistingConfig
   seededTeams: TeamStanding[]
@@ -605,6 +607,7 @@ function ManageHeader({
   onEditTiers: () => void
   onRegenerate: () => void
   onDeleteConfig: () => void
+  onAwardMedals: () => void
 }) {
   const [moreOpen, setMoreOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -677,6 +680,14 @@ function ManageHeader({
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
                   ↺ Regenerate from Standings
+                </button>
+                <button
+                  onClick={() => { setMoreOpen(false); onAwardMedals() }}
+                  disabled={isPending}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  title="Write medals from the playoff results — runs automatically when the event completes; re-run here after a correction"
+                >
+                  🏅 Award Medals
                 </button>
                 <div className="border-t my-1" />
                 <button
@@ -925,6 +936,21 @@ export function PlayoffConfigWizard({
     })
   }
 
+  // ── Award medals ──────────────────────────────────────────────────────────
+
+  function handleAwardMedals() {
+    setErr(null)
+    setGenMsg(null)
+    startTransition(async () => {
+      const r = await awardLeagueMedals(leagueId)
+      if (r.error) { setErr(r.error); return }
+      setGenMsg(r.awarded > 0
+        ? `🏅 Awarded ${r.awarded} medal${r.awarded !== 1 ? 's' : ''} — they're in the players' trophy cases.`
+        : 'No decided placements yet — finish the deciding matches first.')
+      router.refresh()
+    })
+  }
+
   // ── Delete config ─────────────────────────────────────────────────────────
 
   function handleDeleteConfig() {
@@ -968,6 +994,7 @@ export function PlayoffConfigWizard({
           isPending={isPending}
           onEditTiers={() => setStep('tiers')}
           onRegenerate={handleRegenerate}
+          onAwardMedals={handleAwardMedals}
           onDeleteConfig={handleDeleteConfig}
         />
 

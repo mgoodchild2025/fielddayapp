@@ -144,6 +144,12 @@ All three accept a `notify: boolean` parameter. When `true` and the game has ass
 - On the public schedule, cancelled games show a red "Cancelled" badge and postponed games show an amber "Postponed" badge; the cancellation reason is displayed beneath if one was provided.
 - **Key file**: `components/schedule/edit-game-modal.tsx`
 
+## Medals & the trophy case
+- Medals are **awarded and frozen**, never derived at page load: `medals` (league/team-name snapshots, placement `gold|silver|bronze|tier_champion`, label, deciding match) + `medal_recipients` (roster snapshot at award time — user_id nullable so the row survives account deletion).
+- Pure derivation in `lib/medals.ts` (tested): explicit medal matches win; else SE final/3rd-place, DE grand-final/LB-final conventions. First tier awards the podium, later tiers award "{Tier} Champion".
+- `awardLeagueMedals` (actions/medals.ts) is idempotent (replaces the league's medals; notifies recipients first-time-only); auto-runs when `updateLeagueStatus` hits 'completed'; "🏅 Award Medals" in the bracket page ⋯-menu re-runs after corrections. `backfillOrgMedals` (button on Admin → Events) sweeps completed/archived events.
+- Display: one shared `MedalCase` strip + celebration modal (`components/medals/medal-case.tsx`; confetti on the owner's first open per medal, localStorage-tracked, reduced-motion aware). Loaders in `lib/medal-queries.ts`. Surfaces: dashboard greeting strip, profile case grouped by year, team page shelf + roster mini-medals.
+
 ## Drop-in registration modes & season-pass proration
 - `leagues.registration_mode` ∈ `session | season | both`. In **both** mode the public event page shows the season-pass CTA and the per-session join list side by side; `isSeasonPickup` stays false in both mode (per-session gates behave like session mode), season-side gates use `offersSeasonPass`.
 - **Proration** (`leagues.season_pass_prorate`, admin toggle on Edit Event): pass price = full price × remaining/total non-cancelled sessions, rounded up to the dollar, floored at `drop_in_price_cents`. Pure logic + quote loader in `lib/season-pass.ts` (tested) — used by the event page display, the register flow (`seasonPassQuote` prop), and the Stripe checkout charge (`app/api/stripe/checkout/route.ts`), so display and charge can never disagree. Applies at purchase time only; sold passes never reprice.

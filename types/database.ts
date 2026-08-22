@@ -2551,6 +2551,88 @@ export type Database = {
         }
         Relationships: []
       }
+      medal_recipients: {
+        Row: {
+          display_name: string
+          id: string
+          medal_id: string
+          organization_id: string
+          user_id: string | null
+        }
+        Insert: {
+          display_name: string
+          id?: string
+          medal_id: string
+          organization_id: string
+          user_id?: string | null
+        }
+        Update: {
+          display_name?: string
+          id?: string
+          medal_id?: string
+          organization_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medal_recipients_medal_id_fkey"
+            columns: ["medal_id"]
+            isOneToOne: false
+            referencedRelation: "medals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medals: {
+        Row: {
+          awarded_at: string
+          bracket_id: string | null
+          deciding_match_id: string | null
+          id: string
+          label: string
+          league_id: string
+          league_name: string
+          organization_id: string
+          placement: string
+          team_id: string | null
+          team_name: string
+        }
+        Insert: {
+          awarded_at?: string
+          bracket_id?: string | null
+          deciding_match_id?: string | null
+          id?: string
+          label: string
+          league_id: string
+          league_name: string
+          organization_id: string
+          placement: string
+          team_id?: string | null
+          team_name: string
+        }
+        Update: {
+          awarded_at?: string
+          bracket_id?: string | null
+          deciding_match_id?: string | null
+          id?: string
+          label?: string
+          league_id?: string
+          league_name?: string
+          organization_id?: string
+          placement?: string
+          team_id?: string | null
+          team_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medals_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null

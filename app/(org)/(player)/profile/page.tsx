@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { getPlayerMedals } from '@/lib/medal-queries'
+import { MedalCase } from '@/components/medals/medal-case'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { ProfileForm } from './profile-form'
@@ -29,6 +31,16 @@ export default async function ProfilePage() {
     getMfaStatus(),
   ])
 
+  // Trophy case, grouped by year (newest year first — loader sorts newest first)
+  const myMedals = await getPlayerMedals(db, org.id, user.id)
+  const medalsByYear = Object.entries(
+    myMedals.reduce<Record<string, typeof myMedals>>((acc, m) => {
+      const year = String(new Date(m.awardedAt).getFullYear())
+      ;(acc[year] ??= []).push(m)
+      return acc
+    }, {})
+  ).sort(([a], [b]) => Number(b) - Number(a))
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
@@ -37,6 +49,21 @@ export default async function ProfilePage() {
           My Profile
         </h1>
         <ProfileForm profile={profile} playerDetails={playerDetails} orgId={org.id} />
+
+        {/* Trophy case — every medal earned in this org, grouped by year */}
+        {medalsByYear.length > 0 && (
+          <div className="mt-8 bg-white rounded-xl border p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Trophy Case</p>
+            <div className="space-y-4">
+              {medalsByYear.map(([year, yearMedals]) => (
+                <div key={year} className="flex items-start gap-4">
+                  <span className="text-xs font-semibold text-gray-400 w-10 shrink-0 pt-2">{year}</span>
+                  <MedalCase medals={yearMedals} isOwner />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Security — optional MFA for all players */}
         <div className="mt-6">
