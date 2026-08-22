@@ -9,14 +9,31 @@ import { LoginForm } from './login-form'
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect?: string; token_hash?: string; type?: string }>
+  searchParams: Promise<{ redirect?: string; token_hash?: string; type?: string; error?: string; reason?: string }>
 }) {
-  const { redirect: redirectTo, token_hash, type } = await searchParams
+  const { redirect: redirectTo, token_hash, type, error: errorParam, reason } = await searchParams
 
   // Supabase email templates sometimes point password-reset links at /login.
   // Forward recovery tokens to the confirm page so the user can set their password.
   if (token_hash && type === 'recovery') {
     redirect(`/reset-password/confirm?token_hash=${token_hash}&type=recovery`)
+  }
+
+  // Auth callbacks bounce here with ?error=confirmation_failed&reason=…, which
+  // used to render as a plain login form over a scary URL. Translate the known
+  // failures into something a person can act on.
+  let errorBanner: string | null = null
+  if (errorParam === 'confirmation_failed') {
+    const r = (reason ?? '').toLowerCase()
+    if (r.includes('code verifier')) {
+      // PKCE: the flow finished in a different browser than it started in —
+      // usually an in-app browser (Gmail/Instagram) handing off to Google.
+      errorBanner = "That sign-in didn't finish in the same browser it started in — this can happen inside in-app browsers. Try the Google button again right here, or open this page in your regular browser first."
+    } else if (r.includes('expired')) {
+      errorBanner = 'That link has expired. Request a fresh one and try again.'
+    } else {
+      errorBanner = `Sign-in didn't complete${reason ? ` — ${reason}` : ''}. Please try again.`
+    }
   }
 
   const headersList = await headers()
@@ -42,6 +59,11 @@ export default async function LoginPage({
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <div className="w-full max-w-md">
+        {errorBanner && (
+          <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {errorBanner}
+          </div>
+        )}
         <div className="text-center mb-8">
           <Link href="/" className="inline-block">
             {logoUrl ? (
