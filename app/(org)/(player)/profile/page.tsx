@@ -6,6 +6,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getPlayerMedals } from '@/lib/medal-queries'
 import { MedalCase } from '@/components/medals/medal-case'
+import { BioEditor } from '@/components/bios/bio-editor'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { ProfileForm } from './profile-form'
@@ -33,6 +34,23 @@ export default async function ProfilePage() {
 
   // Trophy case, grouped by year (newest year first — loader sorts newest first)
   const myMedals = await getPlayerMedals(db, org.id, user.id)
+
+  // Bio card: current values + the medal shelf the card shows
+  const { data: myBio } = await db
+    .from('player_bios')
+    .select('jersey_number, position, hometown, years_playing, tagline, show_on_displays, hero_photo_url')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .maybeSingle()
+  const shelfCounts = myMedals.reduce(
+    (acc, m) => { acc[m.placement] = (acc[m.placement] ?? 0) + 1; return acc },
+    {} as Record<string, number>
+  )
+  const medalShelf = (['gold', 'silver', 'bronze', 'tier_champion'] as const)
+    .map((p) => ({ p, n: shelfCounts[p] ?? 0 }))
+    .filter(({ n }) => n > 0)
+    .map(({ p, n }) => ({ gold: '🥇', silver: '🥈', bronze: '🥉', tier_champion: '🏆' }[p].repeat(Math.min(n, 3)) + (n > 3 ? `×${n}` : '')))
+    .join(' ') || null
   const medalsByYear = Object.entries(
     myMedals.reduce<Record<string, typeof myMedals>>((acc, m) => {
       const year = String(new Date(m.awardedAt).getFullYear())
@@ -49,6 +67,25 @@ export default async function ProfilePage() {
           My Profile
         </h1>
         <ProfileForm profile={profile} playerDetails={playerDetails} orgId={org.id} />
+
+        {/* Bio card editor — the broadcast lower-third, previewed live */}
+        <div className="mt-8">
+          <BioEditor
+            initial={{
+              jerseyNumber: myBio?.jersey_number ?? null,
+              position: myBio?.position ?? null,
+              hometown: myBio?.hometown ?? null,
+              yearsPlaying: myBio?.years_playing ?? null,
+              tagline: myBio?.tagline ?? null,
+              showOnDisplays: myBio?.show_on_displays ?? false,
+              heroPhotoUrl: myBio?.hero_photo_url ?? null,
+            }}
+            playerName={profile?.full_name ?? 'Player'}
+            avatarUrl={profile?.avatar_url ?? null}
+            medalShelf={medalShelf}
+            positions={[]}
+          />
+        </div>
 
         {/* Trophy case — every medal earned in this org, grouped by year */}
         {medalsByYear.length > 0 && (

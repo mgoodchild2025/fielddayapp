@@ -12,6 +12,7 @@ import { ClockZone }     from './zones/clock-zone'
 import { LogoZone }      from './zones/logo-zone'
 import { LiveZone }      from './zones/live-zone'
 import { SponsorsZone }  from './zones/sponsors-zone'
+import { ShowcaseZone } from './zones/showcase-zone'
 import { SponsorBanner } from './sponsor-banner'
 import { SponsorInterstitial } from './sponsor-interstitial'
 
@@ -88,6 +89,8 @@ function ZoneRenderer({
       return <LiveZone live={data.live} theme={theme} />
     case 'sponsors':
       return <SponsorsZone sponsors={data.sponsors} theme={theme} />
+    case 'showcase':
+      return <ShowcaseZone showcase={data.showcase} config={config as Extract<ZoneConfig, { type: 'showcase' }>} theme={theme} />
     case 'empty':
     default:
       return null

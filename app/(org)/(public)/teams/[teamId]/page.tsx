@@ -6,6 +6,8 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { MedalCase } from '@/components/medals/medal-case'
 import { getTeamMedals, getMedalCountsForUsers } from '@/lib/medal-queries'
+import { BioNameButton } from '@/components/bios/bio-name-button'
+import type { BioCardData } from '@/components/bios/player-bio-card'
 import { Footer } from '@/components/layout/footer'
 import { TeamMessageForm } from '@/components/teams/team-message-form'
 import { RosterManager } from '@/components/teams/roster-manager'
@@ -211,7 +213,7 @@ export default async function TeamDetailPage({
   const captain = activeMembers.find((m) => m.role === 'captain')
   const captainProfile = captain ? (Array.isArray(captain.profile) ? captain.profile[0] : captain.profile) : null
 
-  const [positions, statDefs, seasonTotals, rosterNotes, teamMedals, memberMedalCounts] = await Promise.all([
+  const [positions, statDefs, seasonTotals, rosterNotes, teamMedals, memberMedalCounts, { data: rosterBios }] = await Promise.all([
     getPositionsForSport(org.id, leagueSport),
     leagueId ? getStatDefinitions(org.id, leagueSport) : Promise.resolve([]),
     leagueId ? getLeagueStatTotals(leagueId, org.id) : Promise.resolve({} as Record<string, Record<string, number>>),
@@ -220,6 +222,11 @@ export default async function TeamDetailPage({
     getTeamMedals(db, org.id, team.id),
     // Roster mini-medals: each member's career medals across all events
     getMedalCountsForUsers(db, org.id, activeMembers.map((m) => m.user_id).filter((u): u is string => !!u)),
+    // Bio cards for the tap-a-name modal
+    db.from('player_bios')
+      .select('user_id, hero_photo_url, jersey_number, position, hometown, years_playing, tagline, hidden_by_admin')
+      .eq('organization_id', org.id)
+      .in('user_id', activeMembers.map((m) => m.user_id).filter((u): u is string => !!u)),
   ])
 
   // Filter out roster plan entries whose email already matches an active team member —
@@ -296,6 +303,36 @@ export default async function TeamDetailPage({
 
   // Top-2 stat keys to show as badges (by display_order)
   const badgeStats = statDefs.slice(0, 2)
+
+  // Bio card per roster member (hidden bios excluded); medal shelf from counts
+  const shelfFor = (userId: string | null): string | null => {
+    const c = userId ? memberMedalCounts.get(userId) : undefined
+    if (!c) return null
+    const bits = ([['gold', '🥇'], ['silver', '🥈'], ['bronze', '🥉'], ['tier_champion', '🏆']] as const)
+      .map(([k, g]) => { const n = c[k]; return n > 0 ? g.repeat(Math.min(n, 3)) + (n > 3 ? `×${n}` : '') : '' })
+      .filter(Boolean)
+    return bits.length > 0 ? bits.join(' ') : null
+  }
+  const bioByUser = new Map(
+    ((rosterBios ?? []) as {
+      user_id: string; hero_photo_url: string | null; jersey_number: string | null; position: string | null
+      hometown: string | null; years_playing: number | null; tagline: string | null; hidden_by_admin: boolean
+    }[]).filter((b) => !b.hidden_by_admin).map((b) => [b.user_id, b])
+  )
+  const cardFor = (userId: string | null, name: string, avatarUrl: string | null, memberPosition: string | null): BioCardData => {
+    const b = userId ? bioByUser.get(userId) : undefined
+    return {
+      name,
+      photoUrl: b?.hero_photo_url ?? avatarUrl,
+      teamName: team.name,
+      position: b?.position ?? memberPosition,
+      jerseyNumber: b?.jersey_number ?? null,
+      hometown: b?.hometown ?? null,
+      yearsPlaying: b?.years_playing ?? null,
+      tagline: b?.tagline ?? null,
+      medalShelf: shelfFor(userId),
+    }
+  }
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
@@ -425,7 +462,9 @@ export default async function TeamDetailPage({
                       <PlayerAvatar avatarUrl={profile?.avatar_url ?? null} name={profile?.full_name ?? '?'} size="sm" />
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">
-                          {profile?.full_name ?? '—'}
+                          <BioNameButton bio={cardFor(m.user_id, profile?.full_name ?? '—', profile?.avatar_url ?? null, m.position)}>
+                            {profile?.full_name ?? '—'}
+                          </BioNameButton>
                           {isMe && <span className="ml-1.5 text-xs text-gray-400">(you)</span>}
                           {(() => {
                             const c = m.user_id ? memberMedalCounts.get(m.user_id) : undefined

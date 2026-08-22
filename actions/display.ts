@@ -6,7 +6,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import type {
-  DisplayConfig, DisplayData, DisplayGame, DisplayStanding, DisplayBracketMatch,
+  DisplayConfig, DisplayData, DisplayGame, DisplayStanding, DisplayBracketMatch, ZoneConfig,
 } from '@/lib/display-types'
 import { defaultConfig, ZONE_COUNT } from '@/lib/display-types'
 import type { Json } from '@/types/database'
@@ -105,6 +105,7 @@ export async function getDisplayData(
   const needsStandings = zoneTypes.has('standings')
   const needsBracket   = zoneTypes.has('bracket')
   const needsSponsors  = zoneTypes.has('sponsors') || config.sponsor_banner?.enabled === true || config.sponsor_interstitial?.enabled === true
+  const needsShowcase  = zoneTypes.has('showcase')
 
   // Base queries always needed
   const [{ data: leagueRow }, { data: brandingRow }, { data: poolsData }, { data: orgRow }] = await Promise.all([
@@ -422,6 +423,103 @@ export async function getDisplayData(
       .map((s) => ({ id: s.id, name: s.name, logo_url: s.logo_url, ad_image_url: s.ad_image_url, tier: s.tier }))
   }
 
+  // ── Showcase (bios + photos) ─────────────────────────────────────────────────
+  // Bios: players registered in THIS event who opted in on their profile
+  // (show_on_displays) and aren't admin-hidden. Photos: the event's approved
+  // gallery. Both re-read on the display's refresh cycle, so a photo approved
+  // courtside joins the rotation within a minute.
+  const showcase: DisplayData['showcase'] = { bios: [], photos: [] }
+  if (needsShowcase) {
+    const showcaseZone = config.zones.find((z) => z.type === 'showcase') as Extract<ZoneConfig, { type: 'showcase' }> | undefined
+    const wantBios = showcaseZone?.source !== 'photos'
+    const wantPhotos = showcaseZone?.source !== 'bios'
+
+    if (wantPhotos) {
+      const { data: media } = await db
+        .from('event_media')
+        .select('cloudinary_url, thumbnail_url, caption, media_type')
+        .eq('league_id', leagueId).eq('organization_id', orgId)
+        .eq('status', 'approved')
+        .eq('media_type', 'image') // photos only in v1 — video risks buffering on gym wifi
+        .order('created_at', { ascending: false })
+        .limit(60)
+      showcase.photos = (media ?? []).map((m) => ({ url: m.cloudinary_url, caption: m.caption ?? null }))
+    }
+
+    if (wantBios) {
+      // Registrants of this event with an opted-in bio
+      const { data: regs } = await db
+        .from('registrations')
+        .select('user_id')
+        .eq('league_id', leagueId).eq('organization_id', orgId)
+        .eq('status', 'active')
+        .not('user_id', 'is', null)
+      const regUserIds = [...new Set((regs ?? []).map((r) => r.user_id as string))]
+      if (regUserIds.length > 0) {
+        const [{ data: bios }, { data: profiles }, { data: memberships }, { data: medalRows }] = await Promise.all([
+          db.from('player_bios')
+            .select('user_id, hero_photo_url, jersey_number, position, hometown, years_playing, tagline')
+            .eq('organization_id', orgId)
+            .eq('show_on_displays', true)
+            .eq('hidden_by_admin', false)
+            .in('user_id', regUserIds),
+          db.from('profiles').select('id, full_name, avatar_url').in('id', regUserIds),
+          db.from('team_members')
+            .select('user_id, position, team:teams!team_members_team_id_fkey(name, league_id)')
+            .in('user_id', regUserIds)
+            .eq('status', 'active'),
+          db.from('medal_recipients')
+            .select('user_id, medal:medals!medal_recipients_medal_id_fkey(placement)')
+            .eq('organization_id', orgId)
+            .in('user_id', regUserIds),
+        ])
+
+        const profileById = new Map((profiles ?? []).map((p) => [p.id, p]))
+        // Team name for THIS league only
+        const teamByUser = new Map<string, { name: string; position: string | null }>()
+        for (const m of memberships ?? []) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const team = Array.isArray(m.team) ? m.team[0] : m.team as any
+          if (team?.league_id === leagueId && m.user_id) teamByUser.set(m.user_id, { name: team.name, position: m.position ?? null })
+        }
+        const shelfCounts = new Map<string, Record<string, number>>()
+        for (const r of medalRows ?? []) {
+          if (!r.user_id) continue
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const medal = Array.isArray(r.medal) ? r.medal[0] : r.medal as any
+          if (!medal?.placement) continue
+          const c = shelfCounts.get(r.user_id) ?? {}
+          c[medal.placement] = (c[medal.placement] ?? 0) + 1
+          shelfCounts.set(r.user_id, c)
+        }
+        const shelfFor = (userId: string): string | null => {
+          const c = shelfCounts.get(userId)
+          if (!c) return null
+          const bits = ([['gold', '🥇'], ['silver', '🥈'], ['bronze', '🥉'], ['tier_champion', '🏆']] as const)
+            .map(([k, g]) => { const n = c[k] ?? 0; return n > 0 ? g.repeat(Math.min(n, 3)) + (n > 3 ? `×${n}` : '') : '' })
+            .filter(Boolean)
+          return bits.length > 0 ? bits.join(' ') : null
+        }
+
+        showcase.bios = (bios ?? []).map((b) => {
+          const profile = profileById.get(b.user_id)
+          const team = teamByUser.get(b.user_id)
+          return {
+            name: profile?.full_name ?? 'Player',
+            photoUrl: b.hero_photo_url ?? profile?.avatar_url ?? null,
+            teamName: team?.name ?? null,
+            position: b.position ?? team?.position ?? null,
+            jerseyNumber: b.jersey_number,
+            hometown: b.hometown,
+            yearsPlaying: b.years_playing,
+            tagline: b.tagline,
+            medalShelf: shelfFor(b.user_id),
+          }
+        })
+      }
+    }
+  }
+
   return {
     league:   { id: leagueRow?.id ?? leagueId, name: leagueRow?.name ?? '', sport: leagueRow?.sport ?? '' },
     org:      { name: orgRow?.name ?? '', logo_url: brandingRow?.logo_url ?? null },
@@ -434,6 +532,7 @@ export async function getDisplayData(
     standingsConfig: { ptsMethod, volleyballMode },
     bracket,
     live: liveStream,
+    showcase,
   }
 }
 
