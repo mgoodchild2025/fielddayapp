@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DisplayData, ZoneConfig } from '@/lib/display-types'
 import { PlayerBioCard } from '@/components/bios/player-bio-card'
+import { bannerTint } from '@/lib/banner-tints'
 
 /**
  * Showcase zone (S2): rotates player bio cards and/or approved event photos
@@ -192,7 +193,7 @@ export function ShowcaseZone({
             <div
               className="w-[min(46vh,80%)] px-8 pb-24 pt-12 text-center text-[#f5efdd] shadow-2xl"
               style={{
-                backgroundColor: 'var(--brand-primary, #24406e)',
+                backgroundColor: bannerTint(slide.banner.teamName, slide.banner.year),
                 clipPath: 'polygon(0 0, 100% 0, 100% 84%, 50% 100%, 0 84%)',
               }}
             >
