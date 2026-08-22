@@ -85,6 +85,19 @@ export function nextPowerOf2(n: number): number {
   return Math.pow(2, Math.ceil(Math.log2(n)))
 }
 
+/**
+ * Display name for a round: an admin-set name (manual brackets M2 —
+ * brackets.round_names, string keys) wins; otherwise infer from the size.
+ */
+export function roundDisplayName(
+  roundNames: Record<string, string> | null | undefined,
+  roundNumber: number,
+  bracketSize: number,
+  matchNumber?: number
+): string {
+  return roundNames?.[String(roundNumber)] ?? getRoundName(roundNumber, bracketSize, matchNumber)
+}
+
 export function getRoundName(roundNumber: number, bracketSize: number, matchNumber?: number): string {
   // Grand Final
   if (roundNumber >= GF_ROUND) return 'Grand Final'

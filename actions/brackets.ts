@@ -1545,3 +1545,312 @@ export async function advanceBracketFromScore(
     revalidatePath('/events/[slug]', 'page')
   }
 }
+
+// ══ Manual brackets M2: structural editing ════════════════════════════════════
+// Add/remove matches and rounds, name rounds, toggle byes. Routes are held by
+// match id, so structural edits can't corrupt existing wiring — the one hard
+// rule is that matches with recorded scores are immutable. The UI surfaces
+// these on custom (hand-built) brackets; the actions themselves work on any
+// bracket, but anything a generator owns is rebuilt on the next regenerate.
+
+/** Loads a bracket scoped to the caller's org, or null. */
+async function loadOwnBracket(db: ReturnType<typeof createServiceRoleClient>, orgId: string, bracketId: string) {
+  const { data } = await db
+    .from('brackets')
+    .select('id, league_id, round_names')
+    .eq('id', bracketId)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+  return data
+}
+
+/** Nulls every route that points AT the given matches (any bracket, either slot type). */
+async function clearRoutesInto(db: ReturnType<typeof createServiceRoleClient>, matchIds: string[]) {
+  if (matchIds.length === 0) return
+  await db.from('bracket_matches')
+    .update({ winner_to_match_id: null, winner_to_slot: null })
+    .in('winner_to_match_id', matchIds)
+  await db.from('bracket_matches')
+    .update({ loser_to_match_id: null, loser_to_slot: null })
+    .in('loser_to_match_id', matchIds)
+}
+
+// ── addBracketMatch ───────────────────────────────────────────────────────────
+// Appends one empty match to a round (next match_number). The round may be new.
+
+export async function addBracketMatch(input: {
+  bracketId: string
+  leagueId: string
+  roundNumber: number
+}): Promise<{ error: string | null; matchId: string | null }> {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  const bracket = await loadOwnBracket(db, org.id, input.bracketId)
+  if (!bracket) return { error: 'Bracket not found', matchId: null }
+  if (!Number.isInteger(input.roundNumber) || input.roundNumber < 1) {
+    return { error: 'Invalid round.', matchId: null }
+  }
+
+  const { data: siblings } = await db
+    .from('bracket_matches')
+    .select('match_number')
+    .eq('bracket_id', input.bracketId)
+    .eq('round_number', input.roundNumber)
+    .order('match_number', { ascending: false })
+    .limit(1)
+  const nextNumber = ((siblings?.[0]?.match_number as number | undefined) ?? 0) + 1
+
+  const { data: created, error } = await db.from('bracket_matches').insert({
+    organization_id: org.id,
+    bracket_id: input.bracketId,
+    round_number: input.roundNumber,
+    match_number: nextNumber,
+    team1_id: null,
+    team2_id: null,
+    is_bye: false,
+    status: 'pending',
+  }).select('id').single()
+  if (error || !created) return { error: error?.message ?? 'Failed to add match', matchId: null }
+
+  revalidatePath(`/admin/events/${input.leagueId}/bracket`)
+  return { error: null, matchId: created.id as string }
+}
+
+// ── deleteBracketMatch ────────────────────────────────────────────────────────
+// Removes one unplayed match. Routes pointing at it (from any bracket) are
+// cleared first — the self-FKs have no ON DELETE.
+
+export async function deleteBracketMatch(input: {
+  matchId: string
+  bracketId: string
+  leagueId: string
+}): Promise<{ error: string | null }> {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  const { data: match } = await db
+    .from('bracket_matches')
+    .select('id, status, score1, score2')
+    .eq('id', input.matchId)
+    .eq('bracket_id', input.bracketId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (!match) return { error: 'Match not found' }
+  if (match.status === 'completed' || match.score1 !== null || match.score2 !== null) {
+    return { error: 'This match has a recorded score. Clear the score first, then delete it.' }
+  }
+
+  await clearRoutesInto(db, [match.id])
+  const { error } = await db.from('bracket_matches').delete().eq('id', match.id)
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${input.leagueId}/bracket`)
+  return { error: null }
+}
+
+// ── addBracketRound ───────────────────────────────────────────────────────────
+// Rounds count down: round 1 is the final, earlier rounds have higher numbers.
+// The admin never sees the numbers — 'earlier' prepends a round before the
+// current first, 'later' inserts one after the current last (toward the final).
+// A round exists through its matches, so this creates the round's first match
+// and optionally names the round.
+
+export async function addBracketRound(input: {
+  bracketId: string
+  leagueId: string
+  where: 'earlier' | 'later'
+  matchCount: number
+  name?: string
+}): Promise<{ error: string | null; roundNumber: number | null }> {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  const bracket = await loadOwnBracket(db, org.id, input.bracketId)
+  if (!bracket) return { error: 'Bracket not found', roundNumber: null }
+  const matchCount = Math.min(64, Math.max(1, Math.round(input.matchCount)))
+
+  const { data: existing } = await db
+    .from('bracket_matches')
+    .select('round_number')
+    .eq('bracket_id', input.bracketId)
+  const rounds = Array.from(new Set((existing ?? []).map((m) => m.round_number as number)))
+
+  let roundNumber: number
+  if (rounds.length === 0) {
+    roundNumber = matchCount // engine convention: round number = matches in the round
+  } else if (input.where === 'earlier') {
+    roundNumber = Math.max(...rounds) + 1
+  } else {
+    const min = Math.min(...rounds)
+    if (min <= 1) return { error: 'Round 1 is the last round. Add matches to it instead, or add an earlier round.', roundNumber: null }
+    roundNumber = min - 1
+  }
+
+  const { error } = await db.from('bracket_matches').insert(
+    Array.from({ length: matchCount }, (_, i) => ({
+      organization_id: org.id,
+      bracket_id: input.bracketId,
+      round_number: roundNumber,
+      match_number: i + 1,
+      team1_id: null,
+      team2_id: null,
+      is_bye: false,
+      status: 'pending',
+    }))
+  )
+  if (error) return { error: error.message, roundNumber: null }
+
+  if (input.name?.trim()) {
+    const names = ((bracket.round_names as Record<string, string> | null) ?? {})
+    names[String(roundNumber)] = input.name.trim()
+    await db.from('brackets').update({ round_names: names }).eq('id', input.bracketId)
+  }
+
+  revalidatePath(`/admin/events/${input.leagueId}/bracket`)
+  return { error: null, roundNumber }
+}
+
+// ── deleteBracketRound ────────────────────────────────────────────────────────
+// Removes a whole round. Refused if any of its matches has a recorded score.
+
+export async function deleteBracketRound(input: {
+  bracketId: string
+  leagueId: string
+  roundNumber: number
+}): Promise<{ error: string | null }> {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  const bracket = await loadOwnBracket(db, org.id, input.bracketId)
+  if (!bracket) return { error: 'Bracket not found' }
+
+  const { data: matches } = await db
+    .from('bracket_matches')
+    .select('id, status, score1, score2')
+    .eq('bracket_id', input.bracketId)
+    .eq('round_number', input.roundNumber)
+  if (!matches || matches.length === 0) return { error: 'Round not found' }
+  if (matches.some((m) => m.status === 'completed' || m.score1 !== null || m.score2 !== null)) {
+    return { error: 'A match in this round has a recorded score. Clear it first.' }
+  }
+
+  const ids = matches.map((m) => m.id)
+  await clearRoutesInto(db, ids)
+  const { error } = await db.from('bracket_matches').delete().in('id', ids)
+  if (error) return { error: error.message }
+
+  // Drop the round's stored name, if any
+  const names = (bracket.round_names as Record<string, string> | null) ?? null
+  if (names && names[String(input.roundNumber)]) {
+    delete names[String(input.roundNumber)]
+    await db.from('brackets').update({ round_names: Object.keys(names).length ? names : null }).eq('id', input.bracketId)
+  }
+
+  revalidatePath(`/admin/events/${input.leagueId}/bracket`)
+  return { error: null }
+}
+
+// ── renameBracketRound ────────────────────────────────────────────────────────
+
+export async function renameBracketRound(input: {
+  bracketId: string
+  leagueId: string
+  roundNumber: number
+  name: string
+}): Promise<{ error: string | null }> {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  const bracket = await loadOwnBracket(db, org.id, input.bracketId)
+  if (!bracket) return { error: 'Bracket not found' }
+
+  const names = ((bracket.round_names as Record<string, string> | null) ?? {})
+  const trimmed = input.name.trim()
+  if (trimmed) names[String(input.roundNumber)] = trimmed.slice(0, 60)
+  else delete names[String(input.roundNumber)] // empty = back to the inferred name
+
+  const { error } = await db.from('brackets')
+    .update({ round_names: Object.keys(names).length ? names : null })
+    .eq('id', input.bracketId)
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${input.leagueId}/bracket`)
+  return { error: null }
+}
+
+// ── toggleMatchBye ────────────────────────────────────────────────────────────
+// Marks an unplayed match as a bye (team 2 side) or back to a normal match.
+// Setting a bye with a team seated advances that team along its winner route;
+// unsetting pulls the team back out of the downstream slot if it's unplayed.
+
+export async function toggleMatchBye(input: {
+  matchId: string
+  bracketId: string
+  leagueId: string
+  isBye: boolean
+}): Promise<{ error: string | null }> {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  const { data: match } = await db
+    .from('bracket_matches')
+    .select('id, status, score1, score2, team1_id, team2_id, winner_to_match_id, winner_to_slot')
+    .eq('id', input.matchId)
+    .eq('bracket_id', input.bracketId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (!match) return { error: 'Match not found' }
+  if (match.score1 !== null || match.score2 !== null) {
+    return { error: 'This match has a recorded score. Clear the score first.' }
+  }
+
+  if (input.isBye) {
+    const { error } = await db.from('bracket_matches')
+      .update({
+        is_bye: true,
+        team2_id: null,
+        team2_label: 'Bye',
+        team2_seed: null,
+        status: 'bye',
+        winner_team_id: match.team1_id ?? null,
+      })
+      .eq('id', match.id)
+    if (error) return { error: error.message }
+
+    if (match.team1_id) {
+      await advanceWinner(db, org.id, input.bracketId, match.id, match.team1_id)
+    }
+  } else {
+    // Pull the auto-advanced team back out of the downstream slot, if that
+    // match hasn't been played.
+    if (match.team1_id && match.winner_to_match_id) {
+      const { data: next } = await db
+        .from('bracket_matches')
+        .select('id, status, team1_id, team2_id')
+        .eq('id', match.winner_to_match_id)
+        .maybeSingle()
+      if (next && next.status !== 'completed') {
+        const field = match.winner_to_slot === 1 ? 'team1_id' : 'team2_id'
+        if (next[field as 'team1_id' | 'team2_id'] === match.team1_id) {
+          await db.from('bracket_matches')
+            .update({ [field]: null, status: 'pending' } as TablesUpdate<'bracket_matches'>)
+            .eq('id', next.id)
+        }
+      }
+    }
+
+    const { error } = await db.from('bracket_matches')
+      .update({
+        is_bye: false,
+        team2_label: null,
+        status: match.team1_id && match.team2_id ? 'ready' : 'pending',
+        winner_team_id: null,
+      })
+      .eq('id', match.id)
+    if (error) return { error: error.message }
+  }
+
+  revalidatePath(`/admin/events/${input.leagueId}/bracket`)
+  return { error: null }
+}

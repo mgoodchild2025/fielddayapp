@@ -6,8 +6,9 @@ import { Printer, Trash2 } from 'lucide-react'
 import { savePlayoffConfig, generateAllTierBrackets, deletePlayoffConfig } from '@/actions/playoff-config'
 import { publishBracket, unpublishBracket, deleteBracket, seedBracket, clearBracketSeeding, advanceBestLoser } from '@/actions/brackets'
 import { BracketView, type BracketData, type TeamRef } from './bracket-view'
+import { BracketBuilder } from './bracket-builder'
 import { BracketRoutingProvider, type RoutingTarget } from './bracket-routing'
-import { getRoundName, type TeamStanding, type BracketRecommendation } from '@/lib/bracket'
+import { roundDisplayName, type TeamStanding, type BracketRecommendation } from '@/lib/bracket'
 import type { TierInput, PoolSeedingMethod } from '@/actions/playoff-config'
 import { applicableTemplates, describeTiers, type TierTemplateSpec } from '@/lib/playoff-templates'
 import { applyRoster, rosterIsActive, EMPTY_ROSTER, type PlayoffRoster } from '@/lib/playoff-roster'
@@ -561,7 +562,11 @@ function TierBracketCard({
 
       {/* Bracket diagram */}
       {expanded && tier.bracket && (
-        <div className="border-t px-5 py-4">
+        <div className="border-t px-5 py-4 space-y-4">
+          {/* Structure panel — hand-built brackets only (manual brackets M2) */}
+          {isCustomBracket && isOrgAdmin && (
+            <BracketBuilder bracket={tier.bracket} leagueId={leagueId} />
+          )}
           <BracketView
             bracket={tier.bracket}
             leagueId={leagueId}
@@ -948,7 +953,7 @@ export function PlayoffConfigWizard({
           id: m.id,
           bracketId: b.id,
           bracketName: tier.name,
-          label: `${getRoundName(m.roundNumber, b.bracketSize, m.matchNumber)} · Match ${m.matchNumber}`,
+          label: `${roundDisplayName(b.roundNames, m.roundNumber, b.bracketSize, m.matchNumber)} · Match ${m.matchNumber}`,
         }))
     })
 

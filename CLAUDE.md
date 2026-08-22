@@ -93,10 +93,11 @@ Admin → Events → [Event] → Bracket renders `PlayoffConfigWizard` (`compone
 - Runtime advancement (`advanceWinner`/`advanceLoser`) follows `winner_to_match_id`/`loser_to_match_id` wherever they point, including into another bracket.
 - Admins can also hand-edit any match's routing (winner/loser destination + slot, across brackets) in the Edit Match modal via `updateMatchRouting`.
 
-### Custom (hand-built) brackets — M1
+### Custom (hand-built) brackets — M1 + M2
 - A tier's format can be **`custom`**: the first "Generate All Brackets" run creates the bracket with one pre-laid first round of empty matches (`insertCustomBracket` in `actions/playoff-config.ts` — round number = match count, matching the engine's rounds-count-down convention), then never touches it again. Re-runs skip custom tiers; `scaffoldBracket`/`seedBracket` refuse custom brackets outright.
 - The admin owns the shape: seat teams via `overrideBracketSlot`/`swapBracketTeams`, wire routes via `updateMatchRouting`, all from the Edit Match modal. `clearBracketSeeding` is safe on custom brackets (nulls slots only, no structural rebuild).
 - Custom tiers cannot declare drop-down inflow (receivers must be single elim; enforced in `savePlayoffConfig` and the wizard nulls stale inflow on type switch).
+- **Structure (M2)**: `addBracketMatch`/`deleteBracketMatch`/`addBracketRound`/`deleteBracketRound`/`renameBracketRound`/`toggleMatchBye` in `actions/brackets.ts`; UI is `components/bracket/bracket-builder.tsx`, shown on custom tiers. Deleting matches clears routes INTO them first (`clearRoutesInto` — per-match analogue of `clearInboundRoutes`). Rounds count down (round 1 = final): "earlier" = max+1, "later" = min−1, refused below 1. Admin round names live in `brackets.round_names` (jsonb, string keys); `roundDisplayName` in `lib/bracket.ts` is the everywhere-lookup (view, print, schedule labels) with `getRoundName` as fallback. Matches with scores are immutable to all structural tools.
 
 ### Playoff roster & persistent seeding
 - The **roster** is the admin's answer to *who is in the field and in what order*: `playoff_configs.excluded_team_ids` (teams sitting out) and `playoff_configs.custom_seed_order` (ordered team ids; null = standings order). Edited on the wizard's tiers step (`components/bracket/playoff-roster-panel.tsx`), saved with the config, so it survives reload, re-seed and regeneration.

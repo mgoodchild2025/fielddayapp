@@ -350,6 +350,7 @@ export type Database = {
           name: string
           organization_id: string
           published_at: string | null
+          round_names: Json | null
           seeding_method: string
           status: string
           teams_advancing: number
@@ -365,6 +366,7 @@ export type Database = {
           name?: string
           organization_id: string
           published_at?: string | null
+          round_names?: Json | null
           seeding_method?: string
           status?: string
           teams_advancing?: number
@@ -380,6 +382,7 @@ export type Database = {
           name?: string
           organization_id?: string
           published_at?: string | null
+          round_names?: Json | null
           seeding_method?: string
           status?: string
           teams_advancing?: number

@@ -5,7 +5,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { getScoreStructure } from '@/lib/print-config'
-import { getRoundName } from '@/lib/bracket'
+import { roundDisplayName } from '@/lib/bracket'
 import { PrintControls } from '@/components/print/print-controls'
 import { BracketSheet, type BracketMatch } from '@/components/print/bracket-sheet'
 import { GameScoreSheet } from '@/components/print/game-score-sheet'
@@ -58,7 +58,7 @@ export default async function BracketPrintPage({
   const { data: rawBracket } = await db
     .from('brackets')
     .select(`
-      id, name, bracket_size, bracket_type, status,
+      id, name, bracket_size, bracket_type, round_names, status,
       bracket_matches(
         id, round_number, match_number,
         team1_id, team2_id, team1_label, team2_label,
@@ -106,6 +106,7 @@ export default async function BracketPrintPage({
   const scoreStructure = getScoreStructure(sport)
   const bracketName: string = rawBracket.name ?? 'Bracket'
   const bracketSize: number = rawBracket.bracket_size ?? 0
+  const roundNames = (rawBracket.round_names as Record<string, string> | null) ?? null
 
   // ─── Individual score sheets (one per match) ────────────────────────────────
   if (type === 'scoresheets') {
@@ -123,7 +124,7 @@ export default async function BracketPrintPage({
       if (!display) {
         // No team assigned yet — show seed placeholder or generic TBD
         if (seed !== null) return `Seed ${seed}`
-        return `TBD (${getRoundName(roundNumber, bracketSize)} M${matchNumber} ${position === 1 ? 'Home' : 'Away'})`
+        return `TBD (${roundDisplayName(roundNames, roundNumber, bracketSize)} M${matchNumber} ${position === 1 ? 'Home' : 'Away'})`
       }
       return seed !== null ? `(${seed}) ${display}` : display
     }
@@ -144,7 +145,7 @@ export default async function BracketPrintPage({
             <div key={m.id} style={i < sheetMatches.length - 1 ? { breakAfter: 'page' } : {}}>
               {/* Round / match label above each sheet */}
               <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">
-                {bracketName} · {getRoundName(m.roundNumber, bracketSize)} · Match {m.matchNumber}
+                {bracketName} · {roundDisplayName(roundNames, m.roundNumber, bracketSize)} · Match {m.matchNumber}
               </p>
               <GameScoreSheet
                 game={game}

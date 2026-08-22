@@ -3,6 +3,7 @@ import {
   nextPowerOf2,
   getBracketSide,
   getRoundName,
+  roundDisplayName,
   generateSingleEliminationSpec,
   generateDoubleEliminationSpec,
   generate6TeamBracketSpec,
@@ -412,5 +413,17 @@ describe('generateInflowBracketSpec', () => {
     expect(entry[0].winnerToSlot).toBe(2)
     expectAllReferencesResolve(spec)
     expectNoSlotCollisions(spec)
+  })
+})
+
+describe('roundDisplayName (manual brackets M2)', () => {
+  it('prefers the admin-set name for the round', () => {
+    expect(roundDisplayName({ '4': 'Opening Night' }, 4, 8)).toBe('Opening Night')
+  })
+
+  it('falls back to the inferred name when unset', () => {
+    expect(roundDisplayName({ '4': 'Opening Night' }, 2, 8)).toBe('Semi-Finals')
+    expect(roundDisplayName(null, 1, 8)).toBe('Final')
+    expect(roundDisplayName(undefined, 3, 8)).toBe('Round of 6')
   })
 })
