@@ -32,7 +32,7 @@ interface TierConfig {
   name: string
   seedFrom: number
   seedTo: number
-  bracketType: 'single_elimination' | 'double_elimination' | 'all_play'
+  bracketType: 'single_elimination' | 'double_elimination' | 'all_play' | 'custom'
   thirdPlaceGame: boolean
   /** Index of the tier (above this one) whose first-round losers drop in. */
   inflowFromTierIndex?: number | null
@@ -46,7 +46,7 @@ export interface ExistingTier {
   sortOrder: number
   seedFrom: number
   seedTo: number
-  bracketType: 'single_elimination' | 'double_elimination' | 'all_play'
+  bracketType: 'single_elimination' | 'double_elimination' | 'all_play' | 'custom'
   thirdPlaceGame: boolean
   inflowFromTierId: string | null
   byeSeeds: number
@@ -176,16 +176,19 @@ function TierRow({
       {/* Format */}
       <select
         value={tier.bracketType}
-        onChange={(e) => onChange({ bracketType: e.target.value as 'single_elimination' | 'double_elimination' | 'all_play' })}
+        onChange={(e) => onChange({ bracketType: e.target.value as TierConfig['bracketType'] })}
         className="border rounded px-2 py-1.5 text-xs"
+        title={tier.bracketType === 'custom' ? 'Hand-built: you place every match, team and route yourself' : undefined}
       >
         <option value="single_elimination">Single Elim</option>
         {canDoubleElimination && <option value="double_elimination">Double Elim</option>}
         <option value="all_play">All-Play</option>
+        <option value="custom">Custom (hand-built)</option>
       </select>
 
-      {/* 3rd place — available for single_elimination and all_play; not for double_elimination */}
-      {tier.bracketType === 'double_elimination' ? (
+      {/* 3rd place — available for single_elimination and all_play; not for
+          double_elimination, and meaningless on hand-built shapes */}
+      {tier.bracketType === 'double_elimination' || tier.bracketType === 'custom' ? (
         <span className="text-xs text-gray-300 whitespace-nowrap">3rd place</span>
       ) : (
         <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer whitespace-nowrap">
@@ -303,6 +306,7 @@ function TierBracketCard({
   }
   const colorClass = tierColors[tier.name] ?? 'text-purple-600 bg-purple-50 border-purple-200'
 
+  const isCustomBracket = tier.bracketType === 'custom'
   const isScaffold = tier.bracket?.status === 'scaffold'
   // Seeded/published are independent: an unseeded (scaffold) bracket can be
   // published so its slots appear on the schedule, then seeded later.
@@ -416,7 +420,7 @@ function TierBracketCard({
                   <Printer className="w-3.5 h-3.5" />
                 </a>
               )}
-              {!isSeeded && (
+              {!isSeeded && !isCustomBracket && (
                 <button
                   onClick={handleSeed}
                   disabled={isPending}
@@ -426,6 +430,11 @@ function TierBracketCard({
                 >
                   {isPending ? 'Seeding…' : 'Seed Bracket →'}
                 </button>
+              )}
+              {isCustomBracket && (
+                <span className="text-[11px] text-gray-400 self-center" title="Seat teams and set routes from each match's edit modal">
+                  ✎ Hand-built — edit matches directly
+                </span>
               )}
               <button
                 onClick={handlePublish}
@@ -872,8 +881,8 @@ export function PlayoffConfigWizard({
         seedTo: t.seedTo,
         bracketType: t.bracketType,
         thirdPlaceGame: t.thirdPlaceGame,
-        inflowFromTierIndex: t.inflowFromTierIndex ?? null,
-        byeSeeds: t.inflowFromTierIndex !== null && t.inflowFromTierIndex !== undefined ? (t.byeSeeds ?? 0) : 0,
+        inflowFromTierIndex: t.bracketType === 'single_elimination' ? (t.inflowFromTierIndex ?? null) : null,
+        byeSeeds: t.bracketType === 'single_elimination' && t.inflowFromTierIndex !== null && t.inflowFromTierIndex !== undefined ? (t.byeSeeds ?? 0) : 0,
       }))
 
       const usesPoolAdvance = seedingMethod === 'pool_results' || seedingMethod === 'pool_results_alternating'

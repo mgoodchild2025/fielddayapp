@@ -187,6 +187,12 @@ export async function scaffoldBracket(bracketId: string, leagueId: string) {
 
   if (!bracket) return { error: 'Bracket not found' }
 
+  // Hand-built brackets have no generated shape to restore — rebuilding would
+  // flatten the admin's work.
+  if (bracket.bracket_type === 'custom') {
+    return { error: 'This bracket is hand-built. Edit its matches directly — there is nothing to regenerate.' }
+  }
+
   // Read this bracket's tier offset so labels and seed numbers use global ranks
   // (e.g. Tier 2 with seed_from=9 → "Seed 9" not "Seed 1", stored seed 9 not 1)
 
@@ -301,6 +307,12 @@ export async function seedBracket(bracketId: string, leagueId: string, seedOverr
     .single()
 
   if (!bracket) return { error: 'Bracket not found' }
+
+  // Hand-built brackets are seeded by hand: seeding would delete every match
+  // and rebuild from a generator spec, flattening the admin's shape.
+  if (bracket.bracket_type === 'custom') {
+    return { error: 'This bracket is hand-built. Seat teams directly in its match slots instead of seeding.' }
+  }
 
   // Look up this bracket's tier (if any) to determine the seed offset.
   // e.g. Tier1 seed_from=1, Tier2 seed_from=9 → Tier2 skips the first 8 teams.
