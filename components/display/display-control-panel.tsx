@@ -159,7 +159,7 @@ function ZoneEditor({
 
       {zone.type === 'standings' && pools.length > 0 && (
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Pool filter</label>
+          <label className="block text-xs text-gray-300 mb-1">Pool filter</label>
           <select
             value={zone.pool_id ?? ''}
             onChange={(e) => onChange({ ...zone, pool_id: e.target.value || null })}
@@ -220,7 +220,7 @@ function ZoneEditor({
               value={zone.url}
               onChange={(e) => onChange({ ...zone, url: e.target.value })}
               placeholder="https://..."
-              className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white placeholder-gray-500"
+              className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white placeholder-gray-400"
             />
           </div>
           <div>
@@ -230,7 +230,7 @@ function ZoneEditor({
               value={zone.label}
               onChange={(e) => onChange({ ...zone, label: e.target.value })}
               placeholder="Scan to sign waiver"
-              className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white placeholder-gray-500"
+              className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white placeholder-gray-400"
             />
           </div>
         </div>
@@ -258,7 +258,7 @@ function ZoneEditor({
                 </button>
               ))}
             </div>
-            <p className="text-[11px] text-gray-400 mt-1">Bios rotate only players who opted in on their profile.</p>
+            <p className="text-[11px] text-gray-300 mt-1">Bios rotate only players who opted in on their profile.</p>
           </div>
           {zone.source !== 'photos' && (
             <label className="flex items-start gap-2 cursor-pointer">
@@ -270,7 +270,7 @@ function ZoneEditor({
               />
               <span className="text-xs text-gray-200">
                 Starting lineups
-                <span className="block text-[11px] text-gray-400">
+                <span className="block text-[11px] text-gray-300">
                   When a game is up within 45 min, open with the matchup and both rosters&apos; cards.
                 </span>
               </span>
@@ -322,7 +322,7 @@ function ZoneEditor({
               value={zone.title ?? ''}
               onChange={(e) => onChange({ ...zone, title: e.target.value })}
               placeholder="ANNOUNCEMENT"
-              className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white placeholder-gray-500"
+              className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white placeholder-gray-400"
             />
           </div>
           <div>
@@ -414,7 +414,7 @@ function ScreenEditor({
               <button
                 type="button"
                 onClick={() => navigator.clipboard.writeText(tvUrl)}
-                className="shrink-0 text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                className="shrink-0 text-xs text-gray-300 hover:text-white px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
               >
                 Copy
               </button>
@@ -422,12 +422,12 @@ function ScreenEditor({
                 href={tvUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                className="shrink-0 text-xs text-gray-300 hover:text-white px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
               >
                 Open ↗
               </a>
             </div>
-            <p className="text-xs text-gray-500 mt-1.5">
+            <p className="text-xs text-gray-400 mt-1.5">
               Open this URL on your TV browser, then press F11 for fullscreen.
             </p>
           </div>
@@ -512,7 +512,7 @@ function ScreenEditor({
       {config.zones.some((z) => z.type === 'live') && (
         <div className="rounded-xl border border-gray-700 bg-gray-800 p-4 space-y-2">
           <p className="text-sm font-semibold text-gray-200">Live stream</p>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-300">
             Choose which stream this screen shows. Pick a specific one when several games are streaming at once.
           </p>
           <select
@@ -588,7 +588,7 @@ function ScreenEditor({
           {config.sponsor_banner?.enabled && (
             <div className="pl-6 flex flex-wrap gap-4">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400">Position</span>
+                <span className="text-xs text-gray-300">Position</span>
                 {(['bottom', 'top'] as const).map((p) => (
                   <button
                     key={p}
@@ -601,7 +601,7 @@ function ScreenEditor({
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400">Speed</span>
+                <span className="text-xs text-gray-300">Speed</span>
                 {(['slow', 'normal', 'fast'] as const).map((s) => (
                   <button
                     key={s}
@@ -615,7 +615,7 @@ function ScreenEditor({
               </div>
             </div>
           )}
-          <p className="pl-6 text-xs text-gray-500">
+          <p className="pl-6 text-xs text-gray-400">
             Sponsors come from the event&rsquo;s Sponsors tab (and your org sponsors). Logos required.
           </p>
         </div>
@@ -640,28 +640,28 @@ function ScreenEditor({
           {config.sponsor_interstitial?.enabled && (
             <div className="pl-6 flex flex-wrap gap-4">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400">Every</span>
+                <span className="text-xs text-gray-300">Every</span>
                 <input
                   type="number" min={15} max={1800}
                   value={config.sponsor_interstitial?.every_seconds ?? 120}
                   onChange={(e) => setConfig({ sponsor_interstitial: { ...config.sponsor_interstitial!, every_seconds: Math.max(15, parseInt(e.target.value) || 120) } })}
                   className="w-20 bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white text-right"
                 />
-                <span className="text-xs text-gray-400">sec</span>
+                <span className="text-xs text-gray-300">sec</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400">For</span>
+                <span className="text-xs text-gray-300">For</span>
                 <input
                   type="number" min={3} max={60}
                   value={config.sponsor_interstitial?.duration_seconds ?? 8}
                   onChange={(e) => setConfig({ sponsor_interstitial: { ...config.sponsor_interstitial!, duration_seconds: Math.max(3, parseInt(e.target.value) || 8) } })}
                   className="w-20 bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white text-right"
                 />
-                <span className="text-xs text-gray-400">sec</span>
+                <span className="text-xs text-gray-300">sec</span>
               </div>
             </div>
           )}
-          <p className="pl-6 text-xs text-gray-500">
+          <p className="pl-6 text-xs text-gray-400">
             Shows sponsors that have an ad image uploaded on the Sponsors tab. Gold tier appears more often.
           </p>
         </div>
@@ -807,7 +807,7 @@ export function DisplayControlPanel({
       {/* Page header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Display Mode</h1>
-        <p className="text-gray-500 text-sm mt-1">
+        <p className="text-gray-400 text-sm mt-1">
           Configure live TV displays for {leagueName}. Each screen has its own URL.
         </p>
       </div>
@@ -822,7 +822,7 @@ export function DisplayControlPanel({
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               s.screen === activeScreen
                 ? 'bg-gray-700 text-white'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                : 'text-gray-300 hover:text-white hover:bg-gray-800'
             }`}
           >
             <span>📺 Screen {s.screen}</span>
@@ -833,7 +833,7 @@ export function DisplayControlPanel({
           <button
             type="button"
             onClick={addScreen}
-            className="px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-white hover:bg-gray-800 transition-colors"
+            className="px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
           >
             + Add Screen
           </button>
