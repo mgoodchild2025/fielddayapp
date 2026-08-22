@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { MedalCase, type MedalView } from '@/components/medals/medal-case'
 import Link from 'next/link'
 import {
   CalendarDays,
@@ -110,6 +111,8 @@ interface Props {
   teams: DashboardTeam[]
   pendingActions: PendingAction[]
   logoUrl: string | null
+  /** Trophy case: the player's medals, newest first. */
+  medals?: MedalView[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -441,7 +444,7 @@ function SessionHero({ item, timezone }: { item: NextSessionItem; timezone: stri
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = [], teams, pendingActions }: Props) {
+export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = [], teams, pendingActions, medals = [] }: Props) {
   const [activeIdx, setActiveIdx] = useState(0)
 
   // RSVP state — only relevant when nextItem is a game
@@ -535,6 +538,11 @@ export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = 
         <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           {greeting()}, {firstName}
         </h1>
+        {medals.length > 0 && (
+          <div className="mt-3">
+            <MedalCase medals={medals} isOwner title="Your trophy case" />
+          </div>
+        )}
       </div>
 
       {/* ── Action banners ── */}

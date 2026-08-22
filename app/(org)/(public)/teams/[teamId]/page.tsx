@@ -4,6 +4,8 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
+import { MedalCase } from '@/components/medals/medal-case'
+import { getTeamMedals, getMedalCountsForUsers } from '@/lib/medal-queries'
 import { Footer } from '@/components/layout/footer'
 import { TeamMessageForm } from '@/components/teams/team-message-form'
 import { RosterManager } from '@/components/teams/roster-manager'
@@ -209,11 +211,15 @@ export default async function TeamDetailPage({
   const captain = activeMembers.find((m) => m.role === 'captain')
   const captainProfile = captain ? (Array.isArray(captain.profile) ? captain.profile[0] : captain.profile) : null
 
-  const [positions, statDefs, seasonTotals, rosterNotes] = await Promise.all([
+  const [positions, statDefs, seasonTotals, rosterNotes, teamMedals, memberMedalCounts] = await Promise.all([
     getPositionsForSport(org.id, leagueSport),
     leagueId ? getStatDefinitions(org.id, leagueSport) : Promise.resolve([]),
     leagueId ? getLeagueStatTotals(leagueId, org.id) : Promise.resolve({} as Record<string, Record<string, number>>),
     isManager ? getRosterNotes(team.id) : Promise.resolve([]),
+    // Trophy shelf: everything this team has won
+    getTeamMedals(db, org.id, team.id),
+    // Roster mini-medals: each member's career medals across all events
+    getMedalCountsForUsers(db, org.id, activeMembers.map((m) => m.user_id).filter((u): u is string => !!u)),
   ])
 
   // Filter out roster plan entries whose email already matches an active team member —
@@ -339,6 +345,13 @@ export default async function TeamDetailPage({
           </div>
         </div>
 
+        {/* Trophy shelf — everything this team has won */}
+        {teamMedals.length > 0 && (
+          <div className="mt-4 bg-white rounded-xl border px-5 py-4">
+            <MedalCase medals={teamMedals} title="Team trophies" />
+          </div>
+        )}
+
         {/* Team schedule + calendar subscription — all team members */}
         <Link
           href={`/teams/${teamId}/schedule`}
@@ -414,6 +427,17 @@ export default async function TeamDetailPage({
                         <p className="text-sm font-medium truncate">
                           {profile?.full_name ?? '—'}
                           {isMe && <span className="ml-1.5 text-xs text-gray-400">(you)</span>}
+                          {(() => {
+                            const c = m.user_id ? memberMedalCounts.get(m.user_id) : undefined
+                            if (!c) return null
+                            const bits = [
+                              c.gold > 0 ? `🥇${c.gold > 1 ? c.gold : ''}` : '',
+                              c.silver > 0 ? `🥈${c.silver > 1 ? c.silver : ''}` : '',
+                              c.bronze > 0 ? `🥉${c.bronze > 1 ? c.bronze : ''}` : '',
+                              c.tier_champion > 0 ? `🏆${c.tier_champion > 1 ? c.tier_champion : ''}` : '',
+                            ].filter(Boolean).join(' ')
+                            return bits ? <span className="ml-1.5 text-xs" title="Career medals">{bits}</span> : null
+                          })()}
                         </p>
                         {isMe && profile?.email && (
                           <a href={`mailto:${profile.email}`} className="text-xs text-gray-400 hover:text-blue-600 truncate block">

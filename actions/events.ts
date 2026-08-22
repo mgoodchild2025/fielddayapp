@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { awardLeagueMedalsInternal } from '@/actions/medals'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
@@ -246,6 +247,13 @@ export async function updateLeagueStatus(leagueId: string, status: LeagueStatus)
   // status change on email delivery.
   if (prior?.status !== 'registration_open' && status === 'registration_open' && prior?.notify_on_open !== false) {
     await notifyInterestList(leagueId, org.id).catch(() => {})
+  }
+
+  // Award medals from the playoff results when an event completes (idempotent —
+  // "Award medals" on the bracket page re-runs it after corrections).
+  // Fire-and-forget: never block the status change on medal writing.
+  if (prior?.status !== 'completed' && status === 'completed') {
+    await awardLeagueMedalsInternal(db, org.id, leagueId).catch(() => {})
   }
 
   await recordAuditLog({

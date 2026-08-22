@@ -8,6 +8,7 @@ import { Footer } from '@/components/layout/footer'
 import { DashboardClient } from '@/components/dashboard/dashboard-client'
 import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, type TeamStatTotals, type PtsMethod, type VolleyballMode } from '@/lib/standings'
 import { fetchPlayerPlayoffGameRows } from '@/lib/playoff-games'
+import { getPlayerMedals } from '@/lib/medal-queries'
 import type {
   DashboardTeam,
   PendingAction,
@@ -651,12 +652,16 @@ export default async function DashboardPage() {
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
+  // Trophy case — the player's medals in this org, newest first
+  const myMedals = await getPlayerMedals(db, org.id, user.id)
+
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
       <div className="flex-1">
         <DashboardClient
           firstName={firstName}
+          medals={myMedals}
           timezone={timezone}
           nextItem={nextItem}
           sameDayGames={sameDayGames}
