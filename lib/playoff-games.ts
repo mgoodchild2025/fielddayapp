@@ -1,4 +1,4 @@
-import { getRoundName } from '@/lib/bracket'
+import { roundDisplayName } from '@/lib/bracket'
 
 /** A published playoff bracket match, normalized for schedule/results display. */
 export interface PlayoffGame {
@@ -32,7 +32,7 @@ export async function fetchLeaguePlayoffGames(
   const { data: rawBrackets } = await db
     .from('brackets')
     .select(`
-      id, name, bracket_size, published_at,
+      id, name, bracket_size, round_names, published_at,
       bracket_matches(
         id, round_number, match_number, team1_id, team2_id, team1_label, team2_label,
         is_bye, score1, score2, sets, status, scheduled_at, court
@@ -65,7 +65,7 @@ export async function fetchLeaguePlayoffGames(
       games.push({
         matchId: m.id as string,
         bracketName: b.name as string,
-        roundLabel: getRoundName(m.round_number as number, b.bracket_size as number, m.match_number as number),
+        roundLabel: roundDisplayName(b.round_names as Record<string, string> | null, m.round_number as number, b.bracket_size as number, m.match_number as number),
         scheduledAt: m.scheduled_at ?? null,
         court: m.court ?? null,
         team1Id: m.team1_id ?? null,
@@ -127,7 +127,7 @@ export async function fetchPlayerPlayoffGameRows(
   const [{ data: rawBrackets }, { data: leagueRows }, { data: teamRows }] = await Promise.all([
     db.from('brackets')
       .select(`
-        id, name, bracket_size, league_id, published_at,
+        id, name, bracket_size, round_names, league_id, published_at,
         bracket_matches(
           id, round_number, match_number, team1_id, team2_id,
           is_bye, score1, score2, status, scheduled_at, court
@@ -173,7 +173,7 @@ export async function fetchPlayerPlayoffGameRows(
         game_results: scored ? [{ home_score: m.score1, away_score: m.score2, status: 'confirmed' }] : null,
         isPlayoff: true,
         playoffTier: b.name,
-        playoffRound: getRoundName(m.round_number, b.bracket_size, m.match_number),
+        playoffRound: roundDisplayName(b.round_names as Record<string, string> | null, m.round_number, b.bracket_size, m.match_number),
       })
     }
   }

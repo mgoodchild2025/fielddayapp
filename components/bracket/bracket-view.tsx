@@ -1,6 +1,6 @@
 'use client'
 
-import { getRoundName, LB_ROUND_BASE, GF_ROUND } from '@/lib/bracket'
+import { getRoundName, roundDisplayName, LB_ROUND_BASE, GF_ROUND } from '@/lib/bracket'
 import { recordBracketScore, swapBracketTeams, advanceBestLoser, type BestLoserCandidate } from '@/actions/brackets'
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
@@ -55,8 +55,11 @@ export interface BracketData {
   bracketType: 'single_elimination' | 'double_elimination' | 'all_play' | 'custom'
   thirdPlaceGame: boolean
   status: string
+  /** Admin-set round names keyed by round number (string keys); missing = inferred. */
+  roundNames?: Record<string, string> | null
   matches: BracketMatchData[]
 }
+
 
 const VOLLEYBALL_SPORTS = ['volleyball', 'beach_volleyball']
 
@@ -467,6 +470,7 @@ function BracketDiagram({
   isAdmin,
   sport,
   bracketSize,
+  roundNames = null,
   firstRoundMatchCount,
   roundSortAscending = false,
   allTeams,
@@ -481,6 +485,7 @@ function BracketDiagram({
   isAdmin: boolean
   sport?: string
   bracketSize: number
+  roundNames?: Record<string, string> | null
   firstRoundMatchCount: number
   /** LB rounds use ascending order (LBR1 left → LBR4 right); WB uses descending */
   roundSortAscending?: boolean
@@ -512,7 +517,7 @@ function BracketDiagram({
           {roundNumbers.map((rn) => (
             <div key={rn} style={{ width: ROUND_WIDTH, flexShrink: 0 }}>
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 px-2">
-                {getRoundName(rn, bracketSize)}
+                {roundDisplayName(roundNames, rn, bracketSize)}
               </p>
             </div>
           ))}
@@ -628,7 +633,7 @@ function BracketScoreList({
         return (
           <div key={rn}>
             <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">
-              {getRoundName(rn, bracketSize)}
+              {roundDisplayName(bracket.roundNames, rn, bracketSize)}
             </h3>
             <div className="space-y-2">
               {matches.map((match) => {
@@ -962,6 +967,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezon
                     isAdmin={isAdmin}
                     sport={sport}
                     bracketSize={bracketSize}
+                    roundNames={bracket.roundNames}
                     firstRoundMatchCount={wbFirstRoundCount}
                     allTeams={allTeams}
                     swapMode={swapMode}
@@ -984,6 +990,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezon
                     isAdmin={isAdmin}
                     sport={sport}
                     bracketSize={bracketSize}
+                    roundNames={bracket.roundNames}
                     firstRoundMatchCount={lbFirstRoundCount}
                     roundSortAscending
                     allTeams={allTeams}
@@ -1024,6 +1031,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezon
                 isAdmin={isAdmin}
                 sport={sport}
                 bracketSize={bracketSize}
+                roundNames={bracket.roundNames}
                 firstRoundMatchCount={seFirstRoundCount}
                 allTeams={allTeams}
                 swapMode={swapMode}
