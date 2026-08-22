@@ -144,6 +144,11 @@ All three accept a `notify: boolean` parameter. When `true` and the game has ass
 - On the public schedule, cancelled games show a red "Cancelled" badge and postponed games show an amber "Postponed" badge; the cancellation reason is displayed beneath if one was provided.
 - **Key file**: `components/schedule/edit-game-modal.tsx`
 
+## Drop-in registration modes & season-pass proration
+- `leagues.registration_mode` ∈ `session | season | both`. In **both** mode the public event page shows the season-pass CTA and the per-session join list side by side; `isSeasonPickup` stays false in both mode (per-session gates behave like session mode), season-side gates use `offersSeasonPass`.
+- **Proration** (`leagues.season_pass_prorate`, admin toggle on Edit Event): pass price = full price × remaining/total non-cancelled sessions, rounded up to the dollar, floored at `drop_in_price_cents`. Pure logic + quote loader in `lib/season-pass.ts` (tested) — used by the event page display, the register flow (`seasonPassQuote` prop), and the Stripe checkout charge (`app/api/stripe/checkout/route.ts`), so display and charge can never disagree. Applies at purchase time only; sold passes never reprice.
+- Occupancy already unions pass holders (count toward every session) with per-session sign-ups — unchanged for both mode.
+
 ## Branding
 CSS variables set by `BrandProvider` from `org_branding` row:
 - `--brand-primary`, `--brand-secondary`, `--brand-bg`, `--brand-text`

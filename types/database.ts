@@ -1922,6 +1922,7 @@ export type Database = {
           schedule_published: boolean
           schedule_visibility: string
           season_end_date: string | null
+          season_pass_prorate: boolean
           season_start_date: string | null
           show_org_sponsors: boolean
           skill_level: string | null
@@ -1994,6 +1995,7 @@ export type Database = {
           schedule_published?: boolean
           schedule_visibility?: string
           season_end_date?: string | null
+          season_pass_prorate?: boolean
           season_start_date?: string | null
           show_org_sponsors?: boolean
           skill_level?: string | null
@@ -2066,6 +2068,7 @@ export type Database = {
           schedule_published?: boolean
           schedule_visibility?: string
           season_end_date?: string | null
+          season_pass_prorate?: boolean
           season_start_date?: string | null
           show_org_sponsors?: boolean
           skill_level?: string | null

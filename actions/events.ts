@@ -72,8 +72,10 @@ const createLeagueSchema = z.object({
   organizer_phone: optionalPhone,
   team_join_policy: z.enum(['open', 'captain_invite', 'admin_only']).default('open'),
   pickup_join_policy: z.enum(['public', 'link', 'private']).default('public'),
-  registration_mode: z.enum(['session', 'season']).default('session'),
+  registration_mode: z.enum(['session', 'season', 'both']).default('session'),
   drop_in_price_cents: z.coerce.number().min(0).optional(),
+  // Drop-in: prorate the season-pass price by remaining sessions (lib/season-pass.ts)
+  season_pass_prorate: z.boolean().optional(),
   schedule_visibility: z.enum(['public', 'participants']).default('public'),
   standings_visibility: z.enum(['public', 'participants']).default('public'),
   bracket_visibility: z.enum(['public', 'participants']).default('public'),

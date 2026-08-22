@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
+import { getSeasonPassQuote } from '@/lib/season-pass'
 import { createServerClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { RegistrationFlow } from '@/components/registration/registration-flow'
@@ -265,7 +266,9 @@ export default async function RegisterLeaguePage({
   // For active leagues: only allow access if the player is already on a team
   // (accepted a mid-season invite) or has an existing registration.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (!isDropIn && (league as any).status === 'active' && !captainTeam && !existingReg) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isSessionEventType = (league as any).event_type === 'drop_in' || (league as any).event_type === 'pickup'
+  if (!isDropIn && !isSessionEventType && (league as any).status === 'active' && !captainTeam && !existingReg) {
     // captainTeam uses the auth client which may be limited by RLS — use service role
     // as an authoritative fallback before blocking the player.
     const svcDb = createServiceRoleClient()
@@ -305,6 +308,19 @@ export default async function RegisterLeaguePage({
   const manualPaymentInstructions: string | null = orgManualInstructions
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dropInPriceCents: number | null = (league as any).drop_in_price_cents ?? null
+
+  // Season pass on a drop-in event: quote the pass price (prorated when the
+  // event has proration on). Same helper the checkout route charges with.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const seasonPassQuote = (!isDropIn && (league as any).event_type === 'drop_in' && ((league as any).price_cents ?? 0) > 0)
+    ? await getSeasonPassQuote(db, org.id, league.id, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fullPriceCents: (league as any).price_cents as number,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        prorate: !!(league as any).season_pass_prorate,
+        floorCents: dropInPriceCents,
+      })
+    : null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const earlyBirdPriceCents: number | null = (league as any).early_bird_price_cents ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -599,6 +615,7 @@ export default async function RegisterLeaguePage({
       dropInSessions={dropInSessions}
       timezone={orgTimezone}
       preselectedSessionId={preselectedSessionId}
+      seasonPassQuote={seasonPassQuote}
       paymentPlan={paymentPlan}
       />
       <Footer org={org} />

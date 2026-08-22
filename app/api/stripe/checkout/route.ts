@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { getSeasonPassQuote } from '@/lib/season-pass'
 import { canAccess } from '@/lib/features'
 import { createEnrollment } from '@/lib/payment-plans'
 import { checkoutRateLimiter, getClientIp } from '@/lib/rate-limit'
@@ -190,7 +191,7 @@ export async function POST(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db2 = db as any
   const [{ data: league }, { data: paymentSettings }, { data: profile }, { data: registration }] = await Promise.all([
-    db2.from('leagues').select('name, price_cents, currency, drop_in_price_cents, max_participants, payment_mode, early_bird_price_cents, early_bird_deadline').eq('id', leagueId).single(),
+    db2.from('leagues').select('name, price_cents, currency, drop_in_price_cents, max_participants, payment_mode, early_bird_price_cents, early_bird_deadline, event_type, season_pass_prorate').eq('id', leagueId).single(),
     db2.from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', orgId).maybeSingle(),
     db2.from('profiles').select('email').eq('id', userId).single(),
     db2.from('registrations').select('registration_type, session_id').eq('id', registrationId).single(),
@@ -241,6 +242,20 @@ export async function POST(request: NextRequest) {
   let priceCents: number = isDropIn
     ? (league.drop_in_price_cents ?? league.price_cents)
     : (earlyBirdActive ? league.early_bird_price_cents : league.price_cents)
+
+  // Season pass on a drop-in event with proration on: the charge is the same
+  // quote the player was shown — full price scaled by remaining sessions,
+  // floored at the drop-in price. Computed server-side; never client-supplied.
+  let passQuoteLabel: string | null = null
+  if (!isDropIn && league.event_type === 'drop_in' && league.season_pass_prorate && priceCents > 0) {
+    const quote = await getSeasonPassQuote(db, orgId, leagueId, {
+      fullPriceCents: priceCents,
+      prorate: true,
+      floorCents: league.drop_in_price_cents ?? null,
+    })
+    priceCents = quote.priceCents
+    if (quote.prorated) passQuoteLabel = `Season pass — ${quote.remainingSessions} remaining session${quote.remainingSessions !== 1 ? 's' : ''}`
+  }
 
   // Apply discount server-side (re-validate to prevent price tampering)
   let discountApplied: { id: string; type: string; value: number; cents: number } | null = null
@@ -562,7 +577,7 @@ export async function POST(request: NextRequest) {
           currency: league.currency,
           unit_amount: priceCents,
           product_data: {
-            name: isDropIn ? `${league.name} — Drop-in` : earlyBirdActive ? `${league.name} — Early Bird` : league.name,
+            name: isDropIn ? `${league.name} — Drop-in` : passQuoteLabel ? `${league.name} — ${passQuoteLabel}` : earlyBirdActive ? `${league.name} — Early Bird` : league.name,
           },
         },
         quantity: 1,

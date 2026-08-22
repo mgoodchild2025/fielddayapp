@@ -37,6 +37,8 @@ interface Props {
   positions?: string[]
   isDropIn?: boolean
   dropInPriceCents?: number | null
+  /** Season-pass quote for drop-in events (prorated when enabled). Null for non-drop-in. */
+  seasonPassQuote?: { priceCents: number; fullPriceCents: number; totalSessions: number; remainingSessions: number; prorated: boolean } | null
   earlyBirdPriceCents?: number | null
   earlyBirdDeadline?: string | null
   captainTeamId?: string | null
@@ -95,6 +97,7 @@ export function RegistrationFlow({
   positions = [],
   isDropIn = false,
   dropInPriceCents = null,
+  seasonPassQuote = null,
   earlyBirdPriceCents = null,
   earlyBirdDeadline = null,
   captainTeamId = null,
@@ -116,7 +119,11 @@ export function RegistrationFlow({
   const router = useRouter()
 
   const earlyBirdActive = !isDropIn && earlyBirdPriceCents != null && earlyBirdDeadline != null && new Date() < new Date(earlyBirdDeadline)
-  const effectivePriceCents = isDropIn ? (dropInPriceCents ?? 0) : (earlyBirdActive ? earlyBirdPriceCents! : league.price_cents)
+  const effectivePriceCents = isDropIn
+    ? (dropInPriceCents ?? 0)
+    : seasonPassQuote
+      ? seasonPassQuote.priceCents
+      : (earlyBirdActive ? earlyBirdPriceCents! : league.price_cents)
   const isPerTeam = (league as unknown as { payment_mode?: string }).payment_mode === 'per_team'
 
   // Per-league method choice. When acceptedMethods is set, the unified Step3Payment
