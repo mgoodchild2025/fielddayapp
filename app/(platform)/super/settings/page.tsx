@@ -3,6 +3,7 @@ import { ToggleSignups } from './toggle-signups'
 import { GlobalMaintenanceForm } from '@/components/platform/global-maintenance-form'
 import { PlatformAlertsForm } from './platform-alerts-form'
 import { StripeModeForm } from './stripe-mode-form'
+import { RailwayStatus } from './railway-status'
 
 export const metadata = { title: 'Platform Settings — Fieldday' }
 
@@ -34,6 +35,9 @@ export default async function PlatformSettingsPage() {
       <div className="space-y-4">
         {/* Platform Stripe mode */}
         <StripeModeForm initial={stripeModeInfo} />
+
+        {/* Railway integration (custom-domain TLS) */}
+        <RailwayStatus />
 
         {/* Global maintenance */}
         <div className={`bg-gray-800 rounded-xl p-6 ${globalMaintenance.enabled ? 'border-2 border-amber-500/50' : 'border border-gray-700'}`}>
