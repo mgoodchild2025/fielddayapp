@@ -24,6 +24,7 @@ export type ZoneConfig =
   | { type: 'logo' }
   | { type: 'live' }
   | { type: 'sponsors' }
+  | { type: 'showcase'; source: 'bios' | 'photos' | 'both'; transition: 'fade' | 'slide' | 'kenburns'; seconds: number; order: 'shuffle' | 'newest' }
   | { type: 'empty' }
 
 export interface SponsorBannerConfig {
@@ -182,4 +183,13 @@ export interface DisplayData {
   bracket:   { tiers: { name: string | null; matches: DisplayBracketMatch[] }[] } | null
   /** Current live stream for the org (manual Go Live), or null. */
   live:      { platform: string; title: string | null; url: string; embed_url: string | null } | null
+  /** Showcase zone content: opted-in player bio cards + approved event photos. */
+  showcase:  {
+    bios: {
+      name: string; photoUrl: string | null; teamName: string | null; position: string | null
+      jerseyNumber: string | null; hometown: string | null; yearsPlaying: number | null
+      tagline: string | null; medalShelf: string | null
+    }[]
+    photos: { url: string; caption: string | null }[]
+  }
 }

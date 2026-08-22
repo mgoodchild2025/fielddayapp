@@ -3825,6 +3825,51 @@ export type Database = {
         }
         Relationships: []
       }
+      player_bios: {
+        Row: {
+          hero_photo_url: string | null
+          hidden_by_admin: boolean
+          hometown: string | null
+          id: string
+          jersey_number: string | null
+          organization_id: string
+          position: string | null
+          show_on_displays: boolean
+          tagline: string | null
+          updated_at: string
+          user_id: string
+          years_playing: number | null
+        }
+        Insert: {
+          hero_photo_url?: string | null
+          hidden_by_admin?: boolean
+          hometown?: string | null
+          id?: string
+          jersey_number?: string | null
+          organization_id: string
+          position?: string | null
+          show_on_displays?: boolean
+          tagline?: string | null
+          updated_at?: string
+          user_id: string
+          years_playing?: number | null
+        }
+        Update: {
+          hero_photo_url?: string | null
+          hidden_by_admin?: boolean
+          hometown?: string | null
+          id?: string
+          jersey_number?: string | null
+          organization_id?: string
+          position?: string | null
+          show_on_displays?: boolean
+          tagline?: string | null
+          updated_at?: string
+          user_id?: string
+          years_playing?: number | null
+        }
+        Relationships: []
+      }
       player_consents: {
         Row: {
           consent_given: boolean

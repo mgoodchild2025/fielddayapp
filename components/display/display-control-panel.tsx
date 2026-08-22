@@ -6,7 +6,7 @@ import type { DisplayConfig, LayoutId, ZoneConfig } from '@/lib/display-types'
 import { ZONE_COUNT, ZONE_LABELS, defaultConfig, blankZone } from '@/lib/display-types'
 import {
   Calendar, Trophy, Target, QrCode, MessageSquare,
-  Clock, Palette, Radio, Megaphone, Square,
+  Clock, Palette, Radio, Megaphone, Square, Sparkles,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -58,6 +58,7 @@ const ZONE_TYPES: { value: ZoneConfig['type']; label: string; icon: LucideIcon }
   { value: 'logo',      label: 'Logo',        icon: Palette },
   { value: 'live',      label: 'Live Stream', icon: Radio },
   { value: 'sponsors',  label: 'Sponsors',    icon: Megaphone },
+  { value: 'showcase',  label: 'Showcase',    icon: Sparkles },
   { value: 'empty',     label: 'Empty',       icon: Square },
 ]
 
@@ -82,6 +83,7 @@ function ZoneEditor({
       case 'clock':     return { type }
       case 'logo':      return { type }
       case 'live':      return { type }
+      case 'showcase':  return { type, source: 'both' as const, transition: 'kenburns' as const, seconds: 8, order: 'shuffle' as const }
       case 'sponsors':  return { type }
       case 'empty':     return { type }
     }
@@ -230,6 +232,67 @@ function ZoneEditor({
               placeholder="Scan to sign waiver"
               className="w-full bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white placeholder-gray-500"
             />
+          </div>
+        </div>
+      )}
+
+      {zone.type === 'showcase' && (
+        <div className="space-y-2">
+          <div>
+            <label className="block text-xs text-gray-200 mb-1">Show</label>
+            <div className="flex gap-1.5">
+              {([
+                { value: 'bios', label: 'Player bios' },
+                { value: 'photos', label: 'Event photos' },
+                { value: 'both', label: 'Both' },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => onChange({ ...zone, source: opt.value })}
+                  className={`flex-1 rounded-md border px-2 py-1.5 text-xs ${
+                    zone.source === opt.value ? 'border-blue-400 bg-blue-500/20 text-white' : 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1">Bios rotate only players who opted in on their profile.</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="block text-xs text-gray-200 mb-1">Transition</label>
+              <select
+                value={zone.transition}
+                onChange={(e) => onChange({ ...zone, transition: e.target.value as 'fade' | 'slide' | 'kenburns' })}
+                className="w-full bg-gray-700 border border-gray-600 rounded-md px-2 py-1.5 text-sm text-white"
+              >
+                <option value="kenburns">Ken Burns</option>
+                <option value="fade">Crossfade</option>
+                <option value="slide">Slide</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-200 mb-1">Secs / slide</label>
+              <input
+                type="number" min={4} max={60}
+                value={zone.seconds}
+                onChange={(e) => onChange({ ...zone, seconds: Math.min(60, Math.max(4, parseInt(e.target.value) || 8)) })}
+                className="w-full bg-gray-700 border border-gray-600 rounded-md px-2 py-1.5 text-sm text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-200 mb-1">Order</label>
+              <select
+                value={zone.order}
+                onChange={(e) => onChange({ ...zone, order: e.target.value as 'shuffle' | 'newest' })}
+                className="w-full bg-gray-700 border border-gray-600 rounded-md px-2 py-1.5 text-sm text-white"
+              >
+                <option value="shuffle">Shuffled</option>
+                <option value="newest">Newest first</option>
+              </select>
+            </div>
           </div>
         </div>
       )}
