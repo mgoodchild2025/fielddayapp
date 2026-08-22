@@ -796,6 +796,9 @@ export default async function EventDetailPage({
         .select('id, scheduled_at, duration_minutes, capacity, location_override, notes, status, session_registrations(count)')
         .eq('league_id', league.id)
         .eq('organization_id', org.id)
+        // Count only live sign-ups — leaveSession cancels rows rather than
+        // deleting them, and an unfiltered embed counts the cancelled ones too.
+        .eq('session_registrations.status', 'registered')
         .gte('scheduled_at', new Date().toISOString())
         .order('scheduled_at', { ascending: true })
     : { data: null }

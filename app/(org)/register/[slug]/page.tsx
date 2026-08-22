@@ -112,6 +112,7 @@ export default async function RegisterLeaguePage({
         db.from('event_sessions')
           .select('id, scheduled_at, capacity, registered:session_registrations(count)')
           .eq('league_id', league.id).eq('organization_id', org.id).eq('status', 'open')
+          .eq('registered.status', 'registered')
           .gte('scheduled_at', new Date().toISOString()).order('scheduled_at', { ascending: true }).limit(20),
       ])
 
@@ -352,6 +353,7 @@ export default async function RegisterLeaguePage({
         .eq('league_id', league.id)
         .eq('organization_id', org.id)
         .eq('status', 'open')
+        .eq('registered.status', 'registered')
         .gte('scheduled_at', new Date().toISOString())
         .order('scheduled_at', { ascending: true })
         .limit(20)
