@@ -6,11 +6,9 @@ import { getHallOfChampions } from '@/lib/hall-of-champions'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { EventPodium } from '@/components/medals/event-podium'
+import { bannerTint } from '@/lib/banner-tints'
 
 export const metadata = { title: 'Hall of Champions' }
-
-/** Felt tints for the rafter banners — brand primary leads, classics follow. */
-const BANNER_TINTS = ['var(--brand-primary)', '#24406e', '#8c2f2b', '#2c5a41', '#5b3a6e']
 
 export default async function ChampionsPage() {
   const headersList = await headers()
@@ -48,13 +46,13 @@ export default async function ChampionsPage() {
             <div className="mt-8 overflow-x-auto rounded-xl border bg-white pb-6">
               <div className="h-1.5 bg-gray-300 shadow-sm" />
               <div className="flex gap-4 px-5" style={{ minWidth: 'max-content' }}>
-                {hall.banners.map((b, i) => (
+                {hall.banners.map((b) => (
                   <a
                     key={b.medalId}
                     href={`#event-${b.leagueId}`}
                     className="block w-36 shrink-0 px-3 pb-8 pt-4 text-center text-[#f5efdd] shadow-lg transition-transform hover:-translate-y-0.5"
                     style={{
-                      backgroundColor: BANNER_TINTS[i % BANNER_TINTS.length],
+                      backgroundColor: bannerTint(b.teamName, b.year),
                       clipPath: 'polygon(0 0, 100% 0, 100% 82%, 50% 100%, 0 82%)',
                     }}
                     title={`${b.teamName} — ${b.leagueName}`}

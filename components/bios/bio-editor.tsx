@@ -152,9 +152,10 @@ export function BioEditor({
         <label className="flex items-start gap-2 pt-1 cursor-pointer">
           <input type="checkbox" checked={showOnDisplays} onChange={(e) => setShowOnDisplays(e.target.checked)} className="mt-0.5 rounded" />
           <span className="text-sm text-gray-700">
-            <span className="font-medium">Show my card on event screens</span>
+            <span className="font-medium">Show my card on event screens &amp; my share link</span>
             <span className="block text-xs text-gray-500">
-              Event TVs can rotate through player cards. Off by default — your card only airs if you turn this on.
+              Event TVs can rotate through player cards, and your card&rsquo;s share link becomes viewable without
+              logging in. Off by default — neither happens unless you turn this on.
             </span>
           </span>
         </label>
