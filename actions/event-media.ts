@@ -7,6 +7,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { destroyAsset, archiveDownloadUrl } from '@/lib/cloudinary'
+import { sendSms } from '@/lib/twilio'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -153,8 +154,85 @@ export async function recordEventMediaUpload(input: z.infer<typeof recordSchema>
   })
   if (error) return { error: error.message }
 
+  // Alert admins that media is waiting (in-app + SMS). Fire-and-forget —
+  // never block or fail the upload on notification delivery.
+  notifyAdminsOfPendingMedia(db, { id: org.id, slug: org.slug }, parsed.data.leagueId, user.id).catch(() => {})
+
   revalidatePath(`/admin/events/${parsed.data.leagueId}/media`)
   return { error: null }
+}
+
+// ── Pending-media admin alerts ────────────────────────────────────────────────
+// One alert per admin per event, gated by READ STATE: while an admin still has
+// an unread "media pending" notification for this event, further uploads stay
+// quiet (a 20-photo burst = one ping, one text). Once they open it — the bell
+// link marks it read — the next upload alerts again. SMS goes only to admins
+// with a phone number on their profile, and only when a fresh in-app
+// notification was created, so texts can never outnumber bell items.
+
+async function notifyAdminsOfPendingMedia(
+  db: ReturnType<typeof createServiceRoleClient>,
+  org: { id: string; slug: string },
+  leagueId: string,
+  uploaderUserId: string
+): Promise<void> {
+  const [{ data: admins }, { data: league }] = await Promise.all([
+    db.from('org_members')
+      .select('user_id')
+      .eq('organization_id', org.id)
+      .in('role', ['org_admin', 'league_admin'])
+      .eq('status', 'active'),
+    db.from('leagues').select('name').eq('id', leagueId).maybeSingle(),
+  ])
+  const adminIds = (admins ?? [])
+    .map((a) => a.user_id as string)
+    .filter((id) => id && id !== uploaderUserId) // don't alert the admin who uploaded
+  if (adminIds.length === 0) return
+
+  const leagueName = league?.name ?? 'your event'
+  const path = `/admin/events/${leagueId}/media`
+  const absoluteUrl = `https://${org.slug}.${process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'}${path}`
+
+  // Which admins still have an unread alert for this event? They stay quiet.
+  const { data: unread } = await db
+    .from('notifications')
+    .select('user_id')
+    .in('user_id', adminIds)
+    .eq('organization_id', org.id)
+    .eq('type', 'media_pending')
+    .eq('data->>leagueId', leagueId)
+    .or('read.is.null,read.eq.false')
+  const quiet = new Set((unread ?? []).map((n) => n.user_id as string))
+  const toAlert = adminIds.filter((id) => !quiet.has(id))
+  if (toAlert.length === 0) return
+
+  await db.from('notifications').insert(
+    toAlert.map((userId) => ({
+      organization_id: org.id,
+      user_id: userId,
+      type: 'media_pending',
+      title: '📸 New media needs approval',
+      body: `${leagueName}: photos or videos are waiting for review.`,
+      data: { leagueId, href: path, link_label: 'Review media →' },
+    }))
+  )
+
+  // SMS the same set — only those with a phone on file
+  const { data: profiles } = await db
+    .from('profiles')
+    .select('id, phone')
+    .in('id', toAlert)
+    .not('phone', 'is', null)
+  await Promise.all(
+    (profiles ?? [])
+      .filter((p) => p.phone)
+      .map((p) =>
+        sendSms(
+          p.phone as string,
+          `Fieldday: new photos/videos are waiting for approval in ${leagueName}. Review: ${absoluteUrl}`
+        ).catch(() => ({ error: 'sms failed' }))
+      )
+  )
 }
 
 async function requireMediaAdmin(orgId: string) {

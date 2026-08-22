@@ -100,6 +100,9 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
             <ul className="divide-y max-h-96 overflow-y-auto">
               {notifications.map((n) => {
                 const acceptUrl = n.data?.accept_url as string | undefined
+                // Generic link support: any notification can carry data.href (+ link_label)
+                const genericHref = n.data?.href as string | undefined
+                const genericLabel = (n.data?.link_label as string | undefined) ?? 'View →'
                 const requestId = n.data?.request_id as string | undefined
                 const isJoinRequest = n.type === 'join_request' && requestId
                 const isActioning = actioningId === n.id
@@ -145,7 +148,7 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
                     ) : (
                       <div className="flex items-center justify-between mt-1.5">
                         <p className="text-[10px] text-gray-400">{relativeTime(n.created_at)}</p>
-                        {acceptUrl && (
+                        {acceptUrl ? (
                           <Link
                             href={acceptUrl}
                             onClick={() => setOpen(false)}
@@ -153,7 +156,19 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
                           >
                             View Invite →
                           </Link>
-                        )}
+                        ) : genericHref ? (
+                          <Link
+                            href={genericHref}
+                            onClick={() => {
+                              markNotificationRead(n.id)
+                              setNotifications((prev) => prev.filter((x) => x.id !== n.id))
+                              setOpen(false)
+                            }}
+                            className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+                          >
+                            {genericLabel}
+                          </Link>
+                        ) : null}
                       </div>
                     )}
                   </li>

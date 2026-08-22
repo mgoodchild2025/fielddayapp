@@ -152,6 +152,10 @@ All three accept a `notify: boolean` parameter. When `true` and the game has ass
 - Admin view: `AdminMedalsPanel` on the bracket page — every awarded medal with team, label, and recipient names, plus per-medal revoke.
 - Display: one shared `MedalCase` strip + celebration modal (`components/medals/medal-case.tsx`; confetti on the owner's first open per medal, localStorage-tracked, reduced-motion aware). Loaders in `lib/medal-queries.ts`. Surfaces: dashboard greeting strip, profile case grouped by year, team page shelf + roster mini-medals.
 
+## Pending-media admin alerts
+- Uploading event media (status 'pending') alerts org/league admins in-app + SMS with a link to `/admin/events/[id]/media` (`notifyAdminsOfPendingMedia` in `actions/event-media.ts`, fire-and-forget). **Read-state gated**: while an admin has an unread `media_pending` notification for that event, further uploads stay quiet — a 20-photo burst = one ping, one text; opening the bell link marks it read and re-arms. SMS only to admins with `profiles.phone`, and only when a fresh in-app notification was created. The uploader is never alerted about their own upload.
+- Notification bell supports generic links: `data.href` (+ optional `data.link_label`) renders a link that marks the notification read on click.
+
 ## Broadcast bios & the showcase display zone
 - `player_bios` (org+user unique): hero photo (falls back to `profiles.avatar_url`), number, position, hometown, years playing, 120-char tagline. **`show_on_displays` is opt-in, default off** — nobody rotates on a public TV who didn't ask to; `hidden_by_admin` lets admins pull a bio without deleting it (`setBioHidden`).
 - One card everywhere: `PlayerBioCard` (`components/bios/`) renders the TV lower-third at `size='md'|'tv'` — used by the profile editor's live preview (`BioEditor`), the team-page roster tap-a-name modal (`BioNameButton`), and the display showcase. Medal shelf comes from the trophy case.
