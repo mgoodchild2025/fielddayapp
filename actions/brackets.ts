@@ -1854,3 +1854,114 @@ export async function toggleMatchBye(input: {
   revalidatePath(`/admin/events/${input.leagueId}/bracket`)
   return { error: null }
 }
+
+// ══ Manual brackets M3: seat & advance without scores ═════════════════════════
+
+// ── declareMatchWinner ────────────────────────────────────────────────────────
+// Completes a match with NO score: a walkover, forfeit, coin toss, or simply
+// "the admin says so". The winner advances along the normal routes; scores stay
+// null, so the bracket shows the win without inventing a 1-0. Reversible via
+// clearBracketMatchResult.
+
+export async function declareMatchWinner(input: {
+  matchId: string
+  bracketId: string
+  leagueId: string
+  winnerTeamId: string
+}): Promise<{ error: string | null }> {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  const { data: match } = await db
+    .from('bracket_matches')
+    .select('id, status, is_bye, score1, score2, team1_id, team2_id')
+    .eq('id', input.matchId)
+    .eq('bracket_id', input.bracketId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (!match) return { error: 'Match not found' }
+  if (match.status === 'completed') return { error: 'This match already has a result. Clear it first.' }
+  if (match.is_bye) return { error: 'Byes advance on their own.' }
+  if (input.winnerTeamId !== match.team1_id && input.winnerTeamId !== match.team2_id) {
+    return { error: 'The winner must be one of the teams in this match.' }
+  }
+
+  const loserTeamId = input.winnerTeamId === match.team1_id ? match.team2_id : match.team1_id
+
+  const { error } = await db.from('bracket_matches')
+    .update({ winner_team_id: input.winnerTeamId, status: 'completed' })
+    .eq('id', match.id)
+  if (error) return { error: error.message }
+
+  await advanceWinner(db, org.id, input.bracketId, match.id, input.winnerTeamId)
+  if (loserTeamId) {
+    await advanceLoser(db, org.id, input.bracketId, match.id, loserTeamId)
+  }
+
+  revalidatePath(`/admin/events/${input.leagueId}/bracket`)
+  revalidatePath('/events/[slug]', 'page')
+  return { error: null }
+}
+
+// ── clearBracketMatchResult ───────────────────────────────────────────────────
+// Un-completes a match by id — the match-id analogue of
+// reverseBracketAdvancement (which is keyed by game_id and so never covered
+// matches without a scheduled game, declared winners included). Pulls the
+// advanced teams back out of unplayed downstream slots, then resets the match.
+
+export async function clearBracketMatchResult(input: {
+  matchId: string
+  bracketId: string
+  leagueId: string
+}): Promise<{ error: string | null }> {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  const { data: match } = await db
+    .from('bracket_matches')
+    .select('id, status, team1_id, team2_id, winner_team_id, winner_to_match_id, winner_to_slot, loser_to_match_id, loser_to_slot')
+    .eq('id', input.matchId)
+    .eq('bracket_id', input.bracketId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (!match) return { error: 'Match not found' }
+  if (match.status !== 'completed') return { error: 'This match has no result to clear.' }
+
+  // Block if a downstream match has already been played
+  const downstreamIds = [match.winner_to_match_id, match.loser_to_match_id].filter((x): x is string => !!x)
+  if (downstreamIds.length > 0) {
+    const { data: downstream } = await db
+      .from('bracket_matches')
+      .select('id, status')
+      .in('id', downstreamIds)
+    if ((downstream ?? []).some((m) => m.status === 'completed')) {
+      return { error: 'A later match has already been played. Clear that match first.' }
+    }
+  }
+
+  // Pull the winner/loser back out of the downstream slots
+  if (match.winner_to_match_id) {
+    const field = match.winner_to_slot === 1 ? 'team1_id' : 'team2_id'
+    await db.from('bracket_matches')
+      .update({ [field]: null, status: 'pending', winner_team_id: null } as TablesUpdate<'bracket_matches'>)
+      .eq('id', match.winner_to_match_id)
+  }
+  if (match.loser_to_match_id) {
+    const field = match.loser_to_slot === 1 ? 'team1_id' : 'team2_id'
+    await db.from('bracket_matches')
+      .update({ [field]: null, status: 'pending' } as TablesUpdate<'bracket_matches'>)
+      .eq('id', match.loser_to_match_id)
+  }
+
+  const { error } = await db.from('bracket_matches')
+    .update({
+      score1: null, score2: null, sets: null, winner_team_id: null,
+      status: match.team1_id && match.team2_id ? 'ready' : 'pending',
+    })
+    .eq('id', match.id)
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${input.leagueId}/bracket`)
+  revalidatePath('/events/[slug]', 'page')
+  return { error: null }
+}
