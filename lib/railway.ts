@@ -285,6 +285,47 @@ export async function getRailwayDomainStatus(railwayDomainId: string): Promise<R
 }
 
 /** Returns true if Railway API env vars are configured. */
+// ── Token diagnostic (super-admin settings) ───────────────────────────────────
+// A cheap authenticated query against the configured token: names the project
+// on success, reports exactly which env var / auth failure is wrong otherwise.
+// Runs in production where the real env values live — local sandboxes redact
+// secrets, so this page is the reliable way to verify a token rotation.
+
+export interface RailwayTokenStatus {
+  ok: boolean
+  detail: string
+}
+
+export async function checkRailwayToken(): Promise<RailwayTokenStatus> {
+  const cfg = getConfig()
+  if (!cfg) {
+    const missing = [
+      !process.env.RAILWAY_API_TOKEN && 'RAILWAY_API_TOKEN',
+      !process.env.RAILWAY_PROJECT_ID && 'RAILWAY_PROJECT_ID',
+      !process.env.RAILWAY_SERVICE_ID && 'RAILWAY_SERVICE_ID',
+      !process.env.RAILWAY_ENVIRONMENT_ID && 'RAILWAY_ENVIRONMENT_ID',
+    ].filter(Boolean).join(', ')
+    return { ok: false, detail: `Not configured — missing: ${missing}` }
+  }
+
+  const { data, errors } = await gql<{ project: { name: string } | null }>(
+    cfg.token,
+    `query CheckToken($id: String!) { project(id: $id) { name } }`,
+    { id: cfg.projectId },
+  )
+  if (data?.project?.name) {
+    return { ok: true, detail: `Token OK — project "${data.project.name}" reachable.` }
+  }
+  const reason = errors.join(' · ') || 'no project returned'
+  if (reason.toLowerCase().includes('not authorized')) {
+    return {
+      ok: false,
+      detail: 'Token rejected (Not Authorized) — it was revoked, or is a Project Token (this integration needs an ACCOUNT or WORKSPACE token, sent as a Bearer header). Create one in Railway → Account Settings → Tokens, scoped to the workspace that owns the Fieldday project.',
+    }
+  }
+  return { ok: false, detail: `Check failed: ${reason}` }
+}
+
 export function isRailwayConfigured(): boolean {
   return !!(
     process.env.RAILWAY_API_TOKEN &&
