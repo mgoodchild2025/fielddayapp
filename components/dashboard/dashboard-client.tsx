@@ -119,6 +119,8 @@ interface Props {
   /** My card (flip): bio front + career back. */
   myCardBio?: BioCardData | null
   myCareer?: PlayerCareer | null
+  /** Shareable card page for the signed-in player. */
+  myCardHref?: string | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -450,7 +452,7 @@ function SessionHero({ item, timezone }: { item: NextSessionItem; timezone: stri
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null }: Props) {
+export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null }: Props) {
   const [activeIdx, setActiveIdx] = useState(0)
 
   // RSVP state — only relevant when nextItem is a game
@@ -551,7 +553,14 @@ export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = 
         )}
         {myCardBio && (
           <div className="mt-4 max-w-md">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">My card</p>
+            <div className="mb-2 flex items-baseline justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">My card</p>
+              {myCardHref && (
+                <Link href={myCardHref} className="text-xs font-medium text-gray-400 hover:text-gray-600">
+                  View &amp; share →
+                </Link>
+              )}
+            </div>
             <BioFlipCard bio={myCardBio} career={myCareer} />
           </div>
         )}

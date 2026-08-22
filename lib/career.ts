@@ -34,6 +34,8 @@ export interface PlayerCareer {
   /** One table per sport played (most rec players have exactly one). */
   tables: CareerSportTable[]
   seasonCount: number
+  /** Gold within the last year on a team the player was on — drives the foil. */
+  reigningChampion?: boolean
 }
 
 const MEDAL_GLYPH: Record<string, string> = {
@@ -131,7 +133,7 @@ export async function getPlayerCareer(db: Db, orgId: string, userId: string): Pr
       .eq('user_id', userId)
       .in('league_id', leagueIds),
     db.from('medals')
-      .select('league_id, team_id, placement')
+      .select('league_id, team_id, placement, awarded_at')
       .eq('organization_id', orgId)
       .in('league_id', leagueIds),
     Promise.all(sports.map(async (sport) => ({ sport, defs: await getStatDefinitions(orgId, sport) }))),
@@ -153,5 +155,15 @@ export async function getPlayerCareer(db: Db, orgId: string, userId: string): Pr
     statDefsList.map(({ sport, defs }) => [sport, defs.map((d) => ({ key: d.key, label: d.label }))])
   )
 
-  return buildCareer({ memberships, statsByLeague, medalByLeagueTeam, statDefsBySport })
+  const career = buildCareer({ memberships, statsByLeague, medalByLeagueTeam, statDefsBySport })
+
+  // Reigning champion: a gold in the last 365 days on a team the player was on
+  const myTeamKeys = new Set(memberships.map((m) => `${m.leagueId}:${m.teamId}`))
+  const yearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000
+  career.reigningChampion = (medalRows ?? []).some((m) =>
+    m.placement === 'gold' &&
+    m.team_id && myTeamKeys.has(`${m.league_id}:${m.team_id}`) &&
+    m.awarded_at && new Date(m.awarded_at).getTime() >= yearAgo
+  )
+  return career
 }
