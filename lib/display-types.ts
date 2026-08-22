@@ -24,7 +24,7 @@ export type ZoneConfig =
   | { type: 'logo' }
   | { type: 'live' }
   | { type: 'sponsors' }
-  | { type: 'showcase'; source: 'bios' | 'photos' | 'both'; transition: 'fade' | 'slide' | 'kenburns'; seconds: number; order: 'shuffle' | 'newest'; lineups?: boolean }
+  | { type: 'showcase'; source: 'bios' | 'photos' | 'both' | 'banners'; transition: 'fade' | 'slide' | 'kenburns'; seconds: number; order: 'shuffle' | 'newest'; lineups?: boolean }
   | { type: 'empty' }
 
 export interface SponsorBannerConfig {
@@ -193,6 +193,8 @@ export interface DisplayData {
       champion: { placement: 'gold' | 'silver' | 'bronze' | 'tier_champion'; label: string } | null
     }[]
     photos: { url: string; caption: string | null }[]
+    /** Championship banners (org-wide golds) for the 'banners' source. */
+    banners: { year: string; teamName: string; leagueName: string }[]
     /** Next scheduled game with both teams set — drives starting-lineup intros. */
     nextGame: {
       homeTeamId: string; homeTeamName: string

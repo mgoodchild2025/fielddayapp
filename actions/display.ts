@@ -428,11 +428,28 @@ export async function getDisplayData(
   // (show_on_displays) and aren't admin-hidden. Photos: the event's approved
   // gallery. Both re-read on the display's refresh cycle, so a photo approved
   // courtside joins the rotation within a minute.
-  const showcase: DisplayData['showcase'] = { bios: [], photos: [], nextGame: null }
+  const showcase: DisplayData['showcase'] = { bios: [], photos: [], banners: [], nextGame: null }
   if (needsShowcase) {
     const showcaseZone = config.zones.find((z) => z.type === 'showcase') as Extract<ZoneConfig, { type: 'showcase' }> | undefined
-    const wantBios = showcaseZone?.source !== 'photos'
-    const wantPhotos = showcaseZone?.source !== 'bios'
+    const wantBanners = showcaseZone?.source === 'banners'
+    const wantBios = !wantBanners && showcaseZone?.source !== 'photos'
+    const wantPhotos = !wantBanners && showcaseZone?.source !== 'bios'
+
+    if (wantBanners) {
+      // The Hall of Champions on the gym TV: org-wide golds, newest first
+      const { data: golds } = await db
+        .from('medals')
+        .select('team_name, league_name, awarded_at')
+        .eq('organization_id', orgId)
+        .eq('placement', 'gold')
+        .order('awarded_at', { ascending: false })
+        .limit(40)
+      showcase.banners = (golds ?? []).map((m) => ({
+        year: String(new Date(m.awarded_at).getFullYear()),
+        teamName: m.team_name,
+        leagueName: m.league_name,
+      }))
+    }
 
     if (wantPhotos) {
       const { data: media } = await db
