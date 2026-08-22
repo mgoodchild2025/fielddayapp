@@ -390,13 +390,22 @@ export default async function TeamDetailPage({
         )}
 
         {/* Team schedule + calendar subscription — all team members */}
-        <Link
-          href={`/teams/${teamId}/schedule`}
-          className="mt-4 w-full py-2 rounded-md text-sm font-medium border hover:bg-gray-50 transition-colors text-gray-600 flex items-center justify-center gap-2"
-        >
-          <CalendarDays className="w-4 h-4" />
-          Team Schedule
-        </Link>
+        <div className="mt-4 flex gap-2">
+          <Link
+            href={`/teams/${teamId}/schedule`}
+            className="flex-1 py-2 rounded-md text-sm font-medium border hover:bg-gray-50 transition-colors text-gray-600 flex items-center justify-center gap-2"
+          >
+            <CalendarDays className="w-4 h-4" />
+            Team Schedule
+          </Link>
+          <Link
+            href={`/teams/${teamId}/cards`}
+            className="flex-1 py-2 rounded-md text-sm font-medium border hover:bg-gray-50 transition-colors text-gray-600 flex items-center justify-center gap-2"
+            title="The roster as flippable player cards"
+          >
+            🃏 Card Binder
+          </Link>
+        </div>
         {calendarToken && (
           <CalendarSubscribeButton
             teamId={teamId}

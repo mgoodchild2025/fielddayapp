@@ -693,6 +693,7 @@ export default async function DashboardPage() {
           medals={myMedals}
           myCardBio={myCardBio}
           myCareer={myCareer}
+          myCardHref={`/players/${user.id}/card`}
           timezone={timezone}
           nextItem={nextItem}
           sameDayGames={sameDayGames}
