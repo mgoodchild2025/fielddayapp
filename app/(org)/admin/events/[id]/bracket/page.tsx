@@ -130,6 +130,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
       winner_to_slot: number | null;
       loser_to_match_id: string | null;
       loser_to_slot: number | null;
+      medal_match?: string | null;
       scheduled_at: string | null; court: string | null; notes: string | null;
       game_id: string | null;
     }[]
@@ -167,6 +168,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
         winnerToSlot: m.winner_to_slot ?? null,
         loserToMatchId: m.loser_to_match_id ?? null,
         loserToSlot: m.loser_to_slot ?? null,
+        medalMatch: (m.medal_match as 'gold' | 'bronze' | null) ?? null,
         gameId: m.game_id ?? null,
       })),
     }
@@ -216,7 +218,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
             team1_id, team2_id, team1_label, team2_label,
             team1_seed, team2_seed,
             is_bye, winner_team_id, score1, score2, sets, status,
-            winner_to_match_id, winner_to_slot, loser_to_match_id, loser_to_slot, scheduled_at, court, notes, game_id
+            winner_to_match_id, winner_to_slot, loser_to_match_id, loser_to_slot, medal_match, scheduled_at, court, notes, game_id
           )
         `)
         .in('id', bracketIds)

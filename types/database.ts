@@ -206,6 +206,7 @@ export type Database = {
           loser_to_match_id: string | null
           loser_to_slot: number | null
           match_number: number
+          medal_match: string | null
           notes: string | null
           organization_id: string
           round_number: number
@@ -234,6 +235,7 @@ export type Database = {
           loser_to_match_id?: string | null
           loser_to_slot?: number | null
           match_number: number
+          medal_match?: string | null
           notes?: string | null
           organization_id: string
           round_number: number
@@ -262,6 +264,7 @@ export type Database = {
           loser_to_match_id?: string | null
           loser_to_slot?: number | null
           match_number?: number
+          medal_match?: string | null
           notes?: string | null
           organization_id?: string
           round_number?: number

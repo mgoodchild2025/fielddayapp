@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Pencil, Check } from 'lucide-react'
 import {
   addBracketMatch, deleteBracketMatch, addBracketRound, deleteBracketRound,
-  renameBracketRound, toggleMatchBye,
+  renameBracketRound, toggleMatchBye, setMatchMedal,
 } from '@/actions/brackets'
 import { roundDisplayName } from '@/lib/bracket'
 import type { BracketData } from './bracket-view'
@@ -103,6 +103,30 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
                 {roundMatches.map((m) => (
                   <span key={m.id} className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] ${m.status === 'completed' ? 'border-gray-200 bg-gray-100 text-gray-400' : 'border-gray-200 text-gray-600'}`}>
                     M{m.matchNumber}
+                    {!m.isBye && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => run(() => setMatchMedal({ matchId: m.id, bracketId: bracket.id, leagueId, medal: m.medalMatch === 'gold' ? null : 'gold' }))}
+                          disabled={isPending}
+                          className={m.medalMatch === 'gold' ? '' : 'opacity-25 grayscale hover:opacity-75 hover:grayscale-0'}
+                          title={m.medalMatch === 'gold' ? 'Unmark as the gold medal match' : 'Mark as the gold medal match — winner takes gold, loser takes silver'}
+                          aria-label={`Toggle gold medal match on match ${m.matchNumber}`}
+                        >
+                          🥇
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => run(() => setMatchMedal({ matchId: m.id, bracketId: bracket.id, leagueId, medal: m.medalMatch === 'bronze' ? null : 'bronze' }))}
+                          disabled={isPending}
+                          className={m.medalMatch === 'bronze' ? '' : 'opacity-25 grayscale hover:opacity-75 hover:grayscale-0'}
+                          title={m.medalMatch === 'bronze' ? 'Unmark as the bronze medal match' : 'Mark as the bronze medal match — winner takes bronze'}
+                          aria-label={`Toggle bronze medal match on match ${m.matchNumber}`}
+                        >
+                          🥉
+                        </button>
+                      </>
+                    )}
                     {m.status !== 'completed' && (
                       <>
                         <button
