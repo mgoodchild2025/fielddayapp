@@ -137,7 +137,7 @@ export function ShowcaseZone({
 
   if (playlist.length === 0) {
     return (
-      <div className={`flex h-full items-center justify-center text-sm ${theme === 'dark' ? 'text-white/40' : 'text-gray-400'}`}>
+      <div className={`flex h-full items-center justify-center text-sm ${theme === 'dark' ? 'text-white/70' : 'text-gray-500'}`}>
         Nothing to showcase yet — approve event photos or have players opt in their bio cards.
       </div>
     )
@@ -174,17 +174,17 @@ export function ShowcaseZone({
       >
         {slide.kind === 'matchup' ? (
           <div className="flex h-full flex-col items-center justify-center gap-6 p-[6%] text-center text-white">
-            <p className="showcase-anim font-mono text-lg uppercase tracking-[.3em] text-white/60"
+            <p className="showcase-anim font-mono text-lg uppercase tracking-[.3em] text-white/80"
                style={{ animation: 'showcase-chyron .6s ease-out .2s both' }}>
               Up Next
             </p>
             <p className="showcase-anim text-6xl font-bold uppercase leading-tight"
                style={{ fontFamily: 'var(--brand-heading-font)', animation: 'showcase-chyron .7s ease-out .4s both' }}>
               {slide.game.homeTeamName}
-              <span className="mx-5 text-white/40">vs</span>
+              <span className="mx-5 text-white/60">vs</span>
               {slide.game.awayTeamName}
             </p>
-            <p className="showcase-anim text-2xl uppercase tracking-wide text-white/70"
+            <p className="showcase-anim text-2xl uppercase tracking-wide text-white/85"
                style={{ animation: 'showcase-chyron .7s ease-out .6s both' }}>
               {new Date(slide.game.scheduledAt).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone: timezone })}
               {slide.game.court ? ` · Court ${slide.game.court}` : ''}

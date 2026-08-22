@@ -19,7 +19,7 @@ export function MessageZone({ config, theme }: Props) {
   return (
     <div className="flex flex-col items-center justify-center h-full px-10 text-center gap-6">
       {config.title && (
-        <p className={`text-sm font-bold uppercase tracking-widest ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
+        <p className={`text-sm font-bold uppercase tracking-widest ${isDark ? 'text-zinc-300' : 'text-gray-600'}`}>
           {config.title}
         </p>
       )}

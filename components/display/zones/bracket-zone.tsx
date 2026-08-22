@@ -394,11 +394,11 @@ export function BracketZone({ bracket, config, theme, timezone }: Props) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
         <div className={`px-4 py-2 shrink-0 border-b ${isDark ? 'border-zinc-700' : 'border-gray-200'}`}>
-          <h2 className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
+          <h2 className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-zinc-300' : 'text-gray-600'}`}>
             Bracket
           </h2>
         </div>
-        <div className={`flex items-center justify-center flex-1 text-lg ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
+        <div className={`flex items-center justify-center flex-1 text-lg ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
           Bracket not yet available
         </div>
       </div>
@@ -414,7 +414,7 @@ export function BracketZone({ bracket, config, theme, timezone }: Props) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className={`px-4 py-2 shrink-0 border-b ${isDark ? 'border-zinc-700' : 'border-gray-200'}`}>
-        <h2 className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
+        <h2 className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-zinc-300' : 'text-gray-600'}`}>
           {headerText}
         </h2>
       </div>

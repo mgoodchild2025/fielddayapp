@@ -70,20 +70,20 @@ export function StandingsZone({ standings, poolStandings = [], config, theme, po
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className={`px-4 py-2 shrink-0 border-b ${isDark ? 'border-zinc-700' : 'border-gray-200'}`}>
-        <h2 className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
+        <h2 className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-zinc-300' : 'text-gray-600'}`}>
           {headerText}
         </h2>
       </div>
 
       {ranked.length === 0 ? (
-        <div className={`flex items-center justify-center flex-1 text-lg ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
+        <div className={`flex items-center justify-center flex-1 text-lg ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
           No standings yet
         </div>
       ) : (
         <FitContent>
           <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className={`text-xs ${isDark ? 'text-zinc-500 border-zinc-700' : 'text-gray-400 border-gray-200'} border-b`}>
+              <tr className={`text-xs ${isDark ? 'text-zinc-400 border-zinc-700' : 'text-gray-500 border-gray-200'} border-b`}>
                 <th className="px-3 py-1.5 text-left w-8">#</th>
                 <th className="px-2 py-1.5 text-left">Team</th>
                 {columns.map((c) => (
@@ -107,7 +107,7 @@ export function StandingsZone({ standings, poolStandings = [], config, theme, po
                       s.rank === 1 ? 'text-amber-400' :
                       s.rank === 2 ? 'text-zinc-300' :
                       s.rank === 3 ? 'text-amber-600' :
-                      isDark ? 'text-zinc-500' : 'text-gray-400'
+                      isDark ? 'text-zinc-400' : 'text-gray-500'
                     }`}>
                       {s.rank}
                     </td>
@@ -123,7 +123,7 @@ export function StandingsZone({ standings, poolStandings = [], config, theme, po
                         className={`px-3 py-2 text-center tabular-nums ${
                           c.emphasis
                             ? `font-bold ${isDark ? 'text-white' : 'text-gray-900'}`
-                            : isDark ? 'text-zinc-400' : 'text-gray-500'
+                            : isDark ? 'text-zinc-300' : 'text-gray-600'
                         }`}
                       >
                         {c.value(stat, s.rank)}

@@ -36,13 +36,13 @@ export function ScheduleZone({ games, config, timezone, theme, pools }: Props) {
     <div className="flex flex-col h-full overflow-hidden">
       {/* Zone header */}
       <div className={`px-4 py-2 shrink-0 border-b ${isDark ? 'border-zinc-700' : 'border-gray-200'}`}>
-        <h2 className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
+        <h2 className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-zinc-300' : 'text-gray-600'}`}>
           {headerText}
         </h2>
       </div>
 
       {visible.length === 0 ? (
-        <div className={`flex items-center justify-center flex-1 text-lg ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
+        <div className={`flex items-center justify-center flex-1 text-lg ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
           No games scheduled
         </div>
       ) : (

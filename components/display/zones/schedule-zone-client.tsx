@@ -262,7 +262,7 @@ export function ScheduleClient({ games, timezone, isDark, scrollSpeed }: Props) 
               padding: '7px 14px', gap: 10,
               borderBottom: `1px solid ${border}`,
               backgroundColor: isCurrent ? currBg : isNext ? nextBg : 'transparent',
-              opacity: muted ? 0.38 : 1,
+              opacity: muted ? 0.55 : 1,
             }}>
 
               {/* Court — only rendered when at least one game has a court */}
