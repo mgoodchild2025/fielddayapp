@@ -148,6 +148,7 @@ All three accept a `notify: boolean` parameter. When `true` and the game has ass
 - Medals are **awarded and frozen**, never derived at page load: `medals` (league/team-name snapshots, placement `gold|silver|bronze|tier_champion`, label, deciding match) + `medal_recipients` (roster snapshot at award time — user_id nullable so the row survives account deletion).
 - Pure derivation in `lib/medals.ts` (tested): explicit medal matches win; else SE final/3rd-place, DE grand-final/LB-final conventions. First tier awards the podium, later tiers award "{Tier} Champion".
 - `awardLeagueMedals` (actions/medals.ts) is idempotent (replaces the league's medals; notifies recipients first-time-only); auto-runs when `updateLeagueStatus` hits 'completed'; "🏅 Award Medals" in the bracket page ⋯-menu re-runs after corrections. `backfillOrgMedals` (button on Admin → Events) sweeps completed/archived events.
+- Admin view: `AdminMedalsPanel` on the bracket page — every awarded medal with team, label, and recipient names, plus per-medal revoke.
 - Display: one shared `MedalCase` strip + celebration modal (`components/medals/medal-case.tsx`; confetti on the owner's first open per medal, localStorage-tracked, reduced-motion aware). Loaders in `lib/medal-queries.ts`. Surfaces: dashboard greeting strip, profile case grouped by year, team page shelf + roster mini-medals.
 
 ## Drop-in registration modes & season-pass proration
