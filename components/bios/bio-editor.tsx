@@ -2,7 +2,9 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { saveMyBio, uploadBioPhoto } from '@/actions/player-bios'
-import { PlayerBioCard, type BioCardData } from './player-bio-card'
+import { type BioCardData } from './player-bio-card'
+import { BioFlipCard } from './bio-flip-card'
+import type { PlayerCareer } from '@/lib/career'
 
 /**
  * "My bio card" (S1): the player edits the exact card the TV will show —
@@ -25,12 +27,15 @@ export function BioEditor({
   avatarUrl,
   medalShelf,
   positions,
+  career = null,
 }: {
   initial: BioEditorInitial
   playerName: string
   avatarUrl: string | null
   medalShelf: string | null
   positions: string[]
+  /** Career record for the card back — the preview flips like the real card. */
+  career?: PlayerCareer | null
 }) {
   const [isPending, startTransition] = useTransition()
   const [saved, setSaved] = useState(false)
@@ -93,9 +98,9 @@ export function BioEditor({
         <p className="text-xs text-gray-400 mt-0.5">The card shown when someone taps your name — and on event screens, if you opt in.</p>
       </div>
 
-      {/* Live preview — dark, like the TV */}
-      <div className="bg-gray-900 px-5 py-6">
-        <PlayerBioCard bio={preview} />
+      {/* Live preview — the real card: dark like the TV, flippable like the modal */}
+      <div className="bg-gray-800/60 px-5 py-5">
+        <BioFlipCard bio={preview} career={career} />
       </div>
 
       <div className="p-5 space-y-3">
