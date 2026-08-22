@@ -45,6 +45,8 @@ export interface BracketMatchData {
   loserToMatchId: string | null
   /** Slot (1 or 2) the loser fills in loserToMatchId. Populated on the admin bracket page. */
   loserToSlot?: number | null
+  /** Marks the match that decides gold (winner=gold, loser=silver) or bronze (winner=bronze). */
+  medalMatch?: 'gold' | 'bronze' | null
   gameId: string | null
 }
 
@@ -328,6 +330,15 @@ function MatchCard({
   // Declared result: completed with no score recorded (walkover / admin call)
   const isDeclared = isCompleted && match.score1 === null && match.score2 === null
 
+  // Medal matches: gold decides 1st/2nd, bronze decides 3rd. Trophies appear
+  // once the match is completed.
+  const medalFor = (teamId: string | null): string => {
+    if (!isCompleted || !match.medalMatch || !teamId || !match.winnerTeamId) return ''
+    const won = match.winnerTeamId === teamId
+    if (match.medalMatch === 'gold') return won ? ' 🥇' : ' 🥈'
+    return won ? ' 🥉' : ''
+  }
+
   function runManual(action: () => Promise<{ error: string | null }>) {
     setManualErr(null)
     startManualTransition(async () => {
@@ -378,8 +389,14 @@ function MatchCard({
       <div className={`w-52 rounded-lg border bg-white text-sm shadow-sm ${
         isCompleted ? 'opacity-90' : isTbd ? 'opacity-50' : ''
       }`}>
-        {(match.court || match.scheduledAt) && (
-          <div className="px-3 pt-2 text-[10px] text-gray-400 flex items-center gap-1.5">
+        {(match.court || match.scheduledAt || match.medalMatch) && (
+          <div className="px-3 pt-2 text-[10px] text-gray-400 flex items-center gap-1.5 flex-wrap">
+            {match.medalMatch && (
+              <span className={`font-semibold uppercase tracking-wide ${match.medalMatch === 'gold' ? 'text-amber-600' : 'text-orange-700'}`}>
+                {match.medalMatch === 'gold' ? '🥇 Gold Medal Match' : '🥉 Bronze Medal Match'}
+              </span>
+            )}
+            {match.medalMatch && (match.court || match.scheduledAt) && <span>·</span>}
             {match.court && <span>Court {match.court}</span>}
             {match.court && match.scheduledAt && <span>·</span>}
             {match.scheduledAt && (
@@ -416,7 +433,7 @@ function MatchCard({
                 slotPicker(1)
               ) : (
                 <span className={`truncate font-medium ${isCompleted && match.winnerTeamId === match.team1Id ? 'text-green-700' : isTbd ? 'text-gray-400' : ''}`}>
-                  {match.team1Name ?? match.team1Label ?? 'TBD'}
+                  {match.team1Name ?? match.team1Label ?? 'TBD'}{medalFor(match.team1Id)}
                 </span>
               )}
             </div>
@@ -456,7 +473,7 @@ function MatchCard({
                   isCompleted && match.winnerTeamId === match.team2Id ? 'text-green-700' :
                   isTbd ? 'text-gray-400' : ''
                 }`}>
-                  {isBye ? 'Bye' : (match.team2Name ?? match.team2Label ?? 'TBD')}
+                  {isBye ? 'Bye' : (match.team2Name ?? match.team2Label ?? 'TBD')}{medalFor(match.team2Id)}
                 </span>
               )}
             </div>
@@ -859,8 +876,14 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezon
     return rounds.length > 0 ? lbMatches.filter((m) => m.roundNumber === rounds[0]).length : 1
   })()
 
-  // Champion callout: different for SE vs DE
+  // Champion callout: different for SE vs DE. A gold medal match, when marked
+  // (hand-built brackets), is the title decider regardless of round numbers.
+  const goldMatch = bracket.matches.find((m) => m.medalMatch === 'gold')
   const champion = (() => {
+    if (goldMatch) {
+      if (!goldMatch.winnerTeamId) return null
+      return goldMatch.winnerTeamId === goldMatch.team1Id ? goldMatch.team1Name : goldMatch.team2Name
+    }
     if (isDE) {
       if (!gfMatch?.winnerTeamId) return null
       return gfMatch.winnerTeamId === gfMatch.team1Id ? gfMatch.team1Name : gfMatch.team2Name
@@ -868,6 +891,18 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezon
     const final = bracket.matches.find((m) => m.roundNumber === 1 && m.matchNumber === 1)
     if (!final?.winnerTeamId) return null
     return final.winnerTeamId === final.team1Id ? final.team1Name : final.team2Name
+  })()
+
+  // Podium: assembled from the medal matches once they complete.
+  const bronzeMatch = bracket.matches.find((m) => m.medalMatch === 'bronze')
+  const podium = (() => {
+    if (!goldMatch?.winnerTeamId) return null
+    const gold = goldMatch.winnerTeamId === goldMatch.team1Id ? goldMatch.team1Name : goldMatch.team2Name
+    const silver = goldMatch.winnerTeamId === goldMatch.team1Id ? goldMatch.team2Name : goldMatch.team1Name
+    const bronze = bronzeMatch?.winnerTeamId
+      ? (bronzeMatch.winnerTeamId === bronzeMatch.team1Id ? bronzeMatch.team1Name : bronzeMatch.team2Name)
+      : null
+    return { gold, silver, bronze }
   })()
 
   // All-play / 6-team best loser panel
@@ -1180,6 +1215,15 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezon
               <p className="text-2xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)', color: 'var(--brand-primary)' }}>
                 🏆 {champion}
               </p>
+            </div>
+          )}
+
+          {/* Podium — brackets with medal matches, once the gold match is decided */}
+          {podium && (
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+              <span className="text-sm font-semibold text-amber-600">🥇 {podium.gold}</span>
+              <span className="text-sm font-semibold text-gray-500">🥈 {podium.silver}</span>
+              {podium.bronze && <span className="text-sm font-semibold text-orange-700">🥉 {podium.bronze}</span>}
             </div>
           )}
         </div>

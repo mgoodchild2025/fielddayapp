@@ -1420,7 +1420,7 @@ export default async function EventDetailPage({
           team1_id, team2_id, team1_label, team2_label,
           team1_seed, team2_seed,
           is_bye, winner_team_id, score1, score2, sets, status,
-          winner_to_match_id, scheduled_at, court, notes
+          winner_to_match_id, medal_match, scheduled_at, court, notes
         )
       `)
       .eq('league_id', league.id)
@@ -1453,7 +1453,7 @@ export default async function EventDetailPage({
           team1_seed: number|null; team2_seed: number|null;
           is_bye: boolean; winner_team_id: string|null; score1: number|null; score2: number|null;
           sets?: {s1:number;s2:number}[]|null;
-          status: string; winner_to_match_id: string|null; scheduled_at: string|null; court: string|null; notes: string|null;
+          status: string; winner_to_match_id: string|null; medal_match?: string|null; scheduled_at: string|null; court: string|null; notes: string|null;
         }): BracketMatchData => ({
           id: m.id,
           roundNumber: m.round_number,
@@ -1477,6 +1477,7 @@ export default async function EventDetailPage({
           notes: m.notes,
           winnerToMatchId: m.winner_to_match_id,
           loserToMatchId: null,
+          medalMatch: (m.medal_match as 'gold' | 'bronze' | null) ?? null,
           gameId: null,
         })),
       }))

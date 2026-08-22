@@ -1965,3 +1965,47 @@ export async function clearBracketMatchResult(input: {
   revalidatePath('/events/[slug]', 'page')
   return { error: null }
 }
+
+// ── setMatchMedal ─────────────────────────────────────────────────────────────
+// Marks a match as the gold or bronze medal match (null clears). Move
+// semantics: assigning a medal takes it from whichever match held it — a
+// bracket decides each medal exactly once (also DB-enforced by a partial
+// unique index).
+
+export async function setMatchMedal(input: {
+  matchId: string
+  bracketId: string
+  leagueId: string
+  medal: 'gold' | 'bronze' | null
+}): Promise<{ error: string | null }> {
+  const org = await getOrgAndRequireAdmin()
+  const db = createServiceRoleClient()
+
+  const { data: match } = await db
+    .from('bracket_matches')
+    .select('id, is_bye, medal_match')
+    .eq('id', input.matchId)
+    .eq('bracket_id', input.bracketId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (!match) return { error: 'Match not found' }
+  if (input.medal && match.is_bye) return { error: 'A bye cannot be a medal match.' }
+
+  if (input.medal) {
+    // Take the medal from any other match in this bracket first
+    await db.from('bracket_matches')
+      .update({ medal_match: null })
+      .eq('bracket_id', input.bracketId)
+      .eq('medal_match', input.medal)
+      .neq('id', match.id)
+  }
+
+  const { error } = await db.from('bracket_matches')
+    .update({ medal_match: input.medal })
+    .eq('id', match.id)
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${input.leagueId}/bracket`)
+  revalidatePath('/events/[slug]', 'page')
+  return { error: null }
+}
