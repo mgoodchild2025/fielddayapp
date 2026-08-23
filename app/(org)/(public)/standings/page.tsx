@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
+import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
@@ -17,6 +18,9 @@ export default async function StandingsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   type ActiveLeague = {
     id: string
@@ -35,18 +39,58 @@ export default async function StandingsPage() {
       .eq('organization_id', org.id)
       .single(),
 
+    // Only standings-CAPABLE events: the event page builds a standings tab for
+    // leagues and tournaments only (isTeamBased). Drop-in and pickup events have
+    // no standings, so offering them here sent players to an unrelated overview.
     db
       .from('leagues')
       .select('id, name, slug, event_type, status, season_start_date')
       .eq('organization_id', org.id)
       .eq('status', 'active')
+      .in('event_type', ['league', 'tournament'])
       .order('season_start_date', { ascending: true }),
   ])
 
-  const activeLeagues = (leaguesRaw ?? []) as ActiveLeague[]
+  const standingsLeagues = (leaguesRaw ?? []) as ActiveLeague[]
 
-  // If exactly one active league, skip the picker and go straight to standings
-  if (activeLeagues.length === 1) {
+  // Prefer the player's OWN events. Landing someone in an event they have no
+  // relationship with is the bug this page had; a single unrelated event is
+  // still offered as a card, never as an automatic redirect.
+  let myLeagueIds = new Set<string>()
+  if (user && standingsLeagues.length > 0) {
+    const leagueIds = standingsLeagues.map((l) => l.id)
+    const [{ data: regs }, { data: memberships }] = await Promise.all([
+      db.from('registrations')
+        .select('league_id')
+        .eq('organization_id', org.id)
+        .eq('user_id', user.id)
+        .in('status', ['active', 'pending'])
+        .in('league_id', leagueIds),
+      db.from('team_members')
+        .select('team:teams!team_members_team_id_fkey(league_id)')
+        .eq('organization_id', org.id)
+        .eq('user_id', user.id)
+        .eq('status', 'active'),
+    ])
+    myLeagueIds = new Set<string>([
+      ...((regs ?? []).map((r) => r.league_id as string)),
+      ...((memberships ?? []).flatMap((m) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const team = Array.isArray(m.team) ? m.team[0] : m.team as any
+        return team?.league_id ? [team.league_id as string] : []
+      })),
+    ])
+  }
+
+  const myLeagues = standingsLeagues.filter((l) => myLeagueIds.has(l.id))
+  // Show the player's own events when they have any; otherwise everything
+  // standings-capable (a visitor with no events still gets the full list).
+  const activeLeagues = myLeagues.length > 0 ? myLeagues : standingsLeagues
+  const showingMine = myLeagues.length > 0
+
+  // Skip the picker only when there's exactly one — and never redirect a
+  // signed-in player into an event that isn't theirs.
+  if (activeLeagues.length === 1 && (showingMine || !user)) {
     redirect(`/events/${activeLeagues[0].slug}?tab=standings`)
   }
 
@@ -77,7 +121,9 @@ export default async function StandingsPage() {
             Standings
           </h1>
           {activeLeagues.length > 0 && (
-            <p className="mt-1 text-white/60 text-sm">Select a league or tournament</p>
+            <p className="mt-1 text-white/60 text-sm">
+              {showingMine ? 'Your leagues and tournaments' : 'Select a league or tournament'}
+            </p>
           )}
         </div>
       </div>
@@ -86,8 +132,10 @@ export default async function StandingsPage() {
       <div className="flex-1 max-w-5xl mx-auto w-full px-6 py-10">
         {activeLeagues.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-gray-400 text-lg">No active leagues right now.</p>
-            <p className="text-gray-300 text-sm mt-1">Check back once the season is underway.</p>
+            <p className="text-gray-400 text-lg">No standings yet.</p>
+            <p className="text-gray-300 text-sm mt-1">
+              Standings appear once a league or tournament is under way.
+            </p>
             <Link
               href="/events"
               className="inline-block mt-6 px-5 py-2.5 rounded text-sm font-semibold text-white transition-opacity hover:opacity-90"
