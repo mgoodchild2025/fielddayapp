@@ -158,13 +158,46 @@ export default async function DashboardPage() {
     })
     .filter((m) => m.team && m.league && ['active', 'registration_open'].includes(m.league.status ?? ''))
 
-  // ── If no active teams and no sessions, render minimal empty state ────────
+  // ── Identity: trophy case + card — rendered in BOTH paths. A player with
+  // nothing scheduled still has a career; the off-season dashboard keeps it.
+  const myMedals = await getPlayerMedals(db, org.id, user.id)
+  const [{ data: myBioRow }, myCareer] = await Promise.all([
+    db.from('player_bios')
+      .select('hero_photo_url, jersey_number, position, hometown, years_playing, tagline, hidden_by_admin')
+      .eq('organization_id', org.id).eq('user_id', user.id).maybeSingle(),
+    getPlayerCareer(db, org.id, user.id),
+  ])
+  const shelfCounts = myMedals.reduce(
+    (acc, m) => { acc[m.placement] = (acc[m.placement] ?? 0) + 1; return acc },
+    {} as Record<string, number>
+  )
+  const myShelf = (['gold', 'silver', 'bronze', 'tier_champion'] as const)
+    .map((k) => ({ k, n: shelfCounts[k] ?? 0 }))
+    .filter(({ n }) => n > 0)
+    .map(({ k, n }) => ({ gold: '🥇', silver: '🥈', bronze: '🥉', tier_champion: '🏆' }[k].repeat(Math.min(n, 3)) + (n > 3 ? `×${n}` : '')))
+    .join(' ') || null
+  const myCardBio: BioCardData = {
+    name: profileRow?.full_name ?? 'Player',
+    photoUrl: myBioRow?.hero_photo_url ?? (profileRow as { avatar_url?: string | null } | null)?.avatar_url ?? null,
+    position: myBioRow?.position ?? null,
+    jerseyNumber: myBioRow?.jersey_number ?? null,
+    hometown: myBioRow?.hometown ?? null,
+    yearsPlaying: myBioRow?.years_playing ?? null,
+    tagline: myBioRow?.tagline ?? null,
+    medalShelf: myShelf,
+  }
+
+  // ── If no active teams and no sessions, render the off-season dashboard ───
   if (activeTeams.length === 0 && upcomingSessions.length === 0) {
     return (
       <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
         <DashboardClient
           firstName={firstName}
+          medals={myMedals}
+          myCardBio={myCardBio}
+          myCareer={myCareer}
+          myCardHref={`/players/${user.id}/card`}
           timezone={timezone}
           nextItem={null}
           sameDayGames={[]}
@@ -654,35 +687,6 @@ export default async function DashboardPage() {
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
-  // Trophy case — the player's medals in this org, newest first
-  const myMedals = await getPlayerMedals(db, org.id, user.id)
-
-  // My card (card flip C2): bio front + career back
-  const [{ data: myBioRow }, myCareer] = await Promise.all([
-    db.from('player_bios')
-      .select('hero_photo_url, jersey_number, position, hometown, years_playing, tagline, hidden_by_admin')
-      .eq('organization_id', org.id).eq('user_id', user.id).maybeSingle(),
-    getPlayerCareer(db, org.id, user.id),
-  ])
-  const shelfCounts = myMedals.reduce(
-    (acc, m) => { acc[m.placement] = (acc[m.placement] ?? 0) + 1; return acc },
-    {} as Record<string, number>
-  )
-  const myShelf = (['gold', 'silver', 'bronze', 'tier_champion'] as const)
-    .map((k) => ({ k, n: shelfCounts[k] ?? 0 }))
-    .filter(({ n }) => n > 0)
-    .map(({ k, n }) => ({ gold: '🥇', silver: '🥈', bronze: '🥉', tier_champion: '🏆' }[k].repeat(Math.min(n, 3)) + (n > 3 ? `×${n}` : '')))
-    .join(' ') || null
-  const myCardBio: BioCardData = {
-    name: profileRow?.full_name ?? 'Player',
-    photoUrl: myBioRow?.hero_photo_url ?? (profileRow as { avatar_url?: string | null } | null)?.avatar_url ?? null,
-    position: myBioRow?.position ?? null,
-    jerseyNumber: myBioRow?.jersey_number ?? null,
-    hometown: myBioRow?.hometown ?? null,
-    yearsPlaying: myBioRow?.years_playing ?? null,
-    tagline: myBioRow?.tagline ?? null,
-    medalShelf: myShelf,
-  }
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
