@@ -58,13 +58,19 @@ export function BioFlipCard({ bio, career }: { bio: BioCardData; career: PlayerC
           className={`relative rounded-2xl bg-gray-900 p-5 ${isFoil ? 'bio-foil' : ''}`}
           style={{ backfaceVisibility: 'hidden' }}
         >
-          {isRookie && (
-            <span className="absolute right-4 top-4 z-10 rounded-sm bg-red-600/90 px-2 py-0.5 font-mono text-[9px] font-medium uppercase tracking-[.2em] text-white">
+          <PlayerBioCard bio={bio} />
+          <p className="mt-3 text-right font-mono text-[10px] uppercase tracking-widest text-white/40">↻ tap to flip</p>
+          {/* Rookie ribbon: on the PHOTO corner (hockey-card convention), never
+              over text — the old top-right spot collided with the chyron on
+              narrow screens. Rendered last (paints above the photo without a
+              z-index), WITHOUT a stacking context and unmounted while flipped:
+              WebKit lets z-indexed children escape the parent's
+              backface-visibility, which bled the badge through the card back. */}
+          {isRookie && !flipped && (
+            <span className="absolute left-3 top-3 rounded-sm bg-red-600/90 px-2 py-0.5 font-mono text-[9px] font-medium uppercase tracking-[.2em] text-white shadow">
               Rookie
             </span>
           )}
-          <PlayerBioCard bio={bio} />
-          <p className="mt-3 text-right font-mono text-[10px] uppercase tracking-widest text-white/40">↻ tap to flip</p>
         </div>
         {/* Back — absolutely stacked, same footprint as the front */}
         <div
