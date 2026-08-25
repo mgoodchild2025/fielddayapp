@@ -133,6 +133,9 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [descriptionContent, setDescriptionContent] = useState(league.description ?? '')
+  // Controlled: the highlight was bound to the SERVER value, so clicking a
+  // mode visibly did nothing (the hidden radio changed, the border didn't).
+  const [registrationMode, setRegistrationMode] = useState(league.registration_mode)
   const [rulesContent, setRulesContent] = useState(league.rules_content ?? '')
   const [formatContent, setFormatContent] = useState(league.format_content ?? '')
   const [formatExpanded, setFormatExpanded] = useState(!!league.format_content)
@@ -308,13 +311,14 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
                 { value: 'season', label: 'Season pass', desc: 'Register once, attend all sessions' },
                 { value: 'both', label: 'Both', desc: 'Players pick: a pass for the season, or single sessions' },
               ].map((opt) => (
-                <label key={opt.value} className={`flex flex-col gap-0.5 p-3 rounded-md border cursor-pointer transition-colors ${league.registration_mode === opt.value ? 'border-blue-500 bg-white' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
-                  <input type="radio" name="registration_mode" value={opt.value} defaultChecked={league.registration_mode === opt.value} className="sr-only" />
+                <label key={opt.value} className={`flex flex-col gap-0.5 p-3 rounded-md border cursor-pointer transition-colors ${registrationMode === opt.value ? 'border-blue-500 bg-white' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                  <input type="radio" name="registration_mode" value={opt.value} checked={registrationMode === opt.value} onChange={() => setRegistrationMode(opt.value)} className="sr-only" />
                   <span className="text-sm font-semibold">{opt.label}</span>
                   <span className="text-xs text-gray-500">{opt.desc}</span>
                 </label>
               ))}
             </div>
+            {registrationMode !== 'session' && (
             <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
               <input
                 type="checkbox"
@@ -330,6 +334,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
                 </span>
               </span>
             </label>
+            )}
           </div>
         )}
         {league.event_type === 'pickup' && (
