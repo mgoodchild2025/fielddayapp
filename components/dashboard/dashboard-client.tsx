@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { MedalCase, type MedalView } from '@/components/medals/medal-case'
+import { EventAvatar } from '@/components/ui/event-avatar'
 import { BioFlipCard } from '@/components/bios/bio-flip-card'
 import type { BioCardData } from '@/components/bios/player-bio-card'
 import type { PlayerCareer } from '@/lib/career'
@@ -56,6 +57,7 @@ export type NextSessionItem = {
   leagueName: string
   leagueSlug: string
   leagueSport: string | null
+  leagueLogoUrl: string | null
   eventType: string   // 'pickup' | 'drop_in' | 'league' etc.
   duration: number | null
   location: string | null
@@ -400,12 +402,22 @@ function SessionHero({ item, timezone }: { item: NextSessionItem; timezone: stri
       <div className="px-6 pt-6 pb-5">
         {/* Event name */}
         <div className="flex flex-col items-center gap-3 text-center mb-5">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center"
-            style={{ backgroundColor: 'color-mix(in srgb, var(--brand-primary) 12%, transparent)' }}
-          >
-            <CalendarDays className="w-8 h-8" style={{ color: 'var(--brand-primary)' }} />
-          </div>
+          {item.leagueLogoUrl ? (
+            <EventAvatar
+              logoUrl={item.leagueLogoUrl}
+              name={item.leagueName}
+              sport={item.leagueSport}
+              size="lg"
+              className="border border-gray-100"
+            />
+          ) : (
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center"
+              style={{ backgroundColor: 'color-mix(in srgb, var(--brand-primary) 12%, transparent)' }}
+            >
+              <CalendarDays className="w-8 h-8" style={{ color: 'var(--brand-primary)' }} />
+            </div>
+          )}
           <div>
             <p className="font-bold text-gray-900 text-lg leading-tight">{item.leagueName}</p>
             {item.leagueSport && (
