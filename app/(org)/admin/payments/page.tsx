@@ -39,7 +39,7 @@ export default async function AdminPaymentsPage() {
       id, created_at, registration_type, guest_name, guest_email,
       player:profiles!registrations_user_id_fkey(id, full_name, email),
       league:leagues!registrations_league_id_fkey(id, name, price_cents, drop_in_price_cents, currency, payment_mode),
-      payment:payments!payments_registration_id_fkey(id, amount_cents, currency, status, payment_method, paid_at, notes, discount_cents, discount_code:discount_codes(code))
+      payment:payments!payments_registration_id_fkey(id, amount_cents, tax_cents, currency, status, payment_method, paid_at, notes, discount_cents, discount_code:discount_codes(code))
     `)
     .eq('organization_id', org.id)
     .order('created_at', { ascending: false })

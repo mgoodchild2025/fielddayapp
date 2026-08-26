@@ -6,10 +6,11 @@ import { useCart } from './cart-provider'
 import { validateDiscountCode, incrementDiscountUse } from '@/actions/discounts'
 
 interface Props {
+  taxSuffix?: string
   orgId: string
 }
 
-export function CartDrawer({ orgId }: Props) {
+export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
   const { items, isLoading, removeItem, updateQty, clearCart, totalCents, isOpen, closeCart } = useCart()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -285,6 +286,11 @@ export function CartDrawer({ orgId }: Props) {
             )}
 
             {/* Totals */}
+            {taxSuffix && (
+              <p className="text-xs text-gray-500 mb-1">
+                Tax {taxSuffix.startsWith('incl') ? 'is included in prices' : `added at checkout (${taxSuffix.replace(/^\+\s*/, '')})`}.
+              </p>
+            )}
             <div className="space-y-1">
               {appliedDiscount && discountAmountCents > 0 && (
                 <>

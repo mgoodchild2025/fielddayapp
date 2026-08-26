@@ -4,6 +4,7 @@ import Stripe from 'stripe'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { checkoutRateLimiter, getClientIp } from '@/lib/rate-limit'
+import { getOrgTaxRates, ratesForScope, computeTax } from '@/lib/tax'
 
 const shopCheckoutSchema = z.object({
   orgId: z.string().uuid(),
@@ -272,6 +273,30 @@ export async function POST(request: NextRequest) {
       },
       quantity: 1,
     })
+  }
+
+  // ── Sales tax (merch scope) ───────────────────────────────────────────────
+  // The shop models discounts as a NEGATIVE line item, so attaching Stripe
+  // tax-rate objects per line would be ambiguous over the discount. Instead:
+  // compute tax on the post-discount subtotal (discounts before tax — the
+  // platform-wide rule) with the shared, tested helper, and append it as a
+  // named line. Inclusive rates change nothing here: the shown prices already
+  // contain the tax, so no line is added.
+  const shopTaxRates = ratesForScope(await getOrgTaxRates(createServiceRoleClient(), orgId), 'merch')
+  const shopSubtotal = lineItems.reduce((sum, li) => sum + li.price_data.unit_amount * (li.quantity ?? 1), 0)
+  const shopTax = computeTax(shopSubtotal, shopTaxRates)
+  if (shopTax.taxCents > 0 && !shopTaxRates.some((r) => r.inclusive)) {
+    for (const line of shopTax.lines) {
+      if (line.taxCents <= 0) continue
+      lineItems.push({
+        price_data: {
+          currency,
+          unit_amount: line.taxCents,
+          product_data: { name: `${line.displayName} (${line.percentage}%)` },
+        },
+        quantity: 1,
+      })
+    }
   }
 
   // ── Create Stripe checkout session ────────────────────────────────────────

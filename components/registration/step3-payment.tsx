@@ -27,6 +27,8 @@ interface Props {
   userId: string
   registrationId: string
   priceCents?: number
+  /** e.g. "+ HST 13%" — exact amounts are itemized on the Stripe page. */
+  taxSuffix?: string
   merchSelections?: MerchSelection[]
   leagueMerch?: MerchItemForStep[]
   onBack?: () => void
@@ -44,7 +46,7 @@ interface Props {
   paymentPlan?: PaymentPlan | null
 }
 
-export function Step3Payment({ org, league, userId, registrationId, priceCents, merchSelections = [], leagueMerch = [], onBack, acceptedMethods = [], offlineInstructions = null, onComplete, teamId = null, paymentPlan = null }: Props) {
+export function Step3Payment({ org, league, userId, registrationId, priceCents, merchSelections = [], leagueMerch = [], onBack, acceptedMethods = [], offlineInstructions = null, onComplete, teamId = null, paymentPlan = null, taxSuffix = '' }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [manualInstructions, setManualInstructions] = useState<string | null>(null)
@@ -368,6 +370,12 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
                 ${(totalCents / 100).toFixed(2)} {currency}
               </span>
             </div>
+          )}
+          {/* Sales tax notice — the exact amount is itemized on the payment page */}
+          {taxSuffix && (
+            <p className="px-4 py-2 text-xs text-gray-500 bg-gray-50 border-t">
+              Tax {taxSuffix.startsWith('incl') ? 'is included in these prices' : `is added at checkout (${taxSuffix.replace(/^\+\s*/, '')})`}.
+            </p>
           )}
         </div>
 

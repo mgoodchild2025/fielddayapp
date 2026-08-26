@@ -3,6 +3,7 @@ import { z } from 'zod'
 import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getSeasonPassQuote } from '@/lib/season-pass'
+import { getOrgTaxRates, stripeTaxRateIds } from '@/lib/tax'
 import { canAccess } from '@/lib/features'
 import { createEnrollment } from '@/lib/payment-plans'
 import { checkoutRateLimiter, getClientIp } from '@/lib/rate-limit'
@@ -123,6 +124,9 @@ export async function POST(request: NextRequest) {
 
     const origin = request.headers.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
 
+    // Sales tax: attach the org's Stripe tax-rate objects (subtotal → discounts → tax)
+    const teamTaxIds = stripeTaxRateIds(await getOrgTaxRates(db, orgId), 'registrations')
+
     const session = await orgStripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment',
@@ -135,6 +139,7 @@ export async function POST(request: NextRequest) {
             product_data: { name: `${league.name} — ${team.name} (Team)` },
           },
           quantity: 1,
+          ...(teamTaxIds.length > 0 ? { tax_rates: teamTaxIds } : {}),
         },
       ],
       metadata: { teamId, leagueId, orgId, paymentType: 'team' },
@@ -432,6 +437,16 @@ export async function POST(request: NextRequest) {
   // Activate the registration directly instead of charging $0.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const merchTotalCents = merch_line_items.reduce((s: number, li: any) => s + (li.price_data.unit_amount * (li.quantity ?? 1)), 0)
+
+  // Sales tax: registration fee lines get registration-scoped rates, merch
+  // lines get merch-scoped rates — Stripe itemizes both on the receipt.
+  const orgTaxRates = await getOrgTaxRates(db, orgId)
+  const regTaxIds = stripeTaxRateIds(orgTaxRates, 'registrations')
+  const merchTaxIds = stripeTaxRateIds(orgTaxRates, 'merch')
+  if (merchTaxIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const li of merch_line_items as any[]) li.tax_rates = merchTaxIds
+  }
   if (priceCents === 0 && merchTotalCents === 0) {
 
     const { data: existingPaid } = await db
@@ -521,6 +536,7 @@ export async function POST(request: NextRequest) {
             product_data: { name: regLineName },
           },
           quantity: 1,
+          ...(regTaxIds.length > 0 ? { tax_rates: regTaxIds } : {}),
         }] : []),
         ...merch_line_items,
       ],
@@ -581,6 +597,7 @@ export async function POST(request: NextRequest) {
           },
         },
         quantity: 1,
+        ...(regTaxIds.length > 0 ? { tax_rates: regTaxIds } : {}),
       }] : []),
       ...merch_line_items,
     ],

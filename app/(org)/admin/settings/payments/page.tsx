@@ -6,11 +6,28 @@ import { StripeSetupGuide } from '@/components/payments/stripe-setup-guide'
 import { RegistrationPaymentForm } from '@/components/payments/registration-payment-form'
 import { ShopPaymentForm } from '@/components/payments/shop-payment-form'
 import { HelpLink } from '@/components/ui/help-link'
+import { TaxRatesManager, type TaxRateRow } from '@/components/settings/tax-rates-manager'
 
 export default async function PaymentSettingsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
+
+  // Sales-tax rates (active first, then archived history is omitted)
+  const { data: taxRateRows } = await db
+    .from('org_tax_rates')
+    .select('id, display_name, percentage, inclusive, applies_to, active')
+    .eq('organization_id', org.id)
+    .eq('active', true)
+    .order('created_at', { ascending: true })
+  const taxRates: TaxRateRow[] = (taxRateRows ?? []).map((r) => ({
+    id: r.id,
+    displayName: r.display_name,
+    percentage: Number(r.percentage),
+    inclusive: r.inclusive,
+    appliesTo: r.applies_to,
+    active: r.active,
+  }))
 
 
   const { data: settings } = await db
@@ -101,6 +118,9 @@ export default async function PaymentSettingsPage() {
             instructions={settings?.manual_payment_instructions ?? null}
           />
         </div>
+
+        {/* Sales tax (X1) */}
+        <TaxRatesManager rates={taxRates} />
       </div>
     </div>
   )

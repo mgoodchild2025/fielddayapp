@@ -39,6 +39,8 @@ interface Props {
   dropInPriceCents?: number | null
   /** Season-pass quote for drop-in events (prorated when enabled). Null for non-drop-in. */
   seasonPassQuote?: { priceCents: number; fullPriceCents: number; totalSessions: number; remainingSessions: number; prorated: boolean } | null
+  /** e.g. "+ HST 13%" — named on the payment step so checkout holds no surprise. */
+  taxSuffix?: string
   earlyBirdPriceCents?: number | null
   earlyBirdDeadline?: string | null
   captainTeamId?: string | null
@@ -98,6 +100,7 @@ export function RegistrationFlow({
   isDropIn = false,
   dropInPriceCents = null,
   seasonPassQuote = null,
+  taxSuffix = '',
   earlyBirdPriceCents = null,
   earlyBirdDeadline = null,
   captainTeamId = null,
@@ -500,6 +503,7 @@ export function RegistrationFlow({
         {/* Also step 3 for admin-invited captains on per-team paid leagues */}
         {((step === 3 && showPaymentStep && !showAddOnsStep) || (step === 4 && showAddOnsStep && (showPaymentStep || merchSelections.length > 0)) || (step === 3 && showCaptainPaymentStep)) && !completing && (
           <Step3Payment
+            taxSuffix={taxSuffix}
             org={org}
             league={league}
             userId={userId}

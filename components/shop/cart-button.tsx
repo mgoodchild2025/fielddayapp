@@ -6,9 +6,10 @@ import { CartDrawer } from './cart-drawer'
 
 interface Props {
   orgId: string
+  taxSuffix?: string
 }
 
-export function CartButton({ orgId }: Props) {
+export function CartButton({ orgId, taxSuffix = '' }: Props) {
   const { totalCount, openCart, isOpen } = useCart()
   const pathname = usePathname()
 
@@ -38,7 +39,7 @@ export function CartButton({ orgId }: Props) {
         </button>
       )}
 
-      <CartDrawer orgId={orgId} />
+      <CartDrawer orgId={orgId} taxSuffix={taxSuffix} />
     </>
   )
 }

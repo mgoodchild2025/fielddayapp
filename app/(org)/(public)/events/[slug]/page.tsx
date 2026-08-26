@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { countDropInRegsBySession } from '@/lib/session-counts'
 import { getSeasonPassQuote, type SeasonPassQuote } from '@/lib/season-pass'
+import { getOrgTaxRates, taxSuffix } from '@/lib/tax'
 import { EventPodium, type PodiumMedal } from '@/components/medals/event-podium'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
@@ -1184,9 +1185,12 @@ export default async function EventDetailPage({
   // is often 0), so fall back to it for the headline price.
   const baseRegPrice = league.price_cents > 0 ? league.price_cents : (dropInPriceCents ?? 0)
   const effectiveRegPrice = earlyBirdActive ? earlyBirdPriceCents! : baseRegPrice
-  const price = effectiveRegPrice === 0 ? 'Free' : `$${(effectiveRegPrice / 100).toFixed(0)} ${league.currency?.toUpperCase()}${earlyBirdActive ? ' (Early Bird)' : ''}`
+  // Sales tax: name it wherever a price shows — never a surprise at checkout
+  const regTaxSuffix = taxSuffix(await getOrgTaxRates(db, org.id), 'registrations')
+  const withTax = (label: string) => regTaxSuffix ? `${label} ${regTaxSuffix}` : label
+  const price = effectiveRegPrice === 0 ? 'Free' : withTax(`$${(effectiveRegPrice / 100).toFixed(0)} ${league.currency?.toUpperCase()}${earlyBirdActive ? ' (Early Bird)' : ''}`)
   const dropInPriceLabel = dropInPriceCents !== null
-    ? (dropInPriceCents === 0 ? 'Free drop-in' : `$${(dropInPriceCents / 100).toFixed(0)} drop-in`)
+    ? (dropInPriceCents === 0 ? 'Free drop-in' : withTax(`$${(dropInPriceCents / 100).toFixed(0)} drop-in`))
     : null
 
   // Sticky register bar — shown on mobile overview tab when registration is open and user isn't registered
@@ -2089,12 +2093,12 @@ export default async function EventDetailPage({
                             <>
                               <s className="text-gray-500">${(seasonPassQuote.fullPriceCents / 100).toFixed(0)}</s>{' '}
                               <span className="font-semibold text-white">${(seasonPassQuote.priceCents / 100).toFixed(seasonPassQuote.priceCents % 100 === 0 ? 0 : 2)}</span>
-                              {' — covers the remaining '}{seasonPassQuote.remainingSessions} of {seasonPassQuote.totalSessions} sessions
+                              {' — covers the remaining '}{seasonPassQuote.remainingSessions} of {seasonPassQuote.totalSessions} sessions{regTaxSuffix ? ` · ${regTaxSuffix}` : ''}
                             </>
                           ) : (
                             <>
                               <span className="font-semibold text-white">${(seasonPassQuote.fullPriceCents / 100).toFixed(0)}</span>
-                              {seasonPassQuote.totalSessions > 0 && <>{' — covers all '}{seasonPassQuote.totalSessions} sessions</>}
+                              {seasonPassQuote.totalSessions > 0 && <>{' — covers all '}{seasonPassQuote.totalSessions} sessions</>}{regTaxSuffix ? ` · ${regTaxSuffix}` : ''}
                             </>
                           )}
                         </p>
@@ -2125,7 +2129,7 @@ export default async function EventDetailPage({
                 <p className="text-sm font-semibold mb-1">Drop-in Available</p>
                 <p className="text-sm text-gray-600 mb-3">
                   {isPrivatePickup ? 'You\'ve been invited to join as a drop-in.' : 'Join a single session without a full season registration.'}
-                  {dropInPriceCents ? ` Fee: $${(dropInPriceCents / 100).toFixed(0)}` : ' Free'}
+                  {dropInPriceCents ? ` Fee: ${withTax(`$${(dropInPriceCents / 100).toFixed(0)}`)}` : ' Free'}
                 </p>
                 {user ? (
                   <Link
