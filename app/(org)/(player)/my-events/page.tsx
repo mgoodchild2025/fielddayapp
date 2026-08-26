@@ -178,7 +178,7 @@ export default async function MyEventsPage() {
   })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const events: EventItem[] = (registrations ?? []).map((r: any) => {
+  const rawEvents: EventItem[] = (registrations ?? []).map((r: any) => {
     const league = Array.isArray(r.league) ? r.league[0] : r.league
     const checkinUrl = r.checkin_token
       ? `${protocol}://${host}/checkin/${r.checkin_token}`
@@ -187,12 +187,92 @@ export default async function MyEventsPage() {
     return { registrationId: r.id, registrationStatus: r.status, checkinUrl, league, sessionScheduledAt, registrationType: r.registration_type }
   }).filter((r: EventItem) => r.league)
 
-  const currentEvents = events.filter(e =>
-    ['active', 'registration_open'].includes(e.league?.league_status ?? '')
-  )
-  const pastEvents = events.filter(e =>
-    !['active', 'registration_open'].includes(e.league?.league_status ?? '')
-  )
+  // ── Group session registrations by event ───────────────────────────────────
+  // A drop-in registration is one row PER SESSION, so an event attended eight
+  // times produced eight cards that never aged out (the split below used to
+  // read league status only). One card per event now: upcoming sessions are
+  // listed on it, past ones collapse to a count.
+  const nowMs = Date.now()
+  const sessionEventTypes = new Set(['drop_in', 'pickup'])
+
+  const grouped = new Map<string, EventItem>()
+  const standalone: EventItem[] = []
+  for (const e of rawEvents) {
+    const isSessionEvent = sessionEventTypes.has(e.league?.event_type ?? '')
+    if (!isSessionEvent) { standalone.push(e); continue }
+
+    const key = e.league!.id
+    const existing = grouped.get(key)
+    const mine = e.sessionScheduledAt
+    if (!existing) {
+      grouped.set(key, {
+        ...e,
+        sessionScheduledAt: null,
+        mySessionDates: mine ? [mine] : [],
+      })
+      continue
+    }
+    // Keep the card that can still check in / show a QR
+    if (mine) existing.mySessionDates = [...(existing.mySessionDates ?? []), mine]
+    if (!existing.checkinUrl && e.checkinUrl) existing.checkinUrl = e.checkinUrl
+    if (existing.registrationStatus !== 'active' && e.registrationStatus === 'active') {
+      existing.registrationStatus = e.registrationStatus
+    }
+  }
+
+  // Upcoming sessions per session-based league — what the player can still attend.
+  const sessionLeagueIds = [...grouped.keys()]
+  const upcomingByLeague = new Map<string, string[]>()
+  if (sessionLeagueIds.length > 0) {
+    const { data: upcomingRows } = await db
+      .from('event_sessions')
+      .select('league_id, scheduled_at')
+      .eq('organization_id', org.id)
+      .in('league_id', sessionLeagueIds)
+      .neq('status', 'cancelled')
+      .gte('scheduled_at', new Date(nowMs).toISOString())
+      .order('scheduled_at', { ascending: true })
+    for (const s of (upcomingRows ?? []) as { league_id: string; scheduled_at: string }[]) {
+      const list = upcomingByLeague.get(s.league_id) ?? []
+      list.push(s.scheduled_at)
+      upcomingByLeague.set(s.league_id, list)
+    }
+  }
+
+  const sessionEvents: EventItem[] = [...grouped.values()].map((e) => {
+    const mine = (e.mySessionDates ?? []).sort()
+    const myUpcoming = mine.filter((d) => new Date(d).getTime() >= nowMs)
+    return {
+      ...e,
+      // Partitioned server-side: the client must not re-derive "upcoming" with
+      // Date.now() during render (impure, and it would drift from this split).
+      mySessionDates: myUpcoming,
+      attendedCount: mine.length - myUpcoming.length,
+      // The player's own next session leads; otherwise the event's next open one.
+      sessionScheduledAt: myUpcoming[0] ?? null,
+      eventUpcoming: (upcomingByLeague.get(e.league!.id) ?? []).slice(0, 4),
+    }
+  })
+
+  const events: EventItem[] = [...standalone, ...sessionEvents]
+
+  // Past is now date-aware, not status-only: a finished league is past, and so
+  // is a session-dated registration whose session has already happened. A live
+  // session event with nothing upcoming stays current — the player can rejoin.
+  const isPast = (e: EventItem): boolean => {
+    const leagueOver = !['active', 'registration_open'].includes(e.league?.league_status ?? '')
+    if (leagueOver) return true
+    if (sessionEventTypes.has(e.league?.event_type ?? '')) return false
+    return e.sessionScheduledAt ? new Date(e.sessionScheduledAt).getTime() < nowMs : false
+  }
+
+  const soonest = (e: EventItem): number =>
+    e.sessionScheduledAt ? new Date(e.sessionScheduledAt).getTime()
+      : e.eventUpcoming?.[0] ? new Date(e.eventUpcoming[0]).getTime()
+      : Number.MAX_SAFE_INTEGER
+
+  const currentEvents = events.filter((e) => !isPast(e)).sort((a, b) => soonest(a) - soonest(b))
+  const pastEvents = events.filter(isPast)
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
