@@ -905,7 +905,11 @@ export default async function EventDetailPage({
     ? await db.from('registrations').select('id, session_id, status')
         .eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id)
         .eq('registration_type', 'drop_in')
-        .in('status', ['active', 'pending'])
+        // ACTIVE only. A 'pending' row is an unfinished checkout — someone who
+        // backed out of payment isn't in the session, and showing them "Joined"
+        // stranded them (it also never held a spot: the occupancy count is
+        // active-only too).
+        .eq('status', 'active')
     : { data: null }
 
   // Build a Set of session IDs the player has already registered (and paid) for.
@@ -941,11 +945,38 @@ export default async function EventDetailPage({
         .eq('league_id', league.id).eq('organization_id', org.id).in('status', ['pending', 'active'])
     : { count: null }
 
-  // Per-player events: registration is fully closed when max_participants is reached
-  const isFull =
-    paymentMode !== 'per_team' &&
-    maxParticipants !== null &&
-    (registeredPlayerCount ?? 0) >= maxParticipants
+  // ── Per-session occupancy ───────────────────────────────────────────────────
+  // One source for BOTH the session cards and the event-level banner. They
+  // used to be computed separately against different denominators: the banner
+  // compared every registration in the league (all sessions summed) against
+  // max_participants, which on a session-based event is the PER-SESSION cap —
+  // so three half-full sessions read as "Event Full".
+  const sessionOccupancy = new Map<string, { registeredCount: number; capacity: number | null; isFull: boolean }>()
+  if (isSessionBased) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const s of (sessions ?? []) as any[]) {
+      const registeredCount = fullPass
+        + (sessionRegistrationMode === 'season' ? 0 : (s.session_registrations?.[0]?.count ?? 0))
+        + (dropInCountBySession.get(s.id) ?? 0)
+      const capacity = s.capacity ?? (sessionRegistrationMode === 'season' ? maxParticipants : null)
+      sessionOccupancy.set(s.id, {
+        registeredCount,
+        capacity,
+        isFull: capacity !== null && registeredCount >= capacity,
+      })
+    }
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const openSessions = ((sessions ?? []) as any[]).filter((s) => s.status !== 'cancelled')
+  const allSessionsFull = openSessions.length > 0 && openSessions.every((s) => sessionOccupancy.get(s.id)?.isFull === true)
+
+  // A session-based event is "full" only when every upcoming session is full;
+  // otherwise per-player events close at max_participants.
+  const isFull = isSessionBased
+    ? allSessionsFull
+    : (paymentMode !== 'per_team' &&
+       maxParticipants !== null &&
+       (registeredPlayerCount ?? 0) >= maxParticipants)
 
   // Per-team events: no new teams can be created, but players can still join existing teams
   const teamsAtCapacity =
@@ -955,7 +986,7 @@ export default async function EventDetailPage({
 
   // Urgency: ≤30% of spots remaining
   const teamSpotsLeft   = maxTeams        !== null ? maxTeams        - (registeredTeamCount  ?? 0) : null
-  const playerSpotsLeft = maxParticipants !== null ? maxParticipants - (registeredPlayerCount ?? 0) : null
+  const playerSpotsLeft = (!isSessionBased && maxParticipants !== null) ? maxParticipants - (registeredPlayerCount ?? 0) : null
   const teamUrgent   = !teamsAtCapacity  && teamSpotsLeft   !== null && maxTeams        !== null && teamSpotsLeft   <= Math.ceil(maxTeams        * 0.30)
   const playerUrgent = !isFull           && playerSpotsLeft !== null && maxParticipants !== null && playerSpotsLeft <= Math.ceil(maxParticipants * 0.30)
 
@@ -2150,11 +2181,10 @@ export default async function EventDetailPage({
                       // Match the admin Sessions page exactly: full-pass holders +
                       // per-session sign-ups (session_registrations, except in season
                       // mode) + drop-in registrations.
-                      const registeredCount = fullPass
-                        + (sessionRegistrationMode === 'season' ? 0 : (s.session_registrations?.[0]?.count ?? 0))
-                        + (dropInCountBySession.get(s.id) ?? 0)
-                      const capacity = s.capacity ?? (sessionRegistrationMode === 'season' ? maxParticipants : null)
-                      const isFull = capacity !== null && registeredCount >= capacity
+                      const occ = sessionOccupancy.get(s.id)
+                      const registeredCount = occ?.registeredCount ?? 0
+                      const capacity = occ?.capacity ?? null
+                      const isFull = occ?.isFull === true
                       // isJoined covers both join-button flow (session_registrations) and
                       // registration-flow drop-ins (registrations.session_id via myPaidSessionIds)
                       const isJoined = mySessionIds.has(s.id) || myPaidSessionIds.has(s.id)
