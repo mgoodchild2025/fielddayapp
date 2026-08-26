@@ -1,6 +1,6 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { joinSession, leaveSession } from '@/actions/sessions'
 import { useRouter } from 'next/navigation'
 
@@ -28,6 +28,7 @@ export function SessionJoinButton({
   registerUrl,
 }: Props) {
   const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
   if (isCancelled) return null
@@ -59,18 +60,25 @@ export function SessionJoinButton({
 
   if (isJoined) {
     return (
-      <button
-        disabled={isPending}
-        onClick={() =>
-          startTransition(async () => {
-            await leaveSession(sessionId, leagueId)
-            router.refresh()
-          })
-        }
-        className="px-4 py-1.5 rounded-md text-sm font-semibold border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
-      >
-        {isPending ? 'Leaving…' : 'Leave'}
-      </button>
+      <div className="flex flex-col items-end gap-1">
+        <button
+          disabled={isPending}
+          onClick={() => {
+            setError(null)
+            startTransition(async () => {
+              // Surface failures: this silently swallowed errors, so a Leave
+              // that couldn't write looked identical to one that worked.
+              const res = await leaveSession(sessionId, leagueId)
+              if (res?.error) { setError(res.error); return }
+              router.refresh()
+            })
+          }}
+          className="px-4 py-1.5 rounded-md text-sm font-semibold border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+        >
+          {isPending ? 'Leaving…' : 'Leave'}
+        </button>
+        {error && <p className="text-[11px] text-red-600 max-w-[12rem] text-right">{error}</p>}
+      </div>
     )
   }
 

@@ -333,15 +333,22 @@ export async function leaveSession(sessionId: string, leagueId: string) {
   if (srError) return { error: srError.message }
 
   // Also cancel any drop-in registration created via the registration flow
-  // (registrations table rows with registration_type='drop_in' and session_id set)
-
-  await db
+  // (registrations table rows with registration_type='drop_in' and session_id set).
+  //
+  // 'withdrawn' — NOT 'cancelled': registrations.status is constrained to
+  // ('pending','active','withdrawn','waitlisted'), so writing 'cancelled' here
+  // violated the check constraint on every attempt. The failure was silent
+  // (this update's error was never read), which is why Leave did nothing for
+  // anyone who joined through the registration flow.
+  const { error: regError } = await db
     .from('registrations')
-    .update({ status: 'cancelled' })
+    .update({ status: 'withdrawn' })
     .eq('session_id', sessionId)
     .eq('user_id', user.id)
     .eq('organization_id', org.id)
     .eq('registration_type', 'drop_in')
+
+  if (regError) return { error: regError.message }
 
   revalidatePath('/events/[slug]', 'page')
   return { error: null }
