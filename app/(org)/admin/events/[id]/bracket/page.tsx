@@ -30,7 +30,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
 
     db.from('pools').select('id, name, sort_order').eq('league_id', leagueId).eq('organization_id', org.id).order('sort_order'),
 
-    db.from('teams').select('id, name, division_id, pool_id').eq('league_id', leagueId).eq('organization_id', org.id).eq('status', 'active'),
+    db.from('teams').select('id, name, division_id, pool_id, logo_url, color').eq('league_id', leagueId).eq('organization_id', org.id).eq('status', 'active'),
     db.from('game_results')
       .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
       .eq('organization_id', org.id)
@@ -114,6 +114,12 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
   // ── Load playoff config + tiers + bracket data ──────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const teamNameMap = new Map<string, string>((teams ?? []).map((t: any) => [t.id, t.name]))
+  // Team identity for bracket logos
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const teamMetaMap = new Map<string, { logoUrl: string | null; color: string | null }>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (teams ?? []).map((t: any) => [t.id, { logoUrl: t.logo_url ?? null, color: t.color ?? null }])
+  )
 
   function buildBracketData(raw: {
     id: string; name: string; bracket_size: number; bracket_type?: string;
@@ -152,6 +158,10 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
         team2Id: m.team2_id,
         team1Name: m.team1_id ? (teamNameMap.get(m.team1_id) ?? null) : null,
         team2Name: m.team2_id ? (teamNameMap.get(m.team2_id) ?? null) : null,
+        team1LogoUrl: m.team1_id ? (teamMetaMap.get(m.team1_id)?.logoUrl ?? null) : null,
+        team1Color: m.team1_id ? (teamMetaMap.get(m.team1_id)?.color ?? null) : null,
+        team2LogoUrl: m.team2_id ? (teamMetaMap.get(m.team2_id)?.logoUrl ?? null) : null,
+        team2Color: m.team2_id ? (teamMetaMap.get(m.team2_id)?.color ?? null) : null,
         team1Label: m.team1_label,
         team2Label: m.team2_label,
         team1Seed: m.team1_seed,

@@ -144,6 +144,11 @@ All three accept a `notify: boolean` parameter. When `true` and the game has ass
 - On the public schedule, cancelled games show a red "Cancelled" badge and postponed games show an amber "Postponed" badge; the cancellation reason is displayed beneath if one was provided.
 - **Key file**: `components/schedule/edit-game-modal.tsx`
 
+## Team logos across public surfaces
+- `TeamAvatar` (`components/ui/team-avatar.tsx`; `logoUrl`/`color`/`name`/`size`, deterministic coloured-initial fallback) is the one renderer — used by standings (public event tab + admin), bracket match cards, and podiums, plus the pre-existing team pages.
+- Identity travels with the data: `TeamStat` (`lib/standings.ts`) carries optional `logoUrl`/`color`; `BracketMatchData` carries per-slot `team{1,2}LogoUrl`/`Color` (both bracket loaders build a `teamMetaMap` beside the existing name map); `PodiumMedal` carries optional `logoUrl`/`color` resolved from the live team row via `medals.team_id` — medals snapshot names, so a deleted team still renders its initial.
+- Name cells that gained an avatar use `flex … min-w-0` + `truncate`, so the logo can't squeeze text off-screen on mobile.
+
 ## Medals & the trophy case
 - Medals are **awarded and frozen**, never derived at page load: `medals` (league/team-name snapshots, placement `gold|silver|bronze|tier_champion`, label, deciding match) + `medal_recipients` (roster snapshot at award time — user_id nullable so the row survives account deletion).
 - Pure derivation in `lib/medals.ts` (tested): explicit medal matches win; else SE final/3rd-place, DE grand-final/LB-final conventions. First tier awards the podium, later tiers award "{Tier} Champion".

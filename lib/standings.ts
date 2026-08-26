@@ -10,6 +10,9 @@ export type VolleyballMode = 'match_based' | 'set_based'
 export interface TeamStat {
   id: string
   name: string
+  /** Team identity for logo rendering; optional so callers can omit it. */
+  logoUrl?: string | null
+  color?: string | null
   matchesPlayed: number
   wins: number
   losses: number
