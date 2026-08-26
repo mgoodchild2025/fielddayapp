@@ -23,6 +23,12 @@ export interface EventItem {
   checkinUrl: string | null
   registrationType: string | null
   sessionScheduledAt: string | null
+  /** Session-based events: the player's UPCOMING session dates (server-filtered). */
+  mySessionDates?: string[]
+  /** How many of those have already happened — shown as a count, never rows. */
+  attendedCount?: number
+  /** The event's next open sessions (for "what can I still join"). */
+  eventUpcoming?: string[]
   league: {
     id: string
     name: string
@@ -63,6 +69,15 @@ function formatDate(iso: string | null) {
 
 function EventCard({ item, timezone, faded }: { item: EventItem; timezone: string; faded?: boolean }) {
   const { registrationId, registrationStatus, checkinUrl, league, sessionScheduledAt, registrationType } = item
+  const attended = item.attendedCount ?? 0
+  // Already filtered to upcoming, server-side (see page.tsx)
+  const myUpcoming = item.mySessionDates ?? []
+  const eventUpcoming = (item.eventUpcoming ?? []).filter((d) => !myUpcoming.includes(d))
+  const fmtSession = (iso: string) =>
+    new Date(iso).toLocaleString('en-CA', {
+      weekday: 'short', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', timeZone: timezone,
+    })
   const statusInfo = STATUS_LABEL[league.league_status] ?? { label: league.league_status, className: 'bg-gray-100 text-gray-500' }
   const isActive = registrationStatus === 'active'
   const showQR = isActive && !!checkinUrl && ['active', 'registration_open'].includes(league.league_status) && league.checkin_enabled === true
@@ -111,6 +126,27 @@ function EventCard({ item, timezone, faded }: { item: EventItem; timezone: strin
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
         </svg>
       </Link>
+      {/* Session summary — upcoming listed, past reduced to a count */}
+      {(myUpcoming.length > 1 || eventUpcoming.length > 0 || attended > 0) && (
+        <div className="px-4 pb-3 -mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          {myUpcoming.slice(1, 3).map((d) => (
+            <span key={d} className="text-gray-500">{fmtSession(d)}</span>
+          ))}
+          {myUpcoming.length > 3 && (
+            <span className="text-gray-400">+{myUpcoming.length - 3} more booked</span>
+          )}
+          {myUpcoming.length === 0 && eventUpcoming.length > 0 && (
+            <Link href={`/events/${league.slug}`} className="font-medium" style={{ color: 'var(--brand-primary)' }}>
+              Join a session — next {fmtSession(eventUpcoming[0])} →
+            </Link>
+          )}
+          {attended > 0 && (
+            <span className="text-gray-400">
+              {attended} session{attended !== 1 ? 's' : ''} attended
+            </span>
+          )}
+        </div>
+      )}
       {showQR && (
         <div className="px-4 pb-4 border-t border-gray-100 pt-3">
           <QRCodeDisplay
