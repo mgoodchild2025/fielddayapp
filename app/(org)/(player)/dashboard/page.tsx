@@ -65,7 +65,7 @@ export default async function DashboardPage() {
       id, session_id, status,
       session:event_sessions!session_registrations_session_id_fkey(
         id, scheduled_at, duration_minutes, location_override,
-        league:leagues!event_sessions_league_id_fkey(id, name, slug, event_type, sport)
+        league:leagues!event_sessions_league_id_fkey(id, name, slug, event_type, sport, logo_url)
       )
     `)
       .eq('user_id', user.id)
@@ -78,7 +78,7 @@ export default async function DashboardPage() {
       id, session_id,
       session:event_sessions!registrations_session_id_fkey(
         id, scheduled_at, duration_minutes, location_override,
-        league:leagues!event_sessions_league_id_fkey(id, name, slug, event_type, sport)
+        league:leagues!event_sessions_league_id_fkey(id, name, slug, event_type, sport, logo_url)
       )
     `)
       .eq('user_id', user.id)
@@ -109,7 +109,7 @@ export default async function DashboardPage() {
 
     const { data } = await db.from('event_sessions').select(`
       id, scheduled_at, duration_minutes, location_override,
-      league:leagues!event_sessions_league_id_fkey(id, name, slug, event_type, sport)
+      league:leagues!event_sessions_league_id_fkey(id, name, slug, event_type, sport, logo_url)
     `)
       .in('league_id', seasonLeagueIds)
       .eq('status', 'open')
@@ -533,6 +533,7 @@ export default async function DashboardPage() {
       leagueName: (s.league?.name ?? '') as string,
       leagueSlug: (s.league?.slug ?? '') as string,
       leagueSport: (s.league?.sport ?? null) as string | null,
+      leagueLogoUrl: (s.league?.logo_url ?? null) as string | null,
       eventType: (s.league?.event_type ?? 'session') as string,
       duration: (s.duration_minutes ?? null) as number | null,
       location: (s.location_override ?? null) as string | null,
