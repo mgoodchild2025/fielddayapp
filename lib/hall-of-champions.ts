@@ -60,16 +60,25 @@ type Db = ReturnType<typeof createServiceRoleClient>
 export async function getHallOfChampions(db: Db, orgId: string): Promise<HallOfChampions> {
   const { data: medalRows } = await db
     .from('medals')
-    .select('id, league_id, league_name, team_name, placement, label, awarded_at, medal_recipients(user_id, display_name), league:leagues!medals_league_id_fkey(slug)')
+    .select('id, league_id, league_name, team_name, team_id, placement, label, awarded_at, medal_recipients(user_id, display_name), league:leagues!medals_league_id_fkey(slug)')
     .eq('organization_id', orgId)
     .order('awarded_at', { ascending: false })
 
   const rows = ((medalRows ?? []) as {
-    id: string; league_id: string; league_name: string; team_name: string
+    id: string; league_id: string; league_name: string; team_name: string; team_id: string | null
     placement: string; label: string; awarded_at: string
     medal_recipients: { user_id: string | null; display_name: string }[]
     league: { slug: string } | { slug: string }[] | null
   }[])
+
+  // Team identity for podium logos — live team rows where they still exist
+  const teamIds = [...new Set(rows.map((m) => m.team_id).filter((id): id is string => !!id))]
+  const { data: teamRows } = teamIds.length > 0
+    ? await db.from('teams').select('id, logo_url, color').in('id', teamIds)
+    : { data: [] }
+  const teamMeta = new Map(
+    (teamRows ?? []).map((t) => [t.id, { logoUrl: t.logo_url ?? null, color: t.color ?? null }])
+  )
 
   // ── Banners: golds only — banners mean titles ──────────────────────────────
   const banners: ChampionsBanner[] = rows
@@ -99,6 +108,8 @@ export async function getHallOfChampions(db: Db, orgId: string): Promise<HallOfC
       placement: m.placement as PodiumMedal['placement'],
       label: m.label,
       teamName: m.team_name,
+      logoUrl: m.team_id ? (teamMeta.get(m.team_id)?.logoUrl ?? null) : null,
+      color: m.team_id ? (teamMeta.get(m.team_id)?.color ?? null) : null,
       recipients: (m.medal_recipients ?? []).map((r) => r.display_name),
     })
     events.set(m.league_id, event)

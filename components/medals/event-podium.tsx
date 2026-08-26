@@ -1,3 +1,5 @@
+import { TeamAvatar } from '@/components/ui/team-avatar'
+
 /**
  * Event podium — the public event page's showcase of who won.
  * Server-renderable: everything is visible, nothing to click. Gold leads,
@@ -11,6 +13,9 @@ export interface PodiumMedal {
   label: string
   teamName: string
   recipients: string[]
+  /** Team identity when the team row still exists (medals snapshot the name). */
+  logoUrl?: string | null
+  color?: string | null
 }
 
 const GLYPH: Record<PodiumMedal['placement'], string> = {
@@ -50,7 +55,10 @@ export function EventPodium({ medals }: { medals: PodiumMedal[] }) {
         {gold && (
           <div className={`rounded-lg border-2 px-5 py-4 text-center ${TONE.gold}`}>
             <p className="text-4xl leading-none" aria-hidden>{GLYPH.gold}</p>
-            <p className="mt-2 text-xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)' }}>{gold.teamName}</p>
+            <p className="mt-2 flex items-center justify-center gap-2 text-xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+              <TeamAvatar logoUrl={gold.logoUrl ?? null} color={gold.color ?? null} name={gold.teamName} size="sm" />
+              <span className="truncate">{gold.teamName}</span>
+            </p>
             <p className="text-xs font-semibold uppercase tracking-widest text-amber-700">{gold.label}</p>
             <Recipients names={gold.recipients} />
           </div>
@@ -60,7 +68,10 @@ export function EventPodium({ medals }: { medals: PodiumMedal[] }) {
             {[silver, bronze].filter((m): m is PodiumMedal => !!m).map((m) => (
               <div key={m.id} className={`rounded-lg border px-4 py-3 text-center ${TONE[m.placement]}`}>
                 <p className="text-2xl leading-none" aria-hidden>{GLYPH[m.placement]}</p>
-                <p className="mt-1.5 font-bold">{m.teamName}</p>
+                <p className="mt-1.5 flex items-center justify-center gap-1.5 font-bold">
+                  <TeamAvatar logoUrl={m.logoUrl ?? null} color={m.color ?? null} name={m.teamName} size="xs" />
+                  <span className="truncate">{m.teamName}</span>
+                </p>
                 <p className={`text-[11px] font-semibold uppercase tracking-widest ${m.placement === 'silver' ? 'text-gray-500' : 'text-orange-700'}`}>{m.label}</p>
                 <Recipients names={m.recipients} />
               </div>
@@ -72,7 +83,10 @@ export function EventPodium({ medals }: { medals: PodiumMedal[] }) {
             {tiers.map((m) => (
               <div key={m.id} className={`rounded-lg border px-4 py-3 text-center ${TONE.tier_champion}`}>
                 <p className="text-2xl leading-none" aria-hidden>{GLYPH.tier_champion}</p>
-                <p className="mt-1.5 font-bold">{m.teamName}</p>
+                <p className="mt-1.5 flex items-center justify-center gap-1.5 font-bold">
+                  <TeamAvatar logoUrl={m.logoUrl ?? null} color={m.color ?? null} name={m.teamName} size="xs" />
+                  <span className="truncate">{m.teamName}</span>
+                </p>
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-purple-700">{m.label}</p>
                 <Recipients names={m.recipients} />
               </div>

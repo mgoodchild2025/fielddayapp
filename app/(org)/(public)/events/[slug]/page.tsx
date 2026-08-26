@@ -161,8 +161,9 @@ function StandingsTable({
                     <tr key={team.id} className="border-b last:border-0">
                       <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
                       <td className="px-4 py-3 font-medium">
-                        <Link href={`/teams/${team.id}/stats`} className="hover:underline">
-                          {team.name}
+                        <Link href={`/teams/${team.id}/stats`} className="flex items-center gap-2 min-w-0 hover:underline">
+                          <TeamAvatar logoUrl={team.logoUrl ?? null} color={team.color ?? null} name={team.name} size="sm" />
+                          <span className="truncate">{team.name}</span>
                         </Link>
                       </td>
                       <td className="px-3 py-3 text-center text-gray-500">{team.matchesPlayed}</td>
@@ -238,8 +239,9 @@ function StandingsTable({
                   <tr key={team.id} className="border-b last:border-0">
                     <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
                     <td className="px-4 py-3 font-medium">
-                      <Link href={`/teams/${team.id}/stats`} className="hover:underline">
-                        {team.name}
+                      <Link href={`/teams/${team.id}/stats`} className="flex items-center gap-2 min-w-0 hover:underline">
+                        <TeamAvatar logoUrl={team.logoUrl ?? null} color={team.color ?? null} name={team.name} size="sm" />
+                        <span className="truncate">{team.name}</span>
                       </Link>
                     </td>
                     <td className="px-3 py-3 text-center text-gray-500">{team.matchesPlayed}</td>
@@ -833,12 +835,22 @@ export default async function EventDetailPage({
   // Final results: the event's awarded medals (podium first, then tier titles)
   const { data: podiumRows } = await db
     .from('medals')
-    .select('id, placement, label, team_name, medal_recipients(display_name)')
+    .select('id, placement, label, team_name, team_id, medal_recipients(display_name)')
     .eq('league_id', league.id)
     .eq('organization_id', org.id)
+  // Logos come from the live team row when it still exists; the medal's own
+  // name snapshot is the fallback (and drives the avatar's initial).
+  const podiumTeamIds = [...new Set(((podiumRows ?? []) as { team_id: string | null }[])
+    .map((m) => m.team_id).filter((id): id is string => !!id))]
+  const { data: podiumTeams } = podiumTeamIds.length > 0
+    ? await db.from('teams').select('id, logo_url, color').in('id', podiumTeamIds)
+    : { data: [] }
+  const podiumTeamMeta = new Map(
+    (podiumTeams ?? []).map((t) => [t.id, { logoUrl: t.logo_url ?? null, color: t.color ?? null }])
+  )
   const PODIUM_ORDER: Record<string, number> = { gold: 0, silver: 1, bronze: 2, tier_champion: 3 }
   const podiumMedals: PodiumMedal[] = ((podiumRows ?? []) as {
-    id: string; placement: string; label: string; team_name: string
+    id: string; placement: string; label: string; team_name: string; team_id: string | null
     medal_recipients: { display_name: string }[]
   }[])
     .sort((a, b) => (PODIUM_ORDER[a.placement] ?? 9) - (PODIUM_ORDER[b.placement] ?? 9))
@@ -847,6 +859,8 @@ export default async function EventDetailPage({
       placement: m.placement as PodiumMedal['placement'],
       label: m.label,
       teamName: m.team_name,
+      logoUrl: m.team_id ? (podiumTeamMeta.get(m.team_id)?.logoUrl ?? null) : null,
+      color: m.team_id ? (podiumTeamMeta.get(m.team_id)?.color ?? null) : null,
       recipients: (m.medal_recipients ?? []).map((r) => r.display_name),
     }))
 
@@ -1333,7 +1347,7 @@ export default async function EventDetailPage({
 
 
     const [{ data: teamsData }, { data: divsData }, { data: poolsData }, { data: resultsData }] = await Promise.all([
-      db.from('teams').select('id, name, division_id, pool_id').eq('league_id', league.id).eq('organization_id', org.id).eq('status', 'active'),
+      db.from('teams').select('id, name, division_id, pool_id, logo_url, color').eq('league_id', league.id).eq('organization_id', org.id).eq('status', 'active'),
       db.from('divisions').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
       db.from('pools').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
       db.from('game_results')
@@ -1374,6 +1388,8 @@ export default async function EventDetailPage({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     standingsTeams = (teamsData ?? []).map((t: any) => ({
       id: t.id, name: t.name,
+      logoUrl: t.logo_url ?? null,
+      color: t.color ?? null,
       division_id: t.division_id ?? null,
       pool_id: t.pool_id ?? null,
       ...(record.get(t.id) ?? emptyTeamStat()),
@@ -1384,6 +1400,8 @@ export default async function EventDetailPage({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((t: any) => ({
         id: t.id, name: t.name,
+        logoUrl: t.logo_url ?? null,
+        color: t.color ?? null,
         division_id: t.division_id ?? null,
         pool_id: t.pool_id ?? null,
         ...(poolRecord.get(t.id) ?? emptyTeamStat()),
@@ -1394,6 +1412,8 @@ export default async function EventDetailPage({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((t: any) => ({
         id: t.id, name: t.name,
+        logoUrl: t.logo_url ?? null,
+        color: t.color ?? null,
         division_id: t.division_id ?? null,
         pool_id: t.pool_id ?? null,
         ...(combinedRecord.get(t.id) ?? emptyTeamStat()),
@@ -1477,10 +1497,13 @@ export default async function EventDetailPage({
       // Build team name map from teams already fetched (or fetch them)
       const { data: bracketTeams } = await db
         .from('teams')
-        .select('id, name')
+        .select('id, name, logo_url, color')
         .eq('league_id', league.id)
         .eq('organization_id', org.id)
       const teamNameMap = new Map((bracketTeams ?? []).map((t) => [t.id, t.name]))
+      const teamMetaMap = new Map(
+        (bracketTeams ?? []).map((t) => [t.id, { logoUrl: t.logo_url ?? null, color: t.color ?? null }])
+      )
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       allBracketData = rawBrackets.map((rawBracket: any) => ({
@@ -1507,6 +1530,10 @@ export default async function EventDetailPage({
           team2Id: m.team2_id,
           team1Name: m.team1_id ? (teamNameMap.get(m.team1_id) ?? null) : null,
           team2Name: m.team2_id ? (teamNameMap.get(m.team2_id) ?? null) : null,
+          team1LogoUrl: m.team1_id ? (teamMetaMap.get(m.team1_id)?.logoUrl ?? null) : null,
+          team1Color: m.team1_id ? (teamMetaMap.get(m.team1_id)?.color ?? null) : null,
+          team2LogoUrl: m.team2_id ? (teamMetaMap.get(m.team2_id)?.logoUrl ?? null) : null,
+          team2Color: m.team2_id ? (teamMetaMap.get(m.team2_id)?.color ?? null) : null,
           team1Label: m.team1_label ?? null,
           team2Label: m.team2_label ?? null,
           team1Seed: m.team1_seed,

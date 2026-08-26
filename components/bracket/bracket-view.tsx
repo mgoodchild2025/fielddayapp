@@ -6,6 +6,7 @@ import { useState, useTransition, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { MatchEditModal } from './match-edit-modal'
+import { TeamAvatar } from '@/components/ui/team-avatar'
 import { formatGameTime } from '@/lib/format-time'
 import { BracketTimezoneContext, useBracketTimezone } from './bracket-timezone'
 
@@ -23,6 +24,11 @@ export interface BracketMatchData {
   team2Id: string | null
   team1Name: string | null
   team2Name: string | null
+  /** Team identity for logo rendering (null when the slot is empty/labelled). */
+  team1LogoUrl?: string | null
+  team1Color?: string | null
+  team2LogoUrl?: string | null
+  team2Color?: string | null
   /** Displayed when team1Id is null (scaffold / not yet seeded) */
   team1Label: string | null
   /** Displayed when team2Id is null (scaffold / not yet seeded) */
@@ -432,9 +438,14 @@ function MatchCard({
               {manualControls && !isCompleted && !match.team1Id && !match.team1Label ? (
                 slotPicker(1)
               ) : (
-                <span className={`truncate font-medium ${isCompleted && match.winnerTeamId === match.team1Id ? 'text-green-700' : isTbd ? 'text-gray-400' : ''}`}>
-                  {match.team1Name ?? match.team1Label ?? 'TBD'}{medalFor(match.team1Id)}
-                </span>
+                <>
+                  {match.team1Id && (
+                    <TeamAvatar logoUrl={match.team1LogoUrl ?? null} color={match.team1Color ?? null} name={match.team1Name ?? '?'} size="xs" />
+                  )}
+                  <span className={`truncate font-medium ${isCompleted && match.winnerTeamId === match.team1Id ? 'text-green-700' : isTbd ? 'text-gray-400' : ''}`}>
+                    {match.team1Name ?? match.team1Label ?? 'TBD'}{medalFor(match.team1Id)}
+                  </span>
+                </>
               )}
             </div>
             <span className="font-bold tabular-nums text-sm ml-2">
@@ -468,13 +479,18 @@ function MatchCard({
               {manualControls && !isCompleted && !isBye && !match.team2Id && !match.team2Label ? (
                 slotPicker(2)
               ) : (
-                <span className={`truncate font-medium ${
-                  isBye ? 'text-gray-300 italic' :
-                  isCompleted && match.winnerTeamId === match.team2Id ? 'text-green-700' :
-                  isTbd ? 'text-gray-400' : ''
-                }`}>
-                  {isBye ? 'Bye' : (match.team2Name ?? match.team2Label ?? 'TBD')}{medalFor(match.team2Id)}
-                </span>
+                <>
+                  {match.team2Id && !isBye && (
+                    <TeamAvatar logoUrl={match.team2LogoUrl ?? null} color={match.team2Color ?? null} name={match.team2Name ?? '?'} size="xs" />
+                  )}
+                  <span className={`truncate font-medium ${
+                    isBye ? 'text-gray-300 italic' :
+                    isCompleted && match.winnerTeamId === match.team2Id ? 'text-green-700' :
+                    isTbd ? 'text-gray-400' : ''
+                  }`}>
+                    {isBye ? 'Bye' : (match.team2Name ?? match.team2Label ?? 'TBD')}{medalFor(match.team2Id)}
+                  </span>
+                </>
               )}
             </div>
             <span className="font-bold tabular-nums text-sm ml-2">

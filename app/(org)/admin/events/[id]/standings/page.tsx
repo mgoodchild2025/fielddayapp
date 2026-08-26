@@ -9,6 +9,7 @@ import {
   type TeamStat as BaseTeamStat, type TeamStatTotals,
   type PtsMethod, type VolleyballMode,
 } from '@/lib/standings'
+import { TeamAvatar } from '@/components/ui/team-avatar'
 
 // Standings rows on this page additionally carry division/pool grouping.
 interface TeamStat extends BaseTeamStat {
@@ -62,7 +63,12 @@ function StandingsTable({
             {sorted.map((t, i) => (
               <tr key={t.id} className="hover:bg-gray-50">
                 {showRank && <td className="px-3 py-2 text-center text-xs font-bold text-gray-400">{rankOffset + i + 1}</td>}
-                <td className="px-3 py-2 font-medium">{t.name}</td>
+                <td className="px-3 py-2 font-medium">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <TeamAvatar logoUrl={t.logoUrl ?? null} color={t.color ?? null} name={t.name} size="sm" />
+                    <span className="truncate">{t.name}</span>
+                  </span>
+                </td>
                 <td className="px-3 py-2 text-center tabular-nums">{t.matchesPlayed}</td>
                 <td className="px-3 py-2 text-center tabular-nums font-semibold">{t.setWins}</td>
                 <td className="px-3 py-2 text-center tabular-nums">{t.setLosses}</td>
@@ -99,7 +105,12 @@ function StandingsTable({
             return (
               <tr key={t.id} className="hover:bg-gray-50">
                 {showRank && <td className="px-3 py-2 text-center text-xs font-bold text-gray-400">{rankOffset + i + 1}</td>}
-                <td className="px-3 py-2 font-medium">{t.name}</td>
+                <td className="px-3 py-2 font-medium">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <TeamAvatar logoUrl={t.logoUrl ?? null} color={t.color ?? null} name={t.name} size="sm" />
+                    <span className="truncate">{t.name}</span>
+                  </span>
+                </td>
                 <td className="px-3 py-2 text-center tabular-nums">{t.matchesPlayed}</td>
                 <td className="px-3 py-2 text-center tabular-nums font-semibold">{t.wins}</td>
                 <td className="px-3 py-2 text-center tabular-nums">{t.losses}</td>
@@ -150,7 +161,7 @@ export default async function AdminStandingsPage({
 
   const [{ data: teamsData }, { data: divsData }, { data: poolsData }, { data: resultsData }] = await Promise.all([
 
-    db.from('teams').select('id, name, division_id, pool_id').eq('league_id', id).eq('organization_id', org.id).eq('status', 'active'),
+    db.from('teams').select('id, name, division_id, pool_id, logo_url, color').eq('league_id', id).eq('organization_id', org.id).eq('status', 'active'),
 
     db.from('divisions').select('id, name, sort_order').eq('league_id', id).eq('organization_id', org.id).order('sort_order'),
 
@@ -192,6 +203,8 @@ export default async function AdminStandingsPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const buildTeamStats = (src: Map<string, TeamStatTotals>) => (teamsData ?? []).map((t: any) => ({
     id: t.id, name: t.name,
+    logoUrl: t.logo_url ?? null,
+    color: t.color ?? null,
     division_id: t.division_id ?? null,
     pool_id: t.pool_id ?? null,
     ...(src.get(t.id) ?? emptyTeamStat()),
