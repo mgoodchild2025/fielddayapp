@@ -232,6 +232,11 @@ export default async function DashboardPage() {
   let orgHasActiveWaiver = false
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let pendingOfflinePayments: any[] = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let pendingTeamPayments: any[] = []
+  const managerTeamIds = activeTeams
+    .filter((m) => m.role === 'captain' || m.role === 'coach')
+    .map((m) => m.team.id as string)
 
   if (activeTeams.length > 0) {
     const [
@@ -244,6 +249,7 @@ export default async function DashboardPage() {
       { data: ws },
       { data: aw },
       { data: pp },
+      { data: tpp },
     ] = await Promise.all([
       // Upcoming scheduled games for any of user's teams
 
@@ -334,6 +340,21 @@ export default async function DashboardPage() {
         .eq('user_id', user.id)
         .eq('status', 'pending')
         .in('payment_method', ['cash', 'etransfer', 'cheque']),
+
+      // Pending offline TEAM payments for teams this user manages. Team payment
+      // rows carry no user_id (the team owes, not a person), so they can't come
+      // from the query above — find them via the captain/coach memberships.
+      managerTeamIds.length > 0
+        ? db.from('payments').select(`
+            id, payment_method, amount_cents, currency,
+            league:leagues!payments_league_id_fkey(name, slug)
+          `)
+            .eq('organization_id', org.id)
+            .eq('payment_type', 'team')
+            .in('team_id', managerTeamIds)
+            .eq('status', 'pending')
+            .in('payment_method', ['cash', 'etransfer', 'cheque'])
+        : Promise.resolve({ data: [] }),
     ])
 
     upcomingGames   = ug  ?? []
@@ -355,6 +376,7 @@ export default async function DashboardPage() {
     waiverSig          = ws
     orgHasActiveWaiver = !!aw
     pendingOfflinePayments = pp ?? []
+    pendingTeamPayments = tpp ?? []
   }
 
   // ── RSVP counts for the globally soonest game ─────────────────────────────
@@ -672,10 +694,11 @@ export default async function DashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const pmt of pendingOfflinePayments as any[]) {
     const league = Array.isArray(pmt.league) ? pmt.league[0] : pmt.league
-    // A payment whose registration was withdrawn is no longer owed — leaveSession
-    // deletes these going forward, but older rows may still be around.
+    // Only a payment backed by a live registration is still owed. Withdrawn
+    // registrations (Leave) and deleted ones (admin remove detaches the row,
+    // leaving registration null) both mean nobody owes this any more.
     const pmtReg = Array.isArray(pmt.registration) ? pmt.registration[0] : pmt.registration
-    if (pmtReg?.status === 'withdrawn') continue
+    if (!pmtReg || !['pending', 'active', 'waitlisted'].includes(pmtReg.status)) continue
     if (!league?.slug || seenPaymentSlugs.has(league.slug)) continue
     seenPaymentSlugs.add(league.slug)
     const methodLabel = pmt.payment_method === 'etransfer' ? 'e-transfer'
@@ -688,6 +711,26 @@ export default async function DashboardPage() {
       type: 'pending_payment',
       label: 'Payment outstanding',
       sublabel: `Your ${methodLabel} payment${amountFormatted} for ${league.name} hasn't been received yet.`,
+      href: `/events/${league.slug}`,
+    })
+  }
+
+  // Pending team payments (captain/coach chose an offline method for the team fee)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const pmt of pendingTeamPayments as any[]) {
+    const league = Array.isArray(pmt.league) ? pmt.league[0] : pmt.league
+    if (!league?.slug || seenPaymentSlugs.has(league.slug)) continue
+    seenPaymentSlugs.add(league.slug)
+    const methodLabel = pmt.payment_method === 'etransfer' ? 'e-transfer'
+      : pmt.payment_method === 'cheque' ? 'cheque'
+      : 'cash'
+    const amountFormatted = pmt.amount_cents > 0
+      ? ` ($${(pmt.amount_cents / 100).toFixed(0)} ${(pmt.currency ?? 'cad').toUpperCase()})`
+      : ''
+    pendingActions.push({
+      type: 'pending_payment',
+      label: 'Team payment outstanding',
+      sublabel: `Your team's ${methodLabel} payment${amountFormatted} for ${league.name} hasn't been received yet.`,
       href: `/events/${league.slug}`,
     })
   }
