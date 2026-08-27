@@ -93,12 +93,18 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
         return { data: null, error: 'EVENT_FULL' }
       }
     } else {
-      // Event-wide cap (season / non-session registrations).
+      // Event-wide cap (season / non-session registrations). Count only
+      // league-level rows (session_id null): on a session-based event,
+      // max_participants is the PER-SESSION cap, so counting every
+      // per-session sign-up here made a few part-full sessions read as
+      // "event full" for season-pass buyers. On non-session events every
+      // registration has session_id null, so nothing changes there.
       const { count } = await db
         .from('registrations')
         .select('*', { count: 'exact', head: true })
         .eq('league_id', parsed.data.leagueId)
         .eq('organization_id', org.id)
+        .is('session_id', null)
         .in('status', ['pending', 'active'])
       if ((count ?? 0) >= leagueCap.max_participants) {
         return { data: null, error: 'EVENT_FULL' }
