@@ -9,6 +9,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { resolveLeagueMethods, isOfflineMethod, PAYMENT_METHOD_LABELS, type PaymentMethod } from '@/lib/payment-methods'
 import { sendRegistrationAdminNotification, type RegistrationPaymentMethod } from './emails'
 import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
+import { getOrgTaxRates, ratesForScope, computeTax } from '@/lib/tax'
 
 const recordManualPaymentSchema = z.object({
   registrationId: z.string().uuid(),
@@ -225,7 +226,7 @@ const selectOfflinePaymentSchema = z.object({
  */
 export async function selectOfflinePayment(
   input: z.infer<typeof selectOfflinePaymentSchema>
-): Promise<{ instructions: string | null; methodLabel: string; error: string | null }> {
+): Promise<{ instructions: string | null; methodLabel: string; amountCents?: number; taxCents?: number; error: string | null }> {
   const parsed = selectOfflinePaymentSchema.safeParse(input)
   if (!parsed.success) return { instructions: null, methodLabel: '', error: 'Invalid input' }
 
@@ -265,7 +266,11 @@ export async function selectOfflinePayment(
 
   // Use the discounted amount when the player applied a discount code;
   // fall back to the league price so free registrations still work.
-  const amountCents = parsed.data.discountedAmountCents ?? league.price_cents ?? 0
+  const subtotalCents = parsed.data.discountedAmountCents ?? league.price_cents ?? 0
+  // Offline payers owe the SAME gross a card payer is charged: discounts
+  // first, then tax — the shared helper keeps both worlds identical.
+  const offlineTax = computeTax(subtotalCents, ratesForScope(await getOrgTaxRates(db, org.id), 'registrations'))
+  const amountCents = offlineTax.totalCents
   const currency = league.currency ?? 'cad'
 
   // Whether to alert admins. Only a genuinely new offline selection (or a real
@@ -293,6 +298,7 @@ export async function selectOfflinePayment(
         user_id: user.id,
         league_id: league.id,
         amount_cents: amountCents,
+        tax_cents: offlineTax.taxCents,
         currency,
         status: 'pending',
         payment_method: method,
@@ -304,7 +310,7 @@ export async function selectOfflinePayment(
 
       await db.from('payments')
         .update({
-          payment_method: method, amount_cents: amountCents, currency, status: 'pending',
+          payment_method: method, amount_cents: amountCents, tax_cents: offlineTax.taxCents, currency, status: 'pending',
           discount_code_id: parsed.data.discountId ?? null,
           discount_cents: parsed.data.discountCents ?? 0,
         })
@@ -333,7 +339,7 @@ export async function selectOfflinePayment(
   }
 
   revalidatePath('/admin/payments')
-  return { instructions, methodLabel: PAYMENT_METHOD_LABELS[method], error: null }
+  return { instructions, methodLabel: PAYMENT_METHOD_LABELS[method], amountCents, taxCents: offlineTax.taxCents, error: null }
 }
 
 const selectOfflineTeamPaymentSchema = z.object({
@@ -351,7 +357,7 @@ const selectOfflineTeamPaymentSchema = z.object({
  */
 export async function selectOfflineTeamPayment(
   input: z.infer<typeof selectOfflineTeamPaymentSchema>
-): Promise<{ instructions: string | null; methodLabel: string; error: string | null }> {
+): Promise<{ instructions: string | null; methodLabel: string; amountCents?: number; taxCents?: number; error: string | null }> {
   const parsed = selectOfflineTeamPaymentSchema.safeParse(input)
   if (!parsed.success) return { instructions: null, methodLabel: '', error: 'Invalid input' }
 
@@ -396,7 +402,9 @@ export async function selectOfflineTeamPayment(
     return { instructions: null, methodLabel: '', error: 'That payment method is not accepted for this event.' }
   }
 
-  const amountCents = parsed.data.discountedAmountCents ?? league.price_cents ?? 0
+  const teamSubtotalCents = parsed.data.discountedAmountCents ?? league.price_cents ?? 0
+  const teamOfflineTax = computeTax(teamSubtotalCents, ratesForScope(await getOrgTaxRates(db, org.id), 'registrations'))
+  const amountCents = teamOfflineTax.totalCents
   const currency = league.currency ?? 'cad'
 
   // Pending team payment (reuse existing team payment row if present).
@@ -417,6 +425,7 @@ export async function selectOfflineTeamPayment(
         team_id: parsed.data.teamId,
         league_id: league.id,
         amount_cents: amountCents,
+        tax_cents: teamOfflineTax.taxCents,
         currency,
         status: 'pending',
         payment_type: 'team',
@@ -425,7 +434,7 @@ export async function selectOfflineTeamPayment(
     } else if (existing.status !== 'paid') {
 
       await db.from('payments')
-        .update({ payment_method: method, amount_cents: amountCents, currency, status: 'pending' })
+        .update({ payment_method: method, amount_cents: amountCents, tax_cents: teamOfflineTax.taxCents, currency, status: 'pending' })
         .eq('id', existing.id)
     }
   }
@@ -452,7 +461,7 @@ export async function selectOfflineTeamPayment(
   notifyRegistrationAdmin(db, org.id, user.id, league.id, league.name, method as RegistrationPaymentMethod).catch(() => {})
 
   revalidatePath('/admin/payments')
-  return { instructions, methodLabel: PAYMENT_METHOD_LABELS[method], error: null }
+  return { instructions, methodLabel: PAYMENT_METHOD_LABELS[method], amountCents, taxCents: teamOfflineTax.taxCents, error: null }
 }
 
 // ── Shared admin notification helper ─────────────────────────────────────────

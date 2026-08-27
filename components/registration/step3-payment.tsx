@@ -50,7 +50,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [manualInstructions, setManualInstructions] = useState<string | null>(null)
-  const [offlineDone, setOfflineDone] = useState<{ instructions: string | null; label: string } | null>(null)
+  const [offlineDone, setOfflineDone] = useState<{ instructions: string | null; label: string; amountCents: number; taxCents: number } | null>(null)
   // Payment plan toggle — only available when paying by card
   const [usePlan, setUsePlan] = useState(false)
 
@@ -152,7 +152,14 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
       } else {
         // Offline: increment discount use count now that the spot is reserved
         if (appliedDiscount) await incrementDiscountUse(appliedDiscount.id)
-        setOfflineDone({ instructions: res.instructions ?? offlineInstructions, label: res.methodLabel })
+        setOfflineDone({
+          instructions: res.instructions ?? offlineInstructions,
+          label: res.methodLabel,
+          // The action returns the tax-inclusive gross the player actually owes;
+          // fall back to the pre-tax figure for older responses.
+          amountCents: res.amountCents ?? (appliedDiscount ? discountedRegistrationCents : registrationPriceCents),
+          taxCents: res.taxCents ?? 0,
+        })
       }
     } catch {
       setError('Something went wrong. Please try again.')
@@ -225,7 +232,8 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
           </div>
           <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 space-y-1">
             <p className="text-sm font-semibold text-amber-900">
-              Pay by {offlineDone.label} — ${((appliedDiscount ? discountedRegistrationCents : registrationPriceCents) / 100).toFixed(2)} {currency}
+              Pay by {offlineDone.label} — ${(offlineDone.amountCents / 100).toFixed(2)} {currency}
+              {offlineDone.taxCents > 0 && <span className="font-normal text-amber-700"> (incl. ${(offlineDone.taxCents / 100).toFixed(2)} tax)</span>}
               {appliedDiscount && <span className="font-normal text-amber-700"> (discount {appliedDiscount.code} applied)</span>}
             </p>
             {offlineDone.instructions ? (
