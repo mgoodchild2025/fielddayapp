@@ -9,6 +9,7 @@ const PAGE_SIZE = 25
 type PaymentRecord = {
   id: string
   amount_cents: number
+  tax_cents?: number
   currency: string
   status: string
   payment_method: string | null
@@ -172,6 +173,10 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
     totalPaidCents: filtered
       .filter(r => r.payment?.status === 'paid')
       .reduce((sum, r) => sum + (r.payment?.amount_cents ?? 0), 0),
+    // Tax collected within the paid set — the number the org remits
+    taxCollectedCents: filtered
+      .filter(r => r.payment?.status === 'paid')
+      .reduce((sum, r) => sum + (r.payment?.tax_cents ?? 0), 0),
     paidCount: filtered.filter(r => r.paymentStatus === 'paid').length,
     // "Unpaid" = anything still owed: unpaid, pending, or failed.
     unpaidCount: filtered.filter(r =>
@@ -194,6 +199,11 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
           <p className="text-xl sm:text-2xl font-bold mt-1" style={{ color: 'var(--brand-primary)' }}>
             ${(filteredStats.totalPaidCents / 100).toFixed(2)}
           </p>
+          {filteredStats.taxCollectedCents > 0 && (
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              incl. ${(filteredStats.taxCollectedCents / 100).toFixed(2)} tax
+            </p>
+          )}
         </div>
         <div className="bg-white rounded-lg border p-4">
           <p className="text-xs sm:text-sm text-gray-500">Paid</p>

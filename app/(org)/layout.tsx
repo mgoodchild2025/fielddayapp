@@ -8,6 +8,7 @@ import { CartButton } from '@/components/shop/cart-button'
 import { MaintenancePage } from '@/components/maintenance-page'
 import { HibernatePage } from '@/components/hibernate-page'
 import type { OrgBranding } from '@/types/database'
+import { getOrgTaxRates, taxSuffix } from '@/lib/tax'
 
 // ── Dynamic metadata per org ─────────────────────────────────────────────────
 // Sets the browser-tab favicon and Open Graph / Twitter Card tags so links
@@ -197,6 +198,9 @@ export default async function OrgLayout({
   const bodyFont = branding?.body_font ?? 'DM Sans'
   const googleFontsUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(headingFont)}:wght@400;600;700&family=${encodeURIComponent(bodyFont)}:wght@400;500;600&display=swap`
 
+  // Sales-tax hint for the merch cart ("+ HST 13%")
+  const merchTaxSuffix = user ? taxSuffix(await getOrgTaxRates(db2, orgId), 'merch') : ''
+
   return (
     <>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -205,7 +209,7 @@ export default async function OrgLayout({
       <BrandProvider branding={branding as OrgBranding | null}>
         <CartProvider orgId={orgId} userId={user?.id ?? null}>
           {children}
-          {user && <CartButton orgId={orgId} />}
+          {user && <CartButton orgId={orgId} taxSuffix={merchTaxSuffix} />}
         </CartProvider>
       </BrandProvider>
     </>

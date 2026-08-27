@@ -4,6 +4,7 @@ import Stripe from 'stripe'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { checkoutRateLimiter, getClientIp } from '@/lib/rate-limit'
+import { getOrgTaxRates, stripeTaxRateIds } from '@/lib/tax'
 
 const schema = z.object({
   orgId: z.string().uuid(),
@@ -59,6 +60,7 @@ export async function POST(request: NextRequest) {
   }
   const currency = (league.currency ?? 'cad') as string
 
+  const walkupTaxIds = stripeTaxRateIds(await getOrgTaxRates(db, orgId), 'registrations')
   const orgStripe = new Stripe(settings.stripe_secret_key, { apiVersion: '2026-05-27.dahlia' as const, typescript: true })
   const origin = request.headers.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
 
@@ -74,6 +76,7 @@ export async function POST(request: NextRequest) {
           product_data: { name: `${league.name} — drop-in` },
         },
         quantity: 1,
+        ...(walkupTaxIds.length > 0 ? { tax_rates: walkupTaxIds } : {}),
       }],
       customer_email: guestEmail || undefined,
       expires_at: Math.floor(Date.now() / 1000) + 30 * 60,

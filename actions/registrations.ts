@@ -15,6 +15,7 @@ import { buildCalendarCtaHtml } from '@/lib/email'
 import { isPlayerRegistrationBlocked } from '@/lib/billing'
 import { toE164 } from '@/lib/twilio'
 import { createRateLimiter } from '@/lib/rate-limit'
+import { getOrgTaxRates, ratesForScope, computeTax } from '@/lib/tax'
 
 // Public guest endpoints are unauthenticated writes — rate-limit by IP.
 const guestRegLimiter = createRateLimiter({ windowMs: 10 * 60_000, max: 8 })
@@ -861,6 +862,10 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
   // Pay-at-the-venue (no online payment available, but there's a fee): record a
   // pending payment so the organizer can see the amount owed and reconcile it.
   if (!needsOnlinePayment && priceCents > 0) {
+    // Offline payments owe the SAME gross a card payer would be charged —
+    // the shared helper computes the split Stripe would have (discounts
+    // upstream, then tax).
+    const offlineTax = computeTax(priceCents, ratesForScope(await getOrgTaxRates(db, org.id), 'registrations'))
 
     await db.from('payments').insert({
       organization_id: org.id,
@@ -868,7 +873,8 @@ export async function registerGuestDropin(input: z.infer<typeof guestDropinSchem
       user_id: registrantUserId,
       league_id: league.id,
       payment_type: 'player',
-      amount_cents: priceCents,
+      amount_cents: offlineTax.totalCents,
+      tax_cents: offlineTax.taxCents,
       currency: league.currency ?? 'cad',
       status: 'pending',
       payment_method: 'cash',

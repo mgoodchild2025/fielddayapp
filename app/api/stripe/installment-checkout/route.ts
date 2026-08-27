@@ -5,6 +5,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { checkoutRateLimiter, getClientIp } from '@/lib/rate-limit'
 import { canAccess } from '@/lib/features'
+import { getOrgTaxRates, ratesForScope } from '@/lib/tax'
 
 const schema = z.object({
   installmentId: z.string().uuid(),
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
       id, installment_number, amount_cents, status, stripe_checkout_session_id,
       organization_id,
       enrollment:payment_plan_enrollments!inner(
-        id, total_cents, status,
+        id, total_cents, status, created_at,
         registration:registrations!inner(
           id, user_id, league_id,
           league:leagues!inner(id, name, slug, currency)
@@ -122,6 +123,16 @@ export async function POST(req: NextRequest) {
   const currency  = (league.currency ?? 'cad').toLowerCase()
   const origin    = req.headers.get('origin') ?? 'https://fielddayapp.ca'
 
+  // Sales tax — but never reprice signed commitments: an enrolment created
+  // BEFORE a rate existed keeps its untaxed schedule; only rates that already
+  // existed at enrolment time apply to its instalments. (New enrolments get
+  // taxed from instalment 1, which goes through the main checkout route.)
+  const enrolledAt = enrollment.created_at ? new Date(enrollment.created_at).getTime() : 0
+  const instTaxIds = ratesForScope(await getOrgTaxRates(db, installment.organization_id), 'registrations')
+    .filter((r) => r.stripeTaxRateId)
+    .filter((r) => new Date(r.createdAt ?? 0).getTime() <= enrolledAt)
+    .map((r) => r.stripeTaxRateId as string)
+
   // ── Create Stripe Checkout session ────────────────────────────────────────
   const session = await orgStripe.checkout.sessions.create({
     mode: 'payment',
@@ -137,6 +148,7 @@ export async function POST(req: NextRequest) {
           },
         },
         quantity: 1,
+        ...(instTaxIds.length > 0 ? { tax_rates: instTaxIds } : {}),
       },
     ],
     metadata: {

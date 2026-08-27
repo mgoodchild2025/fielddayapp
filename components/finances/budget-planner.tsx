@@ -126,7 +126,7 @@ export function BudgetPlanner({ leagueId, initial }: { leagueId: string; initial
         <h2 className="text-lg font-semibold text-gray-900">Pricing planner</h2>
         <p className="text-xs text-gray-400">
           Model projected costs and get a recommended price, per player or per team. Advise only — it doesn&rsquo;t
-          change the event&rsquo;s price.
+          change the event&rsquo;s price. Recommendations are pre-tax.
         </p>
       </div>
 

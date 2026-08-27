@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { getSeasonPassQuote } from '@/lib/season-pass'
+import { getOrgTaxRates, taxSuffix } from '@/lib/tax'
 import { createServerClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { RegistrationFlow } from '@/components/registration/registration-flow'
@@ -313,6 +314,8 @@ export default async function RegisterLeaguePage({
   // Season pass on a drop-in event: quote the pass price (prorated when the
   // event has proration on). Same helper the checkout route charges with.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const registrationTaxSuffix = taxSuffix(await getOrgTaxRates(db, org.id), 'registrations')
+
   const seasonPassQuote = (!isDropIn && (league as any).event_type === 'drop_in' && ((league as any).price_cents ?? 0) > 0)
     ? await getSeasonPassQuote(db, org.id, league.id, {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -618,6 +621,7 @@ export default async function RegisterLeaguePage({
       timezone={orgTimezone}
       preselectedSessionId={preselectedSessionId}
       seasonPassQuote={seasonPassQuote}
+      taxSuffix={registrationTaxSuffix}
       paymentPlan={paymentPlan}
       />
       <Footer org={org} />

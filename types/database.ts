@@ -3211,6 +3211,42 @@ export type Database = {
           },
         ]
       }
+      org_tax_rates: {
+        Row: {
+          active: boolean
+          applies_to: string
+          created_at: string
+          display_name: string
+          id: string
+          inclusive: boolean
+          organization_id: string
+          percentage: number
+          stripe_tax_rate_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          applies_to?: string
+          created_at?: string
+          display_name: string
+          id?: string
+          inclusive?: boolean
+          organization_id: string
+          percentage: number
+          stripe_tax_rate_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          applies_to?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          inclusive?: boolean
+          organization_id?: string
+          percentage?: number
+          stripe_tax_rate_id?: string | null
+        }
+        Relationships: []
+      }
       org_playoff_templates: {
         Row: {
           created_at: string
@@ -3644,6 +3680,7 @@ export type Database = {
           status: string
           stripe_checkout_session_id: string | null
           stripe_payment_intent_id: string | null
+          tax_cents: number
           team_id: string | null
           user_id: string | null
         }
@@ -3664,6 +3701,7 @@ export type Database = {
           status?: string
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
+          tax_cents?: number
           team_id?: string | null
           user_id?: string | null
         }
@@ -3684,6 +3722,7 @@ export type Database = {
           status?: string
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
+          tax_cents?: number
           team_id?: string | null
           user_id?: string | null
         }

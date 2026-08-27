@@ -5,6 +5,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { headers } from 'next/headers'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createRateLimiter } from '@/lib/rate-limit'
+import { getOrgTaxRates, stripeTaxRateIds } from '@/lib/tax'
 
 const limiter = createRateLimiter({ windowMs: 10 * 60_000, max: 8 })
 
@@ -122,6 +123,7 @@ export async function POST(request: NextRequest) {
     paymentId = pay?.id ?? null
   }
 
+  const guestTaxIds = stripeTaxRateIds(await getOrgTaxRates(db, org.id), 'registrations')
   const orgStripe = new Stripe(settings.stripe_secret_key, { apiVersion: '2026-05-27.dahlia' as const, typescript: true })
 
   try {
@@ -131,6 +133,7 @@ export async function POST(request: NextRequest) {
       currency,
       line_items: [{
         price_data: { currency, unit_amount: priceCents, product_data: { name: `${league.name} — drop-in` } },
+        ...(guestTaxIds.length > 0 ? { tax_rates: guestTaxIds } : {}),
         quantity: 1,
       }],
       customer_email: reg.guest_email || undefined,
