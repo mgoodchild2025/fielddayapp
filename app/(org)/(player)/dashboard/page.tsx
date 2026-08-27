@@ -327,7 +327,8 @@ export default async function DashboardPage() {
 
       db.from('payments').select(`
         id, payment_method, amount_cents, currency,
-        league:leagues!payments_league_id_fkey(name, slug)
+        league:leagues!payments_league_id_fkey(name, slug),
+        registration:registrations!payments_registration_id_fkey(status)
       `)
         .eq('organization_id', org.id)
         .eq('user_id', user.id)
@@ -671,6 +672,10 @@ export default async function DashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const pmt of pendingOfflinePayments as any[]) {
     const league = Array.isArray(pmt.league) ? pmt.league[0] : pmt.league
+    // A payment whose registration was withdrawn is no longer owed — leaveSession
+    // deletes these going forward, but older rows may still be around.
+    const pmtReg = Array.isArray(pmt.registration) ? pmt.registration[0] : pmt.registration
+    if (pmtReg?.status === 'withdrawn') continue
     if (!league?.slug || seenPaymentSlugs.has(league.slug)) continue
     seenPaymentSlugs.add(league.slug)
     const methodLabel = pmt.payment_method === 'etransfer' ? 'e-transfer'
