@@ -340,15 +340,29 @@ export async function leaveSession(sessionId: string, leagueId: string) {
   // violated the check constraint on every attempt. The failure was silent
   // (this update's error was never read), which is why Leave did nothing for
   // anyone who joined through the registration flow.
-  const { error: regError } = await db
+  const { data: withdrawnRegs, error: regError } = await db
     .from('registrations')
     .update({ status: 'withdrawn' })
     .eq('session_id', sessionId)
     .eq('user_id', user.id)
     .eq('organization_id', org.id)
     .eq('registration_type', 'drop_in')
+    .select('id')
 
   if (regError) return { error: regError.message }
+
+  // A withdrawn registration owes nothing: remove its never-paid offline
+  // payment rows so "Payment outstanding" reminders don't linger. Offline
+  // methods only — a pending Stripe row can still be completed by webhook.
+  const withdrawnIds = (withdrawnRegs ?? []).map((r) => r.id)
+  if (withdrawnIds.length > 0) {
+    await db
+      .from('payments')
+      .delete()
+      .in('registration_id', withdrawnIds)
+      .eq('status', 'pending')
+      .in('payment_method', ['cash', 'etransfer', 'cheque'])
+  }
 
   revalidatePath('/events/[slug]', 'page')
   return { error: null }
