@@ -14,13 +14,17 @@ export function eventDisplayPriceCents(league: {
   return league.drop_in_price_cents ?? 0
 }
 
-/** Formats the display price as e.g. "Free" or "$15 CAD". */
+/** Formats the display price as e.g. "Free", "$15 CAD / player", "$400 CAD / team". */
 export function formatEventPrice(league: {
   price_cents?: number | null
   drop_in_price_cents?: number | null
   currency?: string | null
+  payment_mode?: string | null
 }): string {
   const cents = eventDisplayPriceCents(league)
   if (cents === 0) return 'Free'
-  return `$${(cents / 100).toFixed(0)} ${(league.currency ?? 'CAD').toUpperCase()}`
+  // Say who the price is for — callers that don't know the payment mode get
+  // the bare amount, same as before.
+  const unit = league.payment_mode === 'per_team' ? ' / team' : league.payment_mode ? ' / player' : ''
+  return `$${(cents / 100).toFixed(0)} ${(league.currency ?? 'CAD').toUpperCase()}${unit}`
 }

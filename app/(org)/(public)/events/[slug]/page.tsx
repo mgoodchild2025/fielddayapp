@@ -1188,7 +1188,8 @@ export default async function EventDetailPage({
   // Sales tax: name it wherever a price shows — never a surprise at checkout
   const regTaxSuffix = taxSuffix(await getOrgTaxRates(db, org.id), 'registrations')
   const withTax = (label: string) => regTaxSuffix ? `${label} ${regTaxSuffix}` : label
-  const price = effectiveRegPrice === 0 ? 'Free' : withTax(`$${(effectiveRegPrice / 100).toFixed(0)} ${league.currency?.toUpperCase()}${earlyBirdActive ? ' (Early Bird)' : ''}`)
+  const priceUnit = paymentMode === 'per_team' ? ' / team' : ' / player'
+  const price = effectiveRegPrice === 0 ? 'Free' : withTax(`$${(effectiveRegPrice / 100).toFixed(0)} ${league.currency?.toUpperCase()}${priceUnit}${earlyBirdActive ? ' (Early Bird)' : ''}`)
   const dropInPriceLabel = dropInPriceCents !== null
     ? (dropInPriceCents === 0 ? 'Free drop-in' : withTax(`$${(dropInPriceCents / 100).toFixed(0)} drop-in`))
     : null
