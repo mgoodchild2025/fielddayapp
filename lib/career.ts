@@ -86,10 +86,30 @@ export function buildCareer(inputs: CareerInputs): PlayerCareer {
     }
     return { sport, columns, rows, totals }
   })
-  // Sports with the longest history first
-  tables.sort((a, b) => b.rows.length - a.rows.length)
 
-  return { seasons, tables, seasonCount: seasons.length }
+  // A separate table only earns its keep when its stat columns differ —
+  // otherwise (most commonly: no stat definitions at all) splitting by sport
+  // just repeats the same header row over each team. Merge identical shapes.
+  const byShape = new Map<string, CareerSportTable>()
+  for (const t of tables) {
+    const shape = t.columns.map((c) => `${c.key}:${c.label}`).join('|')
+    const existing = byShape.get(shape)
+    if (!existing) {
+      byShape.set(shape, t)
+      continue
+    }
+    existing.sport = `${existing.sport}+${t.sport}`
+    existing.rows = [...existing.rows, ...t.rows].sort((a, b) => a.sortDate.localeCompare(b.sortDate))
+    for (const col of existing.columns) {
+      existing.totals[col.key] = (existing.totals[col.key] ?? 0) + (t.totals[col.key] ?? 0)
+    }
+  }
+  const mergedTables = [...byShape.values()]
+
+  // Sports with the longest history first
+  mergedTables.sort((a, b) => b.rows.length - a.rows.length)
+
+  return { seasons, tables: mergedTables, seasonCount: seasons.length }
 }
 
 type Db = ReturnType<typeof createServiceRoleClient>

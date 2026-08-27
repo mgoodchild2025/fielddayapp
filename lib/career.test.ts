@@ -47,6 +47,21 @@ describe('buildCareer', () => {
     expect(c.tables[0].totals).toEqual({ kills: 0, aces: 0, blocks: 0 })
   })
 
+  it('merges sports whose stat columns are identical — no repeated header rows', () => {
+    // No stat definitions at all: every sport resolves to zero columns, so
+    // splitting by sport would just repeat "Season | Team" over each league.
+    const c = buildCareer({
+      ...base,
+      memberships: [
+        ...base.memberships,
+        { teamId: 't4', teamName: 'Kickers', leagueId: 'l4', leagueName: 'Soccer 2025', sport: 'soccer', seasonStart: '2025-05-01', createdAt: null },
+      ],
+      statDefsBySport: new Map(),
+    })
+    expect(c.tables).toHaveLength(1)
+    expect(c.tables[0].rows.map((r) => r.teamName)).toEqual(['Spikers', 'Thunder', 'Kickers', 'Thunder'])
+  })
+
   it('groups mixed-sport careers into per-sport tables, longest history first', () => {
     const c = buildCareer({
       ...base,
