@@ -20,6 +20,10 @@ interface Props {
   /** Per-league accepted methods. When >1, the captain chooses; offline reserves the team. */
   acceptedMethods?: PaymentMethod[]
   offlineInstructions?: string | null
+  /** e.g. "+ HST 13%" — exact amounts are itemized at checkout / on the payment record. */
+  taxSuffix?: string
+  /** The recorded payment's gross (tax included) — shown on the paid view. */
+  paidAmountCents?: number | null
 }
 
 export function TeamPaymentPanel({
@@ -36,10 +40,13 @@ export function TeamPaymentPanel({
   captainRegistrationStatus = 'none',
   acceptedMethods = [],
   offlineInstructions = null,
+  taxSuffix = '',
+  paidAmountCents = null,
 }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [manualInstructions, setManualInstructions] = useState<string | null>(null)
+  const [offlineOwed, setOfflineOwed] = useState<{ amountCents: number; taxCents: number } | null>(null)
 
   // Discount code
   const [discountInput, setDiscountInput] = useState('')
@@ -92,6 +99,7 @@ export function TeamPaymentPanel({
         setLoading(false)
       } else {
         if (appliedDiscount) await incrementDiscountUse(appliedDiscount.id)
+        if (typeof res.amountCents === 'number') setOfflineOwed({ amountCents: res.amountCents, taxCents: res.taxCents ?? 0 })
         setManualInstructions(res.instructions ?? offlineInstructions ?? '')
       }
     } catch {
@@ -149,7 +157,10 @@ export function TeamPaymentPanel({
         </div>
         <div className="px-5 py-4 space-y-3">
           <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 space-y-1">
-            <p className="text-sm font-semibold text-amber-900">Payment instructions</p>
+            <p className="text-sm font-semibold text-amber-900">
+              Payment instructions
+              {offlineOwed && <> — ${(offlineOwed.amountCents / 100).toFixed(2)} {curr}{offlineOwed.taxCents > 0 && <span className="font-normal text-amber-700"> (incl. ${(offlineOwed.taxCents / 100).toFixed(2)} tax)</span>}</>}
+            </p>
             {manualInstructions ? (
               <p className="text-sm text-amber-800 whitespace-pre-wrap">{manualInstructions}</p>
             ) : (
@@ -178,7 +189,7 @@ export function TeamPaymentPanel({
         </div>
         <div className="px-5 py-4 text-sm text-gray-500">
           <p>
-            Team payment of <strong className="text-gray-800">${price.toFixed(0)} {curr}</strong> received.
+            Team payment of <strong className="text-gray-800">${((paidAmountCents ?? priceCents) / 100).toFixed(2)} {curr}</strong> received.
             {paidAt && (
               <> Paid on {new Date(paidAt).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric', timeZone: timezone })}.</>
             )}
@@ -233,6 +244,7 @@ export function TeamPaymentPanel({
                 </div>
                 <p className={`font-bold text-lg tabular-nums ${appliedDiscount ? 'line-through text-gray-400' : ''}`} style={appliedDiscount ? {} : { color: 'var(--brand-primary)' }}>
                   ${price.toFixed(0)} {curr}
+                  {taxSuffix && <span className="ml-1 text-xs font-normal text-gray-400">{taxSuffix}</span>}
                 </p>
               </div>
 
@@ -256,8 +268,16 @@ export function TeamPaymentPanel({
                   <span className="text-sm text-gray-600">After discount</span>
                   <span className="font-bold text-lg tabular-nums" style={{ color: 'var(--brand-primary)' }}>
                     ${(discountedPriceCents / 100).toFixed(2)} {curr}
+                    {taxSuffix && <span className="ml-1 text-xs font-normal text-gray-400">{taxSuffix}</span>}
                   </span>
                 </div>
+              )}
+
+              {/* Sales tax notice — the exact amount is itemized at checkout */}
+              {taxSuffix && (
+                <p className="px-4 py-2 text-xs text-gray-500 bg-gray-50">
+                  Tax {taxSuffix.startsWith('incl') ? 'is included in these prices' : `is added at checkout (${taxSuffix.replace(/^\+\s*/, '')})`}.
+                </p>
               )}
             </div>
 

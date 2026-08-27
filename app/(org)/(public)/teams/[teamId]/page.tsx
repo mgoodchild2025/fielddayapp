@@ -17,6 +17,7 @@ import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
 import { TeamPaymentPanel } from '@/components/teams/team-payment-panel'
 import { getPositionsForSport } from '@/actions/positions'
 import { resolveLeagueMethods } from '@/lib/payment-methods'
+import { getOrgTaxRates, taxSuffix } from '@/lib/tax'
 import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { TeamAvatar } from '@/components/ui/team-avatar'
@@ -143,6 +144,10 @@ export default async function TeamDetailPage({
     : [{ data: null }, { data: null }]
   let teamPayment = teamPaymentRes.data
   const myLeagueRegistration = myLeagueRegistrationRes.data
+
+  // Sales-tax hint for the team fee ("+ HST 13%" / "incl. …") — the charged
+  // amount comes from the same rates via the checkout/offline actions.
+  const teamTaxSuffix = isPerTeam ? taxSuffix(await getOrgTaxRates(db, org.id), 'registrations') : ''
 
   // If Stripe redirected back with session_id but the webhook hasn't fired yet,
   // verify the session directly and mark the payment paid immediately.
@@ -553,6 +558,8 @@ export default async function TeamDetailPage({
             }
             acceptedMethods={teamAcceptedMethods}
             offlineInstructions={teamOfflineInstructions}
+            taxSuffix={teamTaxSuffix}
+            paidAmountCents={teamPayment?.amount_cents ?? null}
           />
         )}
 
