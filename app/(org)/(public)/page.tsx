@@ -129,7 +129,11 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
   //   per_team  → count teams (no status filter, matches /events page)   → cap = max_teams
   //   per_player → count active/pending registrations                     → cap = max_participants
   const perTeamOpenIds    = openEvents.filter((l) => l.payment_mode === 'per_team').map((l) => l.id)
-  const perPlayerOpenIds  = openEvents.filter((l) => l.payment_mode !== 'per_team' && l.max_participants !== null).map((l) => l.id)
+  // Drop-in events are excluded: their capacity is PER SESSION, so an
+  // event-wide registration count vs max_participants (the per-session cap)
+  // reads a few part-full sessions as "Full". Their cards show "Open" and the
+  // event page shows real per-session spots.
+  const perPlayerOpenIds  = openEvents.filter((l) => l.payment_mode !== 'per_team' && l.event_type !== 'drop_in' && l.max_participants !== null).map((l) => l.id)
 
   const teamCountMap         = new Map<string, number>()
   const registrationCountMap = new Map<string, number>()
@@ -157,7 +161,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
   for (const l of openEvents) {
     if (l.payment_mode === 'per_team') {
       spotsMap.set(l.id, { filled: teamCountMap.get(l.id) ?? 0, max: l.max_teams, unit: 'team' })
-    } else {
+    } else if (l.event_type !== 'drop_in') {
       spotsMap.set(l.id, { filled: registrationCountMap.get(l.id) ?? 0, max: l.max_participants, unit: 'player' })
     }
   }
