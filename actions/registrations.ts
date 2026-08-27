@@ -361,9 +361,20 @@ export async function removeRegistration(registrationId: string, leagueId: strin
       .in('team_id', teamIds)
   }
 
-  // Nullify registration_id on any payments before deleting — the payments FK
-  // has no ON DELETE clause (defaults to RESTRICT), which would block deletion.
-  // Payments are kept for financial records; we just detach them from the registration.
+  // A removed registration owes nothing: delete its never-paid offline payment
+  // rows outright, otherwise they linger as orphaned "payment outstanding"
+  // reminders that nothing can ever clear.
+  await db
+    .from('payments')
+    .delete()
+    .eq('registration_id', registrationId)
+    .eq('status', 'pending')
+    .in('payment_method', ['cash', 'etransfer', 'cheque'])
+
+  // Nullify registration_id on any remaining payments before deleting — the
+  // payments FK has no ON DELETE clause (defaults to RESTRICT), which would
+  // block deletion. Paid rows are kept for financial records; we just detach
+  // them from the registration.
   await db
     .from('payments')
     .update({ registration_id: null })
