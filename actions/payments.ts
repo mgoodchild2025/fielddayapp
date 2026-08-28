@@ -78,25 +78,30 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
     if (teamId) {
       // Find the pending team payment row created by selectOfflineTeamPayment
 
-      const { data: existingTeamPayment } = await db
+      // Fetch ALL of the team's rows: a repeat click used to find no pending
+      // row and insert a duplicate paid one, and .maybeSingle() errors on the
+      // duplicates it created. Update the pending row if there is one, else
+      // re-record onto the existing paid row; insert only when none exist.
+      const { data: teamPaymentRows } = await db
         .from('payments')
-        .select('id')
+        .select('id, status')
         .eq('team_id', teamId)
         .eq('league_id', parsed.data.leagueId)
         .eq('organization_id', org.id)
         .eq('payment_type', 'team')
-        .neq('status', 'paid')
-        .maybeSingle()
+        .order('created_at', { ascending: false })
+      const targetTeamPayment = (teamPaymentRows ?? []).find((p) => p.status !== 'paid')
+        ?? (teamPaymentRows ?? [])[0]
 
-      if (existingTeamPayment) {
+      if (targetTeamPayment) {
 
         const { error } = await db
           .from('payments')
           .update(paidFields)
-          .eq('id', existingTeamPayment.id)
+          .eq('id', targetTeamPayment.id)
         if (error) return { data: null, error: error.message }
       } else {
-        // No pending team payment row exists yet — admin is recording a manual
+        // No team payment row exists yet — admin is recording a manual
         // cash payment without a prior selectOfflineTeamPayment call; create one.
 
         const { error } = await db.from('payments').insert({
@@ -410,13 +415,15 @@ export async function selectOfflineTeamPayment(
   // Pending team payment (reuse existing team payment row if present).
   if (amountCents > 0) {
 
-    const { data: existing } = await db
+    const { data: existingRows } = await db
       .from('payments')
       .select('id, status')
       .eq('team_id', parsed.data.teamId)
       .eq('league_id', league.id)
       .eq('payment_type', 'team')
-      .maybeSingle()
+      .order('created_at', { ascending: false })
+    // Prefer a paid row (never downgrade it), else reuse the newest.
+    const existing = (existingRows ?? []).find((p) => p.status === 'paid') ?? (existingRows ?? [])[0] ?? null
 
     if (!existing) {
 
