@@ -126,13 +126,16 @@ export default async function TeamDetailPage({
   const [teamPaymentRes, myLeagueRegistrationRes] = isPerTeam
     ? await Promise.all([
 
+        // No .maybeSingle(): repeated admin mark-as-paid clicks historically
+        // created duplicate team rows, and maybeSingle errors (data: null) on
+        // multiples — which read as "Payment required" on a paid team.
         db
           .from('payments')
           .select('id, status, paid_at, amount_cents')
           .eq('team_id', teamId)
           .eq('league_id', leagueId)
           .eq('payment_type', 'team')
-          .maybeSingle(),
+          .order('created_at', { ascending: false }),
         db
           .from('registrations')
           .select('id, status')
@@ -142,7 +145,9 @@ export default async function TeamDetailPage({
           .maybeSingle(),
       ])
     : [{ data: null }, { data: null }]
-  let teamPayment = teamPaymentRes.data
+  // Prefer a paid row; otherwise the newest (pending/failed) one.
+  const teamPaymentRows = (teamPaymentRes.data ?? []) as { id: string; status: string; paid_at: string | null; amount_cents: number }[]
+  let teamPayment = teamPaymentRows.find((pmt) => pmt.status === 'paid' || pmt.status === 'manual') ?? teamPaymentRows[0] ?? null
   const myLeagueRegistration = myLeagueRegistrationRes.data
 
   // Sales-tax hint for the team fee ("+ HST 13%" / "incl. …") — the charged
