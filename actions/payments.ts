@@ -114,6 +114,20 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
         if (error) return { data: null, error: error.message }
       }
 
+      // The team is paid: sweep any OTHER never-paid offline team rows for this
+      // league so stale pendings can't keep "outstanding" reminders alive.
+      if (targetTeamPayment) {
+        await db.from('payments')
+          .delete()
+          .eq('team_id', teamId)
+          .eq('league_id', parsed.data.leagueId)
+          .eq('organization_id', org.id)
+          .eq('payment_type', 'team')
+          .eq('status', 'pending')
+          .in('payment_method', ['cash', 'etransfer', 'cheque'])
+          .neq('id', targetTeamPayment.id)
+      }
+
       // Activate all active team members' registrations in case any are still pending
 
       const { data: members } = await db

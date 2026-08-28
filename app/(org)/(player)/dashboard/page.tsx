@@ -341,19 +341,20 @@ export default async function DashboardPage() {
         .eq('status', 'pending')
         .in('payment_method', ['cash', 'etransfer', 'cheque']),
 
-      // Pending offline TEAM payments for teams this user manages. Team payment
-      // rows carry no user_id (the team owes, not a person), so they can't come
-      // from the query above — find them via the captain/coach memberships.
+      // TEAM payments for teams this user manages. Team payment rows carry no
+      // user_id (the team owes, not a person), so they can't come from the query
+      // above — find them via the captain/coach memberships. Paid rows are
+      // fetched too: a stale pending row must NOT banner once the team has paid
+      // (the duplicate-row era left some behind).
       managerTeamIds.length > 0
         ? db.from('payments').select(`
-            id, payment_method, amount_cents, currency,
+            id, team_id, league_id, status, payment_method, amount_cents, currency,
             league:leagues!payments_league_id_fkey(name, slug)
           `)
             .eq('organization_id', org.id)
             .eq('payment_type', 'team')
             .in('team_id', managerTeamIds)
-            .eq('status', 'pending')
-            .in('payment_method', ['cash', 'etransfer', 'cheque'])
+            .in('status', ['pending', 'paid', 'manual'])
         : Promise.resolve({ data: [] }),
     ])
 
@@ -715,9 +716,19 @@ export default async function DashboardPage() {
     })
   }
 
-  // Pending team payments (captain/coach chose an offline method for the team fee)
+  // Pending team payments (captain/coach chose an offline method for the team
+  // fee). A team with ANY paid row owes nothing — skip its pending leftovers.
+  const paidTeamKeys = new Set(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (pendingTeamPayments as any[])
+      .filter((pmt) => pmt.status === 'paid' || pmt.status === 'manual')
+      .map((pmt) => `${pmt.team_id}:${pmt.league_id}`)
+  )
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const pmt of pendingTeamPayments as any[]) {
+    if (pmt.status !== 'pending') continue
+    if (!['cash', 'etransfer', 'cheque'].includes(pmt.payment_method)) continue
+    if (paidTeamKeys.has(`${pmt.team_id}:${pmt.league_id}`)) continue
     const league = Array.isArray(pmt.league) ? pmt.league[0] : pmt.league
     if (!league?.slug || seenPaymentSlugs.has(league.slug)) continue
     seenPaymentSlugs.add(league.slug)
