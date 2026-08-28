@@ -35,6 +35,11 @@ type Row = {
   player: { id: string; full_name: string; email: string } | null
   league: { id: string; name: string; price_cents: number; drop_in_price_cents?: number | null; currency: string; payment_mode?: string } | null
   payment: PaymentRecord | null
+  /** Per-team leagues: the member's TEAM payment (shared across the roster). */
+  teamPayment?: {
+    id: string; amount_cents: number; tax_cents: number | null; currency: string
+    status: string; payment_method: string | null; paid_at: string | null; teamName: string
+  } | null
   paymentStatus: string
   isFree: boolean
 }
@@ -50,6 +55,7 @@ const statusColors: Record<string, string> = {
 
 function effectivePriceCents(r: Row): number {
   if (r.payment?.amount_cents != null) return r.payment.amount_cents
+  if (r.teamPayment) return r.teamPayment.amount_cents
   if (!r.league) return 0
   return r.registration_type === 'drop_in'
     ? (r.league.drop_in_price_cents ?? r.league.price_cents)
@@ -59,13 +65,22 @@ function effectivePriceCents(r: Row): number {
 function amountLabel(r: Row) {
   if (r.isFree) return 'Free'
   const cents = effectivePriceCents(r)
-  const currency = (r.payment?.currency ?? r.league?.currency ?? 'cad').toUpperCase()
+  const currency = (r.payment?.currency ?? r.teamPayment?.currency ?? r.league?.currency ?? 'cad').toUpperCase()
   return `$${(cents / 100).toFixed(2)} ${currency}`
 }
 
 function dateLabel(r: Row) {
-  const d = r.payment?.paid_at ?? r.created_at
+  const d = r.payment?.paid_at ?? r.teamPayment?.paid_at ?? r.created_at
   return new Date(d).toLocaleDateString()
+}
+
+/** Paid team payments among the rows, deduplicated by payment id. */
+function uniqueTeamPayments(rows: Row[]) {
+  const seen = new Map<string, NonNullable<Row['teamPayment']>>()
+  for (const r of rows) {
+    if (r.teamPayment && r.teamPayment.status === 'paid') seen.set(r.teamPayment.id, r.teamPayment)
+  }
+  return [...seen.values()]
 }
 
 function needsAction(r: Row) {
@@ -172,11 +187,14 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
   const filteredStats = useMemo(() => ({
     totalPaidCents: filtered
       .filter(r => r.payment?.status === 'paid')
-      .reduce((sum, r) => sum + (r.payment?.amount_cents ?? 0), 0),
+      .reduce((sum, r) => sum + (r.payment?.amount_cents ?? 0), 0)
+      // Team payments appear on every roster member's row — count each once.
+      + uniqueTeamPayments(filtered).reduce((sum, tp) => sum + tp.amount_cents, 0),
     // Tax collected within the paid set — the number the org remits
     taxCollectedCents: filtered
       .filter(r => r.payment?.status === 'paid')
-      .reduce((sum, r) => sum + (r.payment?.tax_cents ?? 0), 0),
+      .reduce((sum, r) => sum + (r.payment?.tax_cents ?? 0), 0)
+      + uniqueTeamPayments(filtered).reduce((sum, tp) => sum + (tp.tax_cents ?? 0), 0),
     paidCount: filtered.filter(r => r.paymentStatus === 'paid').length,
     // "Unpaid" = anything still owed: unpaid, pending, or failed.
     unpaidCount: filtered.filter(r =>
