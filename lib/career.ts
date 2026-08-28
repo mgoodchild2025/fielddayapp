@@ -1,5 +1,6 @@
 import type { createServiceRoleClient } from '@/lib/supabase/service'
 import { getStatDefinitions } from '@/actions/stats'
+import { accumulateGameResult, isVolleyballSport, type TeamStatTotals } from '@/lib/standings'
 
 /**
  * The career record (card flip C1): everything the back of a player's card
@@ -53,6 +54,9 @@ export interface CareerInputs {
   medalByLeagueTeam: Map<string, string>
   /** sport → its stat definitions, display order already applied. */
   statDefsBySport: Map<string, { key: string; label: string }[]>
+  /** leagueId:teamId → the TEAM's confirmed W/L/T record. Fills the card back
+   *  for sports that don't track individual player stats. */
+  teamRecordByLeagueTeam?: Map<string, { played: number; wins: number; losses: number; ties: number }>
 }
 
 /** Pure assembly — tested. */
@@ -60,13 +64,19 @@ export function buildCareer(inputs: CareerInputs): PlayerCareer {
   const seasons: CareerSeason[] = inputs.memberships.map((m) => {
     const date = m.seasonStart ?? m.createdAt ?? ''
     const placement = inputs.medalByLeagueTeam.get(`${m.leagueId}:${m.teamId}`)
+    const rec = inputs.teamRecordByLeagueTeam?.get(`${m.leagueId}:${m.teamId}`)
     return {
       seasonLabel: date ? String(new Date(date).getFullYear()) : '—',
       teamName: m.teamName,
       leagueName: m.leagueName,
       sport: m.sport || 'other',
       medal: placement ? (MEDAL_GLYPH[placement] ?? null) : null,
-      stats: inputs.statsByLeague.get(m.leagueId) ?? {},
+      // Reserved __-prefixed keys carry the TEAM record so no-player-stat
+      // sports still get a season line; real stat keys never start with __.
+      stats: {
+        ...(inputs.statsByLeague.get(m.leagueId) ?? {}),
+        ...(rec ? { __w: rec.wins, __l: rec.losses, __t: rec.ties } : {}),
+      },
       sortDate: date,
     }
   }).sort((a, b) => a.sortDate.localeCompare(b.sortDate))
@@ -79,7 +89,17 @@ export function buildCareer(inputs: CareerInputs): PlayerCareer {
   }
 
   const tables: CareerSportTable[] = [...bySport.entries()].map(([sport, rows]) => {
-    const columns = (inputs.statDefsBySport.get(sport) ?? []).slice(0, 3)
+    let columns = (inputs.statDefsBySport.get(sport) ?? []).slice(0, 3)
+    // No player stats tracked for this sport: show the TEAM's season record
+    // instead of a bare Season | Team list. T only when a tie actually exists.
+    if (columns.length === 0 && rows.some((r) => r.stats.__w != null)) {
+      const hasTies = rows.some((r) => (r.stats.__t ?? 0) > 0)
+      columns = [
+        { key: '__w', label: 'W' },
+        { key: '__l', label: 'L' },
+        ...(hasTies ? [{ key: '__t', label: 'T' }] : []),
+      ]
+    }
     const totals: Record<string, number> = {}
     for (const col of columns) {
       totals[col.key] = rows.reduce((sum, r) => sum + (r.stats[col.key] ?? 0), 0)
@@ -146,7 +166,7 @@ export async function getPlayerCareer(db: Db, orgId: string, userId: string): Pr
   const leagueIds = [...new Set(memberships.map((m) => m.leagueId))]
   const sports = [...new Set(memberships.map((m) => m.sport))]
 
-  const [{ data: statRows }, { data: medalRows }, statDefsList] = await Promise.all([
+  const [{ data: statRows }, { data: medalRows }, statDefsList, { data: gameRows }] = await Promise.all([
     db.from('player_game_stats')
       .select('league_id, stat_key, value')
       .eq('organization_id', orgId)
@@ -157,6 +177,13 @@ export async function getPlayerCareer(db: Db, orgId: string, userId: string): Pr
       .eq('organization_id', orgId)
       .in('league_id', leagueIds),
     Promise.all(sports.map(async (sport) => ({ sport, defs: await getStatDefinitions(orgId, sport) }))),
+    // Confirmed results for the member leagues — the card back's TEAM record
+    // when a sport tracks no player stats. All confirmed games count (pool and
+    // playoff included): it's a career line, not the standings table.
+    db.from('games')
+      .select('league_id, home_team_id, away_team_id, game_results(home_score, away_score, status, sets, is_forfeit, forfeit_team_id)')
+      .eq('organization_id', orgId)
+      .in('league_id', leagueIds),
   ])
 
   const statsByLeague = new Map<string, Record<string, number>>()
@@ -175,7 +202,34 @@ export async function getPlayerCareer(db: Db, orgId: string, userId: string): Pr
     statDefsList.map(({ sport, defs }) => [sport, defs.map((d) => ({ key: d.key, label: d.label }))])
   )
 
-  const career = buildCareer({ memberships, statsByLeague, medalByLeagueTeam, statDefsBySport })
+  // W/L/T per league via the shared standings arithmetic, then keyed per team.
+  const sportByLeague = new Map(memberships.map((m) => [m.leagueId, m.sport]))
+  const statsByLeagueTeam = new Map<string, Map<string, TeamStatTotals>>()
+  for (const g of gameRows ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = Array.isArray((g as any).game_results) ? (g as any).game_results[0] : (g as any).game_results
+    if (!result || result.status !== 'confirmed' || !g.home_team_id || !g.away_team_id) continue
+    const acc = statsByLeagueTeam.get(g.league_id) ?? new Map<string, TeamStatTotals>()
+    statsByLeagueTeam.set(g.league_id, acc)
+    accumulateGameResult(acc, {
+      homeTeamId: g.home_team_id,
+      awayTeamId: g.away_team_id,
+      homeScore: result.home_score,
+      awayScore: result.away_score,
+      sets: result.sets ?? null,
+      isForfeit: result.is_forfeit ?? null,
+      forfeitTeamId: result.forfeit_team_id ?? null,
+    }, isVolleyballSport(sportByLeague.get(g.league_id) ?? null))
+  }
+  const teamRecordByLeagueTeam = new Map<string, { played: number; wins: number; losses: number; ties: number }>()
+  for (const m of memberships) {
+    const t = statsByLeagueTeam.get(m.leagueId)?.get(m.teamId)
+    if (t) teamRecordByLeagueTeam.set(`${m.leagueId}:${m.teamId}`, {
+      played: t.matchesPlayed, wins: t.wins, losses: t.losses, ties: t.ties,
+    })
+  }
+
+  const career = buildCareer({ memberships, statsByLeague, medalByLeagueTeam, statDefsBySport, teamRecordByLeagueTeam })
 
   // Reigning champion: a gold in the last 365 days on a team the player was on
   const myTeamKeys = new Set(memberships.map((m) => `${m.leagueId}:${m.teamId}`))
