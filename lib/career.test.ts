@@ -47,6 +47,41 @@ describe('buildCareer', () => {
     expect(c.tables[0].totals).toEqual({ kills: 0, aces: 0, blocks: 0 })
   })
 
+  it('shows the team W/L record when a sport tracks no player stats', () => {
+    const c = buildCareer({
+      ...base,
+      statDefsBySport: new Map(),
+      teamRecordByLeagueTeam: new Map([
+        ['l1:t1', { played: 10, wins: 7, losses: 3, ties: 0 }],
+        ['l2:t2', { played: 8, wins: 4, losses: 4, ties: 0 }],
+      ]),
+    })
+    expect(c.tables).toHaveLength(1)
+    expect(c.tables[0].columns.map((col) => col.label)).toEqual(['W', 'L'])
+    expect(c.tables[0].totals).toEqual({ __w: 11, __l: 7 })
+    // l3 has no record yet — its cells render as '—' via null stats
+    expect(c.tables[0].rows.find((r) => r.seasonLabel === '2026')?.stats.__w).toBeUndefined()
+  })
+
+  it('adds a T column only when a tie actually exists', () => {
+    const c = buildCareer({
+      ...base,
+      statDefsBySport: new Map(),
+      teamRecordByLeagueTeam: new Map([
+        ['l1:t1', { played: 10, wins: 6, losses: 3, ties: 1 }],
+      ]),
+    })
+    expect(c.tables[0].columns.map((col) => col.label)).toEqual(['W', 'L', 'T'])
+  })
+
+  it('keeps real stat columns when the sport defines them — record is a fallback', () => {
+    const c = buildCareer({
+      ...base,
+      teamRecordByLeagueTeam: new Map([['l1:t1', { played: 10, wins: 7, losses: 3, ties: 0 }]]),
+    })
+    expect(c.tables[0].columns.map((col) => col.key)).toEqual(['kills', 'aces', 'blocks'])
+  })
+
   it('merges sports whose stat columns are identical — no repeated header rows', () => {
     // No stat definitions at all: every sport resolves to zero columns, so
     // splitting by sport would just repeat "Season | Team" over each league.
