@@ -464,6 +464,49 @@ function SessionHero({ item, timezone }: { item: NextSessionItem; timezone: stri
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+/** The dashboard's "My card" strip: the flip card with Edit / View & share
+ *  links, or — when the player has no bio yet — a dashed setup prompt so the
+ *  card feature is discoverable in the first place. */
+function MyCardSection({ myCardBio, myCareer, myCardHref }: {
+  myCardBio: Props['myCardBio']
+  myCareer: Props['myCareer']
+  myCardHref: Props['myCardHref']
+}) {
+  if (!myCardBio) {
+    return (
+      <div className="mt-4 max-w-md">
+        <Link
+          href="/profile#bio"
+          className="block rounded-xl border-2 border-dashed border-gray-300 px-5 py-6 text-center hover:border-gray-400 transition-colors"
+        >
+          <p className="text-sm font-semibold text-gray-600">Set up your player card →</p>
+          <p className="mt-1 text-xs text-gray-400">
+            Add your number, position, and a photo — it shows on your team page and can rotate on event displays.
+          </p>
+        </Link>
+      </div>
+    )
+  }
+  return (
+    <div className="mt-4 max-w-md">
+      <div className="mb-2 flex items-baseline justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">My card</p>
+        <span className="flex items-center gap-3">
+          <Link href="/profile#bio" className="text-xs font-medium text-gray-400 hover:text-gray-600">
+            Edit →
+          </Link>
+          {myCardHref && (
+            <Link href={myCardHref} className="text-xs font-medium text-gray-400 hover:text-gray-600">
+              View &amp; share →
+            </Link>
+          )}
+        </span>
+      </div>
+      <BioFlipCard bio={myCardBio} career={myCareer ?? null} />
+    </div>
+  )
+}
+
 export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null }: Props) {
   const [activeIdx, setActiveIdx] = useState(0)
 
@@ -545,19 +588,7 @@ export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = 
               <MedalCase medals={medals} isOwner title="Your trophy case" />
             </div>
           )}
-          {myCardBio && (
-            <div className="mt-4 max-w-md">
-              <div className="mb-2 flex items-baseline justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">My card</p>
-                {myCardHref && (
-                  <Link href={myCardHref} className="text-xs font-medium text-gray-400 hover:text-gray-600">
-                    View &amp; share →
-                  </Link>
-                )}
-              </div>
-              <BioFlipCard bio={myCardBio} career={myCareer} />
-            </div>
-          )}
+          <MyCardSection myCardBio={myCardBio} myCareer={myCareer} myCardHref={myCardHref} />
         </div>
 
         <div className="rounded-xl border bg-white px-6 py-12 text-center">
@@ -593,19 +624,7 @@ export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = 
             <MedalCase medals={medals} isOwner title="Your trophy case" />
           </div>
         )}
-        {myCardBio && (
-          <div className="mt-4 max-w-md">
-            <div className="mb-2 flex items-baseline justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">My card</p>
-              {myCardHref && (
-                <Link href={myCardHref} className="text-xs font-medium text-gray-400 hover:text-gray-600">
-                  View &amp; share →
-                </Link>
-              )}
-            </div>
-            <BioFlipCard bio={myCardBio} career={myCareer} />
-          </div>
-        )}
+        <MyCardSection myCardBio={myCardBio} myCareer={myCareer} myCardHref={myCardHref} />
       </div>
 
       {/* ── Action banners ── */}
