@@ -20,9 +20,8 @@ const schema = z.object({
   email: z.string().email(),
   phone: z.string().min(10, 'Phone number required'),
   skill_level: z.enum(['beginner', 'intermediate', 'competitive']),
-  // Optional in the base schema; required for season events via the dynamic
-  // resolver below (drop-in registration skips the shirt-size question).
-  t_shirt_size: z.enum(SHIRT_SIZES).optional(),
+  // Optional everywhere — an unanswered select submits '', normalized away.
+  t_shirt_size: z.preprocess((v) => (v === '' ? undefined : v), z.enum(SHIRT_SIZES).optional()),
   emergency_contact_name: z.string().min(2, 'Emergency contact name required'),
   emergency_contact_phone: z.string().min(10, 'Emergency contact phone required'),
   how_did_you_hear: z.string().optional(),
@@ -87,14 +86,9 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
 
   const isDropIn = registrationType === 'drop_in'
 
-  // Drop-in players skip the shirt-size question; season players still require it.
-  const resolverSchema = isDropIn
-    ? schema
-    : schema.extend({ t_shirt_size: z.enum(SHIRT_SIZES) })
-
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(resolverSchema) as any,
+    resolver: zodResolver(schema) as any,
     defaultValues: {
       full_name: profile?.full_name ?? '',
       email: profile?.email ?? '',
@@ -202,7 +196,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
           </div>
           {!isDropIn && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">T-Shirt Size *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">T-Shirt Size <span className="font-normal text-gray-400">(optional)</span></label>
               <select {...register('t_shirt_size')} className="w-full border rounded-md px-3 py-2 text-base">
                 <option value="">Select…</option>
                 {SHIRT_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
