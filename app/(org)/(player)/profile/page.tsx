@@ -70,8 +70,10 @@ export default async function ProfilePage() {
         </h1>
         <ProfileForm profile={profile} playerDetails={playerDetails} orgId={org.id} />
 
-        {/* Bio card editor — the broadcast lower-third, previewed live */}
-        <div className="mt-8">
+        {/* Bio card editor — the broadcast lower-third, previewed live.
+            id="bio": the dashboard's "Edit" / "Set up your player card" links
+            deep-link here. scroll-mt keeps the heading clear of the nav. */}
+        <div id="bio" className="mt-8 scroll-mt-20">
           <BioEditor
             initial={{
               jerseyNumber: myBio?.jersey_number ?? null,
