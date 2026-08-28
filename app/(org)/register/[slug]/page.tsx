@@ -190,7 +190,19 @@ export default async function RegisterLeaguePage({
       : [{ data: null }, { data: null }]
 
     if (!membership && !invitation) {
-      redirect(`/events/${slug}?join=invite_required`)
+      // A team-code link shared by the captain IS the invitation — honour it
+      // even though no email invite row exists (the /join/CODE page routes
+      // logged-in players here as /register/[slug]?code=CODE).
+      const { data: codeTeam } = initialTeamCode
+        ? await db.from('teams').select('id')
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .eq('league_id', (league as any).id).eq('organization_id', org.id)
+            .eq('team_code', initialTeamCode).eq('status', 'active')
+            .limit(1).maybeSingle()
+        : { data: null }
+      if (!codeTeam) {
+        redirect(`/events/${slug}?join=invite_required`)
+      }
     }
   }
 
