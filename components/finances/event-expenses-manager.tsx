@@ -156,7 +156,7 @@ export function EventExpensesManager({ leagueId, initialExpenses, sessions = [] 
                   </td>
                   <td className="px-4 py-2.5 text-right font-medium text-gray-800 whitespace-nowrap">{money(e.amount_cents)}</td>
                   <td className="px-2 py-2.5 text-right">
-                    <button type="button" onClick={() => remove(e.id)} disabled={pending} className="text-gray-400 hover:text-red-600 disabled:opacity-40" aria-label="Delete expense">
+                    <button type="button" onClick={() => remove(e.id)} disabled={pending} className="text-gray-400 hover:text-red-600 disabled:opacity-40 p-2 -m-2" aria-label="Delete expense">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>

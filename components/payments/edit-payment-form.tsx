@@ -64,7 +64,7 @@ export function EditPaymentForm({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="text-xs px-2.5 py-1 rounded-md border font-medium text-gray-700 hover:bg-gray-50"
+        className="text-xs px-3 py-2 rounded-md border font-medium text-gray-700 hover:bg-gray-50"
       >
         {hasPayment ? 'Edit payment' : 'Record payment'}
       </button>
@@ -108,10 +108,10 @@ export function EditPaymentForm({
       <input type="text" placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} className="border rounded px-2 py-1 text-xs" />
       {error && <p className="text-xs text-red-500">{error}</p>}
       <div className="flex gap-2">
-        <button type="submit" disabled={pending} className="text-xs px-3 py-1 rounded-md font-semibold text-white disabled:opacity-60" style={{ backgroundColor: 'var(--brand-primary)' }}>
+        <button type="submit" disabled={pending} className="text-xs px-3 py-2 rounded-md font-semibold text-white disabled:opacity-60" style={{ backgroundColor: 'var(--brand-primary)' }}>
           {pending ? 'Saving…' : 'Save'}
         </button>
-        <button type="button" onClick={() => setOpen(false)} className="text-xs px-3 py-1 rounded-md border text-gray-600 hover:bg-gray-50">Cancel</button>
+        <button type="button" onClick={() => setOpen(false)} className="text-xs px-3 py-2 rounded-md border text-gray-600 hover:bg-gray-50">Cancel</button>
       </div>
     </form>
   )
