@@ -177,6 +177,30 @@ All three accept a `notify: boolean` parameter. When `true` and the game has ass
 - **Grandfathering:** instalment enrolments only apply rates that existed at enrolment time (`rate.created_at <= enrollment.created_at`) — signed commitments never reprice.
 - `lib/tax.ts` (pure + tested): `computeTax` (exclusive adds, inclusive backs out; per-rate half-up rounding, remainder on last line), `taxSuffix` ("+ HST 13%" / "incl. …") shown on event-page prices, season-pass quotes, register payment step, and the merch cart. Pricing-planner recommendations are labelled pre-tax; the admin payments Total Collected card shows "incl. $X tax".
 
+## Finances
+All loaders/actions in `actions/finances.ts`; org screen at Admin → Finances (org_admin + `financial_tools` plan gate), per-event tab at Admin → Events → [Event] → Finances.
+
+### Revenue counting rules (apply EVERYWHERE money is summed)
+- Count `payments` with status `paid`/`manual` only.
+- **Team fees count once per team** (`payment_type='team'`, dedupe by `league_id:team_id`, prefer the paid row) — the repeated-Mark-as-Paid bug era left duplicate paid team rows in the wild, so every lookup must be duplicate-tolerant (no `.maybeSingle()` on team payments).
+- **Deleted-registration orphans don't count**: `removeRegistration` deletes pending offline rows, detaches the rest to `registration_id: null` — a per-player payment counts only while its registration exists.
+- Same rules live in `getEventPnl`, `getOrgPnl`, `getFinancialReport`, `getEventRevenueBySession`; the payments CSV export includes every raw row plus a `counted_in_report` column so it still reconciles.
+
+### Per-team payments ledger
+Admin → Payments shows ONE row per team for per-team leagues (synthesized team rows named by team, "Team fee" sublabel, team-direct Mark-as-Paid via `recordManualPayment({ teamId })`); member registration rows are dropped unless they carry a payment of their own. `recordManualPayment` updates the pending team row, re-records onto the paid row on repeat clicks (never inserts duplicates), and sweeps other never-paid offline team rows.
+
+### Offline (e-transfer/cash/cheque) lifecycle
+`selectOfflinePayment`/`selectOfflineTeamPayment` record the tax-inclusive gross + `tax_cents` and return them for display. Leaving a session (`leaveSession`) deletes the withdrawn registration's pending offline rows; dashboard "Payment outstanding" banners require a live registration (player) or a team with no paid row (team).
+
+### Overhead & allocation
+`org_overhead_expenses` (org-wide costs; period is informational) + `org_overhead_allocations` (split one expense across events — unique per expense+event, sum ≤ expense, editor on the overhead ledger with equal / by-session-count / manual splits). Event P&L shows its share as "Shared overhead (allocated)"; org totals count the full overhead once, allocations are attribution only — never add both.
+
+### Reports & exports
+`getFinancialReport(orgId, from, to)` + printable page at `/admin/finances/report?from&to` (admin chrome is `print:hidden`). **Date semantics**: payments by `paid_at` (fallback `created_at`), expenses/overhead by `incurred_on`, other income by `received_on`, merch orders by `created_at`. Tax remittance line = sum of `payments.tax_cents` in range. CSV ledgers at `GET /api/export/finances?type=payments|expenses|overhead|other_income|merch&from&to` (UTF-8 BOM via `lib/export/csv-helpers.ts`).
+
+### Receipts
+`receipt_path` on `event_expenses`/`org_overhead_expenses`; files in the **private** `expense-receipts` bucket — never a public URL, viewing goes through `getReceiptUrl` (10-min signed URL, finance admins only). UI: `components/finances/receipt-control.tsx` on both ledgers.
+
 ## Drop-in registration modes & season-pass proration
 - `leagues.registration_mode` ∈ `session | season | both`. In **both** mode the public event page shows the season-pass CTA and the per-session join list side by side; `isSeasonPickup` stays false in both mode (per-session gates behave like session mode), season-side gates use `offersSeasonPass`.
 - **Proration** (`leagues.season_pass_prorate`, admin toggle on Edit Event): pass price = full price × remaining/total non-cancelled sessions, rounded up to the dollar, floored at `drop_in_price_cents`. Pure logic + quote loader in `lib/season-pass.ts` (tested) — used by the event page display, the register flow (`seasonPassQuote` prop), and the Stripe checkout charge (`app/api/stripe/checkout/route.ts`), so display and charge can never disagree. Applies at purchase time only; sold passes never reprice.
