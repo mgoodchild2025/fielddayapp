@@ -375,7 +375,7 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
   // ── Step 2: Review seedings ──────────────────────────────────────────────────
   return (
     <div className="space-y-6 max-w-xl">
-      <div className="bg-white rounded-lg border overflow-hidden">
+      <div className="bg-white rounded-lg border overflow-x-auto">
         <div className="px-4 py-3 bg-gray-50 border-b">
           <p className="text-sm font-semibold">Review Seedings</p>
           <p className="text-xs text-gray-500 mt-0.5">Auto-calculated from standings. Use ↑ ↓ to adjust any seed.</p>

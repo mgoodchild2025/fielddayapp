@@ -121,7 +121,7 @@ export function TeamsTable({ teams, totalCount }: { teams: Team[]; totalCount: n
               </div>
 
               {/* ── Desktop table (md+) ── */}
-              <div className="hidden md:block bg-white rounded-lg border overflow-hidden">
+              <div className="hidden md:block bg-white rounded-lg border overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-gray-50 text-left">

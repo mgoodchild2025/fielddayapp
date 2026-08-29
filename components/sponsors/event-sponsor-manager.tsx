@@ -221,6 +221,7 @@ export function EventSponsorManager({ leagueId, showOrgSponsors, links, orgSpons
               <p className="text-sm font-semibold text-gray-900">Performance</p>
               <p className="text-xs text-gray-400 mt-0.5">All-time impressions (display screens) and website clicks.</p>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
                 <tr>
@@ -243,6 +244,7 @@ export function EventSponsorManager({ leagueId, showOrgSponsors, links, orgSpons
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )
       })()}
