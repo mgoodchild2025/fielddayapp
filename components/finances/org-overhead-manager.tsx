@@ -4,6 +4,7 @@ import { Fragment, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2 } from 'lucide-react'
 import { addOrgOverhead, deleteOrgOverhead, saveOverheadAllocations } from '@/actions/finances'
+import { ReceiptControl } from '@/components/finances/receipt-control'
 import type { OrgOverhead, AllocationTarget } from '@/actions/finances'
 import { OVERHEAD_CATEGORIES, OVERHEAD_PERIODS, type OverheadCategory, type OverheadPeriod } from '@/lib/finance-constants'
 
@@ -279,6 +280,9 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [] }: 
                         <span className="text-gray-400"> · {(e.allocations ?? []).map((a) => a.leagueName).join(', ')}</span>
                       </p>
                     )}
+                    <div className="mt-0.5">
+                      <ReceiptControl kind="overhead" expenseId={e.id} hasReceipt={!!e.receipt_path} />
+                    </div>
                   </td>
                   <td className="px-4 py-2.5 text-right font-medium text-gray-800 whitespace-nowrap">{money(e.amount_cents)}</td>
                   <td className="px-2 py-2.5 text-right whitespace-nowrap">

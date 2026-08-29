@@ -870,6 +870,7 @@ export type Database = {
           incurred_on: string | null
           league_id: string
           notes: string | null
+          receipt_path: string | null
           organization_id: string
           session_id: string | null
           vendor: string | null
@@ -884,6 +885,7 @@ export type Database = {
           incurred_on?: string | null
           league_id: string
           notes?: string | null
+          receipt_path?: string | null
           organization_id: string
           session_id?: string | null
           vendor?: string | null
@@ -898,6 +900,7 @@ export type Database = {
           incurred_on?: string | null
           league_id?: string
           notes?: string | null
+          receipt_path?: string | null
           organization_id?: string
           session_id?: string | null
           vendor?: string | null
@@ -3129,6 +3132,7 @@ export type Database = {
           id: string
           incurred_on: string | null
           notes: string | null
+          receipt_path: string | null
           organization_id: string
           period: string
         }
@@ -3142,6 +3146,7 @@ export type Database = {
           id?: string
           incurred_on?: string | null
           notes?: string | null
+          receipt_path?: string | null
           organization_id: string
           period?: string
         }
@@ -3155,6 +3160,7 @@ export type Database = {
           id?: string
           incurred_on?: string | null
           notes?: string | null
+          receipt_path?: string | null
           organization_id?: string
           period?: string
         }

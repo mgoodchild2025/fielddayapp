@@ -185,6 +185,7 @@ export type EventExpense = {
   vendor: string | null
   incurred_on: string | null
   notes: string | null
+  receipt_path: string | null
   created_at: string
 }
 
@@ -193,7 +194,7 @@ export async function getEventExpenses(leagueId: string): Promise<EventExpense[]
 
   const { data } = await db
     .from('event_expenses')
-    .select('id, league_id, session_id, category, description, amount_cents, vendor, incurred_on, notes, created_at')
+    .select('id, league_id, session_id, category, description, amount_cents, vendor, incurred_on, notes, receipt_path, created_at')
     .eq('league_id', leagueId)
     .order('incurred_on', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
@@ -640,6 +641,7 @@ export type OrgOverhead = {
   applies_to: 'general' | 'shop'
   incurred_on: string | null
   notes: string | null
+  receipt_path: string | null
   created_at: string
   /** Portions attributed to specific events; the remainder is pure overhead. */
   allocations?: OverheadAllocation[]
@@ -650,7 +652,7 @@ export async function getOrgOverhead(orgId: string): Promise<OrgOverhead[]> {
 
   const [{ data }, { data: allocRows }] = await Promise.all([
     db.from('org_overhead_expenses')
-      .select('id, category, description, amount_cents, period, applies_to, incurred_on, notes, created_at')
+      .select('id, category, description, amount_cents, period, applies_to, incurred_on, notes, receipt_path, created_at')
       .eq('organization_id', orgId)
       .order('incurred_on', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false }),
@@ -783,6 +785,105 @@ export async function addOrgOverhead(input: {
   })
   if (error) return { error: error.message }
 
+  revalidatePath('/admin/finances')
+  return { error: null }
+}
+
+// ── Expense receipts (private bucket, signed-URL viewing) ─────────────────────
+
+const RECEIPT_TYPES: Record<string, string> = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf',
+}
+const RECEIPT_MAX_SIZE = 10 * 1024 * 1024
+const RECEIPT_TABLE = { event: 'event_expenses', overhead: 'org_overhead_expenses' } as const
+export type ReceiptKind = keyof typeof RECEIPT_TABLE
+
+/** Attach (or replace) the receipt on an expense / overhead entry. */
+export async function uploadExpenseReceipt(formData: FormData): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await requireFinanceAdmin(org.id)
+  if ('error' in auth) return { error: auth.error }
+
+  const kind = formData.get('kind') as ReceiptKind | null
+  const expenseId = formData.get('expenseId') as string | null
+  const file = formData.get('file') as File | null
+  if (!kind || !(kind in RECEIPT_TABLE) || !expenseId) return { error: 'Invalid input' }
+  if (!file || file.size === 0) return { error: 'No file provided' }
+  const ext = RECEIPT_TYPES[file.type]
+  if (!ext) return { error: 'Use a JPEG, PNG, WebP, or PDF.' }
+  if (file.size > RECEIPT_MAX_SIZE) return { error: 'File too large (max 10 MB).' }
+
+  const db = createServiceRoleClient()
+  const { data: row } = await db
+    .from(RECEIPT_TABLE[kind])
+    .select('id, receipt_path')
+    .eq('id', expenseId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (!row) return { error: 'Expense not found' }
+
+  const path = `${org.id}/${kind}/${expenseId}.${ext}`
+  const { error: uploadError } = await db.storage
+    .from('expense-receipts')
+    .upload(path, file, { contentType: file.type, upsert: true })
+  if (uploadError) return { error: uploadError.message }
+  // Replacing a receipt that had a different extension leaves the old object behind — remove it.
+  if (row.receipt_path && row.receipt_path !== path) {
+    await db.storage.from('expense-receipts').remove([row.receipt_path])
+  }
+  const { error } = await db.from(RECEIPT_TABLE[kind])
+    .update({ receipt_path: path })
+    .eq('id', expenseId)
+    .eq('organization_id', org.id)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/finances')
+  return { error: null }
+}
+
+/** Short-lived signed URL to view a receipt (finance admins only). */
+export async function getReceiptUrl(kind: ReceiptKind, expenseId: string): Promise<{ url: string | null; error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await requireFinanceAdmin(org.id)
+  if ('error' in auth) return { url: null, error: auth.error }
+
+  const db = createServiceRoleClient()
+  const { data: row } = await db
+    .from(RECEIPT_TABLE[kind])
+    .select('receipt_path')
+    .eq('id', expenseId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (!row?.receipt_path) return { url: null, error: 'No receipt attached' }
+  const { data, error } = await db.storage
+    .from('expense-receipts')
+    .createSignedUrl(row.receipt_path, 600)
+  if (error || !data?.signedUrl) return { url: null, error: error?.message ?? 'Could not create link' }
+  return { url: data.signedUrl, error: null }
+}
+
+/** Detach and delete an expense's receipt. */
+export async function removeExpenseReceipt(kind: ReceiptKind, expenseId: string): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await requireFinanceAdmin(org.id)
+  if ('error' in auth) return { error: auth.error }
+
+  const db = createServiceRoleClient()
+  const { data: row } = await db
+    .from(RECEIPT_TABLE[kind])
+    .select('receipt_path')
+    .eq('id', expenseId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (!row?.receipt_path) return { error: null }
+  await db.storage.from('expense-receipts').remove([row.receipt_path])
+  const { error } = await db.from(RECEIPT_TABLE[kind])
+    .update({ receipt_path: null })
+    .eq('id', expenseId)
+    .eq('organization_id', org.id)
+  if (error) return { error: error.message }
   revalidatePath('/admin/finances')
   return { error: null }
 }

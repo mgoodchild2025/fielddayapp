@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2 } from 'lucide-react'
 import { addEventExpense, addEventExpensePerSession, deleteEventExpense } from '@/actions/finances'
+import { ReceiptControl } from '@/components/finances/receipt-control'
 import type { EventExpense } from '@/actions/finances'
 import { EXPENSE_CATEGORIES, type ExpenseCategory } from '@/lib/finance-constants'
 
@@ -149,6 +150,9 @@ export function EventExpensesManager({ leagueId, initialExpenses, sessions = [] 
                       {e.vendor ? ` · ${e.vendor}` : ''}
                       {e.incurred_on ? ` · ${new Date(e.incurred_on).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
                     </p>
+                    <div className="mt-0.5">
+                      <ReceiptControl kind="event" expenseId={e.id} hasReceipt={!!e.receipt_path} />
+                    </div>
                   </td>
                   <td className="px-4 py-2.5 text-right font-medium text-gray-800 whitespace-nowrap">{money(e.amount_cents)}</td>
                   <td className="px-2 py-2.5 text-right">
