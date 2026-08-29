@@ -181,7 +181,7 @@ All three accept a `notify: boolean` parameter. When `true` and the game has ass
 All loaders/actions in `actions/finances.ts`; org screen at Admin → Finances (org_admin + `financial_tools` plan gate), per-event tab at Admin → Events → [Event] → Finances.
 
 ### Revenue counting rules (apply EVERYWHERE money is summed)
-- Count `payments` with status `paid`/`manual` only.
+- Count `payments` with status `paid`/`manual`/`refunded` as GROSS, then subtract `refunded_cents` — a full refund nets to zero, a partial refund keeps the retained portion. Refunds are dated by `refunded_at` (report-period rule), set via `adminUpdateRegistrationPayment` (status refunded + optional refundAmountCents) or `refundTeamPayment`; re-recording a payment clears them.
 - **Team fees count once per team** (`payment_type='team'`, dedupe by `league_id:team_id`, prefer the paid row) — the repeated-Mark-as-Paid bug era left duplicate paid team rows in the wild, so every lookup must be duplicate-tolerant (no `.maybeSingle()` on team payments).
 - **Deleted-registration orphans don't count**: `removeRegistration` deletes pending offline rows, detaches the rest to `registration_id: null` — a per-player payment counts only while its registration exists.
 - Same rules live in `getEventPnl`, `getOrgPnl`, `getFinancialReport`, `getEventRevenueBySession`; the payments CSV export includes every raw row plus a `counted_in_report` column so it still reconciles.

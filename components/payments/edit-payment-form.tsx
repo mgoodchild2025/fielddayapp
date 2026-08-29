@@ -28,6 +28,7 @@ export function EditPaymentForm({
   const [method, setMethod] = useState<Method>(defaultMethod)
   const [amount, setAmount] = useState((defaultAmountCents / 100).toFixed(2))
   const [notes, setNotes] = useState(defaultNotes ?? '')
+  const [refundAmount, setRefundAmount] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -36,9 +37,16 @@ export function EditPaymentForm({
     setError(null)
     const cents = Math.round(parseFloat(amount) * 100)
     if (isNaN(cents) || cents < 0) { setError('Enter a valid amount.'); return }
+    const refundCents = status === 'refunded' && refundAmount.trim()
+      ? Math.round(parseFloat(refundAmount) * 100)
+      : undefined
+    if (status === 'refunded' && refundCents !== undefined && (isNaN(refundCents) || refundCents < 0)) {
+      setError('Enter a valid refund amount.'); return
+    }
     startTransition(async () => {
       const res = await adminUpdateRegistrationPayment({
         registrationId, amountCents: cents, status, method, notes: notes || undefined,
+        refundAmountCents: refundCents,
       })
       if (res.error) setError(res.error)
       else { setOpen(false); router.refresh() }
@@ -76,6 +84,19 @@ export function EditPaymentForm({
           <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} className="border rounded pl-5 pr-1.5 py-1 text-xs w-full" aria-label="Amount" />
         </div>
       </div>
+      {status === 'refunded' && (
+        <div className="relative">
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
+          <input
+            type="number" step="0.01" min="0"
+            value={refundAmount}
+            onChange={(e) => setRefundAmount(e.target.value)}
+            placeholder={`Refund amount (blank = full ${amount})`}
+            className="border rounded pl-5 pr-1.5 py-1 text-xs w-full"
+            aria-label="Refund amount"
+          />
+        </div>
+      )}
       <select value={method} onChange={(e) => setMethod(e.target.value as Method)} className="border rounded px-2 py-1 text-xs">
         <option value="etransfer">e-Transfer</option>
         <option value="cash">Cash</option>

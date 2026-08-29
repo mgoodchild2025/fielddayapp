@@ -39,6 +39,9 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
     payment_method: parsed.data.method,
     notes: parsed.data.notes ?? null,
     paid_at: new Date().toISOString(),
+    // Re-recording a payment un-refunds it.
+    refunded_cents: 0,
+    refunded_at: null as string | null,
   }
 
   // ── Per-team payment mode ──────────────────────────────────────────────────
@@ -235,6 +238,66 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
 
   revalidatePath('/admin/payments')
   return { data: null, error: null }
+}
+
+const refundTeamPaymentSchema = z.object({
+  teamId: z.string().uuid(),
+  leagueId: z.string().uuid(),
+  /** Defaults to the full team fee. */
+  refundAmountCents: z.number().int().min(0).optional(),
+})
+
+/** Refund a team's fee (fully by default, or partially). */
+export async function refundTeamPayment(input: z.infer<typeof refundTeamPaymentSchema>): Promise<{ error: string | null }> {
+  const parsed = refundTeamPaymentSchema.safeParse(input)
+  if (!parsed.success) return { error: 'Invalid input' }
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const db = createServiceRoleClient()
+  const { data: caller } = await db
+    .from('org_members').select('role')
+    .eq('organization_id', org.id).eq('user_id', user.id).single()
+  if (!caller || !['org_admin', 'league_admin'].includes(caller.role)) return { error: 'Unauthorized' }
+
+  const { data: rows } = await db
+    .from('payments')
+    .select('id, amount_cents, status')
+    .eq('team_id', parsed.data.teamId)
+    .eq('league_id', parsed.data.leagueId)
+    .eq('organization_id', org.id)
+    .eq('payment_type', 'team')
+    .order('created_at', { ascending: false })
+  const paidRow = (rows ?? []).find((p) => p.status === 'paid' || p.status === 'manual')
+  if (!paidRow) return { error: 'No paid team payment to refund.' }
+
+  const refundCents = Math.min(parsed.data.refundAmountCents ?? paidRow.amount_cents, paidRow.amount_cents)
+  const { error } = await db.from('payments')
+    .update({ status: 'refunded', refunded_cents: refundCents, refunded_at: new Date().toISOString() })
+    .eq('id', paidRow.id)
+  if (error) return { error: error.message }
+
+  const actor = await getAuditActor()
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: actor.actorUserId,
+    actorLabel: actor.actorLabel,
+    action: AUDIT_ACTIONS.PAYMENT_MANUAL_RECORDED,
+    targetType: 'team',
+    targetId: parsed.data.teamId,
+    metadata: {
+      league_id: parsed.data.leagueId,
+      refunded_cents: refundCents,
+      kind: 'team_refund',
+    },
+  })
+
+  revalidatePath('/admin/payments')
+  return { error: null }
 }
 
 const selectOfflinePaymentSchema = z.object({
@@ -591,6 +654,8 @@ const adminUpdatePaymentSchema = z.object({
   status: z.enum(['paid', 'pending', 'refunded']),
   method: z.enum(['cash', 'etransfer', 'cheque', 'stripe', 'card', 'other']),
   notes: z.string().optional(),
+  /** How much was returned when status is 'refunded' (defaults to the full amount). */
+  refundAmountCents: z.number().int().min(0).optional(),
 })
 
 /**
@@ -627,12 +692,19 @@ export async function adminUpdateRegistrationPayment(input: z.infer<typeof admin
   if (!reg) return { error: 'Registration not found' }
 
   const isPaid = parsed.data.status === 'paid'
+  const isRefund = parsed.data.status === 'refunded'
+  const refundCents = isRefund
+    ? Math.min(parsed.data.refundAmountCents ?? parsed.data.amountCents, parsed.data.amountCents)
+    : 0
   const fields = {
     amount_cents: parsed.data.amountCents,
     status: parsed.data.status,
     payment_method: parsed.data.method,
     notes: parsed.data.notes?.trim() || null,
     paid_at: isPaid ? new Date().toISOString() : null,
+    // Refunds land in the period they're issued; any other status clears them.
+    refunded_cents: refundCents,
+    refunded_at: isRefund ? new Date().toISOString() : null,
   }
 
 

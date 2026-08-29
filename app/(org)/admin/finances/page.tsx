@@ -62,7 +62,9 @@ export default async function FinancesPage() {
           <div className="bg-white rounded-xl border p-4">
             <p className="text-xs text-gray-500">Total revenue</p>
             <p className="text-xl font-bold text-gray-900 mt-1">{money(pnl.revenueCents)}</p>
-            <p className="text-[11px] text-gray-400 mt-1">registrations + merch</p>
+            <p className="text-[11px] text-gray-400 mt-1">
+              registrations + merch{pnl.refundedCents > 0 ? ` − ${money(pnl.refundedCents)} refunds` : ''}
+            </p>
           </div>
           <div className="bg-white rounded-xl border p-4">
             <p className="text-xs text-gray-500">Total costs</p>
