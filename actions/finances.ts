@@ -323,6 +323,164 @@ export async function deleteEventExpense(expenseId: string, leagueId: string): P
   return { error: null }
 }
 
+// ── Period financial report (date-ranged, for tax filing) ────────────────────
+
+export type FinancialReport = {
+  fromDate: string
+  toDate: string
+  registrationRevenueCents: number
+  /** Sales tax included in the registration revenue above — the remittance figure. */
+  taxCollectedCents: number
+  merchRevenueCents: number
+  merchCogsCents: number
+  otherIncomeByCategory: { category: string; amountCents: number }[]
+  otherIncomeCents: number
+  expensesByCategory: { category: string; amountCents: number }[]
+  eventExpenseCents: number
+  overheadByCategory: { category: string; amountCents: number }[]
+  overheadCents: number
+  revenueCents: number
+  costCents: number
+  profitCents: number
+  /** Per-event revenue vs direct costs within the period (shop = null league). */
+  events: { leagueId: string | null; name: string; revenueCents: number; costCents: number }[]
+}
+
+/**
+ * Org-wide financials for a date range. Which date counts: payments by paid_at
+ * (falling back to created_at), expenses/overhead by incurred_on, other income
+ * by received_on, merch orders by created_at — accrual-ish, so a rental logged
+ * against last year lands in last year's report. Registration revenue follows
+ * the P&L rules (team fees once per team, deleted-registration orphans excluded).
+ */
+export async function getFinancialReport(orgId: string, fromDate: string, toDate: string): Promise<FinancialReport> {
+  const db = createServiceRoleClient()
+  const fromTs = `${fromDate}T00:00:00.000Z`
+  const toTs = `${toDate}T23:59:59.999Z`
+  const inDateRange = (d: string | null | undefined, fallback?: string | null) => {
+    const v = d ?? fallback ?? null
+    if (!v) return false
+    return v >= (v.length === 10 ? fromDate : fromTs) && v <= (v.length === 10 ? toDate : toTs)
+  }
+
+  const [{ data: payments }, { data: merchOrders }, { data: expenses }, { data: overhead }, { data: otherRevenue }, { data: leagues }] = await Promise.all([
+
+    db.from('payments')
+      .select('amount_cents, tax_cents, league_id, payment_type, team_id, registration_id, paid_at, created_at')
+      .eq('organization_id', orgId).in('status', ['paid', 'manual']),
+
+    db.from('merchandise_orders')
+      .select('league_id, item_id, variant_id, quantity, unit_price_cents, discount_cents, amount_paid_cents, created_at')
+      .eq('organization_id', orgId).in('status', ['paid', 'fulfilled']),
+
+    db.from('event_expenses').select('league_id, category, amount_cents, incurred_on, created_at').eq('organization_id', orgId),
+
+    db.from('org_overhead_expenses').select('category, amount_cents, incurred_on, created_at').eq('organization_id', orgId),
+
+    db.from('event_revenue').select('league_id, category, amount_cents, received_on, created_at').eq('organization_id', orgId),
+
+    db.from('leagues').select('id, name').eq('organization_id', orgId),
+  ])
+
+  const leagueName = new Map<string, string>()
+  for (const l of (leagues ?? []) as { id: string; name: string }[]) leagueName.set(l.id, l.name)
+  const revByKey = new Map<string, number>()
+  const costByKey = new Map<string, number>()
+  const add = (m: Map<string, number>, k: string, v: number) => m.set(k, (m.get(k) ?? 0) + v)
+
+  // Registration revenue + tax — same counting rules as the P&L.
+  let registrationRevenueCents = 0
+  let taxCollectedCents = 0
+  const seenTeams = new Set<string>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const p of (payments ?? []) as any[]) {
+    if (!inDateRange(p.paid_at, p.created_at)) continue
+    if (p.payment_type === 'team' && p.team_id) {
+      if (seenTeams.has(`${p.league_id}:${p.team_id}`)) continue
+      seenTeams.add(`${p.league_id}:${p.team_id}`)
+    } else if (!p.registration_id) continue
+    registrationRevenueCents += p.amount_cents ?? 0
+    taxCollectedCents += p.tax_cents ?? 0
+    add(revByKey, p.league_id ?? '', p.amount_cents ?? 0)
+  }
+
+  // Merch revenue + COGS within range
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const orders = ((merchOrders ?? []) as any[]).filter((o) => inDateRange(o.created_at))
+  let merchRevenueCents = 0
+  let merchCogsCents = 0
+  if (orders.length > 0) {
+    const itemIds = [...new Set(orders.map((o) => o.item_id as string))]
+    const variantIds = [...new Set(orders.map((o) => o.variant_id).filter(Boolean) as string[])]
+    const [{ data: items }, { data: variants }] = await Promise.all([
+      db.from('merchandise_items').select('id, cost_cents').in('id', itemIds),
+      variantIds.length > 0
+        ? db.from('merchandise_variants').select('id, cost_cents').in('id', variantIds)
+        : Promise.resolve({ data: [] }),
+    ])
+    const itemCost = new Map<string, number | null>()
+    for (const i of (items ?? []) as { id: string; cost_cents: number | null }[]) itemCost.set(i.id, i.cost_cents)
+    const variantCost = new Map<string, number | null>()
+    for (const v of (variants ?? []) as { id: string; cost_cents: number | null }[]) variantCost.set(v.id, v.cost_cents)
+    for (const o of orders) {
+      const rev = o.amount_paid_cents ?? (o.unit_price_cents * o.quantity - (o.discount_cents ?? 0))
+      merchRevenueCents += rev
+      add(revByKey, o.league_id ?? '', rev)
+      const unit = unitCogs(o.variant_id, itemCost.get(o.item_id), variantCost)
+      if (unit !== null) {
+        merchCogsCents += unit * o.quantity
+        add(costByKey, o.league_id ?? '', unit * o.quantity)
+      }
+    }
+  }
+
+  const byCategory = (rows: { category: string; amountCents: number }[]) => {
+    const m = new Map<string, number>()
+    for (const r of rows) m.set(r.category, (m.get(r.category) ?? 0) + r.amountCents)
+    return [...m.entries()].map(([category, amountCents]) => ({ category, amountCents }))
+      .sort((a, b) => b.amountCents - a.amountCents)
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const incomeRows = ((otherRevenue ?? []) as any[]).filter((r) => inDateRange(r.received_on, r.created_at))
+  const otherIncomeByCategory = byCategory(incomeRows.map((r) => ({ category: r.category as string, amountCents: r.amount_cents as number })))
+  const otherIncomeCents = incomeRows.reduce((sum, r) => sum + (r.amount_cents ?? 0), 0)
+  for (const r of incomeRows) add(revByKey, r.league_id ?? '', r.amount_cents ?? 0)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const expenseRows = ((expenses ?? []) as any[]).filter((r) => inDateRange(r.incurred_on, r.created_at))
+  const expensesByCategory = byCategory(expenseRows.map((r) => ({ category: r.category as string, amountCents: r.amount_cents as number })))
+  const eventExpenseCents = expenseRows.reduce((sum, r) => sum + (r.amount_cents ?? 0), 0)
+  for (const r of expenseRows) add(costByKey, r.league_id ?? '', r.amount_cents ?? 0)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const overheadRows = ((overhead ?? []) as any[]).filter((r) => inDateRange(r.incurred_on, r.created_at))
+  const overheadByCategory = byCategory(overheadRows.map((r) => ({ category: r.category as string, amountCents: r.amount_cents as number })))
+  const overheadCents = overheadRows.reduce((sum, r) => sum + (r.amount_cents ?? 0), 0)
+
+  const revenueCents = registrationRevenueCents + merchRevenueCents + otherIncomeCents
+  const costCents = eventExpenseCents + overheadCents + merchCogsCents
+  const events = [...new Set([...revByKey.keys(), ...costByKey.keys()])]
+    .map((k) => ({
+      leagueId: k || null,
+      name: k ? (leagueName.get(k) ?? 'Deleted event') : 'Shop / org-wide',
+      revenueCents: revByKey.get(k) ?? 0,
+      costCents: costByKey.get(k) ?? 0,
+    }))
+    .sort((a, b) => b.revenueCents - a.revenueCents)
+
+  return {
+    fromDate, toDate,
+    registrationRevenueCents, taxCollectedCents,
+    merchRevenueCents, merchCogsCents,
+    otherIncomeByCategory, otherIncomeCents,
+    expensesByCategory, eventExpenseCents,
+    overheadByCategory, overheadCents,
+    revenueCents, costCents, profitCents: revenueCents - costCents,
+    events,
+  }
+}
+
 // ── Per-event profit & loss ──────────────────────────────────────────────────
 
 export type EventPnl = {

@@ -40,7 +40,15 @@ export default async function FinancesPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-10">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Finances</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">Finances</h1>
+          <Link
+            href="/admin/finances/report"
+            className="inline-flex items-center px-3 py-1.5 rounded-md border text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            📄 Financial report
+          </Link>
+        </div>
         <p className="text-sm text-gray-500 mt-1">
           Track profit across your events and shop. Set a unit cost on items to see margins.
         </p>
