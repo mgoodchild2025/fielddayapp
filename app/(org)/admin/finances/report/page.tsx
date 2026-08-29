@@ -89,6 +89,32 @@ export default async function FinancialReportPage({
         </form>
 
         <PrintControls />
+
+        <div className="rounded-xl border bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Download ledgers (CSV)</p>
+          <div className="flex flex-wrap gap-2 text-sm">
+            {([
+              ['payments', 'Payments'],
+              ['expenses', 'Event expenses'],
+              ['overhead', 'Overhead'],
+              ['other_income', 'Other income'],
+              ['merch', 'Merch orders'],
+            ] as const).map(([t, label]) => (
+              <a
+                key={t}
+                href={`/api/export/finances?type=${t}&from=${from}&to=${to}`}
+                className="px-3 py-1.5 rounded-md border text-gray-700 hover:bg-gray-50"
+                download
+              >
+                ⬇ {label}
+              </a>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            Raw rows for the selected period — the payments file includes a
+            &ldquo;counted in report&rdquo; column so its totals reconcile to the statement.
+          </p>
+        </div>
       </div>
 
       {/* ── The report ─────────────────────────────────────────────────────── */}
