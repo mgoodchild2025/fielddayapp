@@ -74,6 +74,9 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
           {pnl.otherRevenueCents > 0 && <Row label="Other income" value={money(pnl.otherRevenueCents)} />}
           <Row label="Total revenue" value={money(pnl.revenueCents)} strong />
           <Row label="Expenses" value={`− ${money(pnl.expenseCents)}`} muted />
+          {pnl.allocatedOverheadCents > 0 && (
+            <Row label="Shared overhead (allocated)" value={`− ${money(pnl.allocatedOverheadCents)}`} muted />
+          )}
           {pnl.merchCogsCents > 0 && <Row label="Merchandise cost" value={`− ${money(pnl.merchCogsCents)}`} muted />}
           <div className="flex items-center justify-between px-5 py-3.5">
             <div>

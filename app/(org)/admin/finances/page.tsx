@@ -3,7 +3,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
-import { getShopPnl, getOrgPnl, getOrgOverhead } from '@/actions/finances'
+import { getShopPnl, getOrgPnl, getOrgOverhead, getAllocationTargets } from '@/actions/finances'
 import { OrgOverheadManager } from '@/components/finances/org-overhead-manager'
 import Link from 'next/link'
 
@@ -30,10 +30,11 @@ export default async function FinancesPage() {
     )
   }
 
-  const [shop, pnl, overhead] = await Promise.all([
+  const [shop, pnl, overhead, allocationTargets] = await Promise.all([
     getShopPnl(org.id),
     getOrgPnl(org.id),
     getOrgOverhead(org.id),
+    getAllocationTargets(org.id),
   ])
 
   return (
@@ -121,7 +122,7 @@ export default async function FinancesPage() {
       </section>
 
       {/* ── Overhead ledger ────────────────────────────────────────────────── */}
-      <OrgOverheadManager initialOverhead={overhead} />
+      <OrgOverheadManager initialOverhead={overhead} allocationTargets={allocationTargets} />
 
       {/* ── Shop profit & loss ─────────────────────────────────────────────── */}
       <section className="space-y-4">

@@ -3069,6 +3069,55 @@ export type Database = {
           },
         ]
       }
+      org_overhead_allocations: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          id: string
+          league_id: string
+          organization_id: string
+          overhead_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          id?: string
+          league_id: string
+          organization_id: string
+          overhead_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          id?: string
+          league_id?: string
+          organization_id?: string
+          overhead_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_overhead_allocations_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_overhead_allocations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_overhead_allocations_overhead_id_fkey"
+            columns: ["overhead_id"]
+            isOneToOne: false
+            referencedRelation: "org_overhead_expenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_overhead_expenses: {
         Row: {
           amount_cents: number
