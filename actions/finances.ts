@@ -351,7 +351,7 @@ export async function getEventPnl(leagueId: string, orgId: string): Promise<Even
   const [{ data: payments }, { data: merchOrders }, { data: expenses }, { data: otherRevenue }] = await Promise.all([
 
     db.from('payments')
-      .select('amount_cents, status')
+      .select('amount_cents, status, payment_type, team_id')
       .eq('organization_id', orgId).eq('league_id', leagueId).in('status', ['paid', 'manual']),
 
     db.from('merchandise_orders')
@@ -363,8 +363,18 @@ export async function getEventPnl(leagueId: string, orgId: string): Promise<Even
     db.from('event_revenue').select('amount_cents').eq('league_id', leagueId),
   ])
 
-  const registrationRevenueCents = ((payments ?? []) as { amount_cents: number }[])
-    .reduce((s, p) => s + (p.amount_cents ?? 0), 0)
+  // A team owes its fee once — the mark-as-paid duplicate bug left some teams
+  // with several identical paid rows, so team payments count once per team.
+  const paidRows = (payments ?? []) as { amount_cents: number; payment_type: string | null; team_id: string | null }[]
+  const seenTeams = new Set<string>()
+  let registrationRevenueCents = 0
+  for (const p of paidRows) {
+    if (p.payment_type === 'team' && p.team_id) {
+      if (seenTeams.has(p.team_id)) continue
+      seenTeams.add(p.team_id)
+    }
+    registrationRevenueCents += p.amount_cents ?? 0
+  }
 
   const otherRevenueCents = ((otherRevenue ?? []) as { amount_cents: number }[])
     .reduce((s, r) => s + (r.amount_cents ?? 0), 0)

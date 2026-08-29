@@ -35,11 +35,9 @@ type Row = {
   player: { id: string; full_name: string; email: string } | null
   league: { id: string; name: string; price_cents: number; drop_in_price_cents?: number | null; currency: string; payment_mode?: string } | null
   payment: PaymentRecord | null
-  /** Per-team leagues: the member's TEAM payment (shared across the roster). */
-  teamPayment?: {
-    id: string; amount_cents: number; tax_cents: number | null; currency: string
-    status: string; payment_method: string | null; paid_at: string | null; teamName: string
-  } | null
+  /** Per-team ledger rows: the TEAM that owes/paid the fee (player is null). */
+  teamId?: string | null
+  teamName?: string | null
   paymentStatus: string
   isFree: boolean
 }
@@ -55,7 +53,6 @@ const statusColors: Record<string, string> = {
 
 function effectivePriceCents(r: Row): number {
   if (r.payment?.amount_cents != null) return r.payment.amount_cents
-  if (r.teamPayment) return r.teamPayment.amount_cents
   if (!r.league) return 0
   return r.registration_type === 'drop_in'
     ? (r.league.drop_in_price_cents ?? r.league.price_cents)
@@ -65,27 +62,18 @@ function effectivePriceCents(r: Row): number {
 function amountLabel(r: Row) {
   if (r.isFree) return 'Free'
   const cents = effectivePriceCents(r)
-  const currency = (r.payment?.currency ?? r.teamPayment?.currency ?? r.league?.currency ?? 'cad').toUpperCase()
+  const currency = (r.payment?.currency ?? r.league?.currency ?? 'cad').toUpperCase()
   return `$${(cents / 100).toFixed(2)} ${currency}`
 }
 
 function dateLabel(r: Row) {
-  const d = r.payment?.paid_at ?? r.teamPayment?.paid_at ?? r.created_at
+  const d = r.payment?.paid_at ?? r.created_at
   return new Date(d).toLocaleDateString()
-}
-
-/** Paid team payments among the rows, deduplicated by payment id. */
-function uniqueTeamPayments(rows: Row[]) {
-  const seen = new Map<string, NonNullable<Row['teamPayment']>>()
-  for (const r of rows) {
-    if (r.teamPayment && r.teamPayment.status === 'paid') seen.set(r.teamPayment.id, r.teamPayment)
-  }
-  return [...seen.values()]
 }
 
 function needsAction(r: Row) {
   return (r.paymentStatus === 'unpaid' || r.paymentStatus === 'pending' || r.paymentStatus === 'failed')
-    && !!r.player && !!r.league
+    && (!!r.player || !!r.teamId) && !!r.league
 }
 
 const VALID_METHODS = ['cash', 'etransfer', 'cheque', 'stripe', 'card', 'other'] as const
@@ -100,7 +88,7 @@ function defaultPayMethod(m?: string | null): (typeof VALID_METHODS)[number] {
  *  column is only used by the per-team Mark-as-Paid flow. */
 function hasPaymentAction(r: Row, isOrgAdmin: boolean) {
   if (!isOrgAdmin || !r.league) return false
-  if (r.league.payment_mode === 'per_team') return needsAction(r) && !!r.player
+  if (r.league.payment_mode === 'per_team') return needsAction(r) && !!r.teamId
   return false
 }
 
@@ -134,14 +122,13 @@ function StatusBadge({ r, isOrgAdmin, className = '' }: { r: Row; isOrgAdmin: bo
 /** Org-admin payment control — per-team events keep the (team-aware) Mark-as-Paid flow. */
 function PaymentAction({ r, isOrgAdmin }: { r: Row; isOrgAdmin: boolean }) {
   if (!isOrgAdmin || !r.league) return null
-  if (r.league.payment_mode === 'per_team') {
-    if (!needsAction(r) || !r.player) return null
+  if (r.league.payment_mode === 'per_team' && r.teamId) {
+    if (!needsAction(r)) return null
     return (
       <MarkPaidForm
-        registrationId={r.id}
-        userId={r.player.id}
+        teamId={r.teamId}
         leagueId={r.league.id}
-        amountCents={r.registration_type === 'drop_in' ? (r.league.drop_in_price_cents ?? r.league.price_cents) : r.league.price_cents}
+        amountCents={r.payment?.amount_cents ?? r.league.price_cents}
         currency={r.league.currency}
       />
     )
@@ -169,6 +156,7 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
       if (q) {
         const playerMatch = (r.player?.full_name ?? '').toLowerCase().includes(q)
           || (r.player?.email ?? '').toLowerCase().includes(q)
+          || (r.teamName ?? '').toLowerCase().includes(q)
         const eventMatch = (r.league?.name ?? '').toLowerCase().includes(q)
         if (!playerMatch && !eventMatch) return false
       }
@@ -187,14 +175,11 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
   const filteredStats = useMemo(() => ({
     totalPaidCents: filtered
       .filter(r => r.payment?.status === 'paid')
-      .reduce((sum, r) => sum + (r.payment?.amount_cents ?? 0), 0)
-      // Team payments appear on every roster member's row — count each once.
-      + uniqueTeamPayments(filtered).reduce((sum, tp) => sum + tp.amount_cents, 0),
+      .reduce((sum, r) => sum + (r.payment?.amount_cents ?? 0), 0),
     // Tax collected within the paid set — the number the org remits
     taxCollectedCents: filtered
       .filter(r => r.payment?.status === 'paid')
-      .reduce((sum, r) => sum + (r.payment?.tax_cents ?? 0), 0)
-      + uniqueTeamPayments(filtered).reduce((sum, tp) => sum + (tp.tax_cents ?? 0), 0),
+      .reduce((sum, r) => sum + (r.payment?.tax_cents ?? 0), 0),
     paidCount: filtered.filter(r => r.paymentStatus === 'paid').length,
     // "Unpaid" = anything still owed: unpaid, pending, or failed.
     unpaidCount: filtered.filter(r =>
@@ -299,8 +284,8 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
               {visible.map(r => (
                 <tr key={r.id} className="border-b last:border-0 align-top">
                   <td className="px-4 py-3">
-                    <p className="font-medium">{r.player?.full_name ?? '—'}</p>
-                    <p className="text-xs text-gray-500">{r.player?.email ?? '—'}</p>
+                    <p className="font-medium">{r.player?.full_name ?? r.teamName ?? '—'}</p>
+                    <p className="text-xs text-gray-500">{r.teamName && !r.player ? 'Team fee' : (r.player?.email ?? '—')}</p>
                     {r.registration_type === 'drop_in' && (
                       <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
                         Drop-in
@@ -353,8 +338,8 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
               {/* Top row: name + status badge */}
               <div className="flex items-start justify-between gap-3 mb-1">
                 <div className="min-w-0">
-                  <p className="font-semibold truncate">{r.player?.full_name ?? '—'}</p>
-                  <p className="text-xs text-gray-500 truncate">{r.player?.email ?? '—'}</p>
+                  <p className="font-semibold truncate">{r.player?.full_name ?? r.teamName ?? '—'}</p>
+                  <p className="text-xs text-gray-500 truncate">{r.teamName && !r.player ? 'Team fee' : (r.player?.email ?? '—')}</p>
                   {r.registration_type === 'drop_in' && (
                     <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
                       Drop-in

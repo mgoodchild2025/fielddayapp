@@ -12,8 +12,10 @@ import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
 import { getOrgTaxRates, ratesForScope, computeTax } from '@/lib/tax'
 
 const recordManualPaymentSchema = z.object({
-  registrationId: z.string().uuid(),
-  userId: z.string().uuid(),
+  registrationId: z.string().uuid().optional(),
+  userId: z.string().uuid().optional(),
+  /** Per-team events: pay the TEAM directly (no registration/user needed). */
+  teamId: z.string().uuid().optional(),
   leagueId: z.string().uuid(),
   amountCents: z.number().min(0),
   currency: z.string().default('cad'),
@@ -53,26 +55,29 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
     .maybeSingle()
 
   if (leagueRow?.payment_mode === 'per_team') {
-    // Resolve which team this user belongs to in this league
+    // Team is either named directly (payments-ledger team rows) or resolved
+    // from the member the admin clicked.
+    let teamId: string | null = parsed.data.teamId ?? null
+    if (!teamId && parsed.data.userId) {
 
-    const { data: leagueTeams } = await db
-      .from('teams')
-      .select('id')
-      .eq('league_id', parsed.data.leagueId)
-      .eq('organization_id', org.id)
-    const leagueTeamIds: string[] = (leagueTeams ?? []).map((t: { id: string }) => t.id)
+      const { data: leagueTeams } = await db
+        .from('teams')
+        .select('id')
+        .eq('league_id', parsed.data.leagueId)
+        .eq('organization_id', org.id)
+      const leagueTeamIds: string[] = (leagueTeams ?? []).map((t: { id: string }) => t.id)
 
-    let teamId: string | null = null
-    if (leagueTeamIds.length > 0) {
+      if (leagueTeamIds.length > 0) {
 
-      const { data: teamMember } = await db
-        .from('team_members')
-        .select('team_id')
-        .eq('user_id', parsed.data.userId)
-        .in('team_id', leagueTeamIds)
-        .eq('status', 'active')
-        .maybeSingle()
-      teamId = teamMember?.team_id ?? null
+        const { data: teamMember } = await db
+          .from('team_members')
+          .select('team_id')
+          .eq('user_id', parsed.data.userId)
+          .in('team_id', leagueTeamIds)
+          .eq('status', 'active')
+          .maybeSingle()
+        teamId = teamMember?.team_id ?? null
+      }
     }
 
     if (teamId) {
@@ -155,10 +160,10 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
         actorUserId: actor.actorUserId,
         actorLabel: actor.actorLabel,
         action: AUDIT_ACTIONS.PAYMENT_MANUAL_RECORDED,
-        targetType: 'registration',
-        targetId: parsed.data.registrationId,
+        targetType: parsed.data.registrationId ? 'registration' : 'team',
+        targetId: parsed.data.registrationId ?? teamId,
         metadata: {
-          user_id: parsed.data.userId,
+          user_id: parsed.data.userId ?? null,
           league_id: parsed.data.leagueId,
           team_id: teamId,
           amount_cents: parsed.data.amountCents,
@@ -173,6 +178,11 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
     }
   }
   // ── End per-team handling ──────────────────────────────────────────────────
+
+  // Per-player path below is keyed by registration.
+  if (!parsed.data.registrationId || !parsed.data.userId) {
+    return { data: null, error: 'Registration not found' }
+  }
 
   // Reconcile an existing pending payment (e.g. an offline method the player
   // chose at checkout) instead of inserting a duplicate.
