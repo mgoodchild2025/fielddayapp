@@ -331,6 +331,8 @@ export type EventPnl = {
   otherRevenueCents: number
   merchCogsCents: number
   expenseCents: number
+  /** This event's share of org overhead (facility rental, etc.). */
+  allocatedOverheadCents: number
   /** Total revenue = registrations + event merch + other income. */
   revenueCents: number
   /** Total costs = logged expenses + merch COGS. */
@@ -362,6 +364,14 @@ export async function getEventPnl(leagueId: string, orgId: string): Promise<Even
 
     db.from('event_revenue').select('amount_cents').eq('league_id', leagueId),
   ])
+
+  const { data: allocRows } = await db
+    .from('org_overhead_allocations')
+    .select('amount_cents')
+    .eq('organization_id', orgId)
+    .eq('league_id', leagueId)
+  const allocatedOverheadCents = ((allocRows ?? []) as { amount_cents: number }[])
+    .reduce((sum, a) => sum + (a.amount_cents ?? 0), 0)
 
   // A team owes its fee once — the mark-as-paid duplicate bug left some teams
   // with several identical paid rows, so team payments count once per team.
@@ -416,12 +426,13 @@ export async function getEventPnl(leagueId: string, orgId: string): Promise<Even
   const expenseCents = expenseRows.reduce((s, e) => s + (e.amount_cents ?? 0), 0)
 
   const revenueCents = registrationRevenueCents + merchRevenueCents + otherRevenueCents
-  const costCents = expenseCents + merchCogsCents
+  const costCents = expenseCents + merchCogsCents + allocatedOverheadCents
   const profitCents = revenueCents - costCents
   const marginPct = revenueCents > 0 ? profitCents / revenueCents : null
 
   return {
     registrationRevenueCents, merchRevenueCents, otherRevenueCents, merchCogsCents,
+    allocatedOverheadCents,
     expenseCents, revenueCents, costCents, profitCents, marginPct,
     expenseCount: expenseRows.length,
   }
@@ -472,18 +483,112 @@ export type OrgOverhead = {
   incurred_on: string | null
   notes: string | null
   created_at: string
+  /** Portions attributed to specific events; the remainder is pure overhead. */
+  allocations?: OverheadAllocation[]
 }
 
 export async function getOrgOverhead(orgId: string): Promise<OrgOverhead[]> {
   const db = createServiceRoleClient()
 
-  const { data } = await db
+  const [{ data }, { data: allocRows }] = await Promise.all([
+    db.from('org_overhead_expenses')
+      .select('id, category, description, amount_cents, period, applies_to, incurred_on, notes, created_at')
+      .eq('organization_id', orgId)
+      .order('incurred_on', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false }),
+    db.from('org_overhead_allocations')
+      .select('overhead_id, league_id, amount_cents, league:leagues!org_overhead_allocations_league_id_fkey(name)')
+      .eq('organization_id', orgId),
+  ])
+  const allocsByOverhead = new Map<string, OverheadAllocation[]>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const a of (allocRows ?? []) as any[]) {
+    const league = Array.isArray(a.league) ? a.league[0] : a.league
+    const list = allocsByOverhead.get(a.overhead_id) ?? []
+    list.push({ leagueId: a.league_id, leagueName: league?.name ?? 'Deleted event', amountCents: a.amount_cents })
+    allocsByOverhead.set(a.overhead_id, list)
+  }
+  return ((data ?? []) as OrgOverhead[]).map((e) => ({ ...e, allocations: allocsByOverhead.get(e.id) ?? [] }))
+}
+
+// ── Overhead allocation: attribute a shared cost to specific events ──────────
+
+export type OverheadAllocation = { leagueId: string; leagueName: string; amountCents: number }
+
+export type AllocationTarget = { leagueId: string; name: string; status: string; sessionCount: number }
+
+/** Events an overhead cost can be allocated to, with session counts for the
+ *  "split by sessions" helper. */
+export async function getAllocationTargets(orgId: string): Promise<AllocationTarget[]> {
+  const db = createServiceRoleClient()
+  const [{ data: leagues }, { data: sessions }] = await Promise.all([
+    db.from('leagues')
+      .select('id, name, status')
+      .eq('organization_id', orgId)
+      .is('deleted_at', null)
+      .not('status', 'in', '(archived)')
+      .order('created_at', { ascending: false }),
+    db.from('event_sessions').select('league_id').eq('organization_id', orgId).neq('status', 'cancelled'),
+  ])
+  const sessionCount = new Map<string, number>()
+  for (const sRow of (sessions ?? []) as { league_id: string }[]) {
+    sessionCount.set(sRow.league_id, (sessionCount.get(sRow.league_id) ?? 0) + 1)
+  }
+  return ((leagues ?? []) as { id: string; name: string; status: string }[]).map((l) => ({
+    leagueId: l.id, name: l.name, status: l.status, sessionCount: sessionCount.get(l.id) ?? 0,
+  }))
+}
+
+/** Replace an overhead expense's event allocations. The sum may not exceed the
+ *  expense amount; the remainder stays unallocated org overhead. */
+export async function saveOverheadAllocations(input: {
+  overheadId: string
+  allocations: { leagueId: string; amountCents: number }[]
+}): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await requireFinanceAdmin(org.id)
+  if ('error' in auth) return { error: auth.error }
+
+  const db = createServiceRoleClient()
+  const { data: expense } = await db
     .from('org_overhead_expenses')
-    .select('id, category, description, amount_cents, period, applies_to, incurred_on, notes, created_at')
-    .eq('organization_id', orgId)
-    .order('incurred_on', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false })
-  return (data ?? []) as OrgOverhead[]
+    .select('id, amount_cents')
+    .eq('id', input.overheadId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (!expense) return { error: 'Overhead expense not found' }
+
+  const rows = input.allocations.filter((a) => a.amountCents > 0)
+  for (const a of rows) {
+    if (!Number.isInteger(a.amountCents) || a.amountCents <= 0) return { error: 'Enter valid amounts.' }
+  }
+  if (new Set(rows.map((a) => a.leagueId)).size !== rows.length) return { error: 'Duplicate event in allocation.' }
+  const total = rows.reduce((sum, a) => sum + a.amountCents, 0)
+  if (total > expense.amount_cents) {
+    return { error: 'Allocations exceed the expense amount.' }
+  }
+
+  // Replace-all: simplest correct semantics for an edit form.
+  const { error: delError } = await db
+    .from('org_overhead_allocations')
+    .delete()
+    .eq('overhead_id', expense.id)
+    .eq('organization_id', org.id)
+  if (delError) return { error: delError.message }
+  if (rows.length > 0) {
+    const { error: insError } = await db.from('org_overhead_allocations').insert(
+      rows.map((a) => ({
+        organization_id: org.id,
+        overhead_id: expense.id,
+        league_id: a.leagueId,
+        amount_cents: a.amountCents,
+      }))
+    )
+    if (insError) return { error: insError.message }
+  }
+  revalidatePath('/admin/finances')
+  return { error: null }
 }
 
 export async function addOrgOverhead(input: {
@@ -574,7 +679,7 @@ export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
   const db = createServiceRoleClient()
 
 
-  const [{ data: payments }, { data: merchOrders }, { data: expenses }, { data: overhead }, { data: leagues }, { data: otherRevenue }] = await Promise.all([
+  const [{ data: payments }, { data: merchOrders }, { data: expenses }, { data: overhead }, { data: leagues }, { data: otherRevenue }, { data: overheadAllocs }] = await Promise.all([
 
     db.from('payments').select('amount_cents, league_id, payment_type, team_id, registration_id')
       .eq('organization_id', orgId).in('status', ['paid', 'manual']),
@@ -590,10 +695,18 @@ export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
     db.from('leagues').select('id, name').eq('organization_id', orgId),
 
     db.from('event_revenue').select('league_id, amount_cents').eq('organization_id', orgId),
+
+    db.from('org_overhead_allocations').select('league_id, amount_cents').eq('organization_id', orgId),
   ])
 
   const leagueName = new Map<string, string>()
   for (const l of (leagues ?? []) as { id: string; name: string }[]) leagueName.set(l.id, l.name)
+  // Allocated overhead shows on its event's cost row; org totals already count
+  // the full overhead sum, so no amount is added twice.
+  const allocByLeague = new Map<string, number>()
+  for (const a of (overheadAllocs ?? []) as { league_id: string; amount_cents: number }[]) {
+    allocByLeague.set(a.league_id, (allocByLeague.get(a.league_id) ?? 0) + (a.amount_cents ?? 0))
+  }
 
   // Per-bucket aggregation; key '' = standalone shop (league_id null)
   const revByKey = new Map<string, number>()   // registrations + merch revenue
@@ -654,6 +767,7 @@ export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
     eventExpenseCents += e.amount_cents ?? 0
     add(costByKey, e.league_id ?? '', e.amount_cents ?? 0)
   }
+  for (const [leagueId, cents] of allocByLeague) add(costByKey, leagueId, cents)
 
   // Other income (donations, 50/50, sponsorships…) per event.
   let otherRevenueCents = 0
