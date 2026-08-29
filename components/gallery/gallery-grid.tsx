@@ -64,7 +64,8 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
               unoptimized
             />
             {photo.caption && (
-              <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-3 py-2 translate-y-full group-hover:translate-y-0 transition-transform duration-200">
+              // Hover-reveal on desktop; always visible on touch screens (no hover there).
+              <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-3 py-2 transition-transform duration-200 max-sm:translate-y-0 sm:translate-y-full sm:group-hover:translate-y-0">
                 <p className="text-white text-xs truncate">{photo.caption}</p>
               </div>
             )}

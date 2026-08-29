@@ -287,10 +287,10 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [] }: 
                   <td className="px-4 py-2.5 text-right font-medium text-gray-800 whitespace-nowrap">{money(e.amount_cents)}</td>
                   <td className="px-2 py-2.5 text-right whitespace-nowrap">
                     <button type="button" onClick={() => setAllocatingId(allocatingId === e.id ? null : e.id)}
-                      className="text-xs text-gray-400 hover:text-gray-700 underline underline-offset-2 mr-2">
+                      className="text-xs text-gray-400 hover:text-gray-700 underline underline-offset-2 mr-2 py-2 -my-2 px-1">
                       Allocate
                     </button>
-                    <button type="button" onClick={() => remove(e.id)} disabled={pending} className="text-gray-400 hover:text-red-600 disabled:opacity-40 align-middle" aria-label="Delete overhead">
+                    <button type="button" onClick={() => remove(e.id)} disabled={pending} className="text-gray-400 hover:text-red-600 disabled:opacity-40 align-middle p-2 -m-2" aria-label="Delete overhead">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>

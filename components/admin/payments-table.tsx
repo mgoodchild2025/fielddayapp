@@ -145,7 +145,7 @@ function TeamRefundForm({ teamId, leagueId, amountCents }: { teamId: string; lea
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="text-xs px-2.5 py-1 rounded-md border font-medium text-gray-700 hover:bg-gray-50">
+      <button onClick={() => setOpen(true)} className="text-xs px-3 py-2 rounded-md border font-medium text-gray-700 hover:bg-gray-50">
         Refund…
       </button>
     )
@@ -159,10 +159,10 @@ function TeamRefundForm({ teamId, leagueId, amountCents }: { teamId: string; lea
       </div>
       {error && <p className="text-xs text-red-500">{error}</p>}
       <div className="flex gap-1.5">
-        <button type="submit" disabled={pending} className="text-xs px-2.5 py-1 rounded-md font-semibold text-white disabled:opacity-60" style={{ backgroundColor: 'var(--brand-primary)' }}>
+        <button type="submit" disabled={pending} className="text-xs px-3 py-2 rounded-md font-semibold text-white disabled:opacity-60" style={{ backgroundColor: 'var(--brand-primary)' }}>
           {pending ? 'Saving…' : 'Refund'}
         </button>
-        <button type="button" onClick={() => setOpen(false)} className="text-xs px-2.5 py-1 rounded-md border text-gray-600 hover:bg-gray-50">Cancel</button>
+        <button type="button" onClick={() => setOpen(false)} className="text-xs px-3 py-2 rounded-md border text-gray-600 hover:bg-gray-50">Cancel</button>
       </div>
     </form>
   )

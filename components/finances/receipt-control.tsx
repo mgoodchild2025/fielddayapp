@@ -63,17 +63,17 @@ export function ReceiptControl({ kind, expenseId, hasReceipt }: {
       {hasReceipt ? (
         <>
           <button type="button" onClick={view} disabled={pending}
-            className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 underline underline-offset-2 disabled:opacity-50">
+            className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 underline underline-offset-2 disabled:opacity-50 py-2 -my-2">
             <Paperclip className="w-3 h-3" /> Receipt
           </button>
           <button type="button" onClick={remove} disabled={pending} aria-label="Remove receipt"
-            className="text-gray-300 hover:text-red-500 disabled:opacity-50">
+            className="text-gray-300 hover:text-red-500 disabled:opacity-50 p-2 -m-2">
             <X className="w-3 h-3" />
           </button>
         </>
       ) : (
         <button type="button" onClick={() => fileRef.current?.click()} disabled={pending}
-          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 disabled:opacity-50"
+          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 disabled:opacity-50 py-2 -my-2"
           title="Attach a receipt (JPEG, PNG, WebP, or PDF)">
           <Paperclip className="w-3 h-3" /> {pending ? 'Uploading…' : 'Attach'}
         </button>
