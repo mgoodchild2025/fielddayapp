@@ -4,7 +4,7 @@ import { requireOrgMember } from '@/lib/auth'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { getFinancialReport } from '@/actions/finances'
-import { currentFiscalYear, lastFiscalYear } from '@/lib/fiscal-year'
+import { currentFiscalYear, lastFiscalYear, sameRangeLastYear } from '@/lib/fiscal-year'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { PrintControls } from '@/components/print/print-controls'
 import Link from 'next/link'
@@ -55,9 +55,11 @@ export default async function FinancialReportPage({
   const from = isDate(params.from) ? params.from! : thisFY.from
   const to = isDate(params.to) ? params.to! : thisFY.to
 
-  const [{ data: orgRow }, report] = await Promise.all([
+  const prior = sameRangeLastYear({ from, to })
+  const [{ data: orgRow }, report, priorReport] = await Promise.all([
     db.from('organizations').select('name').eq('id', org.id).single(),
     getFinancialReport(org.id, from, to),
+    getFinancialReport(org.id, prior.from, prior.to),
   ])
 
   // Calendar-year orgs see plain "year" labels; everyone else "fiscal year".
@@ -217,6 +219,77 @@ export default async function FinancialReportPage({
             {money(report.profitCents)}
           </p>
         </section>
+
+        {/* Comparison vs same period last year */}
+        {(priorReport.revenueCents !== 0 || priorReport.costCents !== 0) && (
+          <section>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-2">
+              vs {fmtDate(prior.from)} – {fmtDate(prior.to)}
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              {([
+                ['Revenue', report.revenueCents, priorReport.revenueCents],
+                ['Costs', report.costCents, priorReport.costCents],
+                ['Net', report.profitCents, priorReport.profitCents],
+              ] as const).map(([label, cur, prev]) => {
+                const delta = cur - prev
+                const pctChange = prev !== 0 ? Math.round((delta / Math.abs(prev)) * 100) : null
+                return (
+                  <div key={label} className="rounded-xl border bg-white p-3 print:border-gray-300">
+                    <p className="text-xs text-gray-500">{label}</p>
+                    <p className="text-lg font-bold tabular-nums text-gray-900">{money(cur)}</p>
+                    <p className="text-xs text-gray-400 tabular-nums">
+                      was {money(prev)}
+                      <span className={`ml-1 font-medium ${delta > 0 ? 'text-green-700' : delta < 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                        {delta > 0 ? '▲' : delta < 0 ? '▼' : '·'} {money(Math.abs(delta))}{pctChange !== null ? ` (${Math.abs(pctChange)}%)` : ''}
+                      </span>
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Monthly net revenue */}
+        {report.monthlyRevenue.length > 1 && (() => {
+          const maxAbs = Math.max(1, ...report.monthlyRevenue.map((m) => Math.abs(m.revenueCents)))
+          const monthLabel = (ym: string) =>
+            new Date(`${ym}-15T12:00:00Z`).toLocaleDateString('en-CA', { month: 'short', timeZone: 'UTC' })
+            + (ym.endsWith('-01') || ym === report.monthlyRevenue[0].month ? ` ’${ym.slice(2, 4)}` : '')
+          return (
+            <section>
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-2">Net revenue by month</h3>
+              <div className="rounded-xl border bg-white p-4 print:border-gray-300 overflow-x-auto">
+                <div className="flex items-end gap-1 min-w-fit" style={{ height: '9rem' }}>
+                  {report.monthlyRevenue.map((m) => {
+                    const h = Math.round((Math.abs(m.revenueCents) / maxAbs) * 100)
+                    return (
+                      <div key={m.month} className="flex flex-1 min-w-[2.5rem] flex-col items-center justify-end gap-1 self-stretch"
+                        title={`${monthLabel(m.month)}: ${money(m.revenueCents)}`}>
+                        <span className="text-[10px] tabular-nums text-gray-500 leading-none">
+                          {m.revenueCents !== 0 ? `$${Math.round(Math.abs(m.revenueCents) / 100)}${m.revenueCents < 0 ? ' −' : ''}` : ''}
+                        </span>
+                        <div
+                          className={`w-full max-w-[2.25rem] rounded-t ${m.revenueCents < 0 ? 'bg-red-300' : ''}`}
+                          style={{
+                            height: `${Math.max(h, m.revenueCents !== 0 ? 3 : 0)}%`,
+                            backgroundColor: m.revenueCents < 0 ? undefined : 'var(--brand-primary)',
+                          }}
+                        />
+                        <span className="text-[10px] text-gray-400 leading-none whitespace-nowrap">{monthLabel(m.month)}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                Registrations net of refunds, merch, and other income, bucketed by the month each was
+                paid / issued / received. Negative months (refund-heavy) shown in red with a − marker.
+              </p>
+            </section>
+          )
+        })()}
 
         {/* Per-event breakdown */}
         {report.events.length > 0 && (

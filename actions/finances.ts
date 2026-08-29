@@ -347,6 +347,8 @@ export type FinancialReport = {
   profitCents: number
   /** Per-event revenue vs direct costs within the period (shop = null league). */
   events: { leagueId: string | null; name: string; revenueCents: number; costCents: number }[]
+  /** Net revenue per calendar month across the period (every month present, zeros included). */
+  monthlyRevenue: { month: string; revenueCents: number }[]
 }
 
 /**
@@ -391,6 +393,19 @@ export async function getFinancialReport(orgId: string, fromDate: string, toDate
   const costByKey = new Map<string, number>()
   const add = (m: Map<string, number>, k: string, v: number) => m.set(k, (m.get(k) ?? 0) + v)
 
+  // Net revenue per month — every month in the range starts at zero so quiet
+  // months still render.
+  const revByMonth = new Map<string, number>()
+  for (let cursor = fromDate.slice(0, 7); cursor <= toDate.slice(0, 7); ) {
+    revByMonth.set(cursor, 0)
+    const y = Number(cursor.slice(0, 4)); const m = Number(cursor.slice(5, 7))
+    cursor = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+  }
+  const addMonth = (d: string | null | undefined, v: number) => {
+    const month = (d ?? '').slice(0, 7)
+    if (revByMonth.has(month)) revByMonth.set(month, (revByMonth.get(month) ?? 0) + v)
+  }
+
   // Registration revenue + tax — same counting rules as the P&L. Refunds are
   // dated by refunded_at, so a January refund of a December payment lands in
   // January's report, not December's.
@@ -408,11 +423,13 @@ export async function getFinancialReport(orgId: string, fromDate: string, toDate
     if ((p.refunded_cents ?? 0) > 0 && inDateRange(p.refunded_at)) {
       refundedCents += p.refunded_cents ?? 0
       add(revByKey, p.league_id ?? '', -(p.refunded_cents ?? 0))
+      addMonth(p.refunded_at, -(p.refunded_cents ?? 0))
     }
     if (!inDateRange(p.paid_at, p.created_at)) continue
     registrationRevenueCents += p.amount_cents ?? 0
     taxCollectedCents += p.tax_cents ?? 0
     add(revByKey, p.league_id ?? '', p.amount_cents ?? 0)
+    addMonth(p.paid_at ?? p.created_at, p.amount_cents ?? 0)
   }
 
   // Merch revenue + COGS within range
@@ -437,6 +454,7 @@ export async function getFinancialReport(orgId: string, fromDate: string, toDate
       const rev = o.amount_paid_cents ?? (o.unit_price_cents * o.quantity - (o.discount_cents ?? 0))
       merchRevenueCents += rev
       add(revByKey, o.league_id ?? '', rev)
+      addMonth(o.created_at, rev)
       const unit = unitCogs(o.variant_id, itemCost.get(o.item_id), variantCost)
       if (unit !== null) {
         merchCogsCents += unit * o.quantity
@@ -456,7 +474,10 @@ export async function getFinancialReport(orgId: string, fromDate: string, toDate
   const incomeRows = ((otherRevenue ?? []) as any[]).filter((r) => inDateRange(r.received_on, r.created_at))
   const otherIncomeByCategory = byCategory(incomeRows.map((r) => ({ category: r.category as string, amountCents: r.amount_cents as number })))
   const otherIncomeCents = incomeRows.reduce((sum, r) => sum + (r.amount_cents ?? 0), 0)
-  for (const r of incomeRows) add(revByKey, r.league_id ?? '', r.amount_cents ?? 0)
+  for (const r of incomeRows) {
+    add(revByKey, r.league_id ?? '', r.amount_cents ?? 0)
+    addMonth(r.received_on ?? r.created_at, r.amount_cents ?? 0)
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const expenseRows = ((expenses ?? []) as any[]).filter((r) => inDateRange(r.incurred_on, r.created_at))
@@ -489,6 +510,7 @@ export async function getFinancialReport(orgId: string, fromDate: string, toDate
     overheadByCategory, overheadCents,
     revenueCents, costCents, profitCents: revenueCents - costCents,
     events,
+    monthlyRevenue: [...revByMonth.entries()].map(([month, revenueCents]) => ({ month, revenueCents })),
   }
 }
 

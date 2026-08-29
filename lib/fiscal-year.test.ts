@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fiscalYearStart, currentFiscalYear, lastFiscalYear } from './fiscal-year'
+import { fiscalYearStart, currentFiscalYear, lastFiscalYear, sameRangeLastYear } from './fiscal-year'
 
 describe('fiscal year ranges', () => {
   it('calendar-year orgs (start month 1) behave like plain years', () => {
@@ -13,6 +13,11 @@ describe('fiscal year ranges', () => {
     // From April on: the new FY.
     expect(fiscalYearStart(4, '2026-08-29')).toBe('2026-04-01')
     expect(lastFiscalYear(4, '2026-08-29')).toEqual({ from: '2025-04-01', to: '2026-03-31' })
+  })
+
+  it('shifts a range back one year, clamping Feb 29', () => {
+    expect(sameRangeLastYear({ from: '2026-01-01', to: '2026-08-29' })).toEqual({ from: '2025-01-01', to: '2025-08-29' })
+    expect(sameRangeLastYear({ from: '2024-02-29', to: '2024-06-30' })).toEqual({ from: '2023-02-28', to: '2023-06-30' })
   })
 
   it('last fiscal year ends on the correct month-end day', () => {

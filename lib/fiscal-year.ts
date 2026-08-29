@@ -31,3 +31,14 @@ export function lastFiscalYear(startMonth: number, today: string): DateRange {
   const lastDay = new Date(Date.UTC(endYear, endMonth, 0)).getUTCDate()
   return { from, to: `${endYear}-${mm(endMonth)}-${mm(lastDay)}` }
 }
+
+/** The same range one year earlier (Feb 29 clamps to Feb 28). */
+export function sameRangeLastYear(range: DateRange): DateRange {
+  const shift = (d: string) => {
+    const year = Number(d.slice(0, 4)) - 1
+    const monthDay = d.slice(5)
+    if (monthDay === '02-29') return `${year}-02-28`
+    return `${year}-${monthDay}`
+  }
+  return { from: shift(range.from), to: shift(range.to) }
+}
