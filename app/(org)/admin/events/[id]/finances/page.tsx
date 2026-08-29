@@ -70,6 +70,7 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
         <h2 className="text-lg font-semibold text-gray-900">Profit &amp; loss</h2>
         <div className="bg-white rounded-xl border divide-y">
           <Row label="Registration revenue" value={money(pnl.registrationRevenueCents)} />
+          {pnl.refundedCents > 0 && <Row label="Less refunds" value={`− ${money(pnl.refundedCents)}`} muted />}
           {pnl.merchRevenueCents > 0 && <Row label="Merchandise revenue" value={money(pnl.merchRevenueCents)} />}
           {pnl.otherRevenueCents > 0 && <Row label="Other income" value={money(pnl.otherRevenueCents)} />}
           <Row label="Total revenue" value={money(pnl.revenueCents)} strong />

@@ -332,6 +332,8 @@ export type FinancialReport = {
   registrationRevenueCents: number
   /** Sales tax included in the registration revenue above — the remittance figure. */
   taxCollectedCents: number
+  /** Refunds issued within the period (dated by refunded_at; already subtracted from revenueCents). */
+  refundedCents: number
   merchRevenueCents: number
   merchCogsCents: number
   otherIncomeByCategory: { category: string; amountCents: number }[]
@@ -367,8 +369,8 @@ export async function getFinancialReport(orgId: string, fromDate: string, toDate
   const [{ data: payments }, { data: merchOrders }, { data: expenses }, { data: overhead }, { data: otherRevenue }, { data: leagues }] = await Promise.all([
 
     db.from('payments')
-      .select('amount_cents, tax_cents, league_id, payment_type, team_id, registration_id, paid_at, created_at')
-      .eq('organization_id', orgId).in('status', ['paid', 'manual']),
+      .select('amount_cents, tax_cents, refunded_cents, refunded_at, league_id, payment_type, team_id, registration_id, paid_at, created_at')
+      .eq('organization_id', orgId).in('status', ['paid', 'manual', 'refunded']),
 
     db.from('merchandise_orders')
       .select('league_id, item_id, variant_id, quantity, unit_price_cents, discount_cents, amount_paid_cents, created_at')
@@ -389,17 +391,25 @@ export async function getFinancialReport(orgId: string, fromDate: string, toDate
   const costByKey = new Map<string, number>()
   const add = (m: Map<string, number>, k: string, v: number) => m.set(k, (m.get(k) ?? 0) + v)
 
-  // Registration revenue + tax — same counting rules as the P&L.
+  // Registration revenue + tax — same counting rules as the P&L. Refunds are
+  // dated by refunded_at, so a January refund of a December payment lands in
+  // January's report, not December's.
   let registrationRevenueCents = 0
   let taxCollectedCents = 0
+  let refundedCents = 0
   const seenTeams = new Set<string>()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const p of (payments ?? []) as any[]) {
-    if (!inDateRange(p.paid_at, p.created_at)) continue
-    if (p.payment_type === 'team' && p.team_id) {
-      if (seenTeams.has(`${p.league_id}:${p.team_id}`)) continue
-      seenTeams.add(`${p.league_id}:${p.team_id}`)
+    const teamKey = p.payment_type === 'team' && p.team_id ? `${p.league_id}:${p.team_id}` : null
+    if (teamKey) {
+      if (seenTeams.has(teamKey)) continue
+      seenTeams.add(teamKey)
     } else if (!p.registration_id) continue
+    if ((p.refunded_cents ?? 0) > 0 && inDateRange(p.refunded_at)) {
+      refundedCents += p.refunded_cents ?? 0
+      add(revByKey, p.league_id ?? '', -(p.refunded_cents ?? 0))
+    }
+    if (!inDateRange(p.paid_at, p.created_at)) continue
     registrationRevenueCents += p.amount_cents ?? 0
     taxCollectedCents += p.tax_cents ?? 0
     add(revByKey, p.league_id ?? '', p.amount_cents ?? 0)
@@ -459,7 +469,7 @@ export async function getFinancialReport(orgId: string, fromDate: string, toDate
   const overheadByCategory = byCategory(overheadRows.map((r) => ({ category: r.category as string, amountCents: r.amount_cents as number })))
   const overheadCents = overheadRows.reduce((sum, r) => sum + (r.amount_cents ?? 0), 0)
 
-  const revenueCents = registrationRevenueCents + merchRevenueCents + otherIncomeCents
+  const revenueCents = registrationRevenueCents + merchRevenueCents + otherIncomeCents - refundedCents
   const costCents = eventExpenseCents + overheadCents + merchCogsCents
   const events = [...new Set([...revByKey.keys(), ...costByKey.keys()])]
     .map((k) => ({
@@ -472,7 +482,7 @@ export async function getFinancialReport(orgId: string, fromDate: string, toDate
 
   return {
     fromDate, toDate,
-    registrationRevenueCents, taxCollectedCents,
+    registrationRevenueCents, taxCollectedCents, refundedCents,
     merchRevenueCents, merchCogsCents,
     otherIncomeByCategory, otherIncomeCents,
     expensesByCategory, eventExpenseCents,
@@ -486,6 +496,8 @@ export async function getFinancialReport(orgId: string, fromDate: string, toDate
 
 export type EventPnl = {
   registrationRevenueCents: number
+  /** Refunds issued against this event's payments (already subtracted from revenueCents). */
+  refundedCents: number
   merchRevenueCents: number
   otherRevenueCents: number
   merchCogsCents: number
@@ -512,8 +524,8 @@ export async function getEventPnl(leagueId: string, orgId: string): Promise<Even
   const [{ data: payments }, { data: merchOrders }, { data: expenses }, { data: otherRevenue }] = await Promise.all([
 
     db.from('payments')
-      .select('amount_cents, status, payment_type, team_id, registration_id')
-      .eq('organization_id', orgId).eq('league_id', leagueId).in('status', ['paid', 'manual']),
+      .select('amount_cents, refunded_cents, status, payment_type, team_id, registration_id')
+      .eq('organization_id', orgId).eq('league_id', leagueId).in('status', ['paid', 'manual', 'refunded']),
 
     db.from('merchandise_orders')
       .select('item_id, variant_id, quantity, unit_price_cents, discount_cents, amount_paid_cents')
@@ -537,15 +549,17 @@ export async function getEventPnl(leagueId: string, orgId: string): Promise<Even
   // Per-player rows whose registration was deleted (admin removal detaches
   // them to registration_id null) no longer represent money owed for this
   // event and are excluded.
-  const paidRows = (payments ?? []) as { amount_cents: number; payment_type: string | null; team_id: string | null; registration_id: string | null }[]
+  const paidRows = (payments ?? []) as { amount_cents: number; refunded_cents: number | null; payment_type: string | null; team_id: string | null; registration_id: string | null }[]
   const seenTeams = new Set<string>()
   let registrationRevenueCents = 0
+  let refundedCents = 0
   for (const p of paidRows) {
     if (p.payment_type === 'team' && p.team_id) {
       if (seenTeams.has(p.team_id)) continue
       seenTeams.add(p.team_id)
     } else if (!p.registration_id) continue
     registrationRevenueCents += p.amount_cents ?? 0
+    refundedCents += p.refunded_cents ?? 0
   }
 
   const otherRevenueCents = ((otherRevenue ?? []) as { amount_cents: number }[])
@@ -584,13 +598,14 @@ export async function getEventPnl(leagueId: string, orgId: string): Promise<Even
   const expenseRows = (expenses ?? []) as { amount_cents: number }[]
   const expenseCents = expenseRows.reduce((s, e) => s + (e.amount_cents ?? 0), 0)
 
-  const revenueCents = registrationRevenueCents + merchRevenueCents + otherRevenueCents
+  // Revenue is gross; refunds subtract on their own line.
+  const revenueCents = registrationRevenueCents + merchRevenueCents + otherRevenueCents - refundedCents
   const costCents = expenseCents + merchCogsCents + allocatedOverheadCents
   const profitCents = revenueCents - costCents
   const marginPct = revenueCents > 0 ? profitCents / revenueCents : null
 
   return {
-    registrationRevenueCents, merchRevenueCents, otherRevenueCents, merchCogsCents,
+    registrationRevenueCents, refundedCents, merchRevenueCents, otherRevenueCents, merchCogsCents,
     allocatedOverheadCents,
     expenseCents, revenueCents, costCents, profitCents, marginPct,
     expenseCount: expenseRows.length,
@@ -614,10 +629,10 @@ export async function getEventRevenueBySession(leagueId: string, orgId: string):
   const db = createServiceRoleClient()
   const { data } = await db
     .from('payments')
-    .select('amount_cents, registration_id, payment_type, registration:registrations!payments_registration_id_fkey(session_id)')
+    .select('amount_cents, refunded_cents, registration_id, payment_type, registration:registrations!payments_registration_id_fkey(session_id)')
     .eq('organization_id', orgId)
     .eq('league_id', leagueId)
-    .in('status', ['paid', 'manual'])
+    .in('status', ['paid', 'manual', 'refunded'])
   const bySession = new Map<string | null, { amountCents: number; paymentCount: number }>()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const p of (data ?? []) as any[]) {
@@ -625,7 +640,7 @@ export async function getEventRevenueBySession(leagueId: string, orgId: string):
     const reg = Array.isArray(p.registration) ? p.registration[0] : p.registration
     const key = (reg?.session_id ?? null) as string | null
     const agg = bySession.get(key) ?? { amountCents: 0, paymentCount: 0 }
-    agg.amountCents += p.amount_cents ?? 0
+    agg.amountCents += (p.amount_cents ?? 0) - (p.refunded_cents ?? 0)
     agg.paymentCount += 1
     bySession.set(key, agg)
   }
@@ -916,6 +931,8 @@ export type OrgPnlEvent = {
 
 export type OrgPnl = {
   registrationRevenueCents: number
+  /** Refunds issued (already subtracted from revenueCents). */
+  refundedCents: number
   merchRevenueCents: number
   otherRevenueCents: number
   merchCogsCents: number
@@ -940,8 +957,8 @@ export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
 
   const [{ data: payments }, { data: merchOrders }, { data: expenses }, { data: overhead }, { data: leagues }, { data: otherRevenue }, { data: overheadAllocs }] = await Promise.all([
 
-    db.from('payments').select('amount_cents, league_id, payment_type, team_id, registration_id')
-      .eq('organization_id', orgId).in('status', ['paid', 'manual']),
+    db.from('payments').select('amount_cents, refunded_cents, league_id, payment_type, team_id, registration_id')
+      .eq('organization_id', orgId).in('status', ['paid', 'manual', 'refunded']),
 
     db.from('merchandise_orders')
       .select('league_id, item_id, variant_id, quantity, unit_price_cents, discount_cents, amount_paid_cents')
@@ -975,14 +992,17 @@ export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
   // Same rules as getEventPnl: team fees count once per team, and per-player
   // rows detached from a deleted registration don't count.
   let registrationRevenueCents = 0
+  let refundedCents = 0
   const seenOrgTeams = new Set<string>()
-  for (const p of (payments ?? []) as { amount_cents: number; league_id: string | null; payment_type: string | null; team_id: string | null; registration_id: string | null }[]) {
+  for (const p of (payments ?? []) as { amount_cents: number; refunded_cents: number | null; league_id: string | null; payment_type: string | null; team_id: string | null; registration_id: string | null }[]) {
     if (p.payment_type === 'team' && p.team_id) {
       if (seenOrgTeams.has(`${p.league_id}:${p.team_id}`)) continue
       seenOrgTeams.add(`${p.league_id}:${p.team_id}`)
     } else if (!p.registration_id) continue
     registrationRevenueCents += p.amount_cents ?? 0
-    add(revByKey, p.league_id ?? '', p.amount_cents ?? 0)
+    refundedCents += p.refunded_cents ?? 0
+    // Per-event rows show revenue net of refunds.
+    add(revByKey, p.league_id ?? '', (p.amount_cents ?? 0) - (p.refunded_cents ?? 0))
   }
 
   // Merch revenue + COGS (needs item/variant costs)
@@ -1051,13 +1071,13 @@ export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
     }
   }).sort((a, b) => b.revenueCents - a.revenueCents)
 
-  const revenueCents = registrationRevenueCents + merchRevenueCents + otherRevenueCents
+  const revenueCents = registrationRevenueCents + merchRevenueCents + otherRevenueCents - refundedCents
   const costCents = eventExpenseCents + merchCogsCents + overheadCents
   const profitCents = revenueCents - costCents
   const marginPct = revenueCents > 0 ? profitCents / revenueCents : null
 
   return {
-    registrationRevenueCents, merchRevenueCents, otherRevenueCents, merchCogsCents,
+    registrationRevenueCents, refundedCents, merchRevenueCents, otherRevenueCents, merchCogsCents,
     eventExpenseCents, overheadCents, revenueCents, costCents, profitCents, marginPct, events,
   }
 }

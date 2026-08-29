@@ -3729,6 +3729,8 @@ export type Database = {
           notes: string | null
           organization_id: string
           paid_at: string | null
+          refunded_at: string | null
+          refunded_cents: number
           payment_method: string | null
           payment_type: string
           registration_id: string | null
@@ -3750,6 +3752,8 @@ export type Database = {
           notes?: string | null
           organization_id: string
           paid_at?: string | null
+          refunded_at?: string | null
+          refunded_cents?: number
           payment_method?: string | null
           payment_type?: string
           registration_id?: string | null
@@ -3771,6 +3775,8 @@ export type Database = {
           notes?: string | null
           organization_id?: string
           paid_at?: string | null
+          refunded_at?: string | null
+          refunded_cents?: number
           payment_method?: string | null
           payment_type?: string
           registration_id?: string | null

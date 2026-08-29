@@ -7,6 +7,7 @@ import { PaymentsTable } from '@/components/admin/payments-table'
 type PaymentRecord = {
   id: string
   amount_cents: number
+  refunded_cents?: number | null
   currency: string
   status: string
   payment_method: string | null
@@ -39,7 +40,7 @@ export default async function AdminPaymentsPage() {
       id, created_at, registration_type, guest_name, guest_email,
       player:profiles!registrations_user_id_fkey(id, full_name, email),
       league:leagues!registrations_league_id_fkey(id, name, price_cents, drop_in_price_cents, currency, payment_mode),
-      payment:payments!payments_registration_id_fkey(id, amount_cents, tax_cents, currency, status, payment_method, paid_at, notes, discount_cents, discount_code:discount_codes(code))
+      payment:payments!payments_registration_id_fkey(id, amount_cents, tax_cents, refunded_cents, currency, status, payment_method, paid_at, notes, discount_cents, discount_code:discount_codes(code))
     `)
     .eq('organization_id', org.id)
     .order('created_at', { ascending: false })
@@ -84,7 +85,7 @@ export default async function AdminPaymentsPage() {
       if (teamIds.length > 0) {
         const { data: teamPays } = await supabase
           .from('payments')
-          .select('id, team_id, amount_cents, tax_cents, currency, status, payment_method, paid_at, notes')
+          .select('id, team_id, amount_cents, tax_cents, refunded_cents, currency, status, payment_method, paid_at, notes')
           .eq('organization_id', org.id).eq('payment_type', 'team').in('team_id', teamIds)
           .order('created_at', { ascending: false })
         // Prefer a paid row per team; otherwise keep the newest (pending/failed).

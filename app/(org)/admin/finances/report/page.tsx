@@ -153,6 +153,12 @@ export default async function FinancialReportPage({
                   <td className="py-1.5 text-right font-medium tabular-nums">{money(c.amountCents)}</td>
                 </tr>
               ))}
+              {report.refundedCents > 0 && (
+                <tr>
+                  <td className="py-1.5 text-gray-700">Less: refunds issued</td>
+                  <td className="py-1.5 text-right font-medium tabular-nums text-red-600">− {money(report.refundedCents)}</td>
+                </tr>
+              )}
               <tr className="border-t-2 border-gray-200 font-semibold">
                 <td className="py-2 text-gray-900">Total revenue</td>
                 <td className="py-2 text-right tabular-nums">{money(report.revenueCents)}</td>
@@ -235,8 +241,8 @@ export default async function FinancialReportPage({
         )}
 
         <p className="text-xs text-gray-400 border-t pt-3">
-          Payments are dated by when they were paid; expenses and overhead by their incurred date;
-          other income by its received date. Registration revenue counts team fees once per team and
+          Payments are dated by when they were paid; refunds by when they were issued; expenses and
+          overhead by their incurred date; other income by its received date. Registration revenue counts team fees once per team and
           excludes payments whose registration was removed.
         </p>
       </div>

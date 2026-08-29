@@ -1,14 +1,17 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { MarkPaidForm } from '@/components/payments/mark-paid-form'
 import { EditPaymentForm } from '@/components/payments/edit-payment-form'
+import { refundTeamPayment } from '@/actions/payments'
 
 const PAGE_SIZE = 25
 
 type PaymentRecord = {
   id: string
   amount_cents: number
+  refunded_cents?: number | null
   tax_cents?: number
   currency: string
   status: string
@@ -63,7 +66,8 @@ function amountLabel(r: Row) {
   if (r.isFree) return 'Free'
   const cents = effectivePriceCents(r)
   const currency = (r.payment?.currency ?? r.league?.currency ?? 'cad').toUpperCase()
-  return `$${(cents / 100).toFixed(2)} ${currency}`
+  const refunded = r.payment?.refunded_cents ?? 0
+  return `$${(cents / 100).toFixed(2)} ${currency}${refunded > 0 ? ` (−$${(refunded / 100).toFixed(2)} refunded)` : ''}`
 }
 
 function dateLabel(r: Row) {
@@ -88,7 +92,7 @@ function defaultPayMethod(m?: string | null): (typeof VALID_METHODS)[number] {
  *  column is only used by the per-team Mark-as-Paid flow. */
 function hasPaymentAction(r: Row, isOrgAdmin: boolean) {
   if (!isOrgAdmin || !r.league) return false
-  if (r.league.payment_mode === 'per_team') return needsAction(r) && !!r.teamId
+  if (r.league.payment_mode === 'per_team') return !!r.teamId && (needsAction(r) || r.paymentStatus === 'paid')
   return false
 }
 
@@ -119,10 +123,64 @@ function StatusBadge({ r, isOrgAdmin, className = '' }: { r: Row; isOrgAdmin: bo
   )
 }
 
+/** Refund control for a paid team fee — full by default, or a partial amount. */
+function TeamRefundForm({ teamId, leagueId, amountCents }: { teamId: string; leagueId: string; amountCents: number }) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [amount, setAmount] = useState((amountCents / 100).toFixed(2))
+  const [error, setError] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    const cents = Math.round(parseFloat(amount) * 100)
+    if (isNaN(cents) || cents < 0) { setError('Enter a valid amount.'); return }
+    startTransition(async () => {
+      const res = await refundTeamPayment({ teamId, leagueId, refundAmountCents: cents })
+      if (res.error) setError(res.error)
+      else { setOpen(false); router.refresh() }
+    })
+  }
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="text-xs px-2.5 py-1 rounded-md border font-medium text-gray-700 hover:bg-gray-50">
+        Refund…
+      </button>
+    )
+  }
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-1.5 min-w-[160px]">
+      <div className="relative">
+        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
+        <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)}
+          className="border rounded pl-5 pr-1.5 py-1 text-xs w-full" aria-label="Refund amount" autoFocus />
+      </div>
+      {error && <p className="text-xs text-red-500">{error}</p>}
+      <div className="flex gap-1.5">
+        <button type="submit" disabled={pending} className="text-xs px-2.5 py-1 rounded-md font-semibold text-white disabled:opacity-60" style={{ backgroundColor: 'var(--brand-primary)' }}>
+          {pending ? 'Saving…' : 'Refund'}
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className="text-xs px-2.5 py-1 rounded-md border text-gray-600 hover:bg-gray-50">Cancel</button>
+      </div>
+    </form>
+  )
+}
+
 /** Org-admin payment control — per-team events keep the (team-aware) Mark-as-Paid flow. */
 function PaymentAction({ r, isOrgAdmin }: { r: Row; isOrgAdmin: boolean }) {
   if (!isOrgAdmin || !r.league) return null
   if (r.league.payment_mode === 'per_team' && r.teamId) {
+    if (r.paymentStatus === 'paid') {
+      return (
+        <TeamRefundForm
+          teamId={r.teamId}
+          leagueId={r.league.id}
+          amountCents={r.payment?.amount_cents ?? r.league.price_cents}
+        />
+      )
+    }
     if (!needsAction(r)) return null
     return (
       <MarkPaidForm
