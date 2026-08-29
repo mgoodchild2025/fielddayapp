@@ -100,9 +100,9 @@ export async function GET(req: NextRequest) {
       })
   } else if (type === 'expenses') {
     const { data } = await db.from('event_expenses')
-      .select('league_id, category, description, vendor, amount_cents, incurred_on, created_at, notes')
+      .select('league_id, category, description, vendor, amount_cents, incurred_on, created_at, notes, receipt_path')
       .eq('organization_id', org.id)
-    columns = ['date', 'event', 'category', 'description', 'vendor', 'amount', 'notes']
+    columns = ['date', 'event', 'category', 'description', 'vendor', 'amount', 'receipt', 'notes']
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rows = ((data ?? []) as any[])
       .filter((r) => inDateRange(r.incurred_on, r.created_at))
@@ -113,13 +113,14 @@ export async function GET(req: NextRequest) {
         description: r.description,
         vendor: r.vendor ?? '',
         amount: dollars(r.amount_cents),
+        receipt: r.receipt_path ? 'yes' : '',
         notes: r.notes ?? '',
       }))
   } else if (type === 'overhead') {
     const { data } = await db.from('org_overhead_expenses')
-      .select('category, description, amount_cents, period, applies_to, incurred_on, created_at, notes')
+      .select('category, description, amount_cents, period, applies_to, incurred_on, created_at, notes, receipt_path')
       .eq('organization_id', org.id)
-    columns = ['date', 'category', 'description', 'period', 'applies_to', 'amount', 'notes']
+    columns = ['date', 'category', 'description', 'period', 'applies_to', 'amount', 'receipt', 'notes']
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rows = ((data ?? []) as any[])
       .filter((r) => inDateRange(r.incurred_on, r.created_at))
@@ -130,6 +131,7 @@ export async function GET(req: NextRequest) {
         period: r.period,
         applies_to: r.applies_to,
         amount: dollars(r.amount_cents),
+        receipt: r.receipt_path ? 'yes' : '',
         notes: r.notes ?? '',
       }))
   } else if (type === 'other_income') {
