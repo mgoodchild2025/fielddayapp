@@ -4,7 +4,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
-import { getEventPnl, getEventExpenses, getEventBudget, getEventRevenue } from '@/actions/finances'
+import { getEventPnl, getEventExpenses, getEventBudget, getEventRevenue, getEventRevenueBySession } from '@/actions/finances'
 import { EventExpensesManager } from '@/components/finances/event-expenses-manager'
 import { EventRevenueManager } from '@/components/finances/event-revenue-manager'
 import { BudgetPlanner } from '@/components/finances/budget-planner'
@@ -26,10 +26,11 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
   const db = createServiceRoleClient()
 
   const { data: league } = await db
-    .from('leagues').select('id').eq('id', id).eq('organization_id', org.id).single()
+    .from('leagues').select('id, event_type').eq('id', id).eq('organization_id', org.id).single()
   if (!league) notFound()
+  const isSessionBased = league.event_type === 'drop_in' || league.event_type === 'pickup'
 
-  const [pnl, expenses, revenue, budget, { data: rawSessions }, { data: branding }] = await Promise.all([
+  const [pnl, expenses, revenue, budget, { data: rawSessions }, { data: branding }, sessionRevenue] = await Promise.all([
     getEventPnl(id, org.id),
     getEventExpenses(id),
     getEventRevenue(id),
@@ -39,6 +40,8 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
       .eq('league_id', id).eq('organization_id', org.id).order('scheduled_at', { ascending: true }),
 
     db.from('org_branding').select('timezone').eq('organization_id', org.id).maybeSingle(),
+
+    isSessionBased ? getEventRevenueBySession(id, org.id) : Promise.resolve([]),
   ])
 
   const timezone = branding?.timezone ?? 'America/Toronto'
@@ -48,6 +51,17 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
       month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: timezone,
     }),
   }))
+
+  // Per-session revenue rows in session order; league-level payments
+  // (season passes / team fees) last.
+  const sessionLabel = new Map(sessions.map((sx) => [sx.id, sx.label]))
+  const sessionRevenueRows = sessionRevenue
+    .map((r) => ({
+      ...r,
+      label: r.sessionId ? (sessionLabel.get(r.sessionId) ?? 'Removed session') : 'Season passes & team fees',
+      order: r.sessionId ? sessions.findIndex((sx) => sx.id === r.sessionId) : Number.MAX_SAFE_INTEGER,
+    }))
+    .sort((a, b) => a.order - b.order)
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -78,6 +92,28 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
           you log below (donations, 50/50, sponsorships…). Set unit costs on merch items to include their cost.
         </p>
       </section>
+
+      {/* ── Registration revenue by session (drop-in / pickup) ───────────── */}
+      {isSessionBased && sessionRevenueRows.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold text-gray-900">Registration revenue by session</h2>
+          <div className="bg-white rounded-xl border divide-y">
+            {sessionRevenueRows.map((r) => (
+              <div key={r.sessionId ?? 'league'} className="flex items-center justify-between px-5 py-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{r.label}</p>
+                  <p className="text-xs text-gray-400">{r.paymentCount} payment{r.paymentCount !== 1 ? 's' : ''}</p>
+                </div>
+                <p className="text-sm font-semibold tabular-nums">{money(r.amountCents)}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400">
+            Grouped by the session each registration was for. Season passes and team fees aren&rsquo;t tied
+            to a single session, so they&rsquo;re listed on their own line.
+          </p>
+        </section>
+      )}
 
       {/* ── Other income ledger ──────────────────────────────────────────── */}
       <EventRevenueManager leagueId={id} initialRevenue={revenue} />

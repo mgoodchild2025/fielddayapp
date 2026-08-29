@@ -351,7 +351,7 @@ export async function getEventPnl(leagueId: string, orgId: string): Promise<Even
   const [{ data: payments }, { data: merchOrders }, { data: expenses }, { data: otherRevenue }] = await Promise.all([
 
     db.from('payments')
-      .select('amount_cents, status, payment_type, team_id')
+      .select('amount_cents, status, payment_type, team_id, registration_id')
       .eq('organization_id', orgId).eq('league_id', leagueId).in('status', ['paid', 'manual']),
 
     db.from('merchandise_orders')
@@ -365,14 +365,17 @@ export async function getEventPnl(leagueId: string, orgId: string): Promise<Even
 
   // A team owes its fee once — the mark-as-paid duplicate bug left some teams
   // with several identical paid rows, so team payments count once per team.
-  const paidRows = (payments ?? []) as { amount_cents: number; payment_type: string | null; team_id: string | null }[]
+  // Per-player rows whose registration was deleted (admin removal detaches
+  // them to registration_id null) no longer represent money owed for this
+  // event and are excluded.
+  const paidRows = (payments ?? []) as { amount_cents: number; payment_type: string | null; team_id: string | null; registration_id: string | null }[]
   const seenTeams = new Set<string>()
   let registrationRevenueCents = 0
   for (const p of paidRows) {
     if (p.payment_type === 'team' && p.team_id) {
       if (seenTeams.has(p.team_id)) continue
       seenTeams.add(p.team_id)
-    }
+    } else if (!p.registration_id) continue
     registrationRevenueCents += p.amount_cents ?? 0
   }
 
@@ -425,6 +428,39 @@ export async function getEventPnl(leagueId: string, orgId: string): Promise<Even
 }
 
 // ── Org overhead ─────────────────────────────────────────────────────────────
+
+// ── Per-session registration revenue (drop-in / pickup events) ───────────────
+
+export type SessionRevenueRow = {
+  /** null = league-level payments (season passes). */
+  sessionId: string | null
+  amountCents: number
+  paymentCount: number
+}
+
+/** Paid/manual registration revenue grouped by the paying registration's
+ *  session. Deleted-registration orphans are excluded, same as getEventPnl. */
+export async function getEventRevenueBySession(leagueId: string, orgId: string): Promise<SessionRevenueRow[]> {
+  const db = createServiceRoleClient()
+  const { data } = await db
+    .from('payments')
+    .select('amount_cents, registration_id, payment_type, registration:registrations!payments_registration_id_fkey(session_id)')
+    .eq('organization_id', orgId)
+    .eq('league_id', leagueId)
+    .in('status', ['paid', 'manual'])
+  const bySession = new Map<string | null, { amountCents: number; paymentCount: number }>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const p of (data ?? []) as any[]) {
+    if (!p.registration_id && p.payment_type !== 'team') continue
+    const reg = Array.isArray(p.registration) ? p.registration[0] : p.registration
+    const key = (reg?.session_id ?? null) as string | null
+    const agg = bySession.get(key) ?? { amountCents: 0, paymentCount: 0 }
+    agg.amountCents += p.amount_cents ?? 0
+    agg.paymentCount += 1
+    bySession.set(key, agg)
+  }
+  return [...bySession.entries()].map(([sessionId, a]) => ({ sessionId, ...a }))
+}
 
 export type OrgOverhead = {
   id: string
@@ -540,7 +576,7 @@ export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
 
   const [{ data: payments }, { data: merchOrders }, { data: expenses }, { data: overhead }, { data: leagues }, { data: otherRevenue }] = await Promise.all([
 
-    db.from('payments').select('amount_cents, league_id')
+    db.from('payments').select('amount_cents, league_id, payment_type, team_id, registration_id')
       .eq('organization_id', orgId).in('status', ['paid', 'manual']),
 
     db.from('merchandise_orders')
@@ -564,8 +600,15 @@ export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
   const costByKey = new Map<string, number>()  // event expenses + merch COGS
   const add = (m: Map<string, number>, k: string, v: number) => m.set(k, (m.get(k) ?? 0) + v)
 
+  // Same rules as getEventPnl: team fees count once per team, and per-player
+  // rows detached from a deleted registration don't count.
   let registrationRevenueCents = 0
-  for (const p of (payments ?? []) as { amount_cents: number; league_id: string | null }[]) {
+  const seenOrgTeams = new Set<string>()
+  for (const p of (payments ?? []) as { amount_cents: number; league_id: string | null; payment_type: string | null; team_id: string | null; registration_id: string | null }[]) {
+    if (p.payment_type === 'team' && p.team_id) {
+      if (seenOrgTeams.has(`${p.league_id}:${p.team_id}`)) continue
+      seenOrgTeams.add(`${p.league_id}:${p.team_id}`)
+    } else if (!p.registration_id) continue
     registrationRevenueCents += p.amount_cents ?? 0
     add(revByKey, p.league_id ?? '', p.amount_cents ?? 0)
   }
