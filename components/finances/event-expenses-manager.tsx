@@ -137,7 +137,7 @@ export function EventExpensesManager({ leagueId, initialExpenses, sessions = [] 
           No expenses logged yet.
         </div>
       ) : (
-        <div className="bg-white rounded-lg border overflow-hidden">
+        <div className="bg-white rounded-lg border overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100 text-sm">
             <tbody className="divide-y divide-gray-50">
               {initialExpenses.map((e) => (

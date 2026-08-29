@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { Pencil } from 'lucide-react'
 import { adminUpdateRegistrationPayment } from '@/actions/payments'
 
 type Status = 'paid' | 'pending' | 'refunded'
@@ -56,8 +57,15 @@ export function EditPaymentForm({
   if (!open) {
     if (trigger) {
       return (
-        <button type="button" onClick={() => setOpen(true)} className="text-left" title="Edit payment">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1 text-left p-1 -m-1"
+          title="Edit payment"
+        >
           {trigger}
+          {/* Visible affordance — on touch screens nothing else says the badge is tappable. */}
+          <Pencil className="w-3 h-3 text-gray-400" aria-hidden="true" />
         </button>
       )
     }

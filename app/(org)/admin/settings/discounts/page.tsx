@@ -61,7 +61,7 @@ export default async function AdminDiscountsPage() {
       {(codes ?? []).length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-8">No discount codes yet.</p>
       ) : (
-        <div className="bg-white rounded-lg border overflow-hidden">
+        <div className="bg-white rounded-lg border overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100">
             <thead className="bg-gray-50">
               <tr>
