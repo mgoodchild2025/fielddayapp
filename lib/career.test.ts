@@ -74,6 +74,17 @@ describe('buildCareer', () => {
     expect(c.tables[0].columns.map((col) => col.label)).toEqual(['W', 'L', 'T'])
   })
 
+  it('shows the record when columns are defined but the player has no stat values', () => {
+    // Platform defaults define columns for every known sport — what matters is
+    // whether anything was ever recorded for this player.
+    const c = buildCareer({
+      ...base,
+      statsByLeague: new Map(),
+      teamRecordByLeagueTeam: new Map([['l1:t1', { played: 10, wins: 7, losses: 3, ties: 0 }]]),
+    })
+    expect(c.tables[0].columns.map((col) => col.label)).toEqual(['W', 'L'])
+  })
+
   it('keeps real stat columns when the sport defines them — record is a fallback', () => {
     const c = buildCareer({
       ...base,

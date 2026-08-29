@@ -90,9 +90,14 @@ export function buildCareer(inputs: CareerInputs): PlayerCareer {
 
   const tables: CareerSportTable[] = [...bySport.entries()].map(([sport, rows]) => {
     let columns = (inputs.statDefsBySport.get(sport) ?? []).slice(0, 3)
-    // No player stats tracked for this sport: show the TEAM's season record
-    // instead of a bare Season | Team list. T only when a tie actually exists.
-    if (columns.length === 0 && rows.some((r) => r.stats.__w != null)) {
+    // Platform defaults define columns for every known sport, so "no columns"
+    // almost never happens — the real question is whether this player has any
+    // recorded values in them. A league that never tracks individual stats
+    // shows the TEAM's season record instead of a row of dashes. T only when
+    // a tie actually exists.
+    const hasPlayerStats = columns.length > 0
+      && rows.some((r) => columns.some((c) => r.stats[c.key] != null))
+    if (!hasPlayerStats && rows.some((r) => r.stats.__w != null)) {
       const hasTies = rows.some((r) => (r.stats.__t ?? 0) > 0)
       columns = [
         { key: '__w', label: 'W' },
