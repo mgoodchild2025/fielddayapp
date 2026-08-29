@@ -804,6 +804,27 @@ export async function addOrgOverhead(input: {
   return { error: null }
 }
 
+// ── Fiscal year setting ───────────────────────────────────────────────────────
+
+/** Set the org's fiscal year start month (1 = January = calendar year). */
+export async function setFiscalYearStart(month: number): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await requireFinanceAdmin(org.id)
+  if ('error' in auth) return { error: auth.error }
+  if (!Number.isInteger(month) || month < 1 || month > 12) return { error: 'Invalid month' }
+
+  const db = createServiceRoleClient()
+  const { error } = await db
+    .from('org_branding')
+    .update({ fiscal_year_start_month: month })
+    .eq('organization_id', org.id)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/finances')
+  revalidatePath('/admin/settings/payments')
+  return { error: null }
+}
+
 // ── Expense receipts (private bucket, signed-URL viewing) ─────────────────────
 
 const RECEIPT_TYPES: Record<string, string> = {

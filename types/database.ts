@@ -2695,6 +2695,7 @@ export type Database = {
           contact_email: string | null
           custom_domain: string | null
           favicon_url: string | null
+          fiscal_year_start_month: number
           heading_font: string | null
           hero_image_url: string | null
           id: string
@@ -2727,6 +2728,7 @@ export type Database = {
           contact_email?: string | null
           custom_domain?: string | null
           favicon_url?: string | null
+          fiscal_year_start_month?: number
           heading_font?: string | null
           hero_image_url?: string | null
           id?: string
@@ -2759,6 +2761,7 @@ export type Database = {
           contact_email?: string | null
           custom_domain?: string | null
           favicon_url?: string | null
+          fiscal_year_start_month?: number
           heading_font?: string | null
           hero_image_url?: string | null
           id?: string
