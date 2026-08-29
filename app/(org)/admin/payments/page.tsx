@@ -56,57 +56,62 @@ export default async function AdminPaymentsPage() {
   const { data: rows } = await query as { data: RegistrationRow[] | null }
 
   // Per-team leagues: the fee lives on a TEAM payment row (payment_type='team',
-  // registration_id null), so it never embeds on the registration. Resolve each
-  // member's team payment — same rule as the event registrations screen —
-  // otherwise every member of a paid team reads "unpaid" here and the team-aware
-  // Mark-as-Paid appears to do nothing.
-  type TeamPaymentInfo = {
-    id: string; amount_cents: number; tax_cents: number | null; currency: string
-    status: string; payment_method: string | null; paid_at: string | null; teamName: string
+  // registration_id null), so it never embeds on the registration. The ledger
+  // shows ONE row per team — not the fee repeated on every member — so build
+  // those rows here; member rows without a payment of their own are dropped below.
+  type TeamLedgerRow = {
+    id: string
+    created_at: string
+    teamId: string
+    teamName: string
+    league: { id: string; name: string; price_cents: number; drop_in_price_cents: number | null; currency: string; payment_mode: string }
+    payment: (PaymentRecord & { discountCode: string | null; discountCents: number }) | null
   }
-  const teamPayByLeagueUser = new Map<string, TeamPaymentInfo>()
+  const teamLedgerRows: TeamLedgerRow[] = []
   {
-    const perTeamLeagueIds = [...new Set((rows ?? [])
-      .map(r => Array.isArray(r.league) ? r.league[0] : r.league)
-      .filter(l => l?.payment_mode === 'per_team' && (l?.price_cents ?? 0) > 0)
-      .map(l => l!.id))]
-    if (perTeamLeagueIds.length > 0) {
+    const perTeamLeagues = new Map<string, TeamLedgerRow['league']>()
+    for (const r of rows ?? []) {
+      const l = Array.isArray(r.league) ? r.league[0] : r.league
+      if (l?.payment_mode === 'per_team' && (l?.price_cents ?? 0) > 0) perTeamLeagues.set(l.id, l)
+    }
+    if (perTeamLeagues.size > 0) {
       const { data: teams } = await supabase
-        .from('teams').select('id, league_id, name')
-        .in('league_id', perTeamLeagueIds).eq('organization_id', org.id)
+        .from('teams').select('id, league_id, name, created_at')
+        .in('league_id', [...perTeamLeagues.keys()]).eq('organization_id', org.id).eq('status', 'active')
       const teamIds = (teams ?? []).map(t => t.id)
-      const teamById = new Map((teams ?? []).map(t => [t.id, t]))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const payByTeam = new Map<string, any>()
       if (teamIds.length > 0) {
-        const [{ data: members }, { data: teamPays }] = await Promise.all([
-          supabase.from('team_members').select('user_id, team_id')
-            .in('team_id', teamIds).eq('status', 'active'),
-          supabase.from('payments')
-            .select('id, team_id, amount_cents, tax_cents, currency, status, payment_method, paid_at')
-            .eq('organization_id', org.id).eq('payment_type', 'team').in('team_id', teamIds),
-        ])
-        // Prefer a paid row per team; otherwise keep whatever exists (pending/failed).
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const payByTeam = new Map<string, any>()
+        const { data: teamPays } = await supabase
+          .from('payments')
+          .select('id, team_id, amount_cents, tax_cents, currency, status, payment_method, paid_at, notes')
+          .eq('organization_id', org.id).eq('payment_type', 'team').in('team_id', teamIds)
+          .order('created_at', { ascending: false })
+        // Prefer a paid row per team; otherwise keep the newest (pending/failed).
         for (const pmt of teamPays ?? []) {
           if (!pmt.team_id) continue
           const prev = payByTeam.get(pmt.team_id)
-          if (!prev || pmt.status === 'paid' || pmt.status === 'manual') payByTeam.set(pmt.team_id, pmt)
+          const paidish = pmt.status === 'paid' || pmt.status === 'manual'
+          const prevPaidish = prev && (prev.status === 'paid' || prev.status === 'manual')
+          if (!prev || (paidish && !prevPaidish)) payByTeam.set(pmt.team_id, pmt)
         }
-        for (const m of (members ?? []) as { user_id: string | null; team_id: string }[]) {
-          if (!m.user_id) continue
-          const pmt = payByTeam.get(m.team_id)
-          const team = teamById.get(m.team_id)
-          if (!pmt || !team) continue
-          teamPayByLeagueUser.set(`${team.league_id}:${m.user_id}`, {
-            id: pmt.id, amount_cents: pmt.amount_cents, tax_cents: pmt.tax_cents ?? null,
-            currency: pmt.currency ?? 'cad', status: pmt.status,
-            payment_method: pmt.payment_method ?? null, paid_at: pmt.paid_at ?? null,
-            teamName: team.name,
-          })
-        }
+      }
+      for (const t of teams ?? []) {
+        const league = perTeamLeagues.get(t.league_id)
+        if (!league) continue
+        const pmt = payByTeam.get(t.id)
+        teamLedgerRows.push({
+          id: `team-${t.id}`,
+          created_at: pmt?.paid_at ?? t.created_at,
+          teamId: t.id,
+          teamName: t.name,
+          league,
+          payment: pmt ? { ...pmt, discountCode: null, discountCents: 0 } : null,
+        })
       }
     }
   }
+
 
   const registrations = (rows ?? []).map(r => {
     // Guest registrations have no profile (user_id is null) — fall back to the
@@ -127,26 +132,51 @@ export default async function AdminPaymentsPage() {
       ? (league?.drop_in_price_cents ?? league?.price_cents ?? 0)
       : (league?.price_cents ?? 0)
     const isFree = effectivePrice === 0
-    // Per-team leagues: the member's payment state is the TEAM's payment state.
-    const teamPayment = league?.payment_mode === 'per_team' && player?.id
-      ? teamPayByLeagueUser.get(`${league.id}:${player.id}`) ?? null
-      : null
-    const statusSource = payment?.status ?? teamPayment?.status
     let paymentStatus: string
     if (isFree) paymentStatus = 'free'
-    else if (statusSource === 'paid' || statusSource === 'manual') paymentStatus = 'paid'
-    else if (statusSource === 'pending') paymentStatus = 'pending'
-    else if (statusSource === 'failed') paymentStatus = 'failed'
-    else if (statusSource === 'refunded') paymentStatus = 'refunded'
+    else if (payment?.status === 'paid' || payment?.status === 'manual') paymentStatus = 'paid'
+    else if (payment?.status === 'pending') paymentStatus = 'pending'
+    else if (payment?.status === 'failed') paymentStatus = 'failed'
+    else if (payment?.status === 'refunded') paymentStatus = 'refunded'
     else paymentStatus = 'unpaid'
 
-    return { ...r, player: player ?? null, league: league ?? null, payment: payment ?? null, teamPayment, paymentStatus, isFree }
+    return { ...r, player: player ?? null, league: league ?? null, payment: payment ?? null, paymentStatus, isFree }
   })
+    // Per-team leagues: members owe nothing individually — the team row carries
+    // the fee. Keep a member row only when it has a payment of its own.
+    .filter(r => !(r.league?.payment_mode === 'per_team' && (r.league?.price_cents ?? 0) > 0 && !r.payment))
+
+  const teamRows = teamLedgerRows.map(t => {
+    const status = t.payment?.status
+    const paymentStatus =
+      status === 'paid' || status === 'manual' ? 'paid'
+      : status === 'pending' ? 'pending'
+      : status === 'failed' ? 'failed'
+      : status === 'refunded' ? 'refunded'
+      : 'unpaid'
+    return {
+      id: t.id,
+      created_at: t.created_at,
+      registration_type: null,
+      guest_name: null,
+      guest_email: null,
+      player: null,
+      teamId: t.teamId,
+      teamName: t.teamName,
+      league: t.league,
+      payment: t.payment,
+      paymentStatus,
+      isFree: false,
+    }
+  })
+
+  const ledger = [...registrations, ...teamRows]
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
 
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Payments</h1>
-      <PaymentsTable rows={registrations} isOrgAdmin={scope.isOrgAdmin} />
+      <PaymentsTable rows={ledger} isOrgAdmin={scope.isOrgAdmin} />
     </div>
   )
 }

@@ -4,14 +4,17 @@ import { useState, useTransition } from 'react'
 import { recordManualPayment } from '@/actions/payments'
 
 interface Props {
-  registrationId: string
-  userId: string
+  /** Per-player rows: the registration being reconciled. */
+  registrationId?: string
+  userId?: string
+  /** Per-team ledger rows: pay the team directly instead. */
+  teamId?: string
   leagueId: string
   amountCents: number
   currency: string
 }
 
-export function MarkPaidForm({ registrationId, userId, leagueId, amountCents, currency }: Props) {
+export function MarkPaidForm({ registrationId, userId, teamId, leagueId, amountCents, currency }: Props) {
   const [open, setOpen] = useState(false)
   const [method, setMethod] = useState<'cash' | 'etransfer' | 'cheque'>('etransfer')
   const [amount, setAmount] = useState((amountCents / 100).toFixed(2))
@@ -26,6 +29,7 @@ export function MarkPaidForm({ registrationId, userId, leagueId, amountCents, cu
       const result = await recordManualPayment({
         registrationId,
         userId,
+        teamId,
         leagueId,
         amountCents: Math.round(parseFloat(amount) * 100),
         currency,
