@@ -317,7 +317,7 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
               type="button"
               onClick={handleCheckout}
               disabled={loading}
-              className="w-full py-3 rounded-xl text-sm font-bold text-white disabled:opacity-60 transition-opacity hover:opacity-90"
+              className="w-full py-3 rounded-xl text-sm font-bold text-white disabled:opacity-60 transition-opacity hover:opacity-90 active:opacity-75"
               style={{ backgroundColor: 'var(--brand-primary)' }}
             >
               {loading ? 'Redirecting to checkout…' : `Checkout →`}

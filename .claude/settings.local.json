@@ -91,7 +91,18 @@
       "Bash(git -C /Users/mgoodchild/Fieldday add package-lock.json)",
       "Bash(git -C /Users/mgoodchild/Fieldday add 'app/\\(org\\)/\\(auth\\)/register/page.tsx' actions/auth.ts)",
       "Bash(sed -n '75,95p' /Users/mgoodchild/Fieldday/app/\\\\\\(org\\\\\\)/\\\\\\(public\\\\\\)/schedule/_client.tsx)",
-      "Bash(sed -n '25,45p' /Users/mgoodchild/Fieldday/app/\\\\\\(org\\\\\\)/\\\\\\(public\\\\\\)/schedule/page.tsx)"
+      "Bash(sed -n '25,45p' /Users/mgoodchild/Fieldday/app/\\\\\\(org\\\\\\)/\\\\\\(public\\\\\\)/schedule/page.tsx)",
+      "Read(//Users/matt/**)",
+      "Read(//opt/homebrew/bin/**)",
+      "Read(//Users/matt/.nvm/versions/**)",
+      "Read(//opt/homebrew/**)",
+      "Read(//opt/**)",
+      "Bash(command -v corepack)",
+      "Bash(brew --version)",
+      "Bash(command -v brew)",
+      "Read(//usr/local/bin/**)",
+      "Bash(command -v curl)",
+      "Bash(command -v npm corepack pnpm)"
     ]
   }
 }

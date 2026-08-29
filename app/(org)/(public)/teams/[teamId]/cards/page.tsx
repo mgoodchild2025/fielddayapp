@@ -47,7 +47,7 @@ export default async function TeamCardsPage({ params }: { params: Promise<{ team
     .sort((a, b) => a.card.bio.name.localeCompare(b.card.bio.name))
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
       <div className="flex-1 mx-auto w-full max-w-4xl px-4 py-8">
         <Link href={`/teams/${teamId}`} className="text-sm text-gray-500 hover:underline">← {team.name}</Link>

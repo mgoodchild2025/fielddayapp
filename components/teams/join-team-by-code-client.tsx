@@ -34,7 +34,7 @@ export function JoinTeamByCodeClient({ teamCode, teamId, teamName, leagueSlug }:
         type="button"
         onClick={handleJoin}
         disabled={pending}
-        className="w-full py-3 rounded-lg font-bold text-white text-sm transition-opacity hover:opacity-90 disabled:opacity-50"
+        className="w-full py-3 rounded-lg font-bold text-white text-sm transition-opacity hover:opacity-90 active:opacity-75 disabled:opacity-50"
         style={{ backgroundColor: 'var(--brand-primary)' }}
       >
         {pending ? 'Joining…' : `Join ${teamName}`}

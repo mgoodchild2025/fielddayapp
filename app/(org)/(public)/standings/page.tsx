@@ -108,7 +108,7 @@ export default async function StandingsPage() {
     : null
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
 
       {/* Page header */}
@@ -138,7 +138,7 @@ export default async function StandingsPage() {
             </p>
             <Link
               href="/events"
-              className="inline-block mt-6 px-5 py-2.5 rounded text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              className="inline-block mt-6 px-5 py-2.5 rounded text-sm font-semibold text-white transition-opacity hover:opacity-90 active:opacity-75"
               style={{ backgroundColor: 'var(--brand-primary)' }}
             >
               View all events →

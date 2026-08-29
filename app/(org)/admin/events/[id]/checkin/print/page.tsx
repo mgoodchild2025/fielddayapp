@@ -80,7 +80,7 @@ export default async function CheckInPrintPage({
         }
       `}</style>
 
-      <div className="min-h-screen bg-gray-50 px-6 py-8 print:bg-white print:p-0">
+      <div className="min-h-dvh bg-gray-50 px-6 py-8 print:bg-white print:p-0">
         <PrintQrCode
           checkinUrl={checkinUrl}
           eventName={league.name}

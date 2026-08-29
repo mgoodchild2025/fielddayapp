@@ -132,7 +132,7 @@ export default async function RegisterLeaguePage({
       const gManual = ((league as any).payment_instructions?.trim() || null) ?? (gSettings?.registration_manual_instructions ?? null)
 
       return (
-        <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
+        <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
           <OrgNav org={org} logoUrl={gBranding?.logo_url ?? null} />
           <div className="max-w-md mx-auto w-full px-5 py-10 flex-1">
             <GuestRegistrationFlow

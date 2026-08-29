@@ -11,7 +11,7 @@ export default async function ShopSuccessPage({ searchParams }: Props) {
   const instructions = params.instructions ? decodeURIComponent(params.instructions) : null
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh flex items-center justify-center px-4" style={{ backgroundColor: 'var(--brand-bg)' }}>
       {/* Clear cart client-side on page load (Stripe flow clears in CartDrawer; this handles edge cases) */}
       <ClearCartOnMount />
 
@@ -66,7 +66,7 @@ export default async function ShopSuccessPage({ searchParams }: Props) {
           </Link>
           <Link
             href="/dashboard"
-            className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90 active:opacity-75"
             style={{ backgroundColor: 'var(--brand-primary)' }}
           >
             Go to dashboard

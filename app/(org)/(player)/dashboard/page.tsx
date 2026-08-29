@@ -190,7 +190,7 @@ export default async function DashboardPage() {
   // ── If no active teams and no sessions, render the off-season dashboard ───
   if (activeTeams.length === 0 && upcomingSessions.length === 0) {
     return (
-      <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
+      <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
         <DashboardClient
           firstName={firstName}
@@ -749,7 +749,7 @@ export default async function DashboardPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
       <div className="flex-1">
         <DashboardClient

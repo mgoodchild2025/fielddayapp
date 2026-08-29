@@ -10,7 +10,7 @@ export default async function PrivacyPage() {
   }
   // Not yet published — show placeholder
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center">
+    <div className="min-h-dvh bg-white flex items-center justify-center">
       <div className="text-center">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Privacy Policy</h1>
         <p className="text-gray-500">This document will be available shortly.</p>

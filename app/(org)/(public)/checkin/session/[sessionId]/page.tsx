@@ -59,7 +59,7 @@ export default async function SelfCheckInSessionPage({
 
   if (!session) {
     return (
-      <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
+      <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
         <div className="flex-1 flex items-center justify-center px-4">
           <div className="text-center space-y-3">
@@ -76,7 +76,7 @@ export default async function SelfCheckInSessionPage({
   const sessionLabel = formatSessionTime(session.scheduled_at, timezone)
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
 
       <div className="flex-1 flex items-center justify-center px-4 py-12">

@@ -270,7 +270,7 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
   const hasNoEvents = openEvents.length === 0 && inSeasonEvents.length === 0 && upcomingEvents.length === 0
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
 
       {/* ── Dark dramatic hero (always first) ── */}
@@ -292,7 +292,7 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
             {subheadline && <p className="mt-3 text-white/60 text-base sm:text-lg max-w-xl">{subheadline}</p>}
             <div className="mt-6 flex flex-wrap gap-3">
               <Link href={ctaHref}
-                className="px-6 py-2.5 rounded font-bold text-sm uppercase tracking-wide transition-opacity hover:opacity-90"
+                className="px-6 py-2.5 rounded font-bold text-sm uppercase tracking-wide transition-opacity hover:opacity-90 active:opacity-75"
                 style={{ backgroundColor: 'var(--brand-primary)', color: 'white', fontFamily: 'var(--brand-heading-font)' }}
               >
                 {ctaLabel}

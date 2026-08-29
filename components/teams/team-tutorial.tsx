@@ -209,7 +209,7 @@ export function TeamTutorial({
             </button>
             <button
               onClick={advance}
-              className="text-xs font-semibold px-4 py-1.5 rounded-lg text-white transition-opacity hover:opacity-90"
+              className="text-xs font-semibold px-4 py-1.5 rounded-lg text-white transition-opacity hover:opacity-90 active:opacity-75"
               style={{ backgroundColor: 'var(--brand-primary)' }}
             >
               {step === STEPS.length - 1 ? 'Done ✓' : 'Next →'}

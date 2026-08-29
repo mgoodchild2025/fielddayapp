@@ -21,7 +21,7 @@ export default async function ChampionsPage() {
   ])
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
+    <div className="flex flex-col min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-10">

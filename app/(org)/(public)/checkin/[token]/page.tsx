@@ -24,7 +24,7 @@ export default async function SelfCheckInPage({ params }: { params: Promise<{ to
   const isNotFound = result.status === 'not_found'
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
       <div className="max-w-sm mx-auto px-4 py-16 text-center">
         {isSuccess && (

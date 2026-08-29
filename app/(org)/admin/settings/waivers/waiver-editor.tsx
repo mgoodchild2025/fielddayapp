@@ -102,7 +102,7 @@ export function WaiverEditor({ existing }: Props) {
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
+            className="px-6 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90 active:opacity-75"
             style={{ backgroundColor: 'var(--brand-primary)' }}
           >
             {loading ? 'Saving…' : isNew ? 'Create Waiver' : 'Save Changes'}

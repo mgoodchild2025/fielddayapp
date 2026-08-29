@@ -35,7 +35,7 @@ export default async function DropInCheckInPage({
   if (!session) notFound()
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh flex items-center justify-center p-4" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <div className="w-full max-w-md">
         <h1 className="text-2xl font-bold text-center mb-1">{session.name}</h1>
         <p className="text-center text-sm text-gray-500 mb-8">

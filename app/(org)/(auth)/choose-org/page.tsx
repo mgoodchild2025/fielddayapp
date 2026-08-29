@@ -63,7 +63,7 @@ export default async function ChooseOrgPage() {
   const isAdmin = (role: string) => ['org_admin', 'league_admin'].includes(role)
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4 py-12">
+    <div className="min-h-dvh bg-gray-50 flex flex-col items-center justify-center px-4 py-12">
       {/* Fieldday logo */}
       <div className="mb-8 flex flex-col items-center gap-3">
         <Image src="/Fieldday-Icon.png" alt="Fieldday" width={48} height={48} className="rounded-xl" />

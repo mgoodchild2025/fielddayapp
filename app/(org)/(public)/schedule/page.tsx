@@ -281,7 +281,7 @@ export default async function SchedulePage() {
   const pastItems     = allItems.filter((i) => i.scheduled_at <  nowIso).reverse() // most-recent-first
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
       <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-10 flex-1">
 

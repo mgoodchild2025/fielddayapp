@@ -27,7 +27,7 @@ export function StickyRegisterBar({
         )}
         <Link
           href={href}
-          className="shrink-0 px-5 py-2.5 rounded-md font-bold text-sm text-white tracking-wide uppercase transition-opacity hover:opacity-90 active:opacity-75"
+          className="shrink-0 px-5 py-2.5 rounded-md font-bold text-sm text-white tracking-wide uppercase transition-opacity hover:opacity-90 active:opacity-75 active:opacity-75"
           style={{
             backgroundColor: 'var(--brand-primary)',
             fontFamily: 'var(--brand-heading-font)',

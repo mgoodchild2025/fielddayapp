@@ -65,7 +65,7 @@ export default async function PlatformAdminLayout({
   const stripeMode = await getPlatformStripeMode()
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-dvh bg-gray-950">
       {mfaGraceDaysLeft !== null && <MfaGraceBanner daysLeft={mfaGraceDaysLeft} />}
       <SuperNav email={user.email ?? ''} stripeTest={stripeMode === 'test'} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">{children}</main>

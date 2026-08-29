@@ -89,7 +89,7 @@ export function SelfCheckinClient({
           </div>
           <button
             onClick={handleCheckin}
-            className="w-full py-4 rounded-xl text-lg font-bold text-white transition-opacity hover:opacity-90 active:opacity-75"
+            className="w-full py-4 rounded-xl text-lg font-bold text-white transition-opacity hover:opacity-90 active:opacity-75 active:opacity-75"
             style={{ backgroundColor: 'var(--brand-primary)' }}
           >
             ✓ Tap to Check In

@@ -123,7 +123,7 @@ export default async function RegistrationSuccessPage({
   const isPending = !sessionId && registration?.status === 'pending'
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
       <div className="max-w-lg mx-auto w-full px-6 py-16 text-center flex-1">
         <div className="text-6xl mb-4">{sportEmoji}</div>

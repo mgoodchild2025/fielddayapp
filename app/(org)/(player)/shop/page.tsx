@@ -29,7 +29,7 @@ export default async function ShopPage() {
   const logoUrl = branding?.logo_url ?? null
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
 
       {/* Branded hero */}

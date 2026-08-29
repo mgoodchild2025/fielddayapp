@@ -117,7 +117,7 @@ export function ShopPaymentForm({ mode, instructions }: Props) {
           type="button"
           onClick={handleSave}
           disabled={isPending || (selectedMode === 'manual' && !text.trim())}
-          className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
+          className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90 active:opacity-75"
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >
           {isPending ? 'Saving…' : 'Save'}

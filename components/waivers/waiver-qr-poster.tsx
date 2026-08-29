@@ -39,7 +39,7 @@ export function WaiverQrPoster({ waiverUrl, leagueName, orgName, waiverTitle }: 
 
       {/* Poster — letter-sized, centred */}
       <div
-        className="min-h-screen flex items-center justify-center bg-white p-8"
+        className="min-h-dvh flex items-center justify-center bg-white p-8"
         style={{ fontFamily: 'Arial, sans-serif' }}
       >
         <div className="w-full max-w-lg text-center">
