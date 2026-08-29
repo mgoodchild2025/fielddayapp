@@ -25,7 +25,7 @@ export default async function ReconsentPage({
   if (!pending) redirect(redirectTo || '/dashboard')
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
+    <div className="min-h-dvh flex items-center justify-center px-4 bg-gray-50">
       <div className="w-full max-w-lg bg-white rounded-2xl border shadow-sm p-8">
         <h1 className="text-2xl font-bold mb-2">We&apos;ve updated our agreements</h1>
         <p className="text-sm text-gray-600 mb-5">

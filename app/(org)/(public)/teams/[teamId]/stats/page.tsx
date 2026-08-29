@@ -344,7 +344,7 @@ export default async function TeamStatsPage({
   const pastResults     = seasonResults.filter(r => r.outcome !== 'upcoming') // already ascending from the games query
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={orgLogoUrl} />
 
       <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-8 flex-1 space-y-8 pb-24">

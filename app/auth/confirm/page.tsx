@@ -49,7 +49,7 @@ export default function AuthConfirmPage() {
   }, [])
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', fontFamily: 'sans-serif' }}>
       <p style={{ color: '#666', fontSize: '15px' }}>Signing you in…</p>
     </div>
   )

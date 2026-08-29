@@ -532,7 +532,7 @@ function MarketingFooter() {
 
 export function MarketingPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-dvh bg-white">
       <MarketingNav />
       <Hero />
       <Features />

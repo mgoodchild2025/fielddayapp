@@ -46,7 +46,7 @@ export function InviteActions({ token }: { token: string }) {
       <button
         onClick={handleAccept}
         disabled={acceptPending || declinePending}
-        className="w-full py-3 rounded-lg font-bold text-white text-base disabled:opacity-60 transition-opacity hover:opacity-90"
+        className="w-full py-3 rounded-lg font-bold text-white text-base disabled:opacity-60 transition-opacity hover:opacity-90 active:opacity-75"
         style={{ backgroundColor: 'var(--brand-primary)' }}
       >
         {acceptPending ? 'Accepting…' : 'Accept Invitation'}

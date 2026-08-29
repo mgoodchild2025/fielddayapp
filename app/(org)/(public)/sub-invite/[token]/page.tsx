@@ -32,7 +32,7 @@ export default async function SubInvitePage({
   // ── Not found ─────────────────────────────────────────────────────────────
   if (!invite) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+      <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
         <div className="max-w-md mx-auto px-4 py-16 text-center space-y-3">
           <p className="text-4xl">🔍</p>
@@ -50,7 +50,7 @@ export default async function SubInvitePage({
   // ── Expired ───────────────────────────────────────────────────────────────
   if (new Date(invite.expiresAt) < new Date()) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+      <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
         <div className="max-w-md mx-auto px-4 py-16 text-center space-y-3">
           <p className="text-4xl">⏱</p>
@@ -71,7 +71,7 @@ export default async function SubInvitePage({
     const teamColor  = invite.teamColor ?? '#6b7280'
 
     return (
-      <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+      <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
         <div className="max-w-md mx-auto px-4 py-12">
           <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
@@ -102,7 +102,7 @@ export default async function SubInvitePage({
               <p className="text-center text-sm text-gray-500">Sign in to accept or decline this invite.</p>
               <Link
                 href={`/login?redirect=${encodeURIComponent(returnPath)}`}
-                className="block w-full py-3 rounded-lg font-bold text-white text-sm text-center transition-opacity hover:opacity-90"
+                className="block w-full py-3 rounded-lg font-bold text-white text-sm text-center transition-opacity hover:opacity-90 active:opacity-75"
                 style={{ backgroundColor: 'var(--brand-primary)' }}
               >
                 Sign in to respond
@@ -146,7 +146,7 @@ export default async function SubInvitePage({
   const waiver = (waiverRes.data as { id: string; title: string; content: string } | null) ?? null
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
       <div className="max-w-md mx-auto px-4 py-10">
         <GameSubClient

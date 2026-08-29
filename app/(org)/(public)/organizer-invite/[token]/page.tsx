@@ -36,7 +36,7 @@ export default async function OrganizerInvitePage({
 
   if (!invite) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+      <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
         <div className="max-w-md mx-auto px-4 py-16 text-center">
           <p className="text-2xl font-bold mb-2">Invitation Not Found</p>
@@ -59,7 +59,7 @@ export default async function OrganizerInvitePage({
     const { declineOrganizerInvitation } = await import('@/actions/organizers')
     await declineOrganizerInvitation(token)
     return (
-      <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+      <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
         <div className="max-w-md mx-auto px-4 py-16 text-center">
           <p className="text-2xl font-bold mb-2">Invitation Declined</p>
@@ -74,7 +74,7 @@ export default async function OrganizerInvitePage({
   const isInactive = invite.status !== 'pending'
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
       <div className="max-w-md mx-auto px-4 py-12">
         <div className="bg-white rounded-xl border shadow-sm p-8">

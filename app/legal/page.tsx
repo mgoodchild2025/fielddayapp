@@ -13,7 +13,7 @@ export default async function LegalIndexPage() {
   const docs = await listPublishedDocuments()
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-dvh bg-white">
       <header className="border-b border-gray-100">
         <div className="max-w-4xl mx-auto px-6 py-4">
           <Link href="/" className="text-sm font-semibold text-gray-900">

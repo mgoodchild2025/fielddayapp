@@ -89,7 +89,7 @@ export default async function MyTeamsPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
 
       <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-8 flex-1">

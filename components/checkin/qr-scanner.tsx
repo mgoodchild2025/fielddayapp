@@ -178,7 +178,7 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
         <div className="space-y-3">
           <button
             onClick={() => { unlockAudio(); setCameraError(null); setIsActive(true) }}
-            className="flex items-center gap-2 px-5 py-3 rounded-lg font-semibold text-white transition-opacity hover:opacity-90"
+            className="flex items-center gap-2 px-5 py-3 rounded-lg font-semibold text-white transition-opacity hover:opacity-90 active:opacity-75"
             style={{ backgroundColor: 'var(--brand-primary)' }}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

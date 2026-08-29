@@ -610,7 +610,7 @@ export default async function EventDetailPage({
       ? new Date(league.season_start_date).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
       : null
     return (
-      <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
+      <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
         <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-12 flex-1">
           <div className="bg-white border rounded-2xl shadow-sm overflow-hidden">
@@ -1647,7 +1647,7 @@ export default async function EventDetailPage({
   const cloudinaryKey = cloudinaryReady ? cloudinaryApiKey() : ''
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
 
       {eventLiveStream && (
@@ -2083,7 +2083,7 @@ export default async function EventDetailPage({
                     <div>
                       <Link
                         href={`/register/${league.slug}`}
-                        className="inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90"
+                        className="inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90 active:opacity-75"
                         style={{ backgroundColor: 'var(--brand-primary)', fontFamily: 'var(--brand-heading-font)' }}
                       >
                         {offersBoth ? 'Get a Season Pass' : 'Register for the Season'}
@@ -2109,7 +2109,7 @@ export default async function EventDetailPage({
                   {isPrivatePickup && !hasSeasonInvite && !user && (
                     <Link
                       href={`/login?redirect=${encodeURIComponent(returnPath)}`}
-                      className="inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90"
+                      className="inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90 active:opacity-75"
                       style={{ backgroundColor: 'var(--brand-primary)', fontFamily: 'var(--brand-heading-font)' }}
                     >
                       Log in to register
@@ -2135,7 +2135,7 @@ export default async function EventDetailPage({
                 {user ? (
                   <Link
                     href={`/register/${league.slug}?mode=drop_in${inviteToken ? `&invite=${inviteToken}` : ''}`}
-                    className="inline-block px-6 py-2.5 rounded-md font-semibold text-white transition-opacity hover:opacity-90"
+                    className="inline-block px-6 py-2.5 rounded-md font-semibold text-white transition-opacity hover:opacity-90 active:opacity-75"
                     style={{ backgroundColor: 'var(--brand-primary)' }}
                   >
                     Register as Drop-in
@@ -2145,7 +2145,7 @@ export default async function EventDetailPage({
                   // sign-in vs. continue-as-guest choice (and honors the invite).
                   <Link
                     href={`/register/${league.slug}?mode=drop_in${inviteToken ? `&invite=${inviteToken}` : ''}`}
-                    className="inline-block px-6 py-2.5 rounded-md font-semibold text-white transition-opacity hover:opacity-90"
+                    className="inline-block px-6 py-2.5 rounded-md font-semibold text-white transition-opacity hover:opacity-90 active:opacity-75"
                     style={{ backgroundColor: 'var(--brand-primary)' }}
                   >
                     Register as Drop-in
@@ -2355,7 +2355,7 @@ export default async function EventDetailPage({
               ) : teamsAtCapacity && isOpen ? (
                 <Link
                   href={`/register/${league.slug}`}
-                  className="inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90"
+                  className="inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90 active:opacity-75"
                   style={{ backgroundColor: 'var(--brand-primary)', fontFamily: 'var(--brand-heading-font)' }}
                 >
                   🙋 Join an Existing Team →
@@ -2363,7 +2363,7 @@ export default async function EventDetailPage({
               ) : isOpen ? (
                 <Link
                   href={`/register/${league.slug}`}
-                  className="inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90"
+                  className="inline-block w-full text-center px-8 py-4 rounded-md font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90 active:opacity-75"
                   style={{ backgroundColor: 'var(--brand-primary)', fontFamily: 'var(--brand-heading-font)' }}
                 >
                   Register Now

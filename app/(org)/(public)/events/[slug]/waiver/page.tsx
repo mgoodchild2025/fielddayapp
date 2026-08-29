@@ -68,7 +68,7 @@ export default async function GuestWaiverPage({
   // If no waiver is configured
   if (!waiver) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+      <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
         <div className="max-w-md mx-auto px-4 py-16 text-center">
           <p className="text-2xl font-bold mb-2">No waiver required</p>
@@ -113,7 +113,7 @@ export default async function GuestWaiverPage({
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
       <div className="max-w-xl mx-auto px-4 py-10">
         <div className="text-center mb-6">

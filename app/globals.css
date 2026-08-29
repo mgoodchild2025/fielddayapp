@@ -112,3 +112,11 @@
     font-size: 16px;
   }
 }
+
+/* Kill the legacy double-tap-to-zoom delay on interactive elements —
+   taps fire immediately; pinch zoom is unaffected. */
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}

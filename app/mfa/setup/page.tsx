@@ -29,7 +29,7 @@ export default async function MfaSetupPage({ searchParams }: Props) {
   if (!user) redirect(`/login?redirect=${encodeURIComponent('/mfa/setup')}`)
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4 py-12">
+    <div className="min-h-dvh bg-white flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex justify-center mb-8">

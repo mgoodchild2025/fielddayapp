@@ -854,7 +854,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-2 rounded-md text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
+          className="w-full py-2 rounded-md text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90 active:opacity-75"
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >
           {loading ? 'Saving…' : 'Save Changes'}

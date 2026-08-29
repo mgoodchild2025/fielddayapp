@@ -376,7 +376,7 @@ export function CommunityHome({
   const hasNoEvents = openEvents.length === 0 && inSeasonEvents.length === 0 && upcomingEvents.length === 0
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
 
       {/* ── Hero (always first) ── */}
@@ -404,7 +404,7 @@ export function CommunityHome({
           {subheadline && <p className="mt-4 text-xl md:text-2xl opacity-80">{subheadline}</p>}
           <Link
             href={ctaHref}
-            className="inline-block mt-8 px-8 py-3 rounded-md font-semibold text-lg text-white transition-opacity hover:opacity-90 active:opacity-80"
+            className="inline-block mt-8 px-8 py-3 rounded-md font-semibold text-lg text-white transition-opacity hover:opacity-90 active:opacity-75 active:opacity-80"
             style={{ backgroundColor: 'var(--brand-primary)', fontFamily: 'var(--brand-heading-font)' }}
           >
             {ctaLabel}

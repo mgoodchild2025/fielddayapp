@@ -166,7 +166,7 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
             <div className="hidden md:block">
               <Link
                 href="/login"
-                className="px-4 py-1.5 rounded-md font-semibold transition-opacity hover:opacity-90"
+                className="px-4 py-1.5 rounded-md font-semibold transition-opacity hover:opacity-90 active:opacity-75"
                 style={{ backgroundColor: 'var(--brand-primary)' }}
               >
                 Sign In

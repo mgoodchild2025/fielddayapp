@@ -252,7 +252,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
               <form action={changeStatus}>
                 <button
                   type="submit"
-                  className="w-full py-2 rounded-md text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  className="w-full py-2 rounded-md text-sm font-semibold text-white transition-opacity hover:opacity-90 active:opacity-75"
                   style={{ backgroundColor: 'var(--brand-primary)' }}
                 >
                   {transition.label} →

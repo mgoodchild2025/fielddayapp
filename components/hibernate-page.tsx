@@ -19,7 +19,7 @@ export function HibernatePage({ orgName, resumeAt, branding, timezone = 'America
     : null
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-dvh flex flex-col items-center justify-center bg-gray-50 px-4">
       <div className="max-w-md w-full text-center space-y-6">
         {/* Logo or org initial */}
         {logoUrl ? (

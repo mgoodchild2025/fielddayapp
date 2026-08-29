@@ -36,7 +36,7 @@ export function ReacceptForm({ orgId, orgName, docs, redirectTo }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4 py-12">
+    <div className="min-h-dvh bg-gray-50 flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-lg">
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8">
           {/* Icon */}

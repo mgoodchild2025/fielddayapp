@@ -19,7 +19,7 @@ export default async function InterestUnsubscribePage({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
+    <div className="min-h-dvh flex items-center justify-center px-4 bg-gray-50">
       <div className="w-full max-w-md bg-white rounded-2xl border shadow-sm p-8 text-center">
         {ok ? (
           <>

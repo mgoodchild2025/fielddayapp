@@ -244,7 +244,7 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
   const hasNoEvents = openEvents.length === 0 && inSeasonEvents.length === 0 && upcomingEvents.length === 0
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}>
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
 
       {/* ── Hero ── */}
@@ -262,7 +262,7 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
             {subheadline && <p className="mt-2 text-white/80 text-lg">{subheadline}</p>}
             <div className="mt-6 flex flex-wrap gap-3 justify-center sm:justify-start">
               <Link href={ctaHref}
-                className="px-6 py-2.5 rounded-md font-semibold text-sm transition-opacity hover:opacity-90"
+                className="px-6 py-2.5 rounded-md font-semibold text-sm transition-opacity hover:opacity-90 active:opacity-75"
                 style={{ backgroundColor: 'var(--brand-secondary)', color: 'white', fontFamily: 'var(--brand-heading-font)' }}
               >
                 {ctaLabel}

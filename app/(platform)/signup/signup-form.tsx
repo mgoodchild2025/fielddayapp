@@ -466,7 +466,7 @@ function SuccessScreen({ email, slug }: { email: string; slug: string }) {
   const orgUrl = `https://${slug}.${PLATFORM_DOMAIN}/admin/dashboard`
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-dvh bg-white flex flex-col">
       <header className="border-b border-gray-100 px-6 py-4 flex items-center gap-2">
         <Image src="/Fieldday-Icon.png" alt="Fieldday" width={28} height={28} className="rounded" />
       </header>
@@ -504,7 +504,7 @@ function SuccessScreen({ email, slug }: { email: string; slug: string }) {
 
 function SignupsDisabledScreen() {
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-dvh bg-white flex flex-col">
       <header className="border-b border-gray-100 px-6 py-4 flex items-center gap-2">
         <Image src="/Fieldday-Icon.png" alt="Fieldday" width={28} height={28} className="rounded" />
       </header>
@@ -548,7 +548,7 @@ export function SignupPage({
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-dvh bg-white flex flex-col">
       {/* Nav */}
       <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-100 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">

@@ -253,7 +253,7 @@ export function RegistrationFlow({
   // ── Session picker (step 0 for drop-in registrations with sessions) ─────────
   if (showSessionPicker && !selectedSessionId) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+      <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <div className="max-w-xl mx-auto px-4 py-8">
           <h1 className="text-2xl font-bold uppercase mb-2" style={{ fontFamily: 'var(--brand-heading-font)' }}>
             Drop-in — {league.name}
@@ -299,7 +299,7 @@ export function RegistrationFlow({
   // ── Role select screen (step 0 for per-team events) ───────────────────────
   if (showRoleSelect) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+      <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <div className="max-w-xl mx-auto px-4 py-8">
           <h1 className="text-2xl font-bold uppercase mb-6" style={{ fontFamily: 'var(--brand-heading-font)' }}>
             Register — {league.name}
@@ -319,7 +319,7 @@ export function RegistrationFlow({
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <div className="max-w-xl mx-auto px-4 py-8">
         {/* Progress indicator */}
         <div className="mb-8">
@@ -484,7 +484,7 @@ export function RegistrationFlow({
               type="button"
               onClick={() => completeRegistration(registrationId)}
               disabled={completing}
-              className="w-full py-3 rounded-lg font-semibold text-white text-sm disabled:opacity-50 transition-opacity hover:opacity-90"
+              className="w-full py-3 rounded-lg font-semibold text-white text-sm disabled:opacity-50 transition-opacity hover:opacity-90 active:opacity-75"
               style={{ backgroundColor: 'var(--brand-primary)' }}
             >
               Complete Registration →

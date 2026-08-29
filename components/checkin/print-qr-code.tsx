@@ -29,7 +29,7 @@ export function PrintQrCode({ checkinUrl, eventName, sessionLabel, orgName }: Pr
       </div>
 
       {/* Full-page centred layout */}
-      <div className="flex flex-col items-center justify-center min-h-[85vh] print:min-h-screen print:justify-center">
+      <div className="flex flex-col items-center justify-center min-h-[85vh] print:min-h-dvh print:justify-center">
         <div className="text-center w-full max-w-lg space-y-8">
 
           {/* Event name */}

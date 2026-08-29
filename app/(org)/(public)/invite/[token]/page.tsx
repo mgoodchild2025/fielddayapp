@@ -33,7 +33,7 @@ export default async function InvitePage({
 
   if (!invite) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+      <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
         <div className="max-w-md mx-auto px-4 py-16 text-center space-y-3">
           <p className="text-4xl">🔍</p>
@@ -61,7 +61,7 @@ export default async function InvitePage({
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <OrgNav org={org} logoUrl={logoUrl} />
 
       <div className="max-w-md mx-auto px-4 py-12">
@@ -114,7 +114,7 @@ export default async function InvitePage({
                 </p>
                 <Link
                   href={`/teams/${invite.team_id}`}
-                  className="block w-full py-3 rounded-lg font-bold text-white text-sm text-center transition-opacity hover:opacity-90"
+                  className="block w-full py-3 rounded-lg font-bold text-white text-sm text-center transition-opacity hover:opacity-90 active:opacity-75"
                   style={{ backgroundColor: 'var(--brand-primary)' }}
                 >
                   View Team →
@@ -128,7 +128,7 @@ export default async function InvitePage({
                 <div className="space-y-3">
                   <Link
                     href={`/login?redirect=${encodeURIComponent(returnPath)}`}
-                    className="block w-full py-3 rounded-lg font-bold text-white text-sm text-center transition-opacity hover:opacity-90"
+                    className="block w-full py-3 rounded-lg font-bold text-white text-sm text-center transition-opacity hover:opacity-90 active:opacity-75"
                     style={{ backgroundColor: 'var(--brand-primary)' }}
                   >
                     Sign in to accept

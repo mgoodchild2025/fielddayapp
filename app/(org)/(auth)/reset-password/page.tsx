@@ -33,7 +33,7 @@ export default function ResetPasswordPage() {
 
   if (sent) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: 'var(--brand-bg)' }}>
+      <div className="min-h-dvh flex items-center justify-center px-4" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <div className="text-center max-w-md">
           <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--brand-heading-font)' }}>Check your email</h1>
           <p className="text-gray-600">If an account with that email exists, we sent a password reset link.</p>
@@ -46,7 +46,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: 'var(--brand-bg)' }}>
+    <div className="min-h-dvh flex items-center justify-center px-4" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <div className="w-full max-w-md">
         <h1 className="text-3xl font-bold uppercase mb-8 text-center" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           Reset Password

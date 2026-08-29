@@ -35,7 +35,7 @@ export default async function MfaVerifyPage({ searchParams }: Props) {
   if (!mfa.hasTotp) redirect(`/mfa/setup?redirect=${encodeURIComponent(safeRedirect)}`)
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4">
+    <div className="min-h-dvh bg-white flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex justify-center mb-8">
