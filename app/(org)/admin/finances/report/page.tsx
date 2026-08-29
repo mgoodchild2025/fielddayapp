@@ -4,6 +4,7 @@ import { requireOrgMember } from '@/lib/auth'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { getFinancialReport } from '@/actions/finances'
+import { currentFiscalYear, lastFiscalYear } from '@/lib/fiscal-year'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { PrintControls } from '@/components/print/print-controls'
 import Link from 'next/link'
@@ -41,18 +42,26 @@ export default async function FinancialReportPage({
 
   const params = await searchParams
   const today = new Date().toISOString().slice(0, 10)
-  const thisYear = today.slice(0, 4)
-  const isDate = (v?: string) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v)
-  const from = isDate(params.from) ? params.from! : `${thisYear}-01-01`
-  const to = isDate(params.to) ? params.to! : today
-
   const db = createServiceRoleClient()
+  const { data: brandingRow } = await db
+    .from('org_branding')
+    .select('fiscal_year_start_month')
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  const fyStartMonth = brandingRow?.fiscal_year_start_month ?? 1
+  const thisFY = currentFiscalYear(fyStartMonth, today)
+  const lastFY = lastFiscalYear(fyStartMonth, today)
+  const isDate = (v?: string) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v)
+  const from = isDate(params.from) ? params.from! : thisFY.from
+  const to = isDate(params.to) ? params.to! : thisFY.to
+
   const [{ data: orgRow }, report] = await Promise.all([
     db.from('organizations').select('name').eq('id', org.id).single(),
     getFinancialReport(org.id, from, to),
   ])
 
-  const lastYear = String(Number(thisYear) - 1)
+  // Calendar-year orgs see plain "year" labels; everyone else "fiscal year".
+  const yearWord = fyStartMonth === 1 ? 'year' : 'fiscal year'
   const generatedOn = new Date().toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })
 
   return (
@@ -83,8 +92,8 @@ export default async function FinancialReportPage({
             Update
           </button>
           <span className="flex gap-2 text-xs">
-            <Link href={`?from=${thisYear}-01-01&to=${today}`} className="px-2.5 py-1.5 rounded border text-gray-600 hover:bg-gray-50">This year</Link>
-            <Link href={`?from=${lastYear}-01-01&to=${lastYear}-12-31`} className="px-2.5 py-1.5 rounded border text-gray-600 hover:bg-gray-50">Last year</Link>
+            <Link href={`?from=${thisFY.from}&to=${thisFY.to}`} className="px-2.5 py-1.5 rounded border text-gray-600 hover:bg-gray-50">This {yearWord}</Link>
+            <Link href={`?from=${lastFY.from}&to=${lastFY.to}`} className="px-2.5 py-1.5 rounded border text-gray-600 hover:bg-gray-50">Last {yearWord}</Link>
           </span>
         </form>
 

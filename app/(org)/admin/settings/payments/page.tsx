@@ -7,11 +7,19 @@ import { RegistrationPaymentForm } from '@/components/payments/registration-paym
 import { ShopPaymentForm } from '@/components/payments/shop-payment-form'
 import { HelpLink } from '@/components/ui/help-link'
 import { TaxRatesManager, type TaxRateRow } from '@/components/settings/tax-rates-manager'
+import { FiscalYearForm } from '@/components/finances/fiscal-year-form'
 
 export default async function PaymentSettingsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
+
+  const { data: brandingRow } = await db
+    .from('org_branding')
+    .select('fiscal_year_start_month')
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  const fiscalYearStartMonth = brandingRow?.fiscal_year_start_month ?? 1
 
   // Sales-tax rates (active first, then archived history is omitted)
   const { data: taxRateRows } = await db
@@ -122,6 +130,8 @@ export default async function PaymentSettingsPage() {
         {/* Sales tax (X1) */}
         <TaxRatesManager rates={taxRates} />
       </div>
+
+      <FiscalYearForm startMonth={fiscalYearStartMonth} />
     </div>
   )
 }
