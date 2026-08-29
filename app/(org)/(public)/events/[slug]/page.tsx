@@ -1032,7 +1032,9 @@ export default async function EventDetailPage({
   // Used to show a reminder notice beneath the "✓ You're registered" banner.
 
   let myPendingPayment: { payment_method: string; amount_cents: number; currency: string } | null = null
-  if (user && myRegistration?.id && !myEnrollment) {
+  // Per-team leagues: individuals never owe the league fee, so a personal
+  // pending row is an artifact — only the team payment (below) counts.
+  if (user && myRegistration?.id && !myEnrollment && paymentMode !== 'per_team') {
 
     const { data: pmtRow } = await db
       .from('payments')
@@ -1048,25 +1050,32 @@ export default async function EventDetailPage({
     // payment_method non-null in practice — the query filters IN ('cash', …)
     myPendingPayment = pmtRow ? { ...pmtRow, payment_method: pmtRow.payment_method ?? 'cash' } : null
   }
-  // Also check for a per-team pending payment (captain scenario)
-  if (user && isTeamBased && paymentMode === 'per_team' && !myPendingPayment) {
-    // Find captain's team then look for the team payment row
-    const myTeamId = myMemberships && myMemberships.length > 0 ? myMemberships[0].team_id : null
-    if (myTeamId) {
+  // Also check for a per-team pending payment (captain scenario). A team with
+  // ANY paid row owes nothing — stale pending duplicates must not banner
+  // (same prefer-paid rule as the ledgers) — and check every team the user is
+  // on in this league, not an arbitrary first membership.
+  if (user && isTeamBased && paymentMode === 'per_team' && !myPendingPayment && myTeamIds.size > 0) {
 
-      const { data: teamPmtRow } = await db
-        .from('payments')
-        .select('payment_method, amount_cents, currency')
-        .eq('organization_id', org.id)
-        .eq('team_id', myTeamId)
-        .eq('league_id', league.id)
-        .eq('payment_type', 'team')
-        .eq('status', 'pending')
-        .in('payment_method', ['cash', 'etransfer', 'cheque'])
-        .limit(1)
-        .maybeSingle()
-      myPendingPayment = teamPmtRow ? { ...teamPmtRow, payment_method: teamPmtRow.payment_method ?? 'cash' } : null
-    }
+    const { data: teamPmtRows } = await db
+      .from('payments')
+      .select('team_id, status, payment_method, amount_cents, currency')
+      .eq('organization_id', org.id)
+      .in('team_id', [...myTeamIds])
+      .eq('league_id', league.id)
+      .eq('payment_type', 'team')
+    const paidTeams = new Set(
+      (teamPmtRows ?? [])
+        .filter((pmt) => pmt.status === 'paid' || pmt.status === 'manual')
+        .map((pmt) => pmt.team_id)
+    )
+    const pendingRow = (teamPmtRows ?? []).find((pmt) =>
+      pmt.status === 'pending' &&
+      ['cash', 'etransfer', 'cheque'].includes(pmt.payment_method ?? '') &&
+      !paidTeams.has(pmt.team_id)
+    )
+    myPendingPayment = pendingRow
+      ? { payment_method: pendingRow.payment_method ?? 'cash', amount_cents: pendingRow.amount_cents, currency: pendingRow.currency }
+      : null
   }
 
   // Also check org admin status for visibility bypass
