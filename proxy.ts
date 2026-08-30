@@ -110,6 +110,28 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // ── Step 2b: org-only routes need an org ──────────────────────────────────
+  // On the platform apex and the app. domain (no impersonation) orgId is null;
+  // letting /admin, /dashboard, etc. through used to reach getCurrentOrg and
+  // throw a 500 (error emails from crawlers hitting fielddayapp.ca/admin).
+  // 404 those at the edge. Auth pages (/login, /register, /choose-org) and
+  // the super console stay reachable — they tolerate a missing org.
+  if (!orgId) {
+    const ORG_ONLY_PREFIXES = [
+      '/admin', '/dashboard', '/my-events', '/my-teams', '/profile', '/shop',
+      '/reconsent', '/events', '/teams', '/players', '/champions', '/gallery',
+      '/games', '/schedule', '/standings', '/checkin', '/goodbye', '/invite',
+      '/join', '/organizer-invite', '/sub-invite', '/unsubscribe', '/register/',
+    ]
+    const { pathname } = request.nextUrl
+    const orgOnly = ORG_ONLY_PREFIXES.some((prefix) =>
+      prefix.endsWith('/') ? pathname.startsWith(prefix) : pathname === prefix || pathname.startsWith(`${prefix}/`)
+    )
+    if (orgOnly) {
+      return new NextResponse('Not found', { status: 404 })
+    }
+  }
+
   // ── Step 3: build request headers (with org context) ─────────────────────
   const requestHeaders = new Headers(request.headers)
   if (orgId) requestHeaders.set('x-org-id', orgId)
