@@ -5,6 +5,8 @@ import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { getShopPnl, getOrgPnl, getOrgOverhead, getAllocationTargets } from '@/actions/finances'
 import { OrgOverheadManager } from '@/components/finances/org-overhead-manager'
+import { listAdminDocuments } from '@/actions/admin-documents'
+import { AdminDocumentsCard } from '@/components/documents/admin-documents-card'
 import Link from 'next/link'
 
 function money(cents: number): string {
@@ -30,11 +32,12 @@ export default async function FinancesPage() {
     )
   }
 
-  const [shop, pnl, overhead, allocationTargets] = await Promise.all([
+  const [shop, pnl, overhead, allocationTargets, orgDocuments] = await Promise.all([
     getShopPnl(org.id),
     getOrgPnl(org.id),
     getOrgOverhead(org.id),
     getAllocationTargets(org.id),
+    listAdminDocuments(org.id, null),
   ])
 
   return (
@@ -133,6 +136,9 @@ export default async function FinancesPage() {
 
       {/* ── Overhead ledger ────────────────────────────────────────────────── */}
       <OrgOverheadManager initialOverhead={overhead} allocationTargets={allocationTargets} />
+
+      {/* Org-level admin documents (insurance certs, facility contracts…) */}
+      <AdminDocumentsCard leagueId={null} initialDocuments={orgDocuments} />
 
       {/* ── Shop profit & loss ─────────────────────────────────────────────── */}
       <section className="space-y-4">
