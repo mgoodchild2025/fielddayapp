@@ -9,6 +9,8 @@ import { canAccess } from '@/lib/features'
 import { formatEventPrice } from '@/lib/event-price'
 import { getMerchandiseOrders } from '@/actions/merchandise'
 import { getLeagueDocuments } from '@/actions/league-documents'
+import { listAdminDocuments } from '@/actions/admin-documents'
+import { AdminDocumentsCard } from '@/components/documents/admin-documents-card'
 import { EditEventForm } from '@/components/events/edit-event-form'
 import { DeleteEventButton } from '@/components/events/delete-event-button'
 import { OrganizersPanel } from '@/components/events/organizers-panel'
@@ -54,6 +56,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     leagueDocuments,
     canCoOrganizers,
     canPaymentPlans,
+    adminDocuments,
   ] = await Promise.all([
 
     db.from('leagues').select('*').eq('id', id).eq('organization_id', org.id).single(),
@@ -73,6 +76,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     getLeagueDocuments(id),
     canAccess(org.id, 'co_organizers'),
     canAccess(org.id, 'payment_plans'),
+    listAdminDocuments(org.id, id),
   ])
 
   if (!league) notFound()
@@ -210,6 +214,9 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
             <LeagueDocumentsManager leagueId={id} initialDocuments={leagueDocuments} />
           </div>
         )}
+
+        {/* Admin documents (private: permits, insurance, contracts) */}
+        <AdminDocumentsCard leagueId={id} initialDocuments={adminDocuments} />
 
         {/* Organizers */}
         <OrganizersPanel
