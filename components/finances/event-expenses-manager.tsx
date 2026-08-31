@@ -134,7 +134,7 @@ export function EventExpensesManager({ leagueId, initialExpenses, sessions = [] 
 
       {initialExpenses.length === 0 && !adding ? (
         <div className="bg-white rounded-lg border border-dashed p-6 text-center text-sm text-gray-400">
-          No expenses logged yet.
+          No expenses yet. Log venue, referees, prizes — the P&L above updates as you go.
         </div>
       ) : (
         <div className="bg-white rounded-lg border overflow-x-auto">

@@ -127,7 +127,7 @@ export function AdminDocumentsCard({ leagueId, initialDocuments }: {
       )}
 
       {initialDocuments.length === 0 && !adding ? (
-        <p className="px-4 py-6 text-center text-sm text-gray-400">No documents yet.</p>
+        <p className="px-4 py-6 text-center text-sm text-gray-400">No documents yet — add permits, insurance, or contracts to keep them one tap away.</p>
       ) : (
         <ul className="divide-y divide-gray-50">
           {initialDocuments.map((d) => (

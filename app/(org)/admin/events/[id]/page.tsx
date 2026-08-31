@@ -11,6 +11,7 @@ import { getMerchandiseOrders } from '@/actions/merchandise'
 import { getLeagueDocuments } from '@/actions/league-documents'
 import { listAdminDocuments } from '@/actions/admin-documents'
 import { AdminDocumentsCard } from '@/components/documents/admin-documents-card'
+import { StatusChip } from '@/components/ui/status-chip'
 import { EditEventForm } from '@/components/events/edit-event-form'
 import { DeleteEventButton } from '@/components/events/delete-event-button'
 import { OrganizersPanel } from '@/components/events/organizers-panel'
@@ -337,16 +338,5 @@ function statusLabel(status: string): string {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    draft: 'bg-gray-100 text-gray-600',
-    registration_open: 'bg-blue-100 text-blue-700',
-    active: 'bg-green-100 text-green-700',
-    completed: 'bg-purple-100 text-purple-700',
-    archived: 'bg-gray-100 text-gray-400',
-  }
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${styles[status] ?? 'bg-gray-100 text-gray-600'}`}>
-      {statusLabel(status)}
-    </span>
-  )
+  return <StatusChip status={status} label={statusLabel(status)} />
 }
