@@ -19,6 +19,8 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://fielddayapp.ca/scoreboard' },
   manifest: '/scoreboard/manifest',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Scoreboard' },
+  // iOS ignores manifest icons — Add to Home Screen reads apple-touch-icon.
+  icons: { apple: [{ url: '/scoreboard-icon-512.png', sizes: '512x512', type: 'image/png' }] },
   openGraph: {
     title: 'Free Scoreboard App — Fieldday',
     description: 'Tap to score, swipe down to undo, works offline. Free from Fieldday.',

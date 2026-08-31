@@ -139,7 +139,6 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
             {user && (
               <Link href="/events" className="opacity-80 hover:opacity-100 transition-opacity">Events</Link>
             )}
-            <Link href="/scoreboard" className="opacity-80 hover:opacity-100 transition-opacity">Scoreboard</Link>
             {customLinks.map((link) => (
               <a
                 key={link.id}
