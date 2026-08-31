@@ -159,8 +159,8 @@ function StandingsTable({
                 {sorted.map((team, i) => {
                   const pd = team.pointsFor - team.pointsAgainst
                   return (
-                    <tr key={team.id} className="border-b last:border-0">
-                      <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
+                    <tr key={team.id} className="border-b last:border-0 odd:bg-gray-50/60 hover:bg-gray-50 transition-colors">
+                      <td className={`px-4 py-3 text-xs tabular-nums ${i < 3 ? 'font-bold text-gray-700' : 'text-gray-400'}`}>{i + 1}</td>
                       <td className="px-4 py-3 font-medium">
                         <Link href={`/teams/${team.id}/stats`} className="flex items-center gap-2 min-w-0 hover:underline">
                           <TeamAvatar logoUrl={team.logoUrl ?? null} color={team.color ?? null} name={team.name} size="sm" />
@@ -237,8 +237,8 @@ function StandingsTable({
                 const pd = team.pointsFor - team.pointsAgainst
                 const pts = computePts(team, method)
                 return (
-                  <tr key={team.id} className="border-b last:border-0">
-                    <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
+                  <tr key={team.id} className="border-b last:border-0 odd:bg-gray-50/60 hover:bg-gray-50 transition-colors">
+                    <td className={`px-4 py-3 text-xs tabular-nums ${i < 3 ? 'font-bold text-gray-700' : 'text-gray-400'}`}>{i + 1}</td>
                     <td className="px-4 py-3 font-medium">
                       <Link href={`/teams/${team.id}/stats`} className="flex items-center gap-2 min-w-0 hover:underline">
                         <TeamAvatar logoUrl={team.logoUrl ?? null} color={team.color ?? null} name={team.name} size="sm" />
@@ -1684,7 +1684,7 @@ export default async function EventDetailPage({
       )}
 
       {/* ── Event header ── */}
-      <div style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}>
+      <div style={{ background: 'linear-gradient(135deg, var(--brand-secondary), color-mix(in srgb, var(--brand-secondary) 72%, black))', color: 'white' }}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 pb-5">
           <BackLink fallbackHref="/events" fallbackLabel="All Events" />
           <div className="flex items-center gap-4 mt-2">
@@ -1710,6 +1710,13 @@ export default async function EventDetailPage({
             </span>
             {league.sport && (
               <span className="text-sm opacity-70 capitalize">{league.sport.replace(/_/g, ' ')}</span>
+            )}
+            {league.season_start_date && (
+              <span className="text-sm opacity-70">
+                {new Date(league.season_start_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', timeZone: 'UTC' })}
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {(league as any).end_date ? ` – ${new Date((league as any).end_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}` : ''}
+              </span>
             )}
             {((league.status === 'registration_open' && !teamsAtCapacity) || isOrgAdmin) && (
               <>
