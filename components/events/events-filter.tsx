@@ -4,6 +4,8 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { EventAvatar } from '@/components/ui/event-avatar'
 import { EventCard } from '@/components/events/event-card'
+import { EmptyState } from '@/components/ui/empty-state'
+import { CalendarX } from 'lucide-react'
 import type { EventSpots } from '@/lib/event-spots'
 
 export interface EventItem {
@@ -322,9 +324,11 @@ export function EventsFilter({ events, timezone }: { events: EventItem[]; timezo
 
       {/* ── No results ──────────────────────────────────────────────────────── */}
       {filtered.length === 0 && (
-        <div className="text-center py-14 text-gray-400 text-sm bg-white rounded-2xl border">
-          No events match the selected filters.
-        </div>
+        <EmptyState
+          icon={CalendarX}
+          title="No events match those filters"
+          hint="Try clearing a filter, or check back soon — new seasons open here first."
+        />
       )}
 
       {/* ── 0. Coming soon — advertised events not yet open ──────────────────── */}

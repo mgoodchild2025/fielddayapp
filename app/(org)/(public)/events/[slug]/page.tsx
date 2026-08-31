@@ -125,7 +125,7 @@ function StandingsTable({
   const sorted = sortStandings(teams, sport, mode, method)
 
   if (sorted.length === 0) {
-    return <p className="text-gray-400 text-sm text-center py-8">No results yet.</p>
+    return <p className="text-gray-400 text-sm text-center py-8">No results yet — standings appear after the first scores are in.</p>
   }
 
   // ── Set-based table ────────────────────────────────────────────────────────

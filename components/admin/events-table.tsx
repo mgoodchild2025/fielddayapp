@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { DeleteEventRowButton } from '@/components/events/delete-event-row-button'
 import { EventAvatar } from '@/components/ui/event-avatar'
 import { formatEventPrice } from '@/lib/event-price'
+import { StatusChip } from '@/components/ui/status-chip'
 
 type League = {
   id: string
@@ -22,13 +23,6 @@ type League = {
   created_at: string | null
 }
 
-const statusColors: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-600',
-  registration_open: 'bg-green-100 text-green-700',
-  active: 'bg-blue-100 text-blue-700',
-  completed: 'bg-purple-100 text-purple-700',
-  archived: 'bg-gray-100 text-gray-400',
-}
 
 const eventTypeColors: Record<string, string> = {
   league: 'bg-indigo-100 text-indigo-700',
@@ -157,9 +151,7 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[league.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {statusLabels[league.status] ?? league.status}
-                    </span>
+                    <StatusChip status={league.status} label={statusLabels[league.status] ?? league.status} />
                   </td>
                   <td className="px-4 py-3 text-gray-500">{league.venue_name ?? '—'}</td>
                   <td className="px-4 py-3">
@@ -218,9 +210,7 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${eventTypeColors[league.event_type ?? 'league'] ?? 'bg-gray-100 text-gray-600'}`}>
                   {eventTypeLabels[league.event_type ?? 'league'] ?? league.event_type}
                 </span>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[league.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                  {statusLabels[league.status] ?? league.status}
-                </span>
+                <StatusChip status={league.status} label={statusLabels[league.status] ?? league.status} />
               </div>
 
               {/* Secondary details */}

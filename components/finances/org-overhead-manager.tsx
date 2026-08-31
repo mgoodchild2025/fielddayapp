@@ -256,7 +256,7 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [] }: 
 
       {initialOverhead.length === 0 && !adding ? (
         <div className="bg-white rounded-lg border border-dashed p-6 text-center text-sm text-gray-400">
-          No overhead logged yet.
+          No overhead yet. Insurance, rent, software — log org-wide costs here and allocate them to events.
         </div>
       ) : (
         <div className="bg-white rounded-lg border overflow-x-auto">

@@ -10,25 +10,13 @@ import { CopyWaiverLink } from '@/components/waivers/copy-waiver-link'
 import { AdminAddRegistrant } from '@/components/registration/admin-add-registrant'
 import { AdminInstallmentRow } from '@/components/payments/admin-installment-row'
 import { EditPaymentForm } from '@/components/payments/edit-payment-form'
+import { StatusChip } from '@/components/ui/status-chip'
 import type { InstallmentRow } from '@/components/payments/installment-schedule'
 
 type PaymentEditStatus = 'paid' | 'pending' | 'refunded'
 type PaymentEditMethod = 'cash' | 'etransfer' | 'cheque' | 'stripe' | 'card' | 'other'
 const EDIT_METHODS = new Set(['cash', 'etransfer', 'cheque', 'stripe', 'card', 'other'])
 
-const regStatusColors: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-700',
-  active: 'bg-green-100 text-green-700',
-  cancelled: 'bg-red-100 text-red-600',
-  waitlisted: 'bg-orange-100 text-orange-700',
-}
-
-const paymentStatusColors: Record<string, string> = {
-  paid: 'bg-green-100 text-green-700',
-  pending: 'bg-yellow-100 text-yellow-700',
-  failed: 'bg-red-100 text-red-600',
-  manual: 'bg-blue-100 text-blue-700',
-}
 
 export default async function RegistrationsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -304,13 +292,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                        regStatusColors[reg.status] ?? 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {reg.status}
-                    </span>
+                    <StatusChip status={reg.status} />
                   </td>
                   <td className="px-4 py-3">
                     {showTeamPayment ? (() => {
@@ -329,15 +311,12 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                       )
                     })() : (() => {
                       const badge = payment ? (
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                            paymentStatusColors[payment.status] ?? 'bg-gray-100 text-gray-600'
-                          }`}
-                        >
-                          {payment.status === 'paid' || payment.status === 'manual'
+                        <StatusChip
+                          status={payment.status}
+                          label={payment.status === 'paid' || payment.status === 'manual'
                             ? `$${(payment.amount_cents / 100).toFixed(0)} ${payment.currency.toUpperCase()} · ${payment.payment_method}`
-                            : payment.status}
-                        </span>
+                            : undefined}
+                        />
                       ) : (
                         <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-dashed border-gray-300">free</span>
                       )

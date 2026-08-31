@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { MarkPaidForm } from '@/components/payments/mark-paid-form'
 import { EditPaymentForm } from '@/components/payments/edit-payment-form'
 import { refundTeamPayment } from '@/actions/payments'
+import { StatusChip } from '@/components/ui/status-chip'
 
 const PAGE_SIZE = 25
 
@@ -45,14 +46,6 @@ type Row = {
   isFree: boolean
 }
 
-const statusColors: Record<string, string> = {
-  paid: 'bg-green-100 text-green-700',
-  pending: 'bg-yellow-100 text-yellow-700',
-  failed: 'bg-red-100 text-red-700',
-  refunded: 'bg-purple-100 text-purple-700',
-  unpaid: 'bg-gray-100 text-gray-500',
-  free: 'bg-gray-100 text-gray-400',
-}
 
 function effectivePriceCents(r: Row): number {
   if (r.payment?.amount_cents != null) return r.payment.amount_cents
@@ -104,11 +97,7 @@ function badgeIsEditable(r: Row, isOrgAdmin: boolean) {
 
 /** The payment status pill — clickable to edit for per-player events. */
 function StatusBadge({ r, isOrgAdmin, className = '' }: { r: Row; isOrgAdmin: boolean; className?: string }) {
-  const badge = (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${statusColors[r.paymentStatus] ?? 'bg-gray-100 text-gray-600'} ${className}`}>
-      {r.paymentStatus}
-    </span>
-  )
+  const badge = <StatusChip status={r.paymentStatus} className={className} />
   if (!badgeIsEditable(r, isOrgAdmin)) return badge
   return (
     <EditPaymentForm
