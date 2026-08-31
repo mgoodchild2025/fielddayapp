@@ -24,7 +24,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title: page.metaTitle,
     description: page.metaDescription,
     alternates: { canonical: `https://fielddayapp.ca/compare/${page.slug}` },
-    openGraph: { title: page.metaTitle, description: page.metaDescription },
+    openGraph: {
+      title: page.metaTitle,
+      description: page.metaDescription,
+      // Re-declare the card image: Next's metadata merge is shallow, so this
+      // openGraph object REPLACES the root layout's (image included).
+      images: [{ url: '/opengraph-image.png', width: 1200, height: 630 }],
+    },
   }
 }
 

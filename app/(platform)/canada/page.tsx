@@ -14,6 +14,9 @@ export const metadata: Metadata = {
     title: 'Canadian Sports League Management Software — Fieldday',
     description:
       'E-transfer and cash tracking, GST/PST/HST handling, tax-ready reports, and flat CAD pricing with no platform fees.',
+    // Re-declare the card image: Next's metadata merge is shallow, so this
+    // openGraph object REPLACES the root layout's (image included).
+    images: [{ url: '/opengraph-image.png', width: 1200, height: 630 }],
   },
 }
 
