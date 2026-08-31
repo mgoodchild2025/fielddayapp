@@ -350,6 +350,9 @@ export default async function AdminDashboardPage() {
           <div className="flex items-center gap-2">
             <CalendarDays className="w-4 h-4 text-gray-500" />
             <h2 className="font-semibold">Upcoming Schedule</h2>
+            <a href="/admin/courtside" className="text-xs font-semibold px-2.5 py-1 rounded-md text-white" style={{ backgroundColor: 'var(--brand-primary)' }}>
+              ⏱ Courtside
+            </a>
             <span className="text-xs text-gray-400">next 7 days</span>
           </div>
           <Link
