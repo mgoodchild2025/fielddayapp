@@ -753,7 +753,7 @@ function ScoreboardPromo() {
         <div className="text-center md:text-left">
           <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-3">Free tool · no account needed</p>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">
-            The gym scoreboard that&apos;s always in your pocket
+            The scoreboard that&apos;s always in your pocket
           </h2>
           <p className="text-slate-300 leading-relaxed mb-4 max-w-xl">
             Broken scoreboard? Beach court? Tap a team to score, swipe down to take one back, and track
