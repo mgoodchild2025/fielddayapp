@@ -1,5 +1,6 @@
 import { headers } from 'next/headers'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { COMPARISONS, SPORT_PAGES } from '@/lib/marketing-pages'
 
 // Host-aware sitemap. The platform apex lists the marketing + legal pages;
 // each org host (subdomain or custom domain) lists its own public pages —
@@ -23,6 +24,8 @@ export async function GET() {
   if (!orgId) {
     // Platform marketing site
     urls.push(`${base}/`, `${base}/legal`)
+    for (const c of COMPARISONS) urls.push(`${base}/compare/${c.slug}`)
+    for (const s of SPORT_PAGES) urls.push(`${base}/leagues/${s.slug}`)
 
     const { data: docs } = await db
       .from('legal_documents')
