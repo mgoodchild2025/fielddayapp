@@ -408,6 +408,7 @@ const MATRIX: Array<{
   { label: 'Tiered playoffs (Gold/Silver)',      free: 'check',  starter: 'check', pro: 'check', club: 'check' },
   { label: 'Custom bracket builder',             free: 'check',  starter: 'check', pro: 'check', club: 'check' },
   { label: 'Courtside mobile score entry',       free: 'check',  starter: 'check', pro: 'check', club: 'check' },
+  { label: 'Free scoreboard app (offline PWA)',  free: 'check',  starter: 'check', pro: 'check', club: 'check' },
   { label: 'Pools & divisions',                  free: 'dash',   starter: 'dash',  pro: 'check', club: 'check' },
   { label: 'Game substitute management',         free: 'check',  starter: 'check', pro: 'check', club: 'check' },
   { label: 'CSV schedule import',                free: 'dash',   starter: 'dash',  pro: 'dash',  club: 'check' },
@@ -559,6 +560,7 @@ export function MarketingFooter() {
   return (
     <footer className="border-t border-gray-100 px-6 py-8 text-center text-sm text-gray-400">
       <p className="mb-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
+        <Link href="/scoreboard" className="hover:text-gray-600 transition-colors">Free scoreboard</Link>
         <Link href="/canada" className="hover:text-gray-600 transition-colors">Built for Canada</Link>
         <Link href="/leagues/volleyball" className="hover:text-gray-600 transition-colors">Volleyball leagues</Link>
         <Link href="/leagues/soccer" className="hover:text-gray-600 transition-colors">Soccer leagues</Link>
