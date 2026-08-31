@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Trophy, CreditCard, ShoppingBag, Users,
   ClipboardList, Image, Radio, Mail, Settings, PersonStanding, CalendarDays,
   TrendingUp,
-} from 'lucide-react'
+ Timer } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { OrgContext } from '@/lib/tenant'
 import { cn } from '@/lib/utils'
@@ -18,6 +18,7 @@ const orgAdminNav: NavItem[] = [
   { label: 'Dashboard', href: '/admin/dashboard',                    icon: LayoutDashboard },
   { label: 'Calendar',  href: '/admin/calendar',                     icon: CalendarDays },
   { label: 'Events',    href: '/admin/events',                       icon: Trophy },
+  { label: 'Courtside', href: '/admin/courtside',                    icon: Timer },
   { label: 'Payments',  href: '/admin/payments',                     icon: CreditCard },
   { label: 'Finances',  href: '/admin/finances',                     icon: TrendingUp },
   { label: 'Shop',      href: '/admin/shop',                         icon: ShoppingBag },
@@ -32,6 +33,7 @@ const orgAdminNav: NavItem[] = [
 
 const leagueAdminNav: NavItem[] = [
   { label: 'Events',   href: '/admin/events',                      icon: Trophy },
+  { label: 'Courtside', href: '/admin/courtside',                   icon: Timer },
   { label: 'Teams',    href: '/admin/teams',                       icon: Users },
   { label: 'Players',  href: '/admin/players',                     icon: PersonStanding },
   { label: 'Waivers',  href: '/admin/settings/waivers/signatures', icon: ClipboardList },
