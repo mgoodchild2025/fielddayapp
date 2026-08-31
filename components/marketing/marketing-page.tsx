@@ -725,6 +725,57 @@ function SeeItInAction() {
   )
 }
 
+// ── Free scoreboard promo ─────────────────────────────────────────────────────
+// The scoreboard is a public free tool (no account) — this section is both the
+// pitch and a live demo link, with the integrated version as the upsell.
+
+function ScoreboardPromo() {
+  return (
+    <section className="bg-slate-950 text-white px-6 py-20 sm:py-24">
+      <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center gap-12">
+        {/* Phone mockup */}
+        <div className="shrink-0 w-56 rounded-[2rem] border-[7px] border-slate-700/70 bg-[#0B1210] p-3 shadow-2xl shadow-black/40 select-none" aria-hidden="true">
+          <div className="rounded-2xl px-4 py-6 text-center" style={{ background: 'linear-gradient(180deg, #0E9F6E, #0A7953)' }}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/80">Net Assets</p>
+            <p className="text-6xl font-extrabold tabular-nums leading-none mt-1">21</p>
+          </div>
+          <div className="flex items-center justify-center gap-2 py-2 text-[10px] font-mono text-slate-500">
+            <span className="px-2 py-0.5 rounded bg-white/5">SET 2</span>
+            <span className="px-2 py-0.5 rounded bg-white/5">↩ UNDO</span>
+          </div>
+          <div className="rounded-2xl px-4 py-6 text-center" style={{ background: 'linear-gradient(180deg, #2563EB, #1B4CC0)' }}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/80">Block Party</p>
+            <p className="text-6xl font-extrabold tabular-nums leading-none mt-1">18</p>
+          </div>
+        </div>
+
+        {/* Pitch */}
+        <div className="text-center md:text-left">
+          <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-3">Free tool · no account needed</p>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">
+            The gym scoreboard that&apos;s always in your pocket
+          </h2>
+          <p className="text-slate-300 leading-relaxed mb-4 max-w-xl">
+            Broken scoreboard? Beach court? Tap a team to score, swipe down to take one back, and track
+            sets to 15, 21, or 25. It installs to your home screen, keeps the screen awake, and works
+            with no wifi at all — free for everyone, Fieldday league or not.
+          </p>
+          <p className="text-slate-400 text-sm leading-relaxed mb-8 max-w-xl">
+            Fieldday leagues get the connected version: team names prefill from the schedule, finished
+            scores save straight into standings, and live scores appear on the gym TV.
+          </p>
+          <a
+            href="/scoreboard"
+            className="inline-block px-8 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-emerald-900/30"
+          >
+            Open the scoreboard →
+          </a>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // ── FAQ ───────────────────────────────────────────────────────────────────────
 // One source of truth: rendered on the page and emitted as FAQPage JSON-LD.
 
@@ -876,6 +927,7 @@ export function MarketingPage() {
       <Features />
       <SportsRow />
       <SeeItInAction />
+      <ScoreboardPromo />
       <Pricing />
       <FeatureMatrix />
       <Faq />
