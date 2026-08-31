@@ -11,6 +11,10 @@ export async function GET() {
 
   const body = [
     'User-agent: *',
+    // Content signals (contentsignals.org): allow search indexing and AI
+    // answer-engine use (citations drive discovery). ai-train deliberately
+    // left unset — neither granted nor restricted.
+    'Content-Signal: search=yes, ai-input=yes',
     // The org-branded PWA manifest lives under /api but should stay fetchable.
     'Allow: /api/manifest',
     // Admin & platform surfaces
