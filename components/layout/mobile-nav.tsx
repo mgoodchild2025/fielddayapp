@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronRight, CalendarDays, Trophy, Users, CircleUser, ShoppingBag, CalendarRange, LayoutDashboard, LogOut, Images, FileText, ExternalLink } from 'lucide-react'
+import { ChevronRight, CalendarDays, Trophy, Users, CircleUser, ShoppingBag, CalendarRange, LayoutDashboard, LogOut, Images, FileText, ExternalLink, Timer } from 'lucide-react'
 import { logout } from '@/actions/auth'
 import type { NavLink } from '@/actions/nav-links'
 
@@ -149,6 +149,11 @@ export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], show
               Champions
             </Link>
           )}
+
+          <Link href="/scoreboard" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
+            <Timer className="w-4 h-4 shrink-0" />
+            Scoreboard
+          </Link>
 
           {customLinks.length > 0 && (
             <>
