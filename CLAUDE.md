@@ -79,6 +79,23 @@ This adds: `team_join_requests` table, `venue_*`/`organizer_*`/`age_group`/`team
 - **Captains**: Public `/schedule` — past games show `CaptainScoreEntry`. One captain submits (status: `pending`), opposing captain confirms (status: `confirmed`).
 - **Actions**: `submitScore`, `confirmScore`, `adminSetScore` in `actions/scores.ts`
 
+## Scoreboard (free PWA)
+`/scoreboard` — a free, login-optional scoreboard that works on every host (apex + org sites). Client app in `components/scoreboard/scoreboard-app.tsx`, **event-sourced**: every score change is an event; scores + completed sets derive by folding the event list, so undo = pop and the per-set history matches `game_results.sets` (`{home,away}[]`) exactly. Tap panel = +1, swipe down ≥40px = −1, long-press = edit team; a stale gesture (>1.2s, lost pointerup) is discarded on the next touch or the board locks. State persists to localStorage per game (`fieldday-scoreboard-v1[:game:<id>]`).
+
+### PWA plumbing
+- Own manifest at `/scoreboard/manifest` (fullscreen, scope `/scoreboard`, icons `scoreboard-icon-{192,512}.png`). **iOS ignores manifest icons** — the page sets `apple-touch-icon` via metadata.
+- `/scoreboard-sw.js` (route handler) is **the app's ONLY service worker** — served from a root path because a SW's directory caps its scope (`/scoreboard/sw.js` couldn't claim `/scoreboard` itself), but registered ONLY with `scope: '/scoreboard'` so it never controls other pages. Network-first navigations w/ cache fallback, stale-while-revalidate subresources.
+- Install: hint bar (one-time, dismissible) + menu item "Add to home screen" — `beforeinstallprompt` is captured at the app level (Chrome gets a real install dialog); iOS gets Share-menu instructions. Installed check must use `display-mode` media query AND `!document.fullscreenElement` (in-page fullscreen also matches `display-mode: fullscreen`).
+
+### Game attachment (V2)
+`/scoreboard?game=<id>` on an org host prefills teams/colours/mode (volleyball/beach → sets mode) via `x-org-id`-validated load in `app/scoreboard/page.tsx`. Role decides saving: org/league admin → `adminSetScore` (confirmed); captain of either team → `submitScore` (pending → opponent confirms); others get a score-only board. **Set sports save sets-won as home/away score + the `sets` array** (AdminScoreEntry convention); team A is pinned to the home team (side swap is display-only). Entry points: Courtside cards + event-page schedule rows (captains).
+
+### Live TV scores (V3)
+The authorized scorer's board broadcasts on Supabase Realtime channel `scoreboard:<leagueId>` (ephemeral broadcast, NO tables) — on every change + 15s heartbeat. Display zone `{ type: 'live_scores' }` (`components/display/zones/live-scores-zone.tsx`) renders active boards and drops any quiet for 75s, so closing the phone clears the TV.
+
+### Discovery (deliberate placement — don't re-add elsewhere)
+Menu-only in the app: mobile drawer (`mobile-nav.tsx`) + desktop nav user menu (`nav-user-menu.tsx`). NOT on the org top nav, org footer, or player dashboard (removed on request). Marketing: apex footer link + `ScoreboardPromo` section on the marketing page (free tool = lead magnet; the integrated version is the upsell).
+
 ## Playoffs & brackets
 Admin → Events → [Event] → Bracket renders `PlayoffConfigWizard` (`components/bracket/playoff-config-wizard.tsx`). Lifecycle per tier bracket: **scaffold** (placeholder labels, no teams) → **seed** (teams assigned from standings) → **publish** (`status='active'`, visible to players). Publishing before seeding is allowed; unpublish keeps seeding.
 
