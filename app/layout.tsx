@@ -6,6 +6,9 @@ import './globals.css'
 // and ensure the og:image URL is always absolute (required by SMS/social apps).
 export const metadata: Metadata = {
   metadataBase: new URL('https://fielddayapp.ca'),
+  // Org-branded manifest (name/icon/colors per org) — see app/api/manifest.
+  manifest: '/api/manifest',
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Fieldday' },
   title: 'Fieldday',
   description: 'Sports league management, built for your community.',
   openGraph: {
