@@ -559,6 +559,7 @@ export function MarketingFooter() {
   return (
     <footer className="border-t border-gray-100 px-6 py-8 text-center text-sm text-gray-400">
       <p className="mb-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
+        <Link href="/canada" className="hover:text-gray-600 transition-colors">Built for Canada</Link>
         <Link href="/leagues/volleyball" className="hover:text-gray-600 transition-colors">Volleyball leagues</Link>
         <Link href="/leagues/soccer" className="hover:text-gray-600 transition-colors">Soccer leagues</Link>
         <Link href="/leagues/basketball" className="hover:text-gray-600 transition-colors">Basketball leagues</Link>

@@ -23,7 +23,7 @@ export async function GET() {
 
   if (!orgId) {
     // Platform marketing site
-    urls.push(`${base}/`, `${base}/legal`)
+    urls.push(`${base}/`, `${base}/canada`, `${base}/legal`)
     for (const c of COMPARISONS) urls.push(`${base}/compare/${c.slug}`)
     for (const s of SPORT_PAGES) urls.push(`${base}/leagues/${s.slug}`)
 
