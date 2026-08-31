@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { RealtimeChannel } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/client'
 import { submitScore, adminSetScore } from '@/actions/scores'
 
 // ── Fieldday Scoreboard ────────────────────────────────────────────────────────
@@ -36,6 +38,7 @@ export type AttachedGame = {
   gameId: string
   leagueId: string
   leagueName: string
+  court: string | null
   setSport: boolean
   home: { name: string; color: string | null }
   away: { name: string; color: string | null }
@@ -162,12 +165,59 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     }
   }, [])
 
+  // ── Live broadcast to gym TVs (V3) ──────────────────────────────────────────
+  // The authorized scorer's board publishes its state on the event's Realtime
+  // channel — ephemeral broadcast, no tables. TVs with a "Live Scores" zone on
+  // this event render whatever boards are actively broadcasting.
+  const broadcastChannel = useRef<RealtimeChannel | null>(null)
+  useEffect(() => {
+    if (!attached?.canSave || !attached.leagueId) return
+    const supabase = createClient()
+    const channel = supabase.channel(`scoreboard:${attached.leagueId}`)
+    channel.subscribe()
+    broadcastChannel.current = channel
+    return () => {
+      broadcastChannel.current = null
+      supabase.removeChannel(channel)
+    }
+  }, [attached?.canSave, attached?.leagueId])
+
   const { a, b, sets } = useMemo(() => derive(game.events), [game.events])
   const setsWonA = sets.filter((s) => s.home > s.away).length
   const setsWonB = sets.filter((s) => s.away > s.home).length
   const need = Math.ceil(game.config.bestOf / 2)
   const pendingSetWinner = setWinner(game.config, a, b)
   const matchWinner = game.config.mode === 'sets' && setsWonA >= need ? 'A' : setsWonB >= need ? 'B' : null
+
+  // Send the board state on every change plus a 15s heartbeat, so a TV that
+  // joins mid-game picks the board up within one beat. TVs expire boards that
+  // go quiet, so closing the scoreboard takes it off the wall by itself.
+  useEffect(() => {
+    if (!attached?.canSave) return
+    const send = () => {
+      broadcastChannel.current?.send({
+        type: 'broadcast',
+        event: 'score',
+        payload: {
+          gameId: attached.gameId,
+          court: attached.court,
+          mode: game.config.mode,
+          teamA: { name: game.teamA.name, color: game.teamA.color },
+          teamB: { name: game.teamB.name, color: game.teamB.color },
+          a,
+          b,
+          setsWonA,
+          setsWonB,
+          setNumber: sets.length + 1,
+          final: !!matchWinner,
+          ts: Date.now(),
+        },
+      })
+    }
+    send()
+    const heartbeat = setInterval(send, 15000)
+    return () => clearInterval(heartbeat)
+  }, [attached, a, b, setsWonA, setsWonB, sets.length, matchWinner, game.config.mode, game.teamA, game.teamB])
 
   const push = useCallback((e: ScoreEvent) => {
     setGame((g) => ({ ...g, events: [...g.events, e] }))

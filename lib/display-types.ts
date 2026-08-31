@@ -23,6 +23,7 @@ export type ZoneConfig =
   | { type: 'clock' }
   | { type: 'logo' }
   | { type: 'live' }
+  | { type: 'live_scores' }
   | { type: 'sponsors' }
   | { type: 'showcase'; source: 'bios' | 'photos' | 'both' | 'banners'; transition: 'fade' | 'slide' | 'kenburns'; seconds: number; order: 'shuffle' | 'newest'; lineups?: boolean }
   | { type: 'empty' }

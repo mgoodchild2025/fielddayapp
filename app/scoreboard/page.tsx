@@ -58,7 +58,7 @@ async function loadAttachedGame(gameId: string): Promise<AttachedGame | null> {
   const { data: game } = await db
     .from('games')
     .select(`
-      id, status, home_team_id, away_team_id,
+      id, status, court, home_team_id, away_team_id,
       home_team:teams!games_home_team_id_fkey(id, name, color),
       away_team:teams!games_away_team_id_fkey(id, name, color),
       league:leagues!games_league_id_fkey(id, name, sport),
@@ -97,6 +97,7 @@ async function loadAttachedGame(gameId: string): Promise<AttachedGame | null> {
     gameId: game.id,
     leagueId: league?.id ?? '',
     leagueName: league?.name ?? '',
+    court: game.court ?? null,
     setSport: SET_SPORTS.has(league?.sport ?? ''),
     home: { name: home.name, color: home.color ?? null },
     away: { name: away.name, color: away.color ?? null },
