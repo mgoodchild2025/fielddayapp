@@ -35,6 +35,11 @@ export default async function AdminDashboardPage() {
     { data: branding },
     { data: upcomingGames },
     { data: upcomingSessions },
+    { data: pendingScoreRows },
+    { data: pendingMediaRows },
+    { data: owedPaymentRows },
+    { data: unsignedWaiverRows },
+    { data: activeOrgWaiver },
   ] = await Promise.all([
 
     db.from('leagues').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).is('deleted_at', null).neq('status', 'archived'),
@@ -66,6 +71,38 @@ export default async function AdminDashboardPage() {
       .lte('scheduled_at', now7d.toISOString())
       .order('scheduled_at', { ascending: true })
       .limit(10),
+
+    // ── Action center: what needs an admin today ─────────────────────────────
+    // Scores a captain submitted that the other captain hasn't confirmed.
+    db.from('game_results')
+      .select('id, game:games!game_results_game_id_fkey!inner(organization_id, league_id, league:leagues!games_league_id_fkey(name))')
+      .eq('games.organization_id', org.id)
+      .eq('status', 'pending'),
+
+    // Uploaded photos/videos awaiting approval.
+    db.from('event_media')
+      .select('id, league_id, league:leagues!event_media_league_id_fkey(name)')
+      .eq('organization_id', org.id)
+      .eq('status', 'pending'),
+
+    // Offline payments still owed (registration- or team-linked; the same
+    // liveness rules the ledger uses are approximated by requiring linkage).
+    db.from('payments')
+      .select('id, registration_id, team_id, payment_type')
+      .eq('organization_id', org.id)
+      .eq('status', 'pending')
+      .in('payment_method', ['cash', 'etransfer', 'cheque']),
+
+    // Active registrations missing a waiver signature (only shown when the
+    // org actually has an active waiver).
+    db.from('registrations')
+      .select('id, league:leagues!registrations_league_id_fkey!inner(status)')
+      .eq('organization_id', org.id)
+      .eq('status', 'active')
+      .is('waiver_signature_id', null)
+      .in('leagues.status', ['registration_open', 'active']),
+
+    db.from('waivers').select('id').eq('organization_id', org.id).eq('is_active', true).limit(1).maybeSingle(),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -154,9 +191,85 @@ export default async function AdminDashboardPage() {
     { label: 'Recent Revenue', shortLabel: 'Revenue', value: `$${(totalRevenue / 100).toFixed(0)}`, href: '/admin/payments' },
   ]
 
+  // ── Action center rollup ────────────────────────────────────────────────
+  const pendingScores = pendingScoreRows ?? []
+  const pendingMedia = pendingMediaRows ?? []
+  const owedPayments = (owedPaymentRows ?? []).filter((p) => p.registration_id || (p.payment_type === 'team' && p.team_id))
+  const unsignedWaivers = activeOrgWaiver ? (unsignedWaiverRows ?? []) : []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leagueNamesOf = (rows: any[], pick: (r: any) => any) => {
+    const names = new Set<string>()
+    for (const r of rows) {
+      const l = pick(r)
+      const league = Array.isArray(l) ? l[0] : l
+      if (league?.name) names.add(league.name)
+    }
+    return [...names]
+  }
+  const actionItems = [
+    {
+      count: pendingScores.length,
+      label: 'score' + (pendingScores.length !== 1 ? 's' : '') + ' awaiting confirmation',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      detail: leagueNamesOf(pendingScores, (r: any) => (Array.isArray(r.game) ? r.game[0] : r.game)?.league),
+      href: '/admin/events',
+    },
+    {
+      count: pendingMedia.length,
+      label: 'photo' + (pendingMedia.length !== 1 ? 's' : '') + ' awaiting approval',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      detail: leagueNamesOf(pendingMedia, (r: any) => r.league),
+      href: pendingMedia.length > 0 && new Set(pendingMedia.map((m) => m.league_id)).size === 1
+        ? `/admin/events/${pendingMedia[0].league_id}/media`
+        : '/admin/events',
+    },
+    {
+      count: owedPayments.length,
+      label: 'offline payment' + (owedPayments.length !== 1 ? 's' : '') + ' still owed',
+      detail: [],
+      href: '/admin/payments',
+    },
+    {
+      count: unsignedWaivers.length,
+      label: 'active registration' + (unsignedWaivers.length !== 1 ? 's' : '') + ' missing a waiver',
+      detail: [],
+      href: '/admin/events',
+    },
+  ].filter((a) => a.count > 0)
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">{org.name} — Dashboard</h1>
+
+      {/* ── Action center: what needs you today ─────────────────────────────── */}
+      <div className="mb-6 rounded-xl border bg-white overflow-hidden">
+        <div className="px-4 py-2.5 border-b bg-gray-50 flex items-center justify-between">
+          <p className="text-sm font-semibold text-gray-700">Needs your attention</p>
+          {actionItems.length === 0 && <span className="text-xs font-medium text-green-600">All clear ✓</span>}
+        </div>
+        {actionItems.length === 0 ? (
+          <p className="px-4 py-3 text-sm text-gray-400">No pending scores, approvals, payments, or waivers.</p>
+        ) : (
+          <ul className="divide-y divide-gray-50">
+            {actionItems.map((a) => (
+              <li key={a.label}>
+                <a href={a.href} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50">
+                  <span className="inline-flex items-center justify-center min-w-[1.75rem] h-7 px-1.5 rounded-full text-sm font-bold text-white" style={{ backgroundColor: 'var(--brand-primary)' }}>
+                    {a.count}
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-medium text-gray-800">{a.label}</span>
+                    {a.detail.length > 0 && (
+                      <span className="block text-xs text-gray-400 truncate">{a.detail.slice(0, 3).join(', ')}{a.detail.length > 3 ? ` +${a.detail.length - 3} more` : ''}</span>
+                    )}
+                  </span>
+                  <span className="text-gray-300">→</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {showChecklist && (
         <div className="mb-6">
