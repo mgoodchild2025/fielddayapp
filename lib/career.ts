@@ -88,6 +88,7 @@ export function buildCareer(inputs: CareerInputs): PlayerCareer {
     bySport.set(s.sport, list)
   }
 
+  const careerHasTies = seasons.some((se) => (se.stats.__t ?? 0) > 0)
   const tables: CareerSportTable[] = [...bySport.entries()].map(([sport, rows]) => {
     let columns = (inputs.statDefsBySport.get(sport) ?? []).slice(0, 3)
     // Platform defaults define columns for every known sport, so "no columns"
@@ -98,11 +99,13 @@ export function buildCareer(inputs: CareerInputs): PlayerCareer {
     const hasPlayerStats = columns.length > 0
       && rows.some((r) => columns.some((c) => r.stats[c.key] != null))
     if (!hasPlayerStats && rows.some((r) => r.stats.__w != null)) {
-      const hasTies = rows.some((r) => (r.stats.__t ?? 0) > 0)
+      // T is decided across the WHOLE career, not per sport — otherwise one
+      // sport renders W/L/T and another W/L, the shapes can't merge, and the
+      // stacked tables' columns don't line up.
       columns = [
         { key: '__w', label: 'W' },
         { key: '__l', label: 'L' },
-        ...(hasTies ? [{ key: '__t', label: 'T' }] : []),
+        ...(careerHasTies ? [{ key: '__t', label: 'T' }] : []),
       ]
     }
     const totals: Record<string, number> = {}

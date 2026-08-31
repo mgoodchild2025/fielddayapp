@@ -28,7 +28,7 @@ export function BioFlipCard({ bio, career }: { bio: BioCardData; career: PlayerC
       style={{ perspective: '1200px' }}
     >
       <style>{`
-        .bio-flip-inner { transition: transform .6s cubic-bezier(.3,.7,.3,1); transform-style: preserve-3d; }
+        .bio-flip-face { transition: transform .6s cubic-bezier(.3,.7,.3,1); backface-visibility: hidden; -webkit-backface-visibility: hidden; grid-area: 1 / 1; }
         .bio-foil { position: relative; }
         .bio-foil::after {
           content: ""; position: absolute; inset: 0; border-radius: 1rem; pointer-events: none;
@@ -44,19 +44,22 @@ export function BioFlipCard({ bio, career }: { bio: BioCardData; career: PlayerC
           50% { background-position: 100% 50%; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .bio-flip-inner { transition: none; }
+          .bio-flip-face { transition: none; }
           .bio-foil::after { animation: none; }
         }
       `}</style>
-      <div
-        className="bio-flip-inner relative"
-        style={{ transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
-      >
+      {/* Grid-stacked faces that rotate INDEPENDENTLY (no preserve-3d, no
+          absolute positioning): WebKit mishandles preserve-3d + absolute
+          children (it already bled the rookie badge through the back once,
+          and shifted the card on flip), and grid stacking sizes the card to
+          the TALLER face — a long career table no longer gets clipped to the
+          front's height. */}
+      <div className="grid">
         {/* Front */}
         <div
           aria-hidden={flipped}
-          className={`relative rounded-2xl bg-gray-900 p-5 ${isFoil ? 'bio-foil' : ''}`}
-          style={{ backfaceVisibility: 'hidden' }}
+          className={`bio-flip-face relative rounded-2xl bg-gray-900 p-5 ${isFoil ? 'bio-foil' : ''}`}
+          style={{ transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
         >
           <PlayerBioCard bio={bio} />
           <p className="mt-3 text-right font-mono text-[10px] uppercase tracking-widest text-white/40">↻ tap to flip</p>
@@ -72,11 +75,11 @@ export function BioFlipCard({ bio, career }: { bio: BioCardData; career: PlayerC
             </span>
           )}
         </div>
-        {/* Back — absolutely stacked, same footprint as the front */}
+        {/* Back — same grid cell; both faces stretch to the taller one */}
         <div
           aria-hidden={!flipped}
-          className={`absolute inset-0 overflow-hidden rounded-2xl bg-gray-900 p-5 ${isFoil ? 'bio-foil' : ''}`}
-          style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+          className={`bio-flip-face overflow-hidden rounded-2xl bg-gray-900 p-5 ${isFoil ? 'bio-foil' : ''}`}
+          style={{ transform: flipped ? 'rotateY(0deg)' : 'rotateY(-180deg)' }}
         >
           {career ? (
             <PlayerCardBack bio={bio} career={career} />
