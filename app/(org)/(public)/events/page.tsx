@@ -1,22 +1,20 @@
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
-import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { EventsFilter } from '@/components/events/events-filter'
 import type { EventItem } from '@/components/events/events-filter'
+import { getEventSpotsMap } from '@/lib/event-spots'
 
 export default async function EventsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
   const db = createServiceRoleClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
 
 
-  const [{ data: leagues }, { data: branding }, { data: orgMember }] = await Promise.all([
+  const [{ data: leagues }, { data: branding }] = await Promise.all([
 
     // select('*') so this still works before migration 168 (new columns absent).
     db
@@ -28,13 +26,8 @@ export default async function EventsPage() {
       .order('created_at', { ascending: false }),
 
     db.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
-    user
-
-      ? db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single()
-      : Promise.resolve({ data: null }),
   ])
 
-  const isOrgAdmin = ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
 
   // Advertised "coming soon" drafts — separate query so it degrades to empty if
   // migration 168 (advertised column) hasn't been applied yet.
@@ -56,22 +49,15 @@ export default async function EventsPage() {
   )
   const visibleLeagues = [...((leagues ?? []) as any[]), ...comingSoon]
 
-  // Fetch team counts for open-registration leagues so we can show capacity
-  const openIds = visibleLeagues
-    .filter((l: { status: string }) => l.status === 'registration_open')
-    .map((l: { id: string }) => l.id)
-
-  const teamCountMap = new Map<string, number>()
-  if (openIds.length > 0) {
-
-    const { data: teamRows } = await db
-      .from('teams')
-      .select('league_id')
-      .in('league_id', openIds)
-    for (const t of teamRows ?? []) {
-      teamCountMap.set(t.league_id, (teamCountMap.get(t.league_id) ?? 0) + 1)
-    }
-  }
+  // Live capacity for open events — same computation the home page cards use.
+  const openLeagues = visibleLeagues.filter((l: { status: string }) => l.status === 'registration_open')
+  const spotsMap = await getEventSpotsMap(db, openLeagues.map((l) => ({
+    id: l.id,
+    payment_mode: l.payment_mode ?? null,
+    event_type: l.event_type ?? null,
+    max_teams: l.max_teams ?? null,
+    max_participants: l.max_participants ?? null,
+  })))
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const events: EventItem[] = visibleLeagues.map((l: any) => ({
@@ -87,7 +73,7 @@ export default async function EventsPage() {
     currency: l.currency ?? 'cad',
     season_start_date: l.season_start_date ?? null,
     max_teams: l.max_teams ?? null,
-    team_count: teamCountMap.get(l.id) ?? 0,
+    spots: spotsMap.get(l.id) ?? null,
     payment_mode: l.payment_mode ?? 'per_player',
     skill_level: l.skill_level ?? null,
     days_of_week: l.days_of_week ?? null,
@@ -109,7 +95,7 @@ export default async function EventsPage() {
         >
           Events
         </h1>
-        <EventsFilter events={events} isOrgAdmin={isOrgAdmin} timezone={branding?.timezone ?? undefined} />
+        <EventsFilter events={events} timezone={branding?.timezone ?? undefined} />
       </div>
       <Footer org={org} />
     </div>

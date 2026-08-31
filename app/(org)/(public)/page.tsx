@@ -4,6 +4,7 @@ import { MarketingPage } from '@/components/marketing/marketing-page'
 import { CommunityHome } from '@/components/site-themes/community/community-home'
 import { ClubHome } from '@/components/site-themes/club/club-home'
 import { ProHome } from '@/components/site-themes/pro/pro-home'
+import { getEventSpotsMap } from '@/lib/event-spots'
 
 async function OrgHomePage({ orgId }: { orgId: string }) {
   const db = createServiceRoleClient()
@@ -125,46 +126,8 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
   const inSeasonEvents = leagueList.filter((l) => l.status === 'active')
   const completedEvents = leagueList.filter((l) => l.status === 'completed')
 
-  // Fetch capacity counts for open events:
-  //   per_team  → count teams (no status filter, matches /events page)   → cap = max_teams
-  //   per_player → count active/pending registrations                     → cap = max_participants
-  const perTeamOpenIds    = openEvents.filter((l) => l.payment_mode === 'per_team').map((l) => l.id)
-  // Drop-in events are excluded: their capacity is PER SESSION, so an
-  // event-wide registration count vs max_participants (the per-session cap)
-  // reads a few part-full sessions as "Full". Their cards show "Open" and the
-  // event page shows real per-session spots.
-  const perPlayerOpenIds  = openEvents.filter((l) => l.payment_mode !== 'per_team' && l.event_type !== 'drop_in' && l.max_participants !== null).map((l) => l.id)
-
-  const teamCountMap         = new Map<string, number>()
-  const registrationCountMap = new Map<string, number>()
-
-  await Promise.all([
-    perTeamOpenIds.length > 0
-      ?
-        db.from('teams').select('league_id').in('league_id', perTeamOpenIds)
-          .then(({ data }: { data: { league_id: string }[] | null }) => {
-            for (const t of data ?? []) teamCountMap.set(t.league_id, (teamCountMap.get(t.league_id) ?? 0) + 1)
-          })
-      : Promise.resolve(),
-    perPlayerOpenIds.length > 0
-      ?
-        db.from('registrations').select('league_id').in('league_id', perPlayerOpenIds).in('status', ['active', 'pending'])
-          .then(({ data }: { data: { league_id: string }[] | null }) => {
-            for (const r of data ?? []) registrationCountMap.set(r.league_id, (registrationCountMap.get(r.league_id) ?? 0) + 1)
-          })
-      : Promise.resolve(),
-  ])
-
-  // Unified spots map — consumed by all theme components
-  type SpotsEntry = { filled: number; max: number | null; unit: 'team' | 'player' }
-  const spotsMap = new Map<string, SpotsEntry>()
-  for (const l of openEvents) {
-    if (l.payment_mode === 'per_team') {
-      spotsMap.set(l.id, { filled: teamCountMap.get(l.id) ?? 0, max: l.max_teams, unit: 'team' })
-    } else if (l.event_type !== 'drop_in') {
-      spotsMap.set(l.id, { filled: registrationCountMap.get(l.id) ?? 0, max: l.max_participants, unit: 'player' })
-    }
-  }
+  // Unified spots map — consumed by all theme components (shared with /events)
+  const spotsMap = await getEventSpotsMap(db, openEvents)
 
   // Process recent results for Pro theme (field names match ProHome's RecentResult type)
   const recentResults = (recentResultsRaw ?? [])

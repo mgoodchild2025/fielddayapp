@@ -3,7 +3,8 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { EventAvatar } from '@/components/ui/event-avatar'
-import { formatEventPrice } from '@/lib/event-price'
+import { EventCard } from '@/components/events/event-card'
+import type { EventSpots } from '@/lib/event-spots'
 
 export interface EventItem {
   id: string
@@ -18,7 +19,7 @@ export interface EventItem {
   currency: string
   season_start_date: string | null
   max_teams: number | null
-  team_count: number
+  spots?: EventSpots | null
   payment_mode: string | null
   skill_level: string | null
   days_of_week: string[] | null
@@ -88,123 +89,6 @@ function formatYear(iso: string) {
 }
 
 // ── Featured registration card ────────────────────────────────────────────────
-
-function FeaturedCard({ event, isOrgAdmin }: { event: EventItem; isOrgAdmin: boolean }) {
-  const isPerTeam = event.payment_mode === 'per_team'
-  const teamsAtCapacity = isPerTeam && event.max_teams !== null && event.team_count >= event.max_teams
-  const isFull = !isPerTeam && event.max_teams !== null && event.team_count >= event.max_teams
-  const showCapacity = event.max_teams !== null
-
-  return (
-    <Link
-      href={`/events/${event.slug}`}
-      className="group flex flex-col bg-white rounded-2xl border overflow-hidden hover:shadow-md transition-shadow"
-    >
-      {/* Accent bar */}
-      <div className={`h-1.5 w-full shrink-0 ${
-        isFull ? 'bg-gray-300' : teamsAtCapacity ? 'bg-amber-400' : 'bg-green-500'
-      }`} />
-
-      <div className="flex flex-col flex-1 p-5 gap-4">
-        {/* Status badge + capacity fraction */}
-        <div className="flex items-center justify-between gap-2">
-          {isFull ? (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-600">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-              Event Full
-            </span>
-          ) : teamsAtCapacity ? (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              Teams Full
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-              Open for Registration
-            </span>
-          )}
-
-          <div className="flex items-center gap-2 shrink-0">
-            {showCapacity && (
-              <span className={`text-xs font-semibold tabular-nums ${
-                isFull ? 'text-red-500' : teamsAtCapacity ? 'text-amber-600' : 'text-gray-400'
-              }`}>
-                {event.team_count} / {event.max_teams} teams
-              </span>
-            )}
-            {event.sport && !showCapacity && (
-              <span className="text-xs text-gray-400 font-medium">{formatSport(event.sport)}</span>
-            )}
-          </div>
-        </div>
-
-        {/* Name + date */}
-        <div className="flex items-start gap-3">
-          <EventAvatar logoUrl={event.logo_url} name={event.name} sport={event.sport} size="md" className="shrink-0 mt-0.5 border border-gray-100" />
-          <div className="min-w-0">
-          <h2
-            className="text-xl font-bold text-gray-900 leading-snug"
-            style={{ fontFamily: 'var(--brand-heading-font)' }}
-          >
-            {event.name}
-          </h2>
-          {event.season_start_date && (
-            <p className="text-sm text-gray-400 mt-1">
-              Starts {formatDate(event.season_start_date)}
-            </p>
-          )}
-          </div>
-        </div>
-
-        {/* Metadata chips — days, time, skill level */}
-        {(event.skill_level || (event.days_of_week?.length ?? 0) > 0 || event.game_start_time || event.game_end_time) && (
-          <div className="flex flex-wrap gap-1.5 -mt-1">
-            {event.skill_level && (
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500 capitalize">
-                {event.skill_level}
-              </span>
-            )}
-            {event.days_of_week?.map((d) => (
-              <span key={d} className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500 capitalize">
-                {d}
-              </span>
-            ))}
-            {formatTimeRange(event.game_start_time, event.game_end_time) && (
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500">
-                {formatTimeRange(event.game_start_time, event.game_end_time)}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Price + CTA */}
-        <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100">
-          {teamsAtCapacity ? (
-            <span className="text-sm text-amber-700 font-medium">Players can still join a team</span>
-          ) : (
-            <span className={`text-base font-bold ${isFull ? 'text-gray-400' : 'text-green-600'}`}>
-              {formatEventPrice(event)}
-            </span>
-          )}
-          {isFull ? (
-            <span className="text-sm font-semibold px-3 py-1.5 rounded-lg text-gray-400 bg-gray-100 cursor-default">
-              Event Full
-            </span>
-          ) : teamsAtCapacity ? (
-            <span className="text-sm font-semibold px-3 py-1.5 rounded-lg text-white bg-amber-500 group-hover:bg-amber-600 transition-colors">
-              Join a Team →
-            </span>
-          ) : (
-            <span className="text-sm font-semibold px-3 py-1.5 rounded-lg text-white transition-opacity group-hover:opacity-90" style={{ backgroundColor: 'var(--brand-primary)' }}>
-              Register →
-            </span>
-          )}
-        </div>
-      </div>
-    </Link>
-  )
-}
 
 // ── Coming-soon card (advertised, not yet open) ───────────────────────────────
 
@@ -335,7 +219,7 @@ function Accordion({
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export function EventsFilter({ events, isOrgAdmin = false, timezone }: { events: EventItem[]; isOrgAdmin?: boolean; timezone?: string }) {
+export function EventsFilter({ events, timezone }: { events: EventItem[]; timezone?: string }) {
   const [selectedSport, setSelectedSport] = useState<string | null>(null)
   const [selectedType,  setSelectedType]  = useState<string | null>(null)
 
@@ -455,11 +339,11 @@ export function EventsFilter({ events, isOrgAdmin = false, timezone }: { events:
         </div>
       )}
 
-      {/* ── 1. Open for registration — featured cards ────────────────────────── */}
+      {/* ── 1. Open for registration — same card as the home page's Open Events ── */}
       {open.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {open.map((e) => (
-            <FeaturedCard key={e.id} event={e} isOrgAdmin={isOrgAdmin} />
+            <EventCard key={e.id} league={e} spots={e.spots ?? undefined} />
           ))}
         </div>
       )}
