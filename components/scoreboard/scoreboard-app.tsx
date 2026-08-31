@@ -480,9 +480,9 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
         </Overlay>
       )}
 
-      {/* Team edit sheet */}
+      {/* Team edit sheet — top-anchored so the phone keyboard never covers the fields */}
       {editTeam && (
-        <Sheet onClose={() => setEditTeam(null)} title={`Edit ${editTeam === 'A' ? 'first' : 'second'} team`}>
+        <Sheet onClose={() => setEditTeam(null)} title={`Edit ${editTeam === 'A' ? 'first' : 'second'} team`} align="top">
           <label className="block text-xs text-white/60 mb-1">Team name</label>
           <input
             autoFocus
@@ -589,10 +589,19 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
             )}
 
             <div className="flex gap-2">
-              <button onClick={() => setEditTeam('A')} className="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-white/10 text-white/80">
+              {/* Close the menu first — both sheets are fixed overlays, and the
+                  menu otherwise stays stacked over the edit sheet while the
+                  autofocused input opens the keyboard (iOS bug report). */}
+              <button
+                onClick={() => { setMenuOpen(false); setEditTeam('A') }}
+                className="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-white/10 text-white/80"
+              >
                 Edit {game.teamA.name}
               </button>
-              <button onClick={() => setEditTeam('B')} className="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-white/10 text-white/80">
+              <button
+                onClick={() => { setMenuOpen(false); setEditTeam('B') }}
+                className="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-white/10 text-white/80"
+              >
                 Edit {game.teamB.name}
               </button>
             </div>
@@ -714,11 +723,14 @@ function Overlay({ children }: { children: React.ReactNode }) {
   )
 }
 
-function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function Sheet({ title, onClose, children, align = 'bottom' }: { title: string; onClose: () => void; children: React.ReactNode; align?: 'bottom' | 'top' }) {
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center" onClick={onClose}>
+    <div
+      className={`fixed inset-0 z-50 bg-black/60 flex justify-center ${align === 'top' ? 'items-start pt-4 sm:items-center sm:pt-0' : 'items-end sm:items-center'}`}
+      onClick={onClose}
+    >
       <div
-        className="w-full sm:max-w-sm bg-[#141c18] rounded-t-2xl sm:rounded-2xl p-5 pb-8 max-h-[85vh] overflow-y-auto"
+        className={`w-full sm:max-w-sm bg-[#141c18] p-5 pb-8 max-h-[85vh] overflow-y-auto ${align === 'top' ? 'mx-3 rounded-2xl' : 'rounded-t-2xl'} sm:rounded-2xl`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label={title}
