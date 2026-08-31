@@ -101,10 +101,7 @@ export function Footer({ org, social }: FooterProps) {
         )}
 
         <p>
-          <a href="/scoreboard" className="underline underline-offset-2 hover:opacity-100 opacity-90 transition-opacity">
-            Free scoreboard
-          </a>
-          {' · '}© {new Date().getFullYear()} {org.name}. Powered by{' '}
+          © {new Date().getFullYear()} {org.name}. Powered by{' '}
           <a
             href="https://fielddayapp.ca"
             target="_blank"
