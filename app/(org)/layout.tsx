@@ -18,7 +18,11 @@ export async function generateMetadata(): Promise<Metadata> {
   const orgId = headersList.get('x-org-id')
 
   if (!orgId) {
-    return { title: 'Fieldday', description: 'Sports league management platform' }
+    return {
+      title: 'Fieldday — Sports League Management Software',
+      description:
+        'Run your sports league online: registration and payments (Stripe, e-transfer, GST/HST), scheduling, live standings, playoff brackets, and a branded website for every league.',
+    }
   }
 
   const db = createServiceRoleClient()
