@@ -277,12 +277,6 @@ function GameHero({
               <span>{item.court}</span>
             </div>
           )}
-          <Link
-            href={`/scoreboard?game=${item.id}`}
-            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-          >
-            🔢 <span className="underline underline-offset-2">Scoreboard</span>
-          </Link>
         </div>
       </div>
 
@@ -709,21 +703,6 @@ export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = 
           </div>
         )}
       </section>
-
-      {/* ── Scoreboard quick access — always available, not just on game day ── */}
-      <Link
-        href="/scoreboard"
-        className="flex items-center gap-3 bg-white rounded-2xl border p-4 hover:shadow-sm transition-shadow"
-      >
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-900 text-lg shrink-0">🔢</div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-gray-800">Scoreboard</p>
-          <p className="text-xs text-gray-400 truncate">
-            Score any game from your phone — works offline, free for everyone.
-          </p>
-        </div>
-        <span className="text-gray-300 text-xl leading-none shrink-0">›</span>
-      </Link>
 
       {/* ── Team tabs (only when multiple active teams) ── */}
       {teams.length > 1 && (

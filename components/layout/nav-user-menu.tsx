@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { CalendarDays, Trophy, Users, CircleUser, ShoppingBag, LayoutDashboard } from 'lucide-react'
+import { CalendarDays, Trophy, Users, CircleUser, ShoppingBag, LayoutDashboard, Timer } from 'lucide-react'
 import { logout } from '@/actions/auth'
 
 interface Props {
@@ -20,6 +20,7 @@ const PRIMARY_NAV_ITEMS = [
 
 const SECONDARY_NAV_ITEMS = [
   { href: '/shop', label: 'Shop', Icon: ShoppingBag },
+  { href: '/scoreboard', label: 'Scoreboard', Icon: Timer },
 ] as const
 
 export function NavUserMenu({ userName, isAdmin }: Props) {
