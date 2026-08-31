@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
 
-function MarketingNav() {
+export function MarketingNav() {
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
@@ -555,9 +555,17 @@ function FeatureMatrix() {
 
 // ── Footer ────────────────────────────────────────────────────────────────────
 
-function MarketingFooter() {
+export function MarketingFooter() {
   return (
     <footer className="border-t border-gray-100 px-6 py-8 text-center text-sm text-gray-400">
+      <p className="mb-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
+        <Link href="/leagues/volleyball" className="hover:text-gray-600 transition-colors">Volleyball leagues</Link>
+        <Link href="/leagues/soccer" className="hover:text-gray-600 transition-colors">Soccer leagues</Link>
+        <Link href="/leagues/basketball" className="hover:text-gray-600 transition-colors">Basketball leagues</Link>
+        <Link href="/compare/teamsnap" className="hover:text-gray-600 transition-colors">vs TeamSnap</Link>
+        <Link href="/compare/leagueapps" className="hover:text-gray-600 transition-colors">vs LeagueApps</Link>
+        <Link href="/compare/teamlinkt" className="hover:text-gray-600 transition-colors">vs TeamLinkt</Link>
+      </p>
       <p>
         © {new Date().getFullYear()} Fieldday Sports Technology Inc.
         {' · '}
@@ -779,7 +787,7 @@ function Faq() {
 
 // ── Closing CTA ───────────────────────────────────────────────────────────────
 
-function ClosingCta() {
+export function ClosingCta() {
   return (
     <section className="bg-slate-950 text-white px-6 py-20 text-center">
       <div className="max-w-2xl mx-auto">
