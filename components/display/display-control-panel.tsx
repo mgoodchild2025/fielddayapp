@@ -6,7 +6,7 @@ import type { DisplayConfig, LayoutId, ZoneConfig } from '@/lib/display-types'
 import { ZONE_COUNT, ZONE_LABELS, defaultConfig, blankZone } from '@/lib/display-types'
 import {
   Calendar, Trophy, Target, QrCode, MessageSquare,
-  Clock, Palette, Radio, Megaphone, Square, Sparkles,
+  Clock, Palette, Radio, Megaphone, Square, Sparkles, Zap,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -57,6 +57,7 @@ const ZONE_TYPES: { value: ZoneConfig['type']; label: string; icon: LucideIcon }
   { value: 'clock',     label: 'Clock',       icon: Clock },
   { value: 'logo',      label: 'Logo',        icon: Palette },
   { value: 'live',      label: 'Live Stream', icon: Radio },
+  { value: 'live_scores', label: 'Live Scores', icon: Zap },
   { value: 'sponsors',  label: 'Sponsors',    icon: Megaphone },
   { value: 'showcase',  label: 'Showcase',    icon: Sparkles },
   { value: 'empty',     label: 'Empty',       icon: Square },
@@ -83,6 +84,7 @@ function ZoneEditor({
       case 'clock':     return { type }
       case 'logo':      return { type }
       case 'live':      return { type }
+      case 'live_scores': return { type }
       case 'showcase':  return { type, source: 'both' as const, transition: 'kenburns' as const, seconds: 8, order: 'shuffle' as const }
       case 'sponsors':  return { type }
       case 'empty':     return { type }

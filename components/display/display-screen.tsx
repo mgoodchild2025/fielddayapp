@@ -11,6 +11,7 @@ import { MessageZone }   from './zones/message-zone'
 import { ClockZone }     from './zones/clock-zone'
 import { LogoZone }      from './zones/logo-zone'
 import { LiveZone }      from './zones/live-zone'
+import { LiveScoresZone } from './zones/live-scores-zone'
 import { SponsorsZone }  from './zones/sponsors-zone'
 import { ShowcaseZone } from './zones/showcase-zone'
 import { SponsorBanner } from './sponsor-banner'
@@ -87,6 +88,8 @@ function ZoneRenderer({
       return <LogoZone orgName={data.org.name} logoUrl={data.org.logo_url} theme={theme} />
     case 'live':
       return <LiveZone live={data.live} theme={theme} />
+    case 'live_scores':
+      return <LiveScoresZone leagueId={data.league.id} theme={theme} />
     case 'sponsors':
       return <SponsorsZone sponsors={data.sponsors} theme={theme} />
     case 'showcase':
