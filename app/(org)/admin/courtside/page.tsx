@@ -7,6 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { parseLocalToUtc } from '@/lib/format-time'
 import { AdminScoreEntry } from '@/components/scores/admin-score-entry'
 import { TeamAvatar } from '@/components/ui/team-avatar'
+import { roundDisplayName } from '@/lib/bracket'
 
 /**
  * Courtside mode — game-night score entry built for a phone in a dim gym:
@@ -62,6 +63,39 @@ export default async function CourtsidePage({
   }
   const { data: games } = await query
 
+  // Playoff bracket matches aren't games rows — pull the day's scheduled ones
+  // too (both teams decided, byes excluded) so playoff night has a courtside.
+  const { data: bracketMatchesRaw } = await db
+    .from('bracket_matches')
+    .select(`
+      id, scheduled_at, court, status, round_number, match_number, score1, score2,
+      team1:teams!bracket_matches_team1_id_fkey(id, name, color, logo_url),
+      team2:teams!bracket_matches_team2_id_fkey(id, name, color, logo_url),
+      bracket:brackets!bracket_matches_bracket_id_fkey(id, name, league_id, bracket_size, round_names)
+    `)
+    .eq('organization_id', org.id)
+    .eq('is_bye', false)
+    .not('scheduled_at', 'is', null)
+    .not('team1_id', 'is', null)
+    .not('team2_id', 'is', null)
+    .gte('scheduled_at', dayStart)
+    .lt('scheduled_at', dayEnd)
+    .order('scheduled_at', { ascending: true })
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const bracketRows = ((bracketMatchesRaw ?? []) as any[])
+    .map((m) => ({
+      ...m,
+      team1: Array.isArray(m.team1) ? m.team1[0] : m.team1,
+      team2: Array.isArray(m.team2) ? m.team2[0] : m.team2,
+      bracket: Array.isArray(m.bracket) ? m.bracket[0] : m.bracket,
+    }))
+    .filter((m) =>
+      scope.isOrgAdmin || scope.assignedLeagueIds === null
+        ? true
+        : scope.assignedLeagueIds.includes(m.bracket?.league_id)
+    )
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = ((games ?? []) as any[]).map((g) => {
     const result = Array.isArray(g.game_results) ? g.game_results[0] : g.game_results
@@ -73,6 +107,18 @@ export default async function CourtsidePage({
   // Unscored first — that's what courtside is for; scored games sink below.
   const unscored = rows.filter((g) => !g.result || g.result.home_score === null)
   const scored = rows.filter((g) => g.result && g.result.home_score !== null)
+  const bracketUnscored = bracketRows.filter((m) => m.status !== 'completed')
+  const bracketScored = bracketRows.filter((m) => m.status === 'completed')
+
+  // Merge games + playoff matches into one time-sorted list per section.
+  type Item = { kind: 'game'; when: string; row: (typeof rows)[number] } | { kind: 'bracket'; when: string; row: (typeof bracketRows)[number] }
+  const merge = (gs: typeof rows, bs: typeof bracketRows): Item[] =>
+    [
+      ...gs.map((g) => ({ kind: 'game' as const, when: g.scheduled_at as string, row: g })),
+      ...bs.map((m) => ({ kind: 'bracket' as const, when: m.scheduled_at as string, row: m })),
+    ].sort((x, y) => x.when.localeCompare(y.when))
+  const unscoredItems = merge(unscored, bracketUnscored)
+  const scoredItems = merge(scored, bracketScored)
 
   const timeStr = (iso: string) =>
     new Intl.DateTimeFormat('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: tz }).format(new Date(iso))
@@ -121,6 +167,42 @@ export default async function CourtsidePage({
     </div>
   )
 
+  // Playoff bracket match card — scored through the scoreboard (which saves via
+  // recordBracketScore and advances the winner through the bracket).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const BracketCard = ({ m }: { m: any }) => (
+    <div className="rounded-xl border border-amber-200 bg-white p-4">
+      <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+        <span>{timeStr(m.scheduled_at)}{m.court ? ` · ${m.court}` : ''}</span>
+        <span className="truncate max-w-[55%] text-amber-700 font-semibold">
+          🏆 {m.bracket?.name} · {roundDisplayName(m.bracket?.round_names ?? null, m.round_number, m.bracket?.bracket_size ?? 0, m.match_number)}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0 flex items-center gap-2">
+          <TeamAvatar logoUrl={m.team1?.logo_url ?? null} color={m.team1?.color ?? null} name={m.team1?.name ?? 'TBD'} size="sm" />
+          <span className="truncate text-sm font-semibold">{m.team1?.name ?? 'TBD'}</span>
+        </div>
+        <span className="shrink-0 px-2 text-lg font-bold tabular-nums">
+          {m.status === 'completed' && m.score1 !== null ? `${m.score1} – ${m.score2}` : 'vs'}
+        </span>
+        <div className="flex-1 min-w-0 flex items-center justify-end gap-2 text-right">
+          <span className="truncate text-sm font-semibold">{m.team2?.name ?? 'TBD'}</span>
+          <TeamAvatar logoUrl={m.team2?.logo_url ?? null} color={m.team2?.color ?? null} name={m.team2?.name ?? 'TBD'} size="sm" />
+        </div>
+      </div>
+      <Link
+        href={`/scoreboard?match=${m.id}`}
+        className="mt-3 block text-center text-sm font-semibold rounded-lg border border-gray-200 py-2.5 text-gray-700 hover:bg-gray-50"
+      >
+        🔢 Open scoreboard →
+      </Link>
+    </div>
+  )
+
+  const renderItem = (item: (typeof unscoredItems)[number]) =>
+    item.kind === 'game' ? <GameCard key={item.row.id} g={item.row} /> : <BracketCard key={item.row.id} m={item.row} />
+
   return (
     <div className="max-w-xl mx-auto px-4 py-6 pb-24">
       <div className="flex items-center justify-between mb-1">
@@ -140,22 +222,22 @@ export default async function CourtsidePage({
           className="px-4 py-2 rounded-lg border bg-white text-gray-600 font-bold">›</Link>
       </div>
 
-      {rows.length === 0 && (
+      {rows.length === 0 && bracketRows.length === 0 && (
         <p className="rounded-xl border border-dashed bg-white px-4 py-10 text-center text-sm text-gray-400">
           No games scheduled this day.
         </p>
       )}
 
-      {unscored.length > 0 && (
+      {unscoredItems.length > 0 && (
         <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Needs a score · {unscored.length}</p>
-          {unscored.map((g) => <GameCard key={g.id} g={g} />)}
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Needs a score · {unscoredItems.length}</p>
+          {unscoredItems.map(renderItem)}
         </div>
       )}
-      {scored.length > 0 && (
+      {scoredItems.length > 0 && (
         <div className="space-y-3 mt-6">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Scored · {scored.length}</p>
-          {scored.map((g) => <GameCard key={g.id} g={g} />)}
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Scored · {scoredItems.length}</p>
+          {scoredItems.map(renderItem)}
         </div>
       )}
     </div>

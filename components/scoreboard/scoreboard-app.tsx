@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { submitScore, adminSetScore } from '@/actions/scores'
+import { recordBracketScore } from '@/actions/brackets'
 
 // ── Fieldday Scoreboard ────────────────────────────────────────────────────────
 // A standalone, offline-capable scoreboard: tap a panel to +1, swipe down to −1.
@@ -32,11 +33,15 @@ type SavedGame = {
   updatedAt: number
 }
 
-// Attached mode: the board is scoring a real Fieldday game. Team A is always
-// the home team so the saved result's home/away orientation is never wrong.
+// Attached mode: the board is scoring a real Fieldday game (kind 'game') or a
+// playoff bracket match (kind 'bracket'). Team A is always the home team /
+// slot 1 so the saved result's orientation is never wrong.
 export type AttachedGame = {
-  gameId: string
+  kind: 'game' | 'bracket'
+  gameId: string // games.id, or bracket_matches.id for kind 'bracket'
+  bracketId: string | null
   leagueId: string
+  leagueSlug: string
   leagueName: string
   court: string | null
   setSport: boolean
@@ -138,7 +143,9 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   }, [])
 
   // Each attached game gets its own storage slot; the standalone board keeps its own.
-  const storageKey = attached ? `${STORAGE_KEY}:game:${attached.gameId}` : STORAGE_KEY
+  const storageKey = attached
+    ? `${STORAGE_KEY}:${attached.kind === 'bracket' ? 'match' : 'game'}:${attached.gameId}`
+    : STORAGE_KEY
 
   // Load saved game once on mount (client only)
   useEffect(() => {
@@ -321,23 +328,48 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     setMenuOpen(false)
   }
 
-  // Attached mode: push the result through the normal score pipeline — admins
-  // save confirmed (adminSetScore), captains submit pending (submitScore, the
-  // opposing captain confirms). Set sports save sets-won as the match score
-  // plus the per-set line, matching AdminScoreEntry's convention.
+  // What a save will record. In sets mode an in-progress set with points is
+  // folded into the set line (and counts for whoever leads) — otherwise saving
+  // mid-set silently drops those points, which is how sets went missing.
+  const isSets = game.config.mode === 'sets'
+  const effectiveSets = isSets ? [...sets, ...(a + b > 0 ? [{ home: a, away: b }] : [])] : []
+  const effHome = isSets ? effectiveSets.filter((s) => s.home > s.away).length : a
+  const effAway = isSets ? effectiveSets.filter((s) => s.away > s.home).length : b
+  const setLinePreview = isSets ? effectiveSets.map((s) => `${s.home}–${s.away}`).join('  ') : null
+
+  // Where "done" leads for an attached board: admins loop back to Courtside,
+  // everyone else returns to the event page.
+  const exitHref = attached ? (attached.canSave === 'admin' ? '/admin/courtside' : `/events/${attached.leagueSlug}`) : null
+  const exitLabel = attached?.canSave === 'admin' ? 'Courtside' : 'Event page'
+
+  // Attached mode: push the result through the normal pipeline — admins save
+  // confirmed (adminSetScore), captains submit pending (submitScore, opponent
+  // confirms), bracket matches go through recordBracketScore (admin-only,
+  // advances the winner). Set sports save sets-won as the match score plus the
+  // per-set line, matching AdminScoreEntry's convention.
   const saveResult = async () => {
     if (!attached?.canSave) return
     setSaveState('saving')
-    const isSets = game.config.mode === 'sets'
-    const homeScore = isSets ? setsWonA : a
-    const awayScore = isSets ? setsWonB : b
-    const setLine = isSets && sets.length > 0 ? sets : undefined
+    const setLine = isSets && effectiveSets.length > 0 ? effectiveSets : undefined
     try {
-      const res =
-        attached.canSave === 'admin'
-          ? await adminSetScore({ gameId: attached.gameId, leagueId: attached.leagueId, homeScore, awayScore, sets: setLine })
-          : await submitScore({ gameId: attached.gameId, homeScore, awayScore, sets: setLine })
-      if (res?.error) throw new Error(res.error)
+      if (attached.kind === 'bracket') {
+        if (effHome === effAway) throw new Error('tie') // bracket matches need a winner
+        const res = await recordBracketScore({
+          matchId: attached.gameId,
+          bracketId: attached.bracketId!,
+          leagueId: attached.leagueId,
+          score1: effHome,
+          score2: effAway,
+          sets: setLine?.map((s) => ({ s1: s.home, s2: s.away })),
+        })
+        if (res?.error) throw new Error(res.error)
+      } else {
+        const res =
+          attached.canSave === 'admin'
+            ? await adminSetScore({ gameId: attached.gameId, leagueId: attached.leagueId, homeScore: effHome, awayScore: effAway, sets: setLine })
+            : await submitScore({ gameId: attached.gameId, homeScore: effHome, awayScore: effAway, sets: setLine })
+        if (res?.error) throw new Error(res.error)
+      }
       setSaveState('saved')
     } catch {
       setSaveState('error')
@@ -347,6 +379,11 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   const saveButton = (className: string) =>
     attached?.canSave ? (
       <div className="flex flex-col items-center gap-1.5">
+        {setLinePreview && saveState !== 'saved' && (
+          <p className="text-xs text-white/50 tabular-nums">
+            Will save {effHome}–{effAway} · sets {setLinePreview}
+          </p>
+        )}
         <button onClick={saveResult} disabled={saveState === 'saving' || saveState === 'saved'} className={className}>
           {saveState === 'saving'
             ? 'Saving…'
@@ -358,9 +395,16 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
             ? 'Save final score'
             : 'Submit score'}
         </button>
+        {saveState === 'saved' && exitHref && (
+          <a href={exitHref} className="px-6 py-3 rounded-xl bg-white text-gray-900 font-bold">
+            Done — back to {exitLabel} →
+          </a>
+        )}
         {saveState === 'error' && (
           <p className="text-xs text-red-300 max-w-[240px] text-center">
-            Couldn’t reach Fieldday — the score is safe on this device. Try again when you’re back online.
+            {attached.kind === 'bracket' && effHome === effAway
+              ? 'Bracket matches need a winner — break the tie before saving.'
+              : 'Couldn’t reach Fieldday — the score is safe on this device. Try again when you’re back online.'}
           </p>
         )}
       </div>
@@ -438,6 +482,15 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
 
       {/* Middle bar */}
       <div className="flex landscape:flex-col items-center justify-center gap-2 px-2 py-1.5 landscape:px-1.5 landscape:py-2 bg-[#0B1210] text-[#9db3a9] shrink-0">
+        {exitHref && (
+          <a
+            href={exitHref}
+            aria-label={`Back to ${exitLabel}`}
+            className="text-xs font-semibold px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
+          >
+            ←
+          </a>
+        )}
         {game.config.mode === 'sets' && (
           <span className="text-[11px] font-mono tracking-wider px-2 py-1 rounded bg-white/5 whitespace-nowrap">
             SET {sets.length + 1}
@@ -504,9 +557,11 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
           <div className="flex flex-col items-center gap-3">
             {saveButton('px-6 py-3 rounded-xl bg-emerald-500 text-white font-bold disabled:opacity-60')}
             <div className="flex gap-3">
-              <button onClick={reset} className="px-6 py-3 rounded-xl bg-white/10 text-white font-semibold">
-                New game
-              </button>
+              {!attached && (
+                <button onClick={reset} className="px-6 py-3 rounded-xl bg-white/10 text-white font-semibold">
+                  New game
+                </button>
+              )}
               <button onClick={undo} className="px-6 py-3 rounded-xl bg-white/10 text-white font-semibold">
                 ↩ Undo
               </button>
@@ -656,6 +711,12 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
                 Reset game
               </button>
             </div>
+
+            {exitHref && (
+              <a href={exitHref} className="block w-full text-center py-2.5 rounded-lg text-sm font-semibold bg-white/10 text-white/80">
+                ← Back to {exitLabel}
+              </a>
+            )}
 
             {!installed && (
               <div>

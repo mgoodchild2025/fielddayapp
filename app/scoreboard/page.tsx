@@ -63,7 +63,7 @@ async function loadAttachedGame(gameId: string): Promise<AttachedGame | null> {
       id, status, court, home_team_id, away_team_id,
       home_team:teams!games_home_team_id_fkey(id, name, color),
       away_team:teams!games_away_team_id_fkey(id, name, color),
-      league:leagues!games_league_id_fkey(id, name, sport),
+      league:leagues!games_league_id_fkey(id, name, sport, slug),
       game_results(home_score, away_score, status)
     `)
     .eq('id', gameId)
@@ -96,8 +96,11 @@ async function loadAttachedGame(gameId: string): Promise<AttachedGame | null> {
   }
 
   return {
+    kind: 'game',
     gameId: game.id,
+    bracketId: null,
     leagueId: league?.id ?? '',
+    leagueSlug: league?.slug ?? '',
     leagueName: league?.name ?? '',
     court: game.court ?? null,
     setSport: SET_SPORTS.has(league?.sport ?? ''),
@@ -108,9 +111,82 @@ async function loadAttachedGame(gameId: string): Promise<AttachedGame | null> {
   }
 }
 
-export default async function ScoreboardPage({ searchParams }: { searchParams: Promise<{ game?: string }> }) {
-  const { game } = await searchParams
-  const attached = game && /^[0-9a-f-]{36}$/.test(game) ? await loadAttachedGame(game) : null
+// Playoff bracket matches aren't games rows — they live in bracket_matches with
+// their own score entry (recordBracketScore, admin-only, auto-advances the
+// winner). ?match=<id> attaches the board to one of those.
+async function loadAttachedBracketMatch(matchId: string): Promise<AttachedGame | null> {
+  const headersList = await headers()
+  const orgId = headersList.get('x-org-id')
+  if (!orgId) return null
+
+  const db = createServiceRoleClient()
+  const { data: match } = await db
+    .from('bracket_matches')
+    .select(`
+      id, status, court, bracket_id,
+      team1:teams!bracket_matches_team1_id_fkey(id, name, color),
+      team2:teams!bracket_matches_team2_id_fkey(id, name, color),
+      bracket:brackets!bracket_matches_bracket_id_fkey(id, name, league_id)
+    `)
+    .eq('id', matchId)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+
+  if (!match) return null
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const team1 = (Array.isArray(match.team1) ? match.team1[0] : match.team1) as any
+  const team2 = (Array.isArray(match.team2) ? match.team2[0] : match.team2) as any
+  const bracket = (Array.isArray(match.bracket) ? match.bracket[0] : match.bracket) as any
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  if (!team1 || !team2 || !bracket) return null // undetermined matchups can't be scored
+
+  const { data: league } = await db
+    .from('leagues')
+    .select('id, name, sport, slug')
+    .eq('id', bracket.league_id)
+    .maybeSingle()
+  if (!league) return null
+
+  // Bracket scores are admin-entered only (recordBracketScore advances the
+  // winner) — captains and spectators get a score-only board.
+  let canSave: 'admin' | null = null
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    const { data: adminRow } = await db
+      .from('org_members')
+      .select('role')
+      .eq('organization_id', orgId)
+      .eq('user_id', user.id)
+      .in('role', ['org_admin', 'league_admin'])
+      .maybeSingle()
+    if (adminRow) canSave = 'admin'
+  }
+
+  return {
+    kind: 'bracket',
+    gameId: match.id,
+    bracketId: bracket.id,
+    leagueId: league.id,
+    leagueSlug: league.slug ?? '',
+    leagueName: `${league.name} · ${bracket.name}`,
+    court: match.court ?? null,
+    setSport: SET_SPORTS.has(league.sport ?? ''),
+    home: { name: team1.name, color: team1.color ?? null },
+    away: { name: team2.name, color: team2.color ?? null },
+    canSave,
+    resultStatus: match.status === 'completed' ? 'confirmed' : null,
+  }
+}
+
+export default async function ScoreboardPage({ searchParams }: { searchParams: Promise<{ game?: string; match?: string }> }) {
+  const { game, match } = await searchParams
+  const isUuid = (v?: string): v is string => !!v && /^[0-9a-f-]{36}$/.test(v)
+  const attached = isUuid(match)
+    ? await loadAttachedBracketMatch(match)
+    : isUuid(game)
+    ? await loadAttachedGame(game)
+    : null
 
   return (
     <>
