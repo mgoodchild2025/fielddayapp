@@ -115,6 +115,27 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   const [editTeam, setEditTeam] = useState<'A' | 'B' | null>(null)
   const [flash, setFlash] = useState<'A' | 'B' | null>(null)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null)
+  const [installed, setInstalled] = useState(false)
+  const [installHelp, setInstallHelp] = useState(false)
+
+  // Capture Chrome's install prompt at the app level so BOTH the one-time hint
+  // and the menu's "Add to home screen" button can fire it — even after the
+  // hint was dismissed, and even from fullscreen.
+  useEffect(() => {
+    const onPrompt = (e: Event) => {
+      e.preventDefault()
+      setInstallPrompt(e as InstallPromptEvent)
+    }
+    window.addEventListener('beforeinstallprompt', onPrompt)
+    // Already-installed check: display-mode also reports 'fullscreen' during
+    // the in-page Fullscreen API, so fullscreenElement disambiguates. At mount
+    // no API fullscreen can be active, making this a pure install check.
+    setInstalled(
+      window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches && !document.fullscreenElement
+    )
+    return () => window.removeEventListener('beforeinstallprompt', onPrompt)
+  }, [])
 
   // Each attached game gets its own storage slot; the standalone board keeps its own.
   const storageKey = attached ? `${STORAGE_KEY}:game:${attached.gameId}` : STORAGE_KEY
@@ -350,6 +371,20 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     else document.documentElement.requestFullscreen?.().catch(() => {})
   }
 
+  // "Add to home screen" from the menu. Chrome can pop the real install
+  // dialog; iOS has no API for it, so it gets the Share-menu instructions —
+  // either way, leave in-page fullscreen first so the browser chrome (and on
+  // iOS the Share button) is visible.
+  const requestInstall = async () => {
+    if (document.fullscreenElement) await document.exitFullscreen().catch(() => {})
+    if (installPrompt) {
+      setMenuOpen(false)
+      installPrompt.prompt()
+    } else {
+      setInstallHelp(true)
+    }
+  }
+
   if (!loaded) return <div className="fixed inset-0 bg-[#0B1210]" />
 
   // Display order honours side swaps; scores stay keyed to the real teams.
@@ -434,7 +469,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
 
       {panel(second)}
 
-      <InstallHint />
+      <InstallHint installPrompt={installPrompt} />
 
       {/* Set-won overlay */}
       {pendingSetWinner && !matchWinner && (
@@ -622,6 +657,21 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
               </button>
             </div>
 
+            {!installed && (
+              <div>
+                <button onClick={requestInstall} className="w-full py-2.5 rounded-lg text-sm font-semibold bg-white/10 text-white/80">
+                  📲 Add to home screen
+                </button>
+                {installHelp && (
+                  <p className="text-xs text-white/50 mt-2 leading-relaxed">
+                    {isIosDevice()
+                      ? 'iPhone/iPad: open this page in Safari, tap the Share button, then “Add to Home Screen”. The scoreboard installs fullscreen and works offline.'
+                      : 'In your browser menu, choose “Install app” (or “Add to Home Screen”). The scoreboard installs fullscreen and works offline.'}
+                  </p>
+                )}
+              </div>
+            )}
+
             <p className="text-center text-xs text-white/40 pt-2">
               Tap a side to score · swipe down to take one back · hold to edit
               <br />
@@ -647,10 +697,15 @@ const HINT_DISMISSED_KEY = 'fieldday-scoreboard-install-hint'
 
 type InstallPromptEvent = Event & { prompt: () => Promise<void> }
 
-function InstallHint() {
+// iPadOS reports as Mac; the touch check catches it.
+function isIosDevice() {
+  const ua = navigator.userAgent
+  return /iPhone|iPad|iPod/.test(ua) || (ua.includes('Mac') && navigator.maxTouchPoints > 1)
+}
+
+function InstallHint({ installPrompt }: { installPrompt: InstallPromptEvent | null }) {
   const [show, setShow] = useState(false)
   const [isIos, setIsIos] = useState(false)
-  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null)
 
   useEffect(() => {
     try {
@@ -659,21 +714,9 @@ function InstallHint() {
       return
     }
     if (window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches) return
-
-    const ua = navigator.userAgent
-    // iPadOS reports as Mac; the touch check catches it.
-    setIsIos(/iPhone|iPad|iPod/.test(ua) || (ua.includes('Mac') && navigator.maxTouchPoints > 1))
-
-    const onPrompt = (e: Event) => {
-      e.preventDefault()
-      setInstallPrompt(e as InstallPromptEvent)
-    }
-    window.addEventListener('beforeinstallprompt', onPrompt)
+    setIsIos(isIosDevice())
     const timer = setTimeout(() => setShow(true), 2500)
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onPrompt)
-      clearTimeout(timer)
-    }
+    return () => clearTimeout(timer)
   }, [])
 
   const dismiss = () => {
