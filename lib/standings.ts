@@ -21,6 +21,8 @@ export interface TeamStat {
   pointsAgainst: number  // for volleyball: total set-level points conceded
   setWins: number
   setLosses: number
+  /** Trailing run like "W4" / "L2" / "T2" — set only when the run is 2+ games. */
+  streak?: string | null
 }
 
 export const VOLLEYBALL_SPORTS = new Set(['volleyball', 'beach_volleyball'])
@@ -206,4 +208,45 @@ export function sortStandings<T extends TeamStat>(
   return isVolleyballSport(sport) && mode === 'set_based'
     ? sortSetBased(teams)
     : sortMatchBased(teams, method)
+}
+
+/** One game's outcome per team, matching accumulateGameResult's W/L/T rules. */
+type StreakGame = {
+  homeTeamId: string
+  awayTeamId: string
+  homeScore: number | null | undefined
+  awayScore: number | null | undefined
+  isForfeit?: boolean | null
+  forfeitTeamId?: string | null
+  scheduledAt: string
+}
+
+/**
+ * Trailing result run per team ("W4", "L2", "T2") from confirmed games.
+ * Chronological by scheduledAt; runs shorter than 2 return nothing — a "W1"
+ * chip is noise. W/L/T per game follows the same rules as the standings math.
+ */
+export function computeStreaks(games: StreakGame[]): Map<string, string> {
+  const byTeam = new Map<string, string[]>()
+  const push = (teamId: string, r: string) => {
+    const list = byTeam.get(teamId) ?? []
+    list.push(r)
+    byTeam.set(teamId, list)
+  }
+  for (const g of [...games].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))) {
+    const hs = g.homeScore ?? 0
+    const as_ = g.awayScore ?? 0
+    if (g.isForfeit && !g.forfeitTeamId) { push(g.homeTeamId, 'L'); push(g.awayTeamId, 'L') }
+    else if (hs > as_) { push(g.homeTeamId, 'W'); push(g.awayTeamId, 'L') }
+    else if (as_ > hs) { push(g.awayTeamId, 'W'); push(g.homeTeamId, 'L') }
+    else { push(g.homeTeamId, 'T'); push(g.awayTeamId, 'T') }
+  }
+  const streaks = new Map<string, string>()
+  for (const [teamId, results] of byTeam) {
+    const last = results[results.length - 1]
+    let count = 0
+    for (let i = results.length - 1; i >= 0 && results[i] === last; i--) count++
+    if (count >= 2) streaks.set(teamId, `${last}${count}`)
+  }
+  return streaks
 }

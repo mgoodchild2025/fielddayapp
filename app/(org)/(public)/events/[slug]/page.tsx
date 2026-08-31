@@ -30,7 +30,7 @@ import { BackLink } from '@/components/ui/back-link'
 import { formatGameTime } from '@/lib/format-time'
 import {
   computePts, sortStandings, VOLLEYBALL_SPORTS,
-  accumulateGameResult, emptyTeamStat,
+  accumulateGameResult, emptyTeamStat, computeStreaks,
   type TeamStat as BaseTeamStat, type TeamStatTotals,
   type PtsMethod, type VolleyballMode,
 } from '@/lib/standings'
@@ -243,6 +243,11 @@ function StandingsTable({
                       <Link href={`/teams/${team.id}/stats`} className="flex items-center gap-2 min-w-0 hover:underline">
                         <TeamAvatar logoUrl={team.logoUrl ?? null} color={team.color ?? null} name={team.name} size="sm" />
                         <span className="truncate">{team.name}</span>
+                        {team.streak && (
+                          <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold tabular-nums ${team.streak.startsWith('W') ? 'bg-green-50 text-green-700' : team.streak.startsWith('L') ? 'bg-red-50 text-red-500' : 'bg-gray-100 text-gray-500'}`} title={team.streak.startsWith('W') ? `${team.streak.slice(1)}-game win streak` : team.streak.startsWith('L') ? `${team.streak.slice(1)}-game losing streak` : `${team.streak.slice(1)} straight ties`}>
+                            {team.streak}
+                          </span>
+                        )}
                       </Link>
                     </td>
                     <td className="px-3 py-3 text-center text-gray-500">{team.matchesPlayed}</td>
@@ -1396,7 +1401,7 @@ export default async function EventDetailPage({
       db.from('divisions').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
       db.from('pools').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
       db.from('game_results')
-        .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
+        .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id, scheduled_at)')
         .eq('organization_id', org.id)
         .eq('status', 'confirmed'),
     ])
@@ -1406,6 +1411,8 @@ export default async function EventDetailPage({
 
     const record = new Map<string, TeamStatTotals>()
     const poolRecord = new Map<string, TeamStatTotals>()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const streakGames: any[] = []
     // combinedRecord = all games (regular + pool) → drives the overall cross-pool table
     const combinedRecord = new Map<string, TeamStatTotals>()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1425,7 +1432,10 @@ export default async function EventDetailPage({
       }
       accumulateGameResult(gamePool ? poolRecord : record, input, isVolleyballLeague)
       accumulateGameResult(combinedRecord, input, isVolleyballLeague)
+      streakGames.push({ ...input, scheduledAt: game.scheduled_at ?? '' })
     }
+    // Trailing W/L/T runs across all games (pool + regular — one story per team)
+    const streaks = computeStreaks(streakGames)
 
     hasRegularSeasonGames = record.size > 0
     hasPoolGames = poolRecord.size > 0
@@ -1438,6 +1448,7 @@ export default async function EventDetailPage({
       division_id: t.division_id ?? null,
       pool_id: t.pool_id ?? null,
       ...(record.get(t.id) ?? emptyTeamStat()),
+      streak: streaks.get(t.id) ?? null,
     }))
     poolStandingsTeams = (teamsData ?? [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1450,6 +1461,7 @@ export default async function EventDetailPage({
         division_id: t.division_id ?? null,
         pool_id: t.pool_id ?? null,
         ...(poolRecord.get(t.id) ?? emptyTeamStat()),
+        streak: streaks.get(t.id) ?? null,
       }))
     overallStandingsTeams = (teamsData ?? [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1462,6 +1474,7 @@ export default async function EventDetailPage({
         division_id: t.division_id ?? null,
         pool_id: t.pool_id ?? null,
         ...(combinedRecord.get(t.id) ?? emptyTeamStat()),
+        streak: streaks.get(t.id) ?? null,
       }))
     standingsPtsMethod = leaguePtsMethod
     standingsVolleyballMode = leagueVolleyballMode
