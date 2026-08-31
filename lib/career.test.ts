@@ -63,6 +63,25 @@ describe('buildCareer', () => {
     expect(c.tables[0].rows.find((r) => r.seasonLabel === '2026')?.stats.__w).toBeUndefined()
   })
 
+  it('uses one column shape across sports — a tie anywhere gives every record table T', () => {
+    const c = buildCareer({
+      ...base,
+      memberships: [
+        ...base.memberships,
+        { teamId: 't4', teamName: 'Weekend Warriors', leagueId: 'l4', leagueName: 'Beach Bash', sport: 'tournament', seasonStart: '2026-06-01', createdAt: null },
+      ],
+      statsByLeague: new Map(),
+      statDefsBySport: new Map(),
+      teamRecordByLeagueTeam: new Map([
+        ['l1:t1', { played: 11, wins: 7, losses: 3, ties: 1 }],
+        ['l4:t4', { played: 6, wins: 4, losses: 2, ties: 0 }],
+      ]),
+    })
+    // Same W/L/T shape everywhere → the tables merge into one aligned table.
+    expect(c.tables).toHaveLength(1)
+    expect(c.tables[0].columns.map((col) => col.label)).toEqual(['W', 'L', 'T'])
+  })
+
   it('adds a T column only when a tie actually exists', () => {
     const c = buildCareer({
       ...base,
