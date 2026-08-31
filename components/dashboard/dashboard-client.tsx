@@ -277,6 +277,12 @@ function GameHero({
               <span>{item.court}</span>
             </div>
           )}
+          <Link
+            href={`/scoreboard?game=${item.id}`}
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+          >
+            🔢 <span className="underline underline-offset-2">Scoreboard</span>
+          </Link>
         </div>
       </div>
 

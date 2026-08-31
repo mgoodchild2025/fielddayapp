@@ -384,6 +384,8 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
 
       {panel(second)}
 
+      <InstallHint />
+
       {/* Set-won overlay */}
       {pendingSetWinner && !matchWinner && (
         <Overlay>
@@ -572,6 +574,84 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
           </div>
         </Sheet>
       )}
+    </div>
+  )
+}
+
+// ── Install hint ──────────────────────────────────────────────────────────────
+// One-time nudge to add the scoreboard to the home screen. Hidden when the app
+// is already installed (display-mode standalone/fullscreen), once dismissed,
+// and until the page has settled. Chrome's beforeinstallprompt gives us a real
+// Install button; iOS never prompts, so it gets the Share-menu instructions.
+
+const HINT_DISMISSED_KEY = 'fieldday-scoreboard-install-hint'
+
+type InstallPromptEvent = Event & { prompt: () => Promise<void> }
+
+function InstallHint() {
+  const [show, setShow] = useState(false)
+  const [isIos, setIsIos] = useState(false)
+  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null)
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(HINT_DISMISSED_KEY)) return
+    } catch {
+      return
+    }
+    if (window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches) return
+
+    const ua = navigator.userAgent
+    // iPadOS reports as Mac; the touch check catches it.
+    setIsIos(/iPhone|iPad|iPod/.test(ua) || (ua.includes('Mac') && navigator.maxTouchPoints > 1))
+
+    const onPrompt = (e: Event) => {
+      e.preventDefault()
+      setInstallPrompt(e as InstallPromptEvent)
+    }
+    window.addEventListener('beforeinstallprompt', onPrompt)
+    const timer = setTimeout(() => setShow(true), 2500)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt)
+      clearTimeout(timer)
+    }
+  }, [])
+
+  const dismiss = () => {
+    setShow(false)
+    try {
+      localStorage.setItem(HINT_DISMISSED_KEY, '1')
+    } catch {}
+  }
+
+  if (!show) return null
+
+  return (
+    <div className="fixed bottom-3 left-3 right-3 z-30 flex justify-center pointer-events-none">
+      <div className="pointer-events-auto flex items-center gap-3 max-w-md rounded-xl bg-black/80 backdrop-blur px-4 py-3 shadow-lg">
+        <p className="text-xs text-white/85 leading-snug">
+          <span className="font-bold">Add to your home screen</span> — opens fullscreen and works offline.{' '}
+          {isIos ? (
+            <span className="text-white/60">Tap the Share button, then “Add to Home Screen”.</span>
+          ) : installPrompt ? null : (
+            <span className="text-white/60">In your browser menu, choose “Install app”.</span>
+          )}
+        </p>
+        {!isIos && installPrompt && (
+          <button
+            onClick={() => {
+              installPrompt.prompt()
+              dismiss()
+            }}
+            className="shrink-0 text-xs font-bold px-3 py-2 rounded-lg bg-emerald-500 text-white"
+          >
+            Install
+          </button>
+        )}
+        <button onClick={dismiss} className="shrink-0 text-white/50 hover:text-white text-lg leading-none" aria-label="Dismiss">
+          ×
+        </button>
+      </div>
     </div>
   )
 }
