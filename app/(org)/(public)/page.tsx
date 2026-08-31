@@ -1,4 +1,5 @@
 import { headers } from 'next/headers'
+import type { Metadata } from 'next'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { MarketingPage } from '@/components/marketing/marketing-page'
 import { CommunityHome } from '@/components/site-themes/community/community-home'
@@ -220,6 +221,16 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
         />
       )
   }
+}
+
+// Canonical URL for the marketing page only — org home pages must never point
+// at the apex, or Google would treat every org site as a duplicate of it.
+export async function generateMetadata(): Promise<Metadata> {
+  const headersList = await headers()
+  const orgId = headersList.get('x-org-id')
+
+  if (!orgId) return { alternates: { canonical: 'https://fielddayapp.ca' } }
+  return {}
 }
 
 export default async function RootPage() {

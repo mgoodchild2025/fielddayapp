@@ -37,7 +37,7 @@ function Hero() {
     <section className="relative overflow-hidden bg-slate-950 text-white min-h-[520px] sm:min-h-[600px]">
       {/* Background photo */}
       <Image
-        src="/FieldDay.png"
+        src="/FieldDay.jpg"
         alt=""
         fill
         priority
@@ -528,11 +528,49 @@ function MarketingFooter() {
   )
 }
 
+// ── Structured data ───────────────────────────────────────────────────────────
+// SoftwareApplication with per-plan offers earns price-annotated search results;
+// Organization establishes the publisher entity for search and AI answer engines.
+
+const JSON_LD = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': 'https://fielddayapp.ca/#organization',
+      name: 'Fieldday Sports Technology Inc.',
+      url: 'https://fielddayapp.ca',
+      logo: 'https://fielddayapp.ca/Fieldday-Icon.png',
+    },
+    {
+      '@type': 'SoftwareApplication',
+      name: 'Fieldday',
+      url: 'https://fielddayapp.ca',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web',
+      description:
+        'Sports league management platform for community sports organizations. Leagues use Fieldday to run online registration and payments (including e-transfer and GST/HST), build schedules and playoff brackets, track live standings, and give every league its own branded website.',
+      publisher: { '@id': 'https://fielddayapp.ca/#organization' },
+      offers: PLANS.map((plan) => ({
+        '@type': 'Offer',
+        name: `${plan.name} plan`,
+        price: plan.price,
+        priceCurrency: 'CAD',
+        url: `https://fielddayapp.ca${plan.ctaHref}`,
+      })),
+    },
+  ],
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function MarketingPage() {
   return (
     <div className="min-h-dvh bg-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+      />
       <MarketingNav />
       <Hero />
       <Features />

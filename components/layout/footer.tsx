@@ -100,7 +100,18 @@ export function Footer({ org, social }: FooterProps) {
           </div>
         )}
 
-        <p>© {new Date().getFullYear()} {org.name}. Powered by Fieldday.</p>
+        <p>
+          © {new Date().getFullYear()} {org.name}. Powered by{' '}
+          <a
+            href="https://fielddayapp.ca"
+            target="_blank"
+            rel="noopener"
+            className="underline underline-offset-2 hover:opacity-100 opacity-90 transition-opacity"
+          >
+            Fieldday
+          </a>
+          .
+        </p>
       </div>
     </footer>
   )
