@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  computeStreaks,
   accumulateGameResult,
   emptyTeamStat,
   computePts,
@@ -187,5 +188,41 @@ describe('sortStandings', () => {
 
     const nonVb = sortStandings(teams, 'soccer', 'set_based', 'wins')
     expect(nonVb[0].id).toBe('matchWinner')
+  })
+})
+const g = (home: string, away: string, hs: number, as: number, date: string) => ({
+  homeTeamId: home, awayTeamId: away, homeScore: hs, awayScore: as, scheduledAt: date,
+})
+
+describe('computeStreaks', () => {
+  it('finds trailing runs of 2+ and hides single-game runs', () => {
+    const streaks = computeStreaks([
+      g('a', 'b', 2, 1, '2026-01-01'), // a W, b L
+      g('a', 'c', 3, 0, '2026-01-08'), // a W, c L
+      g('b', 'c', 1, 1, '2026-01-15'), // ties
+      g('a', 'b', 0, 2, '2026-01-22'), // a L, b W — both runs of 1
+    ])
+    expect(streaks.get('a')).toBeUndefined() // trailing L1
+    expect(streaks.get('b')).toBeUndefined() // trailing W1
+    expect(streaks.get('c')).toBeUndefined() // L then T — trailing T1
+  })
+
+  it('counts win and loss streaks chronologically regardless of input order', () => {
+    const streaks = computeStreaks([
+      g('a', 'b', 1, 0, '2026-02-15'),
+      g('b', 'a', 0, 3, '2026-02-01'),
+      g('a', 'c', 2, 0, '2026-02-08'),
+    ])
+    expect(streaks.get('a')).toBe('W3')
+    expect(streaks.get('b')).toBe('L2')
+  })
+
+  it('double forfeits count as losses for both teams', () => {
+    const streaks = computeStreaks([
+      { ...g('a', 'b', 0, 0, '2026-03-01'), isForfeit: true, forfeitTeamId: null },
+      { ...g('a', 'b', 0, 0, '2026-03-08'), isForfeit: true, forfeitTeamId: null },
+    ])
+    expect(streaks.get('a')).toBe('L2')
+    expect(streaks.get('b')).toBe('L2')
   })
 })

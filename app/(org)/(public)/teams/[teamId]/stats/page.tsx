@@ -12,7 +12,7 @@ import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
 import type { LeaderboardPlayer } from '@/components/stats/stats-leaderboard'
 import type { SeasonResult, H2HRecord } from '@/components/teams/team-stats-client'
 import { formatGameTime } from '@/lib/format-time'
-import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, type TeamStatTotals, type PtsMethod, type VolleyballMode } from '@/lib/standings'
+import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, computeStreaks, type TeamStatTotals, type PtsMethod, type VolleyballMode } from '@/lib/standings'
 import { fetchLeaguePlayoffGames } from '@/lib/playoff-games'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -122,6 +122,21 @@ export default async function TeamStatsPage({
   const scoringUnit = scoringLabel(sport)
 
   // ── Compute season record ─────────────────────────────────────────────────
+  // Trailing W/L/T run for the hero chip — confirmed games only.
+  const teamStreak = computeStreaks(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (teamGames as any[])
+      .map((tg) => ({ tg, result: Array.isArray(tg.game_results) ? tg.game_results[0] : tg.game_results }))
+      .filter(({ result }) => result?.status === 'confirmed')
+      .map(({ tg, result }) => ({
+        homeTeamId: tg.home_team_id,
+        awayTeamId: tg.away_team_id,
+        homeScore: result.home_score,
+        awayScore: result.away_score,
+        scheduledAt: tg.scheduled_at ?? '',
+      }))
+  ).get(teamId) ?? null
+
   let wins = 0, losses = 0, ties = 0, played = 0, goalsFor = 0, goalsAgainst = 0
   for (const g of teamGames) {
     const result = Array.isArray(g.game_results) ? g.game_results[0] : g.game_results
@@ -389,6 +404,11 @@ export default async function TeamStatsPage({
               <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Record</p>
               <p className="text-xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-secondary)' }}>
                 {wins}W&nbsp;{losses}L{ties > 0 ? ` ${ties}T` : ''}
+                {teamStreak && (
+                  <span className={`ml-2 align-middle px-1.5 py-0.5 rounded text-xs font-bold tabular-nums ${teamStreak.startsWith('W') ? 'bg-green-50 text-green-700' : teamStreak.startsWith('L') ? 'bg-red-50 text-red-500' : 'bg-gray-100 text-gray-500'}`} title={teamStreak.startsWith('W') ? `${teamStreak.slice(1)}-game win streak` : teamStreak.startsWith('L') ? `${teamStreak.slice(1)}-game losing streak` : `${teamStreak.slice(1)} straight ties`}>
+                    {teamStreak}
+                  </span>
+                )}
               </p>
               <p className="text-[11px] text-gray-400 mt-1.5">{played} played</p>
             </div>
