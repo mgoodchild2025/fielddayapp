@@ -537,6 +537,17 @@ function DateGroup({
                 />
               )}
 
+              {/* Live scoreboard for the game — captains can score courtside and
+                  submit the result straight from the board. */}
+              {!game.isPlayoff && isCaptain && homeTeam && awayTeam && result?.status !== 'confirmed' && game.status !== 'cancelled' && game.status !== 'postponed' && (
+                <Link
+                  href={`/scoreboard?game=${game.id}`}
+                  className="inline-block text-xs font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+                >
+                  🔢 Open scoreboard
+                </Link>
+              )}
+
               {!game.isPlayoff && isPast && isCaptain && result?.status !== 'confirmed' && game.status !== 'cancelled' && game.status !== 'postponed' && (
                 <CaptainScoreEntry
                   gameId={game.id}

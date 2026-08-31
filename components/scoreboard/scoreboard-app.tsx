@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { submitScore, adminSetScore } from '@/actions/scores'
 
 // ── Fieldday Scoreboard ────────────────────────────────────────────────────────
 // A standalone, offline-capable scoreboard: tap a panel to +1, swipe down to −1.
@@ -29,6 +30,19 @@ type SavedGame = {
   updatedAt: number
 }
 
+// Attached mode: the board is scoring a real Fieldday game. Team A is always
+// the home team so the saved result's home/away orientation is never wrong.
+export type AttachedGame = {
+  gameId: string
+  leagueId: string
+  leagueName: string
+  setSport: boolean
+  home: { name: string; color: string | null }
+  away: { name: string; color: string | null }
+  canSave: 'admin' | 'captain' | null
+  resultStatus: string | null
+}
+
 const STORAGE_KEY = 'fieldday-scoreboard-v1'
 
 const COLORS = ['#0E9F6E', '#2563EB', '#DC2626', '#EA580C', '#7C3AED', '#DB2777', '#0891B2', '#475569']
@@ -43,15 +57,25 @@ const DEFAULTS: SavedGame = {
   updatedAt: 0,
 }
 
-function load(): SavedGame {
+function attachedDefaults(att: AttachedGame): SavedGame {
+  return {
+    ...DEFAULTS,
+    teamA: { name: att.home.name, color: att.home.color ?? COLORS[0] },
+    teamB: { name: att.away.name, color: att.away.color ?? COLORS[1] },
+    config: { ...DEFAULTS.config, mode: att.setSport ? 'sets' : 'free' },
+  }
+}
+
+function load(key: string, att: AttachedGame | null): SavedGame {
+  const base = att ? attachedDefaults(att) : DEFAULTS
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return DEFAULTS
+    const raw = localStorage.getItem(key)
+    if (!raw) return base
     const parsed = JSON.parse(raw) as SavedGame
-    if (parsed?.v !== 1 || !Array.isArray(parsed.events)) return DEFAULTS
-    return { ...DEFAULTS, ...parsed }
+    if (parsed?.v !== 1 || !Array.isArray(parsed.events)) return base
+    return { ...base, ...parsed }
   } catch {
-    return DEFAULTS
+    return base
   }
 }
 
@@ -81,28 +105,33 @@ function setWinner(cfg: Config, a: number, b: number): 'A' | 'B' | null {
   return null
 }
 
-export function ScoreboardApp() {
-  const [game, setGame] = useState<SavedGame>(DEFAULTS)
+export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | null }) {
+  const [game, setGame] = useState<SavedGame>(attached ? attachedDefaults(attached) : DEFAULTS)
   const [loaded, setLoaded] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [editTeam, setEditTeam] = useState<'A' | 'B' | null>(null)
   const [flash, setFlash] = useState<'A' | 'B' | null>(null)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+  // Each attached game gets its own storage slot; the standalone board keeps its own.
+  const storageKey = attached ? `${STORAGE_KEY}:game:${attached.gameId}` : STORAGE_KEY
 
   // Load saved game once on mount (client only)
   useEffect(() => {
-    setGame(load())
+    setGame(load(storageKey, attached))
     setLoaded(true)
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey])
 
   // Persist on every change
   useEffect(() => {
     if (!loaded) return
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...game, updatedAt: Date.now() }))
+      localStorage.setItem(storageKey, JSON.stringify({ ...game, updatedAt: Date.now() }))
     } catch {
       // storage full/unavailable — scoreboard still works, just won't survive reload
     }
-  }, [game, loaded])
+  }, [game, loaded, storageKey])
 
   // Screen wake lock, re-acquired when the tab becomes visible again
   useEffect(() => {
@@ -217,8 +246,54 @@ export function ScoreboardApp() {
 
   const reset = () => {
     setGame((g) => ({ ...g, events: [] }))
+    setSaveState('idle')
     setMenuOpen(false)
   }
+
+  // Attached mode: push the result through the normal score pipeline — admins
+  // save confirmed (adminSetScore), captains submit pending (submitScore, the
+  // opposing captain confirms). Set sports save sets-won as the match score
+  // plus the per-set line, matching AdminScoreEntry's convention.
+  const saveResult = async () => {
+    if (!attached?.canSave) return
+    setSaveState('saving')
+    const isSets = game.config.mode === 'sets'
+    const homeScore = isSets ? setsWonA : a
+    const awayScore = isSets ? setsWonB : b
+    const setLine = isSets && sets.length > 0 ? sets : undefined
+    try {
+      const res =
+        attached.canSave === 'admin'
+          ? await adminSetScore({ gameId: attached.gameId, leagueId: attached.leagueId, homeScore, awayScore, sets: setLine })
+          : await submitScore({ gameId: attached.gameId, homeScore, awayScore, sets: setLine })
+      if (res?.error) throw new Error(res.error)
+      setSaveState('saved')
+    } catch {
+      setSaveState('error')
+    }
+  }
+
+  const saveButton = (className: string) =>
+    attached?.canSave ? (
+      <div className="flex flex-col items-center gap-1.5">
+        <button onClick={saveResult} disabled={saveState === 'saving' || saveState === 'saved'} className={className}>
+          {saveState === 'saving'
+            ? 'Saving…'
+            : saveState === 'saved'
+            ? attached.canSave === 'admin'
+              ? '✓ Saved as final'
+              : '✓ Submitted — opponent confirms'
+            : attached.canSave === 'admin'
+            ? 'Save final score'
+            : 'Submit score'}
+        </button>
+        {saveState === 'error' && (
+          <p className="text-xs text-red-300 max-w-[240px] text-center">
+            Couldn’t reach Fieldday — the score is safe on this device. Try again when you’re back online.
+          </p>
+        )}
+      </div>
+    ) : null
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
@@ -339,13 +414,16 @@ export function ScoreboardApp() {
           <p className="text-white/60 text-lg tabular-nums mb-6">
             {sets.map((s) => `${s.home}–${s.away}`).join('  ')}
           </p>
-          <div className="flex gap-3">
-            <button onClick={reset} className="px-6 py-3 rounded-xl bg-emerald-500 text-white font-bold">
-              New game
-            </button>
-            <button onClick={undo} className="px-6 py-3 rounded-xl bg-white/10 text-white font-semibold">
-              ↩ Undo
-            </button>
+          <div className="flex flex-col items-center gap-3">
+            {saveButton('px-6 py-3 rounded-xl bg-emerald-500 text-white font-bold disabled:opacity-60')}
+            <div className="flex gap-3">
+              <button onClick={reset} className="px-6 py-3 rounded-xl bg-white/10 text-white font-semibold">
+                New game
+              </button>
+              <button onClick={undo} className="px-6 py-3 rounded-xl bg-white/10 text-white font-semibold">
+                ↩ Undo
+              </button>
+            </div>
           </div>
         </Overlay>
       )}
@@ -389,6 +467,21 @@ export function ScoreboardApp() {
       {menuOpen && (
         <Sheet onClose={() => setMenuOpen(false)} title="Scoreboard">
           <div className="space-y-4">
+            {attached && (
+              <div className="rounded-lg bg-white/5 px-3 py-2.5">
+                <p className="text-xs text-white/50">
+                  Scoring {game.teamA.name} vs {game.teamB.name}
+                  {attached.leagueName ? ` · ${attached.leagueName}` : ''}
+                </p>
+                {attached.canSave ? (
+                  <div className="mt-2">
+                    {saveButton('w-full py-2.5 rounded-lg text-sm font-bold bg-emerald-500 text-white disabled:opacity-60')}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-white/35 mt-1">Score-only view — captains and admins can save results.</p>
+                )}
+              </div>
+            )}
             <div>
               <label className="block text-xs text-white/60 mb-1.5">Scoring mode</label>
               <div className="flex gap-2">

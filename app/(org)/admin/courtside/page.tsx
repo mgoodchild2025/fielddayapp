@@ -110,6 +110,12 @@ export default async function CourtsidePage({
             existingResult={g.result ? { homeScore: g.result.home_score, awayScore: g.result.away_score, status: g.result.status, sets: g.result.sets ?? null } : null}
             compact
           />
+          <Link
+            href={`/scoreboard?game=${g.id}`}
+            className="mt-2 block text-center text-xs font-semibold text-gray-500 hover:text-gray-700 py-1.5"
+          >
+            🔢 Open scoreboard →
+          </Link>
         </div>
       )}
     </div>
