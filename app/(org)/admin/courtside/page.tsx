@@ -156,12 +156,12 @@ export default async function CourtsidePage({
             existingResult={g.result ? { homeScore: g.result.home_score, awayScore: g.result.away_score, status: g.result.status, sets: g.result.sets ?? null } : null}
             compact
           />
-          <Link
+          <a
             href={`/scoreboard?game=${g.id}`}
             className="mt-2 block text-center text-xs font-semibold text-gray-500 hover:text-gray-700 py-1.5"
           >
             🔢 Open scoreboard →
-          </Link>
+          </a>
         </div>
       )}
     </div>
@@ -191,12 +191,12 @@ export default async function CourtsidePage({
           <TeamAvatar logoUrl={m.team2?.logo_url ?? null} color={m.team2?.color ?? null} name={m.team2?.name ?? 'TBD'} size="sm" />
         </div>
       </div>
-      <Link
+      <a
         href={`/scoreboard?match=${m.id}`}
         className="mt-3 block text-center text-sm font-semibold rounded-lg border border-gray-200 py-2.5 text-gray-700 hover:bg-gray-50"
       >
         🔢 Open scoreboard →
-      </Link>
+      </a>
     </div>
   )
 

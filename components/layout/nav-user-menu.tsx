@@ -18,9 +18,11 @@ const PRIMARY_NAV_ITEMS = [
   { href: '/profile',   label: 'My Profile', Icon: CircleUser      },
 ] as const
 
+// hard: full page load — iOS "Add to Home Screen" captures the document Safari
+// actually loaded, so the scoreboard must never be reached by client transition.
 const SECONDARY_NAV_ITEMS = [
-  { href: '/shop', label: 'Shop', Icon: ShoppingBag },
-  { href: '/scoreboard', label: 'Scoreboard', Icon: Timer },
+  { href: '/shop', label: 'Shop', Icon: ShoppingBag, hard: false },
+  { href: '/scoreboard', label: 'Scoreboard', Icon: Timer, hard: true },
 ] as const
 
 export function NavUserMenu({ userName, isAdmin }: Props) {
@@ -62,17 +64,28 @@ export function NavUserMenu({ userName, isAdmin }: Props) {
             </Link>
           ))}
           <div className="border-t my-1" />
-          {SECONDARY_NAV_ITEMS.map(({ href, label, Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors"
-            >
-              <Icon className="w-4 h-4 text-gray-400 shrink-0" />
-              {label}
-            </Link>
-          ))}
+          {SECONDARY_NAV_ITEMS.map(({ href, label, Icon, hard }) =>
+            hard ? (
+              <a
+                key={href}
+                href={href}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors"
+              >
+                <Icon className="w-4 h-4 text-gray-400 shrink-0" />
+                {label}
+              </a>
+            ) : (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors"
+              >
+                <Icon className="w-4 h-4 text-gray-400 shrink-0" />
+                {label}
+              </Link>
+            )
+          )}
           {isAdmin && (
             <>
               <div className="border-t my-1" />

@@ -150,10 +150,14 @@ export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], show
             </Link>
           )}
 
-          <Link href="/scoreboard" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
+          {/* Plain <a>, not <Link>: the scoreboard must be a full page load so
+              iOS "Add to Home Screen" captures /scoreboard and its manifest —
+              after a client-side transition Safari keeps the previous document
+              (users ended up installing the org home page). */}
+          <a href="/scoreboard" className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
             <Timer className="w-4 h-4 shrink-0" />
             Scoreboard
-          </Link>
+          </a>
 
           {customLinks.length > 0 && (
             <>
