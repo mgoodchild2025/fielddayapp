@@ -144,13 +144,21 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       setInstallPrompt(e as InstallPromptEvent)
     }
     window.addEventListener('beforeinstallprompt', onPrompt)
+    const onInstalled = () => {
+      setInstalled(true)
+      setInstallPrompt(null)
+    }
+    window.addEventListener('appinstalled', onInstalled)
     // Already-installed check: display-mode also reports 'fullscreen' during
     // the in-page Fullscreen API, so fullscreenElement disambiguates. At mount
     // no API fullscreen can be active, making this a pure install check.
     setInstalled(
       window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches && !document.fullscreenElement
     )
-    return () => window.removeEventListener('beforeinstallprompt', onPrompt)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
   }, [])
 
   // Each attached game gets its own storage slot; the standalone board keeps its own.
@@ -485,9 +493,21 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     if (document.fullscreenElement) await document.exitFullscreen().catch(() => {})
     if (installPrompt) {
       setMenuOpen(false)
-      installPrompt.prompt()
+      const evt = installPrompt
+      setInstallPrompt(null) // the captured event is single-use
+      try {
+        evt.prompt()
+        const choice = await evt.userChoice
+        if (choice?.outcome === 'accepted') setInstalled(true)
+      } catch {
+        // prompt already consumed or blocked — show the manual instructions
+        setInstallHelp(true)
+        setMenuOpen(true)
+      }
     } else {
+      // No install event (yet) — open the menu with platform instructions
       setInstallHelp(true)
+      setMenuOpen(true)
     }
   }
 
@@ -597,7 +617,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
 
       {panel(second)}
 
-      <InstallHint installPrompt={installPrompt} />
+      <InstallHint installPrompt={installPrompt} installed={installed} onInstall={requestInstall} />
 
       {/* Post-set chooser — the set is already recorded; this only offers the
           match end so finishing never requires the menu. Auto-dismisses. */}
@@ -821,7 +841,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
 
 const HINT_DISMISSED_KEY = 'fieldday-scoreboard-install-hint'
 
-type InstallPromptEvent = Event & { prompt: () => Promise<void> }
+type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice?: Promise<{ outcome: string }> }
 
 // iPadOS reports as Mac; the touch check catches it.
 function isIosDevice() {
@@ -829,7 +849,15 @@ function isIosDevice() {
   return /iPhone|iPad|iPod/.test(ua) || (ua.includes('Mac') && navigator.maxTouchPoints > 1)
 }
 
-function InstallHint({ installPrompt }: { installPrompt: InstallPromptEvent | null }) {
+function InstallHint({
+  installPrompt,
+  installed,
+  onInstall,
+}: {
+  installPrompt: InstallPromptEvent | null
+  installed: boolean
+  onInstall: () => void
+}) {
   const [show, setShow] = useState(false)
   const [isIos, setIsIos] = useState(false)
 
@@ -852,28 +880,41 @@ function InstallHint({ installPrompt }: { installPrompt: InstallPromptEvent | nu
     } catch {}
   }
 
-  if (!show) return null
+  if (!show || installed) return null
+
+  // On non-iOS the WHOLE card installs (Chrome's native dialog when its
+  // install event has arrived, otherwise the menu instructions) — the earlier
+  // version only worked via a button that existed once the event had fired,
+  // so an early tap on the message did nothing. iOS has no install API, so
+  // there the card stays informational.
+  const body = (
+    <p className="text-xs text-white/85 leading-snug text-left">
+      <span className="font-bold">Add to your home screen</span> — opens fullscreen and works offline.{' '}
+      {isIos ? (
+        <span className="text-white/60">Tap the Share button, then “Add to Home Screen”.</span>
+      ) : (
+        <span className="text-white/60">Tap here to install.</span>
+      )}
+    </p>
+  )
 
   return (
     <div className="fixed bottom-3 left-3 right-3 z-30 flex justify-center pointer-events-none">
       <div className="pointer-events-auto flex items-center gap-3 max-w-md rounded-xl bg-black/80 backdrop-blur px-4 py-3 shadow-lg">
-        <p className="text-xs text-white/85 leading-snug">
-          <span className="font-bold">Add to your home screen</span> — opens fullscreen and works offline.{' '}
-          {isIos ? (
-            <span className="text-white/60">Tap the Share button, then “Add to Home Screen”.</span>
-          ) : installPrompt ? null : (
-            <span className="text-white/60">In your browser menu, choose “Install app”.</span>
-          )}
-        </p>
-        {!isIos && installPrompt && (
+        {isIos ? (
+          body
+        ) : (
           <button
             onClick={() => {
-              installPrompt.prompt()
               dismiss()
+              onInstall()
             }}
-            className="shrink-0 text-xs font-bold px-3 py-2 rounded-lg bg-emerald-500 text-white"
+            className="flex items-center gap-3 text-left"
           >
-            Install
+            {body}
+            <span className="shrink-0 text-xs font-bold px-3 py-2 rounded-lg bg-emerald-500 text-white">
+              {installPrompt ? 'Install' : 'How?'}
+            </span>
           </button>
         )}
         <button onClick={dismiss} className="shrink-0 text-white/50 hover:text-white text-lg leading-none" aria-label="Dismiss">
