@@ -385,6 +385,15 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   const exitHref = attached ? (attached.canSave === 'admin' ? '/admin/courtside' : `/events/${attached.leagueSlug}`) : null
   const exitLabel = attached?.canSave === 'admin' ? 'Courtside' : 'Event page'
 
+  // Standalone boards opened from the site menu need a way back too — history
+  // when there is one, the site home otherwise. Hidden when the board runs as
+  // an installed app (the scoreboard IS the app there; nowhere to go "back").
+  const goBack = () => {
+    if (window.history.length > 1) window.history.back()
+    else window.location.href = '/'
+  }
+  const showStandaloneBack = !attached && !installed
+
   // Attached mode: push the result through the normal pipeline — admins save
   // confirmed (adminSetScore), captains submit pending (submitScore, opponent
   // confirms), bracket matches go through recordBracketScore (admin-only,
@@ -535,7 +544,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
 
       {/* Middle bar */}
       <div className="flex landscape:flex-col items-center justify-center gap-2 px-2 py-1.5 landscape:px-1.5 landscape:py-2 bg-[#0B1210] text-[#9db3a9] shrink-0">
-        {exitHref && (
+        {exitHref ? (
           <a
             href={exitHref}
             aria-label={`Back to ${exitLabel}`}
@@ -543,7 +552,15 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
           >
             ←
           </a>
-        )}
+        ) : showStandaloneBack ? (
+          <button
+            onClick={goBack}
+            aria-label="Back to site"
+            className="text-xs font-semibold px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
+          >
+            ←
+          </button>
+        ) : null}
         {game.config.mode === 'sets' && (
           <button
             onClick={endSet}
@@ -756,11 +773,15 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
               </button>
             </div>
 
-            {exitHref && (
+            {exitHref ? (
               <a href={exitHref} className="block w-full text-center py-2.5 rounded-lg text-sm font-semibold bg-white/10 text-white/80">
                 ← Back to {exitLabel}
               </a>
-            )}
+            ) : showStandaloneBack ? (
+              <button onClick={goBack} className="w-full text-center py-2.5 rounded-lg text-sm font-semibold bg-white/10 text-white/80">
+                ← Back to site
+              </button>
+            ) : null}
 
             {!installed && (
               <div>
