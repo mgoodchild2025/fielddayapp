@@ -12,15 +12,15 @@ import { recordBracketScore } from '@/actions/brackets'
 // derived by folding the event list, so undo is a pop and the per-set history
 // falls out for free (matching game_results.sets' {home, away}[] shape).
 
-type ScoreEvent = { t: 'A' | 'B'; d: 1 | -1 } | { t: 'set' }
+type ScoreEvent = { t: 'A' | 'B'; d: 1 | -1 } | { t: 'set' } | { t: 'end' }
 
 type TeamMeta = { name: string; color: string }
 
+// The only setting: how the board scores. Set formats (targets, best-of,
+// win-by-2, deciding-set rules) are deliberately NOT modelled — the scorekeeper
+// ends a set or the match when it's over, so any house rule just works.
 type Config = {
   mode: 'free' | 'sets'
-  target: number      // points to win a set
-  bestOf: 3 | 5
-  winBy2: boolean
 }
 
 type SavedGame = {
@@ -60,7 +60,7 @@ const DEFAULTS: SavedGame = {
   events: [],
   teamA: { name: 'HOME', color: COLORS[0] },
   teamB: { name: 'AWAY', color: COLORS[1] },
-  config: { mode: 'free', target: 25, bestOf: 3, winBy2: true },
+  config: { mode: 'free' },
   swapped: false,
   updatedAt: 0,
 }
@@ -70,47 +70,50 @@ function attachedDefaults(att: AttachedGame): SavedGame {
     ...DEFAULTS,
     teamA: { name: att.home.name, color: att.home.color ?? COLORS[0] },
     teamB: { name: att.away.name, color: att.away.color ?? COLORS[1] },
-    config: { ...DEFAULTS.config, mode: att.setSport ? 'sets' : 'free' },
+    config: { mode: att.setSport ? 'sets' : 'free' },
   }
 }
 
 function load(key: string, att: AttachedGame | null): SavedGame {
   const base = att ? attachedDefaults(att) : DEFAULTS
+  let merged = base
   try {
     const raw = localStorage.getItem(key)
-    if (!raw) return base
-    const parsed = JSON.parse(raw) as SavedGame
-    if (parsed?.v !== 1 || !Array.isArray(parsed.events)) return base
-    return { ...base, ...parsed }
+    if (raw) {
+      const parsed = JSON.parse(raw) as SavedGame
+      if (parsed?.v === 1 && Array.isArray(parsed.events)) merged = { ...base, ...parsed }
+    }
   } catch {
-    return base
+    merged = base
   }
+  // Attached set-sport games are ALWAYS in sets mode — a volleyball result
+  // saved from free mode records raw points with no set line, which corrupts
+  // set-based standings. Also heals slots stuck in free mode from before.
+  if (att?.setSport && merged.config.mode !== 'sets') {
+    merged = { ...merged, config: { ...merged.config, mode: 'sets' } }
+  }
+  return merged
 }
 
 function derive(events: ScoreEvent[]) {
   const sets: { home: number; away: number }[] = []
   let a = 0
   let b = 0
+  let over = false
   for (const e of events) {
     if (e.t === 'set') {
       sets.push({ home: a, away: b })
       a = 0
       b = 0
+    } else if (e.t === 'end') {
+      over = true
     } else if (e.t === 'A') {
       a = Math.max(0, a + e.d)
     } else {
       b = Math.max(0, b + e.d)
     }
   }
-  return { a, b, sets }
-}
-
-function setWinner(cfg: Config, a: number, b: number): 'A' | 'B' | null {
-  if (cfg.mode !== 'sets') return null
-  const lead = cfg.winBy2 ? 2 : 1
-  if (a >= cfg.target && a - b >= lead) return 'A'
-  if (b >= cfg.target && b - a >= lead) return 'B'
-  return null
+  return { a, b, sets, over }
 }
 
 export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | null }) {
@@ -210,12 +213,14 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     }
   }, [attached?.canSave, attached?.leagueId])
 
-  const { a, b, sets } = useMemo(() => derive(game.events), [game.events])
+  const { a, b, sets, over } = useMemo(() => derive(game.events), [game.events])
   const setsWonA = sets.filter((s) => s.home > s.away).length
   const setsWonB = sets.filter((s) => s.away > s.home).length
-  const need = Math.ceil(game.config.bestOf / 2)
-  const pendingSetWinner = setWinner(game.config, a, b)
-  const matchWinner = game.config.mode === 'sets' && setsWonA >= need ? 'A' : setsWonB >= need ? 'B' : null
+  // The scorekeeper declares the end — 'tie' is legal for regular games
+  // (two-set timeslot leagues); bracket saves still refuse it.
+  const matchWinner: 'A' | 'B' | 'tie' | null = over
+    ? setsWonA > setsWonB ? 'A' : setsWonB > setsWonA ? 'B' : 'tie'
+    : null
 
   // Send the board state on every change plus a 15s heartbeat, so a TV that
   // joins mid-game picks the board up within one beat. TVs expire boards that
@@ -237,7 +242,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
           setsWonA,
           setsWonB,
           setNumber: sets.length + 1,
-          final: !!matchWinner,
+          final: over,
           ts: Date.now(),
         },
       })
@@ -245,7 +250,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     send()
     const heartbeat = setInterval(send, 15000)
     return () => clearInterval(heartbeat)
-  }, [attached, a, b, setsWonA, setsWonB, sets.length, matchWinner, game.config.mode, game.teamA, game.teamB])
+  }, [attached, a, b, setsWonA, setsWonB, sets.length, over, game.config.mode, game.teamA, game.teamB])
 
   const push = useCallback((e: ScoreEvent) => {
     setGame((g) => ({ ...g, events: [...g.events, e] }))
@@ -325,6 +330,28 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   const reset = () => {
     setGame((g) => ({ ...g, events: [] }))
     setSaveState('idle')
+    setMenuOpen(false)
+  }
+
+  // The scorekeeper declares set and match ends — no targets to model, so any
+  // house format (caps, time limits, golden point, fixed two-set nights) works.
+  const endSet = () => {
+    if (a + b === 0 || over) return
+    push({ t: 'set' })
+    try {
+      navigator.vibrate?.(20)
+    } catch {}
+  }
+
+  const endMatch = () => {
+    setGame((g) => {
+      const cur = derive(g.events)
+      if (cur.over) return g
+      const events: ScoreEvent[] = [...g.events]
+      if (cur.a + cur.b > 0) events.push({ t: 'set' }) // fold the in-progress set
+      events.push({ t: 'end' })
+      return { ...g, events }
+    })
     setMenuOpen(false)
   }
 
@@ -465,10 +492,10 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
         >
           {pts}
         </p>
-        {game.config.mode === 'sets' && (
+        {game.config.mode === 'sets' && won > 0 && (
           <div className="flex gap-1.5 mt-1" aria-label={`${won} sets won`}>
-            {Array.from({ length: game.config.bestOf }, (_, i) => (
-              <span key={i} className={`w-2.5 h-2.5 rounded-full ${i < won ? 'bg-white' : 'bg-white/25'}`} />
+            {Array.from({ length: won }, (_, i) => (
+              <span key={i} className="w-2.5 h-2.5 rounded-full bg-white" />
             ))}
           </div>
         )}
@@ -492,9 +519,14 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
           </a>
         )}
         {game.config.mode === 'sets' && (
-          <span className="text-[11px] font-mono tracking-wider px-2 py-1 rounded bg-white/5 whitespace-nowrap">
-            SET {sets.length + 1}
-          </span>
+          <button
+            onClick={endSet}
+            disabled={a + b === 0 || over}
+            className="text-xs font-semibold px-3 py-2 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 disabled:opacity-30 disabled:bg-white/10 text-white transition-colors whitespace-nowrap"
+            aria-label={`End set ${sets.length + 1}`}
+          >
+            End set {sets.length + 1}
+          </button>
         )}
         <button
           onClick={undo}
@@ -524,32 +556,14 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
 
       <InstallHint installPrompt={installPrompt} />
 
-      {/* Set-won overlay */}
-      {pendingSetWinner && !matchWinner && (
-        <Overlay>
-          <p className="text-white text-2xl font-bold mb-1">
-            {(pendingSetWinner === 'A' ? game.teamA : game.teamB).name} take set {sets.length + 1}
-          </p>
-          <p className="text-white/60 text-lg tabular-nums mb-6">
-            {a}–{b}
-          </p>
-          <div className="flex gap-3">
-            <button onClick={() => push({ t: 'set' })} className="px-6 py-3 rounded-xl bg-emerald-500 text-white font-bold">
-              Confirm set →
-            </button>
-            <button onClick={undo} className="px-6 py-3 rounded-xl bg-white/10 text-white font-semibold">
-              ↩ Undo
-            </button>
-          </div>
-        </Overlay>
-      )}
-
-      {/* Match-won overlay */}
+      {/* Match-over overlay — shown when the scorekeeper ends the match */}
       {matchWinner && (
         <Overlay>
-          <p className="text-4xl mb-2">🏆</p>
+          <p className="text-4xl mb-2">{matchWinner === 'tie' ? '🤝' : '🏆'}</p>
           <p className="text-white text-2xl font-bold mb-1">
-            {(matchWinner === 'A' ? game.teamA : game.teamB).name} win the match
+            {matchWinner === 'tie'
+              ? `Match over — ${setsWonA}–${setsWonB}`
+              : `${(matchWinner === 'A' ? game.teamA : game.teamB).name} win the match`}
           </p>
           <p className="text-white/60 text-lg tabular-nums mb-6">
             {sets.map((s) => `${s.home}–${s.away}`).join('  ')}
@@ -624,58 +638,37 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
                 )}
               </div>
             )}
-            <div>
-              <label className="block text-xs text-white/60 mb-1.5">Scoring mode</label>
-              <div className="flex gap-2">
-                {(['free', 'sets'] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setGame((g) => ({ ...g, config: { ...g.config, mode: m } }))}
-                    className={`flex-1 py-2.5 rounded-lg text-sm font-semibold ${game.config.mode === m ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white/70'}`}
-                  >
-                    {m === 'free' ? 'Free score' : 'Sets'}
-                  </button>
-                ))}
+            {attached?.setSport ? (
+              // Set sports always score in sets when attached — the league's
+              // results and standings expect a set line, so no free mode here.
+              <p className="text-xs text-white/50">
+                Sets mode — this league records volleyball results set by set.
+              </p>
+            ) : (
+              <div>
+                <label className="block text-xs text-white/60 mb-1.5">Scoring mode</label>
+                <div className="flex gap-2">
+                  {(['free', 'sets'] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setGame((g) => ({ ...g, config: { ...g.config, mode: m } }))}
+                      className={`flex-1 py-2.5 rounded-lg text-sm font-semibold ${game.config.mode === m ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white/70'}`}
+                    >
+                      {m === 'free' ? 'Free score' : 'Sets'}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {game.config.mode === 'sets' && (
-              <>
-                <div>
-                  <label className="block text-xs text-white/60 mb-1.5">Points per set</label>
-                  <div className="flex gap-2">
-                    {[15, 21, 25].map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setGame((g) => ({ ...g, config: { ...g.config, target: t } }))}
-                        className={`flex-1 py-2.5 rounded-lg text-sm font-semibold tabular-nums ${game.config.target === t ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white/70'}`}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs text-white/60 mb-1.5">Match length</label>
-                  <div className="flex gap-2">
-                    {([3, 5] as const).map((n) => (
-                      <button
-                        key={n}
-                        onClick={() => setGame((g) => ({ ...g, config: { ...g.config, bestOf: n } }))}
-                        className={`flex-1 py-2.5 rounded-lg text-sm font-semibold ${game.config.bestOf === n ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white/70'}`}
-                      >
-                        Best of {n}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setGame((g) => ({ ...g, config: { ...g.config, winBy2: !g.config.winBy2 } }))}
-                  className="w-full py-2.5 rounded-lg text-sm font-semibold bg-white/10 text-white/80"
-                >
-                  Win by 2: {game.config.winBy2 ? 'on' : 'off'}
-                </button>
-              </>
+              <button
+                onClick={endMatch}
+                disabled={over || game.events.length === 0}
+                className="w-full py-2.5 rounded-lg text-sm font-bold bg-white/10 text-white/90 disabled:opacity-40"
+              >
+                🏁 End match
+              </button>
             )}
 
             <div className="flex gap-2">
