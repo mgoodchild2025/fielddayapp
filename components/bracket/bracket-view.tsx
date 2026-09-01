@@ -9,6 +9,7 @@ import { MatchEditModal } from './match-edit-modal'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { formatGameTime } from '@/lib/format-time'
 import { BracketTimezoneContext, useBracketTimezone } from './bracket-timezone'
+import { useLiveScores } from '@/lib/use-live-scores'
 
 /** Compact venue-time label for a bracket match, e.g. "Sat, Aug 15, 6:00 p.m." */
 function fmtMatchTime(iso: string, timezone: string): string {
@@ -336,6 +337,11 @@ function MatchCard({
   // Declared result: completed with no score recorded (walkover / admin call)
   const isDeclared = isCompleted && match.score1 === null && match.score2 === null
 
+  // A phone scoreboard broadcasting this match right now (shared channel, one
+  // subscription per event regardless of how many cards render)
+  const liveBoards = useLiveScores(leagueId)
+  const live = !isCompleted && !isBye ? liveBoards[match.id] : undefined
+
   // Medal matches: gold decides 1st/2nd, bronze decides 3rd. Trophies appear
   // once the match is completed.
   const medalFor = (teamId: string | null): string => {
@@ -448,8 +454,9 @@ function MatchCard({
                 </>
               )}
             </div>
-            <span className="font-bold tabular-nums text-sm ml-2">
-              {isCompleted && match.score1 !== null ? match.score1 : (isDeclared && match.winnerTeamId === match.team1Id ? 'W' : '')}
+            <span className={`font-bold tabular-nums text-sm ml-2 ${live ? 'text-red-500' : ''}`}>
+              {live && <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse mr-1 align-middle" />}
+              {isCompleted && match.score1 !== null ? match.score1 : live ? live.a : (isDeclared && match.winnerTeamId === match.team1Id ? 'W' : '')}
             </span>
           </div>
         )}
@@ -494,7 +501,7 @@ function MatchCard({
               )}
             </div>
             <span className="font-bold tabular-nums text-sm ml-2">
-              {isCompleted && match.score2 !== null ? match.score2 : (isDeclared && match.winnerTeamId === match.team2Id ? 'W' : '')}
+              {isCompleted && match.score2 !== null ? match.score2 : live ? <span className="text-red-500">{live.b}</span> : (isDeclared && match.winnerTeamId === match.team2Id ? 'W' : '')}
             </span>
           </div>
         )}
@@ -742,6 +749,7 @@ function BracketScoreList({
   const [activeMatch, setActiveMatch] = useState<BracketMatchData | null>(null)
   const timezone = useBracketTimezone()
   const bracketSize = bracket.bracketSize
+  const liveBoards = useLiveScores(leagueId)
 
   const isDE = bracket.bracketType === 'double_elimination'
   const roundNumbers = Array.from(new Set(bracket.matches.map((m) => m.roundNumber)))
@@ -815,6 +823,15 @@ function BracketScoreList({
                             <div className={`text-sm font-bold tabular-nums ${match.winnerTeamId === match.team2Id ? 'text-green-700' : 'text-gray-700'}`}>
                               {match.score2 ?? '–'}
                             </div>
+                          </div>
+                        )}
+                        {!isCompleted && liveBoards[match.id] && (
+                          <div className="shrink-0 text-right">
+                            <div className="text-sm font-bold tabular-nums text-red-500">
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse mr-1 align-middle" />
+                              {liveBoards[match.id].a}
+                            </div>
+                            <div className="text-sm font-bold tabular-nums text-red-500">{liveBoards[match.id].b}</div>
                           </div>
                         )}
                         {isReady && (

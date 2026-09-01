@@ -14,6 +14,7 @@ import { EventCalendarSubscribeButton } from '@/components/events/event-calendar
 import { getEventSponsors } from '@/actions/event-sponsors'
 import { EventSponsorStrip } from '@/components/sponsors/event-sponsor-strip'
 import { CaptainScoreEntry } from '@/components/scores/captain-score-entry'
+import { LiveScoreBadge } from '@/components/scoreboard/live-score-badge'
 import { GameKindBadge } from '@/components/schedule/game-kind-badge'
 import { ScheduleFilterBar } from '@/components/events/schedule-filter-bar'
 import { SchedulePhaseSummary } from '@/components/schedule/schedule-phase-summary'
@@ -321,8 +322,9 @@ type GameRow = {
 }
 
 function DateGroup({
-  date, games, timezone, isPast, captainTeamIds, userId, sport, myTeamIds, myRsvps, captainAttendance, showWeek, showKind,
+  date, games, timezone, isPast, captainTeamIds, userId, sport, myTeamIds, myRsvps, captainAttendance, showWeek, showKind, leagueId,
 }: {
+  leagueId: string
   date: string
   games: GameRow[]
   timezone: string
@@ -428,6 +430,9 @@ function DateGroup({
                   </div>
                 ) : (
                   <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                    {game.status !== 'cancelled' && game.status !== 'postponed' && (
+                      <LiveScoreBadge leagueId={leagueId} gameId={game.id} />
+                    )}
                     {game.status === 'cancelled' ? (
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>
                     ) : game.status === 'postponed' ? (
@@ -512,10 +517,13 @@ function DateGroup({
                       </p>
                     </div>
                   ) : game.status !== 'cancelled' && game.status !== 'postponed' ? (
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
-                    }`}>
-                      {game.status === 'completed' ? 'Final' : game.status}
+                    <span className="inline-flex items-center gap-1.5">
+                      <LiveScoreBadge leagueId={leagueId} gameId={game.id} />
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
+                      }`}>
+                        {game.status === 'completed' ? 'Final' : game.status}
+                      </span>
                     </span>
                   ) : null}
                 </div>
@@ -2444,7 +2452,7 @@ export default async function EventDetailPage({
                   upcomingGroups.length > 0 ? (
                     <div className="space-y-6">
                       {upcomingGroups.map(([date, dayGames]) => (
-                        <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast={false} captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} myTeamIds={myTeamIds} myRsvps={myRsvps} captainAttendance={captainAttendance} showWeek={league.event_type !== 'tournament'} showKind={scheduleHasPools} />
+                        <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast={false} captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} myTeamIds={myTeamIds} myRsvps={myRsvps} captainAttendance={captainAttendance} showWeek={league.event_type !== 'tournament'} showKind={scheduleHasPools} leagueId={league.id} />
                       ))}
                     </div>
                   ) : (
@@ -2456,7 +2464,7 @@ export default async function EventDetailPage({
                   pastGroups.length > 0 ? (
                     <div className="space-y-6">
                       {[...pastGroups].reverse().map(([date, dayGames]) => (
-                        <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} myTeamIds={myTeamIds} myRsvps={myRsvps} captainAttendance={captainAttendance} showWeek={league.event_type !== 'tournament'} showKind={scheduleHasPools} />
+                        <DateGroup key={date} date={date} games={dayGames} timezone={timezone} isPast captainTeamIds={captainTeamIds} userId={user?.id ?? null} sport={league.sport ?? null} myTeamIds={myTeamIds} myRsvps={myRsvps} captainAttendance={captainAttendance} showWeek={league.event_type !== 'tournament'} showKind={scheduleHasPools} leagueId={league.id} />
                       ))}
                     </div>
                   ) : (

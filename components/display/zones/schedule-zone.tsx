@@ -7,9 +7,10 @@ interface Props {
   timezone: string
   theme:    'dark' | 'light'
   pools:    { id: string; name: string }[]
+  leagueId: string
 }
 
-export function ScheduleZone({ games, config, timezone, theme, pools }: Props) {
+export function ScheduleZone({ games, config, timezone, theme, pools, leagueId }: Props) {
   const isDark = theme === 'dark'
 
   // Filter by pool if configured
@@ -46,7 +47,7 @@ export function ScheduleZone({ games, config, timezone, theme, pools }: Props) {
           No games scheduled
         </div>
       ) : (
-        <ScheduleClient games={visible} timezone={timezone} isDark={isDark} scrollSpeed={config.scroll_speed ?? null} />
+        <ScheduleClient games={visible} timezone={timezone} isDark={isDark} scrollSpeed={config.scroll_speed ?? null} leagueId={leagueId} />
       )}
     </div>
   )

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import type { DisplayGame } from '@/lib/display-types'
+import { useLiveScores } from '@/lib/use-live-scores'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -77,11 +78,14 @@ interface Props {
   timezone:    string
   isDark:      boolean
   scrollSpeed: 'slow' | 'normal' | 'fast' | null
+  leagueId:    string
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export function ScheduleClient({ games, timezone, isDark, scrollSpeed }: Props) {
+export function ScheduleClient({ games, timezone, isDark, scrollSpeed, leagueId }: Props) {
+  // Live in-progress scores broadcast from phone scoreboards (keyed by game id)
+  const liveBoards = useLiveScores(leagueId)
   const [now, setNow]               = useState(() => new Date())
   const [shouldScroll, setShouldScroll] = useState(false)
   const outerRef  = useRef<HTMLDivElement>(null)
@@ -321,6 +325,15 @@ export function ScheduleClient({ games, timezone, isDark, scrollSpeed }: Props) 
                     color: teamFull, fontVariantNumeric: 'tabular-nums',
                   }}>
                     {g.home_score}&thinsp;–&thinsp;{g.away_score}
+                  </span>
+                ) : liveBoards[g.id] ? (
+                  <span style={{
+                    fontSize: 15, fontWeight: 800, color: '#ef4444',
+                    fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                  }}>
+                    <span className="animate-pulse" style={{ width: 6, height: 6, borderRadius: 99, backgroundColor: '#ef4444', display: 'inline-block' }} />
+                    {liveBoards[g.id].a}&thinsp;–&thinsp;{liveBoards[g.id].b}
                   </span>
                 ) : (
                   <span style={{ fontSize: 12, color: teamDim }}>vs</span>

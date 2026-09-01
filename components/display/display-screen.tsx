@@ -62,6 +62,7 @@ function ZoneRenderer({
           timezone={data.timezone}
           theme={theme}
           pools={data.pools}
+          leagueId={data.league.id}
         />
       )
     case 'standings':
@@ -77,7 +78,7 @@ function ZoneRenderer({
         />
       )
     case 'bracket':
-      return <BracketZone bracket={data.bracket} config={config as Extract<ZoneConfig, { type: 'bracket' }>} theme={theme} timezone={data.timezone} />
+      return <BracketZone bracket={data.bracket} config={config as Extract<ZoneConfig, { type: 'bracket' }>} theme={theme} timezone={data.timezone} leagueId={data.league.id} />
     case 'qr_code':
       return <QrZone config={config} theme={theme} />
     case 'message':
