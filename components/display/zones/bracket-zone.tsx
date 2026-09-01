@@ -1,5 +1,8 @@
+'use client'
+
 import type { DisplayBracketMatch, ZoneConfig } from '@/lib/display-types'
 import { FitContent } from './fit-content'
+import { useLiveScores, type LiveBoard } from '@/lib/use-live-scores'
 
 type Tier = { name: string | null; matches: DisplayBracketMatch[] }
 
@@ -8,6 +11,7 @@ interface Props {
   config:   Extract<ZoneConfig, { type: 'bracket' }>
   theme:    'dark' | 'light'
   timezone: string
+  leagueId: string
 }
 
 function fmtMatchTime(iso: string, timezone: string) {
@@ -63,19 +67,26 @@ function MatchCard({
   match,
   isDark,
   timezone,
+  live,
 }: {
   match:    DisplayBracketMatch
   isDark:   boolean
   timezone: string
+  live?:    LiveBoard
 }) {
   const t1Wins   = match.score1 !== null && match.score2 !== null && match.score1 > match.score2
   const t2Wins   = match.score1 !== null && match.score2 !== null && match.score2 > match.score1
   const hasScore = match.score1 !== null || match.score2 !== null
   const isTbd    = !hasScore && match.team1_name === null && match.team2_name === null
+  // A phone scoreboard is broadcasting this match right now (and no saved score yet)
+  const isLive   = !hasScore && !match.is_bye && !!live
 
-  // Show time strip only when there are no scores and a scheduled time exists
-  const showTime = !hasScore && !!match.scheduled_at
-  const timeLabel = showTime
+  // Show time strip when there are no scores and a scheduled time exists — or
+  // the match is live (the strip becomes the LIVE indicator).
+  const showTime = !hasScore && (!!match.scheduled_at || isLive)
+  const timeLabel = isLive
+    ? `● LIVE${live!.mode === 'sets' ? ` · SET ${live!.setNumber}` : ''}`
+    : showTime
     ? [fmtMatchTime(match.scheduled_at!, timezone), match.court].filter(Boolean).join(' · ')
     : null
 
@@ -129,15 +140,15 @@ function MatchCard({
         }}>
           {match.team1_name ?? '—'}
         </span>
-        {match.score1 !== null && (
+        {(match.score1 !== null || isLive) && (
           <span style={{
             fontWeight: 700,
             fontVariantNumeric: 'tabular-nums',
             marginLeft: 6,
             flexShrink: 0,
-            color: scoreColor(t1Wins),
+            color: isLive ? '#ef4444' : scoreColor(t1Wins),
           }}>
-            {match.score1}
+            {isLive ? live!.a : match.score1}
           </span>
         )}
       </div>
@@ -170,7 +181,9 @@ function MatchCard({
             maxWidth: '90%',
             textOverflow: 'ellipsis',
           }}>
-            {timeLabel}
+            <span style={isLive ? { color: '#ef4444' } : undefined} className={isLive ? 'animate-pulse' : undefined}>
+              {timeLabel}
+            </span>
           </span>
         </div>
       ) : (
@@ -197,15 +210,15 @@ function MatchCard({
         }}>
           {match.is_bye ? 'Bye' : (match.team2_name ?? '—')}
         </span>
-        {match.score2 !== null && !match.is_bye && (
+        {(match.score2 !== null || isLive) && !match.is_bye && (
           <span style={{
             fontWeight: 700,
             fontVariantNumeric: 'tabular-nums',
             marginLeft: 6,
             flexShrink: 0,
-            color: scoreColor(t2Wins),
+            color: isLive ? '#ef4444' : scoreColor(t2Wins),
           }}>
-            {match.score2}
+            {isLive ? live!.b : match.score2}
           </span>
         )}
       </div>
@@ -219,11 +232,13 @@ function TierDiagram({
   filter,
   isDark,
   timezone,
+  live,
 }: {
   tier:     Tier
   filter:   Extract<ZoneConfig, { type: 'bracket' }>['round_filter']
   isDark:   boolean
   timezone: string
+  live:     Record<string, LiveBoard>
 }) {
   const { matches } = tier
 
@@ -321,7 +336,7 @@ function TierDiagram({
                           borderBottom: `1px solid ${lineColor}`,
                         }} />
                       )}
-                      <MatchCard match={match} isDark={isDark} timezone={timezone} />
+                      <MatchCard match={match} isDark={isDark} timezone={timezone} live={live[match.id]} />
                     </div>
                   )
                 })}
@@ -372,7 +387,7 @@ function TierDiagram({
             Third Place
           </div>
           <div style={{ paddingLeft: ARM_W, paddingRight: ARM_W }}>
-            <MatchCard match={thirdPlaceMatch} isDark={isDark} timezone={timezone} />
+            <MatchCard match={thirdPlaceMatch} isDark={isDark} timezone={timezone} live={live[thirdPlaceMatch.id]} />
           </div>
         </div>
       )}
@@ -381,8 +396,10 @@ function TierDiagram({
 }
 
 // ── Main BracketZone ──────────────────────────────────────────────────────────
-export function BracketZone({ bracket, config, theme, timezone }: Props) {
+export function BracketZone({ bracket, config, theme, timezone, leagueId }: Props) {
   const isDark = theme === 'dark'
+  // Live in-progress scores from phone scoreboards (keyed by bracket match id)
+  const liveBoards = useLiveScores(leagueId)
 
   // Apply tier_filter if set — lets each zone show a specific tier (e.g. Gold only)
   const activeTiers = (bracket?.tiers ?? []).filter((t) =>
@@ -435,7 +452,7 @@ export function BracketZone({ bracket, config, theme, timezone }: Props) {
                   {tier.name}
                 </div>
               )}
-              <TierDiagram tier={tier} filter={config.round_filter} isDark={isDark} timezone={timezone} />
+              <TierDiagram tier={tier} filter={config.round_filter} isDark={isDark} timezone={timezone} live={liveBoards} />
             </div>
           ))}
         </div>

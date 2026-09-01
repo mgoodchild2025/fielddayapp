@@ -1,31 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useLiveScores, type LiveBoard } from '@/lib/use-live-scores'
 
 // ── Live Scores zone ──────────────────────────────────────────────────────────
-// Renders whatever scoreboards are actively broadcasting for this event.
-// Boards arrive over the event's Realtime broadcast channel (ephemeral — no
-// tables); one that goes quiet for STALE_MS is dropped, so closing the
-// scoreboard on the phone takes the game off the wall automatically.
-
-const STALE_MS = 75_000
-
-type Board = {
-  gameId: string
-  court: string | null
-  mode: 'free' | 'sets'
-  teamA: { name: string; color: string | null }
-  teamB: { name: string; color: string | null }
-  a: number
-  b: number
-  setsWonA: number
-  setsWonB: number
-  setNumber: number
-  final: boolean
-  ts: number
-  receivedAt: number
-}
+// Renders whatever scoreboards are actively broadcasting for this event, via
+// the shared live-scores feed (see lib/use-live-scores). Boards that go quiet
+// drop off, so closing the scoreboard on the phone clears the wall.
 
 interface Props {
   leagueId: string
@@ -33,33 +13,8 @@ interface Props {
 }
 
 export function LiveScoresZone({ leagueId, theme }: Props) {
-  const [boards, setBoards] = useState<Record<string, Board>>({})
+  const boards = useLiveScores(leagueId)
   const isDark = theme === 'dark'
-
-  useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`scoreboard:${leagueId}`)
-      .on('broadcast', { event: 'score' }, ({ payload }) => {
-        const p = payload as Omit<Board, 'receivedAt'>
-        if (!p?.gameId) return
-        setBoards((prev) => ({ ...prev, [p.gameId]: { ...p, receivedAt: Date.now() } }))
-      })
-      .subscribe()
-
-    const prune = setInterval(() => {
-      setBoards((prev) => {
-        const now = Date.now()
-        const fresh = Object.fromEntries(Object.entries(prev).filter(([, b]) => now - b.receivedAt < STALE_MS))
-        return Object.keys(fresh).length === Object.keys(prev).length ? prev : fresh
-      })
-    }, 10_000)
-
-    return () => {
-      clearInterval(prune)
-      supabase.removeChannel(channel)
-    }
-  }, [leagueId])
 
   const list = Object.values(boards).sort((x, y) => (x.court ?? '').localeCompare(y.court ?? '') || x.ts - y.ts)
   const subtext = isDark ? '#a1a1aa' : '#6b7280'
@@ -92,7 +47,7 @@ export function LiveScoresZone({ leagueId, theme }: Props) {
   )
 }
 
-function BoardCard({ board, isDark, big }: { board: Board; isDark: boolean; big: boolean }) {
+function BoardCard({ board, isDark, big }: { board: LiveBoard; isDark: boolean; big: boolean }) {
   const scoreSize = big ? 'clamp(48px, 14vh, 140px)' : 'clamp(32px, 7vh, 72px)'
   return (
     <div
