@@ -76,15 +76,24 @@ function attachedDefaults(att: AttachedGame): SavedGame {
 
 function load(key: string, att: AttachedGame | null): SavedGame {
   const base = att ? attachedDefaults(att) : DEFAULTS
+  let merged = base
   try {
     const raw = localStorage.getItem(key)
-    if (!raw) return base
-    const parsed = JSON.parse(raw) as SavedGame
-    if (parsed?.v !== 1 || !Array.isArray(parsed.events)) return base
-    return { ...base, ...parsed }
+    if (raw) {
+      const parsed = JSON.parse(raw) as SavedGame
+      if (parsed?.v === 1 && Array.isArray(parsed.events)) merged = { ...base, ...parsed }
+    }
   } catch {
-    return base
+    merged = base
   }
+  // Attached set-sport games are ALWAYS in sets mode — a volleyball result
+  // saved from free mode would record raw points as the match score with no
+  // set line, which corrupts set-based standings. This also heals slots that
+  // were stuck in free mode from an earlier session.
+  if (att?.setSport && merged.config.mode !== 'sets') {
+    merged = { ...merged, config: { ...merged.config, mode: 'sets' } }
+  }
+  return merged
 }
 
 function derive(events: ScoreEvent[]) {
@@ -624,20 +633,28 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
                 )}
               </div>
             )}
-            <div>
-              <label className="block text-xs text-white/60 mb-1.5">Scoring mode</label>
-              <div className="flex gap-2">
-                {(['free', 'sets'] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setGame((g) => ({ ...g, config: { ...g.config, mode: m } }))}
-                    className={`flex-1 py-2.5 rounded-lg text-sm font-semibold ${game.config.mode === m ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white/70'}`}
-                  >
-                    {m === 'free' ? 'Free score' : 'Sets'}
-                  </button>
-                ))}
+            {attached?.setSport ? (
+              // Set sports always score in sets when attached — the league's
+              // results and standings expect a set line, so no free mode here.
+              <p className="text-xs text-white/50">
+                Sets mode — this league records volleyball results set by set.
+              </p>
+            ) : (
+              <div>
+                <label className="block text-xs text-white/60 mb-1.5">Scoring mode</label>
+                <div className="flex gap-2">
+                  {(['free', 'sets'] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setGame((g) => ({ ...g, config: { ...g.config, mode: m } }))}
+                      className={`flex-1 py-2.5 rounded-lg text-sm font-semibold ${game.config.mode === m ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white/70'}`}
+                    >
+                      {m === 'free' ? 'Free score' : 'Sets'}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {game.config.mode === 'sets' && (
               <>
