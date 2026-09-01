@@ -124,6 +124,14 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   const [flash, setFlash] = useState<'A' | 'B' | null>(null)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null)
+  // Post-"End set" chooser (play on vs end match) — auto-dismisses; play-on is
+  // the default because the set is already recorded.
+  const [setPrompt, setSetPrompt] = useState<{ n: number; home: number; away: number } | null>(null)
+  const setPromptTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // True only when the scorekeeper ended the match THIS session — gates the
+  // auto-save so reloading an already-ended board never re-submits (a captain
+  // re-submit would knock a confirmed result back to pending).
+  const [justEnded, setJustEnded] = useState(false)
   const [installed, setInstalled] = useState(false)
   const [installHelp, setInstallHelp] = useState(false)
 
@@ -258,6 +266,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
 
   const undo = useCallback(() => {
     setGame((g) => ({ ...g, events: g.events.slice(0, -1) }))
+    setSetPrompt(null)
   }, [])
 
   const score = useCallback(
@@ -337,10 +346,15 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   // house format (caps, time limits, golden point, fixed two-set nights) works.
   const endSet = () => {
     if (a + b === 0 || over) return
+    const recorded = { n: sets.length + 1, home: a, away: b }
     push({ t: 'set' })
     try {
       navigator.vibrate?.(20)
     } catch {}
+    // Offer "end match" right here so finishing a match never needs the menu.
+    setSetPrompt(recorded)
+    if (setPromptTimer.current) clearTimeout(setPromptTimer.current)
+    setPromptTimer.current = setTimeout(() => setSetPrompt(null), 6000)
   }
 
   const endMatch = () => {
@@ -352,6 +366,8 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       events.push({ t: 'end' })
       return { ...g, events }
     })
+    setSetPrompt(null)
+    setJustEnded(true)
     setMenuOpen(false)
   }
 
@@ -402,6 +418,16 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       setSaveState('error')
     }
   }
+
+  // One less tap: ending the match saves it (admins → confirmed final,
+  // captains → submitted for the opponent to confirm). Fires only for an End
+  // match tapped this session; a failed save falls back to the manual button.
+  useEffect(() => {
+    if (justEnded && over && attached?.canSave && saveState === 'idle') {
+      saveResult()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [justEnded, over])
 
   const saveButton = (className: string) =>
     attached?.canSave ? (
@@ -555,6 +581,31 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       {panel(second)}
 
       <InstallHint installPrompt={installPrompt} />
+
+      {/* Post-set chooser — the set is already recorded; this only offers the
+          match end so finishing never requires the menu. Auto-dismisses. */}
+      {setPrompt && !matchWinner && (
+        <div className="fixed inset-x-0 bottom-6 z-30 flex justify-center pointer-events-none px-4">
+          <div className="pointer-events-auto flex items-center gap-3 rounded-2xl bg-black/85 backdrop-blur px-4 py-3 shadow-xl">
+            <p className="text-sm text-white/90 whitespace-nowrap">
+              <span className="font-bold">Set {setPrompt.n}</span>{' '}
+              <span className="tabular-nums">{setPrompt.home}–{setPrompt.away}</span> ✓
+            </p>
+            <button
+              onClick={() => setSetPrompt(null)}
+              className="text-xs font-semibold px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white whitespace-nowrap"
+            >
+              Play on
+            </button>
+            <button
+              onClick={endMatch}
+              className="text-xs font-bold px-3 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white whitespace-nowrap"
+            >
+              🏁 End match{attached?.canSave ? ' & save' : ''}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Match-over overlay — shown when the scorekeeper ends the match */}
       {matchWinner && (
