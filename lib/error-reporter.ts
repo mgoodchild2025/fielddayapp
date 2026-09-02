@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { sendErrorAlert } from '@/lib/platform-alerts'
+import { describeErrorPath, isBotRequestNoise } from '@/lib/error-noise'
 
 /**
  * Server-side error reporting — the sink for instrumentation.ts's
@@ -11,6 +12,10 @@ import { sendErrorAlert } from '@/lib/platform-alerts'
  * MUST never throw: a failing reporter would mask the original error. Every
  * step is best-effort — if the error_logs table doesn't exist yet (migration
  * 172 not applied), reporting silently degrades to console.error.
+ *
+ * Bot noise (malformed form POSTs to non-existent URLs — see lib/error-noise.ts)
+ * is still written to error_logs so /super/errors shows the volume, but never
+ * triggers an alert email.
  */
 
 const ALERT_QUIET_HOURS = 6
@@ -56,10 +61,11 @@ export async function reportServerError(
     const message = (err.message || 'Unknown error').slice(0, 2000)
     const stack = err.stack?.slice(0, 8000) ?? null
     const digest = errorDigest(message, stack)
-    const path = context.routePath ?? request.path ?? null
+    const path = describeErrorPath(request.path, context.routePath)
+    const noise = isBotRequestNoise(message, { routePath: context.routePath })
 
     // Always visible in container logs even if everything below fails.
-    console.error(`[server-error] ${digest} ${context.routerKind ?? ''} ${path ?? ''}: ${message}`)
+    console.error(`[server-error]${noise ? ' [noise]' : ''} ${digest} ${context.routerKind ?? ''} ${path ?? ''}: ${message}`)
 
     const db = createServiceRoleClient()
 
@@ -67,18 +73,19 @@ export async function reportServerError(
     // Checked BEFORE inserting the new row so the current occurrence doesn't
     // suppress its own alert.
     let shouldAlert = false
-    try {
-      const since = new Date(Date.now() - ALERT_QUIET_HOURS * 3600_000).toISOString()
+    if (!noise) {
+      try {
+        const since = new Date(Date.now() - ALERT_QUIET_HOURS * 3600_000).toISOString()
 
-      const { data: recent, error: qErr } = await db
-        .from('error_logs')
-        .select('id')
-        .eq('digest', digest)
-        .gte('created_at', since)
-        .limit(1)
-      shouldAlert = !qErr && (recent?.length ?? 0) === 0
-    } catch { /* table may not exist yet */ }
-
+        const { data: recent, error: qErr } = await db
+          .from('error_logs')
+          .select('id')
+          .eq('digest', digest)
+          .gte('created_at', since)
+          .limit(1)
+        shouldAlert = !qErr && (recent?.length ?? 0) === 0
+      } catch { /* table may not exist yet */ }
+    }
 
     await db.from('error_logs').insert({
       digest,
