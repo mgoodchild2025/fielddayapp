@@ -148,7 +148,7 @@ export default async function FinancialReportPage({
               </tr>
               {report.taxCollectedCents > 0 && (
                 <tr>
-                  <td className="py-1.5 pl-4 text-xs text-gray-500">of which sales tax collected (to remit)</td>
+                  <td className="py-1.5 pl-4 text-xs text-gray-500">of which sales tax collected (see remittance below)</td>
                   <td className="py-1.5 text-right text-xs text-gray-500 tabular-nums">{money(report.taxCollectedCents)}</td>
                 </tr>
               )}
@@ -211,6 +211,33 @@ export default async function FinancialReportPage({
             </tbody>
           </table>
         </section>
+
+        {/* Sales tax remittance */}
+        {(report.taxCollectedCents > 0 || report.taxPaidCents > 0) && (
+          <section>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-2">Sales tax remittance</h3>
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-gray-100">
+                <tr>
+                  <td className="py-1.5 text-gray-700">Sales tax collected on registrations &amp; sales</td>
+                  <td className="py-1.5 text-right font-medium tabular-nums">{money(report.taxCollectedCents)}</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 text-gray-700">Less: recoverable tax paid on expenses (input tax credits)</td>
+                  <td className="py-1.5 text-right font-medium tabular-nums text-red-600">− {money(report.taxPaidCents)}</td>
+                </tr>
+                <tr className="border-t-2 border-gray-200 font-semibold">
+                  <td className="py-2 text-gray-900">{report.netTaxRemittanceCents >= 0 ? 'Net tax to remit' : 'Net tax refund position'}</td>
+                  <td className="py-2 text-right tabular-nums">{money(Math.abs(report.netTaxRemittanceCents))}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p className="text-xs text-gray-400 mt-2">
+              Tax paid counts only what was entered as recoverable on each expense (HST/GST/QST — not
+              provincial PST). Expenses are dated by the date incurred, matching how credits are claimed by period.
+            </p>
+          </section>
+        )}
 
         {/* Net */}
         <section className="rounded-xl border bg-gray-50 px-4 py-3 print:border-gray-300 flex items-center justify-between">

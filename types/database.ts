@@ -914,12 +914,57 @@ export type Database = {
           },
         ]
       }
+      expense_attachments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expense_id: string
+          file_name: string | null
+          id: string
+          kind: string
+          label: string | null
+          organization_id: string
+          path: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expense_id: string
+          file_name?: string | null
+          id?: string
+          kind: string
+          label?: string | null
+          organization_id: string
+          path: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expense_id?: string
+          file_name?: string | null
+          id?: string
+          kind?: string
+          label?: string | null
+          organization_id?: string
+          path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_attachments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_expenses: {
         Row: {
           amount_cents: number
           category: string
           created_at: string
           created_by: string | null
+          tax_cents: number
           description: string
           id: string
           incurred_on: string | null
@@ -935,6 +980,7 @@ export type Database = {
           category?: string
           created_at?: string
           created_by?: string | null
+          tax_cents?: number
           description: string
           id?: string
           incurred_on?: string | null
@@ -950,6 +996,7 @@ export type Database = {
           category?: string
           created_at?: string
           created_by?: string | null
+          tax_cents?: number
           description?: string
           id?: string
           incurred_on?: string | null
@@ -3186,6 +3233,7 @@ export type Database = {
           category: string
           created_at: string
           created_by: string | null
+          tax_cents: number
           description: string
           id: string
           incurred_on: string | null
@@ -3200,6 +3248,7 @@ export type Database = {
           category?: string
           created_at?: string
           created_by?: string | null
+          tax_cents?: number
           description: string
           id?: string
           incurred_on?: string | null
@@ -3214,6 +3263,7 @@ export type Database = {
           category?: string
           created_at?: string
           created_by?: string | null
+          tax_cents?: number
           description?: string
           id?: string
           incurred_on?: string | null

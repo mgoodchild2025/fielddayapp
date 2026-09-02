@@ -8,6 +8,7 @@ import { getEventPnl, getEventExpenses, getEventBudget, getEventRevenue, getEven
 import { EventExpensesManager } from '@/components/finances/event-expenses-manager'
 import { EventRevenueManager } from '@/components/finances/event-revenue-manager'
 import { BudgetPlanner } from '@/components/finances/budget-planner'
+import { getOrgTaxRates } from '@/lib/tax'
 
 function money(cents: number): string {
   const neg = cents < 0
@@ -30,10 +31,11 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
   if (!league) notFound()
   const isSessionBased = league.event_type === 'drop_in' || league.event_type === 'pickup'
 
-  const [pnl, expenses, revenue, budget, { data: rawSessions }, { data: branding }, sessionRevenue] = await Promise.all([
+  const [pnl, expenses, revenue, taxRates, budget, { data: rawSessions }, { data: branding }, sessionRevenue] = await Promise.all([
     getEventPnl(id, org.id),
     getEventExpenses(id),
     getEventRevenue(id),
+    getOrgTaxRates(createServiceRoleClient(), org.id),
     getEventBudget(id),
 
     db.from('event_sessions').select('id, scheduled_at')
@@ -43,6 +45,8 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
 
     isSessionBased ? getEventRevenueBySession(id, org.id) : Promise.resolve([]),
   ])
+  // Combined active sales-tax rate — the expense form's one-tap "Calc X%" helper.
+  const defaultTaxPct = taxRates.reduce((sum, r) => sum + (r.percentage > 0 ? r.percentage : 0), 0)
 
   const timezone = branding?.timezone ?? 'America/Toronto'
   const sessions = (rawSessions ?? []).map((s: { id: string; scheduled_at: string }) => ({
@@ -123,7 +127,7 @@ export default async function EventFinancesPage({ params }: { params: Promise<{ 
       <EventRevenueManager leagueId={id} initialRevenue={revenue} />
 
       {/* ── Expenses ledger ──────────────────────────────────────────────── */}
-      <EventExpensesManager leagueId={id} initialExpenses={expenses} sessions={sessions} />
+      <EventExpensesManager leagueId={id} initialExpenses={expenses} sessions={sessions} defaultTaxPct={defaultTaxPct} />
 
       {/* ── Pricing planner ──────────────────────────────────────────────── */}
       <BudgetPlanner leagueId={id} initial={budget} />

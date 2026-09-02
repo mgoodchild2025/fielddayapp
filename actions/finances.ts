@@ -5,7 +5,7 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { EXPENSE_CATEGORIES, type ExpenseCategory, OVERHEAD_CATEGORIES, type OverheadCategory, OVERHEAD_PERIODS, type OverheadPeriod, BUDGET_COST_TYPES, type BudgetCostType, REVENUE_CATEGORIES, type RevenueCategory } from '@/lib/finance-constants'
+import { EXPENSE_CATEGORIES, type ExpenseCategory, OVERHEAD_CATEGORIES, type OverheadCategory, OVERHEAD_PERIODS, type OverheadPeriod, BUDGET_COST_TYPES, type BudgetCostType, REVENUE_CATEGORIES, type RevenueCategory, ATTACHMENT_LABELS } from '@/lib/finance-constants'
 
 // ── Auth helper ──────────────────────────────────────────────────────────────
 
@@ -175,6 +175,13 @@ export async function getShopPnl(orgId: string): Promise<ShopPnl> {
 
 // ── Event expenses ───────────────────────────────────────────────────────────
 
+export type ExpenseAttachment = {
+  id: string
+  label: string | null
+  file_name: string | null
+  created_at: string
+}
+
 export type EventExpense = {
   id: string
   league_id: string
@@ -182,11 +189,32 @@ export type EventExpense = {
   category: ExpenseCategory
   description: string
   amount_cents: number
+  /** Recoverable sales tax included in amount_cents (input tax credit). */
+  tax_cents: number
   vendor: string | null
   incurred_on: string | null
   notes: string | null
-  receipt_path: string | null
   created_at: string
+  attachments: ExpenseAttachment[]
+}
+
+/** Attachments for a set of expenses of one kind, keyed by expense id. */
+async function attachmentsFor(kind: ReceiptKind, expenseIds: string[]): Promise<Map<string, ExpenseAttachment[]>> {
+  const map = new Map<string, ExpenseAttachment[]>()
+  if (expenseIds.length === 0) return map
+  const db = createServiceRoleClient()
+  const { data } = await db
+    .from('expense_attachments')
+    .select('id, expense_id, label, file_name, created_at')
+    .eq('kind', kind)
+    .in('expense_id', expenseIds)
+    .order('created_at', { ascending: true })
+  for (const a of (data ?? []) as { id: string; expense_id: string; label: string | null; file_name: string | null; created_at: string }[]) {
+    const list = map.get(a.expense_id) ?? []
+    list.push({ id: a.id, label: a.label, file_name: a.file_name, created_at: a.created_at })
+    map.set(a.expense_id, list)
+  }
+  return map
 }
 
 export async function getEventExpenses(leagueId: string): Promise<EventExpense[]> {
@@ -194,11 +222,20 @@ export async function getEventExpenses(leagueId: string): Promise<EventExpense[]
 
   const { data } = await db
     .from('event_expenses')
-    .select('id, league_id, session_id, category, description, amount_cents, vendor, incurred_on, notes, receipt_path, created_at')
+    .select('id, league_id, session_id, category, description, amount_cents, tax_cents, vendor, incurred_on, notes, created_at')
     .eq('league_id', leagueId)
     .order('incurred_on', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
-  return (data ?? []) as EventExpense[]
+  const rows = (data ?? []) as Omit<EventExpense, 'attachments'>[]
+  const attachments = await attachmentsFor('event', rows.map((r) => r.id))
+  return rows.map((r) => ({ ...r, attachments: attachments.get(r.id) ?? [] }))
+}
+
+function validTax(taxCents: number | undefined, amountCents: number): string | null {
+  const t = taxCents ?? 0
+  if (!Number.isFinite(t) || t < 0) return 'Enter a valid tax amount.'
+  if (t > amountCents) return 'Tax cannot exceed the expense amount.'
+  return null
 }
 
 export async function addEventExpense(input: {
@@ -206,6 +243,7 @@ export async function addEventExpense(input: {
   category: ExpenseCategory
   description: string
   amountCents: number
+  taxCents?: number
   vendor?: string
   incurredOn?: string | null
   notes?: string
@@ -218,6 +256,8 @@ export async function addEventExpense(input: {
 
   if (!input.description.trim()) return { error: 'Description is required.' }
   if (!Number.isFinite(input.amountCents) || input.amountCents < 0) return { error: 'Enter a valid amount.' }
+  const taxErr = validTax(input.taxCents, input.amountCents)
+  if (taxErr) return { error: taxErr }
   if (!EXPENSE_CATEGORIES.includes(input.category)) return { error: 'Invalid category.' }
 
   // Verify the league belongs to this org before writing.
@@ -243,11 +283,63 @@ export async function addEventExpense(input: {
     category: input.category,
     description: input.description.trim(),
     amount_cents: Math.round(input.amountCents),
+    tax_cents: Math.round(input.taxCents ?? 0),
     vendor: input.vendor?.trim() || null,
     incurred_on: input.incurredOn || null,
     notes: input.notes?.trim() || null,
     created_by: auth.userId,
   })
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${input.leagueId}/finances`)
+  return { error: null }
+}
+
+/** Edit an existing expense (all fields; attachments are managed separately). */
+export async function updateEventExpense(input: {
+  expenseId: string
+  leagueId: string
+  category: ExpenseCategory
+  description: string
+  amountCents: number
+  taxCents?: number
+  vendor?: string
+  incurredOn?: string | null
+  notes?: string
+  sessionId?: string | null
+}): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await requireFinanceAdmin(org.id)
+  if ('error' in auth) return { error: auth.error }
+
+  if (!input.description.trim()) return { error: 'Description is required.' }
+  if (!Number.isFinite(input.amountCents) || input.amountCents < 0) return { error: 'Enter a valid amount.' }
+  const taxErr = validTax(input.taxCents, input.amountCents)
+  if (taxErr) return { error: taxErr }
+  if (!EXPENSE_CATEGORIES.includes(input.category)) return { error: 'Invalid category.' }
+
+  const db = createServiceRoleClient()
+  if (input.sessionId) {
+    const { data: sess } = await db
+      .from('event_sessions').select('id').eq('id', input.sessionId).eq('league_id', input.leagueId).maybeSingle()
+    if (!sess) return { error: 'Session not found for this event.' }
+  }
+
+  const { error } = await db.from('event_expenses')
+    .update({
+      category: input.category,
+      description: input.description.trim(),
+      amount_cents: Math.round(input.amountCents),
+      tax_cents: Math.round(input.taxCents ?? 0),
+      vendor: input.vendor?.trim() || null,
+      incurred_on: input.incurredOn || null,
+      notes: input.notes?.trim() || null,
+      session_id: input.sessionId || null,
+    })
+    .eq('id', input.expenseId)
+    .eq('organization_id', org.id)
+    .eq('league_id', input.leagueId)
   if (error) return { error: error.message }
 
   revalidatePath(`/admin/events/${input.leagueId}/finances`)
@@ -315,6 +407,7 @@ export async function deleteEventExpense(expenseId: string, leagueId: string): P
   if ('error' in auth) return { error: auth.error }
 
   const db = createServiceRoleClient()
+  await deleteAttachmentsOf(db, org.id, 'event', expenseId)
 
   const { error } = await db
     .from('event_expenses').delete().eq('id', expenseId).eq('organization_id', org.id)
@@ -330,8 +423,12 @@ export type FinancialReport = {
   fromDate: string
   toDate: string
   registrationRevenueCents: number
-  /** Sales tax included in the registration revenue above — the remittance figure. */
+  /** Sales tax included in the registration revenue above. */
   taxCollectedCents: number
+  /** Recoverable sales tax paid on event expenses + overhead in the period (input tax credits). */
+  taxPaidCents: number
+  /** taxCollected − taxPaid: what's actually owed (negative = refund position). */
+  netTaxRemittanceCents: number
   /** Refunds issued within the period (dated by refunded_at; already subtracted from revenueCents). */
   refundedCents: number
   merchRevenueCents: number
@@ -378,9 +475,9 @@ export async function getFinancialReport(orgId: string, fromDate: string, toDate
       .select('league_id, item_id, variant_id, quantity, unit_price_cents, discount_cents, amount_paid_cents, created_at')
       .eq('organization_id', orgId).in('status', ['paid', 'fulfilled']),
 
-    db.from('event_expenses').select('league_id, category, amount_cents, incurred_on, created_at').eq('organization_id', orgId),
+    db.from('event_expenses').select('league_id, category, amount_cents, tax_cents, incurred_on, created_at').eq('organization_id', orgId),
 
-    db.from('org_overhead_expenses').select('category, amount_cents, incurred_on, created_at').eq('organization_id', orgId),
+    db.from('org_overhead_expenses').select('category, amount_cents, tax_cents, incurred_on, created_at').eq('organization_id', orgId),
 
     db.from('event_revenue').select('league_id, category, amount_cents, received_on, created_at').eq('organization_id', orgId),
 
@@ -489,6 +586,9 @@ export async function getFinancialReport(orgId: string, fromDate: string, toDate
   const overheadRows = ((overhead ?? []) as any[]).filter((r) => inDateRange(r.incurred_on, r.created_at))
   const overheadByCategory = byCategory(overheadRows.map((r) => ({ category: r.category as string, amountCents: r.amount_cents as number })))
   const overheadCents = overheadRows.reduce((sum, r) => sum + (r.amount_cents ?? 0), 0)
+  const taxPaidCents =
+    expenseRows.reduce((sum, r) => sum + (r.tax_cents ?? 0), 0) +
+    overheadRows.reduce((sum, r) => sum + (r.tax_cents ?? 0), 0)
 
   const revenueCents = registrationRevenueCents + merchRevenueCents + otherIncomeCents - refundedCents
   const costCents = eventExpenseCents + overheadCents + merchCogsCents
@@ -503,7 +603,9 @@ export async function getFinancialReport(orgId: string, fromDate: string, toDate
 
   return {
     fromDate, toDate,
-    registrationRevenueCents, taxCollectedCents, refundedCents,
+    registrationRevenueCents, taxCollectedCents, taxPaidCents,
+    netTaxRemittanceCents: taxCollectedCents - taxPaidCents,
+    refundedCents,
     merchRevenueCents, merchCogsCents,
     otherIncomeByCategory, otherIncomeCents,
     expensesByCategory, eventExpenseCents,
@@ -674,12 +776,14 @@ export type OrgOverhead = {
   category: OverheadCategory
   description: string
   amount_cents: number
+  /** Recoverable sales tax included in amount_cents (input tax credit). */
+  tax_cents: number
   period: OverheadPeriod
   applies_to: 'general' | 'shop'
   incurred_on: string | null
   notes: string | null
-  receipt_path: string | null
   created_at: string
+  attachments: ExpenseAttachment[]
   /** Portions attributed to specific events; the remainder is pure overhead. */
   allocations?: OverheadAllocation[]
 }
@@ -689,7 +793,7 @@ export async function getOrgOverhead(orgId: string): Promise<OrgOverhead[]> {
 
   const [{ data }, { data: allocRows }] = await Promise.all([
     db.from('org_overhead_expenses')
-      .select('id, category, description, amount_cents, period, applies_to, incurred_on, notes, receipt_path, created_at')
+      .select('id, category, description, amount_cents, tax_cents, period, applies_to, incurred_on, notes, created_at')
       .eq('organization_id', orgId)
       .order('incurred_on', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false }),
@@ -705,7 +809,9 @@ export async function getOrgOverhead(orgId: string): Promise<OrgOverhead[]> {
     list.push({ leagueId: a.league_id, leagueName: league?.name ?? 'Deleted event', amountCents: a.amount_cents })
     allocsByOverhead.set(a.overhead_id, list)
   }
-  return ((data ?? []) as OrgOverhead[]).map((e) => ({ ...e, allocations: allocsByOverhead.get(e.id) ?? [] }))
+  const rows = (data ?? []) as Omit<OrgOverhead, 'attachments' | 'allocations'>[]
+  const attachments = await attachmentsFor('overhead', rows.map((r) => r.id))
+  return rows.map((e) => ({ ...e, attachments: attachments.get(e.id) ?? [], allocations: allocsByOverhead.get(e.id) ?? [] }))
 }
 
 // ── Overhead allocation: attribute a shared cost to specific events ──────────
@@ -788,24 +894,34 @@ export async function saveOverheadAllocations(input: {
   return { error: null }
 }
 
-export async function addOrgOverhead(input: {
+type OverheadInput = {
   category: OverheadCategory
   description: string
   amountCents: number
+  taxCents?: number
   period: OverheadPeriod
   appliesTo: 'general' | 'shop'
   incurredOn?: string | null
   notes?: string
-}): Promise<{ error: string | null }> {
+}
+
+function validateOverhead(input: OverheadInput): string | null {
+  if (!input.description.trim()) return 'Description is required.'
+  if (!Number.isFinite(input.amountCents) || input.amountCents < 0) return 'Enter a valid amount.'
+  const taxErr = validTax(input.taxCents, input.amountCents)
+  if (taxErr) return taxErr
+  if (!OVERHEAD_CATEGORIES.includes(input.category)) return 'Invalid category.'
+  if (!OVERHEAD_PERIODS.includes(input.period)) return 'Invalid period.'
+  return null
+}
+
+export async function addOrgOverhead(input: OverheadInput): Promise<{ error: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const auth = await requireFinanceAdmin(org.id)
   if ('error' in auth) return { error: auth.error }
-
-  if (!input.description.trim()) return { error: 'Description is required.' }
-  if (!Number.isFinite(input.amountCents) || input.amountCents < 0) return { error: 'Enter a valid amount.' }
-  if (!OVERHEAD_CATEGORIES.includes(input.category)) return { error: 'Invalid category.' }
-  if (!OVERHEAD_PERIODS.includes(input.period)) return { error: 'Invalid period.' }
+  const invalid = validateOverhead(input)
+  if (invalid) return { error: invalid }
 
   const db = createServiceRoleClient()
 
@@ -814,12 +930,53 @@ export async function addOrgOverhead(input: {
     category: input.category,
     description: input.description.trim(),
     amount_cents: Math.round(input.amountCents),
+    tax_cents: Math.round(input.taxCents ?? 0),
     period: input.period,
     applies_to: input.appliesTo,
     incurred_on: input.incurredOn || null,
     notes: input.notes?.trim() || null,
     created_by: auth.userId,
   })
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin/finances')
+  return { error: null }
+}
+
+/** Edit an overhead expense. Shrinking the amount below what's already
+ *  allocated to events is refused — fix the allocations first. */
+export async function updateOrgOverhead(input: OverheadInput & { id: string }): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await requireFinanceAdmin(org.id)
+  if ('error' in auth) return { error: auth.error }
+  const invalid = validateOverhead(input)
+  if (invalid) return { error: invalid }
+
+  const db = createServiceRoleClient()
+  const { data: allocs } = await db
+    .from('org_overhead_allocations')
+    .select('amount_cents')
+    .eq('overhead_id', input.id)
+    .eq('organization_id', org.id)
+  const allocated = ((allocs ?? []) as { amount_cents: number }[]).reduce((sum, a) => sum + a.amount_cents, 0)
+  if (allocated > Math.round(input.amountCents)) {
+    return { error: `This expense has ${(allocated / 100).toFixed(2)} allocated to events — reduce the allocations before lowering the amount.` }
+  }
+
+  const { error } = await db.from('org_overhead_expenses')
+    .update({
+      category: input.category,
+      description: input.description.trim(),
+      amount_cents: Math.round(input.amountCents),
+      tax_cents: Math.round(input.taxCents ?? 0),
+      period: input.period,
+      applies_to: input.appliesTo,
+      incurred_on: input.incurredOn || null,
+      notes: input.notes?.trim() || null,
+    })
+    .eq('id', input.id)
+    .eq('organization_id', org.id)
   if (error) return { error: error.message }
 
   revalidatePath('/admin/finances')
@@ -847,7 +1004,11 @@ export async function setFiscalYearStart(month: number): Promise<{ error: string
   return { error: null }
 }
 
-// ── Expense receipts (private bucket, signed-URL viewing) ─────────────────────
+// ── Expense attachments (private bucket, signed-URL viewing) ─────────────────
+// Any number of files per expense (invoice + receipt + contract…), each with an
+// optional label. Objects live in the private expense-receipts bucket at
+// <org>/<kind>/<expenseId>/<attachmentId>.<ext>; viewing goes through a
+// short-lived signed URL for finance admins only.
 
 const RECEIPT_TYPES: Record<string, string> = {
   'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf',
@@ -856,8 +1017,22 @@ const RECEIPT_MAX_SIZE = 10 * 1024 * 1024
 const RECEIPT_TABLE = { event: 'event_expenses', overhead: 'org_overhead_expenses' } as const
 export type ReceiptKind = keyof typeof RECEIPT_TABLE
 
-/** Attach (or replace) the receipt on an expense / overhead entry. */
-export async function uploadExpenseReceipt(formData: FormData): Promise<{ error: string | null }> {
+/** Remove every attachment (rows + storage objects) of an expense — call before deleting the expense. */
+async function deleteAttachmentsOf(db: ReturnType<typeof createServiceRoleClient>, orgId: string, kind: ReceiptKind, expenseId: string) {
+  const { data } = await db
+    .from('expense_attachments')
+    .select('id, path')
+    .eq('organization_id', orgId)
+    .eq('kind', kind)
+    .eq('expense_id', expenseId)
+  const rows = (data ?? []) as { id: string; path: string }[]
+  if (rows.length === 0) return
+  await db.storage.from('expense-receipts').remove(rows.map((r) => r.path))
+  await db.from('expense_attachments').delete().in('id', rows.map((r) => r.id))
+}
+
+/** Attach a file to an expense / overhead entry. */
+export async function uploadExpenseAttachment(formData: FormData): Promise<{ error: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const auth = await requireFinanceAdmin(org.id)
@@ -866,6 +1041,8 @@ export async function uploadExpenseReceipt(formData: FormData): Promise<{ error:
   const kind = formData.get('kind') as ReceiptKind | null
   const expenseId = formData.get('expenseId') as string | null
   const file = formData.get('file') as File | null
+  const rawLabel = (formData.get('label') as string | null) ?? 'Receipt'
+  const label = (ATTACHMENT_LABELS as readonly string[]).includes(rawLabel) ? rawLabel : 'Other'
   if (!kind || !(kind in RECEIPT_TABLE) || !expenseId) return { error: 'Invalid input' }
   if (!file || file.size === 0) return { error: 'No file provided' }
   const ext = RECEIPT_TYPES[file.type]
@@ -875,32 +1052,39 @@ export async function uploadExpenseReceipt(formData: FormData): Promise<{ error:
   const db = createServiceRoleClient()
   const { data: row } = await db
     .from(RECEIPT_TABLE[kind])
-    .select('id, receipt_path')
+    .select('id')
     .eq('id', expenseId)
     .eq('organization_id', org.id)
     .maybeSingle()
   if (!row) return { error: 'Expense not found' }
 
-  const path = `${org.id}/${kind}/${expenseId}.${ext}`
+  // Row first so the storage path is keyed by a real id; clean up if the upload fails.
+  const { data: inserted, error: insertError } = await db
+    .from('expense_attachments')
+    .insert({
+      organization_id: org.id, kind, expense_id: expenseId,
+      path: '', label, file_name: file.name || null, created_by: auth.userId,
+    })
+    .select('id')
+    .single()
+  if (insertError || !inserted) return { error: insertError?.message ?? 'Could not save attachment' }
+
+  const path = `${org.id}/${kind}/${expenseId}/${inserted.id}.${ext}`
   const { error: uploadError } = await db.storage
     .from('expense-receipts')
     .upload(path, file, { contentType: file.type, upsert: true })
-  if (uploadError) return { error: uploadError.message }
-  // Replacing a receipt that had a different extension leaves the old object behind — remove it.
-  if (row.receipt_path && row.receipt_path !== path) {
-    await db.storage.from('expense-receipts').remove([row.receipt_path])
+  if (uploadError) {
+    await db.from('expense_attachments').delete().eq('id', inserted.id)
+    return { error: uploadError.message }
   }
-  const { error } = await db.from(RECEIPT_TABLE[kind])
-    .update({ receipt_path: path })
-    .eq('id', expenseId)
-    .eq('organization_id', org.id)
+  const { error } = await db.from('expense_attachments').update({ path }).eq('id', inserted.id)
   if (error) return { error: error.message }
   revalidatePath('/admin/finances')
   return { error: null }
 }
 
-/** Short-lived signed URL to view a receipt (finance admins only). */
-export async function getReceiptUrl(kind: ReceiptKind, expenseId: string): Promise<{ url: string | null; error: string | null }> {
+/** Short-lived signed URL to view one attachment (finance admins only). */
+export async function getAttachmentUrl(attachmentId: string): Promise<{ url: string | null; error: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const auth = await requireFinanceAdmin(org.id)
@@ -908,21 +1092,21 @@ export async function getReceiptUrl(kind: ReceiptKind, expenseId: string): Promi
 
   const db = createServiceRoleClient()
   const { data: row } = await db
-    .from(RECEIPT_TABLE[kind])
-    .select('receipt_path')
-    .eq('id', expenseId)
+    .from('expense_attachments')
+    .select('path')
+    .eq('id', attachmentId)
     .eq('organization_id', org.id)
     .maybeSingle()
-  if (!row?.receipt_path) return { url: null, error: 'No receipt attached' }
+  if (!row?.path) return { url: null, error: 'Attachment not found' }
   const { data, error } = await db.storage
     .from('expense-receipts')
-    .createSignedUrl(row.receipt_path, 600)
+    .createSignedUrl(row.path, 600)
   if (error || !data?.signedUrl) return { url: null, error: error?.message ?? 'Could not create link' }
   return { url: data.signedUrl, error: null }
 }
 
-/** Detach and delete an expense's receipt. */
-export async function removeExpenseReceipt(kind: ReceiptKind, expenseId: string): Promise<{ error: string | null }> {
+/** Delete one attachment (row + storage object). */
+export async function removeExpenseAttachment(attachmentId: string): Promise<{ error: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const auth = await requireFinanceAdmin(org.id)
@@ -930,17 +1114,14 @@ export async function removeExpenseReceipt(kind: ReceiptKind, expenseId: string)
 
   const db = createServiceRoleClient()
   const { data: row } = await db
-    .from(RECEIPT_TABLE[kind])
-    .select('receipt_path')
-    .eq('id', expenseId)
+    .from('expense_attachments')
+    .select('id, path')
+    .eq('id', attachmentId)
     .eq('organization_id', org.id)
     .maybeSingle()
-  if (!row?.receipt_path) return { error: null }
-  await db.storage.from('expense-receipts').remove([row.receipt_path])
-  const { error } = await db.from(RECEIPT_TABLE[kind])
-    .update({ receipt_path: null })
-    .eq('id', expenseId)
-    .eq('organization_id', org.id)
+  if (!row) return { error: null }
+  if (row.path) await db.storage.from('expense-receipts').remove([row.path])
+  const { error } = await db.from('expense_attachments').delete().eq('id', row.id)
   if (error) return { error: error.message }
   revalidatePath('/admin/finances')
   return { error: null }
@@ -953,6 +1134,7 @@ export async function deleteOrgOverhead(id: string): Promise<{ error: string | n
   if ('error' in auth) return { error: auth.error }
 
   const db = createServiceRoleClient()
+  await deleteAttachmentsOf(db, org.id, 'overhead', id)
 
   const { error } = await db
     .from('org_overhead_expenses').delete().eq('id', id).eq('organization_id', org.id)
@@ -1327,6 +1509,45 @@ export async function addEventRevenue(input: {
     notes: input.notes?.trim() || null,
     created_by: auth.userId,
   })
+  if (error) return { error: error.message }
+
+  revalidatePath(`/admin/events/${input.leagueId}/finances`)
+  return { error: null }
+}
+
+/** Edit an other-income entry. */
+export async function updateEventRevenue(input: {
+  revenueId: string
+  leagueId: string
+  category: RevenueCategory
+  description: string
+  amountCents: number
+  source?: string
+  receivedOn?: string | null
+  notes?: string
+}): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await requireFinanceAdmin(org.id)
+  if ('error' in auth) return { error: auth.error }
+
+  if (!input.description.trim()) return { error: 'Description is required.' }
+  if (!Number.isFinite(input.amountCents) || input.amountCents < 0) return { error: 'Enter a valid amount.' }
+  if (!REVENUE_CATEGORIES.includes(input.category)) return { error: 'Invalid category.' }
+
+  const db = createServiceRoleClient()
+  const { error } = await db.from('event_revenue')
+    .update({
+      category: input.category,
+      description: input.description.trim(),
+      amount_cents: Math.round(input.amountCents),
+      source: input.source?.trim() || null,
+      received_on: input.receivedOn || null,
+      notes: input.notes?.trim() || null,
+    })
+    .eq('id', input.revenueId)
+    .eq('organization_id', org.id)
+    .eq('league_id', input.leagueId)
   if (error) return { error: error.message }
 
   revalidatePath(`/admin/events/${input.leagueId}/finances`)

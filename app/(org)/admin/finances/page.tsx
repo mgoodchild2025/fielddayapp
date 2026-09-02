@@ -7,6 +7,8 @@ import { getShopPnl, getOrgPnl, getOrgOverhead, getAllocationTargets } from '@/a
 import { OrgOverheadManager } from '@/components/finances/org-overhead-manager'
 import { listAdminDocuments } from '@/actions/admin-documents'
 import { AdminDocumentsCard } from '@/components/documents/admin-documents-card'
+import { createServiceRoleClient } from '@/lib/supabase/service'
+import { getOrgTaxRates } from '@/lib/tax'
 import Link from 'next/link'
 
 function money(cents: number): string {
@@ -32,13 +34,16 @@ export default async function FinancesPage() {
     )
   }
 
-  const [shop, pnl, overhead, allocationTargets, orgDocuments] = await Promise.all([
+  const [shop, pnl, overhead, allocationTargets, orgDocuments, taxRates] = await Promise.all([
     getShopPnl(org.id),
     getOrgPnl(org.id),
     getOrgOverhead(org.id),
     getAllocationTargets(org.id),
     listAdminDocuments(org.id, null),
+    getOrgTaxRates(createServiceRoleClient(), org.id),
   ])
+  // Combined active sales-tax rate — the overhead form's one-tap "Calc X%" helper.
+  const defaultTaxPct = taxRates.reduce((sum, r) => sum + (r.percentage > 0 ? r.percentage : 0), 0)
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-10">
@@ -135,7 +140,7 @@ export default async function FinancesPage() {
       </section>
 
       {/* ── Overhead ledger ────────────────────────────────────────────────── */}
-      <OrgOverheadManager initialOverhead={overhead} allocationTargets={allocationTargets} />
+      <OrgOverheadManager initialOverhead={overhead} allocationTargets={allocationTargets} defaultTaxPct={defaultTaxPct} />
 
       {/* Org-level admin documents (insurance certs, facility contracts…) */}
       <AdminDocumentsCard leagueId={null} initialDocuments={orgDocuments} />
