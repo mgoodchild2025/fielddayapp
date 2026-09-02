@@ -2,9 +2,10 @@
 
 import { Fragment, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2 } from 'lucide-react'
-import { addOrgOverhead, deleteOrgOverhead, saveOverheadAllocations } from '@/actions/finances'
-import { ReceiptControl } from '@/components/finances/receipt-control'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { addOrgOverhead, updateOrgOverhead, deleteOrgOverhead, saveOverheadAllocations } from '@/actions/finances'
+import { AttachmentsControl } from '@/components/finances/receipt-control'
+import { backOutTax } from '@/components/finances/event-expenses-manager'
 import type { OrgOverhead, AllocationTarget } from '@/actions/finances'
 import { OVERHEAD_CATEGORIES, OVERHEAD_PERIODS, type OverheadCategory, type OverheadPeriod } from '@/lib/finance-constants'
 
@@ -159,41 +160,70 @@ function AllocationEditor({ expense, targets, onDone }: {
   )
 }
 
-export function OrgOverheadManager({ initialOverhead, allocationTargets = [] }: { initialOverhead: OrgOverhead[]; allocationTargets?: AllocationTarget[] }) {
+export function OrgOverheadManager({ initialOverhead, allocationTargets = [], defaultTaxPct = 0 }: {
+  initialOverhead: OrgOverhead[]
+  allocationTargets?: AllocationTarget[]
+  /** Org's combined active sales-tax rate — powers the one-tap "Calc X%" helper. */
+  defaultTaxPct?: number
+}) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [adding, setAdding] = useState(false)
+  // null = form closed · 'new' = adding · otherwise the id being edited
+  const [editing, setEditing] = useState<string | null>(null)
   const [allocatingId, setAllocatingId] = useState<string | null>(null)
 
   const [category, setCategory] = useState<OverheadCategory>('insurance')
   const [description, setDescription] = useState('')
   const [amount, setAmount] = useState('')
+  const [tax, setTax] = useState('')
   const [period, setPeriod] = useState<OverheadPeriod>('annual')
   const [appliesTo, setAppliesTo] = useState<'general' | 'shop'>('general')
   const [incurredOn, setIncurredOn] = useState('')
 
   const total = initialOverhead.reduce((s, e) => s + e.amount_cents, 0)
+  const totalTax = initialOverhead.reduce((s, e) => s + (e.tax_cents ?? 0), 0)
+  const isNew = editing === 'new'
+  const adding = editing !== null
 
   function reset() {
-    setCategory('insurance'); setDescription(''); setAmount(''); setPeriod('annual'); setAppliesTo('general'); setIncurredOn('')
+    setCategory('insurance'); setDescription(''); setAmount(''); setTax(''); setPeriod('annual'); setAppliesTo('general'); setIncurredOn('')
+  }
+
+  function startEdit(e: OrgOverhead) {
+    setCategory(e.category); setDescription(e.description)
+    setAmount((e.amount_cents / 100).toFixed(2))
+    setTax(e.tax_cents ? (e.tax_cents / 100).toFixed(2) : '')
+    setPeriod(e.period); setAppliesTo(e.applies_to); setIncurredOn(e.incurred_on ?? '')
+    setError(null); setAllocatingId(null)
+    setEditing(e.id)
+  }
+
+  function close() { setEditing(null); reset(); setError(null) }
+
+  function calcTax() {
+    const cents = Math.round(parseFloat(amount) * 100)
+    if (isNaN(cents)) return
+    setTax((backOutTax(cents, defaultTaxPct) / 100).toFixed(2))
   }
 
   function submit() {
     const cents = Math.round(parseFloat(amount) * 100)
+    const taxCents = tax.trim() === '' ? 0 : Math.round(parseFloat(tax) * 100)
     if (!description.trim()) { setError('Enter a description.'); return }
     if (isNaN(cents) || cents < 0) { setError('Enter a valid amount.'); return }
+    if (isNaN(taxCents) || taxCents < 0 || taxCents > cents) { setError('Tax must be between 0 and the amount.'); return }
     setError(null)
     startTransition(async () => {
-      const res = await addOrgOverhead({
-        category, description, amountCents: cents, period, appliesTo, incurredOn: incurredOn || null,
-      })
+      const common = { category, description, amountCents: cents, taxCents, period, appliesTo, incurredOn: incurredOn || null }
+      const res = isNew ? await addOrgOverhead(common) : await updateOrgOverhead({ ...common, id: editing! })
       if (res.error) { setError(res.error); return }
-      reset(); setAdding(false); router.refresh()
+      close(); router.refresh()
     })
   }
 
   function remove(id: string) {
+    if (!confirm('Delete this overhead expense and its attachments?')) return
     setError(null)
     startTransition(async () => {
       const res = await deleteOrgOverhead(id)
@@ -202,28 +232,7 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [] }: 
     })
   }
 
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Overhead</h2>
-          <p className="text-xs text-gray-400">Org-wide costs not tied to one event (insurance, equipment, software…).</p>
-        </div>
-        {!adding && (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-white"
-            style={{ backgroundColor: 'var(--brand-primary)' }}
-          >
-            <Plus className="w-4 h-4" /> Add overhead
-          </button>
-        )}
-      </div>
-
-      {error && <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
-
-      {adding && (
+  const form = (
         <div className="rounded-lg border bg-gray-50 p-3 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <select value={category} onChange={(e) => setCategory(e.target.value as OverheadCategory)} className="border rounded px-2 py-1.5 text-sm bg-white">
@@ -245,16 +254,52 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [] }: 
             </select>
             <input type="date" value={incurredOn} onChange={(e) => setIncurredOn(e.target.value)} className="border rounded px-2 py-1.5 text-sm text-gray-600" />
           </div>
+          {/* Recoverable tax paid — feeds the report's net remittance (collected − paid) */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
+              <input type="number" step="0.01" min="0" value={tax} onChange={(e) => setTax(e.target.value)} placeholder="Tax included (HST/GST) — optional" className="w-full border rounded pl-5 pr-2 py-1.5 text-sm" />
+            </div>
+            {defaultTaxPct > 0 && (
+              <button type="button" onClick={calcTax} className="px-2.5 py-1.5 rounded border bg-white text-xs text-gray-600 hover:bg-gray-50 whitespace-nowrap" title="Back the tax out of the total at your org's rate">
+                Calc {defaultTaxPct}%
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-gray-400">Enter only the <em>recoverable</em> tax (HST/GST/QST). It&apos;s subtracted from tax collected on the financial report.</p>
           <div className="flex items-center gap-2 justify-end">
-            <button type="button" onClick={() => { setAdding(false); reset(); setError(null) }} className="px-3 py-1.5 rounded-md border text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+            <button type="button" onClick={close} className="px-3 py-1.5 rounded-md border text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
             <button type="button" onClick={submit} disabled={pending} className="px-3 py-1.5 rounded-md text-sm font-semibold text-white disabled:opacity-60" style={{ backgroundColor: 'var(--brand-primary)' }}>
-              {pending ? 'Saving…' : 'Save'}
+              {pending ? 'Saving…' : isNew ? 'Save' : 'Save changes'}
             </button>
           </div>
         </div>
-      )}
+  )
 
-      {initialOverhead.length === 0 && !adding ? (
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Overhead</h2>
+          <p className="text-xs text-gray-400">Org-wide costs not tied to one event (insurance, equipment, software…).</p>
+        </div>
+        {!adding && (
+          <button
+            type="button"
+            onClick={() => { reset(); setEditing('new') }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-white"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
+          >
+            <Plus className="w-4 h-4" /> Add overhead
+          </button>
+        )}
+      </div>
+
+      {error && <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
+
+      {isNew && form}
+
+      {initialOverhead.length === 0 && !isNew ? (
         <div className="bg-white rounded-lg border border-dashed p-6 text-center text-sm text-gray-400">
           No overhead yet. Insurance, rent, software — log org-wide costs here and allocate them to events.
         </div>
@@ -264,6 +309,13 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [] }: 
             <tbody className="divide-y divide-gray-50">
               {initialOverhead.map((e) => {
                 const allocated = (e.allocations ?? []).reduce((sum, a) => sum + a.amountCents, 0)
+                if (editing === e.id) {
+                  return (
+                    <tr key={e.id}>
+                      <td colSpan={3} className="p-2">{form}</td>
+                    </tr>
+                  )
+                }
                 return (
                 <Fragment key={e.id}>
                 <tr className="hover:bg-gray-50/50">
@@ -273,6 +325,7 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [] }: 
                       {CATEGORY_LABELS[e.category]} · {PERIOD_LABELS[e.period]}
                       {e.applies_to === 'shop' ? ' · Shop' : ''}
                       {e.incurred_on ? ` · ${new Date(e.incurred_on).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+                      {e.tax_cents ? ` · incl. ${money(e.tax_cents)} tax` : ''}
                     </p>
                     {allocated > 0 && (
                       <p className="text-xs text-gray-500 mt-0.5">
@@ -281,7 +334,7 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [] }: 
                       </p>
                     )}
                     <div className="mt-0.5">
-                      <ReceiptControl kind="overhead" expenseId={e.id} hasReceipt={!!e.receipt_path} />
+                      <AttachmentsControl kind="overhead" expenseId={e.id} attachments={e.attachments ?? []} />
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-right font-medium text-gray-800 whitespace-nowrap">{money(e.amount_cents)}</td>
@@ -290,7 +343,10 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [] }: 
                       className="text-xs text-gray-400 hover:text-gray-700 underline underline-offset-2 mr-2 py-2 -my-2 px-1">
                       Allocate
                     </button>
-                    <button type="button" onClick={() => remove(e.id)} disabled={pending} className="text-gray-400 hover:text-red-600 disabled:opacity-40 align-middle p-2 -m-2" aria-label="Delete overhead">
+                    <button type="button" onClick={() => startEdit(e)} disabled={pending} className="text-gray-400 hover:text-gray-700 disabled:opacity-40 align-middle p-2 -my-2" aria-label="Edit overhead">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => remove(e.id)} disabled={pending} className="text-gray-400 hover:text-red-600 disabled:opacity-40 align-middle p-2 -my-2" aria-label="Delete overhead">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
@@ -308,7 +364,10 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [] }: 
             </tbody>
             <tfoot>
               <tr className="bg-gray-50 border-t font-semibold text-gray-800">
-                <td className="px-4 py-2.5">Total overhead</td>
+                <td className="px-4 py-2.5">
+                  Total overhead
+                  {totalTax > 0 && <span className="ml-2 text-xs font-normal text-gray-400">incl. {money(totalTax)} recoverable tax</span>}
+                </td>
                 <td className="px-4 py-2.5 text-right">{money(total)}</td>
                 <td />
               </tr>

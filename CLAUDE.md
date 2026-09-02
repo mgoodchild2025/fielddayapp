@@ -218,8 +218,12 @@ Admin → Payments shows ONE row per team for per-team leagues (synthesized team
 ### Reports & exports
 `getFinancialReport(orgId, from, to)` + printable page at `/admin/finances/report?from&to` (admin chrome is `print:hidden`). **Date semantics**: payments by `paid_at` (fallback `created_at`), expenses/overhead by `incurred_on`, other income by `received_on`, merch orders by `created_at`. Tax remittance line = sum of `payments.tax_cents` in range. CSV ledgers at `GET /api/export/finances?type=payments|expenses|overhead|other_income|merch&from&to` (UTF-8 BOM via `lib/export/csv-helpers.ts`).
 
-### Receipts
-`receipt_path` on `event_expenses`/`org_overhead_expenses`; files in the **private** `expense-receipts` bucket — never a public URL, viewing goes through `getReceiptUrl` (10-min signed URL, finance admins only). UI: `components/finances/receipt-control.tsx` on both ledgers.
+### Attachments & receipts
+`expense_attachments` (polymorphic: `kind` event|overhead + `expense_id`, no cross-table FK — deleting an expense must call `deleteAttachmentsOf` first): any number of labelled files (Receipt/Invoice/Contract/Other) per expense. Files live in the **private** `expense-receipts` bucket at `<org>/<kind>/<expenseId>/<attachmentId>.<ext>` — never a public URL, viewing goes through `getAttachmentUrl` (10-min signed URL, finance admins only). The legacy single `receipt_path` columns were migrated in (190) and are no longer written. UI: `AttachmentsControl` in `components/finances/receipt-control.tsx` on both ledgers.
+
+### Editing & tax paid on expenses
+- Expenses, other income, and overhead are all editable in place (`updateEventExpense`/`updateEventRevenue`/`updateOrgOverhead`; the managers reuse the add form). Lowering an overhead amount below its event allocations is refused.
+- `tax_cents` on `event_expenses`/`org_overhead_expenses` = the **recoverable** sales tax included in the amount (HST/GST/QST — not PST). Entry is manual with a one-tap "Calc X%" back-out at the org's combined rate (`backOutTax`). The financial report shows **tax collected − tax paid = net remittance** (both by the report's date semantics); CSV ledgers carry `tax_included` + `attachments` columns.
 
 ## Drop-in registration modes & season-pass proration
 - `leagues.registration_mode` ∈ `session | season | both`. In **both** mode the public event page shows the season-pass CTA and the per-session join list side by side; `isSeasonPickup` stays false in both mode (per-session gates behave like session mode), season-side gates use `offersSeasonPass`.

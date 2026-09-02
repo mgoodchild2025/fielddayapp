@@ -26,3 +26,6 @@ export const REVENUE_CATEGORIES = [
   'donation', 'fifty_fifty', 'sponsorship', 'concessions', 'fundraiser', 'other',
 ] as const
 export type RevenueCategory = (typeof REVENUE_CATEGORIES)[number]
+
+/** Labels an expense attachment can carry (invoice + receipt + contract per expense). */
+export const ATTACHMENT_LABELS = ['Receipt', 'Invoice', 'Contract', 'Other'] as const

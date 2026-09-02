@@ -57,6 +57,14 @@ export async function GET(req: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let rows: any[] = []
+  // Attachment counts per expense (invoice + receipt + …) for the expense ledgers.
+  const countAttachments = async (kind: 'event' | 'overhead') => {
+    const { data } = await db.from('expense_attachments').select('expense_id').eq('organization_id', org.id).eq('kind', kind)
+    const m = new Map<string, number>()
+    for (const a of (data ?? []) as { expense_id: string }[]) m.set(a.expense_id, (m.get(a.expense_id) ?? 0) + 1)
+    return m
+  }
+
   let columns: string[] = []
 
   if (type === 'payments') {
@@ -101,10 +109,13 @@ export async function GET(req: NextRequest) {
         }
       })
   } else if (type === 'expenses') {
-    const { data } = await db.from('event_expenses')
-      .select('league_id, category, description, vendor, amount_cents, incurred_on, created_at, notes, receipt_path')
-      .eq('organization_id', org.id)
-    columns = ['date', 'event', 'category', 'description', 'vendor', 'amount', 'receipt', 'notes']
+    const [{ data }, attachmentCount] = await Promise.all([
+      db.from('event_expenses')
+        .select('id, league_id, category, description, vendor, amount_cents, tax_cents, incurred_on, created_at, notes')
+        .eq('organization_id', org.id),
+      countAttachments('event'),
+    ])
+    columns = ['date', 'event', 'category', 'description', 'vendor', 'amount', 'tax_included', 'attachments', 'notes']
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rows = ((data ?? []) as any[])
       .filter((r) => inDateRange(r.incurred_on, r.created_at))
@@ -115,14 +126,18 @@ export async function GET(req: NextRequest) {
         description: r.description,
         vendor: r.vendor ?? '',
         amount: dollars(r.amount_cents),
-        receipt: r.receipt_path ? 'yes' : '',
+        tax_included: dollars(r.tax_cents ?? 0),
+        attachments: attachmentCount.get(r.id) ?? 0,
         notes: r.notes ?? '',
       }))
   } else if (type === 'overhead') {
-    const { data } = await db.from('org_overhead_expenses')
-      .select('category, description, amount_cents, period, applies_to, incurred_on, created_at, notes, receipt_path')
-      .eq('organization_id', org.id)
-    columns = ['date', 'category', 'description', 'period', 'applies_to', 'amount', 'receipt', 'notes']
+    const [{ data }, attachmentCount] = await Promise.all([
+      db.from('org_overhead_expenses')
+        .select('id, category, description, amount_cents, tax_cents, period, applies_to, incurred_on, created_at, notes')
+        .eq('organization_id', org.id),
+      countAttachments('overhead'),
+    ])
+    columns = ['date', 'category', 'description', 'period', 'applies_to', 'amount', 'tax_included', 'attachments', 'notes']
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rows = ((data ?? []) as any[])
       .filter((r) => inDateRange(r.incurred_on, r.created_at))
@@ -133,7 +148,8 @@ export async function GET(req: NextRequest) {
         period: r.period,
         applies_to: r.applies_to,
         amount: dollars(r.amount_cents),
-        receipt: r.receipt_path ? 'yes' : '',
+        tax_included: dollars(r.tax_cents ?? 0),
+        attachments: attachmentCount.get(r.id) ?? 0,
         notes: r.notes ?? '',
       }))
   } else if (type === 'other_income') {
