@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { addEventExpense, addEventExpensePerSession, updateEventExpense, deleteEventExpense } from '@/actions/finances'
 import { AttachmentsControl } from '@/components/finances/receipt-control'
+import { TaxCalc } from '@/components/finances/tax-calc'
 import type { EventExpense } from '@/actions/finances'
 import { EXPENSE_CATEGORIES, type ExpenseCategory } from '@/lib/finance-constants'
 
@@ -24,12 +25,6 @@ const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
 
 function money(cents: number) {
   return `$${(cents / 100).toFixed(2)}`
-}
-
-/** Recoverable tax inside a tax-inclusive gross amount at the given rate. */
-export function backOutTax(grossCents: number, pct: number): number {
-  if (!pct || grossCents <= 0) return 0
-  return Math.round(grossCents - grossCents / (1 + pct / 100))
 }
 
 export function EventExpensesManager({
@@ -80,12 +75,6 @@ export function EventExpensesManager({
 
   function close() {
     setEditing(null); reset(); setError(null)
-  }
-
-  function calcTax() {
-    const cents = Math.round(parseFloat(amount) * 100)
-    if (isNaN(cents)) return
-    setTax((backOutTax(cents, defaultTaxPct) / 100).toFixed(2))
   }
 
   function submit() {
@@ -157,11 +146,7 @@ export function EventExpensesManager({
               <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
               <input type="number" step="0.01" min="0" value={tax} onChange={(e) => setTax(e.target.value)} placeholder="Tax included (HST/GST) — optional" className="w-full border rounded pl-5 pr-2 py-1.5 text-sm" />
             </div>
-            {defaultTaxPct > 0 && (
-              <button type="button" onClick={calcTax} className="px-2.5 py-1.5 rounded border bg-white text-xs text-gray-600 hover:bg-gray-50 whitespace-nowrap" title="Back the tax out of the total at your org's rate">
-                Calc {defaultTaxPct}%
-              </button>
-            )}
+            <TaxCalc amount={amount} defaultPct={defaultTaxPct} onCalc={setTax} />
           </div>
           <p className="text-[11px] text-gray-400">Enter only the <em>recoverable</em> tax (HST/GST/QST). It&apos;s subtracted from tax collected on the financial report.</p>
         </>
