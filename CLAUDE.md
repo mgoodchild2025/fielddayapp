@@ -223,7 +223,7 @@ Admin → Payments shows ONE row per team for per-team leagues (synthesized team
 
 ### Editing & tax paid on expenses
 - Expenses, other income, and overhead are all editable in place (`updateEventExpense`/`updateEventRevenue`/`updateOrgOverhead`; the managers reuse the add form). Lowering an overhead amount below its event allocations is refused.
-- `tax_cents` on `event_expenses`/`org_overhead_expenses` = the **recoverable** sales tax included in the amount (HST/GST/QST — not PST). Entry is manual with a one-tap "Calc X%" back-out at the org's combined rate (`backOutTax`). The financial report shows **tax collected − tax paid = net remittance** (both by the report's date semantics); CSV ledgers carry `tax_included` + `attachments` columns.
+- `tax_cents` on `event_expenses`/`org_overhead_expenses` = the **recoverable** sales tax included in the amount (HST/GST/QST — not PST). Entry is manual with a one-tap "Calc" back-out (`TaxCalc` in `components/finances/tax-calc.tsx`, `backOutTax` in `lib/expense-tax.ts`) at an editable rate — prefilled from the org's configured sales tax when one exists, otherwise the last rate typed (localStorage); an org that charges no tax still pays HST on expenses, so the helper is never hidden. The financial report shows **tax collected − tax paid = net remittance** (both by the report's date semantics); CSV ledgers carry `tax_included` + `attachments` columns.
 
 ## Drop-in registration modes & season-pass proration
 - `leagues.registration_mode` ∈ `session | season | both`. In **both** mode the public event page shows the season-pass CTA and the per-session join list side by side; `isSeasonPickup` stays false in both mode (per-session gates behave like session mode), season-side gates use `offersSeasonPass`.
