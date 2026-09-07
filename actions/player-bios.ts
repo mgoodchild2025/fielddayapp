@@ -86,12 +86,13 @@ export async function uploadBioPhoto(formData: FormData): Promise<{ url: string 
   // Cache-bust: same path is overwritten on re-upload
   const url = `${publicUrl}?v=${Date.now()}`
 
-  await service.from('player_bios').upsert({
+  const { error: dbError } = await service.from('player_bios').upsert({
     organization_id: org.id,
     user_id: user.id,
     hero_photo_url: url,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'organization_id,user_id' })
+  if (dbError) return { url: null, error: dbError.message }
 
   revalidatePath('/profile')
   return { url, error: null }

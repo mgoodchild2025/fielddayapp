@@ -35,12 +35,15 @@ export async function uploadPlayerAvatar(
 
   // Delete any existing avatar files for this user before uploading the new one.
   // The extension can change between uploads (e.g. jpg → png), so we list the
-  // folder and remove all files rather than relying on the upsert overwrite.
+  // folder and remove stale avatar files rather than relying on the upsert
+  // overwrite. The bio card photo (bio.<ext>, actions/player-bios.ts) shares
+  // this folder and must survive an avatar change.
   const { data: existing } = await service.storage
     .from('player-avatars')
     .list(user.id)
-  if (existing && existing.length > 0) {
-    const toRemove = existing.map((f) => `${user.id}/${f.name}`)
+  const stale = (existing ?? []).filter((f) => f.name.startsWith('avatar.'))
+  if (stale.length > 0) {
+    const toRemove = stale.map((f) => `${user.id}/${f.name}`)
     await service.storage.from('player-avatars').remove(toRemove)
   }
 
