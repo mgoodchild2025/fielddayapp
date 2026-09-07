@@ -65,12 +65,23 @@ export function BioEditor({
   async function handlePhoto(file: File) {
     setErr(null)
     setUploading(true)
-    const fd = new FormData()
-    fd.append('photo', file)
-    const r = await uploadBioPhoto(fd)
-    setUploading(false)
-    if (r.error) { setErr(r.error); return }
-    setPhotoUrl(r.url)
+    try {
+      const fd = new FormData()
+      fd.append('photo', file)
+      const r = await uploadBioPhoto(fd)
+      if (r.error) { setErr(r.error); return }
+      setPhotoUrl(r.url)
+    } catch (e) {
+      // A thrown action (request too large, connection dropped, server error)
+      // never reaches the `r.error` branch — without this the button sat on
+      // "Uploading…" forever with nothing to tell the player what happened.
+      const detail = e instanceof Error && e.message ? ` (${e.message})` : ''
+      setErr(`Photo upload failed${detail}. Try a smaller photo, or try again.`)
+    } finally {
+      setUploading(false)
+      // Reset so re-selecting the same file fires onChange again.
+      if (fileRef.current) fileRef.current.value = ''
+    }
   }
 
   function handleSave() {

@@ -16,7 +16,11 @@ export interface WebPOptions {
  *  - SVGs — already optimal vector format
  *  - GIFs — may be animated; sharp can't preserve animation reliably
  *
- * On any sharp error the caller should fall back to the original bytes.
+ * Also returns null when sharp fails (corrupt file, unsupported codec such as
+ * HEIC bytes mislabelled as JPEG, or a decode that blows the memory budget) —
+ * every caller already treats null as "store the original bytes", so a bad
+ * conversion degrades to an un-optimised upload instead of a thrown server
+ * action that leaves the UI stuck in its uploading state.
  */
 export async function convertToWebP(
   input: ArrayBuffer | Buffer,
@@ -29,13 +33,17 @@ export async function convertToWebP(
   const { maxWidth = 1600, maxHeight = 1600, quality = 82 } = options
   const buf = Buffer.isBuffer(input) ? input : Buffer.from(input)
 
-  const webpBuffer = await sharp(buf)
-    .rotate()  // auto-orient from EXIF before stripping metadata
-    .resize(maxWidth, maxHeight, { fit: 'inside', withoutEnlargement: true })
-    .webp({ quality })
-    .toBuffer()
-
-  return { buffer: webpBuffer, contentType: 'image/webp' }
+  try {
+    const webpBuffer = await sharp(buf)
+      .rotate()  // auto-orient from EXIF before stripping metadata
+      .resize(maxWidth, maxHeight, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality })
+      .toBuffer()
+    return { buffer: webpBuffer, contentType: 'image/webp' }
+  } catch (err) {
+    console.warn('[image-utils] WebP conversion failed, keeping original bytes:', err)
+    return null
+  }
 }
 
 /**
