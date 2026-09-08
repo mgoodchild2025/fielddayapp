@@ -129,6 +129,11 @@ export async function syncPushSubscription(): Promise<void> {
   if (!error) { try { sessionStorage.setItem(SYNC_FLAG, '1') } catch { /* ignore */ } }
 }
 
+/** Sign-out: tell the worker to drop every cached page (offline copies are per session). */
+export function clearOfflineCache(): void {
+  try { navigator.serviceWorker?.controller?.postMessage({ type: 'clear-cache' }) } catch { /* no worker */ }
+}
+
 /** Home-screen badge = unread count. No-op where the Badging API is missing. */
 export function setAppBadge(count: number): void {
   if (typeof navigator === 'undefined') return

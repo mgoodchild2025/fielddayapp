@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ChevronRight, CalendarDays, Trophy, Users, CircleUser, ShoppingBag, CalendarRange, LayoutDashboard, LogOut, Images, FileText, ExternalLink, Timer } from 'lucide-react'
 import { logout } from '@/actions/auth'
+import { clearOfflineCache } from '@/lib/push-client'
 import type { NavLink } from '@/actions/nav-links'
 
 interface Props {
@@ -197,7 +198,7 @@ export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], show
                 </Link>
               )}
               <div className="border-t border-white/10 my-4" />
-              <form action={logout}>
+              <form action={logout} onSubmit={clearOfflineCache}>
                 <button
                   type="submit"
                   className="w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-300 hover:bg-white/10 transition-colors"

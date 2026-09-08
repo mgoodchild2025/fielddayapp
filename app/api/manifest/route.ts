@@ -43,6 +43,23 @@ export async function GET() {
       { src: '/Fieldday-Icon.png', sizes: '192x192', type: 'image/png' },
       { src: '/Fieldday-Icon.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
+    // Long-press the home-screen icon (Android/desktop; iOS ignores these).
+    shortcuts: [
+      { name: 'My schedule', url: '/schedule', icons: [{ src: '/Fieldday-Icon.png', sizes: '192x192' }] },
+      { name: 'Standings', url: '/standings', icons: [{ src: '/Fieldday-Icon.png', sizes: '192x192' }] },
+      { name: 'Scoreboard', url: '/scoreboard', icons: [{ src: '/scoreboard-icon-192.png', sizes: '192x192' }] },
+    ],
+    // Org sites accept photos/videos from the phone's share sheet. The root
+    // service worker intercepts the POST (app/sw.js) and /share finishes the
+    // upload into the event media queue.
+    ...(orgId ? {
+      share_target: {
+        action: '/share/inbox',
+        method: 'POST',
+        enctype: 'multipart/form-data',
+        params: { title: 'title', text: 'text', files: [{ name: 'media', accept: ['image/*', 'video/*'] }] },
+      },
+    } : {}),
   }
 
   return NextResponse.json(manifest, {
