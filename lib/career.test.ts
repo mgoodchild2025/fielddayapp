@@ -110,6 +110,43 @@ describe('buildCareer', () => {
       teamRecordByLeagueTeam: new Map([['l1:t1', { played: 10, wins: 7, losses: 3, ties: 0 }]]),
     })
     expect(c.tables[0].columns.map((col) => col.key)).toEqual(['kills', 'aces', 'blocks'])
+    expect(c.tables[0].recordColumns).toBe(false)
+  })
+
+  it('shows stat columns for an uncredited player when the LEAGUE tracks stats — teammates match', () => {
+    const c = buildCareer({
+      ...base,
+      statsByLeague: new Map(),
+      teamRecordByLeagueTeam: new Map([['l1:t1', { played: 10, wins: 7, losses: 3, ties: 0 }]]),
+      leaguesTrackingStats: new Set(['l1']),
+    })
+    expect(c.tables[0].columns.map((col) => col.key)).toEqual(['kills', 'aces', 'blocks'])
+    expect(c.tables[0].recordColumns).toBe(false)
+    // no values for this player → dashes, not zeros
+    expect(c.tables[0].rows.find((r) => r.leagueId === 'l1')?.stats.kills).toBeUndefined()
+  })
+
+  it('carries the team record on every season row, formatted W-L or W-L-T', () => {
+    const c = buildCareer({
+      ...base,
+      teamRecordByLeagueTeam: new Map([
+        ['l1:t1', { played: 10, wins: 7, losses: 3, ties: 0 }],
+        ['l2:t2', { played: 9, wins: 4, losses: 4, ties: 1 }],
+      ]),
+    })
+    const byLeague = new Map(c.seasons.map((s) => [s.leagueId, s.record]))
+    expect(byLeague.get('l1')).toBe('7-3')
+    expect(byLeague.get('l2')).toBe('4-4-1')
+    expect(byLeague.get('l3')).toBeNull()
+  })
+
+  it('flags record-column tables so the card does not repeat W/L in the team cell', () => {
+    const c = buildCareer({
+      ...base,
+      statDefsBySport: new Map(),
+      teamRecordByLeagueTeam: new Map([['l1:t1', { played: 10, wins: 7, losses: 3, ties: 0 }]]),
+    })
+    expect(c.tables[0].recordColumns).toBe(true)
   })
 
   it('merges sports whose stat columns are identical — no repeated header rows', () => {

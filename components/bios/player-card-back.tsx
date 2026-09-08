@@ -50,7 +50,11 @@ export function PlayerCardBack({ bio, career }: { bio: BioCardData; career: Play
                   <tr key={i} className="border-b border-white/10 text-white/80">
                     <td className="px-1.5 py-1">{row.seasonLabel}</td>
                     <td className="max-w-[9rem] truncate px-1.5 py-1" title={row.leagueName}>
-                      {row.teamName}{row.medal ? ` ${row.medal}` : ''}
+                      {row.teamName}
+                      {/* Team record rides in the cell when the columns are stats, so a
+                          stat-tracking league doesn't hide the season result. */}
+                      {!table.recordColumns && row.record && <span className="text-white/50"> · {row.record}</span>}
+                      {row.medal ? ` ${row.medal}` : ''}
                     </td>
                     {table.columns.map((c) => (
                       <td key={c.key} className="px-1.5 py-1 text-right">
@@ -59,10 +63,12 @@ export function PlayerCardBack({ bio, career }: { bio: BioCardData; career: Play
                     ))}
                   </tr>
                 ))}
-                {table.columns.length > 0 && table.rows.length > 1 && (
+                {/* The red career line is part of the card, one season or ten —
+                    otherwise neighbouring cards in a binder look like different designs. */}
+                {table.columns.length > 0 && (
                   <tr className="border-t-2 border-red-400/70 font-medium text-white">
                     <td className="px-1.5 py-1">CAREER</td>
-                    <td className="px-1.5 py-1 text-white/60">{table.rows.length} seasons</td>
+                    <td className="px-1.5 py-1 text-white/60">{table.rows.length} season{table.rows.length !== 1 ? 's' : ''}</td>
                     {table.columns.map((c) => (
                       <td key={c.key} className="px-1.5 py-1 text-right">{table.totals[c.key]}</td>
                     ))}
