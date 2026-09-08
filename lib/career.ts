@@ -14,9 +14,12 @@ export interface CareerSeason {
   seasonLabel: string        // "2026" — the league's season start year (falls back to creation year)
   teamName: string
   leagueName: string
+  leagueId: string
   sport: string
   /** Medal glyph when this team medalled in this league ("🥇" / "🥈" / "🥉" / "🏆"). */
   medal: string | null
+  /** The TEAM's season record as "W-L" (or "W-L-T" when tied), null when no confirmed games. */
+  record: string | null
   stats: Record<string, number>
   /** Sort key, not displayed. */
   sortDate: string
@@ -26,6 +29,9 @@ export interface CareerSportTable {
   sport: string
   /** Up to three columns — a hockey-card constraint, not a technical one. */
   columns: { key: string; label: string }[]
+  /** True when the columns ARE the team record (W/L/T) — the card then doesn't
+   *  repeat it in the team cell. False = real stat columns; record rides in the cell. */
+  recordColumns: boolean
   rows: CareerSeason[]
   totals: Record<string, number>
 }
@@ -57,6 +63,15 @@ export interface CareerInputs {
   /** leagueId:teamId → the TEAM's confirmed W/L/T record. Fills the card back
    *  for sports that don't track individual player stats. */
   teamRecordByLeagueTeam?: Map<string, { played: number; wins: number; losses: number; ties: number }>
+  /** Leagues where ANY player has recorded stats. Decides the column shape per
+   *  league rather than per player, so teammates' cards match: a stat-tracking
+   *  league shows stat columns for everyone (dashes for the uncredited). */
+  leaguesTrackingStats?: Set<string>
+}
+
+function formatRecord(rec: { wins: number; losses: number; ties: number } | undefined): string | null {
+  if (!rec) return null
+  return rec.ties > 0 ? `${rec.wins}-${rec.losses}-${rec.ties}` : `${rec.wins}-${rec.losses}`
 }
 
 /** Pure assembly — tested. */
@@ -69,8 +84,10 @@ export function buildCareer(inputs: CareerInputs): PlayerCareer {
       seasonLabel: date ? String(new Date(date).getFullYear()) : '—',
       teamName: m.teamName,
       leagueName: m.leagueName,
+      leagueId: m.leagueId,
       sport: m.sport || 'other',
       medal: placement ? (MEDAL_GLYPH[placement] ?? null) : null,
+      record: formatRecord(rec),
       // Reserved __-prefixed keys carry the TEAM record so no-player-stat
       // sports still get a season line; real stat keys never start with __.
       stats: {
@@ -92,13 +109,18 @@ export function buildCareer(inputs: CareerInputs): PlayerCareer {
   const tables: CareerSportTable[] = [...bySport.entries()].map(([sport, rows]) => {
     let columns = (inputs.statDefsBySport.get(sport) ?? []).slice(0, 3)
     // Platform defaults define columns for every known sport, so "no columns"
-    // almost never happens — the real question is whether this player has any
-    // recorded values in them. A league that never tracks individual stats
-    // shows the TEAM's season record instead of a row of dashes. T only when
-    // a tie actually exists.
+    // almost never happens — the real question is whether stats are actually
+    // kept. Decided per LEAGUE (anyone credited), with this player's own values
+    // as the fallback signal, so every card on a team shows the same columns:
+    // stat columns where the league tracks them (dashes for the uncredited),
+    // otherwise the TEAM's season record. T only when a tie actually exists.
     const hasPlayerStats = columns.length > 0
       && rows.some((r) => columns.some((c) => r.stats[c.key] != null))
-    if (!hasPlayerStats && rows.some((r) => r.stats.__w != null)) {
+    const leagueTracksStats = columns.length > 0
+      && rows.some((r) => inputs.leaguesTrackingStats?.has(r.leagueId))
+    let recordColumns = false
+    if (!hasPlayerStats && !leagueTracksStats && rows.some((r) => r.stats.__w != null)) {
+      recordColumns = true
       // T is decided across the WHOLE career, not per sport — otherwise one
       // sport renders W/L/T and another W/L, the shapes can't merge, and the
       // stacked tables' columns don't line up.
@@ -112,7 +134,7 @@ export function buildCareer(inputs: CareerInputs): PlayerCareer {
     for (const col of columns) {
       totals[col.key] = rows.reduce((sum, r) => sum + (r.stats[col.key] ?? 0), 0)
     }
-    return { sport, columns, rows, totals }
+    return { sport, columns, recordColumns, rows, totals }
   })
 
   // A separate table only earns its keep when its stat columns differ —
@@ -174,7 +196,7 @@ export async function getPlayerCareer(db: Db, orgId: string, userId: string): Pr
   const leagueIds = [...new Set(memberships.map((m) => m.leagueId))]
   const sports = [...new Set(memberships.map((m) => m.sport))]
 
-  const [{ data: statRows }, { data: medalRows }, statDefsList, { data: gameRows }] = await Promise.all([
+  const [{ data: statRows }, { data: medalRows }, statDefsList, { data: gameRows }, trackingFlags] = await Promise.all([
     db.from('player_game_stats')
       .select('league_id, stat_key, value')
       .eq('organization_id', orgId)
@@ -192,7 +214,18 @@ export async function getPlayerCareer(db: Db, orgId: string, userId: string): Pr
       .select('league_id, home_team_id, away_team_id, game_results(home_score, away_score, status, sets, is_forfeit, forfeit_team_id)')
       .eq('organization_id', orgId)
       .in('league_id', leagueIds),
+    // Does ANYONE have stats in each league? One cheap head-count per league.
+    Promise.all(leagueIds.map(async (leagueId) => {
+      const { count } = await db
+        .from('player_game_stats')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .eq('league_id', leagueId)
+        .limit(1)
+      return { leagueId, tracks: (count ?? 0) > 0 }
+    })),
   ])
+  const leaguesTrackingStats = new Set(trackingFlags.filter((f) => f.tracks).map((f) => f.leagueId))
 
   const statsByLeague = new Map<string, Record<string, number>>()
   for (const r of statRows ?? []) {
@@ -237,7 +270,7 @@ export async function getPlayerCareer(db: Db, orgId: string, userId: string): Pr
     })
   }
 
-  const career = buildCareer({ memberships, statsByLeague, medalByLeagueTeam, statDefsBySport, teamRecordByLeagueTeam })
+  const career = buildCareer({ memberships, statsByLeague, medalByLeagueTeam, statDefsBySport, teamRecordByLeagueTeam, leaguesTrackingStats })
 
   // Reigning champion: a gold in the last 365 days on a team the player was on
   const myTeamKeys = new Set(memberships.map((m) => `${m.leagueId}:${m.teamId}`))
