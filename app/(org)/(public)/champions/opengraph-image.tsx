@@ -20,7 +20,7 @@ export default async function OgImage() {
   const orgId = headersList.get('x-org-id')
 
   let orgName = 'Fieldday'
-  let banners: { year: string; team: string; league: string }[] = []
+  let banners: { year: string; team: string; league: string; color: string | null }[] = []
   let total = 0
 
   if (orgId) {
@@ -28,7 +28,7 @@ export default async function OgImage() {
     const [{ data: org }, { data: golds }, { count }] = await Promise.all([
       db.from('organizations').select('name').eq('id', orgId).maybeSingle(),
       db.from('medals')
-        .select('team_name, league_name, awarded_at')
+        .select('team_name, league_name, awarded_at, team_id')
         .eq('organization_id', orgId).eq('placement', 'gold')
         .order('awarded_at', { ascending: false }).limit(3),
       db.from('medals')
@@ -37,11 +37,20 @@ export default async function OgImage() {
     ])
     orgName = org?.name ?? orgName
     total = count ?? 0
-    banners = (golds ?? []).map((m) => ({
-      year: String(new Date(m.awarded_at).getFullYear()),
-      team: m.team_name,
-      league: m.league_name,
-    }))
+    const teamIds = [...new Set((golds ?? []).map((m) => m.team_id).filter((id): id is string => !!id))]
+    const { data: teams } = teamIds.length > 0
+      ? await db.from('teams').select('id, color').in('id', teamIds)
+      : { data: [] as { id: string; color: string | null }[] }
+    const colorByTeam = new Map((teams ?? []).map((t) => [t.id, t.color]))
+    banners = (golds ?? []).map((m) => {
+      const color = m.team_id ? colorByTeam.get(m.team_id) ?? null : null
+      return {
+        year: String(new Date(m.awarded_at).getFullYear()),
+        team: m.team_name,
+        league: m.league_name,
+        color: color && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color) ? color : null,
+      }
+    })
   }
 
   return new ImageResponse(
@@ -81,7 +90,7 @@ export default async function OgImage() {
                 key={i}
                 style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  width: 300, backgroundColor: TINTS[i % TINTS.length],
+                  width: 300, backgroundColor: b.color ?? TINTS[i % TINTS.length],
                   padding: '38px 24px 46px', borderBottom: '14px solid #e9c96a',
                 }}
               >

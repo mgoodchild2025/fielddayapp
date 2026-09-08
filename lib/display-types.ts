@@ -195,7 +195,7 @@ export interface DisplayData {
     }[]
     photos: { url: string; caption: string | null }[]
     /** Championship banners (org-wide golds) for the 'banners' source. */
-    banners: { year: string; teamName: string; leagueName: string }[]
+    banners: { year: string; teamName: string; leagueName: string; color: string | null; logoUrl: string | null }[]
     /** Next scheduled game with both teams set — drives starting-lineup intros. */
     nextGame: {
       homeTeamId: string; homeTeamName: string

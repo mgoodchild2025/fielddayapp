@@ -193,10 +193,15 @@ export function ShowcaseZone({
             <div
               className="w-[min(46vh,80%)] px-8 pb-24 pt-12 text-center text-[#f5efdd] shadow-2xl"
               style={{
-                backgroundColor: bannerTint(slide.banner.teamName, slide.banner.year),
+                backgroundColor: bannerTint(slide.banner.teamName, slide.banner.year, slide.banner.color),
                 clipPath: 'polygon(0 0, 100% 0, 100% 84%, 50% 100%, 0 84%)',
               }}
             >
+              {slide.banner.logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element -- remote team logo, TV zone
+                <img src={slide.banner.logoUrl} alt="" className="showcase-anim mx-auto mb-6 h-28 w-28 rounded-full bg-white/90 object-contain p-2 shadow-lg"
+                     style={{ animation: 'showcase-chyron .6s ease-out both' }} />
+              )}
               <p className="showcase-anim text-7xl font-bold tracking-wide text-[#e9c96a]"
                  style={{ fontFamily: 'var(--brand-heading-font)', animation: 'showcase-chyron .6s ease-out .15s both' }}>
                 {slide.banner.year}

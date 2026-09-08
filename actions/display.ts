@@ -439,16 +439,27 @@ export async function getDisplayData(
       // The Hall of Champions on the gym TV: org-wide golds, newest first
       const { data: golds } = await db
         .from('medals')
-        .select('team_name, league_name, awarded_at')
+        .select('team_name, league_name, awarded_at, team_id')
         .eq('organization_id', orgId)
         .eq('placement', 'gold')
         .order('awarded_at', { ascending: false })
         .limit(40)
-      showcase.banners = (golds ?? []).map((m) => ({
-        year: String(new Date(m.awarded_at).getFullYear()),
-        teamName: m.team_name,
-        leagueName: m.league_name,
-      }))
+      // Live team identity (colour + logo) where the team still exists
+      const bannerTeamIds = [...new Set((golds ?? []).map((m) => m.team_id).filter((id): id is string => !!id))]
+      const { data: bannerTeams } = bannerTeamIds.length > 0
+        ? await db.from('teams').select('id, color, logo_url').in('id', bannerTeamIds)
+        : { data: [] as { id: string; color: string | null; logo_url: string | null }[] }
+      const bannerTeamById = new Map((bannerTeams ?? []).map((t) => [t.id, t]))
+      showcase.banners = (golds ?? []).map((m) => {
+        const team = m.team_id ? bannerTeamById.get(m.team_id) : undefined
+        return {
+          year: String(new Date(m.awarded_at).getFullYear()),
+          teamName: m.team_name,
+          leagueName: m.league_name,
+          color: team?.color ?? null,
+          logoUrl: team?.logo_url ?? null,
+        }
+      })
     }
 
     if (wantPhotos) {
