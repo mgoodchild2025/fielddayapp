@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { describeErrorPath, isBotRequestNoise } from './error-noise'
+import { classifyNoise, describeErrorPath, isBotRequestNoise, isDeploymentSkew } from './error-noise'
 
 describe('isBotRequestNoise', () => {
   it('flags a malformed multipart POST that landed on the not-found route', () => {
@@ -20,6 +20,24 @@ describe('isBotRequestNoise', () => {
 
   it('does not flag other errors on the not-found route', () => {
     expect(isBotRequestNoise("Cannot read properties of null (reading 'id')", { routePath: '/_not-found/page' })).toBe(false)
+  })
+})
+
+describe('deployment skew', () => {
+  const msg = 'Failed to find Server Action. This request might be from an older or newer deployment.\nRead more: https://nextjs.org/docs/messages/failed-to-find-server-action'
+
+  it('flags a stale-tab action call on any page, not just not-found', () => {
+    expect(isDeploymentSkew(msg)).toBe(true)
+    expect(classifyNoise(msg, { routePath: '/(org)/(public)/page' })).toBe('deploy-skew')
+  })
+
+  it('does not swallow other action failures', () => {
+    expect(isDeploymentSkew('Not authenticated')).toBe(false)
+    expect(classifyNoise("Cannot read properties of null (reading 'id')", { routePath: '/(org)/(public)/page' })).toBeNull()
+  })
+
+  it('classifies bot noise ahead of skew', () => {
+    expect(classifyNoise('Failed to parse body as FormData.', { routePath: '/_not-found/page' })).toBe('bot-request')
   })
 })
 
