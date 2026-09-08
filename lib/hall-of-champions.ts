@@ -1,5 +1,10 @@
 import type { createServiceRoleClient } from '@/lib/supabase/service'
 import type { PodiumMedal } from '@/components/medals/event-podium'
+import { getStatDefinitions } from '@/actions/stats'
+import {
+  decoratedTiers, repeatChampions, statLeaders, tenureTiers,
+  type DecoratedTier, type MedalRecipientRow, type RepeatChampion, type StatLeaderBoard, type TenureTier,
+} from '@/lib/hall-boards'
 
 /**
  * Hall of Champions (H1+H2): the org's whole title history in one read.
@@ -14,6 +19,10 @@ export interface ChampionsBanner {
   teamName: string
   leagueName: string
   leagueId: string
+  /** Live team identity where the team still exists — felt colour + logo badge. */
+  teamId: string | null
+  logoUrl: string | null
+  color: string | null
 }
 
 export interface ChampionsEvent {
@@ -34,22 +43,18 @@ export interface DynastyRow {
   years: string[]
 }
 
-export interface DecoratedPlayerRow {
-  userId: string | null
-  name: string
-  gold: number
-  silver: number
-  bronze: number
-  tierTitles: number
-  /** 🥇-weighted ordering score. */
-  score: number
-}
-
 export interface HallOfChampions {
   banners: ChampionsBanner[]
   seasons: ChampionsSeason[]
   dynasties: DynastyRow[]
-  decorated: DecoratedPlayerRow[]
+  /** Most decorated — players grouped by identical medal tally (ties shown, nobody cut). */
+  decorated: DecoratedTier[]
+  /** Gold in two or more different events. */
+  repeatChampions: RepeatChampion[]
+  /** Most seasons played, grouped by count (top tiers). */
+  tenure: TenureTier[]
+  /** Career leaders in each sport's headline stat, where stats are kept. */
+  statLeaders: StatLeaderBoard[]
   totalTitles: number
 }
 
@@ -89,6 +94,9 @@ export async function getHallOfChampions(db: Db, orgId: string): Promise<HallOfC
       teamName: m.team_name,
       leagueName: m.league_name,
       leagueId: m.league_id,
+      teamId: m.team_id,
+      logoUrl: m.team_id ? (teamMeta.get(m.team_id)?.logoUrl ?? null) : null,
+      color: m.team_id ? (teamMeta.get(m.team_id)?.color ?? null) : null,
     }))
 
   // ── Seasons: year → events → podiums (EventPodium's own shape) ─────────────
@@ -138,26 +146,59 @@ export async function getHallOfChampions(db: Db, orgId: string): Promise<HallOfC
     .filter((d) => d.titles >= 2) // a dynasty is repeat success; single titles live on the wall
     .sort((a, b) => b.titles - a.titles || a.teamName.localeCompare(b.teamName))
 
-  // ── Most decorated: 🥇-weighted, top 10 ────────────────────────────────────
-  const playerMap = new Map<string, DecoratedPlayerRow>()
-  for (const m of rows) {
-    for (const r of m.medal_recipients ?? []) {
-      const key = r.user_id ?? `name:${r.display_name.toLowerCase()}`
-      const row = playerMap.get(key) ?? {
-        userId: r.user_id, name: r.display_name, gold: 0, silver: 0, bronze: 0, tierTitles: 0, score: 0,
-      }
-      if (m.placement === 'gold') { row.gold++; row.score += 1000 }
-      else if (m.placement === 'silver') { row.silver++; row.score += 100 }
-      else if (m.placement === 'bronze') { row.bronze++; row.score += 10 }
-      else { row.tierTitles++; row.score += 1 }
-      playerMap.set(key, row)
-    }
-  }
-  const decorated = [...playerMap.values()]
-    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
-    .slice(0, 10)
+  // ── Player boards (lib/hall-boards.ts) ─────────────────────────────────────
+  const recipientRows: MedalRecipientRow[] = rows.flatMap((m) =>
+    (m.medal_recipients ?? []).map((r) => ({
+      medalId: m.id, leagueId: m.league_id, placement: m.placement,
+      year: String(new Date(m.awarded_at).getFullYear()), userId: r.user_id, name: r.display_name,
+    })))
+  const decorated = decoratedTiers(recipientRows)
+  const repeats = repeatChampions(recipientRows)
 
-  return { banners, seasons, dynasties, decorated, totalTitles: banners.length }
+  // Seasons played + career stats need the live roster/stat tables (not medal snapshots).
+  const [{ data: memberRows }, { data: statRows }] = await Promise.all([
+    db.from('team_members')
+      .select('user_id, profile:profiles!team_members_user_id_fkey(full_name), team:teams!team_members_team_id_fkey(league_id, league:leagues!teams_league_id_fkey(sport))')
+      .eq('organization_id', orgId)
+      .in('status', ['active', 'inactive'])
+      .limit(20000),
+    db.from('player_game_stats')
+      .select('user_id, league_id, stat_key, value')
+      .eq('organization_id', orgId)
+      .limit(50000),
+  ])
+  type MemberRow = { user_id: string | null; profile: { full_name: string | null } | { full_name: string | null }[] | null; team: { league_id: string | null; league: { sport: string | null } | { sport: string | null }[] | null } | { league_id: string | null; league: { sport: string | null } | { sport: string | null }[] | null }[] | null }
+  const nameByUser = new Map<string, string>()
+  const sportByLeague = new Map<string, string>()
+  const memberships: { userId: string; name: string; leagueId: string }[] = []
+  for (const m of (memberRows ?? []) as unknown as MemberRow[]) {
+    const profile = Array.isArray(m.profile) ? m.profile[0] : m.profile
+    const team = Array.isArray(m.team) ? m.team[0] : m.team
+    const league = team ? (Array.isArray(team.league) ? team.league[0] : team.league) : null
+    if (!m.user_id || !team?.league_id) continue
+    const name = profile?.full_name ?? 'Player'
+    nameByUser.set(m.user_id, name)
+    if (league?.sport) sportByLeague.set(team.league_id, league.sport)
+    memberships.push({ userId: m.user_id, name, leagueId: team.league_id })
+  }
+  const tenure = tenureTiers(memberships)
+
+  const statSports = [...new Set((statRows ?? []).map((r) => sportByLeague.get(r.league_id)).filter((s): s is string => !!s))]
+  const headline = new Map<string, { key: string; label: string }>()
+  await Promise.all(statSports.map(async (sport) => {
+    const defs = await getStatDefinitions(orgId, sport)
+    if (defs[0]) headline.set(sport, { key: defs[0].key, label: defs[0].label })
+  }))
+  const leaders = statLeaders(
+    (statRows ?? []).flatMap((r) => {
+      const sport = sportByLeague.get(r.league_id)
+      if (!sport || !r.user_id) return []
+      return [{ userId: r.user_id, name: nameByUser.get(r.user_id) ?? 'Player', sport, statKey: r.stat_key, value: Number(r.value ?? 0) }]
+    }),
+    headline,
+  )
+
+  return { banners, seasons, dynasties, decorated, repeatChampions: repeats, tenure, statLeaders: leaders, totalTitles: banners.length }
 }
 
 /** Cheap existence check for the conditional nav link. */
