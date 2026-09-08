@@ -301,11 +301,11 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
         </div>
       )}
 
-      {awardedMedals.length > 0 && (
-        <div className="mb-6">
-          <AdminMedalsPanel medals={awardedMedals} leagueId={leagueId} />
-        </div>
-      )}
+      {/* Always shown: the Award Medals button must be reachable even when no
+          medals exist yet, and for standalone brackets with no playoff config. */}
+      <div className="mb-6">
+        <AdminMedalsPanel medals={awardedMedals} leagueId={leagueId} />
+      </div>
 
       <PlayoffConfigWizard
         leagueId={leagueId}
