@@ -741,6 +741,36 @@ export type Database = {
           },
         ]
       }
+      pwa_launch_logs: {
+        Row: {
+          day: string
+          launches: number
+          organization_id: string
+          platform: string
+          standalone: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          day: string
+          launches?: number
+          organization_id: string
+          platform: string
+          standalone: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          day?: string
+          launches?: number
+          organization_id?: string
+          platform?: string
+          standalone?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           auth: string
