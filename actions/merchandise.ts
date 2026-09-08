@@ -6,6 +6,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { convertToWebP } from '@/lib/image-utils'
+import { createNotifications } from '@/lib/notify'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1296,9 +1297,7 @@ export async function checkAndNotifyLowStock(
 
   // Insert in-app notifications for all org admins
 
-  await db
-    .from('notifications')
-    .insert(
+  await createNotifications(
       typedAdmins.map((admin) => ({
         organization_id: orgId,
         user_id: admin.user_id,

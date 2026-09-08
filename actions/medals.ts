@@ -6,6 +6,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { deriveLeagueMedals, medalGlyph, type MedalTierLite, type MedalMatchLite } from '@/lib/medals'
+import { createNotifications } from '@/lib/notify'
 
 // ── The Trophy Case: awarding ─────────────────────────────────────────────────
 // Medals are awarded and FROZEN: recipients snapshot the team roster at award
@@ -174,7 +175,7 @@ export async function awardLeagueMedalsInternal(
     // First-time notification only — re-running after a correction shouldn't re-ping
     if (!existingKeys.has(`${d.teamId}:${d.placement}:${d.label}`) && recipients.length > 0) {
       const glyph = medalGlyph(d.placement)
-      await db.from('notifications').insert(
+      await createNotifications(
         recipients.map((r) => ({
           organization_id: orgId,
           user_id: r.userId,

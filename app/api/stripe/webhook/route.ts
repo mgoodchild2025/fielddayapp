@@ -5,6 +5,7 @@ import { sendRegistrationConfirmation, sendPaymentFailedEmail, sendAdminPaymentF
 import { calendarSubscribeUrls, ensureCalendarToken } from '@/lib/calendar-feed'
 import { buildCalendarCtaHtml } from '@/lib/email'
 import { checkAndNotifyLowStock } from '@/actions/merchandise'
+import { createNotifications } from '@/lib/notify'
 
 export async function POST(request: NextRequest) {
   const body = await request.text()
@@ -688,7 +689,7 @@ export async function POST(request: NextRequest) {
         }))
       if (notifRows.length > 0) {
 
-        await supabase.from('notifications').insert(notifRows)
+        await createNotifications(notifRows)
       }
 
       const adminEmails = adminRows.flatMap((a) => {

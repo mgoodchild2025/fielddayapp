@@ -7,6 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { sendSms } from '@/lib/twilio'
 import { formatGameTime } from '@/lib/format-time'
+import { createNotifications } from '@/lib/notify'
 
 /**
  * Upsert the current user's RSVP for a game.
@@ -123,7 +124,7 @@ async function notifyRsvpOut({
   ].filter((id, i, arr) => id !== userId && arr.indexOf(id) === i) // deduplicate, exclude self
 
   if (notifyUserIds.length > 0) {
-    await db.from('notifications').insert(
+    await createNotifications(
       notifyUserIds.map((uid: string) => ({
         organization_id: orgId,
         user_id: uid,

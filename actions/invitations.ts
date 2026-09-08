@@ -9,6 +9,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { sendEmail, buildTeamInviteEmail } from '@/lib/email'
 import { isLeagueFrozen } from '@/lib/billing'
+import { createNotifications } from '@/lib/notify'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -198,7 +199,7 @@ export async function sendTeamInvite(input: z.infer<typeof sendInviteSchema>) {
 
   // In-app notification if the invitee has an account
   if (inviteeProfile?.id) {
-    await db.from('notifications').insert({
+    await createNotifications({
       organization_id: org.id,
       user_id: inviteeProfile.id,
       type: 'team_invite',
@@ -310,7 +311,7 @@ export async function acceptTeamInvitation(token: string) {
 
   // Notify the inviter
   const playerName = profile?.full_name ?? invite.invited_email
-  await db.from('notifications').insert({
+  await createNotifications({
     organization_id: org.id,
     user_id: invite.invited_by,
     type: 'invite_accepted',
@@ -556,7 +557,7 @@ export async function declineTeamInvitation(token: string) {
   ])
   const playerName = profile?.full_name ?? invite.invited_email
   const teamName = team?.name ?? 'your team'
-  await db.from('notifications').insert({
+  await createNotifications({
     organization_id: org.id,
     user_id: invite.invited_by,
     type: 'invite_declined',

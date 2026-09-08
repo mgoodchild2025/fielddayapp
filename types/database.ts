@@ -741,6 +741,45 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          failed_at: string | null
+          id: string
+          last_seen_at: string
+          organization_id: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          failed_at?: string | null
+          id?: string
+          last_seen_at?: string
+          organization_id: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          failed_at?: string | null
+          id?: string
+          last_seen_at?: string
+          organization_id?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       error_logs: {
         Row: {
           created_at: string
