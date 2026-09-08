@@ -967,3 +967,19 @@ export function recommendBracket(opts: {
     alternatives,
   }
 }
+
+/**
+ * Hand-seating guard: a team may appear at most once per round. A finalist in
+ * the same round's third-place match (or one team in two semifinals) breaks
+ * the shape rules medals are derived from — it is how one team ended up as
+ * both Finalist and Third Place. Returns the conflicting match, if any.
+ */
+export function sameRoundConflict<M extends { id: string; roundNumber: number; team1Id: string | null; team2Id: string | null }>(
+  matches: M[],
+  target: { id: string; roundNumber: number },
+  teamId: string,
+): M | null {
+  return matches.find((m) =>
+    m.id !== target.id && m.roundNumber === target.roundNumber && (m.team1Id === teamId || m.team2Id === teamId),
+  ) ?? null
+}

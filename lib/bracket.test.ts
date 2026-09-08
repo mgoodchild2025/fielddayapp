@@ -16,6 +16,7 @@ import {
   type BracketSpec,
   type BracketMatchSpec,
   type TeamStanding,
+  sameRoundConflict,
 } from './bracket'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -425,5 +426,20 @@ describe('roundDisplayName (manual brackets M2)', () => {
     expect(roundDisplayName({ '4': 'Opening Night' }, 2, 8)).toBe('Semi-Finals')
     expect(roundDisplayName(null, 1, 8)).toBe('Final')
     expect(roundDisplayName(undefined, 3, 8)).toBe('Round of 6')
+  })
+})
+
+describe('sameRoundConflict', () => {
+  const matches = [
+    { id: 'final', roundNumber: 1, team1Id: 't1', team2Id: 't2' },
+    { id: 'third', roundNumber: 1, team1Id: 't3', team2Id: null },
+    { id: 'semi1', roundNumber: 2, team1Id: 't1', team2Id: 't3' },
+  ]
+  it('flags a finalist being seated into the third-place match', () => {
+    expect(sameRoundConflict(matches, { id: 'third', roundNumber: 1 }, 't2')?.id).toBe('final')
+  })
+  it('allows a team that is only elsewhere in other rounds', () => {
+    expect(sameRoundConflict(matches, { id: 'third', roundNumber: 1 }, 't4')).toBeNull()
+    expect(sameRoundConflict(matches, { id: 'final', roundNumber: 1 }, 't1')).toBeNull() // already in the target itself
   })
 })

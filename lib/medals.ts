@@ -19,7 +19,24 @@ import { LB_ROUND_BASE, GF_ROUND } from '@/lib/bracket'
  *   title is still a title.
  * - Only completed matches with a winner count. Ties in the data (missing
  *   winner) simply award nothing for that slot.
+ * - One medal per team per league. Hand-built and hand-edited brackets can put
+ *   a finalist into the third-place slot (or a team into two tiers); the shape
+ *   conventions above would then hand one team two medals. The better medal
+ *   stands, the other is dropped.
  */
+
+const PLACEMENT_RANK: Record<DerivedMedal['placement'], number> = { gold: 0, silver: 1, bronze: 2, tier_champion: 3 }
+
+/** Keeps each team's best medal — a team is never both Finalist and Third Place. */
+export function onePerTeam(medals: DerivedMedal[]): DerivedMedal[] {
+  const best = new Map<string, DerivedMedal>()
+  for (const m of medals) {
+    const cur = best.get(m.teamId)
+    if (!cur || PLACEMENT_RANK[m.placement] < PLACEMENT_RANK[cur.placement]) best.set(m.teamId, m)
+  }
+  // Preserve the original (tier, podium) order for the survivors
+  return medals.filter((m) => best.get(m.teamId) === m)
+}
 
 export interface MedalMatchLite {
   id: string
@@ -127,7 +144,7 @@ export function deriveLeagueMedals(tiers: MedalTierLite[]): DerivedMedal[] {
     }
   })
 
-  return medals
+  return onePerTeam(medals)
 }
 
 /** Emoji + tint used everywhere a medal renders. */

@@ -22,6 +22,7 @@ import {
   seedFromPoolStandings,
   type TeamStanding,
   type BracketMatchSpec,
+  sameRoundConflict,
 } from '@/lib/bracket'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1077,7 +1078,7 @@ export async function overrideBracketSlot(input: {
 
   const { data: match } = await db
     .from('bracket_matches')
-    .select('id, status, team1_id, team2_id')
+    .select('id, status, team1_id, team2_id, round_number')
     .eq('id', input.matchId)
     .eq('bracket_id', input.bracketId)
     .eq('organization_id', org.id)
@@ -1085,6 +1086,25 @@ export async function overrideBracketSlot(input: {
 
   if (!match) return { error: 'Match not found' }
   if (match.status === 'completed') return { error: 'Cannot change teams in a completed match' }
+
+  // A team can only be in one match per round — e.g. a finalist can't also be
+  // seated in the third-place match (how one team once took silver AND bronze).
+  if (input.teamId) {
+    const { data: roundMatches } = await db
+      .from('bracket_matches')
+      .select('id, round_number, team1_id, team2_id')
+      .eq('bracket_id', input.bracketId)
+      .eq('round_number', match.round_number)
+    const clash = sameRoundConflict(
+      (roundMatches ?? []).map((m) => ({ id: m.id, roundNumber: m.round_number, team1Id: m.team1_id, team2Id: m.team2_id })),
+      { id: match.id, roundNumber: match.round_number },
+      input.teamId,
+    )
+    if (clash) {
+      const { data: team } = await db.from('teams').select('name').eq('id', input.teamId).maybeSingle()
+      return { error: `${team?.name ?? 'That team'} is already in another match of this round.` }
+    }
+  }
 
   const updateField = input.slot === 1 ? 'team1_id' : 'team2_id'
   const otherField = input.slot === 1 ? 'team2_id' : 'team1_id'

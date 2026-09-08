@@ -74,4 +74,19 @@ describe('deriveLeagueMedals', () => {
     const final = done({ team1Id: 'A', team2Id: null, winnerTeamId: 'A' })
     expect(byPlacement(deriveLeagueMedals([tier('Gold', [final])]))).toEqual({ gold: 'A' })
   })
+
+  it('one medal per team per league — a finalist seated in the third-place slot keeps silver only', () => {
+    // Hand-edited bracket: the final's loser (t2) was also placed (and won) in
+    // the round-1 match-2 "third-place" slot. Shape rules would give t2 silver
+    // AND bronze; the better one stands.
+    const tiers = [{
+      tierName: 'Gold', bracketId: 'b1', thirdPlaceGame: true,
+      matches: [
+        { id: 'final', roundNumber: 1, matchNumber: 1, team1Id: 't1', team2Id: 't2', winnerTeamId: 't1', status: 'completed', isBye: false },
+        { id: 'third', roundNumber: 1, matchNumber: 2, team1Id: 't2', team2Id: 't3', winnerTeamId: 't2', status: 'completed', isBye: false },
+      ],
+    }]
+    const medals = deriveLeagueMedals(tiers)
+    expect(medals.map((m) => [m.placement, m.teamId])).toEqual([['gold', 't1'], ['silver', 't2']])
+  })
 })
