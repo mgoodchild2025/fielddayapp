@@ -10,6 +10,7 @@ import { HibernatePage } from '@/components/hibernate-page'
 import { PwaRegistrar } from '@/components/pwa/pwa-registrar'
 import type { OrgBranding } from '@/types/database'
 import { getOrgTaxRates, taxSuffix } from '@/lib/tax'
+import { originFromHeaders } from '@/lib/public-origin'
 
 // ── Dynamic metadata per org ─────────────────────────────────────────────────
 // Sets the browser-tab favicon and Open Graph / Twitter Card tags so links
@@ -46,6 +47,10 @@ export async function generateMetadata(): Promise<Metadata> {
   const ogImage = heroUrl ?? logoUrl
 
   return {
+    // Relative metadata URLs (file-convention OG images like /champions/opengraph-image,
+    // canonical links) must resolve against the ORG's host, not the platform apex the
+    // root layout pins — the apex has no org pages, so those previews 404'd.
+    metadataBase: new URL(originFromHeaders(headersList)),
     // Child pages set their own title; this provides the suffix template
     title: {
       default: orgName,
