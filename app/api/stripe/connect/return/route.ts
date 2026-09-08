@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { publicOrigin } from '@/lib/public-origin'
 
 export async function GET(request: NextRequest) {
   const orgId = request.nextUrl.searchParams.get('orgId')
-  if (!orgId) return NextResponse.redirect(new URL('/admin/settings/payments', request.url))
+  // Never build redirects from request.url — behind the proxy it is the container address.
+  if (!orgId) return NextResponse.redirect(`${publicOrigin(request)}/admin/settings/payments`)
 
   const supabase = createServiceRoleClient()
 
@@ -27,7 +29,5 @@ export async function GET(request: NextRequest) {
   }
 
   // Redirect to the org's admin settings page
-  const host = request.headers.get('host') ?? ''
-  const proto = request.headers.get('x-forwarded-proto') ?? 'https'
-  return NextResponse.redirect(`${proto}://${host}/admin/settings/payments`)
+  return NextResponse.redirect(`${publicOrigin(request)}/admin/settings/payments`)
 }
