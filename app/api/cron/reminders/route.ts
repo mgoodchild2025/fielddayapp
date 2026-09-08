@@ -9,6 +9,13 @@ import { buildCaptainPrepEmail, type PrepPlayer } from '@/lib/emails/captain-pre
 import { fetchUpcomingPlayoffReminderRows } from '@/lib/playoff-games'
 import { purgeLeagueData } from '@/lib/purge-league'
 import { fetchRecentUploads, youTubeWatchUrl, youTubeEmbedUrl } from '@/lib/youtube'
+import { createNotifications, type NotificationInsert } from '@/lib/notify'
+import { pushConfigured } from '@/lib/push'
+import { decideReminderChannels } from '@/lib/reminder-channels'
+
+// Bell/push reminder kinds created by this cron. Rows auto-mark read once the
+// game or session has started (data.until) so unread reminders never pile up.
+const REMINDER_TYPES = ['game_reminder', 'game_day', 'session_reminder']
 
 function authorized(req: NextRequest) {
   const secret = process.env.CRON_SECRET
@@ -23,6 +30,30 @@ export async function GET(req: NextRequest) {
   const resend = getResend()
   const now = new Date()
   const results: string[] = []
+
+  // 0. Reminder bell rows whose game/session has started are stale — mark read
+  //    so the badge/bell only ever shows reminders that are still ahead.
+  await supabase
+    .from('notifications')
+    .update({ read: true })
+    .in('type', REMINDER_TYPES)
+    .eq('read', false)
+    .lt('data->>until', now.toISOString())
+
+  // Phone alerts: which players of an org hold a push subscription (per org,
+  // because subscriptions are per-origin). Cached per run.
+  const pushOn = pushConfigured()
+  const pushSubsCache = new Map<string, Set<string>>()
+  async function pushSubsForOrg(orgId: string): Promise<Set<string>> {
+    const hit = pushSubsCache.get(orgId)
+    if (hit) return hit
+    const { data } = pushOn
+      ? await supabase.from('push_subscriptions').select('user_id').eq('organization_id', orgId)
+      : { data: [] as { user_id: string }[] }
+    const set = new Set((data ?? []).map((r) => r.user_id))
+    pushSubsCache.set(orgId, set)
+    return set
+  }
 
   // 1. Deliver scheduled announcements past their send time
 
@@ -100,6 +131,8 @@ export async function GET(req: NextRequest) {
   // Collect personalized game-reminder emails across all orgs; batch-send after the loop
   // to avoid Resend's 5 req/s rate limit.
   const reminderEmailBatch: Array<{ from: string; to: string; subject: string; html: string }> = []
+  // Bell rows (+ push) for the same digests — one insert after the loop.
+  const reminderNotifBatch: NotificationInsert[] = []
 
   if (reminderGamesAll.length > 0) {
     // Fetch org branding (timezone) and org names
@@ -188,7 +221,7 @@ export async function GET(req: NextRequest) {
           ? supabase
               .from('team_members')
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .select('user_id, team_id, profiles!team_members_user_id_fkey(email, full_name, email_reminders_enabled)' as any)
+              .select('user_id, team_id, profiles!team_members_user_id_fkey(email, full_name, email_reminders_enabled, push_reminders_enabled)' as any)
               .in('team_id', allTeamIds)
           : Promise.resolve({ data: [] as unknown[] }),
         allPickupLeagueIds.length > 0
@@ -201,30 +234,42 @@ export async function GET(req: NextRequest) {
           : Promise.resolve({ data: [] as unknown[] }),
       ])
 
-      type RGPlayer = { email: string; name: string; teamIds: Set<string>; subGameIds: Set<string>; pickupLeagueIds: Set<string> }
+      // Every player on a relevant team is tracked; per-channel flags decide what
+      // they get. email: profile email + email_reminders_enabled. push: bell row
+      // (+ Web Push on subscribed phones) unless push_reminders_enabled is off.
+      type RGProfile = { email?: string | null; full_name?: string | null; email_reminders_enabled?: boolean | null; push_reminders_enabled?: boolean | null }
+      type RGPlayer = { email: string | null; emailOn: boolean; pushOn: boolean; name: string; teamIds: Set<string>; subGameIds: Set<string>; pickupLeagueIds: Set<string> }
       const rgPlayerMap = new Map<string, RGPlayer>()
+      const rgEnsure = (userId: string, p: RGProfile | null | undefined): RGPlayer => {
+        let entry = rgPlayerMap.get(userId)
+        if (!entry) {
+          entry = {
+            email: p?.email ?? null,
+            emailOn: !!p?.email && p?.email_reminders_enabled !== false,
+            pushOn: p?.push_reminders_enabled !== false,
+            name: p?.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set(),
+          }
+          rgPlayerMap.set(userId, entry)
+        }
+        return entry
+      }
 
       for (const m of (rgMembers ?? []) as { user_id?: string; team_id?: string; profiles?: unknown }[]) {
-        const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles as { email?: string; full_name?: string; email_reminders_enabled?: boolean } | null
-        if (!p?.email || p?.email_reminders_enabled === false) continue
+        const p = (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as RGProfile | null
         if (!m.user_id || !m.team_id) continue
-        if (!rgPlayerMap.has(m.user_id)) rgPlayerMap.set(m.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
-        rgPlayerMap.get(m.user_id)!.teamIds.add(m.team_id)
+        rgEnsure(m.user_id, p).teamIds.add(m.team_id)
       }
 
       if (allPickupLeagueIds.length > 0 && (pickupRegs ?? []).length > 0) {
         const pickupUserIds = [...new Set((pickupRegs as { user_id: string; league_id: string }[]).map(r => r.user_id).filter(Boolean))]
 
         const { data: pickupProfiles } = await supabase
-          .from('profiles').select('id, email, full_name, email_reminders_enabled').in('id', pickupUserIds)
-        type PickupProfile = { id: string; email?: string; full_name?: string; email_reminders_enabled?: boolean }
+          .from('profiles').select('id, email, full_name, email_reminders_enabled, push_reminders_enabled').in('id', pickupUserIds)
+        type PickupProfile = RGProfile & { id: string }
         const profileById = new Map<string, PickupProfile>((pickupProfiles ?? []).map((p: PickupProfile) => [p.id, p]))
         for (const r of (pickupRegs as { user_id: string; league_id: string }[]) ?? []) {
           if (!r.user_id || !r.league_id) continue
-          const p = profileById.get(r.user_id)
-          if (!p?.email || p?.email_reminders_enabled === false) continue
-          if (!rgPlayerMap.has(r.user_id)) rgPlayerMap.set(r.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
-          rgPlayerMap.get(r.user_id)!.pickupLeagueIds.add(r.league_id)
+          rgEnsure(r.user_id, profileById.get(r.user_id)).pickupLeagueIds.add(r.league_id)
         }
       }
 
@@ -234,13 +279,12 @@ export async function GET(req: NextRequest) {
 
         const { data: subRows } = await supabase
           .from('game_subs')
-          .select('user_id, game_id, profiles!game_subs_user_id_fkey(email, full_name, email_reminders_enabled)')
+          .select('user_id, game_id, profiles!game_subs_user_id_fkey(email, full_name, email_reminders_enabled, push_reminders_enabled)')
           .eq('organization_id', orgId).eq('status', 'confirmed').not('user_id', 'is', null).in('game_id', allOrgGameIds)
         for (const s of subRows ?? []) {
-          const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles as { email?: string; full_name?: string; email_reminders_enabled?: boolean } | null
-          if (!p?.email || p?.email_reminders_enabled === false || !s.user_id || !s.game_id) continue
-          if (!rgPlayerMap.has(s.user_id)) rgPlayerMap.set(s.user_id, { email: p.email, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
-          rgPlayerMap.get(s.user_id)!.subGameIds.add(s.game_id)
+          const p = (Array.isArray(s.profiles) ? s.profiles[0] : s.profiles) as RGProfile | null
+          if (!s.user_id || !s.game_id) continue
+          rgEnsure(s.user_id, p).subGameIds.add(s.game_id)
         }
       }
 
@@ -281,6 +325,7 @@ export async function GET(req: NextRequest) {
           }).sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
 
           if (myGames.length === 0) continue
+          if (!player.emailOn && !player.pushOn) continue // nothing to send on any channel
 
           // Claim send slot atomically — PK conflict on UNIQUE(user_id, organization_id, log_date) prevents duplicates
 
@@ -310,6 +355,31 @@ export async function GET(req: NextRequest) {
             ? `Game reminder: you have a game ${dayLabel}`
             : `Game reminder: you have ${myGames.length} games ${dayLabel}`
 
+          if (player.pushOn) {
+            const lines = myGames.map(g => {
+              const league = Array.isArray(g.leagues) ? g.leagues[0] : g.leagues
+              const myTeamIsHome = g.home_team?.id && player.teamIds.has(g.home_team.id)
+              const opponent = myTeamIsHome ? g.away_team?.name : g.home_team?.name
+              const time = new Date(g.scheduled_at).toLocaleTimeString('en-CA', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })
+              const courtLabel = formatCourtLabel(g.court, league?.sport)
+              return `${time}${opponent ? ` vs ${opponent}` : ''}${courtLabel ? ` · ${courtLabel}` : ''}`
+            })
+            const lastGameAt = myGames[myGames.length - 1].scheduled_at
+            reminderNotifBatch.push({
+              organization_id: orgId,
+              user_id: userId,
+              type: 'game_reminder',
+              title: myGames.length === 1 ? `You have a game ${dayLabel}` : `You have ${myGames.length} games ${dayLabel}`,
+              body: lines.join(' · '),
+              data: { href: '/schedule', link_label: 'Schedule →', until: lastGameAt, gameIds: myGames.map(g => g.id) },
+            })
+          }
+
+          if (!player.emailOn || !player.email) {
+            results.push(`bell reminder queued for ${userId} (${myGames.length} game${myGames.length !== 1 ? 's' : ''} on ${gameLocalDate}, no email)`)
+            continue
+          }
+
           reminderEmailBatch.push({
             from: FROM_EMAIL,
             to: player.email,
@@ -329,6 +399,12 @@ export async function GET(req: NextRequest) {
         }
       }
     }
+  }
+
+  // Flush bell rows (+ push fan-out) for the digests
+  if (reminderNotifBatch.length > 0) {
+    const { error: notifErr } = await createNotifications(reminderNotifBatch)
+    results.push(notifErr ? `bell reminder insert error: ${notifErr.message}` : `bell reminders: ${reminderNotifBatch.length} row(s) created`)
   }
 
   // Flush the game-reminder email batch (up to 100 emails per Resend batch call)
@@ -581,9 +657,14 @@ export async function GET(req: NextRequest) {
         }
         sentSet.add(logKey)
 
-        let allPlayers: ({ phone?: string | null; sms_opted_in?: boolean | null } | null)[]
+        // Recipients keyed by user (a player on both teams appears once). Each
+        // gets the reminder as a bell row + push unless they turned push
+        // reminders off, and as SMS by the usual gates — minus players who are
+        // reachable by push and didn't ask to keep texts (lib/reminder-channels).
+        type PrePrefs = { phone?: string | null; sms_opted_in?: boolean | null; push_reminders_enabled?: boolean | null; sms_also_when_push?: boolean | null }
+        const playersById = new Map<string, PrePrefs>()
         if (isPickup) {
-          // Pickup game: gather opted-in registrants of the game's league
+          // Pickup game: registrants of the game's league
 
           const { data: pickupRegRows } = await supabase
             .from('registrations')
@@ -598,33 +679,57 @@ export async function GET(req: NextRequest) {
 
           const { data: pickupProfiles } = await supabase
             .from('profiles')
-            .select('phone, sms_opted_in')
+            .select('id, phone, sms_opted_in, push_reminders_enabled, sms_also_when_push')
             .in('id', pickupUserIds)
-          allPlayers = (pickupProfiles ?? []) as ({ phone?: string | null; sms_opted_in?: boolean | null })[]
+          for (const p of (pickupProfiles ?? []) as (PrePrefs & { id: string })[]) playersById.set(p.id, p)
         } else {
           const { data: members } = await supabase
             .from('team_members')
-            .select('profiles!team_members_user_id_fkey(phone, sms_opted_in)')
+            .select('user_id, profiles!team_members_user_id_fkey(phone, sms_opted_in, push_reminders_enabled, sms_also_when_push)')
             .in('team_id', teamIds)
 
-          allPlayers = (members ?? [])
-            .flatMap(m => (Array.isArray(m.profiles) ? m.profiles : [m.profiles]))
-            .filter(Boolean)
+          for (const m of members ?? []) {
+            const p = (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as PrePrefs | null
+            if (m.user_id && p && !playersById.has(m.user_id)) playersById.set(m.user_id, p)
+          }
         }
 
-        // Deduplicate by phone — a player on both home and away team would appear twice otherwise
+        const orgPushSubs = await pushSubsForOrg(orgId)
+        const smsRecipients: { userId: string; phone: string }[] = []
         const seenPhones = new Set<string>()
-        const optedInPlayers = allPlayers.filter(p => {
-          if (!p?.phone || !p?.sms_opted_in) return false
-          if (seenPhones.has(p.phone)) return false
-          seenPhones.add(p.phone)
-          return true
-        })
+        const preNotifRows: NotificationInsert[] = []
+        const smsSkips: Record<string, number> = {}
+        for (const [uid, p] of playersById) {
+          const ch = decideReminderChannels(
+            { phone: p.phone, smsOptedIn: p.sms_opted_in, pushRemindersEnabled: p.push_reminders_enabled, smsAlsoWhenPush: p.sms_also_when_push },
+            { orgSmsEnabled: true, pushConfigured: pushOn, hasPushSubscription: orgPushSubs.has(uid) },
+          )
+          if (ch.push) {
+            preNotifRows.push({
+              organization_id: orgId,
+              user_id: uid,
+              type: 'game_reminder',
+              title: reminder.message_template,
+              body: `${leagueName}${venue} · ${gameTime}`,
+              data: { href: '/schedule', link_label: 'Schedule →', until: game.scheduled_at, gameId: game.id },
+            })
+          }
+          if (ch.sms && p.phone && !seenPhones.has(p.phone)) {
+            seenPhones.add(p.phone)
+            smsRecipients.push({ userId: uid, phone: p.phone })
+          } else if (ch.smsSkip) {
+            smsSkips[ch.smsSkip] = (smsSkips[ch.smsSkip] ?? 0) + 1
+          }
+        }
 
-        if (optedInPlayers.length === 0) {
-          const noPhone = allPlayers.filter(p => !p?.phone).length
-          const notOptedIn = allPlayers.filter(p => p?.phone && !p?.sms_opted_in).length
-          skipReasons.push(`${reminder.minutes_before}min:no_opted_in_players(${allPlayers.length}_total,${noPhone}_no_phone,${notOptedIn}_not_opted_in)`)
+        if (preNotifRows.length > 0) {
+          const { error: preErr } = await createNotifications(preNotifRows)
+          if (preErr) results.push(`bell pre-game reminder insert error game ${game.id}: ${preErr.message}`)
+        }
+
+        if (smsRecipients.length === 0) {
+          const skipSummary = Object.entries(smsSkips).map(([k, v]) => `${v}_${k}`).join(',')
+          skipReasons.push(`${reminder.minutes_before}min:no_sms_recipients(${playersById.size}_total,${skipSummary || 'none'};${preNotifRows.length}_push)`)
           continue
         }
 
@@ -632,17 +737,17 @@ export async function GET(req: NextRequest) {
 
         let sentCount = 0
         let failCount = 0
-        for (const player of optedInPlayers) {
+        for (const player of smsRecipients) {
           try {
-            await sendSms(player!.phone!, smsBody)
+            await sendSms(player.phone, smsBody)
             sentCount++
           } catch (e) {
             failCount++
-            results.push(`sms error game ${game.id} player ${player!.phone}: ${e}`)
+            results.push(`sms error game ${game.id} player ${player.userId}: ${e}`)
           }
         }
 
-        results.push(`sms reminder game ${game.id} (${reminder.minutes_before}min): ${sentCount} sent, ${failCount} failed`)
+        results.push(`sms reminder game ${game.id} (${reminder.minutes_before}min): ${sentCount} sent, ${failCount} failed, ${smsSkips.push_instead ?? 0} by push instead, ${preNotifRows.length} bell/push`)
       }
 
       if (skipReasons.length > 0) gameSkips[game.id] = skipReasons
@@ -731,28 +836,33 @@ export async function GET(req: NextRequest) {
       )]
       if (teamIds.length === 0 && pickupLeagueIds.length === 0) continue
 
-      // Build map: user_id → { phone, name, teamIds[], subGameIds[], pickupLeagueIds[] }
-      type PlayerEntry = { phone: string; name: string; teamIds: Set<string>; subGameIds: Set<string>; pickupLeagueIds: Set<string> }
+      // Build map: user_id → prefs + teamIds/subGameIds/pickupLeagueIds. Every
+      // player is tracked; the game-day switch (sms_game_day_enabled) gates the
+      // kind on BOTH channels, and lib/reminder-channels routes SMS vs push.
+      type GDProfile = { phone?: string | null; full_name?: string | null; sms_opted_in?: boolean | null; sms_game_day_enabled?: boolean | null; push_reminders_enabled?: boolean | null; sms_also_when_push?: boolean | null }
+      type PlayerEntry = { prefs: GDProfile; name: string; teamIds: Set<string>; subGameIds: Set<string>; pickupLeagueIds: Set<string> }
       const playerMap = new Map<string, PlayerEntry>()
+      const gdEnsure = (userId: string, p: GDProfile): PlayerEntry => {
+        let entry = playerMap.get(userId)
+        if (!entry) {
+          entry = { prefs: p, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() }
+          playerMap.set(userId, entry)
+        }
+        return entry
+      }
+      const GD_PROFILE_COLS = 'phone, full_name, sms_opted_in, sms_game_day_enabled, push_reminders_enabled, sms_also_when_push'
 
-      // Get opted-in players with game-day SMS enabled
       if (teamIds.length > 0) {
         const { data: members } = await supabase
           .from('team_members')
-          .select('user_id, team_id, profiles!team_members_user_id_fkey(phone, full_name, sms_opted_in, sms_game_day_enabled)')
+          .select(`user_id, team_id, profiles!team_members_user_id_fkey(${GD_PROFILE_COLS})`)
           .in('team_id', teamIds)
 
         for (const m of members ?? []) {
-          const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          if (!p?.phone || !(p as any)?.sms_opted_in || !(p as any)?.sms_game_day_enabled) continue
-          if (!m.team_id || !m.user_id) continue
-          const userId = m.user_id
-          const teamId = m.team_id
-          if (!playerMap.has(userId)) {
-            playerMap.set(userId, { phone: p.phone, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
-          }
-          playerMap.get(userId)!.teamIds.add(teamId)
+          const p = (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as GDProfile | null
+          if (!p || !m.team_id || !m.user_id) continue
+          if (p.sms_game_day_enabled === false) continue // player turned game-day reminders off
+          gdEnsure(m.user_id, p).teamIds.add(m.team_id)
         }
       }
 
@@ -769,18 +879,15 @@ export async function GET(req: NextRequest) {
 
           const { data: pickupProfiles } = await supabase
             .from('profiles')
-            .select('id, phone, full_name, sms_opted_in, sms_game_day_enabled')
+            .select(`id, ${GD_PROFILE_COLS}`)
             .in('id', pickupUserIds)
-          type PProfile = { id: string; phone?: string | null; full_name?: string | null; sms_opted_in?: boolean | null; sms_game_day_enabled?: boolean | null }
+          type PProfile = GDProfile & { id: string }
           const pProfileById = new Map<string, PProfile>((pickupProfiles ?? []).map((p: PProfile) => [p.id, p]))
           for (const r of (pickupRegRows ?? []) as { user_id: string; league_id: string }[]) {
             if (!r.user_id || !r.league_id) continue
             const p = pProfileById.get(r.user_id)
-            if (!p?.phone || !p?.sms_opted_in || !p?.sms_game_day_enabled) continue
-            if (!playerMap.has(r.user_id)) {
-              playerMap.set(r.user_id, { phone: p.phone, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
-            }
-            playerMap.get(r.user_id)!.pickupLeagueIds.add(r.league_id)
+            if (!p || p.sms_game_day_enabled === false) continue
+            gdEnsure(r.user_id, p).pickupLeagueIds.add(r.league_id)
           }
         }
       }
@@ -791,20 +898,16 @@ export async function GET(req: NextRequest) {
 
         const { data: smsSubRows } = await supabase
           .from('game_subs')
-          .select('user_id, game_id, profiles!game_subs_user_id_fkey(phone, full_name, sms_opted_in, sms_game_day_enabled)')
+          .select(`user_id, game_id, profiles!game_subs_user_id_fkey(${GD_PROFILE_COLS})`)
           .eq('organization_id', orgId)
           .eq('status', 'confirmed')
           .not('user_id', 'is', null)
           .in('game_id', smsGameIds)
         for (const s of smsSubRows ?? []) {
-          const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          if (!p?.phone || !(p as any)?.sms_opted_in || !(p as any)?.sms_game_day_enabled) continue
-          if (!s.user_id || !s.game_id) continue
-          if (!playerMap.has(s.user_id)) {
-            playerMap.set(s.user_id, { phone: p.phone, name: p.full_name ?? '', teamIds: new Set(), subGameIds: new Set(), pickupLeagueIds: new Set() })
-          }
-          playerMap.get(s.user_id)!.subGameIds.add(s.game_id)
+          const p = (Array.isArray(s.profiles) ? s.profiles[0] : s.profiles) as GDProfile | null
+          if (!p || !s.user_id || !s.game_id) continue
+          if (p.sms_game_day_enabled === false) continue
+          gdEnsure(s.user_id, p).subGameIds.add(s.game_id)
         }
       }
 
@@ -823,9 +926,18 @@ export async function GET(req: NextRequest) {
       const alreadySentSet = new Set((sentToday ?? []).map((r: { user_id: string }) => r.user_id))
 
       const scheduleUrl = `https://${orgInfo?.slug}.${platformDomain}/schedule`
+      const gdPushSubs = await pushSubsForOrg(orgId)
+      const gdNotifRows: NotificationInsert[] = []
+      let gdPushInstead = 0
 
       for (const [userId, player] of playerMap) {
         if (alreadySentSet.has(userId)) continue
+
+        const ch = decideReminderChannels(
+          { phone: player.prefs.phone, smsOptedIn: player.prefs.sms_opted_in, pushRemindersEnabled: player.prefs.push_reminders_enabled, smsAlsoWhenPush: player.prefs.sms_also_when_push },
+          { orgSmsEnabled: true, pushConfigured: pushOn, hasPushSubscription: gdPushSubs.has(userId) },
+        )
+        if (!ch.push && !ch.sms) continue // nothing to send on any channel
 
         // Find this player's games today (games where they're on the home or away team, or confirmed sub)
         const myGames = orgGames.filter(g => {
@@ -873,14 +985,32 @@ export async function GET(req: NextRequest) {
           ? `🏆 It's Game Day, ${player.name.split(' ')[0] || 'there'}!`
           : `🏆 It's Game Day, ${player.name.split(' ')[0] || 'there'}! You've got ${myGames.length} games today.`
 
+        if (ch.push) {
+          gdNotifRows.push({
+            organization_id: orgId,
+            user_id: userId,
+            type: 'game_day',
+            title: intro,
+            body: gameLines.join(' · '),
+            data: { href: '/schedule', link_label: 'Schedule →', until: myGames[myGames.length - 1].scheduled_at, gameIds: myGames.map(g => g.id) },
+          })
+        }
+        if (ch.smsSkip === 'push_instead') gdPushInstead++
+        if (!ch.sms || !player.prefs.phone) continue
+
         const smsBody = `${orgName}\n\n${intro}\n\n${gameLines.join('\n\n')}\n\nView your schedule: ${scheduleUrl}\n\nReply STOP to unsubscribe.`
 
         try {
-          await sendSms(player.phone, smsBody)
+          await sendSms(player.prefs.phone, smsBody)
           results.push(`game_day sms sent to ${userId} (${orgId})`)
         } catch (e) {
           results.push(`game_day sms error for ${userId}: ${e}`)
         }
+      }
+
+      if (gdNotifRows.length > 0) {
+        const { error: gdErr } = await createNotifications(gdNotifRows)
+        results.push(gdErr ? `game_day bell insert error (${orgId}): ${gdErr.message}` : `game_day bell/push: ${gdNotifRows.length} row(s) for ${orgId}, ${gdPushInstead} sms skipped for push`)
       }
     }
   }
@@ -1507,7 +1637,7 @@ export async function GET(req: NextRequest) {
 
     const { data: upcomingSessions } = await sdb
       .from('event_sessions')
-      .select('id, league_id, organization_id, scheduled_at, location_override, leagues(name, sport)')
+      .select('id, league_id, organization_id, scheduled_at, location_override, leagues(name, sport, slug)')
       .eq('status', 'open')
       .gte('scheduled_at', now.toISOString())
       .lte('scheduled_at', sessionWindowEnd.toISOString())
@@ -1515,7 +1645,7 @@ export async function GET(req: NextRequest) {
     type SessionRow = {
       id: string; league_id: string; organization_id: string; scheduled_at: string
       location_override: string | null
-      leagues: { name: string; sport?: string | null } | { name: string; sport?: string | null }[] | null
+      leagues: { name: string; sport?: string | null; slug?: string | null } | { name: string; sport?: string | null; slug?: string | null }[] | null
     }
     const sessions = (upcomingSessions ?? []) as SessionRow[]
 
@@ -1543,6 +1673,7 @@ export async function GET(req: NextRequest) {
       })
 
       const sessionEmailBatch: Array<{ from: string; to: string; subject: string; html: string }> = []
+      const sessionNotifBatch: NotificationInsert[] = []
 
       for (const session of tomorrowSessions) {
         const orgId = session.organization_id
@@ -1579,9 +1710,11 @@ export async function GET(req: NextRequest) {
 
         const { data: sProfiles } = await sdb
           .from('profiles')
-          .select('id, email, full_name, email_reminders_enabled, phone, sms_opted_in')
+          .select('id, email, full_name, email_reminders_enabled, phone, sms_opted_in, push_reminders_enabled, sms_also_when_push')
           .in('id', userIds)
-        type SProfile = { id: string; email?: string | null; full_name?: string | null; email_reminders_enabled?: boolean | null; phone?: string | null; sms_opted_in?: boolean | null }
+        type SProfile = { id: string; email?: string | null; full_name?: string | null; email_reminders_enabled?: boolean | null; phone?: string | null; sms_opted_in?: boolean | null; push_reminders_enabled?: boolean | null; sms_also_when_push?: boolean | null }
+        const sPushSubs = await pushSubsForOrg(orgId)
+        const eventHref = league?.slug ? `/events/${league.slug}` : '/dashboard'
 
         for (const p of (sProfiles ?? []) as SProfile[]) {
           if (alreadySent.has(p.id)) continue
@@ -1598,6 +1731,22 @@ export async function GET(req: NextRequest) {
 
           const firstName = (p.full_name ?? '').split(' ')[0] || 'there'
           const venueLine = locationLabel ? ` · ${locationLabel}` : ''
+          const ch = decideReminderChannels(
+            { phone: p.phone, smsOptedIn: p.sms_opted_in, pushRemindersEnabled: p.push_reminders_enabled, smsAlsoWhenPush: p.sms_also_when_push },
+            { orgSmsEnabled: smsOn, pushConfigured: pushOn, hasPushSubscription: sPushSubs.has(p.id) },
+          )
+
+          // Bell + push
+          if (ch.push) {
+            sessionNotifBatch.push({
+              organization_id: orgId,
+              user_id: p.id,
+              type: 'session_reminder',
+              title: `${eventName} tomorrow`,
+              body: `${timeLabel}${venueLine}`,
+              data: { href: eventHref, link_label: 'Event →', until: session.scheduled_at, sessionId: session.id },
+            })
+          }
 
           // Email
           if (emailOn && p.email && p.email_reminders_enabled !== false) {
@@ -1620,8 +1769,8 @@ export async function GET(req: NextRequest) {
             results.push(`session email queued for ${p.id} (session ${session.id})`)
           }
 
-          // SMS
-          if (smsOn && p.phone && p.sms_opted_in) {
+          // SMS (skipped for players reachable by push unless they asked to keep texts)
+          if (ch.sms && p.phone) {
             const smsBody = `${orgName} – ${eventName}\n\nReminder: you're signed up for tomorrow${venueLine} · ${timeLabel}\n\nReply STOP to unsubscribe.`
             try {
               await sendSms(p.phone, smsBody)
@@ -1631,6 +1780,11 @@ export async function GET(req: NextRequest) {
             }
           }
         }
+      }
+
+      if (sessionNotifBatch.length > 0) {
+        const { error: sErr } = await createNotifications(sessionNotifBatch)
+        results.push(sErr ? `session bell insert error: ${sErr.message}` : `session bell/push: ${sessionNotifBatch.length} row(s)`)
       }
 
       if (sessionEmailBatch.length > 0) {

@@ -20,6 +20,8 @@ const schema = z.object({
   email_reminders_enabled: z.boolean().optional(),
   sms_opted_in: z.boolean().optional(),
   sms_game_day_enabled: z.boolean().optional(),
+  push_reminders_enabled: z.boolean().optional(),
+  sms_also_when_push: z.boolean().optional(),
   skill_level: z.enum(['beginner', 'intermediate', 'competitive']).optional(),
   t_shirt_size: z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']).optional(),
   emergency_contact_name: z.string().optional(),
@@ -60,6 +62,8 @@ export function ProfileForm({
       sms_opted_in: profile?.sms_opted_in ?? true,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sms_game_day_enabled: (profile as any)?.sms_game_day_enabled ?? true,
+      push_reminders_enabled: profile?.push_reminders_enabled ?? true,
+      sms_also_when_push: profile?.sms_also_when_push ?? false,
       skill_level: (playerDetails?.skill_level as FormData['skill_level']) ?? undefined,
       t_shirt_size: (playerDetails?.t_shirt_size as FormData['t_shirt_size']) ?? undefined,
       emergency_contact_name: playerDetails?.emergency_contact_name ?? '',
@@ -198,6 +202,13 @@ export function ProfileForm({
                 <span className="text-xs text-gray-600">Receive game reminder emails</span>
               </label>
               <label className="flex items-start gap-2 cursor-pointer select-none">
+                <input {...register('push_reminders_enabled')} type="checkbox" className="rounded mt-0.5" />
+                <span className="text-xs text-gray-600">
+                  Game reminders as phone alerts
+                  <span className="block text-[11px] text-gray-400">In the app&rsquo;s notification bell, and as a push notification on phones where you&rsquo;ve turned alerts on.</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 cursor-pointer select-none">
                 <input {...register('sms_opted_in')} type="checkbox" className="rounded mt-0.5" />
                 <span className="text-xs text-gray-600">
                   Game &amp; schedule text alerts
@@ -205,10 +216,19 @@ export function ProfileForm({
                 </span>
               </label>
               {smsOptedIn && (
-                <label className="flex items-center gap-2 cursor-pointer select-none pl-5">
-                  <input {...register('sms_game_day_enabled')} type="checkbox" className="rounded" />
-                  <span className="text-xs text-gray-500">Game Day — morning SMS on days I have a game</span>
-                </label>
+                <>
+                  <label className="flex items-center gap-2 cursor-pointer select-none pl-5">
+                    <input {...register('sms_game_day_enabled')} type="checkbox" className="rounded" />
+                    <span className="text-xs text-gray-500">Game Day — morning reminder on days I have a game</span>
+                  </label>
+                  <label className="flex items-start gap-2 cursor-pointer select-none pl-5">
+                    <input {...register('sms_also_when_push')} type="checkbox" className="rounded mt-0.5" />
+                    <span className="text-xs text-gray-500">
+                      Text me reminders even when phone alerts are on
+                      <span className="block text-[11px] text-gray-400">Off by default: once a phone of yours gets push alerts, reminders arrive there instead of by text.</span>
+                    </span>
+                  </label>
+                </>
               )}
             </div>
           </div>
