@@ -7,6 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { formatGameTime } from '@/lib/format-time'
 import { sendEmail, buildGameSubInviteEmail } from '@/lib/email'
+import { createNotifications } from '@/lib/notify'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -145,7 +146,7 @@ export async function inviteGameSub(
 
   if (inviteeProfile?.id) {
 
-    await db.from('notifications').insert({
+    await createNotifications({
       organization_id: org.id,
       user_id: inviteeProfile.id,
       type: 'sub_invited',
@@ -365,7 +366,7 @@ export async function confirmGameSub(
   // Notify the captain
   const playerName = profile?.full_name ?? sub.invited_email
 
-  await db.from('notifications').insert({
+  await createNotifications({
     organization_id: org.id,
     user_id: sub.invited_by,
     type: 'sub_confirmed',
@@ -415,7 +416,7 @@ export async function declineGameSub(
   // Notify captain
   const playerName = profile?.full_name ?? sub.invited_email
 
-  await db.from('notifications').insert({
+  await createNotifications({
     organization_id: org.id,
     user_id: sub.invited_by,
     type: 'sub_declined',

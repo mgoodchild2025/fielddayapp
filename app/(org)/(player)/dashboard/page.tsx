@@ -194,6 +194,7 @@ export default async function DashboardPage() {
         <OrgNav org={org} logoUrl={logoUrl} />
         <DashboardClient
           firstName={firstName}
+          orgName={org.name}
           medals={myMedals}
           myCardBio={myCardBio}
           myCareer={myCareer}
@@ -754,6 +755,7 @@ export default async function DashboardPage() {
       <div className="flex-1">
         <DashboardClient
           firstName={firstName}
+          orgName={org.name}
           medals={myMedals}
           myCardBio={myCardBio}
           myCareer={myCareer}

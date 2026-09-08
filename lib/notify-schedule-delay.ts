@@ -2,6 +2,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { sendEmailBatch } from '@/lib/email'
 import { formatGameTime } from '@/lib/format-time'
 import type { TablesInsert } from '@/types/database'
+import { createNotifications } from '@/lib/notify'
 
 export interface DelayedEntry {
   teamIds: string[]      // home/away (or team1/team2) ids for this game/match
@@ -107,7 +108,7 @@ export async function notifyScheduleDelay(opts: {
 
   if (notifications.length > 0) {
 
-    await db.from('notifications').insert(notifications)
+    await createNotifications(notifications)
   }
   if (emails.length > 0) {
     await sendEmailBatch(emails)

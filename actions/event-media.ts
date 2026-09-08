@@ -8,6 +8,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { destroyAsset, archiveDownloadUrl } from '@/lib/cloudinary'
 import { sendSms } from '@/lib/twilio'
+import { createNotifications } from '@/lib/notify'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -206,7 +207,7 @@ async function notifyAdminsOfPendingMedia(
   const toAlert = adminIds.filter((id) => !quiet.has(id))
   if (toAlert.length === 0) return
 
-  await db.from('notifications').insert(
+  await createNotifications(
     toAlert.map((userId) => ({
       organization_id: org.id,
       user_id: userId,

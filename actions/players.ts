@@ -9,6 +9,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { sendSms as twilioSendSms, toE164 } from '@/lib/twilio'
 import { optionalPhone, nullablePhone } from '@/lib/validation'
 import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
+import { createNotifications } from '@/lib/notify'
 
 async function requireOrgAdmin() {
   const headersList = await headers()
@@ -241,7 +242,7 @@ export async function sendPlayerNotification(userId: string, title: string, body
   const { error, org, db } = await requireOrgAdmin()
   if (error) return { error, smsError: null }
 
-  const { error: e } = await db.from('notifications').insert({
+  const { error: e } = await createNotifications({
     organization_id: org.id,
     user_id: userId,
     type: 'admin_message',

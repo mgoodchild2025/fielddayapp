@@ -9,6 +9,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { sendEmail, buildJoinRequestEmail, buildJoinApprovedEmail, buildJoinDeclinedEmail, buildCaptainAssignedEmail, buildTeamAddedEmail, buildRosterReminderEmail, buildCalendarCtaHtml } from '@/lib/email'
 import { calendarSubscribeUrls, ensureCalendarToken } from '@/lib/calendar-feed'
 import { convertToWebP } from '@/lib/image-utils'
+import { createNotifications } from '@/lib/notify'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -128,7 +129,7 @@ async function notifyCaptainAssigned({
   const leagueName = leagueRow?.name ?? ''
 
   // In-app notification
-  await db.from('notifications').insert({
+  await createNotifications({
     organization_id: org.id,
     user_id: captainUserId,
     type: 'captain_assigned',
@@ -573,7 +574,7 @@ export async function adminAddTeamMember(input: z.infer<typeof adminAddMemberSch
       }
 
       // In-app notification
-      await db.from('notifications').insert({
+      await createNotifications({
         organization_id: org.id,
         user_id: profile.id,
         type: 'team_added',
@@ -707,7 +708,7 @@ export async function requestToJoinTeam(teamId: string, message?: string) {
   await Promise.all(
     recipients.map(async (r) => {
       // In-app notification
-      await db.from('notifications').insert({
+      await createNotifications({
         organization_id: org.id,
         user_id: r.userId,
         type: 'join_request',
@@ -824,7 +825,7 @@ export async function approveJoinRequest(requestId: string) {
   }
 
   // In-app notification
-  await db.from('notifications').insert({
+  await createNotifications({
     organization_id: org.id,
     user_id: req.user_id,
     type: 'join_approved',
@@ -890,7 +891,7 @@ export async function rejectJoinRequest(requestId: string) {
   const teamName = teamDetails?.name ?? 'the team'
 
   // In-app notification
-  await db.from('notifications').insert({
+  await createNotifications({
     organization_id: org.id,
     user_id: req.user_id,
     type: 'join_rejected',
@@ -1012,7 +1013,7 @@ export async function sendTeamMessage(input: z.infer<typeof sendTeamMessageSchem
     body: parsed.data.body,
     read: false,
   }))
-  const { error: notifError } = await supabase.from('notifications').insert(notifications)
+  const { error: notifError } = await createNotifications(notifications)
   if (notifError) return { error: notifError.message }
 
   // ── Fetch profiles for email / SMS ───────────────────────────────────────
@@ -1316,7 +1317,7 @@ export async function sendRosterReminder(
   const teamName = team?.name ?? 'your team'
 
   // In-app notification
-  await db.from('notifications').insert({
+  await createNotifications({
     organization_id: org.id,
     user_id: targetMember.user_id,
     type: 'admin_message',

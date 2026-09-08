@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { MedalCase, type MedalView } from '@/components/medals/medal-case'
 import { EventAvatar } from '@/components/ui/event-avatar'
 import { BioFlipCard } from '@/components/bios/bio-flip-card'
+import { AlertsNudge } from '@/components/pwa/alerts-nudge'
 import type { BioCardData } from '@/components/bios/player-bio-card'
 import type { PlayerCareer } from '@/lib/career'
 import Link from 'next/link'
@@ -109,6 +110,8 @@ export type PendingAction = {
 
 interface Props {
   firstName: string
+  /** Org name for the phone-alerts nudge copy. */
+  orgName?: string
   timezone: string
   nextItem: NextItem
   /** Other games on the same day as the next game (RSVP-able, shown below the hero). */
@@ -507,7 +510,7 @@ function MyCardSection({ myCardBio, myCareer, myCardHref }: {
   )
 }
 
-export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null }: Props) {
+export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null }: Props) {
   const [activeIdx, setActiveIdx] = useState(0)
 
   // RSVP state — only relevant when nextItem is a game
@@ -626,6 +629,9 @@ export function DashboardClient({ firstName, timezone, nextItem, sameDayGames = 
         )}
         <MyCardSection myCardBio={myCardBio} myCareer={myCareer} myCardHref={myCardHref} />
       </div>
+
+      {/* ── Phone alerts nudge (mobile, from 2nd visit; install → enable push) ── */}
+      <AlertsNudge orgName={orgName} />
 
       {/* ── Action banners ── */}
       {pendingActions.map((action) => (

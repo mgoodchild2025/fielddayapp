@@ -255,3 +255,10 @@ const supabase = await createServerClient()
 - Don't use `middleware.ts` — Next.js 16 uses `proxy.ts` (exports `proxy` function + `config`)
 - Don't call `requireOrgMember` on public player pages (loops unauthenticated players to /login)
 - Don't use `CREATE POLICY IF NOT EXISTS` in SQL — use `DROP POLICY IF EXISTS` + `CREATE POLICY`
+
+## Phone alerts (Web Push) & install
+- **`lib/notify.ts#createNotifications` is the ONE way to insert `notifications` rows** — it inserts (service role) and fans out Web Push via `lib/push.ts` (fire-and-forget, never throws; no-op when `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` are unset). Never write `db.from('notifications').insert(...)` directly.
+- `push_subscriptions` (migration 191): one row per browser × org site, unique on `endpoint`. **Subscriptions are per-origin**, so fan-out matches on BOTH `user_id` and `organization_id`. 404/410 from the push service deletes the row; other failures stamp `failed_at`.
+- Push tap deep link follows the bell's fields (`data.href`, `accept_url`, `team_url`; else `/dashboard`) — `lib/push-payload.ts` (pure, tested). Badge = server-side unread count, sent in the payload and mirrored by `NotificationBell` via `navigator.setAppBadge`.
+- **Root service worker `/sw.js`** (route handler, scope `/`, registered by `components/pwa/pwa-registrar.tsx` in the org layout for logged-in users): push + notificationclick + pushsubscriptionchange (re-subscribes and POSTs to `/api/push/subscribe`). **It has NO fetch handler on purpose** — never add caching there (authenticated pages). The scoreboard keeps its own offline worker at `/scoreboard-sw.js`, scope `/scoreboard`.
+- Permission is only ever requested from a tap: `AlertsNudge` (dashboard, mobile-only, from the 2nd visit, 30-day dismiss; install step first because **iOS only allows push inside a home-screen app**) and `PushSettingsCard` (profile, per-device on/off). Browser helpers in `lib/push-client.ts`.

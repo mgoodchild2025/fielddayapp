@@ -7,6 +7,7 @@ import { CartProvider } from '@/components/shop/cart-provider'
 import { CartButton } from '@/components/shop/cart-button'
 import { MaintenancePage } from '@/components/maintenance-page'
 import { HibernatePage } from '@/components/hibernate-page'
+import { PwaRegistrar } from '@/components/pwa/pwa-registrar'
 import type { OrgBranding } from '@/types/database'
 import { getOrgTaxRates, taxSuffix } from '@/lib/tax'
 
@@ -214,6 +215,7 @@ export default async function OrgLayout({
         <CartProvider orgId={orgId} userId={user?.id ?? null}>
           {children}
           {user && <CartButton orgId={orgId} taxSuffix={merchTaxSuffix} />}
+          {user && <PwaRegistrar />}
         </CartProvider>
       </BrandProvider>
     </>

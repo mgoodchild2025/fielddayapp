@@ -12,6 +12,7 @@ import { sendEmailBatch } from '@/lib/email'
 import { notifyScheduleDelay } from '@/lib/notify-schedule-delay'
 import { recordAuditLog, getAuditActor } from '@/lib/audit'
 import { isLeagueFrozen } from '@/lib/billing'
+import { createNotifications } from '@/lib/notify'
 
 // ── Notification helpers ────────────────────────────────────────────────────
 
@@ -51,7 +52,7 @@ async function notifyGameStatusChange(opts: {
   if (!participants.length) return
 
   const db = createServiceRoleClient()
-  await db.from('notifications').insert(
+  await createNotifications(
     participants.map((p: { userId: string; email?: string; name?: string }) => ({
       organization_id: opts.orgId,
       user_id: p.userId,

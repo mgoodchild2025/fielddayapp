@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useTransition } from 'react'
 import Link from 'next/link'
 import { markAllNotificationsRead, markNotificationRead } from '@/actions/notifications'
 import { approveJoinRequest, rejectJoinRequest } from '@/actions/teams'
+import { setAppBadge } from '@/lib/push-client'
 
 interface Notification {
   id: string
@@ -40,6 +41,9 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
   const ref = useRef<HTMLDivElement>(null)
 
   const count = notifications.length
+
+  // Installed app: the icon badge is the unread count, cleared when it hits 0.
+  useEffect(() => { setAppBadge(count) }, [count])
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {

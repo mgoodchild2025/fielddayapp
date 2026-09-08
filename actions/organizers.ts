@@ -7,6 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { sendEmail, buildOrganizerInviteEmail } from '@/lib/email'
 import { z } from 'zod'
+import { createNotifications } from '@/lib/notify'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -304,7 +305,7 @@ export async function inviteCoOrganizer(input: { leagueId: string; email: string
 
   // In-app notification if they already have an account
   if (existingProfile?.id) {
-    await db.from('notifications').insert({
+    await createNotifications({
       organization_id: org.id,
       user_id: existingProfile.id,
       type: 'organizer_invite',
