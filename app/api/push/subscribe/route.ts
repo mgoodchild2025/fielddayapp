@@ -11,6 +11,10 @@ import { parseSubscription, upsertPushSubscription } from '@/lib/push'
  */
 export async function POST(request: Request) {
   const headersList = await headers()
+  // Subscriptions belong to an org site; on the platform apex there is nothing
+  // to attach one to. Answer 400 rather than letting getCurrentOrg throw a 500
+  // that the error reporter would page on.
+  if (!headersList.get('x-org-id')) return NextResponse.json({ error: 'No org context' }, { status: 400 })
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()

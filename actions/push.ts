@@ -17,6 +17,7 @@ export async function savePushSubscription(
   userAgent: string | null,
 ): Promise<{ error: string | null }> {
   const headersList = await headers()
+  if (!headersList.get('x-org-id')) return { error: 'No org context' }
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
