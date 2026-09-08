@@ -272,6 +272,8 @@ const updateProfileSchema = z.object({
   email_reminders_enabled: z.boolean().optional(),
   sms_opted_in: z.boolean().optional(),
   sms_game_day_enabled: z.boolean().optional(),
+  push_reminders_enabled: z.boolean().optional(),
+  sms_also_when_push: z.boolean().optional(),
   skill_level: z.enum(['beginner', 'intermediate', 'competitive']).optional(),
   t_shirt_size: z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']).optional(),
   emergency_contact_name: z.string().trim().max(100).optional(),
@@ -299,6 +301,10 @@ export async function updateProfile(input: z.infer<typeof updateProfileSchema>) 
       // field we keep it enabled rather than silently disabling it.
       sms_opted_in: parsed.data.sms_opted_in ?? true,
       sms_game_day_enabled: parsed.data.sms_game_day_enabled ?? true,
+      // Phone alerts for reminders: on by default; "also text me" off by default
+      // (a player reachable by push isn't texted the same reminder twice).
+      push_reminders_enabled: parsed.data.push_reminders_enabled ?? true,
+      sms_also_when_push: parsed.data.sms_also_when_push ?? false,
       show_contact_info: parsed.data.show_contact_info ?? false,
     }).eq('id', user.id),
     db.from('player_details').upsert({

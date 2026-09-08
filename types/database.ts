@@ -4592,6 +4592,8 @@ export type Database = {
           platform_role: string | null
           show_contact_info: boolean
           sms_game_day_enabled: boolean
+          push_reminders_enabled: boolean
+          sms_also_when_push: boolean
           sms_opted_in: boolean
           updated_at: string | null
         }
@@ -4607,6 +4609,8 @@ export type Database = {
           platform_role?: string | null
           show_contact_info?: boolean
           sms_game_day_enabled?: boolean
+          push_reminders_enabled?: boolean
+          sms_also_when_push?: boolean
           sms_opted_in?: boolean
           updated_at?: string | null
         }
@@ -4622,6 +4626,8 @@ export type Database = {
           platform_role?: string | null
           show_contact_info?: boolean
           sms_game_day_enabled?: boolean
+          push_reminders_enabled?: boolean
+          sms_also_when_push?: boolean
           sms_opted_in?: boolean
           updated_at?: string | null
         }
