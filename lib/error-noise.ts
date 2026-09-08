@@ -23,6 +23,29 @@ export interface NoiseContext {
   routePath?: string
 }
 
+export type NoiseKind = 'bot-request' | 'deploy-skew'
+
+/**
+ * Deployment skew: a tab loaded before a deploy submits a Server Action whose
+ * id only existed in the previous build. Next rejects it with a fixed message;
+ * the user's next reload fixes it. Expected within minutes of every deploy,
+ * on any page that hosts an action — never a code defect on its own.
+ */
+const DEPLOY_SKEW_PATTERNS: RegExp[] = [
+  /^Failed to find Server Action/i,
+]
+
+export function isDeploymentSkew(message: string): boolean {
+  return DEPLOY_SKEW_PATTERNS.some((re) => re.test(message))
+}
+
+/** Which known-noise class an error belongs to, or null when it deserves an alert. */
+export function classifyNoise(message: string, ctx: NoiseContext = {}): NoiseKind | null {
+  if (isBotRequestNoise(message, ctx)) return 'bot-request'
+  if (isDeploymentSkew(message)) return 'deploy-skew'
+  return null
+}
+
 /**
  * True when the error is a request-body parse failure on a route that
  * doesn't exist. Both conditions are required: a body-parse error on a real
