@@ -567,13 +567,16 @@ function MatchCard({
             )}
           </div>
         )}
-        {!swapMode && manualControls && isDeclared && (
+        {/* Any admin, any completed match (not just hand-built brackets): undo the
+            result so teams can be reseated — the only way to fix a wrong seat after
+            a score went in. Game-linked matches go through the Edit modal instead. */}
+        {!swapMode && isAdmin && isCompleted && !match.gameId && (
           <div className="border-t">
             <button
               onClick={() => runManual(() => clearBracketMatchResult({ matchId: match.id, bracketId, leagueId }))}
               disabled={isManualPending}
               className="w-full px-3 py-1.5 text-[10px] font-medium text-center text-gray-400 hover:bg-gray-50 hover:text-red-600 transition-colors disabled:opacity-50"
-              title="Undo the declared result and pull the winner back"
+              title={isDeclared ? 'Undo the declared result and pull the winner back' : 'Remove the score and pull the teams back out of later matches'}
             >
               ↺ Clear result
             </button>
