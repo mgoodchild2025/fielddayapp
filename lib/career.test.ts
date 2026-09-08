@@ -41,10 +41,12 @@ describe('buildCareer', () => {
     expect(c.seasons.find((s) => s.seasonLabel === '2025')?.medal).toBeNull()
   })
 
-  it('handles a league with no tracked stats — row present, numbers absent', () => {
+  it('handles a league with no tracked stats — rows present as W L T with no numbers', () => {
     const c = buildCareer({ ...base, statsByLeague: new Map() })
     expect(c.seasons).toHaveLength(3)
-    expect(c.tables[0].totals).toEqual({ kills: 0, aces: 0, blocks: 0 })
+    expect(c.tables).toHaveLength(1)
+    expect(c.tables[0].recordColumns).toBe(true)
+    expect(c.tables[0].totals).toEqual({ __w: 0, __l: 0, __t: 0 })
   })
 
   it('shows the team W/L record when a sport tracks no player stats', () => {
@@ -57,8 +59,8 @@ describe('buildCareer', () => {
       ]),
     })
     expect(c.tables).toHaveLength(1)
-    expect(c.tables[0].columns.map((col) => col.label)).toEqual(['W', 'L'])
-    expect(c.tables[0].totals).toEqual({ __w: 11, __l: 7 })
+    expect(c.tables[0].columns.map((col) => col.label)).toEqual(['W', 'L', 'T'])
+    expect(c.tables[0].totals).toEqual({ __w: 11, __l: 7, __t: 0 })
     // l3 has no record yet — its cells render as '—' via null stats
     expect(c.tables[0].rows.find((r) => r.seasonLabel === '2026')?.stats.__w).toBeUndefined()
   })
@@ -82,12 +84,12 @@ describe('buildCareer', () => {
     expect(c.tables[0].columns.map((col) => col.label)).toEqual(['W', 'L', 'T'])
   })
 
-  it('adds a T column only when a tie actually exists', () => {
+  it('record tables always show W L T — with or without a tie — so rows and cards align', () => {
     const c = buildCareer({
       ...base,
       statDefsBySport: new Map(),
       teamRecordByLeagueTeam: new Map([
-        ['l1:t1', { played: 10, wins: 6, losses: 3, ties: 1 }],
+        ['l1:t1', { played: 10, wins: 7, losses: 3, ties: 0 }],
       ]),
     })
     expect(c.tables[0].columns.map((col) => col.label)).toEqual(['W', 'L', 'T'])
@@ -101,7 +103,7 @@ describe('buildCareer', () => {
       statsByLeague: new Map(),
       teamRecordByLeagueTeam: new Map([['l1:t1', { played: 10, wins: 7, losses: 3, ties: 0 }]]),
     })
-    expect(c.tables[0].columns.map((col) => col.label)).toEqual(['W', 'L'])
+    expect(c.tables[0].columns.map((col) => col.label)).toEqual(['W', 'L', 'T'])
   })
 
   it('keeps real stat columns when the sport defines them — record is a fallback', () => {
@@ -120,10 +122,33 @@ describe('buildCareer', () => {
       teamRecordByLeagueTeam: new Map([['l1:t1', { played: 10, wins: 7, losses: 3, ties: 0 }]]),
       leaguesTrackingStats: new Set(['l1']),
     })
-    expect(c.tables[0].columns.map((col) => col.key)).toEqual(['kills', 'aces', 'blocks'])
-    expect(c.tables[0].recordColumns).toBe(false)
+    const statTable = c.tables.find((t) => !t.recordColumns)!
+    expect(statTable.columns.map((col) => col.key)).toEqual(['kills', 'aces', 'blocks'])
+    expect(statTable.rows.map((r) => r.leagueId)).toEqual(['l1'])
     // no values for this player → dashes, not zeros
-    expect(c.tables[0].rows.find((r) => r.leagueId === 'l1')?.stats.kills).toBeUndefined()
+    expect(statTable.rows[0].stats.kills).toBeUndefined()
+    // the untracked leagues stay W/L/T in their own table
+    const recordTable = c.tables.find((t) => t.recordColumns)!
+    expect(recordTable.rows.map((r) => r.leagueId)).toEqual(['l2', 'l3'])
+  })
+
+  it('a league nobody has stats in shows W L T for every player — a veteran\'s history elsewhere does not change it', () => {
+    // l3 hasn't started: no games, no stats. The veteran has stats in l1/l2.
+    const veteran = buildCareer({
+      ...base,
+      statsByLeague: new Map([['l1', { kills: 41 }], ['l2', { kills: 58 }]]),
+      leaguesTrackingStats: new Set(['l1', 'l2']),
+    })
+    const rookie = buildCareer({
+      ...base,
+      memberships: base.memberships.filter((m) => m.leagueId === 'l3'),
+      statsByLeague: new Map(),
+      leaguesTrackingStats: new Set(['l1', 'l2']),
+    })
+    const shapeOfL3 = (c: ReturnType<typeof buildCareer>) =>
+      c.tables.find((t) => t.rows.some((r) => r.leagueId === 'l3'))!.columns.map((col) => col.label)
+    expect(shapeOfL3(veteran)).toEqual(['W', 'L', 'T'])
+    expect(shapeOfL3(rookie)).toEqual(['W', 'L', 'T'])
   })
 
   it('carries the team record on every season row, formatted W-L or W-L-T', () => {
