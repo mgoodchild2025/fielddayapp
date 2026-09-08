@@ -5,10 +5,15 @@
  * custom domain), then host, ignoring container/loopback addresses.
  */
 export function publicOrigin(request: Request): string {
-  const proto = request.headers.get('x-forwarded-proto') ?? 'https'
-  const fwdHost = request.headers.get('x-forwarded-host')
+  return originFromHeaders(request.headers)
+}
+
+/** Same resolution from a Headers-like object (e.g. `await headers()` in a server component). */
+export function originFromHeaders(h: { get(name: string): string | null }): string {
+  const proto = h.get('x-forwarded-proto') ?? 'https'
+  const fwdHost = h.get('x-forwarded-host')
   if (fwdHost && !isInternal(fwdHost)) return `${proto}://${fwdHost}`
-  const host = request.headers.get('host')
+  const host = h.get('host')
   if (host && !isInternal(host)) return `${host.startsWith('localhost') ? 'http' : proto}://${host}`
   return process.env.NEXT_PUBLIC_APP_URL ?? 'https://fielddayapp.ca'
 }
