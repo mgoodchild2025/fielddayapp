@@ -8,6 +8,7 @@ import {
   type ReceiptKind, type ExpenseAttachment,
 } from '@/actions/finances'
 import { ATTACHMENT_LABELS } from '@/lib/finance-constants'
+import { UploadStatus } from '@/components/ui/upload-status'
 
 /**
  * Attachments on an expense / overhead row — any number of files (invoice,
@@ -24,9 +25,11 @@ export function AttachmentsControl({ kind, expenseId, attachments }: {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [label, setLabel] = useState<string>(attachments.length === 0 ? 'Receipt' : 'Invoice')
+  const [uploadingFile, setUploadingFile] = useState<File | null>(null)
 
   function upload(file: File) {
     setError(null)
+    setUploadingFile(file)
     startTransition(async () => {
       const fd = new FormData()
       fd.set('kind', kind)
@@ -34,6 +37,7 @@ export function AttachmentsControl({ kind, expenseId, attachments }: {
       fd.set('label', label)
       fd.set('file', file)
       const res = await uploadExpenseAttachment(fd)
+      setUploadingFile(null)
       if (res.error) { setError(res.error); return }
       router.refresh()
     })
@@ -95,6 +99,7 @@ export function AttachmentsControl({ kind, expenseId, attachments }: {
         </button>
       </span>
       {error && <span className="text-xs text-red-600">{error}</span>}
+      <UploadStatus active={!!uploadingFile} label={`Uploading ${label.toLowerCase()}`} file={uploadingFile} className="basis-full" />
     </div>
   )
 }

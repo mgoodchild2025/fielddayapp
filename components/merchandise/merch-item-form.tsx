@@ -4,6 +4,7 @@ import { useState, useTransition, useRef } from 'react'
 import Image from 'next/image'
 import { upsertMerchandiseItem, upsertMerchandiseVariants, uploadMerchandiseImage, uploadMerchandiseGalleryImage, removeMerchandiseGalleryImage } from '@/actions/merchandise'
 import type { MerchItem } from '@/actions/merchandise'
+import { UploadStatus } from '@/components/ui/upload-status'
 
 type VariantDraft = {
   key: number
@@ -235,6 +236,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
               {item?.id ? (
                 <>
                   <p>JPEG, PNG, GIF, or WebP · max 5 MB · auto-converted to WebP</p>
+                  <UploadStatus active={isUploadingImage} label="Uploading image" />
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -446,6 +448,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
               className="hidden"
               onChange={handleGalleryImageAdd}
             />
+            <UploadStatus active={isUploadingGallery} label="Uploading image" className="mt-2" />
           </div>
         )}
 

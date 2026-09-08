@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { FileText, Plus, Trash2 } from 'lucide-react'
 import { uploadAdminDocument, getAdminDocumentUrl, deleteAdminDocument, type AdminDocument } from '@/actions/admin-documents'
+import { UploadStatus } from '@/components/ui/upload-status'
 
 const CATEGORY_LABELS: Record<AdminDocument['category'], string> = {
   permit: 'Permit',
@@ -123,6 +124,7 @@ export function AdminDocumentsCard({ leagueId, initialDocuments }: {
               {pending ? 'Uploading…' : 'Upload'}
             </button>
           </div>
+          <UploadStatus active={pending} label="Uploading" file={{ name: fileName }} />
         </form>
       )}
 

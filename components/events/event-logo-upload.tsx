@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from 'react'
 import { EventAvatar } from '@/components/ui/event-avatar'
 import { uploadEventLogo, removeEventLogo } from '@/actions/events'
+import { UploadStatus } from '@/components/ui/upload-status'
 
 interface Props {
   leagueId: string
@@ -123,6 +124,7 @@ export function EventLogoUpload({ leagueId, logoUrl, sport, name }: Props) {
           >
             {pending ? 'Uploading…' : preview ? '↑ Replace logo' : '↑ Upload logo'}
           </button>
+          <UploadStatus active={pending} label="Uploading logo" />
           {preview && !pending && (
             <button
               type="button"

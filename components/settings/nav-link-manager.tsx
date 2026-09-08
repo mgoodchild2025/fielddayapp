@@ -11,6 +11,7 @@ import {
   reorderNavLinks,
 } from '@/actions/nav-links'
 import type { NavLink } from '@/actions/nav-links'
+import { UploadStatus } from '@/components/ui/upload-status'
 
 const MAX_LINKS = 5
 
@@ -152,6 +153,7 @@ function NavLinkForm({ initial, onSave, onCancel, pending, error }: NavLinkFormP
             className="block text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:text-xs file:font-medium file:bg-white file:text-gray-700 hover:file:bg-gray-50"
           />
           <p className="text-xs text-gray-400 mt-1">PDF only · Max 10 MB</p>
+          <UploadStatus active={pending && !!state.file} label="Uploading PDF" file={state.file} className="mt-1" />
         </div>
       )}
 

@@ -5,6 +5,7 @@ import { saveMyBio, uploadBioPhoto } from '@/actions/player-bios'
 import { type BioCardData } from './player-bio-card'
 import { BioFlipCard } from './bio-flip-card'
 import type { PlayerCareer } from '@/lib/career'
+import { UploadStatus } from '@/components/ui/upload-status'
 
 /**
  * "My bio card" (S1): the player edits the exact card the TV will show —
@@ -158,6 +159,7 @@ export function BioEditor({
             {uploading ? 'Uploading…' : photoUrl ? 'Change card photo' : '📸 Add a card photo'}
           </button>
           <span className="text-xs text-gray-400">No photo? Your profile picture is used.</span>
+          <UploadStatus active={uploading} label="Uploading photo" className="basis-full" />
         </div>
 
         <label className="flex items-start gap-2 pt-1 cursor-pointer">

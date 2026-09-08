@@ -10,6 +10,7 @@ import {
 import type { LeagueDocument } from '@/actions/league-documents'
 import { FileText, Trash2, ChevronUp, ChevronDown, Plus, Pencil, Check, X } from 'lucide-react'
 import { PdfViewerButton } from '@/components/ui/pdf-viewer-button'
+import { UploadStatus } from '@/components/ui/upload-status'
 
 const MAX_DOCS = 10
 
@@ -320,6 +321,7 @@ function AddDocumentForm({
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+      <UploadStatus active={loading} label="Uploading" file={{ name: fileName }} />
 
       <div className="flex gap-2">
         <button

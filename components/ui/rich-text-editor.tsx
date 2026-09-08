@@ -5,10 +5,11 @@ import StarterKit from '@tiptap/starter-kit'
 import LinkExtension from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
 import Image from '@tiptap/extension-image'
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, useRef, useState } from 'react'
 import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Link as LinkIcon, Minus, ImageIcon } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
 import { uploadContentImage } from '@/actions/content-images'
+import { UploadStatus } from '@/components/ui/upload-status'
 
 interface Props {
   content: string
@@ -164,6 +165,14 @@ export function RichTextEditor({ content, onChange, minHeight = '220px', disable
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const editorRef = useRef<Editor | null>(null)
+  const [uploadingImage, setUploadingImage] = useState<File | null>(null)
+
+  // Wraps insertImage so the toolbar can show an "Uploading…" status while the
+  // background upload runs (the inline data-URL preview alone looks finished).
+  const uploadImage = useCallback((file: File, ed: Editor) => {
+    setUploadingImage(file)
+    insertImage(file, ed).finally(() => setUploadingImage(null))
+  }, [])
 
   const editor = useEditor({
     extensions: [
@@ -228,7 +237,7 @@ export function RichTextEditor({ content, onChange, minHeight = '220px', disable
         const file = imageItem.getAsFile()
         if (!file || !editorRef.current) return false
         event.preventDefault()
-        insertImage(file, editorRef.current)
+        uploadImage(file, editorRef.current)
         return true
       },
       handleDrop(_, event) {
@@ -236,7 +245,7 @@ export function RichTextEditor({ content, onChange, minHeight = '220px', disable
         const imageFile = files.find((f) => f.type.startsWith('image/'))
         if (!imageFile || !editorRef.current) return false
         event.preventDefault()
-        insertImage(imageFile, editorRef.current)
+        uploadImage(imageFile, editorRef.current)
         return true
       },
     },
@@ -262,9 +271,9 @@ export function RichTextEditor({ content, onChange, minHeight = '220px', disable
 
   const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file && editor) insertImage(file, editor)
+    if (file && editor) uploadImage(file, editor)
     e.target.value = '' // reset so same file can be re-selected
-  }, [editor])
+  }, [editor, uploadImage])
 
   return (
     <div
@@ -376,6 +385,7 @@ export function RichTextEditor({ content, onChange, minHeight = '220px', disable
         >
           <ImageIcon className="w-3.5 h-3.5" />
         </ToolbarBtn>
+        <UploadStatus active={!!uploadingImage} label="Uploading image" file={uploadingImage} className="ml-2" />
       </div>
 
       {/* Editable area */}
