@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { overrideBracketSlot, updateMatchSchedule, updateMatchRouting } from '@/actions/brackets'
+import { overrideBracketSlot, updateMatchSchedule, updateMatchRouting, clearBracketMatchResult } from '@/actions/brackets'
 import { adminClearScore } from '@/actions/scores'
 import type { BracketMatchData } from './bracket-view'
 import { useRoutingTargets } from './bracket-routing'
@@ -55,10 +55,13 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
   const canEditTeams = match.status !== 'completed'
 
   function handleClearScore() {
-    if (!match.gameId) return
     setErr(null)
     startTransition(async () => {
-      const r = await adminClearScore(match.gameId!)
+      // Game-linked matches clear through the game (reverses advancement via
+      // game_id); bracket-only matches clear the match itself.
+      const r = match.gameId
+        ? await adminClearScore(match.gameId)
+        : await clearBracketMatchResult({ matchId: match.id, bracketId, leagueId })
       if (r?.error) { setErr(r.error); return }
       router.refresh()
       onClose()
@@ -234,7 +237,7 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
 
           {match.status === 'completed' && (
             <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded px-3 py-2">
-              Teams cannot be changed after a score has been recorded.
+              Teams cannot be changed after a score has been recorded. Clear the result below first, then reseat and re-enter the score.
             </p>
           )}
 
@@ -346,8 +349,8 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
             </div>
           )}
 
-          {/* Danger zone — clear score */}
-          {match.status === 'completed' && match.gameId && (
+          {/* Danger zone — clear result (pulls the winner/loser back out of downstream slots) */}
+          {match.status === 'completed' && (
             <div className="space-y-2 pt-2 border-t border-red-100">
               <p className="text-xs font-semibold uppercase tracking-wide text-red-400">Danger zone</p>
               {!confirmClear ? (
@@ -361,7 +364,7 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
               ) : (
                 <div className="space-y-2">
                   <p className="text-xs text-red-700 bg-red-50 border border-red-100 rounded px-3 py-2">
-                    This will remove the score and un-advance the winner from downstream matches.
+                    This removes the result and pulls the teams back out of any later match they advanced to. Blocked if a later match has already been played.
                   </p>
                   <div className="flex gap-2">
                     <button
