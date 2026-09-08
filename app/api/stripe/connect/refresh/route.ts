@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { publicOrigin } from '@/lib/public-origin'
 
 const PLATFORM_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.fielddayapp.ca'
 
 export async function GET(request: NextRequest) {
   const orgId = request.nextUrl.searchParams.get('orgId')
-  if (!orgId) return NextResponse.redirect(new URL('/admin/settings/payments', request.url))
+  // Never build redirects from request.url — behind the proxy it is the container address.
+  if (!orgId) return NextResponse.redirect(`${publicOrigin(request)}/admin/settings/payments`)
 
   const supabase = createServiceRoleClient()
 
@@ -17,9 +19,7 @@ export async function GET(request: NextRequest) {
     .single()
 
   if (!connectAccount?.stripe_account_id) {
-    const host = request.headers.get('host') ?? ''
-    const proto = request.headers.get('x-forwarded-proto') ?? 'https'
-    return NextResponse.redirect(`${proto}://${host}/admin/settings/payments`)
+    return NextResponse.redirect(`${publicOrigin(request)}/admin/settings/payments`)
   }
 
   const accountLink = await stripe.accountLinks.create({

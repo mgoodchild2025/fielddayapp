@@ -11,6 +11,7 @@ const LINKS = [
   { href: '/super/legal', label: 'Legal Docs' },
   { href: '/super/compliance', label: 'Compliance' },
   { href: '/super/errors', label: 'Errors' },
+  { href: '/super/phone-alerts', label: 'Phone Alerts' },
 ]
 
 export function SuperNav({ email, stripeTest }: { email: string; stripeTest: boolean }) {
