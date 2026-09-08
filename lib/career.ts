@@ -98,63 +98,44 @@ export function buildCareer(inputs: CareerInputs): PlayerCareer {
     }
   }).sort((a, b) => a.sortDate.localeCompare(b.sortDate))
 
-  const bySport = new Map<string, CareerSeason[]>()
-  for (const s of seasons) {
-    const list = bySport.get(s.sport) ?? []
-    list.push(s)
-    bySport.set(s.sport, list)
+  // Column shape is a function of the LEAGUE alone — never of this player's
+  // other seasons — so every card on a team shows the same columns for that
+  // season row (a veteran's history can't drag stat columns onto a league that
+  // hasn't started; a newcomer's blank slate can't pull W/L/T onto a
+  // stat-tracking league):
+  //   league tracks stats (anyone credited — this player's own values count) →
+  //     the sport's stat columns, hockey-card capped at three;
+  //   otherwise → the team record, always W L T, so record rows always align.
+  // Rows are grouped by shape, not by sport; a player whose leagues differ in
+  // shape gets one table per shape, stacked.
+  const RECORD_COLUMNS = [{ key: '__w', label: 'W' }, { key: '__l', label: 'L' }, { key: '__t', label: 'T' }]
+  const shapeFor = (row: CareerSeason): { columns: { key: string; label: string }[]; recordColumns: boolean } => {
+    const defs = (inputs.statDefsBySport.get(row.sport) ?? []).slice(0, 3)
+    const tracks = defs.length > 0 && (
+      inputs.leaguesTrackingStats?.has(row.leagueId) === true ||
+      Object.keys(inputs.statsByLeague.get(row.leagueId) ?? {}).length > 0
+    )
+    return tracks ? { columns: defs, recordColumns: false } : { columns: RECORD_COLUMNS, recordColumns: true }
   }
 
-  const careerHasTies = seasons.some((se) => (se.stats.__t ?? 0) > 0)
-  const tables: CareerSportTable[] = [...bySport.entries()].map(([sport, rows]) => {
-    let columns = (inputs.statDefsBySport.get(sport) ?? []).slice(0, 3)
-    // Platform defaults define columns for every known sport, so "no columns"
-    // almost never happens — the real question is whether stats are actually
-    // kept. Decided per LEAGUE (anyone credited), with this player's own values
-    // as the fallback signal, so every card on a team shows the same columns:
-    // stat columns where the league tracks them (dashes for the uncredited),
-    // otherwise the TEAM's season record. T only when a tie actually exists.
-    const hasPlayerStats = columns.length > 0
-      && rows.some((r) => columns.some((c) => r.stats[c.key] != null))
-    const leagueTracksStats = columns.length > 0
-      && rows.some((r) => inputs.leaguesTrackingStats?.has(r.leagueId))
-    let recordColumns = false
-    if (!hasPlayerStats && !leagueTracksStats && rows.some((r) => r.stats.__w != null)) {
-      recordColumns = true
-      // T is decided across the WHOLE career, not per sport — otherwise one
-      // sport renders W/L/T and another W/L, the shapes can't merge, and the
-      // stacked tables' columns don't line up.
-      columns = [
-        { key: '__w', label: 'W' },
-        { key: '__l', label: 'L' },
-        ...(careerHasTies ? [{ key: '__t', label: 'T' }] : []),
-      ]
-    }
-    const totals: Record<string, number> = {}
-    for (const col of columns) {
-      totals[col.key] = rows.reduce((sum, r) => sum + (r.stats[col.key] ?? 0), 0)
-    }
-    return { sport, columns, recordColumns, rows, totals }
-  })
-
-  // A separate table only earns its keep when its stat columns differ —
-  // otherwise (most commonly: no stat definitions at all) splitting by sport
-  // just repeats the same header row over each team. Merge identical shapes.
   const byShape = new Map<string, CareerSportTable>()
-  for (const t of tables) {
-    const shape = t.columns.map((c) => `${c.key}:${c.label}`).join('|')
-    const existing = byShape.get(shape)
-    if (!existing) {
-      byShape.set(shape, t)
-      continue
+  for (const row of seasons) {
+    const { columns, recordColumns } = shapeFor(row)
+    const shape = columns.map((c) => `${c.key}:${c.label}`).join('|')
+    let table = byShape.get(shape)
+    if (!table) {
+      table = { sport: row.sport, columns, recordColumns, rows: [], totals: {} }
+      byShape.set(shape, table)
+    } else if (!table.sport.split('+').includes(row.sport)) {
+      table.sport = `${table.sport}+${row.sport}`
     }
-    existing.sport = `${existing.sport}+${t.sport}`
-    existing.rows = [...existing.rows, ...t.rows].sort((a, b) => a.sortDate.localeCompare(b.sortDate))
-    for (const col of existing.columns) {
-      existing.totals[col.key] = (existing.totals[col.key] ?? 0) + (t.totals[col.key] ?? 0)
-    }
+    table.rows.push(row)
   }
   const mergedTables = [...byShape.values()]
+  for (const t of mergedTables) {
+    t.rows.sort((a, b) => a.sortDate.localeCompare(b.sortDate))
+    for (const col of t.columns) t.totals[col.key] = t.rows.reduce((sum, r) => sum + (r.stats[col.key] ?? 0), 0)
+  }
 
   // Sports with the longest history first
   mergedTables.sort((a, b) => b.rows.length - a.rows.length)
