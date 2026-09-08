@@ -10,6 +10,7 @@ import { FontPicker, HEADING_FONTS, BODY_FONTS } from '@/components/branding/fon
 import { DnsRecordsPanel } from '@/components/branding/dns-records-panel'
 import { UpgradeBadge } from '@/components/ui/upgrade-prompt'
 import type { RailwayDnsRecord } from '@/lib/railway'
+import { UploadStatus, Spinner } from '@/components/ui/upload-status'
 
 // Minimal subset of org_branding needed by this form (avoids depending on generated DB types
 // for columns that may not yet be in the snapshot)
@@ -231,7 +232,7 @@ export function BrandingForm({
           <div className="shrink-0 flex flex-col items-center gap-1.5">
             <div className="w-16 h-16 rounded-full bg-gray-800 ring-2 ring-gray-300 overflow-hidden flex items-center justify-center">
               {logoUploading ? (
-                <span className="text-xs text-gray-400">…</span>
+                <Spinner className="w-5 h-5 text-gray-300" />
               ) : logoUrl ? (
                 <Image src={logoUrl} alt="Org logo" width={64} height={64} className="w-full h-full object-contain" unoptimized />
               ) : (
@@ -258,6 +259,7 @@ export function BrandingForm({
               {logoUploading ? 'Uploading…' : logoUrl ? 'Replace logo' : 'Upload logo'}
             </button>
             <p className="text-xs text-gray-400">PNG or SVG recommended · max 10 MB · auto-converted to WebP</p>
+            <UploadStatus active={logoUploading} label="Uploading logo" />
             {logoError && <p className="text-xs text-red-500">{logoError}</p>}
           </div>
         </div>

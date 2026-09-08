@@ -3,6 +3,7 @@
 import { useState, useRef, useTransition } from 'react'
 import Image from 'next/image'
 import { upsertSponsor, deleteSponsor, uploadSponsorLogo } from '@/actions/org-sponsors'
+import { UploadStatus, Spinner } from '@/components/ui/upload-status'
 
 type Sponsor = { id: string; name: string; logo_url: string | null; website_url: string | null; tier: string; display_order: number }
 type Tier = 'gold' | 'silver' | 'bronze' | 'standard'
@@ -135,7 +136,7 @@ export function SponsorManager({ initialSponsors }: { initialSponsors: Sponsor[]
               {/* Logo */}
               <div className="shrink-0 w-14 h-10 bg-gray-50 border rounded flex items-center justify-center overflow-hidden">
                 {uploadingId === sponsor.id ? (
-                  <span className="text-xs text-gray-400">…</span>
+                  <Spinner className="w-4 h-4 text-gray-400" />
                 ) : sponsor.logo_url ? (
                   <Image src={sponsor.logo_url} alt={sponsor.name} width={56} height={40} className="max-h-10 w-auto object-contain" unoptimized />
                 ) : (
@@ -151,6 +152,7 @@ export function SponsorManager({ initialSponsors }: { initialSponsors: Sponsor[]
                 {sponsor.website_url && (
                   <p className="text-xs text-gray-400 truncate mt-0.5">{sponsor.website_url}</p>
                 )}
+                <UploadStatus active={uploadingId === sponsor.id} label="Uploading logo" className="mt-1" />
               </div>
 
               <div className="shrink-0 flex items-center gap-2">

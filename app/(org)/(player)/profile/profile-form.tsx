@@ -9,6 +9,7 @@ import { uploadPlayerAvatar } from '@/actions/profiles'
 import { optionalPhone } from '@/lib/validation'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import type { Database } from '@/types/database'
+import { UploadStatus } from '@/components/ui/upload-status'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type PlayerDetails = Database['public']['Tables']['player_details']['Row']
@@ -161,6 +162,7 @@ export function ProfileForm({
               {avatarUploading ? 'Uploading…' : 'Click your photo to change it'}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">JPEG, PNG, WebP or GIF · max 5 MB</p>
+            <UploadStatus active={avatarUploading} label="Uploading photo" className="mt-1" />
             {avatarError && (
               <p className="text-xs text-red-600 mt-1">{avatarError}</p>
             )}

@@ -7,6 +7,7 @@ import {
   uploadEventSponsorAd, removeEventSponsorAd,
   type EventSponsorRow, type OrgSponsorOption, type SponsorTier, type SponsorStat,
 } from '@/actions/event-sponsors'
+import { UploadStatus } from '@/components/ui/upload-status'
 
 const TIERS: SponsorTier[] = ['gold', 'silver', 'bronze', 'standard']
 
@@ -24,6 +25,7 @@ export function EventSponsorManager({ leagueId, showOrgSponsors, links, orgSpons
   const [pending, start] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const [uploadingId, setUploadingId] = useState<string | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
 
   const linkedSet = new Set(linkedSponsorIds)
@@ -42,8 +44,10 @@ export function EventSponsorManager({ leagueId, showOrgSponsors, links, orgSpons
     setError(null)
     const fd = new FormData()
     fd.set('ad', file)
+    setUploadingId(id)
     start(async () => {
       const res = await uploadEventSponsorAd(id, leagueId, fd)
+      setUploadingId(null)
       if (res.error) setError(res.error)
       else router.refresh()
     })
@@ -128,7 +132,7 @@ export function EventSponsorManager({ leagueId, showOrgSponsors, links, orgSpons
                     </>
                   ) : (
                     <label className="text-xs text-[var(--brand-primary)] hover:underline cursor-pointer">
-                      + Add full-screen ad image
+                      {uploadingId === s.id ? <UploadStatus active label="Uploading ad image" /> : '+ Add full-screen ad image'}
                       <input
                         type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
                         disabled={pending}

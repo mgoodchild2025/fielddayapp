@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
+import { UploadStatus } from '@/components/ui/upload-status'
 
 interface Props {
   label: string
@@ -89,6 +90,7 @@ export function PdfUploadField({ label, currentUrl, onUpload, onRemove }: Props)
         >
           {pending ? 'Uploading…' : url ? 'Replace PDF' : 'Upload PDF'}
         </button>
+        <UploadStatus active={pending} label="Uploading PDF" />
 
         {url && !pending && (
           <button

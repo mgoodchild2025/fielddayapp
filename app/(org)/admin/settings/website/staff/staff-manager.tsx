@@ -3,6 +3,7 @@
 import { useState, useRef, useTransition } from 'react'
 import Image from 'next/image'
 import { upsertStaffMember, deleteStaffMember, uploadStaffAvatar } from '@/actions/org-staff'
+import { UploadStatus, Spinner } from '@/components/ui/upload-status'
 
 type StaffMember = { id: string; name: string; role: string | null; bio: string | null; avatar_url: string | null; display_order: number }
 
@@ -115,7 +116,7 @@ export function StaffManager({ initialStaff }: { initialStaff: StaffMember[] }) 
               {/* Avatar */}
               <div className="shrink-0 w-12 h-12 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
                 {uploadingId === member.id ? (
-                  <span className="text-xs text-gray-400">…</span>
+                  <Spinner className="w-4 h-4 text-gray-400" />
                 ) : member.avatar_url ? (
                   <Image src={member.avatar_url} alt={member.name} width={48} height={48} className="w-full h-full object-cover" unoptimized />
                 ) : (
@@ -127,6 +128,7 @@ export function StaffManager({ initialStaff }: { initialStaff: StaffMember[] }) 
                 <p className="font-semibold text-sm">{member.name}</p>
                 {member.role && <p className="text-xs text-gray-500 mt-0.5">{member.role}</p>}
                 {member.bio && <p className="text-xs text-gray-400 mt-1 line-clamp-1">{member.bio}</p>}
+                <UploadStatus active={uploadingId === member.id} label="Uploading photo" className="mt-1" />
               </div>
 
               <div className="shrink-0 flex items-center gap-2">

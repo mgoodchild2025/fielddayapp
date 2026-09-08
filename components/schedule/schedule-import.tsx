@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import Papa from 'papaparse'
 import { importGamesFromCsv, type CsvGameRow } from '@/actions/schedule'
 import { venueLabelLower } from '@/lib/venue-label'
+import { UploadStatus } from '@/components/ui/upload-status'
 
 interface Props {
   leagueId: string
@@ -77,6 +78,7 @@ export function ScheduleImport({ leagueId, sport, pools = [] }: Props) {
         Times are interpreted in your org&apos;s configured timezone.
       </p>
 
+      <UploadStatus active={loading} label="Importing schedule" className="mb-2" />
       {error && <p className="text-red-500 text-xs mb-2">{error}</p>}
       {result && <p className="text-green-600 text-xs mb-2">{result.count} game{result.count !== 1 ? 's' : ''} imported.</p>}
 
