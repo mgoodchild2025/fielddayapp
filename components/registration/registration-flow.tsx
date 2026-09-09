@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Step0RoleSelect } from './step0-role-select'
 import { Step1PlayerDetails } from './step1-player-details'
 import { Step2Waiver } from './step2-waiver'
@@ -39,6 +40,9 @@ interface Props {
   dropInPriceCents?: number | null
   /** Season-pass quote for drop-in events (prorated when enabled). Null for non-drop-in. */
   seasonPassQuote?: { priceCents: number; fullPriceCents: number; totalSessions: number; remainingSessions: number; prorated: boolean } | null
+  /** Drop-in session picker only: where "Get a Season Pass" goes when the event
+   *  also sells a season pass and the player isn't enrolled yet. */
+  seasonPassHref?: string | null
   /** e.g. "+ HST 13%" — named on the payment step so checkout holds no surprise. */
   taxSuffix?: string
   earlyBirdPriceCents?: number | null
@@ -100,6 +104,7 @@ export function RegistrationFlow({
   isDropIn = false,
   dropInPriceCents = null,
   seasonPassQuote = null,
+  seasonPassHref = null,
   taxSuffix = '',
   earlyBirdPriceCents = null,
   earlyBirdDeadline = null,
@@ -259,6 +264,41 @@ export function RegistrationFlow({
             Drop-in — {league.name}
           </h1>
           <p className="text-sm text-gray-500 mb-6">Choose the session you&apos;re registering for.</p>
+
+          {seasonPassHref && (
+            <div className="mb-6">
+              <Link
+                href={seasonPassHref}
+                className="block w-full text-center px-6 py-4 rounded-lg font-bold text-lg uppercase tracking-wide text-white transition-opacity hover:opacity-90 active:opacity-75"
+                style={{ backgroundColor: 'var(--brand-primary)', fontFamily: 'var(--brand-heading-font)' }}
+              >
+                Get a Season Pass
+              </Link>
+              {seasonPassQuote && (
+                <p className="text-center text-sm text-gray-500 mt-2">
+                  {seasonPassQuote.prorated ? (
+                    <>
+                      <s>${(seasonPassQuote.fullPriceCents / 100).toFixed(0)}</s>{' '}
+                      <span className="font-semibold text-gray-900">${(seasonPassQuote.priceCents / 100).toFixed(seasonPassQuote.priceCents % 100 === 0 ? 0 : 2)}</span>
+                      {' — covers the remaining '}{seasonPassQuote.remainingSessions} of {seasonPassQuote.totalSessions} sessions
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-semibold text-gray-900">${(seasonPassQuote.fullPriceCents / 100).toFixed(0)}</span>
+                      {seasonPassQuote.totalSessions > 0 && <>{' — covers all '}{seasonPassQuote.totalSessions} sessions</>}
+                    </>
+                  )}
+                  {taxSuffix ? ` · ${taxSuffix}` : ''}
+                </p>
+              )}
+              <div className="flex items-center gap-3 mt-5">
+                <div className="flex-1 border-t border-gray-200" />
+                <span className="text-xs uppercase tracking-wide text-gray-400">or drop in for one session</span>
+                <div className="flex-1 border-t border-gray-200" />
+              </div>
+            </div>
+          )}
+
           <div className="space-y-3">
             {dropInSessions.map(session => {
               const date = new Date(session.scheduled_at)

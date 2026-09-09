@@ -328,7 +328,22 @@ export default async function RegisterLeaguePage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const registrationTaxSuffix = taxSuffix(await getOrgTaxRates(db, org.id), 'registrations')
 
-  const seasonPassQuote = (!isDropIn && (league as any).event_type === 'drop_in' && ((league as any).price_cents ?? 0) > 0)
+  // The drop-in session picker offers a "Get a Season Pass" shortcut when the
+  // event sells one alongside single sessions (registration_mode 'both') and the
+  // player isn't already enrolled — quote it so the button can carry the price.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sellsSeasonPass = (league as any).event_type === 'drop_in' && ['season', 'both'].includes((league as any).registration_mode ?? '')
+  const { data: mySeasonReg } = (isDropIn && sellsSeasonPass)
+    ? await db.from('registrations').select('id')
+        .eq('organization_id', org.id).eq('league_id', league.id).eq('user_id', user.id)
+        .eq('registration_type', 'season').maybeSingle()
+    : { data: null }
+  const seasonPassHref = (isDropIn && sellsSeasonPass && !mySeasonReg)
+    ? `/register/${slug}${keyParam ? `?key=${encodeURIComponent(keyParam)}` : ''}`
+    : null
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const seasonPassQuote = ((!isDropIn || seasonPassHref) && (league as any).event_type === 'drop_in' && ((league as any).price_cents ?? 0) > 0)
     ? await getSeasonPassQuote(db, org.id, league.id, {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         fullPriceCents: (league as any).price_cents as number,
@@ -633,6 +648,7 @@ export default async function RegisterLeaguePage({
       timezone={orgTimezone}
       preselectedSessionId={preselectedSessionId}
       seasonPassQuote={seasonPassQuote}
+      seasonPassHref={seasonPassHref}
       taxSuffix={registrationTaxSuffix}
       paymentPlan={paymentPlan}
       />
