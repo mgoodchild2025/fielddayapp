@@ -30,6 +30,7 @@ interface Game {
   dateKey: string
   status: string
   cancellationReason: string | null
+  isExhibition?: boolean
   result: {
     homeScore: number | null
     awayScore: number | null
@@ -455,6 +456,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                             {game.homeTeamName} <span className="text-gray-400 font-normal">vs</span> {game.awayTeamName}
                           </p>
                           {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
+                          {game.isExhibition && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700" title="Doesn't count toward standings">Exhibition</span>}
                           {game.status === 'postponed' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
                         </div>
                         {game.cancellationReason && (game.status === 'cancelled' || game.status === 'postponed') && (
@@ -601,6 +603,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                               {game.awayTeamName}
                             </span>
                             {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
+                            {game.isExhibition && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700" title="Doesn't count toward standings">Exhibition</span>}
                             {game.status === 'postponed' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
                           </div>
                           {game.cancellationReason && (game.status === 'cancelled' || game.status === 'postponed') && (
@@ -692,6 +695,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
             poolId: editingGame.poolId,
             status: editingGame.status,
             cancellationReason: editingGame.cancellationReason,
+            isExhibition: editingGame.isExhibition ?? false,
           }}
           teams={teams}
           pools={pools}

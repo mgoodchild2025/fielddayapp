@@ -39,7 +39,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
     db
       .from('games')
       .select(`
-        id, scheduled_at, court, week_number, status, cancellation_reason,
+        id, scheduled_at, court, week_number, status, cancellation_reason, is_exhibition,
         home_team_id, away_team_id, pool_id,
         home_team_label, away_team_label,
         home_team:teams!games_home_team_id_fkey(name),
@@ -124,6 +124,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
         : '',
       status: game.status ?? 'scheduled',
       cancellationReason: game.cancellation_reason ?? null,
+      isExhibition: game.is_exhibition === true,
       result: result
         ? {
             homeScore: result.home_score,

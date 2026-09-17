@@ -8,6 +8,7 @@ import {
   sortSetBased,
   sortStandings,
   isVolleyballSport,
+  countsForStandings,
   type TeamStat,
   type TeamStatTotals,
 } from './standings'
@@ -224,5 +225,14 @@ describe('computeStreaks', () => {
     ])
     expect(streaks.get('a')).toBe('L2')
     expect(streaks.get('b')).toBe('L2')
+  })
+})
+
+describe('countsForStandings', () => {
+  it('excludes exhibition games and nothing else', () => {
+    expect(countsForStandings({ is_exhibition: true })).toBe(false)
+    expect(countsForStandings({ is_exhibition: false })).toBe(true)
+    expect(countsForStandings({})).toBe(true)       // column absent (older selects)
+    expect(countsForStandings(null)).toBe(true)
   })
 })
