@@ -11,6 +11,7 @@ import { AdminAddRegistrant } from '@/components/registration/admin-add-registra
 import { AdminInstallmentRow } from '@/components/payments/admin-installment-row'
 import { EditPaymentForm } from '@/components/payments/edit-payment-form'
 import { StatusChip } from '@/components/ui/status-chip'
+import { TeamAvatar } from '@/components/ui/team-avatar'
 import type { InstallmentRow } from '@/components/payments/installment-schedule'
 
 type PaymentEditStatus = 'paid' | 'pending' | 'refunded'
@@ -109,6 +110,40 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
     // migration not yet applied — guests simply show no name
   }
 
+  // ── Team column: which team is each registrant on? ────────────────────────
+  // Every team event, regardless of who pays. A player can sit on more than one
+  // team in an event (sub promoted to a roster, a split night), so keep a list.
+  type TeamRef = { id: string; name: string; logoUrl: string | null; color: string | null }
+  const teamsByUserId = new Map<string, TeamRef[]>()
+  const teamById = new Map<string, TeamRef>()
+  {
+    const { data: leagueTeams } = await db
+      .from('teams')
+      .select('id, name, logo_url, color')
+      .eq('league_id', id)
+      .eq('organization_id', org.id)
+      .eq('status', 'active')
+    for (const t of (leagueTeams ?? []) as { id: string; name: string; logo_url: string | null; color: string | null }[]) {
+      teamById.set(t.id, { id: t.id, name: t.name, logoUrl: t.logo_url ?? null, color: t.color ?? null })
+    }
+    if (teamById.size > 0) {
+      const { data: memberRows } = await db
+        .from('team_members')
+        .select('user_id, team_id')
+        .in('team_id', [...teamById.keys()])
+        .eq('status', 'active')
+      for (const m of (memberRows ?? []) as { user_id: string | null; team_id: string }[]) {
+        const team = m.user_id ? teamById.get(m.team_id) : undefined
+        if (!m.user_id || !team) continue
+        const list = teamsByUserId.get(m.user_id) ?? []
+        if (!list.some((t) => t.id === team.id)) list.push(team)
+        teamsByUserId.set(m.user_id, list)
+      }
+    }
+  }
+  // Session events (drop-in / pickup) have no teams — don't hang an empty column.
+  const showTeamColumn = teamById.size > 0
+
   // For per-team paid events the fee is paid by the team, not the individual —
   // so registrations have no per-player payment row. Resolve each player's team
   // payment status so the Payment column reflects reality instead of "free".
@@ -116,19 +151,11 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   type TeamPay = { teamName: string; status: string | null; amount_cents: number | null; currency: string | null }
   const teamPaymentByUserId = new Map<string, TeamPay>()
   if (showTeamPayment) {
-
-    const { data: teams } = await db
-      .from('teams').select('id, name').eq('league_id', id).eq('organization_id', org.id)
-    const teamIds = (teams ?? []).map((t: { id: string }) => t.id)
-    const teamNameById = new Map<string, string>((teams ?? []).map((t: { id: string; name: string }) => [t.id, t.name]))
+    const teamIds = [...teamById.keys()]
     if (teamIds.length > 0) {
-      const [{ data: members }, { data: teamPays }] = await Promise.all([
-
-        db.from('team_members').select('user_id, team_id').in('team_id', teamIds).eq('status', 'active'),
-
-        db.from('payments').select('team_id, status, amount_cents, currency')
-          .eq('league_id', id).eq('organization_id', org.id).eq('payment_type', 'team').in('team_id', teamIds),
-      ])
+      const { data: teamPays } = await db
+        .from('payments').select('team_id, status, amount_cents, currency')
+        .eq('league_id', id).eq('organization_id', org.id).eq('payment_type', 'team').in('team_id', teamIds)
       // Prefer a paid row per team; otherwise keep whatever exists (pending/failed).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const payByTeam = new Map<string, any>()
@@ -137,11 +164,11 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
         const prev = payByTeam.get(p.team_id)
         if (!prev || (p.status === 'paid' || p.status === 'manual')) payByTeam.set(p.team_id, p)
       }
-      for (const m of (members ?? []) as { user_id: string | null; team_id: string }[]) {
-        if (!m.user_id) continue
-        const pay = payByTeam.get(m.team_id)
-        teamPaymentByUserId.set(m.user_id, {
-          teamName: teamNameById.get(m.team_id) ?? 'Team',
+      for (const [userId, memberTeams] of teamsByUserId) {
+        const team = memberTeams[0]
+        const pay = payByTeam.get(team.id)
+        teamPaymentByUserId.set(userId, {
+          teamName: team.name,
           status: pay?.status ?? null,
           amount_cents: pay?.amount_cents ?? null,
           currency: pay?.currency ?? null,
@@ -227,10 +254,11 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
 
       <div className="bg-white rounded-lg border overflow-hidden">
         <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[600px]">
+        <table className={`w-full text-sm ${showTeamColumn ? 'min-w-[720px]' : 'min-w-[600px]'}`}>
           <thead>
             <tr className="border-b bg-gray-50 text-left">
               <th className="px-4 py-3 font-medium text-gray-500">Player</th>
+              {showTeamColumn && <th className="px-4 py-3 font-medium text-gray-500">Team</th>}
               <th className="px-4 py-3 font-medium text-gray-500">Status</th>
               <th className="px-4 py-3 font-medium text-gray-500">Payment</th>
               <th className="px-4 py-3 font-medium text-gray-500">Waiver</th>
@@ -263,6 +291,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                 : null
 
               const planInstallments = enrollmentsByRegId.get(reg.id) ?? null
+              const playerTeams = reg.user_id ? (teamsByUserId.get(reg.user_id) ?? []) : []
 
               return (
                 <tr key={reg.id} className="border-b last:border-0 hover:bg-gray-50">
@@ -291,6 +320,27 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                       />
                     )}
                   </td>
+                  {showTeamColumn && (
+                    <td className="px-4 py-3">
+                      {playerTeams.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {playerTeams.map((t) => (
+                            <Link
+                              key={t.id}
+                              href={`/teams/${t.id}`}
+                              className="flex items-center gap-2 min-w-0 hover:underline"
+                              title={t.name}
+                            >
+                              <TeamAvatar logoUrl={t.logoUrl} color={t.color} name={t.name} size="xs" />
+                              <span className="truncate">{t.name}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">No team</span>
+                      )}
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <StatusChip status={reg.status} />
                   </td>
@@ -401,7 +451,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={isOrgAdmin ? 7 : 6} className="px-4 py-12 text-center text-gray-400">
+                <td colSpan={(isOrgAdmin ? 7 : 6) + (showTeamColumn ? 1 : 0)} className="px-4 py-12 text-center text-gray-400">
                   No registrations yet.
                 </td>
               </tr>
