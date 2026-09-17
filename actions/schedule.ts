@@ -87,6 +87,7 @@ const addGameSchema = z.object({
   weekNumber: z.coerce.number().optional(),
   divisionId: z.string().uuid().optional(),
   poolId: z.string().uuid().optional(),
+  isExhibition: z.boolean().optional(),
 })
 
 export async function addGame(input: z.infer<typeof addGameSchema>) {
@@ -118,6 +119,7 @@ export async function addGame(input: z.infer<typeof addGameSchema>) {
       week_number: parsed.data.weekNumber ?? null,
       division_id: parsed.data.divisionId ?? null,
       pool_id: parsed.data.poolId ?? null,
+      is_exhibition: parsed.data.isExhibition ?? false,
     })
     .select('id')
     .single()
@@ -242,6 +244,7 @@ const updateGameSchema = z.object({
   court: z.string().optional(),
   weekNumber: z.coerce.number().optional(),
   poolId: z.string().uuid().optional().nullable(),
+  isExhibition: z.boolean().optional(),
 })
 
 export async function updateGame(input: z.infer<typeof updateGameSchema>) {
@@ -287,6 +290,8 @@ export async function updateGame(input: z.infer<typeof updateGameSchema>) {
       court: parsed.data.court ?? null,
       week_number: parsed.data.weekNumber ?? null,
       pool_id: parsed.data.poolId ?? null,
+      // Only touch the flag when the caller sent it (other updateGame callers don't).
+      ...(parsed.data.isExhibition !== undefined ? { is_exhibition: parsed.data.isExhibition } : {}),
     })
     .eq('id', parsed.data.gameId)
     .eq('organization_id', org.id)

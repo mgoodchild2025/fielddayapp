@@ -6,7 +6,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { DashboardClient } from '@/components/dashboard/dashboard-client'
-import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, type TeamStatTotals, type PtsMethod, type VolleyballMode } from '@/lib/standings'
+import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, type TeamStatTotals, type PtsMethod, type VolleyballMode, countsForStandings } from '@/lib/standings'
 import { fetchPlayerPlayoffGameRows } from '@/lib/playoff-games'
 import { getPlayerMedals } from '@/lib/medal-queries'
 import { getPlayerCareer } from '@/lib/career'
@@ -287,7 +287,7 @@ export default async function DashboardPage() {
       // sets + forfeit fields included so accumulateGameResult can mirror the standings tab
 
       db.from('games').select(`
-        id, home_team_id, away_team_id, league_id, status, pool_id,
+        id, home_team_id, away_team_id, league_id, status, pool_id, is_exhibition,
         game_results(home_score, away_score, status, sets, is_forfeit, forfeit_team_id)
       `)
         .eq('organization_id', org.id)
@@ -436,6 +436,7 @@ export default async function DashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const g of allLeagueResults as any[]) {
     if (g.status !== 'completed') continue
+    if (!countsForStandings(g)) continue // exhibition
     // Include pool-play games too so the dashboard reflects OVERALL standings
     // (regular + pool combined), matching the event's Overall Standings tab.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

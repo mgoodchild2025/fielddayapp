@@ -1,6 +1,6 @@
 import type { createServiceRoleClient } from '@/lib/supabase/service'
 import { getStatDefinitions } from '@/actions/stats'
-import { accumulateGameResult, isVolleyballSport, type TeamStatTotals } from '@/lib/standings'
+import { accumulateGameResult, isVolleyballSport, type TeamStatTotals, countsForStandings } from '@/lib/standings'
 
 /**
  * The career record (card flip C1): everything the back of a player's card
@@ -192,7 +192,7 @@ export async function getPlayerCareer(db: Db, orgId: string, userId: string): Pr
     // when a sport tracks no player stats. All confirmed games count (pool and
     // playoff included): it's a career line, not the standings table.
     db.from('games')
-      .select('league_id, home_team_id, away_team_id, game_results(home_score, away_score, status, sets, is_forfeit, forfeit_team_id)')
+      .select('league_id, home_team_id, away_team_id, is_exhibition, game_results(home_score, away_score, status, sets, is_forfeit, forfeit_team_id)')
       .eq('organization_id', orgId)
       .in('league_id', leagueIds),
     // Does ANYONE have stats in each league? One cheap head-count per league.
@@ -231,6 +231,7 @@ export async function getPlayerCareer(db: Db, orgId: string, userId: string): Pr
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = Array.isArray((g as any).game_results) ? (g as any).game_results[0] : (g as any).game_results
     if (!result || result.status !== 'confirmed' || !g.home_team_id || !g.away_team_id) continue
+    if (!countsForStandings(g)) continue // exhibition
     const acc = statsByLeagueTeam.get(g.league_id) ?? new Map<string, TeamStatTotals>()
     statsByLeagueTeam.set(g.league_id, acc)
     accumulateGameResult(acc, {

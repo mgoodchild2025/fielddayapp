@@ -5,7 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { AdminPoolsManager } from '@/components/pools/admin-pools-manager'
-import { sortStandings, isVolleyballSport, accumulateGameResult, emptyTeamStat, type TeamStatTotals, type PtsMethod, type VolleyballMode } from '@/lib/standings'
+import { sortStandings, isVolleyballSport, accumulateGameResult, emptyTeamStat, type TeamStatTotals, type PtsMethod, type VolleyballMode, countsForStandings } from '@/lib/standings'
 
 export default async function AdminPoolsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -49,7 +49,7 @@ export default async function AdminPoolsPage({ params }: { params: Promise<{ id:
     // For "seed from standings" — confirmed regular-season game results
 
     db.from('game_results')
-      .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
+      .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id, is_exhibition)')
       .eq('organization_id', org.id)
       .eq('status', 'confirmed'),
   ])
@@ -80,6 +80,7 @@ export default async function AdminPoolsPage({ params }: { params: Promise<{ id:
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const game = Array.isArray(r.game) ? r.game[0] : r.game as any
     if (!game || game.status !== 'completed' || game.league_id !== id) continue
+    if (!countsForStandings(game)) continue // exhibition
     // Only regular season games (no pool_id) feed pool seeding
     if (game.pool_id) continue
     const ht = game.home_team_id as string

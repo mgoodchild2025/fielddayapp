@@ -13,8 +13,7 @@ import type { Json } from '@/types/database'
 import { getEventSponsors } from '@/actions/event-sponsors'
 import {
   sortStandings, isVolleyballSport, accumulateGameResult, emptyTeamStat,
-  type PtsMethod, type VolleyballMode, type TeamStat, type TeamStatTotals,
-} from '@/lib/standings'
+  type PtsMethod, type VolleyballMode, type TeamStat, type TeamStatTotals, countsForStandings } from '@/lib/standings'
 
 // ── Config persistence ────────────────────────────────────────────────────────
 
@@ -245,7 +244,7 @@ export async function getDisplayData(
       db.from('teams').select('id, name, color, logo_url, pool_id')
         .eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
       db.from('game_results')
-        .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
+        .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id, is_exhibition)')
         .eq('organization_id', orgId)
         .eq('status', 'confirmed'),
     ])
@@ -264,6 +263,7 @@ export async function getDisplayData(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const g = Array.isArray(r.game) ? r.game[0] : r.game as any
       if (!g || g.league_id !== leagueId) continue
+      if (!countsForStandings(g)) continue // exhibition
       const { home_team_id: ht, away_team_id: at } = g
       if (!ht || !at || !teamIds.has(ht) || !teamIds.has(at)) continue
 

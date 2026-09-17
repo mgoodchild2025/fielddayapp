@@ -65,6 +65,16 @@ export interface GameResultInput {
  * PTS methods. Callers own filtering (confirmed status, pool/active-team
  * scoping); this owns the arithmetic.
  */
+/**
+ * Exhibition games are played, scored, and shown like any other game but never
+ * move the table. Every standings fold (event page, admin standings/pools,
+ * dashboard, team stats, TV display, career record) must gate on this — one
+ * rule, so the surfaces can't disagree.
+ */
+export function countsForStandings(game: { is_exhibition?: boolean | null } | null | undefined): boolean {
+  return game?.is_exhibition !== true
+}
+
 export function accumulateGameResult(
   stats: Map<string, TeamStatTotals>,
   result: GameResultInput,

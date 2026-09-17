@@ -28,6 +28,7 @@ interface Props {
     poolId: string | null | undefined
     status: string
     cancellationReason: string | null
+    isExhibition?: boolean
   }
   teams: Team[]
   pools?: Pool[]
@@ -53,6 +54,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
   const [court, setCourt] = useState(game.court ?? '')
   const [weekNumber, setWeekNumber] = useState(game.weekNumber?.toString() ?? '')
   const [poolId, setPoolId] = useState(game.poolId ?? '')
+  const [isExhibition, setIsExhibition] = useState(game.isExhibition ?? false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -78,6 +80,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
         court: court || undefined,
         weekNumber: weekNumber ? Number(weekNumber) : undefined,
         poolId: poolId || null,
+        isExhibition,
       })
       if (result.error) {
         setError(result.error)
@@ -225,6 +228,15 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
               </select>
             </div>
           )}
+
+          {/* Exhibition: played and scored, badged on schedules, never moves the table */}
+          <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
+            <input type="checkbox" checked={isExhibition} onChange={(e) => setIsExhibition(e.target.checked)} className="rounded mt-0.5" />
+            <span>
+              <span className="font-medium">Exhibition game</span>
+              <span className="block text-[11px] text-gray-400">Scores are recorded and shown, but the result doesn&rsquo;t count toward standings.</span>
+            </span>
+          </label>
 
           {error && <p className="text-xs text-red-600">{error}</p>}
 

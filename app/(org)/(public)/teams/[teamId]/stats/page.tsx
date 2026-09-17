@@ -12,7 +12,7 @@ import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
 import type { LeaderboardPlayer } from '@/components/stats/stats-leaderboard'
 import type { SeasonResult, H2HRecord } from '@/components/teams/team-stats-client'
 import { formatGameTime } from '@/lib/format-time'
-import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, computeStreaks, type TeamStatTotals, type PtsMethod, type VolleyballMode } from '@/lib/standings'
+import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, computeStreaks, type TeamStatTotals, type PtsMethod, type VolleyballMode, countsForStandings } from '@/lib/standings'
 import { fetchLeaguePlayoffGames } from '@/lib/playoff-games'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -56,7 +56,7 @@ export default async function TeamStatsPage({
     // Games involving this team
     db.from('games').select(`
       id, scheduled_at, court, week_number, status, home_team_id, away_team_id,
-      pool_id,
+      pool_id, is_exhibition,
       home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
       away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
       game_results(home_score, away_score, status, sets)
@@ -69,7 +69,7 @@ export default async function TeamStatsPage({
 
     // All league games (for standings)
     db.from('games').select(`
-      id, home_team_id, away_team_id,
+      id, home_team_id, away_team_id, is_exhibition,
       game_results(home_score, away_score, status, sets, is_forfeit, forfeit_team_id)
     `)
       .eq('organization_id', org.id)
@@ -141,6 +141,7 @@ export default async function TeamStatsPage({
   for (const g of teamGames) {
     const result = Array.isArray(g.game_results) ? g.game_results[0] : g.game_results
     if (!result || result.status !== 'confirmed') continue
+    if (!countsForStandings(g)) continue // exhibition
     const isHome = g.home_team_id === teamId
     const myScore = isHome ? (result.home_score ?? 0) : (result.away_score ?? 0)
     const theirScore = isHome ? (result.away_score ?? 0) : (result.home_score ?? 0)
@@ -167,6 +168,7 @@ export default async function TeamStatsPage({
   for (const g of allLeagueGames) {
     const result = Array.isArray(g.game_results) ? g.game_results[0] : g.game_results
     if (!result || result.status !== 'confirmed') continue
+    if (!countsForStandings(g)) continue // exhibition
     accumulateGameResult(statMap, {
       homeTeamId: g.home_team_id as string, awayTeamId: g.away_team_id as string,
       homeScore: result.home_score, awayScore: result.away_score,

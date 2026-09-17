@@ -7,8 +7,7 @@ import {
   computePts, sortStandings, VOLLEYBALL_SPORTS,
   accumulateGameResult, emptyTeamStat,
   type TeamStat as BaseTeamStat, type TeamStatTotals,
-  type PtsMethod, type VolleyballMode,
-} from '@/lib/standings'
+  type PtsMethod, type VolleyballMode, countsForStandings } from '@/lib/standings'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 
 // Standings rows on this page additionally carry division/pool grouping.
@@ -168,7 +167,7 @@ export default async function AdminStandingsPage({
     db.from('pools').select('id, name, sort_order').eq('league_id', id).eq('organization_id', org.id).order('sort_order'),
 
     db.from('game_results')
-      .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
+      .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id, is_exhibition)')
       .eq('organization_id', org.id)
       .eq('status', 'confirmed'),
   ])
@@ -188,6 +187,7 @@ export default async function AdminStandingsPage({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const game = Array.isArray(r.game) ? r.game[0] : r.game as any
     if (!game || game.status !== 'completed' || game.league_id !== id) continue
+    if (!countsForStandings(game)) continue // exhibition
     const { home_team_id: ht, away_team_id: at, pool_id: gamePool } = game
     if (!ht || !at || !leagueTeamIds.has(ht) || !leagueTeamIds.has(at)) continue
 

@@ -1698,6 +1698,7 @@ export type Database = {
           home_team_id: string | null
           home_team_label: string | null
           id: string
+          is_exhibition: boolean
           league_id: string
           organization_id: string
           pool_id: string | null
@@ -1717,6 +1718,7 @@ export type Database = {
           home_team_id?: string | null
           home_team_label?: string | null
           id?: string
+          is_exhibition?: boolean
           league_id: string
           organization_id: string
           pool_id?: string | null
@@ -1736,6 +1738,7 @@ export type Database = {
           home_team_id?: string | null
           home_team_label?: string | null
           id?: string
+          is_exhibition?: boolean
           league_id?: string
           organization_id?: string
           pool_id?: string | null
