@@ -6,7 +6,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { DashboardClient } from '@/components/dashboard/dashboard-client'
-import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, type TeamStatTotals, type PtsMethod, type VolleyballMode, countsForStandings } from '@/lib/standings'
+import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, hasStandingPosition, type TeamStatTotals, type PtsMethod, type VolleyballMode, countsForStandings } from '@/lib/standings'
 import { fetchPlayerPlayoffGameRows } from '@/lib/playoff-games'
 import { getPlayerMedals } from '@/lib/medal-queries'
 import { getPlayerCareer } from '@/lib/career'
@@ -469,6 +469,8 @@ export default async function DashboardPage() {
     const leagueMap = leagueRecordMap.get(leagueId)
     const cfg = leagueConfig.get(leagueId)
     if (!leagueMap || !cfg) return null
+    // No counted result yet → no position (see hasStandingPosition).
+    if (!hasStandingPosition(leagueMap.get(teamId))) return null
     // Rank via the shared helper so the order honors the event's configured
     // standings mode + PTS method, exactly like the standings tab.
     const sorted = sortStandings(
