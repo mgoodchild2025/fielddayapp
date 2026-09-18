@@ -16,7 +16,7 @@ import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
 import type { LeaderboardPlayer } from '@/components/stats/stats-leaderboard'
 import type { SeasonResult, H2HRecord } from '@/components/teams/team-stats-client'
 import { formatGameTime } from '@/lib/format-time'
-import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, computeStreaks, type TeamStatTotals, type PtsMethod, type VolleyballMode, countsForStandings } from '@/lib/standings'
+import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, computeStreaks, hasStandingPosition, type TeamStatTotals, type PtsMethod, type VolleyballMode, countsForStandings } from '@/lib/standings'
 import { fetchLeaguePlayoffGames } from '@/lib/playoff-games'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -204,6 +204,8 @@ export default async function TeamStatsPage({
     ptsMethod,
   )
   const standing = (() => {
+    // No counted result yet → no position (see hasStandingPosition).
+    if (!hasStandingPosition(statMap.get(teamId))) return null
     const idx = rankedTeams.findIndex(t => t.id === teamId)
     return idx >= 0 ? idx + 1 : null
   })()
