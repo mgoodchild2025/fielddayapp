@@ -6,6 +6,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getPlayerCardData } from '@/lib/player-card'
 import { OrgNav } from '@/components/layout/org-nav'
+import { TeamPageNav } from '@/components/teams/team-page-nav'
 import { Footer } from '@/components/layout/footer'
 import { BioFlipCard } from '@/components/bios/bio-flip-card'
 
@@ -51,7 +52,8 @@ export default async function TeamCardsPage({ params }: { params: Promise<{ team
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
       <div className="flex-1 mx-auto w-full max-w-4xl px-4 py-8">
         <Link href={`/teams/${teamId}`} className="text-sm text-gray-500 hover:underline">← {team.name}</Link>
-        <h1 className="mt-2 text-2xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+        <TeamPageNav teamId={teamId} active="cards" />
+        <h1 className="mt-4 text-2xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           🃏 {team.name} — Card Binder
         </h1>
         <p className="text-sm text-gray-500 mt-1">Tap any card to flip it over.</p>

@@ -8,6 +8,9 @@ import { Footer } from '@/components/layout/footer'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { TeamStatsTabs } from '@/components/teams/team-stats-client'
 import { StatsLeaderboard } from '@/components/stats/stats-leaderboard'
+import { TeamPageNav } from '@/components/teams/team-page-nav'
+import { getMedalCountsForUsers } from '@/lib/medal-queries'
+import type { BioCardData } from '@/components/bios/player-bio-card'
 import { getStatDefinitions, getLeagueStatTotals } from '@/actions/stats'
 import type { LeaderboardPlayer } from '@/components/stats/stats-leaderboard'
 import type { SeasonResult, H2HRecord } from '@/components/teams/team-stats-client'
@@ -340,15 +343,54 @@ export default async function TeamStatsPage({
       memberProfileMap.set(m.user_id, { full_name: profile.full_name, avatar_url: profile.avatar_url })
     }
   }
-  const leaderboardPlayers: LeaderboardPlayer[] = [...memberProfileMap.keys()]
-    .map((userId) => ({
-      userId,
-      name: memberProfileMap.get(userId)!.full_name ?? 'Unknown',
-      avatarUrl: memberProfileMap.get(userId)!.avatar_url ?? null,
-      teamName: team.name as string,
-      totals: seasonTotals[userId] ?? {},
-    }))
-    .filter(p => Object.values(p.totals).some(v => v > 0))
+  // The Players tab is the ROSTER, not just whoever has a stat line — a player
+  // with nothing recorded shows dashes rather than vanishing from their own team.
+  const rosterUserIds = [...memberProfileMap.keys()]
+  const [memberMedalCounts, { data: rosterBios }] = await Promise.all([
+    getMedalCountsForUsers(db, org.id, rosterUserIds),
+    rosterUserIds.length > 0
+      ? db.from('player_bios')
+          .select('user_id, hero_photo_url, jersey_number, position, hometown, years_playing, tagline, hidden_by_admin')
+          .eq('organization_id', org.id)
+          .in('user_id', rosterUserIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ])
+  const bioByUser = new Map(
+    ((rosterBios ?? []) as any[]).filter((b) => !b.hidden_by_admin).map((b) => [b.user_id as string, b])
+  )
+  const shelfFor = (userId: string): string | null => {
+    const c = memberMedalCounts.get(userId)
+    if (!c) return null
+    const bits = ([['gold', '🥇'], ['silver', '🥈'], ['bronze', '🥉'], ['tier_champion', '🏆']] as const)
+      .map(([k, g]) => { const n = c[k]; return n > 0 ? g.repeat(Math.min(n, 3)) + (n > 3 ? `×${n}` : '') : '' })
+      .filter(Boolean)
+    return bits.length > 0 ? bits.join(' ') : null
+  }
+  const leaderboardPlayers: LeaderboardPlayer[] = rosterUserIds
+    .map((userId) => {
+      const profile = memberProfileMap.get(userId)!
+      const b = bioByUser.get(userId)
+      const name = profile.full_name ?? 'Unknown'
+      const bio: BioCardData = {
+        name,
+        photoUrl: b?.hero_photo_url ?? profile.avatar_url ?? null,
+        teamName: team.name as string,
+        position: b?.position ?? null,
+        jerseyNumber: b?.jersey_number ?? null,
+        hometown: b?.hometown ?? null,
+        yearsPlaying: b?.years_playing ?? null,
+        tagline: b?.tagline ?? null,
+        medalShelf: shelfFor(userId),
+      }
+      return {
+        userId,
+        name,
+        avatarUrl: profile.avatar_url ?? null,
+        teamName: team.name as string,
+        totals: seasonTotals[userId] ?? {},
+        bio,
+      }
+    })
 
   // ── Rendering helpers ─────────────────────────────────────────────────────
   function ordinal(n: number) {
@@ -396,6 +438,8 @@ export default async function TeamStatsPage({
             )}
           </div>
         </div>
+
+        <TeamPageNav teamId={teamId} active="stats" />
 
         {/* ── Season Summary ── */}
         <section>
@@ -460,8 +504,15 @@ export default async function TeamStatsPage({
           h2h={h2hList}
           showKind={resultsHavePools}
           playersSlot={
-            statDefs.length > 0
-              ? <StatsLeaderboard statDefs={statDefs} players={leaderboardPlayers} />
+            leaderboardPlayers.length > 0
+              ? (
+                <StatsLeaderboard
+                  statDefs={statDefs}
+                  players={leaderboardPlayers}
+                  includeUncredited
+                  binderHref={`/teams/${teamId}/cards`}
+                />
+              )
               : undefined
           }
         />

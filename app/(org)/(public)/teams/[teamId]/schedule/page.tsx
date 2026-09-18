@@ -5,6 +5,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
+import { TeamPageNav } from '@/components/teams/team-page-nav'
 import { Footer } from '@/components/layout/footer'
 import { MyGamesClient } from '../../../schedule/_client'
 import type { GameSub } from '@/actions/game-subs'
@@ -203,6 +204,8 @@ export default async function TeamSchedulePage({
             Print
           </a>
         </div>
+
+        <TeamPageNav teamId={teamId} active="schedule" />
 
         <h1
           className="text-2xl font-bold uppercase mt-4 mb-6"
