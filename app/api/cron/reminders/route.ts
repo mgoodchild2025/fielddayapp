@@ -1531,7 +1531,12 @@ export async function GET(req: NextRequest) {
   for (const lg of toPurge ?? []) {
     const res = await purgeLeagueData(lg.organization_id, lg.id, null, 'System (auto-purge)')
       .catch((e: unknown) => ({ error: String(e) }))
-    if (res?.error) results.push(`auto-purge error for league ${lg.id}: ${res.error}`)
+    if (res?.error) {
+      // Buried in the 200 response body it can fail every run unnoticed (it did):
+      // log it so the failure is visible in the cron service's logs.
+      console.error(`[cron] auto-purge failed for league ${lg.id} (${lg.name}): ${res.error}`)
+      results.push(`auto-purge error for league ${lg.id}: ${res.error}`)
+    }
     else results.push(`auto-purged trashed event ${lg.id} (${lg.name})`)
   }
 
