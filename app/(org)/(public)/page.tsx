@@ -55,21 +55,23 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
       .select('id, name, role, bio, avatar_url, display_order')
       .eq('organization_id', orgId)
       .order('display_order'),
-    // Recent confirmed results for Pro theme
-
+    // Recent confirmed results for Pro theme.
+    // Queried from `games` so the list can be ordered by when the game was
+    // PLAYED — game_results has no created_at (the old ordering errored with
+    // 42703 on every homepage load, so this section was always empty), and
+    // ordering by when a score was entered floats backfilled results to the top.
     db
-      .from('game_results')
+      .from('games')
       .select(`
-        id, home_score, away_score,
-        game:games!game_results_game_id_fkey(
-          scheduled_at, organization_id,
-          home_team:teams!games_home_team_id_fkey(name),
-          away_team:teams!games_away_team_id_fkey(name),
-          leagues(name)
-        )
+        scheduled_at,
+        home_team:teams!games_home_team_id_fkey(name),
+        away_team:teams!games_away_team_id_fkey(name),
+        leagues(name),
+        game_results!inner(id, home_score, away_score, status)
       `)
-      .eq('status', 'confirmed')
-      .order('created_at', { ascending: false })
+      .eq('organization_id', orgId)
+      .eq('game_results.status', 'confirmed')
+      .order('scheduled_at', { ascending: false })
       .limit(8),
   ])
 
@@ -133,17 +135,22 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
   // Process recent results for Pro theme (field names match ProHome's RecentResult type)
   const recentResults = (recentResultsRaw ?? [])
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .filter((r: any) => r.game?.organization_id === orgId)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((r: any) => ({
-      id: r.id as string,
-      home_score: r.home_score as number | null,
-      away_score: r.away_score as number | null,
-      scheduled_at: (r.game?.scheduled_at ?? '') as string,
-      league_name: (r.game?.leagues?.name ?? null) as string | null,
-      home_team_name: (r.game?.home_team?.name ?? 'TBD') as string,
-      away_team_name: (r.game?.away_team?.name ?? 'TBD') as string,
-    }))
+    .map((g: any) => {
+      const result = Array.isArray(g.game_results) ? g.game_results[0] : g.game_results
+      const league = Array.isArray(g.leagues) ? g.leagues[0] : g.leagues
+      const home = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
+      const away = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
+      return {
+        id: result?.id as string,
+        home_score: (result?.home_score ?? null) as number | null,
+        away_score: (result?.away_score ?? null) as number | null,
+        scheduled_at: (g.scheduled_at ?? '') as string,
+        league_name: (league?.name ?? null) as string | null,
+        home_team_name: (home?.name ?? 'TBD') as string,
+        away_team_name: (away?.name ?? 'TBD') as string,
+      }
+    })
+    .filter((r: { id: string }) => !!r.id)
 
   type Sponsor = { id: string; name: string; logo_url: string | null; website_url: string | null; tier: string; display_order: number }
   type StaffMember = { id: string; name: string; role: string | null; bio: string | null; avatar_url: string | null; display_order: number }
