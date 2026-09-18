@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
+import { hasTeamPaid } from '@/lib/team-payments'
 import { getSeasonPassQuote } from '@/lib/season-pass'
 import { getOrgTaxRates, taxSuffix } from '@/lib/tax'
 import { createServerClient } from '@/lib/supabase/server'
@@ -534,6 +535,14 @@ export default async function RegisterLeaguePage({
   const playerTeamId = myTeamRole && myTeamRole !== 'captain' ? myTeamId : null
   const playerTeamName = myTeamRole && myTeamRole !== 'captain' ? myTeamName : null
 
+  // Per-team events: the fee belongs to the TEAM, so an admin who took payment
+  // before anyone registered already settled it. That row is keyed by team_id
+  // with registration_id NULL, so the per-registration payment check below can
+  // never see it — ask the team directly, or the captain gets billed twice.
+  const teamAlreadyPaid = isPerTeamLeague && myTeamId
+    ? await hasTeamPaid(db, org.id, league.id, myTeamId)
+    : false
+
   // For per-team events: a player who hasn't joined a team yet must go through step 3
   // (team code entry) before we consider their registration complete. Without this guard
   // the resume logic would redirect them straight to /success after waiver signing.
@@ -570,16 +579,22 @@ export default async function RegisterLeaguePage({
     const now = new Date()
     const earlyBirdActive = !isDropIn && earlyBirdPriceCents != null && earlyBirdDeadline != null && now < new Date(earlyBirdDeadline)
     const effectivePrice = isDropIn ? (dropInPriceCents ?? 0) : (earlyBirdActive ? earlyBirdPriceCents! : league.price_cents)
-    const needsPayment = effectivePrice > 0 && hasOnlinePayments && !paymentComplete && !reserved
+    // Per-team events: an individual never owes — the team carries the fee, and
+    // the captain's own gate is captainNeedsToPayViaFlow below. The client agrees
+    // (showPaymentStep / showManualPaymentStep are both `!isPerTeam`); without
+    // this the resume logic parked a per-team captain on a payment step that
+    // renders nothing and never activated their registration.
+    const individualOwes = effectivePrice > 0 && !isPerTeamLeague
+    const needsPayment = individualOwes && hasOnlinePayments && !paymentComplete && !reserved
     // Manual payment: price set but no Stripe — player must see payment instructions
     // before we activate them.
-    const needsManualPayment = effectivePrice > 0 && !hasOnlinePayments && !paymentComplete && !reserved
+    const needsManualPayment = individualOwes && !hasOnlinePayments && !paymentComplete && !reserved
 
     // Per-team captain: if registration is active but no payment record exists,
     // the captain was activated before payment was collected (old bug or fresh invite).
     // Route them back through the payment step regardless of registration status.
     const captainNeedsToPayViaFlow =
-      isPerTeamLeague && captainTeamId !== null && effectivePrice > 0 && !paymentComplete
+      isPerTeamLeague && captainTeamId !== null && effectivePrice > 0 && !paymentComplete && !teamAlreadyPaid
 
     if (existingReg.status === 'active' && !needsPayment && !captainNeedsToPayViaFlow && !perTeamPlayerNeedsTeam) {
       redirect(`/register/${slug}/success`)
@@ -635,6 +650,7 @@ export default async function RegisterLeaguePage({
       earlyBirdDeadline={earlyBirdDeadline}
       captainTeamId={captainTeamId}
       captainTeamName={captainTeamName}
+      teamAlreadyPaid={teamAlreadyPaid}
       playerTeamId={playerTeamId}
       playerTeamName={playerTeamName}
       teamsAtCapacity={teamsAtCapacity}

@@ -12,6 +12,7 @@ import { AdminInstallmentRow } from '@/components/payments/admin-installment-row
 import { EditPaymentForm } from '@/components/payments/edit-payment-form'
 import { StatusChip } from '@/components/ui/status-chip'
 import { TeamAvatar } from '@/components/ui/team-avatar'
+import { getTeamPaymentInfo } from '@/lib/team-payments'
 import type { InstallmentRow } from '@/components/payments/installment-schedule'
 
 type PaymentEditStatus = 'paid' | 'pending' | 'refunded'
@@ -153,25 +154,15 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   if (showTeamPayment) {
     const teamIds = [...teamById.keys()]
     if (teamIds.length > 0) {
-      const { data: teamPays } = await db
-        .from('payments').select('team_id, status, amount_cents, currency')
-        .eq('league_id', id).eq('organization_id', org.id).eq('payment_type', 'team').in('team_id', teamIds)
-      // Prefer a paid row per team; otherwise keep whatever exists (pending/failed).
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const payByTeam = new Map<string, any>()
-      for (const p of teamPays ?? []) {
-        if (!p.team_id) continue
-        const prev = payByTeam.get(p.team_id)
-        if (!prev || (p.status === 'paid' || p.status === 'manual')) payByTeam.set(p.team_id, p)
-      }
+      const fees = await getTeamPaymentInfo(db, org.id, id, teamIds)
       for (const [userId, memberTeams] of teamsByUserId) {
         const team = memberTeams[0]
-        const pay = payByTeam.get(team.id)
+        const fee = fees.get(team.id)
         teamPaymentByUserId.set(userId, {
           teamName: team.name,
-          status: pay?.status ?? null,
-          amount_cents: pay?.amount_cents ?? null,
-          currency: pay?.currency ?? null,
+          status: fee?.state === 'paid' ? 'paid' : fee?.state === 'pending' ? 'pending' : null,
+          amount_cents: fee?.amountCents ?? null,
+          currency: fee?.currency ?? null,
         })
       }
     }
