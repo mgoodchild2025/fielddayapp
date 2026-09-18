@@ -48,6 +48,8 @@ interface Props {
   earlyBirdPriceCents?: number | null
   earlyBirdDeadline?: string | null
   captainTeamId?: string | null
+  /** Per-team events: the team's fee is already settled — don't bill the captain again. */
+  teamAlreadyPaid?: boolean
   captainTeamName?: string | null
   /** Set when user is already on a team as a non-captain (e.g. accepted a team invite) */
   playerTeamId?: string | null
@@ -109,6 +111,7 @@ export function RegistrationFlow({
   earlyBirdPriceCents = null,
   earlyBirdDeadline = null,
   captainTeamId = null,
+  teamAlreadyPaid = false,
   captainTeamName = null,
   playerTeamId = null,
   playerTeamName = null,
@@ -149,11 +152,13 @@ export function RegistrationFlow({
   const showAddOnsStep = leagueMerch.length > 0 && !isPerTeam && hasCard
 
   // When an admin pre-assigns a captain to a team (captainTeamId is already set),
-  // the team fee hasn't been paid yet. Route through an inline payment step so the
-  // captain can pay — Stripe or manual payment depending on org settings.
+  // the team fee usually hasn't been paid yet. Route through an inline payment step so
+  // the captain can pay — Stripe or manual payment depending on org settings.
   // Step3Payment handles both: Stripe redirects to checkout; manual returns instructions inline.
+  // Unless the TEAM has already settled (an admin took payment before anyone
+  // registered), in which case the captain is activated like a free registration.
   const showCaptainPaymentStep =
-    isPerTeam && captainTeamId !== null && effectivePriceCents > 0
+    isPerTeam && captainTeamId !== null && effectivePriceCents > 0 && !teamAlreadyPaid
 
   // For per-team events, we show a role-select screen before step 1.
   // Skip it if: resuming (initialStep > 1), user is already on a team, or teams are full (force player).

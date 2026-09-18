@@ -33,6 +33,13 @@ interface Props {
     team_code: string | null
   }
   captainName: string | null
+  /** Per-team events only: team fee status, plus whether anyone leads the team. */
+  fee: {
+    state: 'paid' | 'pending' | 'none'
+    amountCents: number | null
+    currency: string
+    hasCaptain: boolean
+  } | null
   initialMembers: ActiveMember[]
   initialInvites: PendingInvite[]
   joinRequests: JoinRequest[]
@@ -47,6 +54,7 @@ export function AdminTeamCard({
   isOrgAdmin,
   team,
   captainName,
+  fee,
   initialMembers,
   initialInvites,
   joinRequests,
@@ -85,9 +93,35 @@ export function AdminTeamCard({
           <TeamAvatar logoUrl={team.logo_url ?? null} color={team.color} name={team.name} size="sm" />
 
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-gray-900 text-sm leading-tight truncate">{team.name}</p>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <p className="font-semibold text-gray-900 text-sm leading-tight truncate">{team.name}</p>
+              {fee && (
+                fee.state === 'paid' ? (
+                  <span
+                    className="shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700"
+                    title={fee.amountCents != null ? `Team fee $${(fee.amountCents / 100).toFixed(0)} ${fee.currency} received` : 'Team fee received'}
+                  >
+                    Fee paid
+                  </span>
+                ) : (
+                  <span
+                    className="shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-yellow-100 text-yellow-700"
+                    title={fee.state === 'pending' ? 'Team fee pending' : 'Team fee not received'}
+                  >
+                    {fee.state === 'pending' ? 'Fee pending' : 'Fee unpaid'}
+                  </span>
+                )
+              )}
+            </div>
             {captainName && (
               <p className="text-xs text-gray-400 truncate">Captain: {captainName}</p>
+            )}
+            {/* A paid team with nobody leading it: if a captain signs up on their own
+                they create a SECOND team and get charged again. Assign one here. */}
+            {fee?.state === 'paid' && !fee.hasCaptain && (
+              <p className="text-xs text-amber-700 mt-0.5">
+                ⚠ Fee paid, but no captain yet — assign one below, or a captain who registers on their own will create a second team and be charged again.
+              </p>
             )}
           </div>
 
