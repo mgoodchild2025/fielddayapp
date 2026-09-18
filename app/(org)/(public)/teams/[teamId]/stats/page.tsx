@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { createServerClient } from '@/lib/supabase/server'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { TeamAvatar } from '@/components/ui/team-avatar'
@@ -30,7 +31,14 @@ export default async function TeamStatsPage({
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  // Team stats are publicly viewable — no auth required
+  // Team RESULTS are publicly viewable — no auth required. The roster and the
+  // player cards are not: the team page and the card binder both notFound() for
+  // non-members, and a card is otherwise public only when that player opted in
+  // (players/[userId]/card). So a public visitor keeps the ranked leaderboard —
+  // players with a recorded stat, name and avatar only, exactly as before —
+  // while members and org/league admins get the full roster and its cards.
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   // ── Fetch team + league info ──────────────────────────────────────────────
   const { data: team } = await db.from('teams').select(`
@@ -39,6 +47,17 @@ export default async function TeamStatsPage({
   `).eq('id', teamId).eq('organization_id', org.id).maybeSingle()
 
   if (!team) notFound()
+
+  let canSeeRoster = false
+  if (user) {
+    const [{ data: myMembership }, { data: orgMember }] = await Promise.all([
+      db.from('team_members').select('id')
+        .eq('team_id', teamId).eq('user_id', user.id).eq('status', 'active').maybeSingle(),
+      db.from('org_members').select('role')
+        .eq('organization_id', org.id).eq('user_id', user.id).maybeSingle(),
+    ])
+    canSeeRoster = !!myMembership || ['org_admin', 'league_admin'].includes((orgMember?.role as string) ?? '')
+  }
 
   const league = Array.isArray(team.league) ? (team.league as any[])[0] : team.league as any
   const leagueId = team.league_id as string
@@ -346,15 +365,17 @@ export default async function TeamStatsPage({
   // The Players tab is the ROSTER, not just whoever has a stat line — a player
   // with nothing recorded shows dashes rather than vanishing from their own team.
   const rosterUserIds = [...memberProfileMap.keys()]
-  const [memberMedalCounts, { data: rosterBios }] = await Promise.all([
-    getMedalCountsForUsers(db, org.id, rosterUserIds),
-    rosterUserIds.length > 0
-      ? db.from('player_bios')
+  // Bios and medal shelves feed the tap-a-name card, which is member-only —
+  // don't even fetch them for a public visitor.
+  const [memberMedalCounts, { data: rosterBios }] = canSeeRoster && rosterUserIds.length > 0
+    ? await Promise.all([
+        getMedalCountsForUsers(db, org.id, rosterUserIds),
+        db.from('player_bios')
           .select('user_id, hero_photo_url, jersey_number, position, hometown, years_playing, tagline, hidden_by_admin')
           .eq('organization_id', org.id)
-          .in('user_id', rosterUserIds)
-      : Promise.resolve({ data: [] as any[] }),
-  ])
+          .in('user_id', rosterUserIds),
+      ])
+    : [new Map<string, { gold: number; silver: number; bronze: number; tier_champion: number }>(), { data: [] as any[] }]
   const bioByUser = new Map(
     ((rosterBios ?? []) as any[]).filter((b) => !b.hidden_by_admin).map((b) => [b.user_id as string, b])
   )
@@ -371,17 +392,19 @@ export default async function TeamStatsPage({
       const profile = memberProfileMap.get(userId)!
       const b = bioByUser.get(userId)
       const name = profile.full_name ?? 'Unknown'
-      const bio: BioCardData = {
-        name,
-        photoUrl: b?.hero_photo_url ?? profile.avatar_url ?? null,
-        teamName: team.name as string,
-        position: b?.position ?? null,
-        jerseyNumber: b?.jersey_number ?? null,
-        hometown: b?.hometown ?? null,
-        yearsPlaying: b?.years_playing ?? null,
-        tagline: b?.tagline ?? null,
-        medalShelf: shelfFor(userId),
-      }
+      const bio: BioCardData | undefined = canSeeRoster
+        ? {
+            name,
+            photoUrl: b?.hero_photo_url ?? profile.avatar_url ?? null,
+            teamName: team.name as string,
+            position: b?.position ?? null,
+            jerseyNumber: b?.jersey_number ?? null,
+            hometown: b?.hometown ?? null,
+            yearsPlaying: b?.years_playing ?? null,
+            tagline: b?.tagline ?? null,
+            medalShelf: shelfFor(userId),
+          }
+        : undefined
       return {
         userId,
         name,
@@ -391,6 +414,8 @@ export default async function TeamStatsPage({
         bio,
       }
     })
+    // Public view stays what it always was: the ranked leaderboard only.
+    .filter((p) => canSeeRoster || Object.values(p.totals).some((v) => v > 0))
 
   // ── Rendering helpers ─────────────────────────────────────────────────────
   function ordinal(n: number) {
@@ -439,7 +464,7 @@ export default async function TeamStatsPage({
           </div>
         </div>
 
-        <TeamPageNav teamId={teamId} active="stats" />
+        <TeamPageNav teamId={teamId} active="stats" canAccessPrivate={canSeeRoster} />
 
         {/* ── Season Summary ── */}
         <section>
@@ -509,8 +534,8 @@ export default async function TeamStatsPage({
                 <StatsLeaderboard
                   statDefs={statDefs}
                   players={leaderboardPlayers}
-                  includeUncredited
-                  binderHref={`/teams/${teamId}/cards`}
+                  includeUncredited={canSeeRoster}
+                  binderHref={canSeeRoster ? `/teams/${teamId}/cards` : undefined}
                 />
               )
               : undefined
