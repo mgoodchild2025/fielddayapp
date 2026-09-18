@@ -1,0 +1,14 @@
+# Cron runner image — used by the Railway cron services (see railway.cron.toml).
+#
+# Deliberately NOT the app image: these services only make an authenticated HTTP
+# call to the already-deployed web service, so building Next here would cost
+# minutes of build time and a much larger image for no benefit.
+FROM node:22-alpine
+
+WORKDIR /app
+COPY scripts/run-cron.mjs ./scripts/run-cron.mjs
+USER node
+
+# Railway's per-service start command overrides this; the default is the job
+# that runs most often.
+CMD ["node", "scripts/run-cron.mjs", "reminders"]
