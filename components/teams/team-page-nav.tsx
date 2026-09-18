@@ -4,6 +4,11 @@ import Link from 'next/link'
  * Shared nav across a team's four pages. They existed with almost no links
  * between them — the stats page in particular had no way back to the team at
  * all, so arriving from a dashboard link was a dead end.
+ *
+ * Only Stats is public. Team / Schedule / Cards all notFound() for anyone who
+ * isn't on the team (or an org/league admin), so they are hidden rather than
+ * offered as links that dead-end. With nothing else to switch to, the whole
+ * bar is dropped: a lone "Stats" tab on the stats page is just furniture.
  */
 const TABS = [
   { key: 'team', label: 'Team', href: (id: string) => `/teams/${id}` },
@@ -14,10 +19,21 @@ const TABS = [
 
 export type TeamPageKey = (typeof TABS)[number]['key']
 
-export function TeamPageNav({ teamId, active }: { teamId: string; active: TeamPageKey }) {
+export function TeamPageNav({
+  teamId, active, canAccessPrivate = true,
+}: {
+  teamId: string
+  active: TeamPageKey
+  /** Viewer is on this team, or is an org/league admin. The other three pages
+   *  gate on exactly that, so default true — only the public stats page passes it. */
+  canAccessPrivate?: boolean
+}) {
+  const visible = canAccessPrivate ? TABS : TABS.filter((t) => t.key === 'stats')
+  if (visible.length < 2) return null
+
   return (
     <nav className="mt-4 flex gap-1 border-b border-gray-200 overflow-x-auto">
-      {TABS.map((t) => {
+      {visible.map((t) => {
         const isActive = t.key === active
         return (
           <Link
