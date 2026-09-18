@@ -503,6 +503,9 @@ export default async function DashboardPage() {
       court: (g.court ?? null) as string | null,
       weekNumber: (g.week_number ?? null) as number | null,
       opponentName: (opponentRaw?.name ?? 'TBD') as string,
+      // Null for an unseeded playoff slot — the dashboard renders the name
+      // as plain text rather than a dead link in that case.
+      opponentId: ((isHome ? g.away_team_id : g.home_team_id) ?? null) as string | null,
       opponentColor: (opponentRaw?.color ?? null) as string | null,
       opponentLogoUrl: (opponentRaw?.logo_url ?? null) as string | null,
       isHome,
