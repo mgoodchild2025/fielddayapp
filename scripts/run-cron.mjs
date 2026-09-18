@@ -7,6 +7,13 @@
  * /api/cron/* endpoints (the same ones cron-job.org hits) and exits non-zero
  * if any of them fail, which is what marks the run failed in Railway.
  *
+ * Cron service setup (all dashboard settings — no config file; Railway
+ * deprecated config-as-code and new services cannot opt in):
+ *   Variables:       RAILWAY_DOCKERFILE_PATH=Dockerfile.cron, CRON_SECRET=<same as web>
+ *   Start command:   node scripts/run-cron.mjs <jobs…>
+ *   Cron schedule:   UTC, at least 5 minutes apart
+ *   Restart policy:  Never (a failed run is reported, then retried on schedule)
+ *
  * Usage:  node scripts/run-cron.mjs reminders
  *         node scripts/run-cron.mjs cleanup-exports data-retention hibernate-resume
  *
