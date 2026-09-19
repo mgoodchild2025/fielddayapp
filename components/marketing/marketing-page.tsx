@@ -1,5 +1,12 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import {
+  ORGANIZATION_SCHEMA,
+  ORGANIZATION_ID,
+  ORGANIZATION_DESCRIPTION,
+  SITE_URL,
+  schemaGraph,
+} from '@/lib/org-schema'
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
 
@@ -560,6 +567,8 @@ export function MarketingFooter() {
   return (
     <footer className="border-t border-gray-100 px-6 py-8 text-center text-sm text-gray-400">
       <p className="mb-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
+        <Link href="/about" className="hover:text-gray-600 transition-colors">About</Link>
+        <Link href="/contact" className="hover:text-gray-600 transition-colors">Contact</Link>
         <Link href="/scoreboard" className="hover:text-gray-600 transition-colors">Free scoreboard</Link>
         <Link href="/canada" className="hover:text-gray-600 transition-colors">Built for Canada</Link>
         <Link href="/leagues/volleyball" className="hover:text-gray-600 transition-colors">Volleyball leagues</Link>
@@ -872,45 +881,48 @@ export function ClosingCta() {
 
 // ── Structured data ───────────────────────────────────────────────────────────
 // SoftwareApplication with per-plan offers earns price-annotated search results;
-// Organization establishes the publisher entity for search and AI answer engines.
+// Organization (contact points + address, from lib/org-schema) establishes the
+// publisher entity so search and AI answer engines can verify the business and
+// answer contact questions.
 
-const JSON_LD = {
-  '@context': 'https://schema.org',
-  '@graph': [
-    {
-      '@type': 'Organization',
-      '@id': 'https://fielddayapp.ca/#organization',
-      name: 'Fieldday Sports Technology Inc.',
-      url: 'https://fielddayapp.ca',
-      logo: 'https://fielddayapp.ca/Fieldday-Icon.png',
-    },
-    {
-      '@type': 'SoftwareApplication',
-      name: 'Fieldday',
-      url: 'https://fielddayapp.ca',
-      applicationCategory: 'BusinessApplication',
-      operatingSystem: 'Web',
-      description:
-        'Sports league management platform for community sports organizations. Leagues use Fieldday to run online registration and payments (including e-transfer and GST/HST), build schedules and playoff brackets, track live standings, and give every league its own branded website.',
-      publisher: { '@id': 'https://fielddayapp.ca/#organization' },
-      offers: PLANS.map((plan) => ({
-        '@type': 'Offer',
-        name: `${plan.name} plan`,
-        price: plan.price,
-        priceCurrency: 'CAD',
-        url: `https://fielddayapp.ca${plan.ctaHref}`,
-      })),
-    },
-    {
-      '@type': 'FAQPage',
-      mainEntity: FAQS.map((faq) => ({
-        '@type': 'Question',
-        name: faq.q,
-        acceptedAnswer: { '@type': 'Answer', text: faq.a },
-      })),
-    },
-  ],
-}
+const JSON_LD = schemaGraph([
+  ORGANIZATION_SCHEMA,
+  {
+    '@type': 'SoftwareApplication',
+    '@id': `${SITE_URL}/#software`,
+    name: 'Fieldday',
+    url: SITE_URL,
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web',
+    description:
+      'Sports league management platform for community sports organizations. Leagues use Fieldday to run online registration and payments (including e-transfer and GST/HST), build schedules and playoff brackets, track live standings, and give every league its own branded website.',
+    publisher: { '@id': ORGANIZATION_ID },
+    offers: PLANS.map((plan) => ({
+      '@type': 'Offer',
+      name: `${plan.name} plan`,
+      price: plan.price,
+      priceCurrency: 'CAD',
+      url: `${SITE_URL}${plan.ctaHref}`,
+    })),
+  },
+  {
+    '@type': 'FAQPage',
+    mainEntity: FAQS.map((faq) => ({
+      '@type': 'Question',
+      name: faq.q,
+      acceptedAnswer: { '@type': 'Answer', text: faq.a },
+    })),
+  },
+  {
+    '@type': 'WebSite',
+    '@id': `${SITE_URL}/#website`,
+    url: SITE_URL,
+    name: 'Fieldday',
+    description: ORGANIZATION_DESCRIPTION,
+    publisher: { '@id': ORGANIZATION_ID },
+    inLanguage: 'en-CA',
+  },
+])
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
