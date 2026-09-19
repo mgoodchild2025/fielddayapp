@@ -771,6 +771,42 @@ export type Database = {
         }
         Relationships: []
       }
+      scoreboard_launch_logs: {
+        Row: {
+          day: string
+          device_id: string
+          first_seen_at: string
+          installed_at: string | null
+          launches: number
+          organization_id: string | null
+          platform: string
+          standalone: boolean
+          updated_at: string
+        }
+        Insert: {
+          day: string
+          device_id: string
+          first_seen_at?: string
+          installed_at?: string | null
+          launches?: number
+          organization_id?: string | null
+          platform?: string
+          standalone?: boolean
+          updated_at?: string
+        }
+        Update: {
+          day?: string
+          device_id?: string
+          first_seen_at?: string
+          installed_at?: string | null
+          launches?: number
+          organization_id?: string | null
+          platform?: string
+          standalone?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           auth: string

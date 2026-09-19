@@ -275,3 +275,10 @@ The four endpoints under `app/api/cron/*` (`reminders`, `cleanup-exports`, `data
 - One schedule per service: a frequent service runs `reminders`, a daily one runs the other three in sequence.
 - **Always call the PUBLIC origin** (`CRON_BASE_URL`, default `https://fielddayapp.ca`). `proxy.ts` resolves an org from the Host header and returns 404 for hosts it doesn't know, so Railway's private `*.railway.internal` hostname will NOT work.
 - The app image also carries `scripts/run-cron.mjs`, so a job can be fired from the web service one-off (`railway run node scripts/run-cron.mjs reminders`).
+
+## Scoreboard adoption metrics
+`scoreboard_launch_logs` (migration 196) counts **devices, not people** — the scoreboard is login-optional and runs on the apex, so most installs have no user or org and `pwa_launch_logs` (which is keyed by org + user) can't hold them. `device_id` is a random 24-hex value the browser keeps in its own localStorage (`lib/scoreboard-device.ts`); no user id, no IP, no user-agent string, only a coarse platform bucket. `organization_id` is set only when the visit was on an org host, null on the apex. PK (device_id, day): repeat launches bump `launches`.
+- `actions/scoreboard-metrics.ts` is deliberately **unauthenticated** — requiring a user would record only the minority of sessions. It is therefore kept dull: the device id is regex-validated, the platform is an allow-list, and `launches` is capped per device per day.
+- `scoreboard-app.tsx` logs one launch per browser session (sessionStorage-guarded) and an install on `appinstalled`.
+- **"Installed" = any standalone launch**, because iOS Safari never fires `appinstalled`. The raw install-event count is reported separately as a floor, never as the headline.
+- Read at `/super/phone-alerts` (Scoreboard section), alongside the org-app install metrics.

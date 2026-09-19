@@ -43,12 +43,51 @@ export default async function PhoneAlertsPage() {
   const db = createServiceRoleClient()
   const { since, failSince } = windows()
 
-  const [{ data: orgs }, { data: members }, { data: subs }, { data: launches }] = await Promise.all([
+  const [{ data: orgs }, { data: members }, { data: subs }, { data: launches }, { data: sbRows }] = await Promise.all([
     db.from('organizations').select('id, name, slug, status').neq('status', 'suspended').order('name'),
     db.from('org_members').select('organization_id, user_id').limit(20000),
     db.from('push_subscriptions').select('organization_id, user_id, failed_at').limit(20000),
     db.from('pwa_launch_logs').select('organization_id, user_id, standalone, platform, day').gte('day', since).limit(50000),
+    // Scoreboard adoption — anonymous, device-keyed, and login-optional, so it
+    // lives in its own table (see migration 196) rather than pwa_launch_logs.
+    db.from('scoreboard_launch_logs')
+      .select('device_id, organization_id, standalone, platform, installed_at, launches, day')
+      .gte('day', since).limit(50000),
   ])
+
+  // ── Scoreboard rollup ──────────────────────────────────────────────────────
+  // "Installed" = any standalone launch. That is the ONLY install signal iOS
+  // gives (Safari never fires appinstalled), so counting install events alone
+  // would badly understate a phone-heavy audience — they are reported
+  // separately as a floor.
+  const sbDevices = new Map<string, { standalone: boolean; platform: string; installEvent: boolean; onOrg: boolean }>()
+  let sbLaunchTotal = 0
+  for (const r of (sbRows ?? []) as {
+    device_id: string; organization_id: string | null; standalone: boolean
+    platform: string; installed_at: string | null; launches: number
+  }[]) {
+    sbLaunchTotal += r.launches ?? 0
+    const prev = sbDevices.get(r.device_id)
+    sbDevices.set(r.device_id, {
+      standalone: (prev?.standalone ?? false) || r.standalone === true,
+      platform: r.platform || prev?.platform || 'other',
+      installEvent: (prev?.installEvent ?? false) || !!r.installed_at,
+      onOrg: (prev?.onOrg ?? false) || !!r.organization_id,
+    })
+  }
+  const sbAll = [...sbDevices.values()]
+  const sbInstalled = sbAll.filter((d) => d.standalone)
+  const scoreboard = {
+    devices: sbAll.length,
+    installed: sbInstalled.length,
+    installEvents: sbAll.filter((d) => d.installEvent).length,
+    launches: sbLaunchTotal,
+    onOrgHost: sbAll.filter((d) => d.onOrg).length,
+    platforms: sbInstalled.reduce<Record<string, number>>((acc, d) => {
+      acc[d.platform] = (acc[d.platform] ?? 0) + 1
+      return acc
+    }, {}),
+  }
 
   const stats = new Map<string, OrgStat>()
   for (const o of orgs ?? []) {
@@ -131,6 +170,35 @@ export default async function PhoneAlertsPage() {
         </p>
       )}
 
+      {/* ── Scoreboard (anonymous, device-keyed) ── */}
+      <div className="mb-8">
+        <h2 className="text-lg font-bold text-white">Scoreboard</h2>
+        <p className="text-sm text-gray-400 mt-1 mb-4">
+          The free scoreboard is login-optional, so these count <span className="font-semibold">devices</span>, not people —
+          a random id the browser keeps for itself, with no account behind it. Last {DAYS} days.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          {[
+            { label: 'Devices', value: String(scoreboard.devices), sub: `${scoreboard.launches} launches`, color: 'text-white' },
+            { label: 'Installed', value: String(scoreboard.installed), sub: pct(scoreboard.installed, scoreboard.devices) + ' of devices', color: 'text-green-400' },
+            { label: 'Install events', value: String(scoreboard.installEvents), sub: 'Android/desktop only', color: 'text-gray-400' },
+            { label: 'On an org site', value: String(scoreboard.onOrgHost), sub: `${scoreboard.devices - scoreboard.onOrgHost} on the apex`, color: 'text-blue-400' },
+            { label: 'Platforms', value: Object.keys(scoreboard.platforms).length > 0 ? '—' : '0', sub: Object.entries(scoreboard.platforms).sort((a, b) => b[1] - a[1]).map(([p, n]) => `${p} ${n}`).join(' · ') || 'no installs yet', color: 'text-white' },
+          ].map((s) => (
+            <div key={s.label} className="bg-gray-800 rounded-lg p-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">{s.label}</p>
+              <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
+              {s.sub && <p className="text-xs text-gray-500 mt-0.5">{s.sub}</p>}
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-gray-500 mt-3">
+          &ldquo;Installed&rdquo; counts any device that opened the scoreboard from its home screen — the only install
+          signal iOS gives. &ldquo;Install events&rdquo; is what the browser reported outright, so treat it as a floor.
+        </p>
+      </div>
+
+      <h2 className="text-lg font-bold text-white mb-3">Org apps, by organization</h2>
       <div className="bg-white rounded-lg shadow overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">

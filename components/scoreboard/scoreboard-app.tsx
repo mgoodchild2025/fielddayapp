@@ -5,6 +5,8 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { submitScore, adminSetScore } from '@/actions/scores'
 import { recordBracketScore } from '@/actions/brackets'
+import { logScoreboardInstall, logScoreboardLaunch } from '@/actions/scoreboard-metrics'
+import { detectPlatform, getDeviceId, isStandaloneLaunch } from '@/lib/scoreboard-device'
 
 // ── Fieldday Scoreboard ────────────────────────────────────────────────────────
 // A standalone, offline-capable scoreboard: tap a panel to +1, swipe down to −1.
@@ -52,6 +54,8 @@ export type AttachedGame = {
 }
 
 const STORAGE_KEY = 'fieldday-scoreboard-v1'
+/** Adoption metrics fire once per browser session, not once per render. */
+const LAUNCH_LOGGED_KEY = 'fieldday-scoreboard-launch-logged'
 
 const COLORS = ['#0E9F6E', '#2563EB', '#DC2626', '#EA580C', '#7C3AED', '#DB2777', '#0891B2', '#475569']
 
@@ -147,6 +151,9 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     const onInstalled = () => {
       setInstalled(true)
       setInstallPrompt(null)
+      // Adoption metrics — anonymous, best-effort, never blocks the board.
+      const deviceId = getDeviceId()
+      if (deviceId) void logScoreboardInstall({ deviceId, platform: detectPlatform() })
     }
     window.addEventListener('appinstalled', onInstalled)
     // Already-installed check: display-mode also reports 'fullscreen' during
@@ -155,6 +162,19 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     setInstalled(
       window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches && !document.fullscreenElement
     )
+    // One launch per browser session: how many devices open the scoreboard, and
+    // how many of those opened it from the home screen (the only iOS install
+    // signal — Safari never fires appinstalled).
+    try {
+      if (!sessionStorage.getItem(LAUNCH_LOGGED_KEY)) {
+        sessionStorage.setItem(LAUNCH_LOGGED_KEY, '1')
+        const deviceId = getDeviceId()
+        if (deviceId) {
+          void logScoreboardLaunch({ deviceId, standalone: isStandaloneLaunch(), platform: detectPlatform() })
+        }
+      }
+    } catch { /* storage unavailable — skip metrics, never the board */ }
+
     return () => {
       window.removeEventListener('beforeinstallprompt', onPrompt)
       window.removeEventListener('appinstalled', onInstalled)
