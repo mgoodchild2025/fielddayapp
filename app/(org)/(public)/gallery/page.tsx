@@ -7,6 +7,7 @@ import { GalleryGrid } from '@/components/gallery/gallery-grid'
 import { getApprovedVideos } from '@/actions/social'
 import { getOrgApprovedEventMedia } from '@/actions/event-media'
 import { EventMediaGallery } from '@/components/media/event-media-gallery'
+import { cloudinaryThumb } from '@/lib/cloudinary-url'
 
 export default async function GalleryPage() {
   const headersList = await headers()
@@ -52,7 +53,7 @@ export default async function GalleryPage() {
                   <div className="relative w-full bg-gray-100" style={{ paddingBottom: '56.25%' }}>
                     {v.thumbnail_url && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={v.thumbnail_url} alt={v.caption ?? ''} className="absolute inset-0 w-full h-full object-cover" />
+                      <img src={cloudinaryThumb(v.thumbnail_url, { width: 640, height: 360 })} alt={v.caption ?? ''} className="absolute inset-0 w-full h-full object-cover" />
                     )}
                     <span className="absolute inset-0 flex items-center justify-center">
                       <span className="w-12 h-12 rounded-full bg-black/60 flex items-center justify-center text-white text-xl">▶</span>

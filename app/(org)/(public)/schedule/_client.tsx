@@ -10,6 +10,7 @@ import { PlayerCalendar, toLocalDate } from '@/components/ui/player-calendar'
 import type { CalendarDot } from '@/components/ui/player-calendar'
 import { formatGameTime } from '@/lib/format-time'
 import type { GameSub } from '@/actions/game-subs'
+import Image from 'next/image'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ScheduleItem = { _type: 'game' | 'session'; scheduled_at: string; data: any }
@@ -26,8 +27,7 @@ function TeamBadge({
   const inner = (
     <span className="flex items-center gap-1">
       {logoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={logoUrl} alt={name} className="w-4 h-4 rounded-full object-cover shrink-0" />
+        <Image src={logoUrl} alt={name} width={16} height={16} className="w-4 h-4 rounded-full object-cover shrink-0" />
       ) : color ? (
         <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
       ) : null}

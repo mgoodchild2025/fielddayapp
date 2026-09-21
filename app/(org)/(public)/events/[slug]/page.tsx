@@ -1019,33 +1019,35 @@ export default async function EventDetailPage({
   // Teams list (for open-registration team events)
   const canJoinTeam = isTeamBased && league.team_join_policy !== 'admin_only'
 
-  const { data: teams } = isTeamBased
-    ? await db
-        .from('teams')
-        .select('id, name, color, logo_url, team_members(id, status)')
-        .eq('league_id', league.id)
-        .eq('organization_id', org.id)
-        .eq('status', 'active')
-        .order('name')
-    : { data: null }
+  // These two need only ids already in hand, so they go together rather than
+  // one after the other. Each await here is a real network hop to Supabase.
+  const [{ data: teams }, { data: myRegistration }] = await Promise.all([
+    isTeamBased
+      ? db
+          .from('teams')
+          .select('id, name, color, logo_url, team_members(id, status)')
+          .eq('league_id', league.id)
+          .eq('organization_id', org.id)
+          .eq('status', 'active')
+          .order('name')
+      : Promise.resolve({ data: null }),
+    (user && isTeamBased)
+      ? db.from('registrations').select('id, status').eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
 
-
-  const { data: myMemberships } = (user && teams)
-    ? await db.from('team_members').select('team_id').eq('user_id', user.id).in('team_id', teams.map((t: { id: string }) => t.id))
-    : { data: null }
-
-
-  const { data: myRequests } = (user && teams)
-    ? await db.from('team_join_requests').select('team_id, status').eq('user_id', user.id).eq('status', 'pending').in('team_id', teams.map((t: { id: string }) => t.id))
-    : { data: null }
+  // Both of these depend on `teams` and on nothing else, so they pair up too.
+  const [{ data: myMemberships }, { data: myRequests }] = await Promise.all([
+    (user && teams)
+      ? db.from('team_members').select('team_id').eq('user_id', user.id).in('team_id', teams.map((t: { id: string }) => t.id))
+      : Promise.resolve({ data: null }),
+    (user && teams)
+      ? db.from('team_join_requests').select('team_id, status').eq('user_id', user.id).eq('status', 'pending').in('team_id', teams.map((t: { id: string }) => t.id))
+      : Promise.resolve({ data: null }),
+  ])
 
   const myTeamIds = new Set<string>(myMemberships?.map((m: { team_id: string }) => m.team_id) ?? [])
   const myRequestTeamIds = new Set<string>(myRequests?.map((r: { team_id: string }) => r.team_id) ?? [])
-
-
-  const { data: myRegistration } = (user && isTeamBased)
-    ? await db.from('registrations').select('id, status').eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
-    : { data: null }
 
   // Fetch payment plan enrollment for the player's registration (if any)
   let myEnrollment: Awaited<ReturnType<typeof getEnrollmentForRegistration>> = null

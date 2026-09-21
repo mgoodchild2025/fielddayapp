@@ -1,4 +1,5 @@
 import type { EventMediaItem } from '@/actions/event-media'
+import { cloudinaryThumb } from '@/lib/cloudinary-url'
 
 /** Read-only responsive grid of approved event media. Videos show a poster with
  *  a play overlay and open the source on click. */
@@ -25,7 +26,9 @@ export function EventMediaGallery({ items, showLeague = false }: { items: EventM
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={m.thumbnailUrl ?? m.url}
+            // The stored thumbnail is the raw upload — a multi-megabyte phone
+            // photo behind a ~150px tile. Size it at delivery time instead.
+            src={cloudinaryThumb(m.thumbnailUrl ?? m.url, { width: 400, height: 400 })}
             alt={m.caption ?? 'Event media'}
             loading="lazy"
             className="h-full w-full object-cover transition-transform group-hover:scale-105"

@@ -57,11 +57,11 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
           >
             <Image
               src={photo.url}
-              alt={photo.caption ?? ''}
+              alt={photo.caption ?? `Gallery photo ${idx + 1}`}
               width={600}
               height={400}
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 300px"
               className="w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-              unoptimized
             />
             {photo.caption && (
               // Hover-reveal on desktop; always visible on touch screens (no hover there).
@@ -109,11 +109,12 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
           >
             <Image
               src={current.url}
-              alt={current.caption ?? ''}
+              alt={current.caption ?? `Gallery photo ${openIndex !== null ? openIndex + 1 : ''}`}
               width={1920}
               height={1080}
+              sizes="90vw"
+              priority
               className="max-h-[80vh] w-auto object-contain rounded-lg shadow-2xl"
-              unoptimized
             />
             {current.caption && (
               <p className="text-white/80 text-sm text-center max-w-xl px-2">{current.caption}</p>
