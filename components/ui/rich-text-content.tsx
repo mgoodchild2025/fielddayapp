@@ -1,8 +1,10 @@
+import { sanitizeRichText } from '@/lib/sanitize-html'
+
 /**
  * RichTextContent — renders editor output safely.
  *
  * Auto-detects format:
- *  • HTML (new content)  → dangerouslySetInnerHTML with prose styles
+ *  • HTML (new content)  → sanitized, then dangerouslySetInnerHTML with prose styles
  *  • Plain text (legacy) → whitespace-pre-wrap, identical to previous behaviour
  */
 
@@ -22,7 +24,7 @@ export function RichTextContent({ content, className }: Props) {
     return (
       <div
         className={`prose prose-sm max-w-none ${className ?? ''}`}
-        dangerouslySetInnerHTML={{ __html: content }}
+        dangerouslySetInnerHTML={{ __html: sanitizeRichText(content) }}
       />
     )
   }
