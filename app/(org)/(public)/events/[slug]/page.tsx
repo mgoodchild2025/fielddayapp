@@ -680,8 +680,69 @@ export default async function EventDetailPage({
   const dropInPriceCents: number | null = (league as any).drop_in_price_cents ?? null
   const hasDropIn = dropInPriceCents !== null
 
-  // Sponsors to advertise on this event (org sponsors + event-specific)
-  const eventSponsors = await getEventSponsors(league.id, org.id)
+  // ── Overview batch 1 ──────────────────────────────────────────────────────
+  // Five independent reads that only need league / org / user, previously run
+  // one after another. Each await here is a network hop to Supabase, and this
+  // stretch runs on every view of the page regardless of which tab is open.
+  const [
+    eventSponsors,
+    hasSeasonInvite,
+    hasDropInInvite,
+    { data: publishedBracketMeta },
+    { data: leagueDocuments },
+  ] = await Promise.all([
+    getEventSponsors(league.id, org.id),
+
+    // A valid season invite for this private event.
+    (isPrivatePickup && user)
+      ? db
+          .from('pickup_invites')
+          .select('id')
+          .eq('league_id', league.id)
+          .eq('email', user.email!.toLowerCase())
+          .eq('invite_type', 'season')
+          .in('status', ['pending', 'accepted'])
+          .maybeSingle()
+          .then(({ data }) => !!data)
+      : Promise.resolve(false),
+
+    // A pending drop-in invite, matched by the token in the URL or by email.
+    (hasDropIn && user)
+      ? (() => {
+          const query = db
+            .from('pickup_invites')
+            .select('id')
+            .eq('league_id', league.id)
+            .eq('invite_type', 'drop_in')
+            .eq('status', 'pending')
+          const q = inviteToken
+            ? query.eq('token', inviteToken).maybeSingle()
+            : query.eq('email', user.email!.toLowerCase()).maybeSingle()
+          return q.then(({ data }) => !!data)
+        })()
+      : Promise.resolve(false),
+
+    // Published bracket — only need to know whether one exists.
+    isTeamBased
+      ? db
+          .from('brackets')
+          .select('id')
+          .eq('league_id', league.id)
+          .eq('organization_id', org.id)
+          .not('published_at', 'is', null)
+          .limit(1)
+          .single()
+      : Promise.resolve({ data: null }),
+
+    // Documents, fetched early so we know whether to show the tab.
+    db
+      .from('league_documents')
+      .select('id, title, file_url, sort_order')
+      .eq('league_id', league.id)
+      .eq('organization_id', org.id)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true }),
+  ])
 
   // Lazy-generate the event's calendar subscription token (pickup/session events only).
   // One-time write; subsequent views reuse it. Surfaced to registered players below.
@@ -699,71 +760,14 @@ export default async function EventDetailPage({
   }
   const calendarHost = headersList.get('host') ?? ''
 
-  // Check if logged-in user has a valid season invite for this private event
-  const hasSeasonInvite = (isPrivatePickup && user)
-    ? await (async () => {
-
-        const { data } = await db
-          .from('pickup_invites')
-          .select('id')
-          .eq('league_id', league.id)
-          .eq('email', user.email!.toLowerCase())
-          .eq('invite_type', 'season')
-          .in('status', ['pending', 'accepted'])
-          .maybeSingle()
-        return !!data
-      })()
-    : false
-
-  // Check if logged-in user has a pending drop-in invite (by email or by the token in the URL)
-  const hasDropInInvite = (hasDropIn && user)
-    ? await (async () => {
-
-        const query = db
-          .from('pickup_invites')
-          .select('id')
-          .eq('league_id', league.id)
-          .eq('invite_type', 'drop_in')
-          .eq('status', 'pending')
-        // Match by token (from email link) OR by the logged-in user's email
-        const { data } = inviteToken
-          ? await query.eq('token', inviteToken).maybeSingle()
-          : await query.eq('email', user.email!.toLowerCase()).maybeSingle()
-        return !!data
-      })()
-    : false
-
   // A drop-in invite is present in the URL (may be for an unauthenticated visitor)
   const dropInInviteInUrl = urlMode === 'drop_in' && !!inviteToken
   // The return-to URL to use in login redirects from this page
   const returnPath = `/events/${slug}${inviteToken ? `?invite=${inviteToken}${urlMode ? `&mode=${urlMode}` : ''}` : ''}`
 
-  // Check for published bracket (lightweight — just need to know if one exists)
-
-  const { data: publishedBracketMeta } = isTeamBased
-    ?
-      await db
-        .from('brackets')
-        .select('id')
-        .eq('league_id', league.id)
-        .eq('organization_id', org.id)
-        .not('published_at', 'is', null)
-        .limit(1)
-        .single()
-    : { data: null }
-
   const hasBracket = !!publishedBracketMeta
   const isInSeasonOrCompleted = league.status === 'active' || league.status === 'completed'
 
-  // ── Documents (fetched early so we know whether to show the tab) ──────────
-
-  const { data: leagueDocuments } = await db
-    .from('league_documents')
-    .select('id, title, file_url, sort_order')
-    .eq('league_id', league.id)
-    .eq('organization_id', org.id)
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true })
   const hasDocuments = (leagueDocuments ?? []).length > 0
 
   // Tab visibility settings (default to 'public' if columns not yet in types)
@@ -818,19 +822,40 @@ export default async function EventDetailPage({
 
   // Sessions (pickup/drop-in)
 
-  const { data: sessions } = isSessionBased
-    ?
-      await db
-        .from('event_sessions')
-        .select('id, scheduled_at, duration_minutes, capacity, location_override, notes, status, session_registrations(count)')
-        .eq('league_id', league.id)
-        .eq('organization_id', org.id)
-        // Count only live sign-ups — leaveSession cancels rows rather than
-        // deleting them, and an unfiltered embed counts the cancelled ones too.
-        .eq('session_registrations.status', 'registered')
-        .gte('scheduled_at', new Date().toISOString())
-        .order('scheduled_at', { ascending: true })
-    : { data: null }
+  // ── Overview batch 2 ──────────────────────────────────────────────────────
+  // Sessions, the full-pass count and the medal rows are independent of each
+  // other; only the two follow-up reads below need their results.
+  const [{ data: sessions }, { count: fullPassCount }, { data: podiumRows }] = await Promise.all([
+    isSessionBased
+      ? db
+          .from('event_sessions')
+          .select('id, scheduled_at, duration_minutes, capacity, location_override, notes, status, session_registrations(count)')
+          .eq('league_id', league.id)
+          .eq('organization_id', org.id)
+          // Count only live sign-ups — leaveSession cancels rows rather than
+          // deleting them, and an unfiltered embed counts the cancelled ones too.
+          .eq('session_registrations.status', 'registered')
+          .gte('scheduled_at', new Date().toISOString())
+          .order('scheduled_at', { ascending: true })
+      : Promise.resolve({ data: null }),
+
+    // Full-pass holders attend EVERY session, so they count toward each
+    // session's occupancy — mirrors the admin Sessions page.
+    isSessionBased
+      ? db.from('registrations')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', org.id).eq('league_id', league.id).eq('status', 'active')
+          .is('session_id', null)
+          .or('registration_type.eq.season,registration_type.is.null')
+      : Promise.resolve({ count: 0 }),
+
+    // Final results: the event's awarded medals.
+    db
+      .from('medals')
+      .select('id, placement, label, team_name, team_id, medal_recipients(display_name)')
+      .eq('league_id', league.id)
+      .eq('organization_id', org.id),
+  ])
 
   // When an event runs multiple sessions, each session shows its own spots-left,
   // so the event-level "Players" capacity card would be redundant/confusing.
@@ -839,38 +864,28 @@ export default async function EventDetailPage({
   // Players who register via the registration + payment flow are rows in
   // `registrations` (session_id set), not session_registrations — count both so
   // each session's "spots left" is accurate.
-  const dropInCountBySession = isSessionBased
-    ? await countDropInRegsBySession(db, org.id, league.id, (sessions ?? []).map((s: { id: string }) => s.id))
-    : new Map<string, number>()
 
   // Full-pass holders: active season-type registrations (no session_id) attend
   // EVERY session, so they count toward each session's occupancy — same as the
   // admin Sessions page. (Mirrors that page's seasonRegistrantCount.)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sessionRegistrationMode: string = (league as any).registration_mode ?? 'season'
-  const { count: fullPassCount } = isSessionBased
-    ?
-      await db.from('registrations')
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', org.id).eq('league_id', league.id).eq('status', 'active')
-        .is('session_id', null)
-        .or('registration_type.eq.season,registration_type.is.null')
-    : { count: 0 }
   const fullPass = fullPassCount ?? 0
 
-  // Final results: the event's awarded medals (podium first, then tier titles)
-  const { data: podiumRows } = await db
-    .from('medals')
-    .select('id, placement, label, team_name, team_id, medal_recipients(display_name)')
-    .eq('league_id', league.id)
-    .eq('organization_id', org.id)
   // Logos come from the live team row when it still exists; the medal's own
   // name snapshot is the fallback (and drives the avatar's initial).
   const podiumTeamIds = [...new Set(((podiumRows ?? []) as { team_id: string | null }[])
     .map((m) => m.team_id).filter((id): id is string => !!id))]
-  const { data: podiumTeams } = podiumTeamIds.length > 0
-    ? await db.from('teams').select('id, logo_url, color').in('id', podiumTeamIds)
-    : { data: [] }
+
+  // Each of these needs one result from batch 2, and nothing from the other.
+  const [dropInCountBySession, { data: podiumTeams }] = await Promise.all([
+    isSessionBased
+      ? countDropInRegsBySession(db, org.id, league.id, (sessions ?? []).map((s: { id: string }) => s.id))
+      : Promise.resolve(new Map<string, number>()),
+    podiumTeamIds.length > 0
+      ? db.from('teams').select('id, logo_url, color').in('id', podiumTeamIds)
+      : Promise.resolve({ data: [] as { id: string; logo_url: string | null; color: string | null }[] }),
+  ])
   const podiumTeamMeta = new Map(
     (podiumTeams ?? []).map((t) => [t.id, { logoUrl: t.logo_url ?? null, color: t.color ?? null }])
   )
@@ -905,38 +920,43 @@ export default async function EventDetailPage({
     : null
 
 
-  const { data: mySessionRegs } = (isSessionBased && !isSeasonPickup && !isPickupEvent && user)
-    ?
-      await db
-        .from('session_registrations')
-        .select('session_id')
-        .eq('league_id', league.id)
-        .eq('user_id', user.id)
-        .eq('status', 'registered')
-    : { data: null }
+  // ── Overview batch 3 ──────────────────────────────────────────────────────
+  // This visitor's own standing in the event: three independent reads keyed on
+  // the same user and league.
+  const [{ data: mySessionRegs }, { data: mySeasonRegistration }, { data: myDropInRegistrations }] =
+    await Promise.all([
+      (isSessionBased && !isSeasonPickup && !isPickupEvent && user)
+        ? db
+            .from('session_registrations')
+            .select('session_id')
+            .eq('league_id', league.id)
+            .eq('user_id', user.id)
+            .eq('status', 'registered')
+        : Promise.resolve({ data: null }),
+
+      (offersSeasonPass && user)
+        ? db.from('registrations').select('id, status')
+            .eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id)
+            .eq('registration_type', 'season').maybeSingle()
+        : Promise.resolve({ data: null }),
+
+      // Per-session drop-ins: the player's paid registrations, one row per
+      // session, so each session knows whether they are already through the
+      // waiver and payment flow.
+      //
+      // ACTIVE only. A 'pending' row is an unfinished checkout — someone who
+      // backed out of payment isn't in the session, and showing them "Joined"
+      // stranded them (it also never held a spot: the occupancy count is
+      // active-only too).
+      (isSessionBased && !isSeasonPickup && user)
+        ? db.from('registrations').select('id, session_id, status')
+            .eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id)
+            .eq('registration_type', 'drop_in')
+            .eq('status', 'active')
+        : Promise.resolve({ data: null }),
+    ])
+
   const mySessionIds = new Set((mySessionRegs ?? []).map((r: { session_id: string }) => r.session_id))
-
-
-  const { data: mySeasonRegistration } = (offersSeasonPass && user)
-    ? await db.from('registrations').select('id, status')
-        .eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id)
-        .eq('registration_type', 'season').maybeSingle()
-    : { data: null }
-
-  // For per-session drop-in events, fetch all of the player's paid registrations so we can
-  // check per-session whether they've already been through the waiver + payment flow.
-  // Each drop-in registration covers exactly one session (session_id is set on the row).
-
-  const { data: myDropInRegistrations } = (isSessionBased && !isSeasonPickup && user)
-    ? await db.from('registrations').select('id, session_id, status')
-        .eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id)
-        .eq('registration_type', 'drop_in')
-        // ACTIVE only. A 'pending' row is an unfinished checkout — someone who
-        // backed out of payment isn't in the session, and showing them "Joined"
-        // stranded them (it also never held a spot: the occupancy count is
-        // active-only too).
-        .eq('status', 'active')
-    : { data: null }
 
   // Build a Set of session IDs the player has already registered (and paid) for.
   const myPaidSessionIds = new Set(
