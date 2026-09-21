@@ -21,6 +21,11 @@ export type ComparisonPage = {
   faqs: Array<{ q: string; a: string }>
 }
 
+// Last date the static marketing copy changed. Bump this by hand when you edit
+// the homepage, comparison, sport, About, or Contact copy — the sitemap reports
+// it as <lastmod> for those pages, so it must reflect a real change.
+export const MARKETING_CONTENT_UPDATED = '2026-09-15'
+
 export const COMPARISONS: ComparisonPage[] = [
   {
     slug: 'teamsnap',
