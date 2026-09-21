@@ -79,8 +79,9 @@ export function StepCaptainTeam({ leagueId, captainTeamId, captainTeamName, onBa
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Team name *</label>
+          <label htmlFor="captain-team-name" className="block text-sm font-medium text-gray-700 mb-1">Team name *</label>
           <input
+            id="captain-team-name"
             type="text"
             value={teamName}
             onChange={(e) => setTeamName(e.target.value)}

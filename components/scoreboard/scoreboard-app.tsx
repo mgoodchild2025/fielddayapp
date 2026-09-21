@@ -544,8 +544,8 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     return (
       <div
         key={team}
-        role="button"
-        aria-label={`${meta.name}: ${pts} points. Tap to add a point, swipe down to remove one.`}
+        role="group"
+        aria-label={`${meta.name}, ${pts} points`}
         className="relative flex-1 flex flex-col items-center justify-center select-none overflow-hidden"
         style={{ background: `linear-gradient(180deg, ${meta.color}, color-mix(in srgb, ${meta.color} 72%, black))`, touchAction: 'none' }}
         onPointerDown={onPointerDown(team)}
@@ -574,12 +574,43 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
             ))}
           </div>
         )}
+
+        {/* The accessible path. Tapping the panel is still the fast route for
+            touch, but tap, swipe-down and long-press have no keyboard or
+            switch equivalent, so these buttons are the only way the board can
+            be operated without a pointer. They are real buttons, which is why
+            the panel around them is a group rather than a button — a button
+            must not contain interactive descendants. Kept faint so the
+            courtside read stays uncluttered; they come forward on focus. */}
+        <div className="flex gap-3 mt-4">
+          {([['−', -1, 'Remove a point from'], ['+', 1, 'Add a point to']] as const).map(([glyph, delta, verb]) => (
+            <button
+              key={glyph}
+              type="button"
+              aria-label={`${verb} ${meta.name}`}
+              className="w-11 h-11 rounded-full bg-white/15 text-white text-2xl leading-none font-bold opacity-45 hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-white transition-opacity"
+              // Keep the panel's gesture machine out of it: a press here is a
+              // button press, never a tap on the panel behind it.
+              onPointerDown={(e) => e.stopPropagation()}
+              onPointerUp={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); score(team, delta) }}
+            >
+              {glyph}
+            </button>
+          ))}
+        </div>
       </div>
     )
   }
 
   return (
     <div className="fixed inset-0 bg-[#0B1210] flex flex-col portrait:flex-col landscape:flex-row overscroll-none">
+      {/* Score changes are otherwise silent to a screen reader: the number just
+          swaps in place inside a control the user is still focused on. */}
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {game.teamA.name} {a}, {game.teamB.name} {b}
+        {game.config.mode === 'sets' ? `. Sets ${setsWonA} to ${setsWonB}.` : '.'}
+      </p>
       {panel(first)}
 
       {/* Middle bar */}
