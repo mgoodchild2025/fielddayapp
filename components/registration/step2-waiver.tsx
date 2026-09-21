@@ -30,6 +30,11 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registr
 
   // Waiver scroll state
   const [scrolledToBottom, setScrolledToBottom] = useState(false)
+  // Explicit acknowledgement. Scroll tracking alone is not reachable by
+  // keyboard or screen reader: the observer only fires when the sentinel is
+  // visually scrolled into view, so without this the signing fields could
+  // never be enabled and registration could never be completed.
+  const [acknowledged, setAcknowledged] = useState(false)
   const sentinelRef = useRef<HTMLDivElement>(null)
 
   // Standard signing
@@ -41,6 +46,9 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registr
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  /** Signing is unlocked by reaching the end of the waiver, or by confirming it. */
+  const canSign = scrolledToBottom || acknowledged
 
   useEffect(() => {
     if (!sentinelRef.current) return
@@ -153,24 +161,26 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registr
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="guardian-name" className="block text-sm font-medium text-gray-700 mb-1">
             Guardian&apos;s full legal name
           </label>
           <input
+            id="guardian-name"
             type="text"
             value={guardianName}
             onChange={(e) => setGuardianName(e.target.value)}
-            disabled={!scrolledToBottom}
-            placeholder={scrolledToBottom ? 'e.g. Jane Smith' : 'Scroll to the bottom to enable signing'}
+            disabled={!canSign}
+            placeholder={canSign ? 'e.g. Jane Smith' : 'Read the waiver to enable signing'}
             className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-400"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Relationship to player</label>
+          <label htmlFor="guardian-relationship" className="block text-sm font-medium text-gray-700 mb-1">Relationship to player</label>
           <select
+            id="guardian-relationship"
             value={guardianRelationship}
             onChange={(e) => setGuardianRelationship(e.target.value as GuardianRelationship)}
-            disabled={!scrolledToBottom}
+            disabled={!canSign}
             className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-400"
           >
             <option value="parent">Parent</option>
@@ -181,7 +191,7 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registr
 
       <button
         onClick={handleSign}
-        disabled={!scrolledToBottom || !guardianName.trim() || loading}
+        disabled={!canSign || !guardianName.trim() || loading}
         className="w-full py-3 rounded-md font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ backgroundColor: 'var(--brand-primary)' }}
       >
@@ -193,19 +203,20 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registr
       <h2 className="font-semibold">Sign Below</h2>
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{error}</div>}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Type your full legal name</label>
+        <label htmlFor="signature-name" className="block text-sm font-medium text-gray-700 mb-1">Type your full legal name</label>
         <input
+          id="signature-name"
           type="text"
           value={signatureName}
           onChange={(e) => setSignatureName(e.target.value)}
-          disabled={!scrolledToBottom}
-          placeholder={scrolledToBottom ? 'Your full name' : 'Scroll to the bottom to enable signing'}
+          disabled={!canSign}
+          placeholder={canSign ? 'Your full name' : 'Read the waiver to enable signing'}
           className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-400"
         />
       </div>
       <button
         onClick={handleSign}
-        disabled={!scrolledToBottom || !signatureName.trim() || loading}
+        disabled={!canSign || !signatureName.trim() || loading}
         className="w-full py-3 rounded-md font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ backgroundColor: 'var(--brand-primary)' }}
       >
@@ -246,12 +257,20 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registr
           )}
         </div>
         <div className="relative mt-3">
-          <div className="h-72 overflow-y-auto border rounded-md p-4 text-gray-700">
+          {/* tabIndex makes the region focusable so it can be scrolled with the
+              arrow keys, Page Down and End — a plain overflow container cannot
+              be reached or scrolled by keyboard at all. */}
+          <div
+            tabIndex={0}
+            role="region"
+            aria-label={`${waiver.title ?? 'Waiver'} text`}
+            className="h-72 overflow-y-auto border rounded-md p-4 text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-gray-500"
+          >
             <RichTextContent content={waiver.content} />
             <div ref={sentinelRef} className="h-1" />
           </div>
-          {/* Scroll-to-bottom prompt — hidden once the sentinel is visible */}
-          {!scrolledToBottom && (
+          {/* Scroll-to-bottom prompt — hidden once signing is unlocked */}
+          {!canSign && (
             <div className="absolute bottom-0 left-0 right-0 pointer-events-none rounded-b-md overflow-hidden">
               {/* gradient fade */}
               <div className="h-16 bg-gradient-to-t from-white to-transparent" />
@@ -267,6 +286,19 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registr
               </div>
             </div>
           )}
+        </div>
+
+        <div className="mt-3 flex items-start gap-2.5">
+          <input
+            id="waiver-acknowledged"
+            type="checkbox"
+            checked={acknowledged}
+            onChange={(e) => setAcknowledged(e.target.checked)}
+            className="mt-0.5 w-4 h-4 shrink-0"
+          />
+          <label htmlFor="waiver-acknowledged" className="text-sm text-gray-600">
+            I have read the waiver in full.
+          </label>
         </div>
       </div>
 

@@ -11,6 +11,7 @@ import { DnsRecordsPanel } from '@/components/branding/dns-records-panel'
 import { UpgradeBadge } from '@/components/ui/upgrade-prompt'
 import type { RailwayDnsRecord } from '@/lib/railway'
 import { UploadStatus, Spinner } from '@/components/ui/upload-status'
+import { checkContrast } from '@/lib/contrast'
 
 // Minimal subset of org_branding needed by this form (avoids depending on generated DB types
 // for columns that may not yet be in the snapshot)
@@ -170,6 +171,20 @@ export function BrandingForm({
   const bodyFont = watch('body_font')
   const primaryColor = watch('primary_color')
   const secondaryColor = watch('secondary_color')
+  const bgColor = watch('bg_color')
+  const textColor = watch('text_color')
+
+  // These colours become CSS variables on every public page, so a pale primary
+  // with white button text quietly fails contrast across the whole org site.
+  // Nothing downstream can catch it — the values are runtime data. Warn here,
+  // where the choice is made. Advisory, not blocking: an org may knowingly
+  // accept the risk, and we should not hold their branding hostage.
+  const contrastChecks = [
+    checkContrast(textColor, bgColor, 'Body text on the page background'),
+    checkContrast('#ffffff', primaryColor, 'White text on the primary colour'),
+    checkContrast('#ffffff', secondaryColor, 'White text on the secondary colour'),
+  ].filter((c): c is NonNullable<typeof c> => c !== null)
+  const contrastFailures = contrastChecks.filter((c) => !c.passes)
 
   async function onSubmit(data: FormData) {
     setLoading(true)
@@ -273,6 +288,25 @@ export function BrandingForm({
           <ColorField label="Background Color" name="bg_color" control={control} errors={errors} />
           <ColorField label="Text Color" name="text_color" control={control} errors={errors} />
         </div>
+
+        {contrastFailures.length > 0 ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3" role="status">
+            <p className="text-sm font-medium text-amber-900">
+              {contrastFailures.length === 1 ? 'One colour pair is' : `${contrastFailures.length} colour pairs are`} hard to read
+            </p>
+            <ul className="mt-1.5 space-y-1">
+              {contrastFailures.map((c) => (
+                <li key={c.message} className="text-xs text-amber-800">{c.message}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-amber-700">
+              You can still save. Players with low vision, or anyone reading a phone in a bright gym,
+              may struggle with these combinations.
+            </p>
+          </div>
+        ) : contrastChecks.length > 0 && (
+          <p className="text-xs text-green-700">✓ All colour pairs meet the WCAG AA contrast minimum.</p>
+        )}
       </div>
 
       <div className="bg-white rounded-lg border p-5 space-y-6">

@@ -291,8 +291,10 @@ export function CaptainScoreEntry({
           ) : (
             <div className="flex items-end gap-3">
               <div className="flex flex-col items-center">
-                <label className="text-[10px] text-gray-400 mb-1 truncate max-w-[64px] text-center">{homeTeamName}</label>
+                <label htmlFor="captain-home-score" className="text-[10px] text-gray-400 mb-1 truncate max-w-[64px] text-center">{homeTeamName}</label>
                 <input
+                  id="captain-home-score"
+                  aria-label={`${homeTeamName} score`}
                   type="number" min={0} value={homeScore}
                   onChange={(e) => setHomeScore(Number(e.target.value))}
                   className="w-16 border rounded px-2 py-1.5 text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-blue-300"
@@ -300,8 +302,10 @@ export function CaptainScoreEntry({
               </div>
               <span className="text-gray-300 font-bold text-xl mb-2">–</span>
               <div className="flex flex-col items-center">
-                <label className="text-[10px] text-gray-400 mb-1 truncate max-w-[64px] text-center">{awayTeamName}</label>
+                <label htmlFor="captain-away-score" className="text-[10px] text-gray-400 mb-1 truncate max-w-[64px] text-center">{awayTeamName}</label>
                 <input
+                  id="captain-away-score"
+                  aria-label={`${awayTeamName} score`}
                   type="number" min={0} value={awayScore}
                   onChange={(e) => setAwayScore(Number(e.target.value))}
                   className="w-16 border rounded px-2 py-1.5 text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-blue-300"
