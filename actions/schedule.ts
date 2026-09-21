@@ -87,6 +87,7 @@ const addGameSchema = z.object({
   weekNumber: z.coerce.number().optional(),
   divisionId: z.string().uuid().optional(),
   poolId: z.string().uuid().optional(),
+  isExhibition: z.boolean().optional(),
 })
 
 export async function addGame(input: z.infer<typeof addGameSchema>) {
@@ -104,6 +105,22 @@ export async function addGame(input: z.infer<typeof addGameSchema>) {
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
 
+  // Same admin gate every other mutating action in this file uses. Without it
+  // this action wrote to the schedule through the service-role client, which
+  // bypasses RLS, for any caller at all.
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const { data: addGameAdmin } = await db
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+
+  if (!addGameAdmin) return { data: null, error: 'Admin access required' }
+
   const { data, error } = await db
     .from('games')
     .insert({
@@ -118,6 +135,7 @@ export async function addGame(input: z.infer<typeof addGameSchema>) {
       week_number: parsed.data.weekNumber ?? null,
       division_id: parsed.data.divisionId ?? null,
       pool_id: parsed.data.poolId ?? null,
+      is_exhibition: parsed.data.isExhibition ?? false,
     })
     .select('id')
     .single()
@@ -167,6 +185,20 @@ export async function generateRoundRobinSchedule(input: {
 
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
+
+  // Admin gate — this action can wipe and regenerate an entire schedule.
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated', count: 0 }
+
+  const { data: generateAdmin } = await db
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+
+  if (!generateAdmin) return { error: 'Admin access required', count: 0 }
 
 
   const { data: realTeams } = await db
@@ -242,6 +274,7 @@ const updateGameSchema = z.object({
   court: z.string().optional(),
   weekNumber: z.coerce.number().optional(),
   poolId: z.string().uuid().optional().nullable(),
+  isExhibition: z.boolean().optional(),
 })
 
 export async function updateGame(input: z.infer<typeof updateGameSchema>) {
@@ -287,6 +320,8 @@ export async function updateGame(input: z.infer<typeof updateGameSchema>) {
       court: parsed.data.court ?? null,
       week_number: parsed.data.weekNumber ?? null,
       pool_id: parsed.data.poolId ?? null,
+      // Only touch the flag when the caller sent it (other updateGame callers don't).
+      ...(parsed.data.isExhibition !== undefined ? { is_exhibition: parsed.data.isExhibition } : {}),
     })
     .eq('id', parsed.data.gameId)
     .eq('organization_id', org.id)
@@ -1112,6 +1147,20 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
 
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
+
+  // Bulk schedule insert — same admin gate as every other mutating action here.
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated', count: 0 }
+
+  const { data: importAdmin } = await db
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+
+  if (!importAdmin) return { error: 'Admin access required', count: 0 }
 
   // Get org timezone for correct UTC conversion
 

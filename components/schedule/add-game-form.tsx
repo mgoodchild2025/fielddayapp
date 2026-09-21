@@ -16,6 +16,7 @@ const schema = z.object({
   court: z.string().optional(),
   weekNumber: z.number().optional(),
   poolId: z.string().optional(),
+  isExhibition: z.boolean().optional(),
 }).refine(
   (d) => {
     const hId = d.homeTeamId || ''
@@ -67,6 +68,7 @@ export function AddGameForm({ leagueId, sport, teams, pools = [] }: Props) {
       court: data.court,
       weekNumber: data.weekNumber,
       poolId: data.poolId || undefined,
+      isExhibition: data.isExhibition ?? false,
     })
     if (result.error) {
       setServerError(result.error)
@@ -170,6 +172,14 @@ export function AddGameForm({ leagueId, sport, teams, pools = [] }: Props) {
             </select>
           </div>
         )}
+
+        <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
+          <input type="checkbox" {...register('isExhibition')} className="rounded mt-0.5" />
+          <span>
+            <span className="font-medium">Exhibition game</span>
+            <span className="block text-[11px] text-gray-400">Scored like any other game, but doesn&rsquo;t count toward standings.</span>
+          </span>
+        </label>
 
         <button
           type="submit"

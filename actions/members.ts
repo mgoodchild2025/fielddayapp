@@ -256,6 +256,13 @@ export async function inviteMember(input: FormData) {
     return { error: 'Unauthorized' }
   }
 
+  // Only an org_admin may grant an admin role. Without this a league_admin —
+  // a role scoped to running leagues — could invite an address they control
+  // straight in as org_admin, which carries Stripe keys and finances.
+  if (caller.role !== 'org_admin' && ['org_admin', 'league_admin'].includes(parsed.data.role)) {
+    return { error: 'Only an organization admin can grant admin roles' }
+  }
+
   // Find existing profile by email — must use service role to bypass RLS,
   // since the anon client can't read other users' profile rows.
   const { data: existingProfile } = await service

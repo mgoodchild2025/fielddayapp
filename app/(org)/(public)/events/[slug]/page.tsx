@@ -33,8 +33,7 @@ import {
   computePts, sortStandings, VOLLEYBALL_SPORTS,
   accumulateGameResult, emptyTeamStat, computeStreaks,
   type TeamStat as BaseTeamStat, type TeamStatTotals,
-  type PtsMethod, type VolleyballMode,
-} from '@/lib/standings'
+  type PtsMethod, type VolleyballMode, countsForStandings } from '@/lib/standings'
 import { ChevronRight } from 'lucide-react'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
@@ -288,6 +287,7 @@ type GameRow = {
   court: string | null
   status: string
   cancellation_reason?: string | null
+  is_exhibition?: boolean | null
   week_number: number | null
   pool_id?: string | null
   poolName?: string | null
@@ -387,6 +387,7 @@ function DateGroup({
                   {game.court && <><span>·</span><span>Court {game.court}</span></>}
                   {game.week_number && showWeek && <><span>·</span><span>Wk {game.week_number}</span></>}
                   {showKind && <GameKindBadge poolName={game.poolName} isPlayoff={game.isPlayoff} className="not-italic" />}
+                  {game.is_exhibition && <span className="not-italic text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700" title="Doesn't count toward standings">Exhibition</span>}
                   {game.isPlayoff && (game.playoffTier || game.playoffRound) && (
                     <span className="text-gray-500">{[game.playoffTier, game.playoffRound].filter(Boolean).join(' · ')}</span>
                   )}
@@ -1018,33 +1019,35 @@ export default async function EventDetailPage({
   // Teams list (for open-registration team events)
   const canJoinTeam = isTeamBased && league.team_join_policy !== 'admin_only'
 
-  const { data: teams } = isTeamBased
-    ? await db
-        .from('teams')
-        .select('id, name, color, logo_url, team_members(id, status)')
-        .eq('league_id', league.id)
-        .eq('organization_id', org.id)
-        .eq('status', 'active')
-        .order('name')
-    : { data: null }
+  // These two need only ids already in hand, so they go together rather than
+  // one after the other. Each await here is a real network hop to Supabase.
+  const [{ data: teams }, { data: myRegistration }] = await Promise.all([
+    isTeamBased
+      ? db
+          .from('teams')
+          .select('id, name, color, logo_url, team_members(id, status)')
+          .eq('league_id', league.id)
+          .eq('organization_id', org.id)
+          .eq('status', 'active')
+          .order('name')
+      : Promise.resolve({ data: null }),
+    (user && isTeamBased)
+      ? db.from('registrations').select('id, status').eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
 
-
-  const { data: myMemberships } = (user && teams)
-    ? await db.from('team_members').select('team_id').eq('user_id', user.id).in('team_id', teams.map((t: { id: string }) => t.id))
-    : { data: null }
-
-
-  const { data: myRequests } = (user && teams)
-    ? await db.from('team_join_requests').select('team_id, status').eq('user_id', user.id).eq('status', 'pending').in('team_id', teams.map((t: { id: string }) => t.id))
-    : { data: null }
+  // Both of these depend on `teams` and on nothing else, so they pair up too.
+  const [{ data: myMemberships }, { data: myRequests }] = await Promise.all([
+    (user && teams)
+      ? db.from('team_members').select('team_id').eq('user_id', user.id).in('team_id', teams.map((t: { id: string }) => t.id))
+      : Promise.resolve({ data: null }),
+    (user && teams)
+      ? db.from('team_join_requests').select('team_id, status').eq('user_id', user.id).eq('status', 'pending').in('team_id', teams.map((t: { id: string }) => t.id))
+      : Promise.resolve({ data: null }),
+  ])
 
   const myTeamIds = new Set<string>(myMemberships?.map((m: { team_id: string }) => m.team_id) ?? [])
   const myRequestTeamIds = new Set<string>(myRequests?.map((r: { team_id: string }) => r.team_id) ?? [])
-
-
-  const { data: myRegistration } = (user && isTeamBased)
-    ? await db.from('registrations').select('id, status').eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
-    : { data: null }
 
   // Fetch payment plan enrollment for the player's registration (if any)
   let myEnrollment: Awaited<ReturnType<typeof getEnrollmentForRegistration>> = null
@@ -1254,7 +1257,7 @@ export default async function EventDetailPage({
       db
         .from('games')
         .select(`
-          id, scheduled_at, court, status, cancellation_reason, week_number, pool_id,
+          id, scheduled_at, court, status, cancellation_reason, is_exhibition, week_number, pool_id,
           home_team_id, away_team_id,
           home_team_label, away_team_label,
           home_team:teams!games_home_team_id_fkey(id, name),
@@ -1420,7 +1423,7 @@ export default async function EventDetailPage({
       db.from('divisions').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
       db.from('pools').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
       db.from('game_results')
-        .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id, scheduled_at)')
+        .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id, scheduled_at, is_exhibition)')
         .eq('organization_id', org.id)
         .eq('status', 'confirmed'),
     ])
@@ -1440,6 +1443,7 @@ export default async function EventDetailPage({
     for (const r of resultsData ?? []) {
       const game = Array.isArray(r.game) ? r.game[0] : r.game
       if (!game || game.status !== 'completed' || game.league_id !== league.id) continue
+      if (!countsForStandings(game)) continue // exhibition
       const { home_team_id: ht, away_team_id: at, pool_id: gamePool } = game
       if (!ht || !at || !leagueTeamIds.has(ht) || !leagueTeamIds.has(at)) continue
 

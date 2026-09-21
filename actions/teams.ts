@@ -317,8 +317,11 @@ export async function adminSetCaptain(memberId: string, teamId: string, leagueId
 // ─── Regenerate team code ─────────────────────────────────────────────────────
 
 export async function regenerateTeamCode(teamId: string) {
-  const headersList = await headers()
-  const org = await getCurrentOrg(headersList)
+  // The join code is what lets people onto the roster — only a team manager
+  // or an org admin may cycle it.
+  const { error: authError, org } = await requireCaptainOrCoach(teamId)
+  if (authError) return { error: authError }
+
   const supabase = await createServerClient()
 
   const { data, error } = await supabase
@@ -870,6 +873,11 @@ export async function rejectJoinRequest(requestId: string) {
 
   if (!req) return { error: 'Request not found' }
 
+  // Deciding who joins a team is the team manager's call (or an admin's) —
+  // previously any signed-in user could reject anyone's request.
+  const { error: authError } = await requireCaptainOrCoach(req.team_id)
+  if (authError) return { error: authError }
+
   // Fetch league_id for revalidation
   const { data: team } = await db
     .from('teams')
@@ -1111,8 +1119,9 @@ export async function updateTeam(
   leagueId: string,
   updates: { name?: string; color?: string | null; logo_url?: string | null }
 ) {
-  const headersList = await headers()
-  const org = await getCurrentOrg(headersList)
+  const { error: authError, org } = await requireCaptainOrCoach(teamId)
+  if (authError) return { error: authError }
+
   const db = createServiceRoleClient()
 
   const { error } = await db

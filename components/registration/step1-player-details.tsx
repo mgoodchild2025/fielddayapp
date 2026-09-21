@@ -176,28 +176,41 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
             { label: 'Phone', name: 'phone' as keyof FormData, type: 'tel' },
           ].map(({ label, name, type }) => (
             <div key={name} className={name === 'full_name' ? 'col-span-2' : ''}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-              <input {...register(name)} type={type} className="w-full border rounded-md px-3 py-2 text-base" />
-              {errors[name] && <p className="text-red-500 text-xs mt-1">{errors[name]?.message as string}</p>}
+              <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+              <input
+                {...register(name)}
+                id={name}
+                type={type}
+                aria-invalid={errors[name] ? true : undefined}
+                aria-describedby={errors[name] ? `${name}-error` : undefined}
+                className="w-full border rounded-md px-3 py-2 text-base"
+              />
+              {errors[name] && <p id={`${name}-error`} className="text-red-500 text-xs mt-1">{errors[name]?.message as string}</p>}
             </div>
           ))}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className={isDropIn ? 'col-span-2' : ''}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Skill Level *</label>
-            <select {...register('skill_level')} className="w-full border rounded-md px-3 py-2 text-base">
+            <label htmlFor="skill_level" className="block text-sm font-medium text-gray-700 mb-1">Skill Level *</label>
+            <select
+              {...register('skill_level')}
+              id="skill_level"
+              aria-invalid={errors.skill_level ? true : undefined}
+              aria-describedby={errors.skill_level ? 'skill_level-error' : undefined}
+              className="w-full border rounded-md px-3 py-2 text-base"
+            >
               <option value="">Select…</option>
               <option value="beginner">Beginner</option>
               <option value="intermediate">Intermediate</option>
               <option value="competitive">Competitive</option>
             </select>
-            {errors.skill_level && <p className="text-red-500 text-xs mt-1">{errors.skill_level.message}</p>}
+            {errors.skill_level && <p id="skill_level-error" className="text-red-500 text-xs mt-1">{errors.skill_level.message}</p>}
           </div>
           {!isDropIn && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">T-Shirt Size <span className="font-normal text-gray-400">(optional)</span></label>
-              <select {...register('t_shirt_size')} className="w-full border rounded-md px-3 py-2 text-base">
+              <label htmlFor="t_shirt_size" className="block text-sm font-medium text-gray-700 mb-1">T-Shirt Size <span className="font-normal text-gray-400">(optional)</span></label>
+              <select {...register('t_shirt_size')} id="t_shirt_size" className="w-full border rounded-md px-3 py-2 text-base">
                 <option value="">Select…</option>
                 {SHIRT_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -208,8 +221,9 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
 
         {positions.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Position</label>
+            <label htmlFor="preferred_position" className="block text-sm font-medium text-gray-700 mb-1">Preferred Position</label>
             <select
+              id="preferred_position"
               value={selectedPosition}
               onChange={(e) => setSelectedPosition(e.target.value)}
               className="w-full border rounded-md px-3 py-2 text-base"
@@ -229,9 +243,16 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
             { label: 'Phone', name: 'emergency_contact_phone' as keyof FormData, type: 'tel' },
           ].map(({ label, name, type }) => (
             <div key={name}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-              <input {...register(name)} type={type} className="w-full border rounded-md px-3 py-2 text-base" />
-              {errors[name] && <p className="text-red-500 text-xs mt-1">{errors[name]?.message as string}</p>}
+              <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+              <input
+                {...register(name)}
+                id={name}
+                type={type}
+                aria-invalid={errors[name] ? true : undefined}
+                aria-describedby={errors[name] ? `${name}-error` : undefined}
+                className="w-full border rounded-md px-3 py-2 text-base"
+              />
+              {errors[name] && <p id={`${name}-error`} className="text-red-500 text-xs mt-1">{errors[name]?.message as string}</p>}
             </div>
           ))}
         </div>
@@ -243,7 +264,9 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
           <p className="text-xs text-gray-500">If your captain gave you a 6-character code, enter it here to join your team automatically.</p>
           <div className="flex gap-2 items-start">
             <div className="flex-1">
+              <label htmlFor="team_code" className="sr-only">Team code</label>
               <input
+                id="team_code"
                 type="text"
                 value={teamCode}
                 onChange={(e) => {

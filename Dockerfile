@@ -45,6 +45,10 @@ ENV NODE_ENV=production \
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+# Cron runner — lets the scheduled jobs be invoked from this image too
+# (e.g. `railway run node scripts/run-cron.mjs reminders`). Dockerfile.cron
+# builds a far smaller image for the dedicated cron services.
+COPY --from=builder /app/scripts/run-cron.mjs ./scripts/run-cron.mjs
 
 EXPOSE 3000
 CMD ["node", "server.js"]

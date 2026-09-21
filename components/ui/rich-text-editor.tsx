@@ -9,6 +9,7 @@ import { useEffect, useCallback, useRef, useState } from 'react'
 import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Link as LinkIcon, Minus, ImageIcon } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
 import { uploadContentImage } from '@/actions/content-images'
+import { isSafeLinkHref } from '@/lib/sanitize-html'
 import { UploadStatus } from '@/components/ui/upload-status'
 
 interface Props {
@@ -109,6 +110,12 @@ function promptLink(editor: Editor) {
   if (url === null) return
   if (!url) {
     editor.chain().focus().extendMarkRange('link').unsetLink().run()
+    return
+  }
+  // Defence in depth: the renderer sanitizes too, but a javascript: URL should
+  // never reach the database in the first place.
+  if (!isSafeLinkHref(url)) {
+    window.alert('That link was not added. Use a web address starting with https://, or a mailto: or tel: link.')
     return
   }
   editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()

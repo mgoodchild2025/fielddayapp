@@ -680,41 +680,12 @@ export async function updateLeagueMerchandisePrice(
 }
 
 /** Create pending merchandise orders before Stripe redirect. */
-export async function createMerchandiseOrders(
-  orders: MerchOrderInput[],
-  opts: {
-    leagueId: string
-    registrationId: string
-    userId: string
-    orgId: string
-  }
-): Promise<{ error: string | null; orderIds: string[] }> {
-  if (orders.length === 0) return { error: null, orderIds: [] }
-
-  const db = createServiceRoleClient()
-
-  const rows = orders.map((o) => ({
-    organization_id: opts.orgId,
-    league_id: opts.leagueId,
-    registration_id: opts.registrationId,
-    user_id: opts.userId,
-    item_id: o.itemId,
-    variant_id: o.variantId ?? null,
-    quantity: o.quantity,
-    unit_price_cents: o.unitPriceCents,
-    status: 'pending',
-  }))
-
-
-  const { data, error } = await db
-    .from('merchandise_orders')
-    .insert(rows)
-    .select('id')
-
-  if (error) return { error: error.message, orderIds: [] }
-  const orderIds = ((data ?? []) as { id: string }[]).map((r) => r.id)
-  return { error: null, orderIds }
-}
+// createMerchandiseOrders was removed in the security sweep. It was an
+// unreferenced 'use server' export that inserted merchandise_orders rows with
+// a client-supplied unitPriceCents and no auth check — a callable endpoint
+// letting anyone create orders at any price. Nothing referenced it; the real
+// order path goes through the Stripe checkout routes, which price server-side.
+// Restore from git history if needed, with a price lookup and an admin check.
 
 /** Mark a single pending order as paid (manual/offline payment orgs). */
 export async function markMerchandiseOrderPaid(
@@ -840,12 +811,18 @@ export async function fulfillAllMerchandiseOrders(leagueId: string): Promise<{ e
 
 /** Cancel all pending orders for a registration (player abandoned checkout). */
 export async function cancelMerchandiseOrders(registrationId: string): Promise<{ error: string | null }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const role = await getCallerRole(org.id)
+  if (!role || !['org_admin', 'league_admin'].includes(role)) return { error: 'Unauthorized' }
+
   const db = createServiceRoleClient()
 
   const { error } = await db
     .from('merchandise_orders')
     .update({ status: 'cancelled' })
     .eq('registration_id', registrationId)
+    .eq('organization_id', org.id)
     .eq('status', 'pending')
 
   if (error) return { error: error.message }

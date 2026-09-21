@@ -6,6 +6,33 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentOrg } from '@/lib/tenant'
 
+/**
+ * Staff gate for the check-in desk actions.
+ *
+ * These update other people's registrations, so "is someone logged in" is not
+ * enough: without an org-admin check any authenticated player could check a
+ * stranger in — or undo it — in an organization they have nothing to do with.
+ */
+async function requireCheckInStaff(): Promise<{ orgId: string; userId: string } | { error: string }> {
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const db = createServiceRoleClient()
+  const { data: member } = await db
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .maybeSingle()
+
+  if (!member) return { error: 'Admin access required' }
+  return { orgId: org.id, userId: user.id }
+}
+
 export type CheckInResult =
   | { status: 'success'; playerName: string; teamName: string | null; teamId: string | null }
   | { status: 'already_checked_in'; playerName: string; checkedInAt: string }
@@ -121,17 +148,18 @@ export async function checkInWalkIn(
   sessionId: string,
   leagueId: string,
 ): Promise<{ error: string | null; playerName: string | null }> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized', playerName: null }
+  const staff = await requireCheckInStaff()
+  if ('error' in staff) return { error: staff.error, playerName: null }
 
   const db = createServiceRoleClient()
 
-
+  // Org-scope the lookup as well: a registration id from another tenant must
+  // not resolve here even for an admin of this one.
   const { data: reg } = await db
     .from('registrations')
     .select('id, user_id, organization_id, profile:profiles!registrations_user_id_fkey(full_name)')
     .eq('id', registrationId)
+    .eq('organization_id', staff.orgId)
     .maybeSingle()
 
   if (!reg) return { error: 'Registration not found', playerName: null }
@@ -158,7 +186,7 @@ export async function checkInWalkIn(
         status: 'registered',
         is_walk_in: true,
         checked_in_at: now,
-        checked_in_by: user.id,
+        checked_in_by: staff.userId,
       },
       { onConflict: 'session_id,user_id' },
     )
@@ -174,16 +202,16 @@ export async function manualSessionCheckIn(
   sessionRegistrationId: string,
   leagueId: string,
 ): Promise<{ error: string | null }> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
+  const staff = await requireCheckInStaff()
+  if ('error' in staff) return { error: staff.error }
 
   const db = createServiceRoleClient()
 
   const { error } = await db
     .from('session_registrations')
-    .update({ checked_in_at: new Date().toISOString(), checked_in_by: user.id })
+    .update({ checked_in_at: new Date().toISOString(), checked_in_by: staff.userId })
     .eq('id', sessionRegistrationId)
+    .eq('organization_id', staff.orgId)
 
   if (error) return { error: error.message }
 
@@ -196,9 +224,8 @@ export async function undoSessionCheckIn(
   sessionRegistrationId: string,
   leagueId: string,
 ): Promise<{ error: string | null }> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
+  const staff = await requireCheckInStaff()
+  if ('error' in staff) return { error: staff.error }
 
   const db = createServiceRoleClient()
 
@@ -206,6 +233,7 @@ export async function undoSessionCheckIn(
     .from('session_registrations')
     .update({ checked_in_at: null, checked_in_by: null })
     .eq('id', sessionRegistrationId)
+    .eq('organization_id', staff.orgId)
 
   if (error) return { error: error.message }
 

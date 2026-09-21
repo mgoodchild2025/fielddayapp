@@ -28,6 +28,30 @@ export async function upsertRsvp(gameId: string, teamId: string, status: 'in' | 
 
   const db = createServiceRoleClient()
 
+  // The caller may only RSVP for a team they actually play on, for a game that
+  // team is actually in. Without this any signed-in user could write an RSVP
+  // against any team — corrupting that team's attendance count and firing a
+  // real SMS to its captain.
+  const [{ data: game }, { data: membership }] = await Promise.all([
+    db.from('games')
+      .select('home_team_id, away_team_id')
+      .eq('id', gameId)
+      .eq('organization_id', org.id)
+      .maybeSingle(),
+    db.from('team_members')
+      .select('id')
+      .eq('team_id', teamId)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle(),
+  ])
+
+  if (!game) return { error: 'Game not found' }
+  if (game.home_team_id !== teamId && game.away_team_id !== teamId) {
+    return { error: 'That team is not playing in this game' }
+  }
+  if (!membership) return { error: 'You are not on that team' }
+
   const { error } = await db
     .from('game_rsvps')
     .upsert(

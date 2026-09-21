@@ -9,6 +9,7 @@ import { AdminTeamCard } from '@/components/teams/admin-team-card'
 import type { ActiveMember, PendingInvite } from '@/components/teams/roster-manager'
 import type { RosterNote } from '@/actions/roster-notes'
 import { AssignSlotsCard } from '@/components/schedule/assign-slots-card'
+import { getTeamPaymentInfo, type TeamPaymentInfo } from '@/lib/team-payments'
 
 export default async function TeamsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -71,7 +72,7 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
 
     db
       .from('leagues')
-      .select('slug, sport')
+      .select('slug, sport, payment_mode, price_cents, currency')
       .eq('id', id)
       .eq('organization_id', org.id)
       .single(),
@@ -136,6 +137,16 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
   const leagueSlug: string = (league as { slug?: string } | null)?.slug ?? ''
   const leagueSport: string = (league as { sport?: string } | null)?.sport ?? ''
   const leagueHasWaiver = !!(waiverDef as { id?: string } | null)?.id
+
+  // Team fee status — per_team events only, where the TEAM owes rather than the
+  // players. Admins take payment here before anyone registers, so this is the
+  // only place that knows a team is settled.
+  const leagueMeta = league as { payment_mode?: string; price_cents?: number; currency?: string } | null
+  const showTeamFees = leagueMeta?.payment_mode === 'per_team' && (leagueMeta?.price_cents ?? 0) > 0
+  const teamFees: Map<string, TeamPaymentInfo> = showTeamFees && leagueTeamIds.length > 0
+    ? await getTeamPaymentInfo(db, org.id, id, leagueTeamIds)
+    : new Map()
+  const leagueCurrency = (leagueMeta?.currency ?? 'cad').toUpperCase()
 
   // Positions for this sport
   const positions = await getPositionsForSport(org.id, leagueSport)
@@ -309,6 +320,12 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
                   team_code: team.team_code ?? null,
                 }}
                 captainName={captainProfile?.full_name ?? null}
+                fee={showTeamFees ? {
+                  state: teamFees.get(team.id)?.state ?? 'none',
+                  amountCents: teamFees.get(team.id)?.amountCents ?? leagueMeta?.price_cents ?? null,
+                  currency: (teamFees.get(team.id)?.currency ?? leagueCurrency).toUpperCase(),
+                  hasCaptain: !!captain,
+                } : null}
                 initialMembers={initialMembers}
                 initialInvites={initialInvites}
                 joinRequests={teamJoinRequests}

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { PrintControls } from '@/components/print/print-controls'
+import { sanitizeRichText } from '@/lib/sanitize-html'
 
 function isHtml(str: string): boolean {
   return /<[a-z][\s\S]*>/i.test(str?.trim() ?? '')
@@ -194,7 +195,7 @@ export default async function WaiverSignaturePrintPage({
             {contentIsHtml ? (
               <div
                 className="prose prose-sm max-w-none text-gray-800"
-                dangerouslySetInnerHTML={{ __html: waiver?.content ?? '' }}
+                dangerouslySetInnerHTML={{ __html: sanitizeRichText(waiver?.content ?? '') }}
               />
             ) : (
               <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">

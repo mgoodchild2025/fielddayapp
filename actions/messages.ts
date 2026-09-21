@@ -451,6 +451,18 @@ export async function deleteAnnouncement(id: string) {
   if (!user) return { error: 'Unauthorized' }
 
   const db = createServiceRoleClient()
+
+  // Being signed in is not enough: an announcement belongs to the
+  // organization, so deleting one is an admin action.
+  const { data: member } = await db
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .maybeSingle()
+  if (!member) return { error: 'Admin access required' }
+
   const { error } = await db
     .from('announcements')
     .delete()

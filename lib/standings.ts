@@ -41,6 +41,22 @@ export function emptyTeamStat(): TeamStatTotals {
   }
 }
 
+/**
+ * Does this team have a standings position worth showing?
+ *
+ * Ranks come from `sortStandings`, which orders every team including those with
+ * no record. Before a team's first counted result its position is whatever the
+ * tiebreakers happen to fall back to — in an event with no completed matches
+ * every team is identical, so someone is arbitrarily crowned "1st of 8".
+ * The summary badges (team stats page, dashboard tile) show a dash instead.
+ *
+ * Full standings TABLES are unaffected: listing all-zero teams is honest, it's
+ * the single-position badge that implies a ranking that doesn't exist yet.
+ */
+export function hasStandingPosition(stat: TeamStatTotals | undefined | null): boolean {
+  return (stat?.matchesPlayed ?? 0) > 0
+}
+
 /** One confirmed game result, in a shape decoupled from the DB row layout. */
 export interface GameResultInput {
   homeTeamId: string
@@ -65,6 +81,16 @@ export interface GameResultInput {
  * PTS methods. Callers own filtering (confirmed status, pool/active-team
  * scoping); this owns the arithmetic.
  */
+/**
+ * Exhibition games are played, scored, and shown like any other game but never
+ * move the table. Every standings fold (event page, admin standings/pools,
+ * dashboard, team stats, TV display, career record) must gate on this — one
+ * rule, so the surfaces can't disagree.
+ */
+export function countsForStandings(game: { is_exhibition?: boolean | null } | null | undefined): boolean {
+  return game?.is_exhibition !== true
+}
+
 export function accumulateGameResult(
   stats: Map<string, TeamStatTotals>,
   result: GameResultInput,

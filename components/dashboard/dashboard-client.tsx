@@ -22,6 +22,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { upsertRsvp } from '@/actions/rsvp'
+import Image from 'next/image'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,8 @@ export type NextGameItem = {
   court: string | null
   weekNumber: number | null
   opponentName: string
+  /** Null for an unseeded playoff slot (no team yet) — the name is then a placeholder. */
+  opponentId: string | null
   opponentColor: string | null
   opponentLogoUrl: string | null
   isHome: boolean
@@ -197,14 +200,33 @@ function TeamCircle({
       style={{ width: size, height: size, backgroundColor: bg, fontSize: size * 0.3 }}
     >
       {logoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={logoUrl} alt={name} className="w-full h-full object-cover" />
+        <Image src={logoUrl} alt={name} width={size} height={size} className="w-full h-full object-cover" />
       ) : initials}
     </div>
   )
 }
 
 // ── GameHero ─────────────────────────────────────────────────────────────────
+
+/**
+ * Wraps an opponent's crest + name in a link to their season stats. Falls back
+ * to a plain wrapper when there is no team yet (an unseeded playoff slot), so
+ * the layout is identical either way.
+ */
+function TeamLink({
+  teamId, className, children,
+}: {
+  teamId: string | null
+  className?: string
+  children: React.ReactNode
+}) {
+  if (!teamId) return <div className={className}>{children}</div>
+  return (
+    <Link href={`/teams/${teamId}/stats`} className={`${className ?? ''} rounded-lg hover:opacity-80 transition-opacity`} title="Season stats">
+      {children}
+    </Link>
+  )
+}
 
 function GameHero({
   item, timezone, rsvpIn, rsvpOut, myRsvp, onRsvp,
@@ -249,8 +271,12 @@ function GameHero({
 
           <span className="text-lg font-bold text-gray-200 shrink-0 w-8 text-center">vs</span>
 
-          {/* Opponent */}
-          <div className="flex-1 flex flex-col items-center gap-2 text-center max-w-[160px]">
+          {/* Opponent — tap through to their season stats (nothing to show for
+              an unseeded playoff slot, so that stays plain text) */}
+          <TeamLink
+            teamId={item.opponentId}
+            className="flex-1 flex flex-col items-center gap-2 text-center max-w-[160px]"
+          >
             <TeamCircle
               name={item.opponentName}
               color={item.opponentColor}
@@ -261,7 +287,7 @@ function GameHero({
               <p className="font-bold text-gray-900 text-sm leading-tight">{item.opponentName}</p>
               <p className="text-xs text-gray-400 mt-0.5">{item.leagueName}</p>
             </div>
-          </div>
+          </TeamLink>
         </div>
 
         {/* Game meta */}
@@ -344,9 +370,19 @@ function SameDayGameRow({
   return (
     <div className="bg-white rounded-xl border px-4 py-2.5 flex items-center gap-3">
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
-        <TeamCircle name={item.opponentName} color={item.opponentColor} logoUrl={item.opponentLogoUrl} size={32} />
+        {/* Crest and name both tap through to the opponent's season stats. */}
+        <TeamLink teamId={item.opponentId} className="shrink-0">
+          <TeamCircle name={item.opponentName} color={item.opponentColor} logoUrl={item.opponentLogoUrl} size={32} />
+        </TeamLink>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">vs {item.opponentName}</p>
+          <p className="text-sm font-semibold text-gray-900 truncate">
+            vs{' '}
+            {item.opponentId ? (
+              <Link href={`/teams/${item.opponentId}/stats`} className="hover:underline" title="Season stats">
+                {item.opponentName}
+              </Link>
+            ) : item.opponentName}
+          </p>
           <p className="text-xs text-gray-500">
             {formatTime(item.scheduledAt, timezone)}{item.court ? ` · ${item.court}` : ''}
             {item.isPlayoff ? (

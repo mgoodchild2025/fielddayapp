@@ -5,6 +5,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { MedalCase } from '@/components/medals/medal-case'
+import { TeamPageNav } from '@/components/teams/team-page-nav'
 import { getTeamMedals, getMedalCountsForUsers } from '@/lib/medal-queries'
 import { BioNameButton } from '@/components/bios/bio-name-button'
 import type { BioCardData } from '@/components/bios/player-bio-card'
@@ -391,6 +392,8 @@ export default async function TeamDetailPage({
             )}
           </div>
         </div>
+
+        <TeamPageNav teamId={teamId} active="team" />
 
         {/* Trophy shelf — everything this team has won */}
         {teamMedals.length > 0 && (
