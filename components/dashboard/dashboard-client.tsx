@@ -22,6 +22,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { upsertRsvp } from '@/actions/rsvp'
+import Image from 'next/image'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -199,8 +200,7 @@ function TeamCircle({
       style={{ width: size, height: size, backgroundColor: bg, fontSize: size * 0.3 }}
     >
       {logoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={logoUrl} alt={name} className="w-full h-full object-cover" />
+        <Image src={logoUrl} alt={name} width={size} height={size} className="w-full h-full object-cover" />
       ) : initials}
     </div>
   )

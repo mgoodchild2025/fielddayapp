@@ -1,12 +1,15 @@
 'use client'
 
-import { useLiveScores } from '@/lib/use-live-scores'
+import { useLiveScore } from '@/lib/use-live-scores'
 
 // A tiny live-score chip for schedule/bracket rows: renders nothing unless a
 // scoreboard is actively broadcasting for this game (or bracket match).
+//
+// Uses the single-game hook deliberately. A schedule page mounts one badge per
+// row, and the whole-map hook re-rendered all of them on every broadcast from
+// any court in the event.
 export function LiveScoreBadge({ leagueId, gameId }: { leagueId: string; gameId: string }) {
-  const boards = useLiveScores(leagueId)
-  const board = boards[gameId]
+  const board = useLiveScore(leagueId, gameId)
   if (!board) return null
 
   return (

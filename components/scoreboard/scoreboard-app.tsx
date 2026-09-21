@@ -545,7 +545,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       <div
         key={team}
         role="group"
-        aria-label={`${meta.name}, ${pts} points`}
+        aria-label={`${meta.name}, ${pts} ${pts === 1 ? 'point' : 'points'}`}
         className="relative flex-1 flex flex-col items-center justify-center select-none overflow-hidden"
         style={{ background: `linear-gradient(180deg, ${meta.color}, color-mix(in srgb, ${meta.color} 72%, black))`, touchAction: 'none' }}
         onPointerDown={onPointerDown(team)}
