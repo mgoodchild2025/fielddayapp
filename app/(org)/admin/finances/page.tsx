@@ -64,7 +64,19 @@ export default async function FinancesPage() {
 
       {/* ── Org-wide P&L overview ──────────────────────────────────────────── */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900">Overview</h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h2 className="text-lg font-semibold text-gray-900">Overview</h2>
+          {/* These figures cover a rolling window, not all time. Say so next to
+              them — an unlabelled total reads as lifetime and understates the
+              business. The dated report covers any other range. */}
+          <p className="text-xs text-gray-500">
+            {pnl.periodLabel} <span className="text-gray-400">(since {pnl.periodStart})</span>
+            {' · '}
+            <Link href="/admin/finances/report" className="underline underline-offset-2 hover:text-gray-700">
+              Run a dated report
+            </Link>
+          </p>
+        </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="bg-white rounded-xl border p-4">

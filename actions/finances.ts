@@ -6,6 +6,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { EXPENSE_CATEGORIES, type ExpenseCategory, OVERHEAD_CATEGORIES, type OverheadCategory, OVERHEAD_PERIODS, type OverheadPeriod, BUDGET_COST_TYPES, type BudgetCostType, REVENUE_CATEGORIES, type RevenueCategory, ATTACHMENT_LABELS } from '@/lib/finance-constants'
+import { rollingFinanceWindow, DEFAULT_WINDOW_MONTHS } from '@/lib/finance-window'
 
 // ── Auth helper ──────────────────────────────────────────────────────────────
 
@@ -1168,6 +1169,10 @@ export type OrgPnl = {
   profitCents: number
   marginPct: number | null
   events: OrgPnlEvent[]      // per-event rows incl. a "Shop" row for league_id null
+  /** The period these figures cover. Shown on screen so they are never read
+   *  as lifetime totals — the dated report covers any other range. */
+  periodLabel: string
+  periodStart: string        // YYYY-MM-DD
 }
 
 /**
@@ -1175,37 +1180,93 @@ export type OrgPnl = {
  * Revenue = registration payments (paid/manual) + all merch (paid/fulfilled).
  * Cost = logged event expenses + merch COGS + org overhead. Overhead is summed
  * as logged (period is informational) and is not split per event.
+ *
+ * Covers a rolling window, not all history — see lib/finance-window.ts. The
+ * caller must surface periodLabel; an unlabelled bounded total reads as a
+ * lifetime figure and quietly understates the business.
  */
-export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
+export async function getOrgPnl(
+  orgId: string,
+  windowMonths: number = DEFAULT_WINDOW_MONTHS,
+): Promise<OrgPnl> {
   const db = createServiceRoleClient()
 
+  // Bounded to a rolling window. This used to read an org's entire history on
+  // every Finances page load and aggregate it in JS, which grows without limit
+  // as seasons accumulate. Each table is filtered on its own date column,
+  // matching the semantics the financial report already uses: payments by
+  // paid_at (falling back to created_at), expenses and overhead by incurred_on,
+  // other income by received_on, merch orders by created_at.
+  const window = rollingFinanceWindow(windowMonths)
+  const { sinceIso, sinceDate } = window
+
+  // Two-step rather than one nested PostgREST filter. The effective date is
+  // "the row's own date column, falling back to created_at", which needs an
+  // OR containing an AND — syntax this codebase has never exercised, and a
+  // malformed filter on the money page would show zeros rather than fail
+  // loudly. So the query uses only the flat `or` form already proven here
+  // (dated in window OR undated) and the fallback is applied below in JS.
+  const datedOrNull = (col: string, bound: string) => `${col}.gte.${bound},${col}.is.null`
+
+  /** Keep a row whose own date is in window, or which is undated and was created in window. */
+  const inWindow = (dated: string | null | undefined, created: string | null | undefined) => {
+    if (dated) return dated >= (dated.length === 10 ? sinceDate : sinceIso)
+    return !!created && created >= sinceIso
+  }
 
   const [{ data: payments }, { data: merchOrders }, { data: expenses }, { data: overhead }, { data: leagues }, { data: otherRevenue }, { data: overheadAllocs }] = await Promise.all([
 
-    db.from('payments').select('amount_cents, refunded_cents, league_id, payment_type, team_id, registration_id')
-      .eq('organization_id', orgId).in('status', ['paid', 'manual', 'refunded']),
+    db.from('payments').select('amount_cents, refunded_cents, league_id, payment_type, team_id, registration_id, paid_at, created_at')
+      .eq('organization_id', orgId).in('status', ['paid', 'manual', 'refunded'])
+      .or(datedOrNull('paid_at', sinceIso)),
 
     db.from('merchandise_orders')
       .select('league_id, item_id, variant_id, quantity, unit_price_cents, discount_cents, amount_paid_cents')
-      .eq('organization_id', orgId).in('status', ['paid', 'fulfilled']),
+      .eq('organization_id', orgId).in('status', ['paid', 'fulfilled'])
+      .gte('created_at', sinceIso),
 
-    db.from('event_expenses').select('league_id, amount_cents').eq('organization_id', orgId),
+    db.from('event_expenses').select('league_id, amount_cents, incurred_on, created_at').eq('organization_id', orgId)
+      .or(datedOrNull('incurred_on', sinceDate)),
 
-    db.from('org_overhead_expenses').select('amount_cents').eq('organization_id', orgId),
+    db.from('org_overhead_expenses').select('id, amount_cents, incurred_on, created_at').eq('organization_id', orgId)
+      .or(datedOrNull('incurred_on', sinceDate)),
 
     db.from('leagues').select('id, name').eq('organization_id', orgId),
 
-    db.from('event_revenue').select('league_id, amount_cents').eq('organization_id', orgId),
+    db.from('event_revenue').select('league_id, amount_cents, received_on, created_at').eq('organization_id', orgId)
+      .or(datedOrNull('received_on', sinceDate)),
 
-    db.from('org_overhead_allocations').select('league_id, amount_cents').eq('organization_id', orgId),
+    // Allocations carry no date of their own — they attribute an overhead
+    // expense to an event, so they follow whichever overhead rows are in
+    // window. Filtered below once those ids are known.
+    db.from('org_overhead_allocations').select('league_id, amount_cents, overhead_id').eq('organization_id', orgId),
   ])
+
+  // Second step of the window filter: the SQL above also let through rows with
+  // no date of their own, so apply the created_at fallback here. This is where
+  // the effective-date rule actually lands.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const windowed = (rows: any[] | null, col: 'paid_at' | 'incurred_on' | 'received_on') =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (rows ?? []).filter((r: any) => inWindow(r[col], r.created_at))
+
+  const paymentRows = windowed(payments, 'paid_at')
+  const expenseRows = windowed(expenses, 'incurred_on')
+  const overheadRows = windowed(overhead, 'incurred_on')
+  const otherRevenueRows = windowed(otherRevenue, 'received_on')
 
   const leagueName = new Map<string, string>()
   for (const l of (leagues ?? []) as { id: string; name: string }[]) leagueName.set(l.id, l.name)
   // Allocated overhead shows on its event's cost row; org totals already count
   // the full overhead sum, so no amount is added twice.
+  const overheadIdsInWindow = new Set(
+    (overheadRows as { id: string }[]).map((o) => o.id)
+  )
   const allocByLeague = new Map<string, number>()
-  for (const a of (overheadAllocs ?? []) as { league_id: string; amount_cents: number }[]) {
+  for (const a of (overheadAllocs ?? []) as { league_id: string; amount_cents: number; overhead_id: string }[]) {
+    // An allocation of an out-of-window overhead would attribute a cost the
+    // org total no longer counts, leaving the event and org views disagreeing.
+    if (!overheadIdsInWindow.has(a.overhead_id)) continue
     allocByLeague.set(a.league_id, (allocByLeague.get(a.league_id) ?? 0) + (a.amount_cents ?? 0))
   }
 
@@ -1219,7 +1280,7 @@ export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
   let registrationRevenueCents = 0
   let refundedCents = 0
   const seenOrgTeams = new Set<string>()
-  for (const p of (payments ?? []) as { amount_cents: number; refunded_cents: number | null; league_id: string | null; payment_type: string | null; team_id: string | null; registration_id: string | null }[]) {
+  for (const p of paymentRows as { amount_cents: number; refunded_cents: number | null; league_id: string | null; payment_type: string | null; team_id: string | null; registration_id: string | null }[]) {
     if (p.payment_type === 'team' && p.team_id) {
       if (seenOrgTeams.has(`${p.league_id}:${p.team_id}`)) continue
       seenOrgTeams.add(`${p.league_id}:${p.team_id}`)
@@ -1267,7 +1328,7 @@ export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
   }
 
   let eventExpenseCents = 0
-  for (const e of (expenses ?? []) as { league_id: string; amount_cents: number }[]) {
+  for (const e of expenseRows as { league_id: string; amount_cents: number }[]) {
     eventExpenseCents += e.amount_cents ?? 0
     add(costByKey, e.league_id ?? '', e.amount_cents ?? 0)
   }
@@ -1275,12 +1336,12 @@ export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
 
   // Other income (donations, 50/50, sponsorships…) per event.
   let otherRevenueCents = 0
-  for (const r of (otherRevenue ?? []) as { league_id: string; amount_cents: number }[]) {
+  for (const r of otherRevenueRows as { league_id: string; amount_cents: number }[]) {
     otherRevenueCents += r.amount_cents ?? 0
     add(revByKey, r.league_id ?? '', r.amount_cents ?? 0)
   }
 
-  const overheadCents = ((overhead ?? []) as { amount_cents: number }[]).reduce((s, o) => s + (o.amount_cents ?? 0), 0)
+  const overheadCents = (overheadRows as { amount_cents: number }[]).reduce((s, o) => s + (o.amount_cents ?? 0), 0)
 
   // Build per-event rows (union of all keys seen in revenue or cost)
   const keys = new Set<string>([...revByKey.keys(), ...costByKey.keys()])
@@ -1304,6 +1365,8 @@ export async function getOrgPnl(orgId: string): Promise<OrgPnl> {
   return {
     registrationRevenueCents, refundedCents, merchRevenueCents, otherRevenueCents, merchCogsCents,
     eventExpenseCents, overheadCents, revenueCents, costCents, profitCents, marginPct, events,
+    periodLabel: window.label,
+    periodStart: window.sinceDate,
   }
 }
 
