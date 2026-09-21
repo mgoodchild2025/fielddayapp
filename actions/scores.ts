@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
-import { advanceBracketFromScore, reverseBracketAdvancement } from '@/actions/brackets'
+import { advanceBracketFromScore, reverseBracketAdvancement } from '@/lib/bracket-advance'
 import { recordAuditLog } from '@/lib/audit'
 import { isLeagueFrozen } from '@/lib/billing'
 

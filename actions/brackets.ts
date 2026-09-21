@@ -7,6 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
+import { advanceWinner, advanceLoser } from '@/lib/bracket-advance'
 import { parseLocalToUtc, formatGameTime } from '@/lib/format-time'
 import { getInflowContext, inflowSpecFromContext, clearInboundRoutes, wireLeagueTierInflows } from '@/lib/tier-inflows'
 import { applyRoster, renumberSeeds, EMPTY_ROSTER, type PlayoffRoster } from '@/lib/playoff-roster'
@@ -746,85 +747,7 @@ export async function deleteBracket(bracketId: string, leagueId: string) {
 
 // ── advanceWinner (internal + exported for scores hook) ───────────────────────
 
-export async function advanceWinner(
-  db: ReturnType<typeof createServiceRoleClient>,
-  orgId: string,
-  bracketId: string,
-  matchId: string,
-  winnerTeamId: string
-) {
-
-  const { data: match } = await db
-    .from('bracket_matches')
-    .select('winner_to_match_id, winner_to_slot')
-    .eq('id', matchId)
-    .single()
-
-  if (!match?.winner_to_match_id) return
-
-  const updateField = match.winner_to_slot === 1 ? 'team1_id' : 'team2_id'
-
-
-  const { data: nextMatch } = await db
-    .from('bracket_matches')
-    .select('id, team1_id, team2_id')
-    .eq('id', match.winner_to_match_id)
-    .single()
-
-  if (!nextMatch) return
-
-  const otherTeamField = match.winner_to_slot === 1 ? 'team2_id' : 'team1_id'
-  const bothFilled = nextMatch[otherTeamField] !== null
-
-
-  await db.from('bracket_matches')
-    .update({
-      [updateField]: winnerTeamId,
-      status: bothFilled ? 'ready' : 'pending',
-    } as TablesUpdate<'bracket_matches'>)
-    .eq('id', match.winner_to_match_id)
-}
-
 // ── advanceLoser (double elimination — routes loser to LB) ────────────────────
-
-async function advanceLoser(
-  db: ReturnType<typeof createServiceRoleClient>,
-  orgId: string,
-  bracketId: string,
-  matchId: string,
-  loserTeamId: string
-) {
-
-  const { data: match } = await db
-    .from('bracket_matches')
-    .select('loser_to_match_id, loser_to_slot')
-    .eq('id', matchId)
-    .single()
-
-  if (!match?.loser_to_match_id) return // single elim or no routing defined
-
-  const updateField = match.loser_to_slot === 1 ? 'team1_id' : 'team2_id'
-
-
-  const { data: nextMatch } = await db
-    .from('bracket_matches')
-    .select('id, team1_id, team2_id')
-    .eq('id', match.loser_to_match_id)
-    .single()
-
-  if (!nextMatch) return
-
-  const otherTeamField = match.loser_to_slot === 1 ? 'team2_id' : 'team1_id'
-  const bothFilled = nextMatch[otherTeamField] !== null
-
-
-  await db.from('bracket_matches')
-    .update({
-      [updateField]: loserTeamId,
-      status: bothFilled ? 'ready' : 'pending',
-    } as TablesUpdate<'bracket_matches'>)
-    .eq('id', match.loser_to_match_id)
-}
 
 // ── recordBracketScore ────────────────────────────────────────────────────────
 // Called directly from admin score entry for bracket matches.
@@ -1194,68 +1117,6 @@ export async function swapBracketTeams(input: {
 // matches and resets the current match back to 'ready'.
 // Returns an error string if a downstream match has already been played.
 
-export async function reverseBracketAdvancement(gameId: string, orgId: string): Promise<{ error: string | null }> {
-  const db = createServiceRoleClient()
-
-
-  const { data: match } = await db
-    .from('bracket_matches')
-    .select('id, winner_to_match_id, winner_to_slot, loser_to_match_id, loser_to_slot, brackets!bracket_matches_bracket_id_fkey(league_id)')
-    .eq('game_id', gameId)
-    .eq('organization_id', orgId)
-    .maybeSingle()
-
-  if (!match) return { error: null } // not a bracket game
-
-  // Block if any downstream match is already completed
-  const downstreamIds = [match.winner_to_match_id, match.loser_to_match_id].filter((x): x is string => !!x)
-  if (downstreamIds.length > 0) {
-
-    const { data: downstream } = await db
-      .from('bracket_matches')
-      .select('status')
-      .in('id', downstreamIds)
-
-    const hasCompleted = (downstream ?? []).some((m: { status: string }) => m.status === 'completed')
-    if (hasCompleted) {
-      return { error: 'A later bracket match has already been played. Clear that match first.' }
-    }
-  }
-
-  // Clear winner slot in next match
-  if (match.winner_to_match_id) {
-    const field = match.winner_to_slot === 1 ? 'team1_id' : 'team2_id'
-
-    await db.from('bracket_matches')
-      .update({ [field]: null, status: 'pending', winner_team_id: null } as TablesUpdate<'bracket_matches'>)
-      .eq('id', match.winner_to_match_id)
-  }
-
-  // Clear loser slot in loser-bracket match (double elimination)
-  if (match.loser_to_match_id) {
-    const field = match.loser_to_slot === 1 ? 'team1_id' : 'team2_id'
-
-    await db.from('bracket_matches')
-      .update({ [field]: null, status: 'pending' } as TablesUpdate<'bracket_matches'>)
-      .eq('id', match.loser_to_match_id)
-  }
-
-  // Reset this match back to ready (teams still present, score/winner cleared)
-
-  await db.from('bracket_matches')
-    .update({ score1: null, score2: null, winner_team_id: null, status: 'ready' })
-    .eq('id', match.id)
-
-  const league = Array.isArray(match.brackets) ? match.brackets[0] : match.brackets
-  const leagueId = (league as { league_id: string } | null)?.league_id
-  if (leagueId) {
-    revalidatePath(`/admin/events/${leagueId}/bracket`)
-    revalidatePath('/events/[slug]', 'page')
-  }
-
-  return { error: null }
-}
-
 // ── clearBracketSeeding ───────────────────────────────────────────────────────
 // Nulls all team slots across every match in a bracket and resets all matches
 // to 'pending'. Court/time/notes are preserved. Blocked if any match has a
@@ -1518,62 +1379,6 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
 // ── advanceBracketFromScore (called by scores.ts after confirm) ───────────────
 // Public hook: checks if a confirmed game is linked to a bracket match and auto-advances.
 
-export async function advanceBracketFromScore(
-  gameId: string,
-  homeScore: number,
-  awayScore: number,
-  orgId: string
-) {
-  const db = createServiceRoleClient()
-
-
-  const { data: match } = await db
-    .from('bracket_matches')
-    .select('id, bracket_id, team1_id, team2_id, status, brackets!bracket_matches_bracket_id_fkey(league_id)')
-    .eq('game_id', gameId)
-    .eq('organization_id', orgId)
-    .maybeSingle()
-
-  if (!match || match.status === 'completed') return
-
-  if (homeScore === awayScore) return // ties not allowed in playoffs
-
-  const winnerTeamId = homeScore > awayScore ? match.team1_id : match.team2_id
-  const loserTeamId = homeScore > awayScore ? match.team2_id : match.team1_id
-  if (!winnerTeamId) return
-
-  const league = Array.isArray(match.brackets) ? match.brackets[0] : match.brackets
-  const leagueId = (league as { league_id: string } | null)?.league_id
-
-
-  await db.from('bracket_matches')
-    .update({
-      score1: homeScore,
-      score2: awayScore,
-      winner_team_id: winnerTeamId,
-      status: 'completed',
-    })
-    .eq('id', match.id)
-
-  await advanceWinner(db, orgId, match.bracket_id, match.id, winnerTeamId)
-  if (loserTeamId) {
-    await advanceLoser(db, orgId, match.bracket_id, match.id, loserTeamId)
-  }
-
-  if (leagueId) {
-    revalidatePath(`/admin/events/${leagueId}/bracket`)
-    revalidatePath('/events/[slug]', 'page')
-  }
-}
-
-// ══ Manual brackets M2: structural editing ════════════════════════════════════
-// Add/remove matches and rounds, name rounds, toggle byes. Routes are held by
-// match id, so structural edits can't corrupt existing wiring — the one hard
-// rule is that matches with recorded scores are immutable. The UI surfaces
-// these on custom (hand-built) brackets; the actions themselves work on any
-// bracket, but anything a generator owns is rebuilt on the next regenerate.
-
-/** Loads a bracket scoped to the caller's org, or null. */
 async function loadOwnBracket(db: ReturnType<typeof createServiceRoleClient>, orgId: string, bracketId: string) {
   const { data } = await db
     .from('brackets')
