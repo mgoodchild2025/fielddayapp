@@ -8,7 +8,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createRateLimiter } from '@/lib/rate-limit'
 import { assertOrgAdmin } from '@/lib/auth'
-import { recordConsents } from './player-consents'
+import { recordConsents } from '@/lib/consents'
 import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
 
 // 5 waiver signing attempts per 10 minutes per IP — enough for any legitimate

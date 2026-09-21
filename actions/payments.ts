@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
+import { assertOrgAdmin } from '@/lib/auth'
 import { resolveLeagueMethods, isOfflineMethod, PAYMENT_METHOD_LABELS, type PaymentMethod } from '@/lib/payment-methods'
 import { sendRegistrationAdminNotification, type RegistrationPaymentMethod } from './emails'
 import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
@@ -29,6 +30,12 @@ export async function recordManualPayment(input: z.infer<typeof recordManualPaym
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+
+  // Marking money as received is an admin action. Without this check any
+  // visitor to an org's site could mark their own registration — or a whole
+  // team — as paid without paying.
+  const auth = await assertOrgAdmin(org)
+  if (auth.error) return { data: null, error: auth.error }
 
   const db = createServiceRoleClient()
 
@@ -629,6 +636,11 @@ export async function updatePaymentStatus(input: z.infer<typeof updatePaymentSta
   const parsed = updatePaymentStatusSchema.safeParse(input)
   if (!parsed.success) return { error: 'Invalid input' }
 
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await assertOrgAdmin(org)
+  if (auth.error) return { error: auth.error }
+
   const db = createServiceRoleClient()
 
   const updates: Record<string, unknown> = { status: parsed.data.status }
@@ -640,6 +652,7 @@ export async function updatePaymentStatus(input: z.infer<typeof updatePaymentSta
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .update(updates as any)
     .eq('id', parsed.data.paymentId)
+    .eq('organization_id', org.id)
 
   if (error) return { error: error.message }
   revalidatePath('/admin/payments')

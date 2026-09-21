@@ -5,23 +5,12 @@ import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
+import { recordConsents } from '@/lib/consents'
 
-export type ConsentType = 'privacy_policy' | 'waiver' | 'marketing_email' | 'marketing_sms'
+// Types moved to lib/consents.ts; re-exported here so existing imports hold.
+export type { ConsentType, ConsentRow } from '@/lib/consents'
 
-export interface ConsentRow {
-  organization_id: string
-  user_id: string
-  league_id?: string | null
-  consent_type: ConsentType
-  consent_given: boolean
-  document_slug?: string | null
-  document_version?: string | null
-  legal_document_version_id?: string | null
-  waiver_id?: string | null
-  waiver_signature_id?: string | null
-  ip_address?: string | null
-  user_agent?: string | null
-}
+
 
 /** Read request IP + user agent from headers for consent metadata. */
 export async function consentRequestMeta(): Promise<{ ip: string | null; userAgent: string | null }> {
@@ -35,28 +24,6 @@ export async function consentRequestMeta(): Promise<{ ip: string | null; userAge
  * Insert one or more consent rows (append-only ledger). Used by the
  * registration handler and the reconsent flow. Non-throwing; returns error.
  */
-export async function recordConsents(rows: ConsentRow[]): Promise<{ error: string | null }> {
-  if (rows.length === 0) return { error: null }
-  const db = createServiceRoleClient()
-
-  const { error } = await db.from('player_consents').insert(
-    rows.map((r) => ({
-      organization_id: r.organization_id,
-      user_id: r.user_id,
-      league_id: r.league_id ?? null,
-      consent_type: r.consent_type,
-      consent_given: r.consent_given,
-      document_slug: r.document_slug ?? null,
-      document_version: r.document_version ?? null,
-      legal_document_version_id: r.legal_document_version_id ?? null,
-      waiver_id: r.waiver_id ?? null,
-      waiver_signature_id: r.waiver_signature_id ?? null,
-      ip_address: r.ip_address ?? null,
-      user_agent: r.user_agent ?? null,
-    }))
-  )
-  return { error: error?.message ?? null }
-}
 
 /**
  * Current marketing opt-in state for a player within an org, derived from the

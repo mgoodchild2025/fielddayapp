@@ -11,6 +11,7 @@ import { addRailwayCustomDomain, removeRailwayCustomDomain, getRailwayDomainStat
 import { syncCustomDomainRedirectUrls, isSupabaseAuthMgmtConfigured } from '@/lib/supabase-management'
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 import { verifyCnameRecords } from '@/lib/dns-check'
+import { assertOrgAdmin } from '@/lib/auth'
 
 const brandingSchema = z.object({
   orgId: z.string().uuid(),
@@ -306,6 +307,10 @@ export async function updateCheckinSound(
 export async function uploadOrgLogo(formData: FormData): Promise<{ url: string | null; error: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+
+  // Branding is admin-owned: without this anyone could replace an org's logo.
+  const auth = await assertOrgAdmin(org)
+  if (auth.error) return { url: null, error: auth.error }
 
   const file = formData.get('logo') as File | null
   if (!file || file.size === 0) return { url: null, error: 'No file provided' }

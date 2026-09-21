@@ -1148,6 +1148,20 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
 
+  // Bulk schedule insert — same admin gate as every other mutating action here.
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated', count: 0 }
+
+  const { data: importAdmin } = await db
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+
+  if (!importAdmin) return { error: 'Admin access required', count: 0 }
+
   // Get org timezone for correct UTC conversion
 
   const { data: branding } = await db
