@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { assertOrgAdmin } from '@/lib/auth'
+import { createServerClient } from '@/lib/supabase/server'
 
 const discountSchema = z.object({
   code: z.string().min(2).max(30).transform(s => s.toUpperCase().trim()),
@@ -140,6 +141,24 @@ export async function validateDiscountCode(
 }
 
 export async function incrementDiscountUse(discountId: string) {
+  // Burning a use is a write against someone's promotion: unauthenticated
+  // callers could exhaust a code's max_uses and disable it for real players,
+  // and an unscoped id reaches other tenants' codes. Require a signed-in
+  // caller and confirm the code belongs to the org whose site this is.
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await createServerClient()
+  const { data: { user } } = await auth.auth.getUser()
+  if (!user) return
+
   const supabase = createServiceRoleClient()
+  const { data: code } = await supabase
+    .from('discount_codes')
+    .select('id')
+    .eq('id', discountId)
+    .eq('organization_id', org.id)
+    .maybeSingle()
+  if (!code) return
+
   await supabase.rpc('increment_discount_use', { discount_id: discountId })
 }
