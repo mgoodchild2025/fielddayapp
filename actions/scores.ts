@@ -382,6 +382,12 @@ export async function confirmScore(gameId: string) {
 
   if (!captainship && !adminMember) return { data: null, error: 'Unauthorized' }
 
+  // Confirmation is a two-party check: the captain who submitted the score
+  // cannot also confirm it. Admins may always confirm.
+  if (!adminMember && result.submitted_by === user.id) {
+    return { data: null, error: 'The opposing captain must confirm this score' }
+  }
+
   const { error } = await supabase
     .from('game_results')
     .update({ status: 'confirmed', confirmed_by: user.id, confirmed_at: new Date().toISOString() })

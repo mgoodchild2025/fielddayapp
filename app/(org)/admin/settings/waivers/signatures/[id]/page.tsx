@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { sanitizeRichText } from '@/lib/sanitize-html'
 
 function isHtml(str: string): boolean {
   return /<[a-z][\s\S]*>/i.test(str?.trim() ?? '')
@@ -183,7 +184,7 @@ export default async function WaiverSignaturePage({ params }: { params: Promise<
           {contentIsHtml ? (
             <div
               className="prose prose-sm max-w-none text-gray-700"
-              dangerouslySetInnerHTML={{ __html: waiver?.content ?? '' }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichText(waiver?.content ?? '') }}
             />
           ) : (
             <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">

@@ -105,6 +105,22 @@ export async function addGame(input: z.infer<typeof addGameSchema>) {
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
 
+  // Same admin gate every other mutating action in this file uses. Without it
+  // this action wrote to the schedule through the service-role client, which
+  // bypasses RLS, for any caller at all.
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const { data: addGameAdmin } = await db
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+
+  if (!addGameAdmin) return { data: null, error: 'Admin access required' }
+
   const { data, error } = await db
     .from('games')
     .insert({
@@ -169,6 +185,20 @@ export async function generateRoundRobinSchedule(input: {
 
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
+
+  // Admin gate — this action can wipe and regenerate an entire schedule.
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated', count: 0 }
+
+  const { data: generateAdmin } = await db
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', org.id)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .single()
+
+  if (!generateAdmin) return { error: 'Admin access required', count: 0 }
 
 
   const { data: realTeams } = await db

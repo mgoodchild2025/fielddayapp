@@ -18,12 +18,38 @@ const sessionSchema = z.object({
   sport: z.string().default('multi'),
 })
 
+/**
+ * Admin gate for the drop-in management actions. These are 'use server'
+ * exports that write through the service-role client, which bypasses RLS —
+ * without this check any visitor to an org's site could create, reprice or
+ * delete that org's paid drop-in sessions.
+ */
+async function requireDropInAdmin(orgId: string): Promise<{ error: string } | null> {
+  const auth = await createServerClient()
+  const { data: { user } } = await auth.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const db = createServiceRoleClient()
+  const { data: member } = await db
+    .from('org_members')
+    .select('role')
+    .eq('organization_id', orgId)
+    .eq('user_id', user.id)
+    .in('role', ['org_admin', 'league_admin'])
+    .maybeSingle()
+
+  if (!member) return { error: 'Admin access required' }
+  return null
+}
+
 export async function createDropInSession(input: z.infer<typeof sessionSchema>) {
   const parsed = sessionSchema.safeParse(input)
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid input' }
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const denied = await requireDropInAdmin(org.id)
+  if (denied) return denied
   const supabase = createServiceRoleClient()
 
   const { error } = await supabase.from('drop_in_sessions').insert({
@@ -45,6 +71,8 @@ export async function updateDropInSession(id: string, input: z.infer<typeof sess
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const denied = await requireDropInAdmin(org.id)
+  if (denied) return denied
   const supabase = createServiceRoleClient()
 
   const { error } = await supabase
@@ -62,9 +90,13 @@ export async function updateDropInSession(id: string, input: z.infer<typeof sess
 export async function deleteDropInSession(id: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const denied = await requireDropInAdmin(org.id)
+  if (denied) return denied
   const supabase = createServiceRoleClient()
 
-  await supabase.from('drop_in_registrations').delete().eq('session_id', id)
+  // Org-scope the child delete too: an unscoped session id would otherwise
+  // reach another org's registrations.
+  await supabase.from('drop_in_registrations').delete().eq('session_id', id).eq('organization_id', org.id)
   const { error } = await supabase
     .from('drop_in_sessions')
     .delete()
@@ -137,6 +169,8 @@ export async function registerForDropIn(sessionId: string) {
 export async function checkInDropIn(registrationId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const denied = await requireDropInAdmin(org.id)
+  if (denied) return denied
   const service = createServiceRoleClient()
 
   const { error } = await service

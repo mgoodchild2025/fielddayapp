@@ -134,6 +134,10 @@ export async function proxy(request: NextRequest) {
 
   // ── Step 3: build request headers (with org context) ─────────────────────
   const requestHeaders = new Headers(request.headers)
+  // Drop any client-supplied org header before setting our own. On hosts where
+  // no org resolves (the marketing apex), a spoofed x-org-id would otherwise
+  // pass straight through to the app, which has many direct readers.
+  requestHeaders.delete('x-org-id')
   if (orgId) requestHeaders.set('x-org-id', orgId)
   if (isImpersonating) requestHeaders.set('x-impersonating', '1')
   // Expose the full pathname+search so server components can build return-to URLs

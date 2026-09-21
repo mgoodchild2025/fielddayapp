@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { createServerClient } from '@/lib/supabase/server'
 import { getSeasonPassQuote } from '@/lib/season-pass'
 import { getOrgTaxRates, stripeTaxRateIds } from '@/lib/tax'
 import { canAccess } from '@/lib/features'
@@ -35,6 +36,14 @@ export async function POST(request: NextRequest) {
   if (checkoutRateLimiter.check(getClientIp(request)).limited) {
     return NextResponse.json({ error: 'Too many requests — please wait a few minutes and try again.' }, { status: 429 })
   }
+  // Every caller of this route is a signed-in surface (registration step 3,
+  // the dashboard pending-payment button, the team payment panel). Guests use
+  // the separate guest-dropin-checkout route. Without this check an anonymous
+  // request could open a Checkout Session against any org's live secret key.
+  const authClient = await createServerClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
   const body = await request.json()
   const db = createServiceRoleClient()
 
@@ -43,15 +52,34 @@ export async function POST(request: NextRequest) {
   if (teamParsed.success && 'teamId' in body && !('registrationId' in body)) {
     const { leagueId, leagueSlug, teamId, orgId, discountId: teamDiscountId } = teamParsed.data
 
+    // Org-scope both lookups: the org id arrives in the request body, so an
+    // unscoped lookup would happily pair one org's team with another org's
+    // Stripe key.
     const [{ data: league }, { data: team }, { data: paymentSettings }] = await Promise.all([
-      db.from('leagues').select('name, price_cents, currency, max_teams').eq('id', leagueId).single(),
-      db.from('teams').select('name').eq('id', teamId).single(),
+      db.from('leagues').select('name, price_cents, currency, max_teams').eq('id', leagueId).eq('organization_id', orgId).single(),
+      db.from('teams').select('name, league_id').eq('id', teamId).eq('organization_id', orgId).single(),
 
       db.from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', orgId).single(),
     ])
 
     if (!league) return NextResponse.json({ error: 'League not found' }, { status: 404 })
     if (!team) return NextResponse.json({ error: 'Team not found' }, { status: 404 })
+    if (team.league_id !== leagueId) {
+      return NextResponse.json({ error: 'Team does not belong to this event' }, { status: 400 })
+    }
+
+    // Who may pay a team fee: an org/league admin, or a manager of that team —
+    // the same rule the team page uses to decide whether to show the panel.
+    const [{ data: teamAdmin }, { data: teamMembership }] = await Promise.all([
+      db.from('org_members').select('role')
+        .eq('organization_id', orgId).eq('user_id', user.id)
+        .in('role', ['org_admin', 'league_admin']).maybeSingle(),
+      db.from('team_members').select('role')
+        .eq('team_id', teamId).eq('user_id', user.id).eq('status', 'active').maybeSingle(),
+    ])
+    if (!teamAdmin && !['captain', 'coach'].includes(teamMembership?.role ?? '')) {
+      return NextResponse.json({ error: 'Not authorized to pay for this team' }, { status: 403 })
+    }
 
     // Apply discount server-side
     let teamPriceCents: number = league.price_cents
@@ -193,16 +221,25 @@ export async function POST(request: NextRequest) {
 
   const { leagueId, leagueSlug, userId, registrationId, orgId, discountId, planId, merchSelections } = parsed.data
 
+  // A player pays their own registration. Both callers send the signed-in
+  // user's own id, so anything else is a forged request.
+  if (userId !== user.id) {
+    return NextResponse.json({ error: 'Not authorized to pay for this registration' }, { status: 403 })
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db2 = db as any
   const [{ data: league }, { data: paymentSettings }, { data: profile }, { data: registration }] = await Promise.all([
-    db2.from('leagues').select('name, price_cents, currency, drop_in_price_cents, max_participants, payment_mode, early_bird_price_cents, early_bird_deadline, event_type, season_pass_prorate').eq('id', leagueId).single(),
+    db2.from('leagues').select('name, price_cents, currency, drop_in_price_cents, max_participants, payment_mode, early_bird_price_cents, early_bird_deadline, event_type, season_pass_prorate').eq('id', leagueId).eq('organization_id', orgId).single(),
     db2.from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', orgId).maybeSingle(),
     db2.from('profiles').select('email').eq('id', userId).single(),
-    db2.from('registrations').select('registration_type, session_id').eq('id', registrationId).single(),
+    db2.from('registrations').select('registration_type, session_id, user_id, league_id').eq('id', registrationId).eq('organization_id', orgId).single(),
   ])
 
   if (!league) return NextResponse.json({ error: 'League not found' }, { status: 404 })
+  if (!registration || registration.user_id !== userId || registration.league_id !== leagueId) {
+    return NextResponse.json({ error: 'Registration not found' }, { status: 404 })
+  }
 
   // ── Capacity guard: per-player events ────────────────────────────────────
   // For session-based drop-ins the cap applies PER SESSION (the session's own

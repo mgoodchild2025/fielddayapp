@@ -12,7 +12,9 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 
 function authorized(req: NextRequest) {
   const secret = process.env.CRON_SECRET
-  if (!secret) return true
+  // Fail CLOSED. A missing secret must never make these endpoints public —
+  // data-retention deletes, and reminders sends real email and SMS.
+  if (!secret) return false
   return req.headers.get('authorization') === `Bearer ${secret}`
 }
 
