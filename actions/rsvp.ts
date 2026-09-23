@@ -8,6 +8,12 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { sendSms } from '@/lib/twilio'
 import { formatGameTime } from '@/lib/format-time'
 import { createNotifications } from '@/lib/notify'
+import { pushConfigured } from '@/lib/push'
+import { decideReminderChannels } from '@/lib/reminder-channels'
+import {
+  rsvpAlertFor, rsvpRecipients, activeOrganizerIds, rsvpMessage,
+  TEAM_MANAGER_ROLES, type RsvpAlert, type RsvpStatus,
+} from '@/lib/rsvp-notify'
 
 /**
  * Upsert the current user's RSVP for a game.
@@ -32,9 +38,9 @@ export async function upsertRsvp(gameId: string, teamId: string, status: 'in' | 
   // team is actually in. Without this any signed-in user could write an RSVP
   // against any team — corrupting that team's attendance count and firing a
   // real SMS to its captain.
-  const [{ data: game }, { data: membership }] = await Promise.all([
+  const [{ data: game }, { data: membership }, { data: previousRsvp }] = await Promise.all([
     db.from('games')
-      .select('home_team_id, away_team_id')
+      .select('home_team_id, away_team_id, league_id')
       .eq('id', gameId)
       .eq('organization_id', org.id)
       .maybeSingle(),
@@ -43,6 +49,13 @@ export async function upsertRsvp(gameId: string, teamId: string, status: 'in' | 
       .eq('team_id', teamId)
       .eq('user_id', user.id)
       .eq('status', 'active')
+      .maybeSingle(),
+    // The previous answer decides whether this is news: a change back to "in"
+    // after saying "out" must reach the people who were told they were out.
+    db.from('game_rsvps')
+      .select('status')
+      .eq('game_id', gameId)
+      .eq('user_id', user.id)
       .maybeSingle(),
   ])
 
@@ -68,10 +81,14 @@ export async function upsertRsvp(gameId: string, teamId: string, status: 'in' | 
 
   if (error) return { error: error.message }
 
-  // ── Out-RSVP notifications ─────────────────────────────────────────────────
-  // Fire-and-forget: notify team captain + org admins when a player RSVPs out.
-  if (status === 'out') {
-    notifyRsvpOut({ orgId: org.id, orgName: org.name, gameId, teamId, userId: user.id, db }).catch(() => {})
+  // ── RSVP change notifications ──────────────────────────────────────────────
+  // Fire-and-forget. Only a real change raises an alert — see lib/rsvp-notify.
+  const alert = rsvpAlertFor((previousRsvp?.status ?? null) as RsvpStatus | null, status)
+  if (alert) {
+    notifyRsvpChange({
+      orgId: org.id, orgName: org.name, gameId, leagueId: game.league_id as string,
+      teamId, userId: user.id, alert, db,
+    }).catch(() => {})
   }
 
   revalidatePath('/events/[slug]', 'page')
@@ -79,38 +96,50 @@ export async function upsertRsvp(gameId: string, teamId: string, status: 'in' | 
   return { error: null }
 }
 
-/** Sends system notifications (and captain SMS) when a player RSVPs out. */
-async function notifyRsvpOut({
-  orgId, orgName, gameId, teamId, userId, db,
+/**
+ * Tells the right people about an RSVP change.
+ *
+ * Recipients: the team's managers (captains and coaches) plus the event's
+ * organizers, falling back to org admins when the event has none. Managers
+ * also get a text, but push-first — the same rule as every reminder, so a
+ * manager with phone alerts on is not buzzed twice for one change.
+ */
+async function notifyRsvpChange({
+  orgId, orgName, gameId, leagueId, teamId, userId, alert, db,
 }: {
   orgId: string
   orgName: string
   gameId: string
+  leagueId: string
   teamId: string
   userId: string
+  alert: RsvpAlert
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: any
 }) {
-  // Fetch game, player profile, team captains, and org admins in parallel
-  const [gameRes, profileRes, captainRes, adminRes, brandingRes] = await Promise.all([
-
+  const [gameRes, profileRes, managerRes, organizerRes, adminRes, brandingRes] = await Promise.all([
     db.from('games').select(`
       id, scheduled_at, court,
       home_team:teams!games_home_team_id_fkey(id, name),
-      away_team:teams!games_away_team_id_fkey(id, name),
-      leagues(name)
+      away_team:teams!games_away_team_id_fkey(id, name)
     `).eq('id', gameId).single(),
 
     db.from('profiles').select('full_name').eq('id', userId).single(),
 
     db.from('team_members')
-      .select('user_id, profiles!team_members_user_id_fkey(full_name, phone, sms_opted_in)')
+      .select('user_id, profiles!team_members_user_id_fkey(phone, sms_opted_in, push_reminders_enabled, sms_also_when_push)')
       .eq('team_id', teamId)
-      .eq('role', 'captain')
+      .in('role', [...TEAM_MANAGER_ROLES])
+      .eq('status', 'active'),
+
+    db.from('league_organizers')
+      .select('user_id')
+      .eq('organization_id', orgId)
+      .eq('league_id', leagueId)
       .eq('status', 'active'),
 
     db.from('org_members')
-      .select('user_id')
+      .select('user_id, role')
       .eq('organization_id', orgId)
       .in('role', ['org_admin', 'league_admin'])
       .eq('status', 'active'),
@@ -121,53 +150,70 @@ async function notifyRsvpOut({
   const game = gameRes.data
   if (!game) return
 
-  const playerName: string = profileRes.data?.full_name ?? 'A player'
-  const timezone: string = brandingRes.data?.timezone ?? 'America/Toronto'
+  type ManagerProfile = { phone?: string | null; sms_opted_in?: boolean | null; push_reminders_enabled?: boolean | null; sms_also_when_push?: boolean | null }
+  const managers = (managerRes.data ?? []) as { user_id: string; profiles: ManagerProfile | ManagerProfile[] | null }[]
+  const admins = (adminRes.data ?? []) as { user_id: string; role: string }[]
+
+  const recipients = rsvpRecipients({
+    playerId: userId,
+    managerIds: managers.map((m) => m.user_id),
+    organizerIds: activeOrganizerIds(
+      ((organizerRes.data ?? []) as { user_id: string | null }[]).map((o) => o.user_id),
+      new Set(admins.map((a) => a.user_id)),
+    ),
+    orgAdminIds: admins.filter((a) => a.role === 'org_admin').map((a) => a.user_id),
+  })
 
   const homeTeam = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team
   const awayTeam = Array.isArray(game.away_team) ? game.away_team[0] : game.away_team
-  const league   = Array.isArray(game.leagues)   ? game.leagues[0]   : game.leagues
-  const teamName = homeTeam?.id === teamId ? homeTeam?.name : awayTeam?.name
-  const opponent = homeTeam?.id === teamId ? awayTeam?.name : homeTeam?.name
-  const { date: gameDate, time: gameTime } = formatGameTime(game.scheduled_at, timezone)
-  const venueStr = game.court ? ` · ${game.court}` : ''
+  const onHome = homeTeam?.id === teamId
+  const { date, time } = formatGameTime(game.scheduled_at, brandingRes.data?.timezone ?? 'America/Toronto')
+  const { title, body } = rsvpMessage(alert, {
+    playerName: profileRes.data?.full_name ?? 'A player',
+    teamName: onHome ? homeTeam?.name : awayTeam?.name,
+    opponent: onHome ? awayTeam?.name : homeTeam?.name,
+    date, time, court: game.court,
+  })
 
-  const notifTitle = `${playerName} is out`
-  const notifBody  = `${playerName} has RSVP'd out for ${teamName}${opponent ? ` vs ${opponent}` : ''} on ${gameDate} at ${gameTime}${venueStr}.`
-
-  // Collect unique user IDs to notify (captains + admins, excluding the player themselves)
-  const captains = (captainRes.data ?? []) as {
-    user_id: string
-    profiles: { full_name?: string; phone?: string; sms_opted_in?: boolean } | { full_name?: string; phone?: string; sms_opted_in?: boolean }[] | null
-  }[]
-  const adminUserIds: string[] = (adminRes.data ?? []).map((a: { user_id: string }) => a.user_id)
-
-  const notifyUserIds = [
-    ...captains.map((c) => c.user_id),
-    ...adminUserIds,
-  ].filter((id, i, arr) => id !== userId && arr.indexOf(id) === i) // deduplicate, exclude self
-
-  if (notifyUserIds.length > 0) {
+  if (recipients.length > 0) {
     await createNotifications(
-      notifyUserIds.map((uid: string) => ({
+      recipients.map((uid) => ({
         organization_id: orgId,
         user_id: uid,
-        type: 'rsvp_out',
-        title: notifTitle,
-        body: notifBody,
+        type: alert === 'out' ? 'rsvp_out' : 'rsvp_in',
+        title,
+        body,
         data: { gameId, teamId, playerId: userId },
       }))
     )
   }
 
-  // SMS to team captain(s) who have opted in
-  const smsBody = `${orgName}\n\n${notifBody}\n\nReply STOP to unsubscribe.`
+  // ── Text the managers, push-first ──────────────────────────────────────────
+  const textable = managers.filter((m) => m.user_id !== userId)
+  if (textable.length === 0) return
 
-  for (const captain of captains) {
-    if (captain.user_id === userId) continue // skip if captain RSVPd themselves
-    const profile = Array.isArray(captain.profiles) ? captain.profiles[0] : captain.profiles
-    if (!profile?.phone || !profile?.sms_opted_in) continue
-    sendSms(profile.phone, smsBody).catch(() => {})
+  const { data: subs } = await db
+    .from('push_subscriptions')
+    .select('user_id')
+    .eq('organization_id', orgId)
+    .in('user_id', textable.map((m) => m.user_id))
+  const hasPush = new Set(((subs ?? []) as { user_id: string }[]).map((r) => r.user_id))
+  const pushOn = pushConfigured()
+  const smsBody = `${orgName}\n\n${body}\n\nReply STOP to unsubscribe.`
+
+  for (const m of textable) {
+    const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
+    const channels = decideReminderChannels(
+      {
+        phone: p?.phone,
+        smsOptedIn: p?.sms_opted_in,
+        pushRemindersEnabled: p?.push_reminders_enabled,
+        smsAlsoWhenPush: p?.sms_also_when_push,
+      },
+      // RSVP texts have never had an org-level toggle; keep that unchanged.
+      { orgSmsEnabled: true, pushConfigured: pushOn, hasPushSubscription: hasPush.has(m.user_id) },
+    )
+    if (channels.sms && p?.phone) sendSms(p.phone, smsBody).catch(() => {})
   }
 }
 
