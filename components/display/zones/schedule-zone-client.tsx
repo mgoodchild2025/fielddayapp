@@ -338,6 +338,20 @@ export function ScheduleClient({ games, timezone, isDark, scrollSpeed, leagueId 
                 ) : (
                   <span style={{ fontSize: 12, color: teamDim }}>vs</span>
                 )}
+                {/* Same tag style as CANCELLED / POSTPONED, set beneath the
+                    score so it never competes with them. Violet reads on both
+                    the light and dark display themes. */}
+                {g.is_exhibition && !isCancelled && !isPostponed && (
+                  <div style={{ marginTop: 2 }}>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, color: '#8b5cf6',
+                      backgroundColor: 'rgba(139,92,246,0.14)',
+                      padding: '1px 5px', borderRadius: 3,
+                    }}>
+                      EXHIBITION
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Away team */}

@@ -83,7 +83,7 @@ export async function GET(
   const { data: games } = await db
     .from('games')
     .select(`
-      id, scheduled_at, court, week_number, status,
+      id, scheduled_at, court, week_number, status, is_exhibition,
       home_team:teams!games_home_team_id_fkey(id, name),
       away_team:teams!games_away_team_id_fkey(id, name)
     `)
@@ -145,7 +145,7 @@ export async function GET(
       prop('DTSTAMP', now),
       prop('DTSTART', icalDate(start)),
       prop('DTEND', icalDate(end)),
-      prop('SUMMARY', escapeText(`${homeName} vs ${awayName}`)),
+      prop('SUMMARY', escapeText(`${homeName} vs ${awayName}${g.is_exhibition ? ' (Exhibition)' : ''}`)),
       ...(location ? [prop('LOCATION', escapeText(location))] : []),
       prop('DESCRIPTION', description),
       prop('STATUS', icalStatus),

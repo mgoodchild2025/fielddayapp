@@ -15,7 +15,7 @@ import { getEventSponsors } from '@/actions/event-sponsors'
 import { EventSponsorStrip } from '@/components/sponsors/event-sponsor-strip'
 import { CaptainScoreEntry } from '@/components/scores/captain-score-entry'
 import { LiveScoreBadge } from '@/components/scoreboard/live-score-badge'
-import { GameKindBadge } from '@/components/schedule/game-kind-badge'
+import { GameKindBadge, ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { ScheduleFilterBar } from '@/components/events/schedule-filter-bar'
 import { SchedulePhaseSummary } from '@/components/schedule/schedule-phase-summary'
 import type { SchedulePhase } from '@/lib/phases'
@@ -387,7 +387,7 @@ function DateGroup({
                   {game.court && <><span>·</span><span>Court {game.court}</span></>}
                   {game.week_number && showWeek && <><span>·</span><span>Wk {game.week_number}</span></>}
                   {showKind && <GameKindBadge poolName={game.poolName} isPlayoff={game.isPlayoff} className="not-italic" />}
-                  {game.is_exhibition && <span className="not-italic text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700" title="Doesn't count toward standings">Exhibition</span>}
+                  <ExhibitionBadge isExhibition={game.is_exhibition} className="not-italic" />
                   {game.isPlayoff && (game.playoffTier || game.playoffRound) && (
                     <span className="text-gray-500">{[game.playoffTier, game.playoffRound].filter(Boolean).join(' · ')}</span>
                   )}
@@ -476,6 +476,7 @@ function DateGroup({
                     </p>
                     {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
                     {game.status === 'postponed' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
+                    <ExhibitionBadge isExhibition={game.is_exhibition} />
                     {isForfeit && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Forfeit</span>}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">

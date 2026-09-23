@@ -8,6 +8,7 @@ import { GameSubClient } from '@/components/schedule/game-sub-client'
 import { getGameSubInviteDetails } from '@/actions/game-subs'
 import { formatGameTime } from '@/lib/format-time'
 import Link from 'next/link'
+import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 
 export default async function SubInvitePage({
   params,
@@ -92,7 +93,10 @@ export default async function SubInvitePage({
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{org.name}</p>
               <h1 className="text-xl font-bold text-gray-900">Sub Invite — {invite.teamName}</h1>
               {invite.opponentName && (
-                <p className="text-sm text-gray-500">vs {invite.opponentName}</p>
+                <p className="text-sm text-gray-500">
+                  vs {invite.opponentName}
+                  <ExhibitionBadge isExhibition={invite.isExhibition} className="ml-1.5 align-middle" />
+                </p>
               )}
               <p className="text-sm text-gray-500 mt-1">{gameDate} · {gameTime}{invite.court ? ` · ${invite.court}` : ''}</p>
               {invite.leagueName && <p className="text-xs text-gray-400">{invite.leagueName}</p>}

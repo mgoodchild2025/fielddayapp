@@ -32,6 +32,8 @@ export type GameSubInviteDetails = {
   teamColor: string | null
   teamLogoUrl: string | null
   opponentName: string | null
+  /** Played and scored but excluded from the standings — worth knowing before agreeing to sub. */
+  isExhibition?: boolean
   leagueName: string | null
   leagueSlug: string | null
   leagueId: string | null
@@ -199,7 +201,7 @@ export async function getGameSubInviteDetails(
     .select(`
       id, game_id, team_id, invited_email, status, message, expires_at, invited_by,
       game:games!game_subs_game_id_fkey(
-        id, scheduled_at, court, league_id,
+        id, scheduled_at, court, league_id, is_exhibition,
         home_team:teams!games_home_team_id_fkey(id, name),
         away_team:teams!games_away_team_id_fkey(id, name),
         league:leagues!games_league_id_fkey(id, name, slug)
@@ -237,6 +239,7 @@ export async function getGameSubInviteDetails(
     teamColor:    team?.color ?? null,
     teamLogoUrl:  team?.logo_url ?? null,
     opponentName,
+    isExhibition: !!game?.is_exhibition,
     leagueName:   league?.name   ?? null,
     leagueSlug:   league?.slug   ?? null,
     leagueId:     league?.id     ?? game?.league_id ?? null,

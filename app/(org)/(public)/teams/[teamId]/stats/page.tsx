@@ -269,6 +269,7 @@ export default async function TeamStatsPage({
       awayScore: result?.away_score ?? null,
       setScores,
       poolName: g.pool_id ? (poolNameById.get(g.pool_id) ?? null) : null,
+      isExhibition: !!g.is_exhibition,
       isHome,
       outcome,
     })

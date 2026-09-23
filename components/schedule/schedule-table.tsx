@@ -6,6 +6,7 @@ import { AdminScoreEntry } from '@/components/scores/admin-score-entry'
 import { EditGameModal } from '@/components/schedule/edit-game-modal'
 import { venueLabel } from '@/lib/venue-label'
 import { deleteGame, deleteGames, setSchedulePublished, clearAllGames } from '@/actions/schedule'
+import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 
 interface SetScore { home: number; away: number }
 
@@ -456,7 +457,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                             {game.homeTeamName} <span className="text-gray-400 font-normal">vs</span> {game.awayTeamName}
                           </p>
                           {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
-                          {game.isExhibition && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700" title="Doesn't count toward standings">Exhibition</span>}
+                          <ExhibitionBadge isExhibition={game.isExhibition} />
                           {game.status === 'postponed' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
                         </div>
                         {game.cancellationReason && (game.status === 'cancelled' || game.status === 'postponed') && (
@@ -603,7 +604,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                               {game.awayTeamName}
                             </span>
                             {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
-                            {game.isExhibition && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700" title="Doesn't count toward standings">Exhibition</span>}
+                            <ExhibitionBadge isExhibition={game.isExhibition} />
                             {game.status === 'postponed' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
                           </div>
                           {game.cancellationReason && (game.status === 'cancelled' || game.status === 'postponed') && (

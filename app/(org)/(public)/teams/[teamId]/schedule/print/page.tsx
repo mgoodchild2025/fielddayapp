@@ -65,7 +65,7 @@ export default async function TeamSchedulePrintPage({
   const { data: rawGames } = await db
     .from('games')
     .select(`
-      id, scheduled_at, court, week_number, status,
+      id, scheduled_at, court, week_number, status, is_exhibition,
       home_team:teams!games_home_team_id_fkey(id, name),
       away_team:teams!games_away_team_id_fkey(id, name),
       league:leagues!games_league_id_fkey(schedule_published)
@@ -93,6 +93,7 @@ export default async function TeamSchedulePrintPage({
       awayTeamName: awayTeam?.name ?? 'TBD',
       highlightHome: homeTeam?.id === teamId,
       highlightAway: awayTeam?.id === teamId,
+      isExhibition: !!g.is_exhibition,
     }
   })
 

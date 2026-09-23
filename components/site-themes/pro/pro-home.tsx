@@ -7,6 +7,7 @@ import { HeroSocialLinks } from '@/components/ui/social-links'
 import type { OrgContext } from '@/lib/tenant'
 import { formatEventPrice } from '@/lib/event-price'
 import { UpcomingEventsSection } from '@/components/site-themes/shared/upcoming-events-section'
+import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 
 type League = {
   id: string; name: string; slug: string; event_type: string | null; status: string
@@ -33,6 +34,8 @@ type RecentResult = {
   id: string; home_score: number | null; away_score: number | null
   home_team_name: string; away_team_name: string
   league_name: string | null; scheduled_at: string
+  /** Played and scored but excluded from the standings. */
+  is_exhibition?: boolean
 }
 type Sponsor = { id: string; name: string; logo_url: string | null; website_url: string | null; tier: string }
 type StaffMember = { id: string; name: string; role: string | null; bio: string | null; avatar_url: string | null }
@@ -110,6 +113,7 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
                 {recentResults.map((r) => (
                   <div key={r.id} className="shrink-0 bg-white/5 rounded-lg px-4 py-3 text-white text-center min-w-[140px]">
                     {r.league_name && <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">{r.league_name}</p>}
+                    {r.is_exhibition && <p className="mb-1.5"><ExhibitionBadge isExhibition /></p>}
                     <p className="text-xs text-white/60 truncate max-w-[120px] mx-auto">{r.home_team_name}</p>
                     <p className="text-2xl font-black my-1" style={{ fontFamily: 'var(--brand-heading-font)' }}>
                       {r.home_score ?? '—'} <span className="text-white/30 text-lg">·</span> {r.away_score ?? '—'}

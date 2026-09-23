@@ -8,6 +8,7 @@ import { parseLocalToUtc } from '@/lib/format-time'
 import { AdminScoreEntry } from '@/components/scores/admin-score-entry'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { roundDisplayName } from '@/lib/bracket'
+import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 
 /**
  * Courtside mode — game-night score entry built for a phone in a dim gym:
@@ -47,7 +48,7 @@ export default async function CourtsidePage({
   let query = db
     .from('games')
     .select(`
-      id, scheduled_at, court, status, league_id,
+      id, scheduled_at, court, status, league_id, is_exhibition,
       home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
       away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
       league:leagues!games_league_id_fkey(id, name, sport),
@@ -129,7 +130,10 @@ export default async function CourtsidePage({
   const GameCard = ({ g }: { g: any }) => (
     <div className="rounded-xl border bg-white p-4">
       <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
-        <span>{timeStr(g.scheduled_at)}{g.court ? ` · ${g.court}` : ''}</span>
+        <span className="flex items-center gap-1.5">
+          {timeStr(g.scheduled_at)}{g.court ? ` · ${g.court}` : ''}
+          <ExhibitionBadge isExhibition={g.is_exhibition} />
+        </span>
         <span className="truncate max-w-[45%]">{g.league?.name}</span>
       </div>
       <div className="flex items-center gap-2">
