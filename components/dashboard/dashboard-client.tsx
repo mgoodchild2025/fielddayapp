@@ -57,6 +57,8 @@ export type NextGameItem = {
 export type NextSessionItem = {
   kind: 'session'
   id: string
+  /** The event this session belongs to — one NextSessionItem per event. */
+  leagueId: string
   scheduledAt: string
   leagueName: string
   leagueSlug: string
@@ -117,6 +119,8 @@ interface Props {
   orgName?: string
   timezone: string
   nextItem: NextItem
+  /** Each active event's next session, soonest first. */
+  nextSessions?: NextSessionItem[]
   /** Other games on the same day as the next game (RSVP-able, shown below the hero). */
   sameDayGames?: NextGameItem[]
   teams: DashboardTeam[]
@@ -546,8 +550,13 @@ function MyCardSection({ myCardBio, myCareer, myCardHref }: {
   )
 }
 
-export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null }: Props) {
+export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, nextSessions = [], sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null }: Props) {
   const [activeIdx, setActiveIdx] = useState(0)
+  // Which event's next session is showing. Defaults to the soonest (index 0);
+  // clamped so a refresh that drops an event can't leave it pointing past the end.
+  const [sessionIdx, setSessionIdx] = useState(0)
+  const selectedSessionIdx = Math.min(sessionIdx, Math.max(0, nextSessions.length - 1))
+  const selectedSession = nextSessions[selectedSessionIdx] ?? null
 
   // RSVP state — only relevant when nextItem is a game
   const initialRsvp = nextItem?.kind === 'game' ? nextItem.myRsvp : null
@@ -614,7 +623,10 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
   // "Nothing scheduled" describes the SCHEDULE, not the player: the greeting,
   // trophy case, and card stay — the off-season is when the career is the
   // whole dashboard.
-  if (teams.length === 0 && !nextItem) {
+  // Off-season only when there is genuinely nothing coming up. Sessions now
+  // travel separately from nextItem (which carries games only), so a drop-in
+  // player with no team must still get the normal dashboard.
+  if (teams.length === 0 && !nextItem && nextSessions.length === 0) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 pb-24 space-y-8">
         <div>
@@ -690,61 +702,111 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
         </Link>
       ))}
 
-      {/* ── What's Next hero (global — game or session, whichever is sooner) ── */}
-      <section>
-        <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">
-            {nextItem?.kind === 'session' ? 'Next Session' : 'Next Game'}
-          </h2>
-          <Link href="/schedule" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
-            Full schedule →
-          </Link>
-        </div>
-
-        {nextItem?.kind === 'game' ? (
-          <>
-            <GameHero
-              item={nextItem}
-              timezone={timezone}
-              rsvpIn={rsvpIn}
-              rsvpOut={rsvpOut}
-              myRsvp={myRsvp}
-              onRsvp={handleHeroRsvp}
-            />
-            {sameDayGames.length > 0 && (
-              <div className="mt-3 space-y-2">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 px-1">
-                  Later that day <span className="text-gray-300 normal-case font-medium tracking-normal">· follows your hero RSVP</span>
-                </p>
-                {sameDayGames.map((g) => {
-                  const st = sameDayRsvp[g.id] ?? { myRsvp: g.myRsvp, in: g.rsvpIn, out: g.rsvpOut }
-                  return (
-                    <SameDayGameRow
-                      key={g.id}
-                      item={g}
-                      timezone={timezone}
-                      myRsvp={st.myRsvp}
-                      rsvpIn={st.in}
-                      rsvpOut={st.out}
-                      onRsvp={(status) => rsvpSameDayGame(g, status)}
-                    />
-                  )
-                })}
-              </div>
-            )}
-          </>
-        ) : nextItem?.kind === 'session' ? (
-          <SessionHero item={nextItem} timezone={timezone} />
-        ) : (
-          <div className="bg-white rounded-2xl border p-10 text-center">
-            <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center bg-gray-50">
-              <Calendar className="w-6 h-6 text-gray-300" />
-            </div>
-            <p className="text-sm font-medium text-gray-500">No upcoming games or sessions</p>
-            <p className="text-xs text-gray-400 mt-1">Check back soon — your schedule will appear here.</p>
+      {/* ── Next game ── */}
+      {nextItem?.kind === 'game' && (
+        <section>
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">Next Game</h2>
+            <Link href="/schedule" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
+              Full schedule →
+            </Link>
           </div>
-        )}
-      </section>
+          <GameHero
+            item={nextItem}
+            timezone={timezone}
+            rsvpIn={rsvpIn}
+            rsvpOut={rsvpOut}
+            myRsvp={myRsvp}
+            onRsvp={handleHeroRsvp}
+          />
+          {sameDayGames.length > 0 && (
+            <div className="mt-3 space-y-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 px-1">
+                Later that day <span className="text-gray-300 normal-case font-medium tracking-normal">· follows your hero RSVP</span>
+              </p>
+              {sameDayGames.map((g) => {
+                const st = sameDayRsvp[g.id] ?? { myRsvp: g.myRsvp, in: g.rsvpIn, out: g.rsvpOut }
+                return (
+                  <SameDayGameRow
+                    key={g.id}
+                    item={g}
+                    timezone={timezone}
+                    myRsvp={st.myRsvp}
+                    rsvpIn={st.in}
+                    rsvpOut={st.out}
+                    onRsvp={(status) => rsvpSameDayGame(g, status)}
+                  />
+                )
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── Next session, one per event ──────────────────────────────────────
+          Its own section rather than competing with games for one hero: a
+          player on a team league who also plays drop-ins would otherwise rarely
+          see a session, because the game is usually sooner. */}
+      {selectedSession && (
+        <section>
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">Next Session</h2>
+            {nextItem?.kind !== 'game' && (
+              <Link href="/schedule" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
+                Full schedule →
+              </Link>
+            )}
+          </div>
+
+          {/* One pill per event, same look as the team tabs below. Hidden when
+              there is only one event. Toggle buttons with aria-pressed rather
+              than a tablist, so they need no extra keyboard wiring. */}
+          {nextSessions.length > 1 && (
+            <div role="group" aria-label="Your events" className="flex gap-1.5 flex-wrap mb-3">
+              {nextSessions.map((sess, i) => {
+                const on = i === selectedSessionIdx
+                return (
+                  <button
+                    key={sess.leagueId || sess.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setSessionIdx(i)}
+                    className={`max-w-full px-3 py-1.5 rounded-full text-sm font-semibold transition-all ${
+                      on
+                        ? 'text-white shadow-sm'
+                        : 'bg-white border text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                    style={on ? { backgroundColor: 'var(--brand-primary)' } : undefined}
+                  >
+                    <span className="block truncate max-w-[14rem]">{sess.leagueName}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          <SessionHero item={selectedSession} timezone={timezone} />
+        </section>
+      )}
+
+      {/* ── Nothing coming up ── */}
+      {nextItem?.kind !== 'game' && !selectedSession && (
+        <section>
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">Next Game</h2>
+            <Link href="/schedule" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
+              Full schedule →
+            </Link>
+          </div>
+            <div className="bg-white rounded-2xl border p-10 text-center">
+              <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center bg-gray-50">
+                <Calendar className="w-6 h-6 text-gray-300" />
+              </div>
+              <p className="text-sm font-medium text-gray-500">No upcoming games or sessions</p>
+              <p className="text-xs text-gray-400 mt-1">Check back soon — your schedule will appear here.</p>
+            </div>
+        </section>
+      )}
 
       {/* ── Team tabs (only when multiple active teams) ── */}
       {teams.length > 1 && (

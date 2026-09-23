@@ -19,6 +19,7 @@ import type {
   NextGameItem,
   NextSessionItem,
 } from '@/components/dashboard/dashboard-client'
+import { nextSessionPerEvent } from '@/lib/next-sessions'
 
 export default async function DashboardPage() {
   const headersList = await headers()
@@ -32,7 +33,6 @@ export default async function DashboardPage() {
   const now = new Date().toISOString()
   const pastBound = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString()
   // Sessions: look up to 14 days in the past (to include recent ones)
-  const sessionPastBound = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
 
   // ── Base queries (always run) ─────────────────────────────────────────────
   const [
@@ -64,7 +64,7 @@ export default async function DashboardPage() {
     db.from('session_registrations').select(`
       id, session_id, status,
       session:event_sessions!session_registrations_session_id_fkey(
-        id, scheduled_at, duration_minutes, location_override,
+        id, scheduled_at, status, duration_minutes, location_override,
         league:leagues!event_sessions_league_id_fkey(id, name, slug, event_type, sport, logo_url)
       )
     `)
@@ -77,14 +77,18 @@ export default async function DashboardPage() {
     db.from('registrations').select(`
       id, session_id,
       session:event_sessions!registrations_session_id_fkey(
-        id, scheduled_at, duration_minutes, location_override,
+        id, scheduled_at, status, duration_minutes, location_override,
         league:leagues!event_sessions_league_id_fkey(id, name, slug, event_type, sport, logo_url)
       )
     `)
       .eq('user_id', user.id)
       .eq('organization_id', org.id)
       .not('session_id', 'is', null)
-      .in('status', ['active', 'pending']),
+      // Active only. Pending means the sign-up was never finished (an
+      // abandoned card checkout, or a flow closed before Done). E-transfer
+      // sign-ups are activated on Done, so they are active and still show.
+      // Same rule as the event page.
+      .eq('status', 'active'),
 
     // Session path 3: season-pass registrations (league-level, not session-level)
 
@@ -92,7 +96,7 @@ export default async function DashboardPage() {
       .eq('user_id', user.id)
       .eq('organization_id', org.id)
       .is('session_id', null)
-      .in('status', ['active', 'pending'])
+      .eq('status', 'active')
       .or('registration_type.eq.season,registration_type.is.null'),
   ])
 
@@ -100,24 +104,29 @@ export default async function DashboardPage() {
   const firstName = profileRow?.full_name?.split(' ')[0] ?? 'there'
   const logoUrl = (branding as { logo_url?: string } | null)?.logo_url ?? null
 
-  // ── Season-pass: fetch all sessions for those leagues ────────────────────
+  // ── Season-pass: each event's next open session ──────────────────────────
+  // A season pass covers every session of its event, so only the next one per
+  // event matters here. One query per event rather than one shared list: the
+  // old shared list was capped at 30 rows across ALL of a player's events, so
+  // an event that runs often could push another event's next session off it.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const seasonLeagueIds = ((seasonPassRegs ?? []) as any[]).map((r) => r.league_id as string).filter(Boolean)
+  const seasonLeagueIds = [...new Set(((seasonPassRegs ?? []) as any[]).map((r) => r.league_id as string).filter(Boolean))]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let seasonSessionRows: any[] = []
-  if (seasonLeagueIds.length > 0) {
-
-    const { data } = await db.from('event_sessions').select(`
-      id, scheduled_at, duration_minutes, location_override,
-      league:leagues!event_sessions_league_id_fkey(id, name, slug, event_type, sport, logo_url)
-    `)
-      .in('league_id', seasonLeagueIds)
-      .eq('status', 'open')
-      .gte('scheduled_at', sessionPastBound)
-      .order('scheduled_at', { ascending: true })
-      .limit(30)
-    seasonSessionRows = data ?? []
-  }
+  const seasonSessionRows: any[] = (await Promise.all(
+    seasonLeagueIds.map((leagueId) =>
+      db.from('event_sessions').select(`
+        id, scheduled_at, status, duration_minutes, location_override,
+        league:leagues!event_sessions_league_id_fkey(id, name, slug, event_type, sport, logo_url)
+      `)
+        .eq('league_id', leagueId)
+        .eq('organization_id', org.id)
+        .eq('status', 'open')
+        .gt('scheduled_at', now)
+        .order('scheduled_at', { ascending: true })
+        .limit(1)
+        .then(({ data }) => data ?? [])
+    )
+  )).flat()
 
   // ── Collect + deduplicate all sessions ───────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -130,23 +139,20 @@ export default async function DashboardPage() {
   }
 
 
-  const seenSessionIds = new Set<string>()
+  // One session per event, soonest first — see lib/next-sessions. Drops
+  // cancelled sessions, past ones, and duplicates across the three sources.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const upcomingSessions: any[] = [
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...((sessionRegRows ?? []) as any[]).map(extractSession),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...((dropInRegRows ?? []) as any[]).map(extractSession),
-    ...seasonSessionRows,
-  ]
-    .filter(Boolean)
-    .filter((s) => s.scheduled_at > now)
-    .filter((s) => {
-      if (seenSessionIds.has(s.id)) return false
-      seenSessionIds.add(s.id)
-      return true
-    })
-    .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+  const upcomingSessions: any[] = nextSessionPerEvent(
+    [
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ...((sessionRegRows ?? []) as any[]).map(extractSession),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ...((dropInRegRows ?? []) as any[]).map(extractSession),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ...seasonSessionRows.map((r: any) => ({ ...r, league: Array.isArray(r.league) ? r.league[0] : r.league })),
+    ],
+    now,
+  )
 
   // ── Resolve active team memberships ──────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -554,32 +560,26 @@ export default async function DashboardPage() {
     }
   }
 
-  let nextSessionItem: NextSessionItem | null = null
-  if (upcomingSessions.length > 0) {
-    const s = upcomingSessions[0]
-    nextSessionItem = {
-      kind: 'session',
-      id: s.id as string,
-      scheduledAt: s.scheduled_at as string,
-      leagueName: (s.league?.name ?? '') as string,
-      leagueSlug: (s.league?.slug ?? '') as string,
-      leagueSport: (s.league?.sport ?? null) as string | null,
-      leagueLogoUrl: (s.league?.logo_url ?? null) as string | null,
-      eventType: (s.league?.event_type ?? 'session') as string,
-      duration: (s.duration_minutes ?? null) as number | null,
-      location: (s.location_override ?? null) as string | null,
-    }
-  }
+  // Every event's next session, for the Next Session section. Sessions no
+  // longer compete with games for a single hero: a player on a team league
+  // who also plays drop-ins would otherwise rarely see their sessions, since
+  // the game is usually sooner.
+  const nextSessionItems: NextSessionItem[] = upcomingSessions.map((s) => ({
+    kind: 'session',
+    id: s.id as string,
+    leagueId: (s.league?.id ?? '') as string,
+    scheduledAt: s.scheduled_at as string,
+    leagueName: (s.league?.name ?? '') as string,
+    leagueSlug: (s.league?.slug ?? '') as string,
+    leagueSport: (s.league?.sport ?? null) as string | null,
+    leagueLogoUrl: (s.league?.logo_url ?? null) as string | null,
+    eventType: (s.league?.event_type ?? 'session') as string,
+    duration: (s.duration_minutes ?? null) as number | null,
+    location: (s.location_override ?? null) as string | null,
+  }))
 
-  // Pick the soonest between game and session
-  let nextItem: NextItem = null
-  if (nextGameItem && nextSessionItem) {
-    nextItem = new Date(nextGameItem.scheduledAt) <= new Date(nextSessionItem.scheduledAt)
-      ? nextGameItem
-      : nextSessionItem
-  } else {
-    nextItem = nextGameItem ?? nextSessionItem
-  }
+  // The game hero shows games only now.
+  const nextItem: NextItem = nextGameItem
 
   // ── Assemble per-team data (stats + recent results only) ──────────────────
   const dashboardTeams: DashboardTeam[] = activeTeams.map((m) => {
@@ -768,6 +768,7 @@ export default async function DashboardPage() {
           myCardHref={`/players/${user.id}/card`}
           timezone={timezone}
           nextItem={nextItem}
+          nextSessions={nextSessionItems}
           sameDayGames={sameDayGames}
           teams={dashboardTeams}
           pendingActions={pendingActions}
