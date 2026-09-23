@@ -10,6 +10,7 @@ import { GameRsvpButton } from '@/components/schedule/game-rsvp-button'
 import { GameAttendancePanel } from '@/components/schedule/game-attendance-panel'
 import { CaptainCheckinButton } from '@/components/checkin/captain-checkin-button'
 import { formatGameTime } from '@/lib/format-time'
+import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -73,7 +74,7 @@ export default async function GameMatchupPage({
     db
       .from('games')
       .select(`
-        id, scheduled_at, court, week_number, status, league_id,
+        id, scheduled_at, court, week_number, status, league_id, is_exhibition,
         home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
         away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
         league:leagues!games_league_id_fkey(id, name, slug, event_type, sport),
@@ -197,7 +198,7 @@ export default async function GameMatchupPage({
     const { data: h2hRows } = await db
       .from('games')
       .select(`
-        id, scheduled_at, court, status, week_number,
+        id, scheduled_at, court, status, week_number, is_exhibition,
         home_team:teams!games_home_team_id_fkey(id, name),
         away_team:teams!games_away_team_id_fkey(id, name),
         game_results(home_score, away_score, status)
@@ -297,6 +298,7 @@ export default async function GameMatchupPage({
                   Final
                 </span>
               )}
+              <ExhibitionBadge isExhibition={rawGame.is_exhibition} />
             </div>
 
             {/* Away team */}
@@ -437,6 +439,7 @@ export default async function GameMatchupPage({
                         <p className="text-xs text-gray-400 mt-0.5">
                           {gDate} · {gTime}
                           {g.court ? ` · ${g.court}` : ''}
+                          {g.is_exhibition && <ExhibitionBadge isExhibition className="ml-1.5 align-middle" />}
                         </p>
                       </div>
 

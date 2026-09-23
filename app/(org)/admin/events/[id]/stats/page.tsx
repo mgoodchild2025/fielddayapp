@@ -55,7 +55,7 @@ export default async function AdminStatsPage({
   const { data: games } = await service
     .from('games')
     .select(`
-      id, scheduled_at, week_number,
+      id, scheduled_at, week_number, is_exhibition,
       home_team_id, away_team_id,
       home_team:teams!games_home_team_id_fkey(id, name),
       away_team:teams!games_away_team_id_fkey(id, name),
@@ -103,7 +103,7 @@ export default async function AdminStatsPage({
     const weekLabel = game.week_number ? `Week ${game.week_number} · ` : ''
     return {
       id: game.id,
-      label: `${weekLabel}${date} · ${time}`,
+      label: `${weekLabel}${date} · ${time}${game.is_exhibition ? ' · Exhibition' : ''}`,
       homeTeamId: game.home_team_id ?? '',
       homeTeamName: home?.name ?? 'TBD',
       awayTeamId: game.away_team_id ?? '',

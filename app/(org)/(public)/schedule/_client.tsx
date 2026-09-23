@@ -11,6 +11,7 @@ import type { CalendarDot } from '@/components/ui/player-calendar'
 import { formatGameTime } from '@/lib/format-time'
 import type { GameSub } from '@/actions/game-subs'
 import Image from 'next/image'
+import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ScheduleItem = { _type: 'game' | 'session'; scheduled_at: string; data: any }
@@ -160,9 +161,7 @@ export function MyGamesClient({
                   Sub
                 </span>
               )}
-              {g.is_exhibition && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700" title="Doesn't count toward standings">Exhibition</span>
-              )}
+              <ExhibitionBadge isExhibition={g.is_exhibition} />
               {g.isPlayoff && (
                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 leading-tight">
                   Playoff

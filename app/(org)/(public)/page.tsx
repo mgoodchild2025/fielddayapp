@@ -63,7 +63,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
     db
       .from('games')
       .select(`
-        scheduled_at,
+        scheduled_at, is_exhibition,
         home_team:teams!games_home_team_id_fkey(name),
         away_team:teams!games_away_team_id_fkey(name),
         leagues(name),
@@ -148,6 +148,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
         league_name: (league?.name ?? null) as string | null,
         home_team_name: (home?.name ?? 'TBD') as string,
         away_team_name: (away?.name ?? 'TBD') as string,
+        is_exhibition: !!g.is_exhibition,
       }
     })
     .filter((r: { id: string }) => !!r.id)

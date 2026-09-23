@@ -261,7 +261,7 @@ export default async function DashboardPage() {
       // Upcoming scheduled games for any of user's teams
 
       db.from('games').select(`
-        id, scheduled_at, court, week_number, status, home_team_id, away_team_id, league_id,
+        id, scheduled_at, court, week_number, status, home_team_id, away_team_id, league_id, is_exhibition,
         home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
         away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
         league:leagues!games_league_id_fkey(name, slug)
@@ -276,7 +276,7 @@ export default async function DashboardPage() {
       // Recent past games with scores
 
       db.from('games').select(`
-        id, scheduled_at, home_team_id, away_team_id,
+        id, scheduled_at, home_team_id, away_team_id, is_exhibition,
         home_team:teams!games_home_team_id_fkey(id, name),
         away_team:teams!games_away_team_id_fkey(id, name),
         game_results(home_score, away_score, status)
@@ -523,6 +523,7 @@ export default async function DashboardPage() {
       myRsvp: myRsvpMap.get(g.id as string) ?? null,
       isPlayoff: !!g.isPlayoff,
       playoffLabel: g.isPlayoff ? [g.playoffTier, g.playoffRound].filter(Boolean).join(' · ') : null,
+      isExhibition: !!g.is_exhibition,
     }
   }
 
@@ -638,6 +639,7 @@ export default async function DashboardPage() {
           awayScore: as_,
           isHome,
           outcome,
+          isExhibition: !!g.is_exhibition,
         } satisfies RecentResult
       })
       .filter(Boolean) as RecentResult[]

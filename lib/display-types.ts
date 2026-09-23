@@ -125,6 +125,8 @@ export interface DisplayGame {
   result_status:   'pending' | 'confirmed' | null
   game_status:     'scheduled' | 'cancelled' | 'postponed' | 'completed'
   pool_id:         string | null
+  /** Played and scored but excluded from the standings. */
+  is_exhibition?:  boolean
 }
 
 export interface DisplayStanding {

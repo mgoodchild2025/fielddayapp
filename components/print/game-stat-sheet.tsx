@@ -17,6 +17,8 @@ interface Game {
   weekNumber: number | null
   homeTeamName: string
   awayTeamName: string
+  /** Played and scored but excluded from the standings. */
+  isExhibition?: boolean
 }
 
 interface Props {
@@ -167,7 +169,7 @@ export function GameStatSheet({ game, homeRoster, awayRoster, statDefs, leagueNa
         </div>
         <div className="text-right text-sm">
           <p className="font-semibold">{date}</p>
-          <p className="text-gray-600">{time}{game.court ? ` · Court ${game.court}` : ''}{game.weekNumber ? ` · Week ${game.weekNumber}` : ''}</p>
+          <p className="text-gray-600">{time}{game.court ? ` · Court ${game.court}` : ''}{game.weekNumber ? ` · Week ${game.weekNumber}` : ''}{game.isExhibition ? ' · Exhibition' : ''}</p>
         </div>
       </div>
 

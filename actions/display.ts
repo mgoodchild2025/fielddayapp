@@ -180,7 +180,7 @@ export async function getDisplayData(
     let q = db
       .from('games')
       .select(`
-        id, scheduled_at, court, status, pool_id,
+        id, scheduled_at, court, status, pool_id, is_exhibition,
         home_team:teams!games_home_team_id_fkey(name, color, logo_url),
         away_team:teams!games_away_team_id_fkey(name, color, logo_url),
         home_team_label, away_team_label,
@@ -226,6 +226,7 @@ export async function getDisplayData(
         result_status: result?.status ?? null,
         game_status:   g.status ?? 'scheduled',
         pool_id:       g.pool_id ?? null,
+        is_exhibition: !!g.is_exhibition,
       } satisfies DisplayGame
     })
   }

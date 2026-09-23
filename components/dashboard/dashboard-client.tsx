@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { upsertRsvp } from '@/actions/rsvp'
 import Image from 'next/image'
+import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,8 @@ export type NextGameItem = {
   /** Read-only playoff bracket game — no RSVP; shows a Playoff badge. */
   isPlayoff?: boolean
   playoffLabel?: string | null
+  /** Played and scored but excluded from the standings. */
+  isExhibition?: boolean
 }
 
 /** The soonest upcoming pickup / drop-in / session event */
@@ -79,6 +82,8 @@ export type RecentResult = {
   awayScore: number
   isHome: boolean
   outcome: 'W' | 'L' | 'T'
+  /** Played and scored but excluded from the standings. */
+  isExhibition?: boolean
 }
 
 /** Stats + recent results for a single team — drives the tabs section */
@@ -246,10 +251,13 @@ function GameHero({
     <div className="bg-white rounded-2xl border overflow-hidden shadow-sm">
       {/* Dark header */}
       <div className="flex items-center justify-between px-5 py-2.5" style={{ backgroundColor: 'var(--brand-secondary)' }}>
-        <span className="text-xs font-bold uppercase tracking-widest text-white/50">
-          {item.isPlayoff
-            ? `🏆 ${[item.leagueName, item.playoffLabel].filter(Boolean).join(' · ')}`
-            : item.weekNumber ? `Week ${item.weekNumber} · ${item.leagueName}` : item.leagueName}
+        <span className="flex items-center gap-2 min-w-0">
+          <span className="text-xs font-bold uppercase tracking-widest text-white/50 truncate">
+            {item.isPlayoff
+              ? `🏆 ${[item.leagueName, item.playoffLabel].filter(Boolean).join(' · ')}`
+              : item.weekNumber ? `Week ${item.weekNumber} · ${item.leagueName}` : item.leagueName}
+          </span>
+          <ExhibitionBadge isExhibition={item.isExhibition} className="shrink-0" />
         </span>
         <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-emerald-400 bg-emerald-400/10 border border-emerald-400/20">
           {daysUntil(item.scheduledAt, timezone)}
@@ -389,6 +397,7 @@ function SameDayGameRow({
           </p>
           <p className="text-xs text-gray-500">
             {formatTime(item.scheduledAt, timezone)}{item.court ? ` · ${item.court}` : ''}
+            {item.isExhibition && <ExhibitionBadge isExhibition className="ml-1.5 align-middle" />}
             {item.isPlayoff ? (
               item.playoffLabel ? <><span className="text-gray-300"> · </span>{item.playoffLabel}</> : null
             ) : (
@@ -921,6 +930,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                         </p>
                         <p className="text-xs text-gray-400">
                           {r.isHome ? `${r.homeScore} – ${r.awayScore}` : `${r.awayScore} – ${r.homeScore}`}
+                          {r.isExhibition && <ExhibitionBadge isExhibition className="ml-1.5 align-middle" />}
                         </p>
                       </div>
                       <span className="text-xs text-gray-400 shrink-0">{formatShortDate(r.scheduledAt)}</span>

@@ -65,7 +65,7 @@ export default async function SchedulePrintPage({
       db
         .from('games')
         .select(`
-          id, scheduled_at, court, week_number, pool_id,
+          id, scheduled_at, court, week_number, is_exhibition, pool_id,
           home_team_label, away_team_label,
           home_team:teams!games_home_team_id_fkey(name),
           away_team:teams!games_away_team_id_fkey(name)
@@ -92,6 +92,7 @@ export default async function SchedulePrintPage({
         poolName: g.pool_id ? (poolNameById.get(g.pool_id) ?? null) : null,
         homeTeamName: home?.name ?? g.home_team_label ?? 'TBD',
         awayTeamName: away?.name ?? g.away_team_label ?? 'TBD',
+        isExhibition: !!g.is_exhibition,
       }
     }))
 
@@ -120,7 +121,7 @@ export default async function SchedulePrintPage({
       db
         .from('games')
         .select(`
-          id, scheduled_at, court, week_number, pool_id,
+          id, scheduled_at, court, week_number, is_exhibition, pool_id,
           home_team_label, away_team_label,
           home_team:teams!games_home_team_id_fkey(name),
           away_team:teams!games_away_team_id_fkey(name)
@@ -148,6 +149,7 @@ export default async function SchedulePrintPage({
         poolName: g.pool_id ? (poolNameById.get(g.pool_id) ?? null) : null,
         homeTeamName: home?.name ?? g.home_team_label ?? 'TBD',
         awayTeamName: away?.name ?? g.away_team_label ?? 'TBD',
+        isExhibition: !!g.is_exhibition,
       }
     }))
 
@@ -174,7 +176,7 @@ export default async function SchedulePrintPage({
     const { data: rawGames } = await db
       .from('games')
       .select(`
-        id, scheduled_at, court, week_number,
+        id, scheduled_at, court, week_number, is_exhibition,
         home_team_label, away_team_label,
         home_team:teams!games_home_team_id_fkey(id, name),
         away_team:teams!games_away_team_id_fkey(id, name)
@@ -183,7 +185,7 @@ export default async function SchedulePrintPage({
       .eq('organization_id', org.id)
       .order('scheduled_at', { ascending: true })
 
-    type BulkGame = { id: string; scheduledAt: string; court: string | null; weekNumber: number | null; homeTeamName: string; awayTeamName: string }
+    type BulkGame = { id: string; scheduledAt: string; court: string | null; weekNumber: number | null; homeTeamName: string; awayTeamName: string; isExhibition: boolean }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const bulkGames: BulkGame[] = (rawGames ?? []).map((g: any) => {
       const home = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
@@ -195,6 +197,7 @@ export default async function SchedulePrintPage({
         weekNumber: g.week_number ?? null,
         homeTeamName: home?.name ?? g.home_team_label ?? 'TBD',
         awayTeamName: away?.name ?? g.away_team_label ?? 'TBD',
+        isExhibition: !!g.is_exhibition,
       }
     })
 
@@ -224,7 +227,7 @@ export default async function SchedulePrintPage({
     const { data: rawGame } = await db
       .from('games')
       .select(`
-        id, scheduled_at, court, week_number,
+        id, scheduled_at, court, week_number, is_exhibition,
         home_team_id, away_team_id,
         home_team_label, away_team_label,
         home_team:teams!games_home_team_id_fkey(id, name),
@@ -250,6 +253,7 @@ export default async function SchedulePrintPage({
       weekNumber: g.week_number ?? null,
       homeTeamName: homeTeam?.name ?? g.home_team_label ?? 'TBD',
       awayTeamName: awayTeam?.name ?? g.away_team_label ?? 'TBD',
+      isExhibition: !!g.is_exhibition,
     }
 
     // Fetch rosters in parallel (only if real teams are assigned)

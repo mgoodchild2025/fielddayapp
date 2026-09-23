@@ -6,6 +6,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import Link from 'next/link'
 import { CalendarDays } from 'lucide-react'
 import { OnboardingChecklist } from '@/components/admin/onboarding-checklist'
+import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 
 export default async function AdminDashboardPage() {
   const headersList = await headers()
@@ -54,7 +55,7 @@ export default async function AdminDashboardPage() {
     // Games in the next 7 days
 
     db.from('games')
-      .select('id, scheduled_at, court, status, home_team:teams!games_home_team_id_fkey(name), away_team:teams!games_away_team_id_fkey(name), league:leagues!games_league_id_fkey(id, name, game_start_time, game_end_time)')
+      .select('id, scheduled_at, court, status, is_exhibition, home_team:teams!games_home_team_id_fkey(name), away_team:teams!games_away_team_id_fkey(name), league:leagues!games_league_id_fkey(id, name, game_start_time, game_end_time)')
       .eq('organization_id', org.id)
       .eq('status', 'scheduled')
       .gte('scheduled_at', new Date().toISOString())
@@ -131,7 +132,7 @@ export default async function AdminDashboardPage() {
   }
 
   // Merge + group by local date
-  type UpcomingItem = { id: string; scheduled_at: string; localDate: string; type: 'game' | 'session'; label: string; sub: string; leagueId: string }
+  type UpcomingItem = { id: string; scheduled_at: string; localDate: string; type: 'game' | 'session'; label: string; sub: string; leagueId: string; isExhibition?: boolean }
 
   const upcomingItems: UpcomingItem[] = [
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -145,6 +146,7 @@ export default async function AdminDashboardPage() {
         label: `${home?.name ?? 'TBD'} vs ${away?.name ?? 'TBD'}`,
         sub: `${timeStr(g.scheduled_at)}${g.court ? ` · ${g.court}` : ''}${leagueTimeRange(league)} · ${league?.name ?? ''}`,
         leagueId: league?.id ?? '',
+        isExhibition: !!g.is_exhibition,
       }
     }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -405,8 +407,9 @@ export default async function AdminDashboardPage() {
                       >
                         <span className={`shrink-0 w-1 h-full min-h-[1.5rem] rounded-full ${item.type === 'session' ? 'bg-orange-400' : 'bg-[var(--brand-primary)]'}`} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate group-hover:underline leading-tight">
-                            {item.label}
+                          <p className="flex items-center gap-1.5 text-sm font-medium text-gray-900 leading-tight">
+                            <span className="truncate group-hover:underline">{item.label}</span>
+                            <ExhibitionBadge isExhibition={item.isExhibition} className="shrink-0" />
                           </p>
                           <p className="text-xs text-gray-400 truncate">{item.sub}</p>
                         </div>

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { TeamAvatar } from '@/components/ui/team-avatar'
-import { GameKindBadge } from '@/components/schedule/game-kind-badge'
+import { GameKindBadge, ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -25,6 +25,8 @@ export type SeasonResult = {
   poolName?: string | null
   /** True for playoff bracket games. */
   isPlayoff?: boolean
+  /** Played and scored, but excluded from the standings and the season record. */
+  isExhibition?: boolean
   isHome: boolean
   outcome: 'W' | 'L' | 'T' | 'upcoming'
 }
@@ -110,15 +112,17 @@ function ResultRow({ result, showKind }: { result: SeasonResult; showKind?: bool
           ) : (
             <span className="block text-sm font-medium text-gray-700 truncate">{result.opponentName}</span>
           )}
-          {(showKind || (hasSets)) && (
+          {(showKind || hasSets || result.isExhibition) && (
             <span className="flex items-center gap-1.5 mt-0.5 sm:hidden">
               {showKind && <GameKindBadge poolName={result.poolName} isPlayoff={result.isPlayoff} />}
+              <ExhibitionBadge isExhibition={result.isExhibition} />
               {hasSets && <SetScores sets={result.setScores!} />}
             </span>
           )}
-          {showKind && (
-            <span className="hidden sm:block mt-0.5">
-              <GameKindBadge poolName={result.poolName} isPlayoff={result.isPlayoff} />
+          {(showKind || result.isExhibition) && (
+            <span className="hidden sm:flex items-center gap-1.5 mt-0.5">
+              {showKind && <GameKindBadge poolName={result.poolName} isPlayoff={result.isPlayoff} />}
+              <ExhibitionBadge isExhibition={result.isExhibition} />
             </span>
           )}
         </div>
@@ -229,6 +233,7 @@ function H2HRow({ record, showKind }: { record: H2HRecord; showKind?: boolean })
                   {g.outcome === 'upcoming' ? 'Upcoming' : `${myScore ?? '?'}–${theirScore ?? '?'}`}
                 </span>
                 {showKind && <GameKindBadge poolName={g.poolName} isPlayoff={g.isPlayoff} />}
+                <ExhibitionBadge isExhibition={g.isExhibition} />
                 {hasSets && <SetScores sets={g.setScores!} />}
                 <OutcomeBadge outcome={g.outcome} />
               </Link>
