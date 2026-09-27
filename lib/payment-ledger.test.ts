@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { collectedCents, collectedTotals, isOwed, owedCents, outstandingTotals, type LedgerRow } from './payment-ledger'
+import { collectedCents, collectedTotals, isOwed, owedCents, outstandingTotals, pickLedgerPayment, type LedgerRow } from './payment-ledger'
 import type { OrgTaxRate } from './tax'
 
 const HST: OrgTaxRate = { id: 'r1', displayName: 'HST', percentage: 13, inclusive: false, appliesTo: 'all', stripeTaxRateId: null }
@@ -106,5 +106,29 @@ describe('collectedTotals', () => {
       row({ payment: { amount_cents: 2000, status: 'pending' } }),
     ]
     expect(collectedTotals(rows)).toEqual({ totalCents: 16300, taxCents: 1300 })
+  })
+})
+
+describe('pickLedgerPayment', () => {
+  const pmt = (status: string, created_at: string) => ({ status, created_at })
+  it('prefers the paid row over an abandoned checkout, whatever the order', () => {
+    const abandoned = pmt('pending', '2026-09-01'), paid = pmt('paid', '2026-09-02')
+    expect(pickLedgerPayment([abandoned, paid])).toBe(paid)
+    expect(pickLedgerPayment([paid, abandoned])).toBe(paid)
+  })
+  it('treats manual as paid, and a refund above an open attempt', () => {
+    const manual = pmt('manual', '2026-09-01'), refunded = pmt('refunded', '2026-09-03'), pending = pmt('pending', '2026-09-05')
+    expect(pickLedgerPayment([pending, refunded, manual])).toBe(manual)
+    expect(pickLedgerPayment([pending, refunded])).toBe(refunded)
+  })
+  it('takes the newest attempt among equals', () => {
+    const older = pmt('pending', '2026-09-01'), newer = pmt('failed', '2026-09-04')
+    expect(pickLedgerPayment([older, newer])).toBe(newer)
+  })
+  it('accepts a single object or nothing', () => {
+    const one = pmt('paid', '2026-09-01')
+    expect(pickLedgerPayment(one)).toBe(one)
+    expect(pickLedgerPayment(null)).toBeNull()
+    expect(pickLedgerPayment([])).toBeNull()
   })
 })

@@ -97,3 +97,22 @@ export function outstandingTotals(rows: LedgerRow[], rates: OrgTaxRate[]) {
   }
   return { totalCents, taxCents, count }
 }
+
+/**
+ * Which of a registration's payment rows the ledger shows. A registration can
+ * carry several — every Stripe checkout attempt inserts a new pending row, so
+ * a player who abandoned a checkout and paid later has both — and reading an
+ * arbitrary one mislabels them. Money received wins (paid/manual, then
+ * refunded), then the newest attempt.
+ */
+export function pickLedgerPayment<P extends { status: string; created_at?: string | null }>(payments: P[] | P | null | undefined): P | null {
+  const list = Array.isArray(payments) ? payments : payments ? [payments] : []
+  const rank = (s: string) => (s === 'paid' || s === 'manual' ? 0 : s === 'refunded' ? 1 : 2)
+  let best: P | null = null
+  for (const p of list) {
+    if (!best) { best = p; continue }
+    const d = rank(p.status) - rank(best.status)
+    if (d < 0 || (d === 0 && (p.created_at ?? '') > (best.created_at ?? ''))) best = p
+  }
+  return best
+}
