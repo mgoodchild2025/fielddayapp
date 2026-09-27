@@ -623,6 +623,11 @@ export async function adminAddRegistrant(input: z.infer<typeof adminAddRegistran
     .from('org_members').select('role')
     .eq('organization_id', org.id).eq('user_id', user.id).single()
   if (!caller || !['org_admin', 'league_admin'].includes(caller.role)) return { error: 'Unauthorized' }
+  // League admins can add registrants, but recording money is org-admin only
+  // (see assertPaymentAdmin) — their form doesn't offer the payment fields.
+  if (parsed.data.amountCents > 0 && caller.role !== 'org_admin') {
+    return { error: 'Only org admins can record payments.' }
+  }
 
 
   const { data: league } = await db

@@ -15,6 +15,7 @@ export function AdminAddRegistrant({
   defaultSessionId,
   triggerLabel = 'Add registrant',
   triggerClassName,
+  canRecordPayment = false,
 }: {
   leagueId: string
   sessions?: SessionOption[]
@@ -22,6 +23,8 @@ export function AdminAddRegistrant({
   defaultSessionId?: string
   triggerLabel?: string
   triggerClassName?: string
+  /** Org admins can record what the registrant paid; league admins can't. */
+  canRecordPayment?: boolean
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -47,7 +50,7 @@ export function AdminAddRegistrant({
 
   function submit() {
     if (!fullName.trim()) { setError('Name is required.'); return }
-    const cents = amount.trim() ? Math.round(parseFloat(amount) * 100) : 0
+    const cents = canRecordPayment && amount.trim() ? Math.round(parseFloat(amount) * 100) : 0
     if (isNaN(cents) || cents < 0) { setError('Enter a valid amount (or leave blank).'); return }
     setError(null)
     startTransition(async () => {
@@ -58,7 +61,7 @@ export function AdminAddRegistrant({
         phone: phone.trim() || undefined,
         amountCents: cents,
         method,
-        notes: notes.trim() || undefined,
+        notes: canRecordPayment ? notes.trim() || undefined : undefined,
         sessionId: sessionId || undefined,
       })
       if (res.error) { setError(res.error); return }
@@ -127,6 +130,7 @@ export function AdminAddRegistrant({
             With an email, we create them a claimable account. Without one, they&rsquo;re added as a guest.
           </p>
 
+          {canRecordPayment && (<>
           <div className="grid grid-cols-2 gap-2 pt-1 border-t">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1 mt-2">Amount paid <span className="text-gray-400">(optional)</span></label>
@@ -151,6 +155,7 @@ export function AdminAddRegistrant({
             <label className="block text-xs font-medium text-gray-500 mb-1">Notes <span className="text-gray-400">(optional)</span></label>
             <input value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm" placeholder="e.g. paid cash at the desk" />
           </div>
+          </>)}
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t px-5 py-3.5">

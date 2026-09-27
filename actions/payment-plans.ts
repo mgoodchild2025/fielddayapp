@@ -5,7 +5,7 @@ import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
-import { assertOrgAdmin } from '@/lib/auth'
+import { assertOrgAdmin, assertPaymentAdmin } from '@/lib/auth'
 
 const planSchema = z.object({
   league_id: z.string().uuid(),
@@ -76,7 +76,7 @@ export async function adminMarkInstallmentPaid(
 ): Promise<{ error: string | null }> {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const auth = await assertOrgAdmin(org)
+  const auth = await assertPaymentAdmin(org)
   if (auth.error) return { error: auth.error }
   const supabase = createServiceRoleClient()
 

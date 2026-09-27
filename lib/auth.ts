@@ -114,6 +114,15 @@ export async function assertOrgAdmin(
 }
 
 /**
+ * Recording, editing, or refunding money is for org admins only — league
+ * admins run their events but never touch payments (the admin UI hides every
+ * payment control from them; this is the server-side half of that rule).
+ */
+export function assertPaymentAdmin(org: OrgContext) {
+  return assertOrgAdmin(org, ['org_admin'])
+}
+
+/**
  * Throw unless the current session belongs to a platform admin.
  *
  * For platform-level server actions ('use server' exports are publicly

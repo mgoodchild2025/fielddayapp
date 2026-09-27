@@ -29,6 +29,7 @@ app/(org)/
 ### Auth helpers (`lib/auth.ts`)
 - `requireAuth()` — user must be logged in; used on public player-facing pages
 - `requireOrgMember(org, roles?)` — user must have an `org_members` row; used for admin pages
+- `assertPaymentAdmin(org)` — **recording, editing, or refunding money is org-admin only** (league admins run events but never touch payments). Used by `adminUpdateRegistrationPayment`, `adminUpdateTeamPayment`, `adminMarkInstallmentPaid`; `adminAddRegistrant` refuses an amount from a league admin. The UI hides every payment control from league admins (`canRecordPayment` / `canMarkPaid` / `isOrgAdmin`). Merch order payments are not covered.
 - **Do NOT use `requireOrgMember` on public pages** — players won't have an `org_members` row until they complete their first registration
 
 ### Key files

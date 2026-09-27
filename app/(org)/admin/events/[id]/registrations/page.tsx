@@ -225,7 +225,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
           {' · '}
           {rows.filter((r: { status: string }) => r.status === 'active').length} active
         </p>
-        <AdminAddRegistrant leagueId={id} sessions={sessionOptions} />
+        <AdminAddRegistrant leagueId={id} sessions={sessionOptions} canRecordPayment={isOrgAdmin} />
       </div>
 
       {/* Waiver link — shown whenever org has a waiver configured */}
@@ -308,6 +308,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                       <AdminInstallmentRow
                         registrationId={reg.id}
                         installments={planInstallments}
+                        canMarkPaid={isOrgAdmin}
                       />
                     )}
                   </td>

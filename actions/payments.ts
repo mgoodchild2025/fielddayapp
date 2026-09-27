@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
-import { assertOrgAdmin } from '@/lib/auth'
+import { assertPaymentAdmin } from '@/lib/auth'
 import { resolveLeagueMethods, isOfflineMethod, PAYMENT_METHOD_LABELS, type PaymentMethod } from '@/lib/payment-methods'
 import { sendRegistrationAdminNotification, type RegistrationPaymentMethod } from './emails'
 import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
@@ -331,39 +331,6 @@ async function notifyRegistrationAdmin(
   })
 }
 
-const updatePaymentStatusSchema = z.object({
-  paymentId: z.string().uuid(),
-  status: z.enum(['paid', 'pending', 'failed', 'refunded']),
-  notes: z.string().optional(),
-})
-
-export async function updatePaymentStatus(input: z.infer<typeof updatePaymentStatusSchema>) {
-  const parsed = updatePaymentStatusSchema.safeParse(input)
-  if (!parsed.success) return { error: 'Invalid input' }
-
-  const headersList = await headers()
-  const org = await getCurrentOrg(headersList)
-  const auth = await assertOrgAdmin(org)
-  if (auth.error) return { error: auth.error }
-
-  const db = createServiceRoleClient()
-
-  const updates: Record<string, unknown> = { status: parsed.data.status }
-  if (parsed.data.notes !== undefined) updates.notes = parsed.data.notes
-  if (parsed.data.status === 'paid') updates.paid_at = new Date().toISOString()
-
-  const { error } = await db
-    .from('payments')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .update(updates as any)
-    .eq('id', parsed.data.paymentId)
-    .eq('organization_id', org.id)
-
-  if (error) return { error: error.message }
-  revalidatePath('/admin/payments')
-  return { error: null }
-}
-
 // ── Admin: edit/record a registrant's payment (per-player) ───────────────────
 
 const adminUpdatePaymentSchema = z.object({
@@ -389,18 +356,10 @@ export async function adminUpdateRegistrationPayment(input: z.infer<typeof admin
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
+  const auth = await assertPaymentAdmin(org)
+  if (auth.error) return { error: auth.error }
 
   const db = createServiceRoleClient()
-  const { data: caller } = await db
-    .from('org_members').select('role')
-    .eq('organization_id', org.id).eq('user_id', user.id).single()
-  if (!caller || !['org_admin', 'league_admin'].includes(caller.role)) return { error: 'Unauthorized' }
-
-
   const { data: reg } = await db
     .from('registrations')
     .select('id, user_id, league_id')
@@ -511,7 +470,7 @@ export async function adminUpdateTeamPayment(input: z.infer<typeof adminUpdateTe
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  const auth = await assertOrgAdmin(org)
+  const auth = await assertPaymentAdmin(org)
   if (auth.error) return { error: auth.error }
 
   const db = createServiceRoleClient()

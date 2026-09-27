@@ -45,6 +45,8 @@ interface Props {
   eventCapacity?: number | null
   /** All sessions (id + label) — used for the move-to-session picker and add-player. */
   sessionOptions?: SessionOption[]
+  /** Org admins can record a payment when adding a player; league admins can't. */
+  canRecordPayment?: boolean
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -145,11 +147,13 @@ function RosterPanel({
   sessionId,
   leagueId,
   sessionOptions = [],
+  canRecordPayment = false,
 }: {
   roster: RosterEntry[]
   sessionId: string
   leagueId: string
   sessionOptions?: SessionOption[]
+  canRecordPayment?: boolean
 }) {
   return (
     <div className="bg-gray-50 border border-t-0 rounded-b-lg px-4 py-3">
@@ -161,6 +165,7 @@ function RosterPanel({
           leagueId={leagueId}
           sessions={sessionOptions}
           defaultSessionId={sessionId}
+          canRecordPayment={canRecordPayment}
           triggerLabel="Add player"
           triggerClassName="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--brand-primary)] hover:underline"
         />
@@ -427,7 +432,7 @@ function EditForm({ session, leagueId, timezone, onDone }: { session: Session; l
 
 // ── Main manager ──────────────────────────────────────────────────────────────
 
-export function AdminSessionsManager({ leagueId, initialSessions, timezone, registrationMode, seasonRegistrantCount = 0, eventCapacity = null, sessionOptions = [] }: Props) {
+export function AdminSessionsManager({ leagueId, initialSessions, timezone, registrationMode, seasonRegistrantCount = 0, eventCapacity = null, sessionOptions = [], canRecordPayment = false }: Props) {
   const router = useRouter()
   const [showCreate, setShowCreate] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -580,6 +585,7 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
                     sessionId={s.id}
                     leagueId={leagueId}
                     sessionOptions={sessionOptions}
+                    canRecordPayment={canRecordPayment}
                   />
                 )}
                 </>

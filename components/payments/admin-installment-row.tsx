@@ -9,13 +9,16 @@ import { adminMarkInstallmentPaid } from '@/actions/payment-plans'
 interface Props {
   registrationId: string
   installments: InstallmentRow[]
+  /** Marking an instalment paid records money — org admins only. */
+  canMarkPaid?: boolean
 }
 
 /**
- * Admin-facing badge + expandable InstallmentSchedule with "Mark paid" per instalment.
+ * Admin-facing badge + expandable InstallmentSchedule, with "Mark paid" per
+ * instalment for org admins (read-only for league admins).
  * Rendered inside the registrations table row.
  */
-export function AdminInstallmentRow({ registrationId, installments }: Props) {
+export function AdminInstallmentRow({ registrationId, installments, canMarkPaid = false }: Props) {
   const [open, setOpen] = useState(false)
   const [localInstallments, setLocalInstallments] = useState(installments)
 
@@ -51,7 +54,7 @@ export function AdminInstallmentRow({ registrationId, installments }: Props) {
         <div className="mt-2 max-w-sm" data-registration-id={registrationId}>
           <InstallmentSchedule
             installments={localInstallments}
-            onMarkPaid={handleMarkPaid}
+            onMarkPaid={canMarkPaid ? handleMarkPaid : undefined}
           />
         </div>
       )}
