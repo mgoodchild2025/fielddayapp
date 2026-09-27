@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { QrCode } from 'lucide-react'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { getAdminScope } from '@/lib/admin-scope'
 import { AdminSessionsManager } from '@/components/sessions/admin-sessions-manager'
 import { DropinWalkupPayment } from '@/components/sessions/dropin-walkup-payment'
 import { CopyLinkButton } from '@/components/sessions/copy-link-button'
@@ -14,7 +15,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
 
-  const [{ data: league }, { data: sessions }, { data: branding }, { data: paySettings }] = await Promise.all([
+  const [{ data: league }, { data: sessions }, { data: branding }, { data: paySettings }, scope] = await Promise.all([
     db
       .from('leagues')
       .select('id, name, slug, event_type, registration_mode, max_participants, drop_in_price_cents, price_cents, currency, pickup_join_policy, access_token')
@@ -37,6 +38,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
     db.from('org_branding').select('timezone').eq('organization_id', org.id).single(),
 
     db.from('org_payment_settings').select('stripe_secret_key').eq('organization_id', org.id).maybeSingle(),
+    getAdminScope(org.id),
   ])
 
   const timezone = branding?.timezone ?? 'America/Toronto'
@@ -280,6 +282,7 @@ export default async function AdminSessionsPage({ params }: { params: Promise<{ 
         seasonRegistrantCount={seasonRegistrantCount}
         eventCapacity={eventCapacity}
         sessionOptions={sessionOptions}
+        canRecordPayment={scope.isOrgAdmin}
       />
     </div>
   )
