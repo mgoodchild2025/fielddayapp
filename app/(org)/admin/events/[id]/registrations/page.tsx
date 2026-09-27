@@ -69,7 +69,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
       id, status, created_at, user_id, waiver_signature_id, checked_in_at,
       registration_type,
       user_profile:profiles!registrations_user_id_fkey(full_name, email),
-      payments(status, amount_cents, currency, payment_method)
+      payments(status, amount_cents, refunded_cents, currency, payment_method)
     `)
     .eq('league_id', id)
     .eq('organization_id', org.id)
@@ -375,6 +375,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                           defaultAmountCents={payment?.amount_cents ?? leagueAny?.price_cents ?? 0}
                           defaultStatus={defaultStatus}
                           defaultMethod={defaultMethod}
+                          defaultRefundCents={payment?.refunded_cents}
                           trigger={badge}
                         />
                       )

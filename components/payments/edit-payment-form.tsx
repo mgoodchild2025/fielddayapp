@@ -3,33 +3,39 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Pencil } from 'lucide-react'
-import { adminUpdateRegistrationPayment } from '@/actions/payments'
+import { adminUpdateRegistrationPayment, adminUpdateTeamPayment } from '@/actions/payments'
 
 type Status = 'paid' | 'pending' | 'refunded'
 type Method = 'cash' | 'etransfer' | 'cheque' | 'stripe' | 'card' | 'other'
 
-interface Props {
-  registrationId: string
+/** Whose payment this is: a player's registration, or a per-team event's team fee. */
+type Target = { registrationId: string } | { teamId: string; leagueId: string }
+
+type Props = Target & {
   hasPayment: boolean
   /** Pre-fill amount (current payment amount, or the event price for a first record). */
   defaultAmountCents: number
   defaultStatus?: Status
   defaultMethod?: Method
   defaultNotes?: string | null
+  /** Refund already recorded — pre-fills the refund box, so re-saving a
+   *  partial refund can't silently turn it into a full one. */
+  defaultRefundCents?: number | null
   /** Custom closed-state trigger (e.g. the payment badge). Defaults to a button. */
   trigger?: React.ReactNode
 }
 
-export function EditPaymentForm({
-  registrationId, hasPayment, defaultAmountCents, defaultStatus = 'paid', defaultMethod = 'etransfer', defaultNotes, trigger,
-}: Props) {
+export function EditPaymentForm(props: Props) {
+  const { hasPayment, defaultAmountCents, defaultStatus = 'paid', defaultMethod = 'etransfer', defaultNotes, defaultRefundCents, trigger } = props
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [status, setStatus] = useState<Status>(defaultStatus)
   const [method, setMethod] = useState<Method>(defaultMethod)
   const [amount, setAmount] = useState((defaultAmountCents / 100).toFixed(2))
   const [notes, setNotes] = useState(defaultNotes ?? '')
-  const [refundAmount, setRefundAmount] = useState('')
+  const [refundAmount, setRefundAmount] = useState(
+    defaultStatus === 'refunded' && (defaultRefundCents ?? 0) > 0 ? ((defaultRefundCents ?? 0) / 100).toFixed(2) : '',
+  )
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -45,10 +51,10 @@ export function EditPaymentForm({
       setError('Enter a valid refund amount.'); return
     }
     startTransition(async () => {
-      const res = await adminUpdateRegistrationPayment({
-        registrationId, amountCents: cents, status, method, notes: notes || undefined,
-        refundAmountCents: refundCents,
-      })
+      const fields = { amountCents: cents, status, method, notes: notes || undefined, refundAmountCents: refundCents }
+      const res = 'teamId' in props
+        ? await adminUpdateTeamPayment({ teamId: props.teamId, leagueId: props.leagueId, ...fields })
+        : await adminUpdateRegistrationPayment({ registrationId: props.registrationId, ...fields })
       if (res.error) setError(res.error)
       else { setOpen(false); router.refresh() }
     })
