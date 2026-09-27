@@ -97,6 +97,22 @@ function Hero() {
           <p className="mt-5 text-sm text-slate-400 text-center sm:text-left">
             15-day free trial · No credit card required
           </p>
+          <div className="mt-7 text-center sm:text-left">
+            <Link
+              href="/tour"
+              className="group inline-flex items-center gap-3 text-sm font-semibold text-white/90 hover:text-white transition-colors"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/40 bg-white/5 transition-colors group-hover:border-emerald-400 group-hover:bg-emerald-500/20">
+                <svg viewBox="0 0 24 24" className="h-4 w-4 translate-x-px" fill="currentColor" aria-hidden="true">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </span>
+              <span>
+                Take the Game Night tour
+                <span className="hidden sm:inline font-normal text-slate-400"> · about a minute</span>
+              </span>
+            </Link>
+          </div>
         </div>
       </div>
     </section>
