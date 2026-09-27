@@ -6,6 +6,8 @@ import { MarkPaidForm } from '@/components/payments/mark-paid-form'
 import { EditPaymentForm } from '@/components/payments/edit-payment-form'
 import { refundTeamPayment } from '@/actions/payments'
 import { StatusChip } from '@/components/ui/status-chip'
+import { outstandingTotals } from '@/lib/payment-ledger'
+import type { OrgTaxRate } from '@/lib/tax'
 
 const PAGE_SIZE = 25
 
@@ -183,7 +185,35 @@ function PaymentAction({ r, isOrgAdmin }: { r: Row; isOrgAdmin: boolean }) {
   return null
 }
 
-export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgAdmin?: boolean }) {
+const money = (cents: number) => `$${(cents / 100).toFixed(2)}`
+
+/** A summary card that doubles as a status filter: tap to show only those
+ *  rows, tap again to show everything. */
+function FilterCard({ label, active, tone, onToggle, children }: {
+  label: string
+  active: boolean
+  tone: 'paid' | 'unpaid'
+  onToggle: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={active}
+      title={active ? 'Showing only these — click to show all' : `Show only ${tone} registrations`}
+      className={`bg-white rounded-lg border p-4 text-left transition-colors hover:border-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
+        active && tone === 'unpaid' ? 'ring-2 ring-amber-400 border-amber-400' : ''
+      }`}
+      style={active && tone === 'paid' ? { boxShadow: '0 0 0 2px var(--brand-primary)', borderColor: 'var(--brand-primary)' } : undefined}
+    >
+      <p className="text-xs sm:text-sm text-gray-500">{label}</p>
+      {children}
+    </button>
+  )
+}
+
+export function PaymentsTable({ rows, isOrgAdmin = true, taxRates = [] }: { rows: Row[]; isOrgAdmin?: boolean; taxRates?: OrgTaxRate[] }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [eventFilter, setEventFilter] = useState('all')
@@ -228,11 +258,13 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
       .filter(r => r.payment?.status === 'paid')
       .reduce((sum, r) => sum + (r.payment?.tax_cents ?? 0), 0),
     paidCount: filtered.filter(r => r.paymentStatus === 'paid').length,
-    // "Unpaid" = anything still owed: unpaid, pending, or failed.
-    unpaidCount: filtered.filter(r =>
-      r.paymentStatus === 'unpaid' || r.paymentStatus === 'pending' || r.paymentStatus === 'failed'
-    ).length,
-  }), [filtered])
+    // "Unpaid" = anything still owed: unpaid, pending, or failed — with the
+    // amount owed, tax included (see lib/payment-ledger).
+    outstanding: outstandingTotals(filtered, taxRates),
+  }), [filtered, taxRates])
+
+  const toggleStatus = (status: 'paid' | 'unpaid') =>
+    setStatusFilter(current => (current === status ? 'all' : status))
 
   // Reset to page 1 whenever the filters change so stale pages don't linger
   useEffect(() => { setPage(1) }, [search, statusFilter, eventFilter])
@@ -242,27 +274,28 @@ export function PaymentsTable({ rows, isOrgAdmin = true }: { rows: Row[]; isOrgA
 
   return (
     <>
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        <div className="bg-white rounded-lg border p-4">
-          <p className="text-xs sm:text-sm text-gray-500">Total Collected</p>
+      {/* Stats — each card also filters the list to its rows */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <FilterCard label="Total Collected" tone="paid" active={statusFilter === 'paid'} onToggle={() => toggleStatus('paid')}>
           <p className="text-xl sm:text-2xl font-bold mt-1" style={{ color: 'var(--brand-primary)' }}>
-            ${(filteredStats.totalPaidCents / 100).toFixed(2)}
+            {money(filteredStats.totalPaidCents)}
           </p>
           {filteredStats.taxCollectedCents > 0 && (
-            <p className="text-[11px] text-gray-400 mt-0.5">
-              incl. ${(filteredStats.taxCollectedCents / 100).toFixed(2)} tax
-            </p>
+            <p className="text-[11px] text-gray-400 mt-0.5">incl. {money(filteredStats.taxCollectedCents)} tax</p>
           )}
-        </div>
-        <div className="bg-white rounded-lg border p-4">
-          <p className="text-xs sm:text-sm text-gray-500">Paid</p>
+        </FilterCard>
+        <FilterCard label="Total Unpaid" tone="unpaid" active={statusFilter === 'unpaid'} onToggle={() => toggleStatus('unpaid')}>
+          <p className="text-xl sm:text-2xl font-bold mt-1 text-amber-600">{money(filteredStats.outstanding.totalCents)}</p>
+          {filteredStats.outstanding.taxCents > 0 && (
+            <p className="text-[11px] text-gray-400 mt-0.5">incl. {money(filteredStats.outstanding.taxCents)} tax</p>
+          )}
+        </FilterCard>
+        <FilterCard label="Paid" tone="paid" active={statusFilter === 'paid'} onToggle={() => toggleStatus('paid')}>
           <p className="text-xl sm:text-2xl font-bold mt-1">{filteredStats.paidCount}</p>
-        </div>
-        <div className="bg-white rounded-lg border p-4">
-          <p className="text-xs sm:text-sm text-gray-500">Unpaid</p>
-          <p className="text-xl sm:text-2xl font-bold mt-1 text-amber-600">{filteredStats.unpaidCount}</p>
-        </div>
+        </FilterCard>
+        <FilterCard label="Unpaid" tone="unpaid" active={statusFilter === 'unpaid'} onToggle={() => toggleStatus('unpaid')}>
+          <p className="text-xl sm:text-2xl font-bold mt-1 text-amber-600">{filteredStats.outstanding.count}</p>
+        </FilterCard>
       </div>
 
       {/* Search + filters */}
