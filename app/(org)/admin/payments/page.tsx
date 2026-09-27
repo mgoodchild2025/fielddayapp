@@ -3,6 +3,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { PaymentsTable } from '@/components/admin/payments-table'
+import { getOrgTaxRates, ratesForScope } from '@/lib/tax'
 
 type PaymentRecord = {
   id: string
@@ -54,7 +55,12 @@ export default async function AdminPaymentsPage() {
     }
   }
 
-  const { data: rows } = await query as { data: RegistrationRow[] | null }
+  const [{ data: rowsData }, taxRates] = await Promise.all([
+    query,
+    // Registration tax prices the "Total Unpaid" card (rows not yet charged).
+    getOrgTaxRates(supabase, org.id).then((r) => ratesForScope(r, 'registrations')),
+  ])
+  const rows = rowsData as RegistrationRow[] | null
 
   // Per-team leagues: the fee lives on a TEAM payment row (payment_type='team',
   // registration_id null), so it never embeds on the registration. The ledger
@@ -177,7 +183,7 @@ export default async function AdminPaymentsPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Payments</h1>
-      <PaymentsTable rows={ledger} isOrgAdmin={scope.isOrgAdmin} />
+      <PaymentsTable rows={ledger} isOrgAdmin={scope.isOrgAdmin} taxRates={taxRates} />
     </div>
   )
 }
