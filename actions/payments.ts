@@ -12,301 +12,6 @@ import { sendRegistrationAdminNotification, type RegistrationPaymentMethod } fro
 import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
 import { getOrgTaxRates, ratesForScope, computeTax } from '@/lib/tax'
 
-const recordManualPaymentSchema = z.object({
-  registrationId: z.string().uuid().optional(),
-  userId: z.string().uuid().optional(),
-  /** Per-team events: pay the TEAM directly (no registration/user needed). */
-  teamId: z.string().uuid().optional(),
-  leagueId: z.string().uuid(),
-  amountCents: z.number().min(0),
-  currency: z.string().default('cad'),
-  method: z.enum(['cash', 'etransfer', 'cheque']),
-  notes: z.string().optional(),
-})
-
-export async function recordManualPayment(input: z.infer<typeof recordManualPaymentSchema>) {
-  const parsed = recordManualPaymentSchema.safeParse(input)
-  if (!parsed.success) return { data: null, error: 'Invalid input' }
-
-  const headersList = await headers()
-  const org = await getCurrentOrg(headersList)
-
-  // Marking money as received is an admin action. Without this check any
-  // visitor to an org's site could mark their own registration — or a whole
-  // team — as paid without paying.
-  const auth = await assertOrgAdmin(org)
-  if (auth.error) return { data: null, error: auth.error }
-
-  const db = createServiceRoleClient()
-
-  const paidFields = {
-    amount_cents: parsed.data.amountCents,
-    currency: parsed.data.currency,
-    status: 'paid' as const,
-    payment_method: parsed.data.method,
-    notes: parsed.data.notes ?? null,
-    paid_at: new Date().toISOString(),
-    // Re-recording a payment un-refunds it.
-    refunded_cents: 0,
-    refunded_at: null as string | null,
-  }
-
-  // ── Per-team payment mode ──────────────────────────────────────────────────
-  // When the league uses per_team payments the payment row is keyed by team_id
-  // (not registration_id). selectOfflineTeamPayment creates a row with
-  // payment_type = 'team' and team_id set, but registration_id = NULL.
-  // The standard lookup below would miss it, so we handle it first.
-
-  const { data: leagueRow } = await db
-    .from('leagues')
-    .select('payment_mode')
-    .eq('id', parsed.data.leagueId)
-    .eq('organization_id', org.id)
-    .maybeSingle()
-
-  if (leagueRow?.payment_mode === 'per_team') {
-    // Team is either named directly (payments-ledger team rows) or resolved
-    // from the member the admin clicked.
-    let teamId: string | null = parsed.data.teamId ?? null
-    if (!teamId && parsed.data.userId) {
-
-      const { data: leagueTeams } = await db
-        .from('teams')
-        .select('id')
-        .eq('league_id', parsed.data.leagueId)
-        .eq('organization_id', org.id)
-      const leagueTeamIds: string[] = (leagueTeams ?? []).map((t: { id: string }) => t.id)
-
-      if (leagueTeamIds.length > 0) {
-
-        const { data: teamMember } = await db
-          .from('team_members')
-          .select('team_id')
-          .eq('user_id', parsed.data.userId)
-          .in('team_id', leagueTeamIds)
-          .eq('status', 'active')
-          .maybeSingle()
-        teamId = teamMember?.team_id ?? null
-      }
-    }
-
-    if (teamId) {
-      // Find the pending team payment row created by selectOfflineTeamPayment
-
-      // Fetch ALL of the team's rows: a repeat click used to find no pending
-      // row and insert a duplicate paid one, and .maybeSingle() errors on the
-      // duplicates it created. Update the pending row if there is one, else
-      // re-record onto the existing paid row; insert only when none exist.
-      const { data: teamPaymentRows } = await db
-        .from('payments')
-        .select('id, status')
-        .eq('team_id', teamId)
-        .eq('league_id', parsed.data.leagueId)
-        .eq('organization_id', org.id)
-        .eq('payment_type', 'team')
-        .order('created_at', { ascending: false })
-      const targetTeamPayment = (teamPaymentRows ?? []).find((p) => p.status !== 'paid')
-        ?? (teamPaymentRows ?? [])[0]
-
-      if (targetTeamPayment) {
-
-        const { error } = await db
-          .from('payments')
-          .update(paidFields)
-          .eq('id', targetTeamPayment.id)
-        if (error) return { data: null, error: error.message }
-      } else {
-        // No team payment row exists yet — admin is recording a manual
-        // cash payment without a prior selectOfflineTeamPayment call; create one.
-
-        const { error } = await db.from('payments').insert({
-          organization_id: org.id,
-          team_id: teamId,
-          league_id: parsed.data.leagueId,
-          payment_type: 'team',
-          ...paidFields,
-        })
-        if (error) return { data: null, error: error.message }
-      }
-
-      // The team is paid: sweep any OTHER never-paid offline team rows for this
-      // league so stale pendings can't keep "outstanding" reminders alive.
-      if (targetTeamPayment) {
-        await db.from('payments')
-          .delete()
-          .eq('team_id', teamId)
-          .eq('league_id', parsed.data.leagueId)
-          .eq('organization_id', org.id)
-          .eq('payment_type', 'team')
-          .eq('status', 'pending')
-          .in('payment_method', ['cash', 'etransfer', 'cheque'])
-          .neq('id', targetTeamPayment.id)
-      }
-
-      // Activate all active team members' registrations in case any are still pending
-
-      const { data: members } = await db
-        .from('team_members')
-        .select('user_id')
-        .eq('team_id', teamId)
-        .eq('status', 'active')
-      const memberUserIds: string[] = (members ?? [])
-        .map((m) => m.user_id)
-        .filter((id): id is string => !!id)
-      if (memberUserIds.length > 0) {
-
-        await db
-          .from('registrations')
-          .update({ status: 'active' })
-          .eq('league_id', parsed.data.leagueId)
-          .eq('organization_id', org.id)
-          .in('user_id', memberUserIds)
-          .in('status', ['pending', 'waitlisted'])
-      }
-
-      const actor = await getAuditActor()
-      await recordAuditLog({
-        orgId: org.id,
-        actorUserId: actor.actorUserId,
-        actorLabel: actor.actorLabel,
-        action: AUDIT_ACTIONS.PAYMENT_MANUAL_RECORDED,
-        targetType: parsed.data.registrationId ? 'registration' : 'team',
-        targetId: parsed.data.registrationId ?? teamId,
-        metadata: {
-          user_id: parsed.data.userId ?? null,
-          league_id: parsed.data.leagueId,
-          team_id: teamId,
-          amount_cents: parsed.data.amountCents,
-          currency: parsed.data.currency,
-          method: parsed.data.method,
-          payment_mode: 'per_team',
-        },
-      })
-
-      revalidatePath('/admin/payments')
-      return { data: null, error: null }
-    }
-  }
-  // ── End per-team handling ──────────────────────────────────────────────────
-
-  // Per-player path below is keyed by registration.
-  if (!parsed.data.registrationId || !parsed.data.userId) {
-    return { data: null, error: 'Registration not found' }
-  }
-
-  // Reconcile an existing pending payment (e.g. an offline method the player
-  // chose at checkout) instead of inserting a duplicate.
-
-  const { data: existing } = await db
-    .from('payments')
-    .select('id')
-    .eq('registration_id', parsed.data.registrationId)
-    .eq('organization_id', org.id)
-    .neq('status', 'paid')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (existing) {
-
-    const { error } = await db.from('payments').update(paidFields).eq('id', existing.id)
-    if (error) return { data: null, error: error.message }
-  } else {
-
-    const { error } = await db.from('payments').insert({
-      organization_id: org.id,
-      registration_id: parsed.data.registrationId,
-      user_id: parsed.data.userId,
-      league_id: parsed.data.leagueId,
-      ...paidFields,
-    })
-    if (error) return { data: null, error: error.message }
-  }
-
-  // Activate the registration
-  await db.from('registrations').update({ status: 'active' }).eq('id', parsed.data.registrationId)
-
-  const actor = await getAuditActor()
-  await recordAuditLog({
-    orgId: org.id,
-    actorUserId: actor.actorUserId,
-    actorLabel: actor.actorLabel,
-    action: AUDIT_ACTIONS.PAYMENT_MANUAL_RECORDED,
-    targetType: 'registration',
-    targetId: parsed.data.registrationId,
-    metadata: {
-      user_id: parsed.data.userId,
-      league_id: parsed.data.leagueId,
-      amount_cents: parsed.data.amountCents,
-      currency: parsed.data.currency,
-      method: parsed.data.method,
-    },
-  })
-
-  revalidatePath('/admin/payments')
-  return { data: null, error: null }
-}
-
-const refundTeamPaymentSchema = z.object({
-  teamId: z.string().uuid(),
-  leagueId: z.string().uuid(),
-  /** Defaults to the full team fee. */
-  refundAmountCents: z.number().int().min(0).optional(),
-})
-
-/** Refund a team's fee (fully by default, or partially). */
-export async function refundTeamPayment(input: z.infer<typeof refundTeamPaymentSchema>): Promise<{ error: string | null }> {
-  const parsed = refundTeamPaymentSchema.safeParse(input)
-  if (!parsed.success) return { error: 'Invalid input' }
-
-  const headersList = await headers()
-  const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
-
-  const db = createServiceRoleClient()
-  const { data: caller } = await db
-    .from('org_members').select('role')
-    .eq('organization_id', org.id).eq('user_id', user.id).single()
-  if (!caller || !['org_admin', 'league_admin'].includes(caller.role)) return { error: 'Unauthorized' }
-
-  const { data: rows } = await db
-    .from('payments')
-    .select('id, amount_cents, status')
-    .eq('team_id', parsed.data.teamId)
-    .eq('league_id', parsed.data.leagueId)
-    .eq('organization_id', org.id)
-    .eq('payment_type', 'team')
-    .order('created_at', { ascending: false })
-  const paidRow = (rows ?? []).find((p) => p.status === 'paid' || p.status === 'manual')
-  if (!paidRow) return { error: 'No paid team payment to refund.' }
-
-  const refundCents = Math.min(parsed.data.refundAmountCents ?? paidRow.amount_cents, paidRow.amount_cents)
-  const { error } = await db.from('payments')
-    .update({ status: 'refunded', refunded_cents: refundCents, refunded_at: new Date().toISOString() })
-    .eq('id', paidRow.id)
-  if (error) return { error: error.message }
-
-  const actor = await getAuditActor()
-  await recordAuditLog({
-    orgId: org.id,
-    actorUserId: actor.actorUserId,
-    actorLabel: actor.actorLabel,
-    action: AUDIT_ACTIONS.PAYMENT_MANUAL_RECORDED,
-    targetType: 'team',
-    targetId: parsed.data.teamId,
-    metadata: {
-      league_id: parsed.data.leagueId,
-      refunded_cents: refundCents,
-      kind: 'team_refund',
-    },
-  })
-
-  revalidatePath('/admin/payments')
-  return { error: null }
-}
-
 const selectOfflinePaymentSchema = z.object({
   registrationId: z.string().uuid(),
   leagueId: z.string().uuid(),
@@ -672,11 +377,11 @@ const adminUpdatePaymentSchema = z.object({
 })
 
 /**
- * Org-admin edit (or create) of a single registration's payment. Unlike
- * recordManualPayment, this works on already-paid rows and on free ($0) events,
- * and lets the admin set the status (paid / pending / refunded) and amount
- * directly. Per-player payments only (the payments table is keyed by
- * registration_id); per-team events keep using recordManualPayment.
+ * Org-admin edit (or create) of a single registration's payment. Works on
+ * already-paid rows and on free ($0) events, and lets the admin set the
+ * status (paid / pending / refunded) and amount directly. Per-player payments
+ * only (keyed by registration_id); per-team fees go through
+ * adminUpdateTeamPayment.
  */
 export async function adminUpdateRegistrationPayment(input: z.infer<typeof adminUpdatePaymentSchema>) {
   const parsed = adminUpdatePaymentSchema.safeParse(input)
@@ -771,5 +476,141 @@ export async function adminUpdateRegistrationPayment(input: z.infer<typeof admin
 
   revalidatePath('/admin/payments')
   if (reg.league_id) revalidatePath(`/admin/events/${reg.league_id}/registrations`)
+  return { error: null }
+}
+
+// ── Admin: edit/record a team's fee (per-team events) ────────────────────────
+
+const adminUpdateTeamPaymentSchema = z.object({
+  teamId: z.string().uuid(),
+  leagueId: z.string().uuid(),
+  amountCents: z.number().int().min(0),
+  status: z.enum(['paid', 'pending', 'refunded']),
+  method: z.enum(['cash', 'etransfer', 'cheque', 'stripe', 'card', 'other']),
+  notes: z.string().optional(),
+  /** How much was returned when status is 'refunded' (defaults to the full amount). */
+  refundAmountCents: z.number().int().min(0).optional(),
+})
+
+/**
+ * The per-team twin of adminUpdateRegistrationPayment: one editor (the
+ * status badge on Admin → Payments) records, edits, and refunds a team's fee.
+ *
+ * Team fees live on payment_type='team' rows keyed by team_id, and the
+ * repeated-Mark-as-Paid bug left duplicate rows in the wild, so this edits the
+ * SAME row the ledger displays (a paid row if the team has one, else the
+ * newest) and never inserts while one exists. Marking paid also sweeps the
+ * team's other never-paid offline rows (so stale pendings can't keep
+ * "payment outstanding" banners alive) and activates the members'
+ * registrations.
+ */
+export async function adminUpdateTeamPayment(input: z.infer<typeof adminUpdateTeamPaymentSchema>) {
+  const parsed = adminUpdateTeamPaymentSchema.safeParse(input)
+  if (!parsed.success) return { error: 'Invalid input' }
+  const { teamId, leagueId } = parsed.data
+
+  const headersList = await headers()
+  const org = await getCurrentOrg(headersList)
+  const auth = await assertOrgAdmin(org)
+  if (auth.error) return { error: auth.error }
+
+  const db = createServiceRoleClient()
+
+  // The team must belong to this org's per-team league.
+  const [{ data: team }, { data: league }] = await Promise.all([
+    db.from('teams').select('id').eq('id', teamId).eq('league_id', leagueId).eq('organization_id', org.id).maybeSingle(),
+    db.from('leagues').select('payment_mode, currency').eq('id', leagueId).eq('organization_id', org.id).maybeSingle(),
+  ])
+  if (!team || !league) return { error: 'Team not found' }
+  if (league.payment_mode !== 'per_team') return { error: 'This event is paid per player, not per team.' }
+
+  const isPaid = parsed.data.status === 'paid'
+  const isRefund = parsed.data.status === 'refunded'
+  const refundCents = isRefund
+    ? Math.min(parsed.data.refundAmountCents ?? parsed.data.amountCents, parsed.data.amountCents)
+    : 0
+  const fields = {
+    amount_cents: parsed.data.amountCents,
+    status: parsed.data.status,
+    payment_method: parsed.data.method,
+    notes: parsed.data.notes?.trim() || null,
+    paid_at: isPaid ? new Date().toISOString() : null,
+    // Refunds land in the period they're issued; any other status clears them.
+    refunded_cents: refundCents,
+    refunded_at: isRefund ? new Date().toISOString() : null,
+  }
+
+  const { data: teamRows } = await db
+    .from('payments')
+    .select('id, status')
+    .eq('team_id', teamId)
+    .eq('league_id', leagueId)
+    .eq('organization_id', org.id)
+    .eq('payment_type', 'team')
+    .order('created_at', { ascending: false })
+  const target = (teamRows ?? []).find((p) => p.status === 'paid' || p.status === 'manual') ?? (teamRows ?? [])[0]
+
+  let targetId: string
+  if (target) {
+    const { error } = await db.from('payments').update(fields).eq('id', target.id)
+    if (error) return { error: error.message }
+    targetId = target.id
+  } else {
+    const { data: created, error } = await db.from('payments').insert({
+      organization_id: org.id,
+      team_id: teamId,
+      league_id: leagueId,
+      payment_type: 'team',
+      currency: league.currency ?? 'cad',
+      ...fields,
+    }).select('id').single()
+    if (error || !created) return { error: error?.message ?? 'Could not save the payment' }
+    targetId = created.id
+  }
+
+  if (isPaid) {
+    await db.from('payments')
+      .delete()
+      .eq('team_id', teamId)
+      .eq('league_id', leagueId)
+      .eq('organization_id', org.id)
+      .eq('payment_type', 'team')
+      .eq('status', 'pending')
+      .in('payment_method', ['cash', 'etransfer', 'cheque'])
+      .neq('id', targetId)
+
+    const { data: members } = await db
+      .from('team_members').select('user_id').eq('team_id', teamId).eq('status', 'active')
+    const memberUserIds = (members ?? []).map((m) => m.user_id).filter((id): id is string => !!id)
+    if (memberUserIds.length > 0) {
+      await db.from('registrations')
+        .update({ status: 'active' })
+        .eq('league_id', leagueId)
+        .eq('organization_id', org.id)
+        .in('user_id', memberUserIds)
+        .in('status', ['pending', 'waitlisted'])
+    }
+  }
+
+  const actor = await getAuditActor()
+  await recordAuditLog({
+    orgId: org.id,
+    actorUserId: actor.actorUserId,
+    actorLabel: actor.actorLabel,
+    action: AUDIT_ACTIONS.PAYMENT_MANUAL_RECORDED,
+    targetType: 'team',
+    targetId: teamId,
+    metadata: {
+      league_id: leagueId,
+      amount_cents: parsed.data.amountCents,
+      status: parsed.data.status,
+      method: parsed.data.method,
+      refunded_cents: refundCents,
+      payment_mode: 'per_team',
+      edited: true,
+    },
+  })
+
+  revalidatePath('/admin/payments')
   return { error: null }
 }

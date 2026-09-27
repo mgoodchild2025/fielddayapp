@@ -1,12 +1,9 @@
 'use client'
 
-import { useState, useMemo, useEffect, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
-import { MarkPaidForm } from '@/components/payments/mark-paid-form'
+import { useState, useMemo, useEffect } from 'react'
 import { EditPaymentForm } from '@/components/payments/edit-payment-form'
-import { refundTeamPayment } from '@/actions/payments'
 import { StatusChip } from '@/components/ui/status-chip'
-import { outstandingTotals } from '@/lib/payment-ledger'
+import { collectedTotals, outstandingTotals } from '@/lib/payment-ledger'
 import type { OrgTaxRate } from '@/lib/tax'
 
 const PAGE_SIZE = 25
@@ -70,11 +67,6 @@ function dateLabel(r: Row) {
   return new Date(d).toLocaleDateString()
 }
 
-function needsAction(r: Row) {
-  return (r.paymentStatus === 'unpaid' || r.paymentStatus === 'pending' || r.paymentStatus === 'failed')
-    && (!!r.player || !!r.teamId) && !!r.league
-}
-
 const VALID_METHODS = ['cash', 'etransfer', 'cheque', 'stripe', 'card', 'other'] as const
 function defaultPayStatus(s?: string | null): 'paid' | 'pending' | 'refunded' {
   return s === 'pending' ? 'pending' : s === 'refunded' ? 'refunded' : 'paid'
@@ -83,106 +75,34 @@ function defaultPayMethod(m?: string | null): (typeof VALID_METHODS)[number] {
   return (VALID_METHODS as readonly string[]).includes(m ?? '') ? (m as (typeof VALID_METHODS)[number]) : 'etransfer'
 }
 
-/** Per-player events edit via the clickable status badge, so the Actions
- *  column is only used by the per-team Mark-as-Paid flow. */
-function hasPaymentAction(r: Row, isOrgAdmin: boolean) {
-  if (!isOrgAdmin || !r.league) return false
-  if (r.league.payment_mode === 'per_team') return !!r.teamId && (needsAction(r) || r.paymentStatus === 'paid')
-  return false
+/** Per-team events are paid by the TEAM: its ledger row edits the team fee,
+ *  and member rows (kept only when they carry a payment of their own) stay
+ *  read-only. Everything else edits the registration's payment. */
+function editTarget(r: Row): { registrationId: string } | { teamId: string; leagueId: string } | null {
+  if (!r.league) return null
+  if (r.league.payment_mode === 'per_team') return r.teamId ? { teamId: r.teamId, leagueId: r.league.id } : null
+  return { registrationId: r.id }
 }
 
-/** Whether the payment status badge itself opens the inline editor (per-player,
- *  org-admin), mirroring the event registrations screen. */
-function badgeIsEditable(r: Row, isOrgAdmin: boolean) {
-  return isOrgAdmin && !!r.league && r.league.payment_mode !== 'per_team'
-}
-
-/** The payment status pill — clickable to edit for per-player events. */
+/** The payment status pill. For org admins it opens the payment editor —
+ *  the one control for recording, editing, and refunding, for players and
+ *  teams alike (mirrors the event registrations screen). */
 function StatusBadge({ r, isOrgAdmin, className = '' }: { r: Row; isOrgAdmin: boolean; className?: string }) {
   const badge = <StatusChip status={r.paymentStatus} className={className} />
-  if (!badgeIsEditable(r, isOrgAdmin)) return badge
+  const target = isOrgAdmin ? editTarget(r) : null
+  if (!target) return badge
   return (
     <EditPaymentForm
-      registrationId={r.id}
+      {...target}
       hasPayment={!!r.payment}
       defaultAmountCents={effectivePriceCents(r)}
       defaultStatus={defaultPayStatus(r.payment?.status)}
       defaultMethod={defaultPayMethod(r.payment?.payment_method)}
       defaultNotes={r.payment?.notes}
+      defaultRefundCents={r.payment?.refunded_cents}
       trigger={badge}
     />
   )
-}
-
-/** Refund control for a paid team fee — full by default, or a partial amount. */
-function TeamRefundForm({ teamId, leagueId, amountCents }: { teamId: string; leagueId: string; amountCents: number }) {
-  const router = useRouter()
-  const [open, setOpen] = useState(false)
-  const [amount, setAmount] = useState((amountCents / 100).toFixed(2))
-  const [error, setError] = useState<string | null>(null)
-  const [pending, startTransition] = useTransition()
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    const cents = Math.round(parseFloat(amount) * 100)
-    if (isNaN(cents) || cents < 0) { setError('Enter a valid amount.'); return }
-    startTransition(async () => {
-      const res = await refundTeamPayment({ teamId, leagueId, refundAmountCents: cents })
-      if (res.error) setError(res.error)
-      else { setOpen(false); router.refresh() }
-    })
-  }
-
-  if (!open) {
-    return (
-      <button onClick={() => setOpen(true)} className="text-xs px-3 py-2 rounded-md border font-medium text-gray-700 hover:bg-gray-50">
-        Refund…
-      </button>
-    )
-  }
-  return (
-    <form onSubmit={submit} className="flex flex-col gap-1.5 min-w-[160px]">
-      <div className="relative">
-        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-        <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)}
-          className="border rounded pl-5 pr-1.5 py-1 text-xs w-full" aria-label="Refund amount" autoFocus />
-      </div>
-      {error && <p className="text-xs text-red-500">{error}</p>}
-      <div className="flex gap-1.5">
-        <button type="submit" disabled={pending} className="text-xs px-3 py-2 rounded-md font-semibold text-white disabled:opacity-60" style={{ backgroundColor: 'var(--brand-primary)' }}>
-          {pending ? 'Saving…' : 'Refund'}
-        </button>
-        <button type="button" onClick={() => setOpen(false)} className="text-xs px-3 py-2 rounded-md border text-gray-600 hover:bg-gray-50">Cancel</button>
-      </div>
-    </form>
-  )
-}
-
-/** Org-admin payment control — per-team events keep the (team-aware) Mark-as-Paid flow. */
-function PaymentAction({ r, isOrgAdmin }: { r: Row; isOrgAdmin: boolean }) {
-  if (!isOrgAdmin || !r.league) return null
-  if (r.league.payment_mode === 'per_team' && r.teamId) {
-    if (r.paymentStatus === 'paid') {
-      return (
-        <TeamRefundForm
-          teamId={r.teamId}
-          leagueId={r.league.id}
-          amountCents={r.payment?.amount_cents ?? r.league.price_cents}
-        />
-      )
-    }
-    if (!needsAction(r)) return null
-    return (
-      <MarkPaidForm
-        teamId={r.teamId}
-        leagueId={r.league.id}
-        amountCents={r.payment?.amount_cents ?? r.league.price_cents}
-        currency={r.league.currency}
-      />
-    )
-  }
-  return null
 }
 
 const money = (cents: number) => `$${(cents / 100).toFixed(2)}`
@@ -250,13 +170,9 @@ export function PaymentsTable({ rows, isOrgAdmin = true, taxRates = [] }: { rows
 
   // Stats derived from the filtered set so they react to search/filter changes
   const filteredStats = useMemo(() => ({
-    totalPaidCents: filtered
-      .filter(r => r.payment?.status === 'paid')
-      .reduce((sum, r) => sum + (r.payment?.amount_cents ?? 0), 0),
-    // Tax collected within the paid set — the number the org remits
-    taxCollectedCents: filtered
-      .filter(r => r.payment?.status === 'paid')
-      .reduce((sum, r) => sum + (r.payment?.tax_cents ?? 0), 0),
+    // Paid, manual, and refunded payments net of refunds — the same rule as
+    // the finance reports (see lib/payment-ledger).
+    collected: collectedTotals(filtered),
     paidCount: filtered.filter(r => r.paymentStatus === 'paid').length,
     // "Unpaid" = anything still owed: unpaid, pending, or failed — with the
     // amount owed, tax included (see lib/payment-ledger).
@@ -278,10 +194,10 @@ export function PaymentsTable({ rows, isOrgAdmin = true, taxRates = [] }: { rows
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <FilterCard label="Total Collected" tone="paid" active={statusFilter === 'paid'} onToggle={() => toggleStatus('paid')}>
           <p className="text-xl sm:text-2xl font-bold mt-1" style={{ color: 'var(--brand-primary)' }}>
-            {money(filteredStats.totalPaidCents)}
+            {money(filteredStats.collected.totalCents)}
           </p>
-          {filteredStats.taxCollectedCents > 0 && (
-            <p className="text-[11px] text-gray-400 mt-0.5">incl. {money(filteredStats.taxCollectedCents)} tax</p>
+          {filteredStats.collected.taxCents > 0 && (
+            <p className="text-[11px] text-gray-400 mt-0.5">incl. {money(filteredStats.collected.taxCents)} tax</p>
           )}
         </FilterCard>
         <FilterCard label="Total Unpaid" tone="unpaid" active={statusFilter === 'unpaid'} onToggle={() => toggleStatus('unpaid')}>
@@ -357,7 +273,6 @@ export function PaymentsTable({ rows, isOrgAdmin = true, taxRates = [] }: { rows
                 <th className="px-4 py-3 font-medium text-gray-500">Status</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Method</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Date</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -389,14 +304,11 @@ export function PaymentsTable({ rows, isOrgAdmin = true, taxRates = [] }: { rows
                     {r.payment?.payment_method ?? '—'}
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{dateLabel(r)}</td>
-                  <td className="px-4 py-3">
-                    <PaymentAction r={r} isOrgAdmin={isOrgAdmin} />
-                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
+                  <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
                     {hasFilters ? 'No registrations match your search.' : 'No registrations found.'}
                   </td>
                 </tr>
@@ -448,12 +360,6 @@ export function PaymentsTable({ rows, isOrgAdmin = true, taxRates = [] }: { rows
                 <span>{dateLabel(r)}</span>
               </div>
 
-              {/* Action */}
-              {hasPaymentAction(r, isOrgAdmin) && (
-                <div className="mt-3 pt-3 border-t">
-                  <PaymentAction r={r} isOrgAdmin={isOrgAdmin} />
-                </div>
-              )}
             </div>
           ))
         )}

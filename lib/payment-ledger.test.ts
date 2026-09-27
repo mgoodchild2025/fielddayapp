@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isOwed, owedCents, outstandingTotals, type LedgerRow } from './payment-ledger'
+import { collectedCents, collectedTotals, isOwed, owedCents, outstandingTotals, type LedgerRow } from './payment-ledger'
 import type { OrgTaxRate } from './tax'
 
 const HST: OrgTaxRate = { id: 'r1', displayName: 'HST', percentage: 13, inclusive: false, appliesTo: 'all', stripeTaxRateId: null }
@@ -65,5 +65,46 @@ describe('outstandingTotals', () => {
   })
   it('is empty for an empty ledger', () => {
     expect(outstandingTotals([], [HST])).toEqual({ totalCents: 0, taxCents: 0, count: 0 })
+  })
+})
+
+describe('collectedCents', () => {
+  const paidRow = (payment: LedgerRow['payment']) => row({ paymentStatus: 'paid', payment })
+  it('counts a paid payment in full, with its tax', () => {
+    expect(collectedCents(paidRow({ amount_cents: 11300, tax_cents: 1300, status: 'paid' }))).toEqual({ totalCents: 11300, taxCents: 1300 })
+  })
+  it('counts manual payments', () => {
+    expect(collectedCents(paidRow({ amount_cents: 5000, status: 'manual' })).totalCents).toBe(5000)
+  })
+  it('keeps the retained part of a partial refund, with pro-rated tax', () => {
+    const r = paidRow({ amount_cents: 11300, tax_cents: 1300, status: 'refunded', refunded_cents: 5650 })
+    expect(collectedCents(r)).toEqual({ totalCents: 5650, taxCents: 650 })
+  })
+  it('nets a full refund to zero', () => {
+    const r = paidRow({ amount_cents: 11300, tax_cents: 1300, status: 'refunded', refunded_cents: 11300 })
+    expect(collectedCents(r)).toEqual({ totalCents: 0, taxCents: 0 })
+  })
+  it('never goes negative when refunded_cents exceeds the amount', () => {
+    expect(collectedCents(paidRow({ amount_cents: 1000, status: 'refunded', refunded_cents: 5000 })).totalCents).toBe(0)
+  })
+  it('follows the finance reports on a refund with no refunded amount recorded (counts it)', () => {
+    expect(collectedCents(paidRow({ amount_cents: 1000, status: 'refunded', refunded_cents: null })).totalCents).toBe(1000)
+  })
+  it('ignores pending, failed, and missing payments', () => {
+    expect(collectedCents(paidRow({ amount_cents: 1000, status: 'pending' })).totalCents).toBe(0)
+    expect(collectedCents(paidRow({ amount_cents: 1000, status: 'failed' })).totalCents).toBe(0)
+    expect(collectedCents(row()).totalCents).toBe(0)
+  })
+})
+
+describe('collectedTotals', () => {
+  it('sums every counted payment', () => {
+    const rows = [
+      row({ payment: { amount_cents: 11300, tax_cents: 1300, status: 'paid' } }),
+      row({ payment: { amount_cents: 5000, status: 'manual' } }),
+      row({ payment: { amount_cents: 11300, tax_cents: 1300, status: 'refunded', refunded_cents: 11300 } }),
+      row({ payment: { amount_cents: 2000, status: 'pending' } }),
+    ]
+    expect(collectedTotals(rows)).toEqual({ totalCents: 16300, taxCents: 1300 })
   })
 })

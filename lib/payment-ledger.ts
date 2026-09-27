@@ -1,7 +1,17 @@
 import { computeTax, type OrgTaxRate } from '@/lib/tax'
 
 /**
- * What's still owed on the admin payments ledger (Admin → Payments).
+ * Money totals for the admin payments ledger (Admin → Payments): what has
+ * been collected, and what's still owed.
+ *
+ * ── Collected ──
+ * The revenue counting rule used everywhere money is summed (see
+ * actions/finances.ts): payments with status paid / manual / refunded count
+ * as GROSS minus refunded_cents, so a full refund nets to zero and a partial
+ * refund keeps the retained portion. The tax shown with it is the tax on the
+ * retained portion (pro-rated), so a fully refunded payment carries none.
+ *
+ * ── Owed ──
  *
  * A row is owed while it's unpaid, pending, or failed (never when free). The
  * amount owed is what the player/team will actually pay, tax included:
@@ -21,7 +31,36 @@ export interface LedgerRow {
   isFree: boolean
   registration_type?: string | null
   league: { price_cents: number; drop_in_price_cents?: number | null } | null
-  payment: { amount_cents: number; tax_cents?: number | null; payment_method?: string | null } | null
+  payment: {
+    amount_cents: number
+    tax_cents?: number | null
+    payment_method?: string | null
+    status?: string
+    refunded_cents?: number | null
+  } | null
+}
+
+const COLLECTED_STATUSES = new Set(['paid', 'manual', 'refunded'])
+
+/** Money kept from one payment, and the tax within it. */
+export function collectedCents(r: LedgerRow): { totalCents: number; taxCents: number } {
+  const p = r.payment
+  if (!p || !COLLECTED_STATUSES.has(p.status ?? '')) return { totalCents: 0, taxCents: 0 }
+  const gross = Math.max(0, p.amount_cents)
+  const retained = gross - Math.min(gross, Math.max(0, p.refunded_cents ?? 0))
+  const tax = p.tax_cents ?? 0
+  return { totalCents: retained, taxCents: gross > 0 ? Math.round((tax * retained) / gross) : 0 }
+}
+
+/** Ledger-wide collected total (see the counting rule above). */
+export function collectedTotals(rows: LedgerRow[]) {
+  let totalCents = 0, taxCents = 0
+  for (const r of rows) {
+    const c = collectedCents(r)
+    totalCents += c.totalCents
+    taxCents += c.taxCents
+  }
+  return { totalCents, taxCents }
 }
 
 const OFFLINE_METHODS = new Set(['etransfer', 'cash', 'cheque', 'other'])
