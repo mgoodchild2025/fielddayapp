@@ -7,6 +7,7 @@ import { updateLeagueStatus } from '@/actions/events'
 import { getLeagueOrganizers } from '@/actions/organizers'
 import { canAccess } from '@/lib/features'
 import { formatEventPrice } from '@/lib/event-price'
+import { MapLink } from '@/components/ui/map-link'
 import { getMerchandiseOrders } from '@/actions/merchandise'
 import { getLeagueDocuments } from '@/actions/league-documents'
 import { listAdminDocuments } from '@/actions/admin-documents'
@@ -154,11 +155,9 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
               <dt className="text-gray-500 text-sm">Address</dt>
               <dd className="font-medium text-sm flex items-center gap-2">
                 <span>{league.venue_address}</span>
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(league.venue_address)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="View on Google Maps"
+                <MapLink
+                  address={league.venue_address}
+                  title="Open in maps"
                   className="shrink-0 text-gray-400 hover:text-blue-600 transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -167,7 +166,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                </a>
+                </MapLink>
               </dd>
             </div>
           )}
