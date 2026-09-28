@@ -27,6 +27,7 @@ import { BracketView } from '@/components/bracket/bracket-view'
 import type { BracketData, BracketMatchData } from '@/components/bracket/bracket-view'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { MapLink } from '@/components/ui/map-link'
 import { BackLink } from '@/components/ui/back-link'
 import { formatGameTime } from '@/lib/format-time'
 import {
@@ -2036,19 +2037,17 @@ export default async function EventDetailPage({
                     )}
                   </div>
                   {league.venue_address && (
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(league.venue_address)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <MapLink
+                      address={league.venue_address}
                       className="shrink-0 flex items-center justify-center w-10 h-10 rounded-full border hover:bg-gray-50 transition-colors"
                       style={{ color: 'var(--brand-primary)' }}
-                      aria-label="View on Google Maps"
+                      title="Open in maps"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
-                    </a>
+                    </MapLink>
                   )}
                 </div>
               </div>
