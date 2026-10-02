@@ -10,6 +10,7 @@ import { sendSms as twilioSendSms, toE164 } from '@/lib/twilio'
 import { optionalPhone, nullablePhone } from '@/lib/validation'
 import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
 import { createNotifications } from '@/lib/notify'
+import { removeRegistration } from '@/actions/registrations'
 
 async function requireOrgAdmin() {
   const headersList = await headers()
@@ -137,12 +138,19 @@ export async function removePlayerFromLeague(registrationId: string, userId: str
   const { error, org, db } = await requireOrgAdmin()
   if (error) return { error }
 
-  const { error: e } = await db
+  const { data: reg } = await db
     .from('registrations')
-    .delete()
+    .select('league_id')
     .eq('id', registrationId)
     .eq('organization_id', org.id)
-  if (e) return { error: e.message }
+    .maybeSingle()
+  if (!reg) return { error: 'Registration not found' }
+
+  // The one removal path: team memberships, pending offline payments and the
+  // payments FK (no ON DELETE — a bare delete failed for anyone who had paid)
+  // are all handled there, plus the audit log.
+  const result = await removeRegistration(registrationId, reg.league_id)
+  if (result.error) return result
 
   revalidatePath(`/admin/players/${userId}`)
   return { error: null }
