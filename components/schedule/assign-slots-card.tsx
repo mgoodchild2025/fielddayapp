@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { assignSlotToTeam } from '@/actions/schedule'
+import { toast } from 'sonner'
 
 interface Team {
   id: string
@@ -22,7 +23,6 @@ export function AssignSlotsCard({ leagueId, slotLabels, teams }: Props) {
   const [assignments, setAssignments] = useState<Record<string, string>>(
     () => Object.fromEntries(slotLabels.map(l => [l, '']))
   )
-  const [success, setSuccess] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // Nothing to show if no unmatched labels exist
@@ -32,7 +32,6 @@ export function AssignSlotsCard({ leagueId, slotLabels, teams }: Props) {
 
   function handleChange(slot: string, teamId: string) {
     setAssignments(prev => ({ ...prev, [slot]: teamId }))
-    setSuccess(null)
     setError(null)
   }
 
@@ -46,14 +45,13 @@ export function AssignSlotsCard({ leagueId, slotLabels, teams }: Props) {
       return
     }
 
-    setSuccess(null)
     setError(null)
     startTransition(async () => {
       const result = await assignSlotToTeam({ leagueId, assignments: toAssign })
       if (result.error) {
         setError(result.error)
       } else {
-        setSuccess(
+        toast.success(
           `${result.count} slot${result.count !== 1 ? 's' : ''} assigned. Games updated.`
         )
         setAssignments(prev => {
@@ -83,11 +81,6 @@ export function AssignSlotsCard({ leagueId, slotLabels, teams }: Props) {
           : 'These team names were imported from your CSV. Create teams (or wait for players to register) to map them.'}
       </p>
 
-      {success && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-xs mb-3">
-          {success}
-        </div>
-      )}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-xs mb-3">
           {error}

@@ -43,8 +43,8 @@ export function RegistrationQrPoster({ url, eventName, priceLabel }: Props) {
           onClick={copyLink}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md text-sm font-semibold border text-gray-700 hover:bg-gray-50"
         >
-          {copied ? <Check className="w-4 h-4 text-green-600" /> : <LinkIcon className="w-4 h-4" />}
-          {copied ? 'Copied!' : 'Copy link'}
+          {copied ? <span key="copied" className="fd-fade-in inline-flex"><Check className="w-4 h-4 text-green-600" /></span> : <LinkIcon className="w-4 h-4" />}
+          {copied ? <span key="copied" className="fd-fade-in">Copied!</span> : 'Copy link'}
         </button>
         <button
           type="button"
@@ -65,7 +65,7 @@ export function RegistrationQrPoster({ url, eventName, priceLabel }: Props) {
           className="shrink-0 text-xs font-semibold hover:underline"
           style={{ color: 'var(--brand-primary)' }}
         >
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? <span key="copied" className="fd-fade-in">Copied</span> : 'Copy'}
         </button>
       </div>
 

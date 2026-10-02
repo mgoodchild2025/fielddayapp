@@ -101,7 +101,7 @@ export function InviteSubButton({ gameId, teamId, initialSubs }: Props) {
 
       {/* Success message */}
       {success && (
-        <p className="text-[11px] text-green-600 font-medium">{success}</p>
+        <p className="fd-fade-in text-[11px] text-green-600 font-medium">{success}</p>
       )}
 
       {/* Invite form or button */}

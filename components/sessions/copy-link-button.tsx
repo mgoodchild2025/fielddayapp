@@ -38,8 +38,8 @@ export function CopyLinkButton({ url, label = 'Copy link' }: Props) {
       title={url}
       className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md text-sm font-semibold border text-gray-700 hover:bg-gray-50"
     >
-      {copied ? <Check className="w-4 h-4 text-green-600" /> : <LinkIcon className="w-4 h-4" />}
-      {copied ? 'Copied!' : label}
+      {copied ? <span key="copied" className="fd-fade-in inline-flex"><Check className="w-4 h-4 text-green-600" /></span> : <LinkIcon className="w-4 h-4" />}
+      {copied ? <span key="copied" className="fd-fade-in">Copied!</span> : label}
     </button>
   )
 }

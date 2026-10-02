@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { deleteLeague } from '@/actions/events'
+import { confirmAction } from '@/components/ui/confirm-dialog'
+import { toast } from 'sonner'
 
 interface Props {
   leagueId: string
@@ -14,11 +16,11 @@ export function DeleteEventRowButton({ leagueId, eventName }: Props) {
   const router = useRouter()
 
   async function handleDelete() {
-    if (!confirm(`Delete "${eventName}"?\n\nThis will permanently remove all teams, registrations, and games. This cannot be undone.`)) return
+    if (!(await confirmAction({ title: `Delete "${eventName}"?`, message: "All its teams, registrations and games are permanently removed. This can't be undone.", confirmLabel: "Delete event", destructive: true }))) return
     setLoading(true)
     const result = await deleteLeague(leagueId)
     if (result.error) {
-      alert(`Error: ${result.error}`)
+      toast.error(result.error)
       setLoading(false)
     } else {
       router.refresh()

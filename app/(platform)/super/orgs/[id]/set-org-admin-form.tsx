@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { setOrgAdmin } from '@/actions/platform'
+import { toast } from 'sonner'
 
 interface Props {
   orgId: string
@@ -12,18 +13,16 @@ export function SetOrgAdminForm({ orgId, currentAdmins }: Props) {
   const [email, setEmail] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     setError(null)
-    setSuccess(null)
     const result = await setOrgAdmin(orgId, email)
     if (result.error) {
       setError(result.error)
     } else {
-      setSuccess(`${result.name ?? email} is now an Org Admin.`)
+      toast.success(`${result.name ?? email} is now an Org Admin.`)
       setEmail('')
     }
     setSaving(false)
@@ -65,7 +64,6 @@ export function SetOrgAdminForm({ orgId, currentAdmins }: Props) {
       </form>
 
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-      {success && <p className="mt-2 text-sm text-green-600">✓ {success}</p>}
     </div>
   )
 }

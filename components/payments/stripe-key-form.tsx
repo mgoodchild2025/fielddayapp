@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { savePaymentSettings, clearPaymentSettings } from '@/actions/payment-settings'
+import { confirmAction } from '@/components/ui/confirm-dialog'
+import { toast } from 'sonner'
 
 interface Props {
   orgSlug: string
@@ -16,7 +18,6 @@ export function StripeKeyForm({ orgSlug, hasSecretKey, hasWebhookSecret, isTestM
   const [showSecretKey, setShowSecretKey] = useState(false)
   const [showWebhookSecret, setShowWebhookSecret] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
@@ -26,15 +27,14 @@ export function StripeKeyForm({ orgSlug, hasSecretKey, hasWebhookSecret, isTestM
 
   function handleSave() {
     setErr(null)
-    setSaved(false)
     startTransition(async () => {
       const res = await savePaymentSettings({ stripeSecretKey: secretKey, stripeWebhookSecret: webhookSecret })
-      if (res.error) { setErr(res.error) } else { setSaved(true); setSecretKey(''); setWebhookSecret('') }
+      if (res.error) { setErr(res.error) } else { toast.success('Stripe settings saved'); setSecretKey(''); setWebhookSecret('') }
     })
   }
 
-  function handleClear() {
-    if (!confirm('Remove Stripe configuration? Players will no longer be able to pay online.')) return
+  async function handleClear() {
+    if (!(await confirmAction({ title: "Remove Stripe?", message: "Players won’t be able to pay online until you connect it again.", confirmLabel: "Remove Stripe", destructive: true }))) return
     setErr(null)
     startTransition(async () => {
       await clearPaymentSettings()
@@ -140,7 +140,6 @@ export function StripeKeyForm({ orgSlug, hasSecretKey, hasWebhookSecret, isTestM
       </div>
 
       {err && <p className="text-sm text-red-600">{err}</p>}
-      {saved && <p className="text-sm text-green-600">Settings saved.</p>}
 
       <div className="flex gap-3">
         <button

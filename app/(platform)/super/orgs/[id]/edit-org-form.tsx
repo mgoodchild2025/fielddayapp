@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { updateOrganization, updateSubscription, setOrgStatus } from '@/actions/platform'
+import { toast } from 'sonner'
 
 type Org = {
   id: string
@@ -29,7 +30,6 @@ export function EditOrgForm({ org, subscription }: { org: Org; subscription: Sub
   })
   const [orgSaving, setOrgSaving] = useState(false)
   const [orgError, setOrgError] = useState<string | null>(null)
-  const [orgSuccess, setOrgSuccess] = useState(false)
 
   const [subForm, setSubForm] = useState({
     plan_tier: (subscription?.plan_tier ?? 'starter') as 'free' | 'starter' | 'pro' | 'club' | 'internal',
@@ -38,19 +38,16 @@ export function EditOrgForm({ org, subscription }: { org: Org; subscription: Sub
   })
   const [subSaving, setSubSaving] = useState(false)
   const [subError, setSubError] = useState<string | null>(null)
-  const [subSuccess, setSubSuccess] = useState(false)
 
   async function saveOrg(e: React.FormEvent) {
     e.preventDefault()
     setOrgSaving(true)
     setOrgError(null)
-    setOrgSuccess(false)
     const result = await updateOrganization({ id: org.id, ...orgForm })
     if (result.error) {
       setOrgError(result.error)
     } else {
-      setOrgSuccess(true)
-      setTimeout(() => setOrgSuccess(false), 3000)
+      toast.success('Organization saved')
     }
     setOrgSaving(false)
   }
@@ -59,7 +56,6 @@ export function EditOrgForm({ org, subscription }: { org: Org; subscription: Sub
     e.preventDefault()
     setSubSaving(true)
     setSubError(null)
-    setSubSuccess(false)
     const result = await updateSubscription({
       orgId: org.id,
       ...subForm,
@@ -68,8 +64,7 @@ export function EditOrgForm({ org, subscription }: { org: Org; subscription: Sub
     if (result.error) {
       setSubError(result.error)
     } else {
-      setSubSuccess(true)
-      setTimeout(() => setSubSuccess(false), 3000)
+      toast.success('Subscription saved')
     }
     setSubSaving(false)
   }
@@ -81,7 +76,6 @@ export function EditOrgForm({ org, subscription }: { org: Org; subscription: Sub
         <h2 className="font-semibold mb-4">Organization Details</h2>
 
         {orgError && <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{orgError}</div>}
-        {orgSuccess && <div className="mb-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded px-3 py-2">✓ Saved</div>}
 
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -168,7 +162,6 @@ export function EditOrgForm({ org, subscription }: { org: Org; subscription: Sub
         <h2 className="font-semibold mb-4">Subscription</h2>
 
         {subError && <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{subError}</div>}
-        {subSuccess && <div className="mb-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded px-3 py-2">✓ Saved</div>}
 
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">

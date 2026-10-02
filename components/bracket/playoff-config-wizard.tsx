@@ -15,6 +15,8 @@ import { applicableTemplates, describeTiers, type TierTemplateSpec } from '@/lib
 import { applyRoster, rosterIsActive, EMPTY_ROSTER, type PlayoffRoster } from '@/lib/playoff-roster'
 import { PlayoffRosterPanel } from './playoff-roster-panel'
 import { listPlayoffTemplates, savePlayoffTemplate, deletePlayoffTemplate, type SavedPlayoffTemplate } from '@/actions/playoff-templates'
+import { confirmAction } from '@/components/ui/confirm-dialog'
+import { undoableRemove, insertAt } from '@/components/ui/use-undoable-remove'
 
 // ── Tier name suggestions ─────────────────────────────────────────────────────
 
@@ -348,8 +350,8 @@ function TierBracketCard({
     })
   }
 
-  function handleUnpublish() {
-    if (!tier.bracketId || !confirm(`Unpublish the ${tier.name} bracket? It will be hidden from players until you publish again. Seeding is kept.`)) return
+  async function handleUnpublish() {
+    if (!tier.bracketId || !(await confirmAction({ title: `Unpublish the ${tier.name} bracket?`, message: "It’s hidden from players until you publish again. Seeding is kept.", confirmLabel: "Unpublish" }))) return
     setErr(null)
     startTransition(async () => {
       const r = await unpublishBracket(tier.bracketId!, leagueId)
@@ -358,8 +360,8 @@ function TierBracketCard({
     })
   }
 
-  function handleDelete() {
-    if (!tier.bracketId || !confirm(`Delete the ${tier.name} bracket? This cannot be undone.`)) return
+  async function handleDelete() {
+    if (!tier.bracketId || !(await confirmAction({ title: `Delete the ${tier.name} bracket?`, message: "This can't be undone.", confirmLabel: "Delete bracket", destructive: true }))) return
     setErr(null)
     startTransition(async () => {
       await deleteBracket(tier.bracketId!, leagueId)
@@ -810,11 +812,17 @@ export function PlayoffConfigWizard({
     })
   }
 
+  // Removes at once with Undo (no confirm); the delete runs when Undo expires.
   function handleDeleteTemplate(id: string, name: string) {
-    if (!confirm(`Delete the saved template "${name}"?`)) return
-    startTransition(async () => {
-      await deletePlayoffTemplate(id)
-      listPlayoffTemplates().then(setSavedTemplates).catch(() => {})
+    const index = savedTemplates.findIndex((t) => t.id === id)
+    const item = savedTemplates[index]
+    if (!item) return
+    setSavedTemplates((prev) => prev.filter((t) => t.id !== id))
+    undoableRemove({
+      label: `Template “${name}” deleted`,
+      restore: () => setSavedTemplates((prev) => insertAt(prev, index, item)),
+      commit: () => deletePlayoffTemplate(id),
+      onCommitted: () => { listPlayoffTemplates().then(setSavedTemplates).catch(() => {}) },
     })
   }
 
@@ -923,8 +931,8 @@ export function PlayoffConfigWizard({
 
   // ── Regenerate all ────────────────────────────────────────────────────────
 
-  function handleRegenerate() {
-    if (!confirm('Regenerate all brackets from current standings? Brackets with scores recorded will be skipped.')) return
+  async function handleRegenerate() {
+    if (!(await confirmAction({ title: "Regenerate all brackets?", message: "They’re rebuilt from current standings. Brackets with recorded scores are skipped.", confirmLabel: "Regenerate" }))) return
     setErr(null)
     setGenMsg(null)
     startTransition(async () => {
@@ -953,8 +961,8 @@ export function PlayoffConfigWizard({
 
   // ── Delete config ─────────────────────────────────────────────────────────
 
-  function handleDeleteConfig() {
-    if (!confirm('Remove the playoff configuration? Generated brackets are not deleted.')) return
+  async function handleDeleteConfig() {
+    if (!(await confirmAction({ title: "Remove the playoff configuration?", message: "Generated brackets are not deleted.", confirmLabel: "Remove", destructive: true }))) return
     startTransition(async () => {
       await deletePlayoffConfig(leagueId)
       // Reset wizard to fresh setup state so the user sees the wizard again

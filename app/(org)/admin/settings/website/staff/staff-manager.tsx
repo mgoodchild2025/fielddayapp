@@ -4,6 +4,7 @@ import { useState, useRef, useTransition } from 'react'
 import Image from 'next/image'
 import { upsertStaffMember, deleteStaffMember, uploadStaffAvatar } from '@/actions/org-staff'
 import { UploadStatus, Spinner } from '@/components/ui/upload-status'
+import { undoableRemove, insertAt } from '@/components/ui/use-undoable-remove'
 
 type StaffMember = { id: string; name: string; role: string | null; bio: string | null; avatar_url: string | null; display_order: number }
 
@@ -65,7 +66,6 @@ export function StaffManager({ initialStaff }: { initialStaff: StaffMember[] }) 
   const [staff, setStaff] = useState<StaffMember[]>(initialStaff)
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [uploadingId, setUploadingId] = useState<string | null>(null)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
@@ -78,12 +78,17 @@ export function StaffManager({ initialStaff }: { initialStaff: StaffMember[] }) 
     setEditingId(null)
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('Remove this person from your staff list?')) return
-    setDeletingId(id)
-    await deleteStaffMember(id)
+  // Removes at once with Undo (no confirm); the delete runs when Undo expires.
+  function handleDelete(id: string) {
+    const index = staff.findIndex(s => s.id === id)
+    const item = staff[index]
+    if (!item) return
     setStaff(prev => prev.filter(s => s.id !== id))
-    setDeletingId(null)
+    undoableRemove({
+      label: `${item.name ?? 'Staff member'} removed`,
+      restore: () => setStaff(prev => insertAt(prev, index, item)),
+      commit: () => deleteStaffMember(id),
+    })
   }
 
   async function handleAvatarChange(staffId: string, e: React.ChangeEvent<HTMLInputElement>) {
@@ -141,8 +146,8 @@ export function StaffManager({ initialStaff }: { initialStaff: StaffMember[] }) 
                   {member.avatar_url ? 'Photo' : '+ Photo'}
                 </button>
                 <button onClick={() => setEditingId(member.id)} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-50">Edit</button>
-                <button onClick={() => handleDelete(member.id)} disabled={deletingId === member.id} className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50">
-                  {deletingId === member.id ? '…' : 'Remove'}
+                <button onClick={() => handleDelete(member.id)} className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50">
+                  Remove
                 </button>
               </div>
             </div>

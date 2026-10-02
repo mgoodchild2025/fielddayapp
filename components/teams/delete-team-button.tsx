@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { deleteTeam } from '@/actions/teams'
+import { confirmAction } from '@/components/ui/confirm-dialog'
+import { toast } from 'sonner'
 
 interface Props {
   teamId: string
@@ -15,11 +17,11 @@ export function DeleteTeamButton({ teamId, teamName, leagueId }: Props) {
   const router = useRouter()
 
   async function handleDelete() {
-    if (!confirm(`Delete "${teamName}"? This will remove all team members and cannot be undone.`)) return
+    if (!(await confirmAction({ title: `Delete "${teamName}"?`, message: "All team members are removed. This can't be undone.", confirmLabel: "Delete team", destructive: true }))) return
     setLoading(true)
     const result = await deleteTeam(teamId, leagueId)
     if (result.error) {
-      alert(`Error: ${result.error}`)
+      toast.error(result.error)
       setLoading(false)
     } else {
       router.refresh()

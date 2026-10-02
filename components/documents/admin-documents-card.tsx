@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { FileText, Plus, Trash2 } from 'lucide-react'
 import { uploadAdminDocument, getAdminDocumentUrl, deleteAdminDocument, type AdminDocument } from '@/actions/admin-documents'
 import { UploadStatus } from '@/components/ui/upload-status'
+import { useUndoableRemove } from '@/components/ui/use-undoable-remove'
 
 const CATEGORY_LABELS: Record<AdminDocument['category'], string> = {
   permit: 'Permit',
@@ -23,6 +24,7 @@ export function AdminDocumentsCard({ leagueId, initialDocuments }: {
   initialDocuments: AdminDocument[]
 }) {
   const router = useRouter()
+  const { isHidden, remove: removeWithUndo } = useUndoableRemove()
   const fileRef = useRef<HTMLInputElement>(null)
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
@@ -59,13 +61,13 @@ export function AdminDocumentsCard({ leagueId, initialDocuments }: {
     })
   }
 
+  // Hidden at once with Undo; the file is deleted only when Undo expires.
   function remove(id: string, docName: string) {
-    if (!confirm(`Delete "${docName}"? The file is removed permanently.`)) return
     setError(null)
-    startTransition(async () => {
-      const res = await deleteAdminDocument(id)
-      if (res.error) { setError(res.error); return }
-      router.refresh()
+    removeWithUndo(id, {
+      label: `“${docName}” deleted`,
+      commit: () => deleteAdminDocument(id),
+      onCommitted: () => router.refresh(),
     })
   }
 
@@ -132,7 +134,7 @@ export function AdminDocumentsCard({ leagueId, initialDocuments }: {
         <p className="px-4 py-6 text-center text-sm text-gray-400">No documents yet — add permits, insurance, or contracts to keep them one tap away.</p>
       ) : (
         <ul className="divide-y divide-gray-50">
-          {initialDocuments.map((d) => (
+          {initialDocuments.filter((d) => !isHidden(d.id)).map((d) => (
             <li key={d.id} className="px-4 py-2.5 flex items-center gap-3">
               <FileText className="w-4 h-4 text-gray-300 shrink-0" aria-hidden="true" />
               <div className="flex-1 min-w-0">

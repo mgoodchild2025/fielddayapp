@@ -80,7 +80,7 @@ export function LegalEditor({ doc }: Props) {
             <span className="text-xs text-gray-400">Saving…</span>
           )}
           {saveStatus === 'saved' && (
-            <span className="text-xs text-emerald-400">✓ Saved</span>
+            <span className="fd-fade-in text-xs text-emerald-400">✓ Saved</span>
           )}
           {saveStatus === 'error' && (
             <span className="text-xs text-red-400">Save failed: {saveError}</span>

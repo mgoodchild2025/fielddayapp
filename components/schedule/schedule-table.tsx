@@ -8,6 +8,7 @@ import { venueLabel } from '@/lib/venue-label'
 import { deleteGame, deleteGames, setSchedulePublished, clearAllGames } from '@/actions/schedule'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { Overlay, useRetained } from '@/components/ui/overlay'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 interface SetScore { home: number; away: number }
 
@@ -129,8 +130,8 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
   // Track status overrides applied optimistically within this session
   const [statusOverrides, setStatusOverrides] = useState<Map<string, { status: string; reason: string | null }>>(new Map())
 
-  function handleDeleteGame(gameId: string) {
-    if (!confirm('Delete this game? This cannot be undone.')) return
+  async function handleDeleteGame(gameId: string) {
+    if (!(await confirmAction({ title: "Delete this game?", message: "This can't be undone.", confirmLabel: "Delete game", destructive: true }))) return
     setDeletingId(gameId)
     startTransition(async () => {
       await deleteGame(gameId, leagueId)
@@ -147,9 +148,9 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
     })
   }
 
-  function handleClearAll() {
+  async function handleClearAll() {
     const count = games.filter(g => !deletedIds.has(g.id)).length
-    if (!confirm(`Delete all ${count} game${count !== 1 ? 's' : ''}? This cannot be undone.`)) return
+    if (!(await confirmAction({ title: `Delete all ${count} game${count !== 1 ? 's' : ''}?`, message: "This can't be undone.", confirmLabel: "Delete all", destructive: true }))) return
     setIsClearing(true)
     startTransition(async () => {
       await clearAllGames(leagueId)
@@ -174,10 +175,10 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
     setSelectedIds(allSelected ? new Set() : new Set(visibleIds))
   }
 
-  function handleBulkDelete() {
+  async function handleBulkDelete() {
     const ids = Array.from(selectedIds)
     const count = ids.length
-    if (!confirm(`Delete ${count} selected game${count !== 1 ? 's' : ''}? This cannot be undone.`)) return
+    if (!(await confirmAction({ title: `Delete ${count} selected game${count !== 1 ? 's' : ''}?`, message: "This can't be undone.", confirmLabel: "Delete", destructive: true }))) return
     startTransition(async () => {
       await deleteGames(ids, leagueId)
       setDeletedIds((prev) => new Set([...prev, ...ids]))

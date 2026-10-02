@@ -273,6 +273,26 @@ a,
   }
 }
 
+/* ── Inline confirmations ───────────────────────────────────────────────────
+   `fd-fade-in` on a "Saved" / "Copied" note that appears beside the control
+   that caused it: a 160ms fade with a 2px rise, so the change registers
+   without a jump. For a label that swaps in place, key the span on the state
+   so it remounts. Confirmations that aren't next to their control use a
+   toast instead (sonner, mounted in app/layout.tsx). */
+@layer components {
+  .fd-fade-in {
+    animation: fd-fade-in 160ms var(--ease-snap) both;
+  }
+  @keyframes fd-fade-in {
+    from { opacity: 0; transform: translateY(2px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    @keyframes fd-fade-in {
+      from { opacity: 0; }
+    }
+  }
+}
+
 /* ── Overlay (components/ui/overlay.tsx) ────────────────────────────────────
    Transitions, not keyframes: a close that interrupts an open retargets from
    wherever it is. Enter via @starting-style; exits are faster than entrances

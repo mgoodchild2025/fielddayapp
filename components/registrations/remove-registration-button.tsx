@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { removeRegistration } from '@/actions/registrations'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 interface Props {
   registrationId: string
@@ -16,8 +17,8 @@ export function RemoveRegistrationButton({ registrationId, leagueId, playerName 
 
   if (done) return null
 
-  function handle() {
-    if (!confirm(`Remove ${playerName} from the league?\n\nThis will delete their registration.`)) return
+  async function handle() {
+    if (!(await confirmAction({ title: `Remove ${playerName} from the league?`, message: "Their registration is deleted.", confirmLabel: "Remove", destructive: true }))) return
     setError(null)
     startTransition(async () => {
       const result = await removeRegistration(registrationId, leagueId)

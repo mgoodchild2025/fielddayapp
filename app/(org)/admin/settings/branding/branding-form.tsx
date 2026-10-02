@@ -12,6 +12,7 @@ import { UpgradeBadge } from '@/components/ui/upgrade-prompt'
 import type { RailwayDnsRecord } from '@/lib/railway'
 import { UploadStatus, Spinner } from '@/components/ui/upload-status'
 import { checkContrast, readableTextOn } from '@/lib/contrast'
+import { toast } from 'sonner'
 
 // Minimal subset of org_branding needed by this form (avoids depending on generated DB types
 // for columns that may not yet be in the snapshot)
@@ -120,7 +121,6 @@ export function BrandingForm({
   canCustomDomain?: boolean
   canFavicon?: boolean
 }) {
-  const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [domainWarning, setDomainWarning] = useState<string | null>(null)
   const [dnsRecords, setDnsRecords] = useState<RailwayDnsRecord[]>(initialDnsRecords)
@@ -193,7 +193,6 @@ export function BrandingForm({
 
   async function onSubmit(data: FormData) {
     setLoading(true)
-    setSaved(false)
     setSaveError(null)
     setDomainWarning(null)
     const result = await updateBranding({ ...data, orgId })
@@ -201,8 +200,7 @@ export function BrandingForm({
     if (result.error) {
       setSaveError(result.error)
     } else {
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
+      toast.success('Branding saved')
       if ('domainWarning' in result && result.domainWarning) {
         setDomainWarning(result.domainWarning as string)
       }
@@ -214,11 +212,6 @@ export function BrandingForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {saved && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded text-sm">
-          Branding saved successfully.
-        </div>
-      )}
       {saveError && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
           {saveError}

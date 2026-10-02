@@ -250,7 +250,7 @@ export function BudgetPlanner({ leagueId, initial }: { leagueId: string; initial
         <button type="button" onClick={save} disabled={pending} className="px-4 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60" style={{ backgroundColor: 'var(--brand-primary)' }}>
           {pending ? 'Saving…' : 'Save plan'}
         </button>
-        {saved && <span className="text-sm text-green-600">Saved</span>}
+        {saved && <span className="fd-fade-in text-sm text-green-600">Saved</span>}
       </div>
     </section>
   )

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Copy, Check } from 'lucide-react'
 import { regenerateTeamCode } from '@/actions/teams'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 interface Props {
   teamId: string
@@ -21,7 +22,7 @@ export function TeamCodeBadge({ teamId, code: initialCode }: Props) {
   }
 
   async function handleRegenerate() {
-    if (!confirm('Generate a new code? The old code will stop working immediately.')) return
+    if (!(await confirmAction({ title: "Generate a new team code?", message: "The old code stops working immediately.", confirmLabel: "Generate new code" }))) return
     setRegenerating(true)
     const result = await regenerateTeamCode(teamId)
     setRegenerating(false)
@@ -44,7 +45,7 @@ export function TeamCodeBadge({ teamId, code: initialCode }: Props) {
           <Copy className="w-3 h-3 text-gray-400 group-hover:text-gray-600 shrink-0 transition-colors" />
         )}
       </button>
-      {copied && <span className="text-xs text-green-600 font-medium">Copied!</span>}
+      {copied && <span className="fd-fade-in text-xs text-green-600 font-medium">Copied!</span>}
       <button
         onClick={handleRegenerate}
         disabled={regenerating}

@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { InstallmentSchedule } from './installment-schedule'
 import type { InstallmentRow } from './installment-schedule'
+import { toast } from 'sonner'
 
 interface Props {
   installments: InstallmentRow[]
@@ -25,7 +26,7 @@ export function PlayerInstallmentSchedule({ installments, currency }: Props) {
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
-      alert(body.error ?? 'Unable to start payment. Please try again.')
+      toast.error(body.error ?? 'Unable to start payment. Please try again.')
       return
     }
 

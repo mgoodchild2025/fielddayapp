@@ -57,7 +57,7 @@ export function MarketingPrefs({ initialEmail, initialSms }: { initialEmail: boo
         <p className="text-xs text-gray-500">
           Transactional messages (game schedules, registration confirmations) are not affected by these preferences.
         </p>
-        {saved && <span className="text-xs text-green-600 shrink-0 ml-2">✓ Saved</span>}
+        {saved && <span className="fd-fade-in text-xs text-green-600 shrink-0 ml-2">✓ Saved</span>}
       </div>
     </div>
   )

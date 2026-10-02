@@ -4,6 +4,8 @@ import { useState, useTransition } from 'react'
 import { captainSetMemberRole, captainRemoveTeamMember, captainAddPlayerByEmail } from '@/actions/teams'
 import { setTeamMemberPosition } from '@/actions/positions'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
+import { confirmAction } from '@/components/ui/confirm-dialog'
+import { toast } from 'sonner'
 
 type Role = 'captain' | 'coach' | 'player' | 'sub'
 
@@ -37,7 +39,6 @@ export function CaptainRosterManager({ teamId, initialMembers, positions = [] }:
   const [addRole, setAddRole] = useState<Role>('player')
   const [addPending, startAddTransition] = useTransition()
   const [addError, setAddError] = useState<string | null>(null)
-  const [addSuccess, setAddSuccess] = useState<string | null>(null)
 
   function handlePositionChange(memberId: string, position: string) {
     setMembers((prev) => prev.map((m) => m.id === memberId ? { ...m, position: position || null } : m))
@@ -57,8 +58,8 @@ export function CaptainRosterManager({ teamId, initialMembers, positions = [] }:
     })
   }
 
-  function handleRemove(memberId: string) {
-    if (!confirm('Remove this player from the team?')) return
+  async function handleRemove(memberId: string) {
+    if (!(await confirmAction({ title: "Remove this player from the team?", confirmLabel: "Remove", destructive: true }))) return
     setMembers((prev) => prev.filter((m) => m.id !== memberId))
     startAddTransition(async () => {
       const result = await captainRemoveTeamMember(memberId, teamId)
@@ -71,13 +72,12 @@ export function CaptainRosterManager({ teamId, initialMembers, positions = [] }:
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
     setAddError(null)
-    setAddSuccess(null)
     startAddTransition(async () => {
       const result = await captainAddPlayerByEmail({ teamId, email: addEmail, role: addRole })
       if (result.error) {
         setAddError(result.error)
       } else {
-        setAddSuccess(`Invite sent to ${addEmail} — they'll appear on the roster once they accept.`)
+        toast.success(`Invite sent to ${addEmail} — they'll appear on the roster once they accept.`)
         setAddEmail('')
         setAddRole('player')
       }
@@ -178,7 +178,6 @@ export function CaptainRosterManager({ teamId, initialMembers, positions = [] }:
           </button>
         </form>
         {addError && <p className="text-xs text-red-600 mt-2">{addError}</p>}
-        {addSuccess && <p className="text-xs text-green-600 mt-2">{addSuccess}</p>}
       </div>
     </div>
   )

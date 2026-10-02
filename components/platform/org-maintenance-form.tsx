@@ -119,7 +119,7 @@ export function OrgMaintenanceForm({ orgId, initialEnabled, initialMessage, init
         >
           {loading ? 'Saving…' : 'Save'}
         </button>
-        {saved && <span className="text-xs text-green-600">Saved</span>}
+        {saved && <span className="fd-fade-in text-xs text-green-600">Saved</span>}
       </div>
     </form>
   )

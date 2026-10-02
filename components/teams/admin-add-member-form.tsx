@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { adminAddTeamMember } from '@/actions/teams'
+import { toast } from 'sonner'
 
 interface RegisteredPlayer {
   userId: string
@@ -25,13 +26,11 @@ export function AdminAddMemberForm({ teamId, leagueId, registeredPlayers = [] }:
   const [role, setRole] = useState<'player' | 'captain'>('player')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    setSuccessMsg(null)
 
     let submittedEmail = email
     if (mode === 'registered' && selectedUserId) {
@@ -48,7 +47,7 @@ export function AdminAddMemberForm({ teamId, leagueId, registeredPlayers = [] }:
         mode === 'registered'
           ? (registeredPlayers.find((p) => p.userId === selectedUserId)?.name ?? submittedEmail)
           : submittedEmail
-      setSuccessMsg(
+      toast.success(
         result.invited
           ? `Invite sent to ${displayName}.`
           : `${displayName} added to the team.`
@@ -70,14 +69,14 @@ export function AdminAddMemberForm({ teamId, leagueId, registeredPlayers = [] }:
         <div className="flex rounded-md border overflow-hidden text-xs font-medium">
           <button
             type="button"
-            onClick={() => { setMode('registered'); setError(null); setSuccessMsg(null) }}
+            onClick={() => { setMode('registered'); setError(null) }}
             className={`flex-1 py-1.5 transition-colors ${mode === 'registered' ? 'bg-brand-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
           >
             Registered Player
           </button>
           <button
             type="button"
-            onClick={() => { setMode('email'); setError(null); setSuccessMsg(null) }}
+            onClick={() => { setMode('email'); setError(null) }}
             className={`flex-1 py-1.5 transition-colors ${mode === 'email' ? 'bg-brand-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
           >
             Invite by Email
@@ -136,7 +135,6 @@ export function AdminAddMemberForm({ teamId, leagueId, registeredPlayers = [] }:
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
-      {successMsg && <p className="text-sm text-green-600">{successMsg}</p>}
 
       <button
         type="submit"

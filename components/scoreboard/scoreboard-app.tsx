@@ -8,6 +8,7 @@ import { recordBracketScore } from '@/actions/brackets'
 import { logScoreboardInstall, logScoreboardLaunch } from '@/actions/scoreboard-metrics'
 import { detectPlatform, getDeviceId, isStandaloneLaunch } from '@/lib/scoreboard-device'
 import { rubberband } from '@/lib/drag-physics'
+import { toast } from 'sonner'
 
 // ── Fieldday Scoreboard ────────────────────────────────────────────────────────
 // A standalone, offline-capable scoreboard: tap a panel to +1, swipe down to −1.
@@ -441,6 +442,20 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     setGame((g) => ({ ...g, events: [] }))
     setSaveState('idle')
     setMenuOpen(false)
+  }
+
+  // No "Are you sure?" — reset at once and offer Undo. Undo only restores
+  // into a still-empty board, so it never clobbers points scored since.
+  const resetWithUndo = () => {
+    const previous = game.events
+    reset()
+    if (previous.length === 0) return
+    toast('Scores reset', {
+      action: {
+        label: 'Undo',
+        onClick: () => setGame((g) => (g.events.length === 0 ? { ...g, events: previous } : g)),
+      },
+    })
   }
 
   // The scorekeeper declares set and match ends — no targets to model, so any
@@ -920,9 +935,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
                 </button>
               )}
               <button
-                onClick={() => {
-                  if (game.events.length === 0 || confirm('Reset all scores?')) reset()
-                }}
+                onClick={resetWithUndo}
                 className="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-red-500/20 text-red-300"
               >
                 Reset game

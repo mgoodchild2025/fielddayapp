@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import { InstallmentSchedule } from './installment-schedule'
 import type { InstallmentRow } from './installment-schedule'
 import { adminMarkInstallmentPaid } from '@/actions/payment-plans'
+import { toast } from 'sonner'
 
 interface Props {
   registrationId: string
@@ -28,7 +29,7 @@ export function AdminInstallmentRow({ registrationId, installments, canMarkPaid 
   async function handleMarkPaid(installmentId: string) {
     const result = await adminMarkInstallmentPaid(installmentId)
     if (result.error) {
-      alert(result.error)
+      toast.error(result.error)
       return
     }
     // Optimistically update local state

@@ -555,7 +555,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
           Cancel
         </button>
         <div className="flex items-center gap-3">
-          {saved && <span className="text-sm text-green-600">Saved</span>}
+          {saved && <span className="fd-fade-in text-sm text-green-600">Saved</span>}
           <button
             type="submit"
             disabled={isPending}

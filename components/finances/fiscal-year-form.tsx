@@ -48,7 +48,7 @@ export function FiscalYearForm({ startMonth }: { startMonth: number }) {
           {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
         </select>
         {pending && <span className="text-xs text-gray-400">Saving…</span>}
-        {saved && !pending && <span className="text-xs text-green-600">Saved ✓</span>}
+        {saved && !pending && <span className="fd-fade-in text-xs text-green-600">Saved ✓</span>}
         {error && <span className="text-xs text-red-600">{error}</span>}
       </div>
     </div>

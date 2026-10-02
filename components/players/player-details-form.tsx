@@ -146,7 +146,7 @@ export function PlayerDetailsForm({ userId, profile, playerDetails, orgRole }: P
         >
           {isPending ? 'Saving…' : 'Save Changes'}
         </button>
-        {saved && <span className="text-sm text-green-600">Saved</span>}
+        {saved && <span className="fd-fade-in text-sm text-green-600">Saved</span>}
       </div>
     </form>
   )

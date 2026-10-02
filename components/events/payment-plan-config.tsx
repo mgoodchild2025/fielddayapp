@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { upsertPaymentPlan, deletePaymentPlan } from '@/actions/payment-plans'
 import { useRouter } from 'next/navigation'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 interface Plan {
   id?: string
@@ -47,8 +48,8 @@ export function PaymentPlanConfig({ leagueId, existing }: Props) {
     })
   }
 
-  function handleDelete() {
-    if (!confirm('Remove payment plan for this event?')) return
+  async function handleDelete() {
+    if (!(await confirmAction({ title: "Remove the payment plan for this event?", confirmLabel: "Remove", destructive: true }))) return
     start(async () => { await deletePaymentPlan(leagueId); router.refresh() })
   }
 

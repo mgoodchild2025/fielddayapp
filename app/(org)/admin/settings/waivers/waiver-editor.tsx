@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { upsertWaiver } from '@/actions/waivers'
 import { RichTextEditor } from '@/components/ui/rich-text-editor'
+import { toast } from 'sonner'
 
 interface Waiver {
   id: string
@@ -21,7 +22,6 @@ export function WaiverEditor({ existing }: Props) {
   const [content, setContent] = useState(existing?.content ?? '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
 
   const isNew = !existing
 
@@ -29,7 +29,6 @@ export function WaiverEditor({ existing }: Props) {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    setSaved(false)
 
     const result = await upsertWaiver({
       id: existing?.id,
@@ -42,7 +41,7 @@ export function WaiverEditor({ existing }: Props) {
     if (result.error) {
       setError(result.error)
     } else {
-      setSaved(true)
+      toast.success(isNew ? 'Waiver created and set as active' : 'Waiver updated')
     }
   }
 
@@ -92,11 +91,6 @@ export function WaiverEditor({ existing }: Props) {
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
-        {saved && (
-          <p className="text-sm text-green-600">
-            {isNew ? 'Waiver created and set as active.' : 'Waiver updated.'}
-          </p>
-        )}
 
         <div className="flex items-center gap-3 pt-1">
           <button

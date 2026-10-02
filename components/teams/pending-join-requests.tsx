@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { approveJoinRequest, rejectJoinRequest } from '@/actions/teams'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 interface JoinRequest {
   id: string
@@ -39,8 +40,8 @@ export function PendingJoinRequests({ teamId, initialRequests }: Props) {
     })
   }
 
-  function handleReject(requestId: string) {
-    if (!confirm('Decline this join request?')) return
+  async function handleReject(requestId: string) {
+    if (!(await confirmAction({ title: "Decline this join request?", confirmLabel: "Decline", destructive: true }))) return
     setRequests((prev) => prev.filter((r) => r.id !== requestId))
     startTransition(async () => {
       const result = await rejectJoinRequest(requestId)

@@ -94,7 +94,7 @@ export function SendNotificationForm({ userId, phone, smsOptedIn, leagueName }: 
         >
           {isPending ? 'Sending…' : 'Send Notification'}
         </button>
-        {sent && <span className="text-sm text-green-600">Sent</span>}
+        {sent && <span className="fd-fade-in text-sm text-green-600">Sent</span>}
       </div>
     </form>
   )

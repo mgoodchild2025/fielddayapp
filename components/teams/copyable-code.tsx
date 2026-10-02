@@ -28,7 +28,7 @@ export function CopyableCode({ code }: Props) {
       {copied ? (
         <>
           <Check className="w-4 h-4 text-green-500 shrink-0" />
-          <span className="text-sm font-medium text-green-600">Copied!</span>
+          <span className="fd-fade-in text-sm font-medium text-green-600">Copied!</span>
         </>
       ) : (
         <Copy className="w-4 h-4 text-gray-400 group-hover:text-gray-600 shrink-0 transition-colors" />

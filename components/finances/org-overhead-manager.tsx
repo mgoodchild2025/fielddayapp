@@ -8,6 +8,7 @@ import { AttachmentsControl } from '@/components/finances/receipt-control'
 import { TaxCalc } from '@/components/finances/tax-calc'
 import type { OrgOverhead, AllocationTarget } from '@/actions/finances'
 import { OVERHEAD_CATEGORIES, OVERHEAD_PERIODS, type OverheadCategory, type OverheadPeriod } from '@/lib/finance-constants'
+import { useUndoableRemove } from '@/components/ui/use-undoable-remove'
 
 const CATEGORY_LABELS: Record<OverheadCategory, string> = {
   insurance: 'Insurance',
@@ -167,6 +168,7 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [], de
   defaultTaxPct?: number
 }) {
   const router = useRouter()
+  const { isHidden, remove: removeWithUndo } = useUndoableRemove()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   // null = form closed · 'new' = adding · otherwise the id being edited
@@ -216,13 +218,14 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [], de
     })
   }
 
+  // Hidden at once with Undo; the expense (and its attachments) is deleted
+  // only when Undo expires.
   function remove(id: string) {
-    if (!confirm('Delete this overhead expense and its attachments?')) return
     setError(null)
-    startTransition(async () => {
-      const res = await deleteOrgOverhead(id)
-      if (res.error) { setError(res.error); return }
-      router.refresh()
+    removeWithUndo(id, {
+      label: 'Overhead expense deleted',
+      commit: () => deleteOrgOverhead(id),
+      onCommitted: () => router.refresh(),
     })
   }
 
@@ -297,7 +300,7 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [], de
         <div className="bg-white rounded-lg border overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100 text-sm">
             <tbody className="divide-y divide-gray-50">
-              {initialOverhead.map((e) => {
+              {initialOverhead.filter((e) => !isHidden(e.id)).map((e) => {
                 const allocated = (e.allocations ?? []).reduce((sum, a) => sum + a.amountCents, 0)
                 if (editing === e.id) {
                   return (

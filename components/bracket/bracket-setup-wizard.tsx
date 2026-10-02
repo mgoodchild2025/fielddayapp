@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect, useRef } from 'react'
 import { createBracket, seedBracket, scaffoldBracket, publishBracket, unpublishBracket, deleteBracket } from '@/actions/brackets'
 import type { BracketRecommendation, TeamStanding } from '@/lib/bracket'
 import { BracketView, type BracketData } from './bracket-view'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 interface Props {
   leagueId: string
@@ -137,8 +138,8 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
     })
   }
 
-  function handleUnpublish() {
-    if (!bracketId || !confirm('Unpublish this bracket? It will be hidden from players until you publish again. Seeding is kept.')) return
+  async function handleUnpublish() {
+    if (!bracketId || !(await confirmAction({ title: "Unpublish this bracket?", message: "It’s hidden from players until you publish again. Seeding is kept.", confirmLabel: "Unpublish" }))) return
     setErr(null)
     startTransition(async () => {
       const res = await unpublishBracket(bracketId, leagueId)
@@ -147,8 +148,8 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
     })
   }
 
-  function handleDelete() {
-    if (!bracketId || !confirm('Delete this bracket and all match data? This cannot be undone.')) return
+  async function handleDelete() {
+    if (!bracketId || !(await confirmAction({ title: "Delete this bracket?", message: "All match data is deleted too. This can't be undone.", confirmLabel: "Delete bracket", destructive: true }))) return
     setErr(null)
     startTransition(async () => {
       await deleteBracket(bracketId, leagueId)

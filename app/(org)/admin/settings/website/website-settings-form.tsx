@@ -8,6 +8,7 @@ import { saveWebsiteSettings } from '@/actions/website'
 import Link from 'next/link'
 import { Home, Trophy, Zap } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { toast } from 'sonner'
 
 type Theme = 'community' | 'club' | 'pro'
 type SectionItem = { key: string; label: string; visible: boolean }
@@ -104,7 +105,6 @@ interface Props {
 }
 
 export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutContent, savedSections }: Props) {
-  const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -175,7 +175,6 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
 
   async function onSubmit(data: FormData) {
     setLoading(true)
-    setSaved(false)
     setSaveError(null)
     const result = await saveWebsiteSettings({
       ...data,
@@ -185,8 +184,7 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
     if (result.error) {
       setSaveError(result.error)
     } else {
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
+      toast.success('Website settings saved')
     }
   }
 
@@ -194,11 +192,6 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {saved && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded text-sm">
-          Website settings saved.
-        </div>
-      )}
       {saveError && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
           {saveError}
