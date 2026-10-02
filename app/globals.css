@@ -293,6 +293,25 @@ a,
   }
 }
 
+/* ── Step entrance (registration flow, success page) ─────────────────────────
+   `fd-step-in` on content that replaces the previous step: 220ms fade + 6px
+   rise. Fill is `backwards` only, so no transform lingers once it ends (a
+   leftover transform would make the wrapper the containing block for any
+   position:fixed inside a step). Reduced motion: fade only. */
+@layer components {
+  .fd-step-in {
+    animation: fd-step-in 220ms var(--ease-snap) backwards;
+  }
+  @keyframes fd-step-in {
+    from { opacity: 0; transform: translateY(6px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    @keyframes fd-step-in {
+      from { opacity: 0; }
+    }
+  }
+}
+
 /* ── Live score tick (components/scoreboard/score-tick.tsx) ──────────────────
    A changed live number rises into place (260ms) under a brief brand wash
    (900ms) — causality at a glance. Reduced motion keeps the wash, drops the

@@ -202,6 +202,21 @@ export function RegistrationFlow({
             ? PLAYER_STEPS
             : PAYMENT_STEPS.filter((s) => s !== 'Payment')
 
+  // No waiver to sign — none configured, or a current-year signature is reused
+  // (drop-in) — so step 2 is skipped outright rather than shown as a
+  // "nothing to sign, tap Continue" screen. Backs skip it too.
+  const skipsWaiver = !!priorWaiverSignatureId || !waiver
+  const backPastWaiver = skipsWaiver ? 1 : 2
+
+  // Progress bar entries carry their internal step number, so leaving the
+  // waiver out never shifts which segment is lit.
+  const progress = steps
+    .map((label, i) => ({ label, step: i + 1 }))
+    .filter((p) => !(skipsWaiver && p.label === 'Waiver'))
+  const progressIndex = Math.max(0, progress.findIndex((p) => p.step === step))
+  // What step 1's button promises: the next real step, or completion.
+  const afterDetails = progress.find((p) => p.step > 1)?.label ?? null
+
   function advanceStep(n: number) {
     setStep(n)
     window.scrollTo({ top: 0, behavior: 'instant' })
@@ -368,21 +383,27 @@ export function RegistrationFlow({
       <div className="max-w-xl mx-auto px-4 py-8">
         {/* Progress indicator */}
         <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            {isPerTeam && (
+          {/* Back names where it goes (role / session choice on step 1, else the previous step). */}
+          {(() => {
+            const prev = progress[progressIndex - 1]
+            const back =
+              step === 1 && isPerTeam ? { label: 'Choose role', go: () => { setShowRoleSelect(true); setStep(1) } }
+              : step === 1 && showSessionPicker ? { label: 'Choose session', go: () => setSelectedSessionId(null) }
+              : step > 1 && prev ? { label: prev.label, go: () => advanceStep(prev.step) }
+              : null
+            return back ? (
               <button
                 type="button"
-                onClick={() => { setShowRoleSelect(true); setStep(1) }}
-                className="text-xs text-gray-400 hover:text-gray-600"
-                style={{ lineHeight: 1 }}
+                onClick={back.go}
+                className="press inline-flex items-center gap-1 min-h-11 -ml-1 pr-2 mb-1 text-sm font-medium text-gray-500 hover:text-gray-800"
               >
-                ←
+                <span aria-hidden="true">←</span> {back.label}
               </button>
-            )}
-            <h1 className="text-2xl font-bold uppercase" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-              {isDropIn ? 'Drop-in — ' : 'Register — '}{league.name}
-            </h1>
-          </div>
+            ) : null
+          })()}
+          <h1 className="text-2xl font-bold uppercase mb-4" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+            {isDropIn ? 'Drop-in — ' : 'Register — '}{league.name}
+          </h1>
           {/* Role badge */}
           {isPerTeam && role && (
             <div className="mb-3">
@@ -391,43 +412,33 @@ export function RegistrationFlow({
               </span>
             </div>
           )}
-          <div className="flex items-center gap-1">
-            {steps.map((label, i) => {
-              const internalStep = i + 1
-              const isActive = internalStep === step
-              const isDone = internalStep < step
-              return (
-                <div key={label} className="flex items-center gap-1 flex-1">
-                  <div
-                    className={`flex-1 h-1.5 rounded-full ${isDone || isActive ? '' : 'bg-gray-200'}`}
-                    style={{ backgroundColor: isDone || isActive ? 'var(--brand-primary)' : undefined }}
-                  />
-                  {i < steps.length - 1 && (
-                    <div
-                      className={`h-1.5 w-6 rounded-full ${isDone ? '' : 'bg-gray-200'}`}
-                      style={{ backgroundColor: isDone ? 'var(--brand-primary)' : undefined }}
-                    />
-                  )}
-                </div>
-              )
-            })}
-          </div>
-          <div className="flex justify-between mt-2">
-            {steps.map((label, i) => {
-              const internalStep = i + 1
-              return (
-                <p
-                  key={label}
-                  className="text-xs text-gray-500"
-                  style={{ color: internalStep <= step ? 'var(--brand-primary)' : undefined }}
-                >
-                  {label}
-                </p>
-              )
-            })}
-          </div>
+          {progress.length > 1 && (
+            <>
+              <p className="text-xs font-semibold text-gray-500 mb-2" aria-live="polite">
+                Step {progressIndex + 1} of {progress.length} · <span className="text-gray-900">{progress[progressIndex]?.label}</span>
+              </p>
+              {/* One column per step: its bar fills from the left (250ms), its label sits under it. */}
+              <ol className="grid gap-2" style={{ gridTemplateColumns: `repeat(${progress.length}, minmax(0, 1fr))` }}>
+                {progress.map((p, i) => {
+                  const reached = i <= progressIndex
+                  return (
+                    <li key={p.label} aria-current={i === progressIndex ? 'step' : undefined}>
+                      <div className="h-1.5 rounded-full bg-gray-200 overflow-hidden">
+                        <div
+                          className={`h-full bg-brand-primary origin-left transition-transform duration-[250ms] ease-snap ${reached ? 'scale-x-100' : 'scale-x-0'}`}
+                        />
+                      </div>
+                      <p className={`mt-1.5 text-xs truncate ${reached ? 'text-brand-primary font-medium' : 'text-gray-500'}`}>{p.label}</p>
+                    </li>
+                  )
+                })}
+              </ol>
+            </>
+          )}
         </div>
 
+        {/* Each step eases in as it arrives (fd-step-in) instead of swapping abruptly. */}
+        <div key={step} className="fd-step-in">
         {/* Step 1 — Player details */}
         {step === 1 && (
           <Step1PlayerDetails
@@ -443,12 +454,13 @@ export function RegistrationFlow({
             initialTeamCode={!isPerTeam && !isDropIn ? initialTeamCode : null}
             waiverSignatureId={priorWaiverSignatureId}
             privacyAlreadyAccepted={privacyAlreadyAccepted}
+            nextStepLabel={afterDetails}
             onComplete={(regId, teamId) => {
               setRegistrationId(regId)
               if (teamId) setStep1TeamId(teamId)
               // Already signed this year (drop-in) — the registration was created
               // with that signature linked, so skip the waiver step entirely.
-              if (priorWaiverSignatureId) {
+              if (skipsWaiver) {
                 afterWaiver(regId)
               } else {
                 advanceStep(2)
@@ -497,7 +509,7 @@ export function RegistrationFlow({
                 completeRegistration(registrationId)
               }
             }}
-            onBack={() => advanceStep(2)}
+            onBack={() => advanceStep(backPastWaiver)}
           />
         )}
 
@@ -536,7 +548,7 @@ export function RegistrationFlow({
             </button>
             <button
               type="button"
-              onClick={() => advanceStep(waiver ? 2 : 1)}
+              onClick={() => advanceStep(backPastWaiver)}
               className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
             >
               ← Back
@@ -556,7 +568,7 @@ export function RegistrationFlow({
             priceCents={effectivePriceCents}
             merchSelections={merchSelections}
             leagueMerch={leagueMerch}
-            onBack={() => advanceStep(showAddOnsStep ? 3 : (waiver ? 2 : 1))}
+            onBack={() => advanceStep(showAddOnsStep ? 3 : backPastWaiver)}
             acceptedMethods={acceptedMethods}
             offlineInstructions={offlineInstructions}
             onComplete={() => completeRegistration(registrationId)}
@@ -571,7 +583,7 @@ export function RegistrationFlow({
             leagueId={league.id}
             captainTeamId={newCaptainTeamId}
             captainTeamName={newCaptainTeamName}
-            onBack={() => advanceStep(2)}
+            onBack={() => advanceStep(backPastWaiver)}
           />
         )}
 
@@ -611,9 +623,10 @@ export function RegistrationFlow({
                 router.push(`/register/${league.slug}/success`)
               }
             }}
-            onBack={() => advanceStep(2)}
+            onBack={() => advanceStep(backPastWaiver)}
           />
         )}
+        </div>
       </div>
     </div>
   )

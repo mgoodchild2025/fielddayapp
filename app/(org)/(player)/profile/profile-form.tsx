@@ -157,7 +157,7 @@ export function ProfileForm({
 
           <div>
             <p className="text-sm font-medium text-gray-700">
-              {avatarUploading ? 'Uploading…' : 'Click your photo to change it'}
+              {avatarUploading ? 'Uploading…' : 'Tap your photo to change it'}
             </p>
             <p className="text-xs text-gray-500 mt-0.5">JPEG, PNG, WebP or GIF · max 5 MB</p>
             <UploadStatus active={avatarUploading} label="Uploading photo" className="mt-1" />
@@ -182,14 +182,14 @@ export function ProfileForm({
         <h2 className="font-semibold">Basic Info</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-            <input {...register('full_name')} type="text" className="w-full border rounded-md px-3 py-2 text-base" />
-            {errors.full_name && <p className="text-red-500 text-xs mt-1">{errors.full_name.message}</p>}
+            <label htmlFor="profile-full-name" className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+            <input {...register('full_name')} id="profile-full-name" type="text" autoComplete="name" className="w-full border rounded-md px-3 py-2 text-base" />
+            {errors.full_name && <p className="text-red-600 text-xs mt-1">{errors.full_name.message}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-            <input {...register('phone')} type="tel" className="w-full border rounded-md px-3 py-2 text-base" />
-            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
+            <label htmlFor="profile-phone" className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+            <input {...register('phone')} id="profile-phone" type="tel" autoComplete="tel" className="w-full border rounded-md px-3 py-2 text-base" />
+            {errors.phone && <p className="text-red-600 text-xs mt-1">{errors.phone.message}</p>}
             <div className="mt-2 space-y-1.5">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input {...register('email_reminders_enabled')} type="checkbox" className="rounded" />
@@ -254,22 +254,26 @@ export function ProfileForm({
         <h2 className="font-semibold">Emergency Contact</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <label htmlFor="profile-emergency-name" className="block text-sm font-medium text-gray-700 mb-1">Name</label>
             <input
               {...register('emergency_contact_name')}
+              id="profile-emergency-name"
+              autoComplete="off"
               type="text"
               className="w-full border rounded-md px-3 py-2 text-base"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+            <label htmlFor="profile-emergency-phone" className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
             <input
               {...register('emergency_contact_phone')}
+              id="profile-emergency-phone"
+              autoComplete="off"
               type="tel"
               className="w-full border rounded-md px-3 py-2 text-base"
             />
             {errors.emergency_contact_phone && (
-              <p className="text-red-500 text-xs mt-1">{errors.emergency_contact_phone.message}</p>
+              <p className="text-red-600 text-xs mt-1">{errors.emergency_contact_phone.message}</p>
             )}
           </div>
         </div>
