@@ -76,6 +76,17 @@ function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
   ]
 }
 
+// Tabs grouped by job, so 16 flat tabs read as five areas. Order within a
+// group is the tabs() order; unknown labels fall into Setup.
+const GROUPS = ['Setup', 'Game day', 'Results', 'Promote', 'Money'] as const
+const GROUP_OF: Record<string, (typeof GROUPS)[number]> = {
+  Overview: 'Setup', Registrations: 'Setup', Divisions: 'Setup', Pools: 'Setup', Teams: 'Setup', Sessions: 'Setup', Invites: 'Setup',
+  Schedule: 'Game day', 'Check-in': 'Game day', Display: 'Game day',
+  Standings: 'Results', Stats: 'Results', Bracket: 'Results',
+  Promote: 'Promote', Media: 'Promote', Sponsors: 'Promote', Merchandise: 'Promote',
+  Finances: 'Money',
+}
+
 export function EventAdminTabs({ leagueId, eventType, pickupJoinPolicy = 'public', hasFinances = false }: { leagueId: string; eventType: string; pickupJoinPolicy?: string; hasFinances?: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -84,6 +95,9 @@ export function EventAdminTabs({ leagueId, eventType, pickupJoinPolicy = 'public
   if (hasFinances) {
     tabList.push({ label: 'Finances', href: `/admin/events/${leagueId}/finances` })
   }
+  const grouped = GROUPS
+    .map((g) => ({ group: g, tabs: tabList.filter((t) => (GROUP_OF[t.label] ?? 'Setup') === g) }))
+    .filter((g) => g.tabs.length > 0)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
@@ -108,6 +122,12 @@ export function EventAdminTabs({ leagueId, eventType, pickupJoinPolicy = 'public
     }
   }, [checkScroll])
 
+  const activeTabRef = useRef<HTMLAnchorElement>(null)
+  // The current tab may sit past the strip's right edge — bring it into view.
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' })
+  }, [pathname])
+
   function activeHref() {
     // Find the most specific matching tab (longest href that matches)
     return tabList.reduce<string | null>((best, tab) => {
@@ -121,18 +141,25 @@ export function EventAdminTabs({ leagueId, eventType, pickupJoinPolicy = 'public
     }, null) ?? tabList[0].href
   }
 
+  // One current tab (the most specific match) for both layouts.
+  const current = activeHref()
+
   return (
     <>
       {/* Mobile: full-width select dropdown */}
       <div className="md:hidden mb-6 relative">
         <select
+          aria-label="Event section"
           value={activeHref()}
           onChange={(e) => router.push(e.target.value)}
-          className="w-full appearance-none border rounded-lg px-3 py-2.5 pr-8 text-sm font-medium bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-0"
-          style={{ focusRingColor: 'var(--brand-primary)' } as React.CSSProperties}
+          className="w-full appearance-none border rounded-lg px-3 py-2.5 pr-8 text-sm font-medium bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-0"
         >
-          {tabList.map((tab) => (
-            <option key={tab.href} value={tab.href}>{tab.label}</option>
+          {grouped.map(({ group, tabs: items }) => (
+            <optgroup key={group} label={group}>
+              {items.map((tab) => (
+                <option key={tab.href} value={tab.href}>{tab.label}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
         {/* Chevron icon */}
@@ -165,25 +192,28 @@ export function EventAdminTabs({ leagueId, eventType, pickupJoinPolicy = 'public
           className="flex gap-0 border-b overflow-x-auto scrollbar-none"
           style={{ scrollbarWidth: 'none' }}
         >
-          {tabList.map((tab) => {
-            const isActive =
-              tab.href === `/admin/events/${leagueId}`
-                ? pathname === tab.href
-                : pathname.startsWith(tab.href)
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                className={`shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                  isActive
-                    ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]'
-                    : 'border-transparent text-gray-500 hover:text-gray-800'
-                }`}
-              >
-                {tab.label}
-              </Link>
-            )
-          })}
+          {grouped.map(({ group, tabs: items }, gi) => (
+            <div key={group} role="group" aria-label={group} className={`flex shrink-0 ${gi > 0 ? 'ml-2 pl-2 relative before:absolute before:left-0 before:top-2.5 before:bottom-2.5 before:w-px before:bg-gray-200' : ''}`}>
+              {items.map((tab) => {
+                const isActive = tab.href === current
+                return (
+                  <Link
+                    key={tab.href}
+                    href={tab.href}
+                    ref={isActive ? activeTabRef : undefined}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                      isActive
+                        ? 'border-brand-primary text-brand-primary'
+                        : 'border-transparent text-gray-500 hover:text-gray-800'
+                    }`}
+                  >
+                    {tab.label}
+                  </Link>
+                )
+              })}
+            </div>
+          ))}
         </div>
 
         {/* Right fade + arrow */}

@@ -46,6 +46,7 @@ export default async function AdminDashboardPage() {
     { data: unsignedWaiverRows },
     { data: activeOrgWaiver },
     { data: revenueRows },
+    { count: activeLeagueCount },
   ] = await Promise.all([
 
     db.from('leagues').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).is('deleted_at', null).neq('status', 'archived'),
@@ -102,7 +103,7 @@ export default async function AdminDashboardPage() {
     // Active registrations missing a waiver signature (only shown when the
     // org actually has an active waiver).
     db.from('registrations')
-      .select('id, league:leagues!registrations_league_id_fkey!inner(status)')
+      .select('id, league_id, league:leagues!registrations_league_id_fkey!inner(status, name)')
       .eq('organization_id', org.id)
       .eq('status', 'active')
       .is('waiver_signature_id', null)
@@ -116,6 +117,9 @@ export default async function AdminDashboardPage() {
       .eq('organization_id', org.id)
       .in('status', ['paid', 'manual', 'refunded'])
       .or(`paid_at.gte.${revenueSince},created_at.gte.${revenueSince},refunded_at.gte.${revenueSince}`),
+
+    // The "Active" stat counts what the Active Events list shows (open + active).
+    db.from('leagues').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).is('deleted_at', null).in('status', ['registration_open', 'active']),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -200,7 +204,7 @@ export default async function AdminDashboardPage() {
   const showChecklist = !checklistDismissed && !allChecklistDone
 
   const stats = [
-    { label: 'Active Events', shortLabel: 'Events', value: leagueCount ?? 0, href: '/admin/events' },
+    { label: 'Open & active events', shortLabel: 'Active', value: activeLeagueCount ?? 0, href: '/admin/events' },
     { label: 'Members', shortLabel: 'Members', value: memberCount ?? 0, href: '/admin/players' },
     { label: 'Revenue · 30 days', shortLabel: 'Revenue 30d', value: `$${(totalRevenue / 100).toFixed(0)}`, href: '/admin/payments' },
   ]
@@ -210,6 +214,16 @@ export default async function AdminDashboardPage() {
   const pendingMedia = pendingMediaRows ?? []
   const owedPayments = (owedPaymentRows ?? []).filter((p) => p.registration_id || (p.payment_type === 'team' && p.team_id))
   const unsignedWaivers = activeOrgWaiver ? (unsignedWaiverRows ?? []) : []
+  // Deep link: one event → that event's screen; several → the events list.
+  const oneLeague = (ids: (string | null | undefined)[]) => {
+    const set = new Set(ids.filter(Boolean))
+    return set.size === 1 ? [...set][0] as string : null
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scoreLeague = oneLeague(pendingScores.map((r: any) => (Array.isArray(r.game) ? r.game[0] : r.game)?.league_id))
+  const mediaLeague = oneLeague(pendingMedia.map((m) => m.league_id))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const waiverLeague = oneLeague(unsignedWaivers.map((r: any) => r.league_id))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leagueNamesOf = (rows: any[], pick: (r: any) => any) => {
     const names = new Set<string>()
@@ -226,28 +240,27 @@ export default async function AdminDashboardPage() {
       label: 'score' + (pendingScores.length !== 1 ? 's' : '') + ' awaiting confirmation',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       detail: leagueNamesOf(pendingScores, (r: any) => (Array.isArray(r.game) ? r.game[0] : r.game)?.league),
-      href: '/admin/events',
+      href: scoreLeague ? `/admin/events/${scoreLeague}/schedule` : '/admin/events',
     },
     {
       count: pendingMedia.length,
       label: 'photo' + (pendingMedia.length !== 1 ? 's' : '') + ' awaiting approval',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       detail: leagueNamesOf(pendingMedia, (r: any) => r.league),
-      href: pendingMedia.length > 0 && new Set(pendingMedia.map((m) => m.league_id)).size === 1
-        ? `/admin/events/${pendingMedia[0].league_id}/media`
-        : '/admin/events',
+      href: mediaLeague ? `/admin/events/${mediaLeague}/media` : '/admin/events',
     },
     {
       count: owedPayments.length,
       label: 'offline payment' + (owedPayments.length !== 1 ? 's' : '') + ' still owed',
       detail: [],
-      href: '/admin/payments',
+      href: '/admin/payments?status=unpaid',
     },
     {
       count: unsignedWaivers.length,
       label: 'active registration' + (unsignedWaivers.length !== 1 ? 's' : '') + ' missing a waiver',
-      detail: [],
-      href: '/admin/events',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      detail: leagueNamesOf(unsignedWaivers, (r: any) => r.league),
+      href: waiverLeague ? `/admin/events/${waiverLeague}/registrations` : '/admin/events',
     },
   ].filter((a) => a.count > 0)
 
