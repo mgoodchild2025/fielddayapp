@@ -74,6 +74,7 @@ export function Footer({ org, social }: FooterProps) {
 
   return (
     <footer
+      data-site-footer=""
       className="border-t mt-auto pt-8 pb-24 md:py-8 px-6"
       style={{ backgroundColor: 'var(--brand-secondary)', color: 'rgba(255,255,255,0.6)' }}
     >
