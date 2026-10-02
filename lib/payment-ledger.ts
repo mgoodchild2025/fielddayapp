@@ -116,3 +116,40 @@ export function pickLedgerPayment<P extends { status: string; created_at?: strin
   }
   return best
 }
+
+/** A payment row as the revenue reports read it. */
+export interface RevenuePaymentRow {
+  amount_cents: number | null
+  refunded_cents?: number | null
+  refunded_at?: string | null
+  paid_at?: string | null
+  created_at?: string | null
+  payment_type?: string | null
+  league_id?: string | null
+  team_id?: string | null
+  registration_id?: string | null
+}
+
+/**
+ * Net registration revenue since `sinceIso`, by the same rules as the
+ * financial report (actions/finances.ts#getFinancialReport): rows must already
+ * be paid / manual / refunded; payments count by paid_at (else created_at),
+ * refunds subtract on refunded_at; team fees count once per team; a
+ * per-player payment counts only while its registration exists.
+ */
+export function netRevenueSince(rows: RevenuePaymentRow[], sinceIso: string): number {
+  const since = new Date(sinceIso).getTime()
+  const inWindow = (d: string | null | undefined) => !!d && new Date(d).getTime() >= since
+  const seenTeams = new Set<string>()
+  let cents = 0
+  for (const p of rows) {
+    const teamKey = p.payment_type === 'team' && p.team_id ? `${p.league_id}:${p.team_id}` : null
+    if (teamKey) {
+      if (seenTeams.has(teamKey)) continue
+      seenTeams.add(teamKey)
+    } else if (!p.registration_id) continue
+    if ((p.refunded_cents ?? 0) > 0 && inWindow(p.refunded_at)) cents -= p.refunded_cents ?? 0
+    if (inWindow(p.paid_at ?? p.created_at)) cents += p.amount_cents ?? 0
+  }
+  return cents
+}

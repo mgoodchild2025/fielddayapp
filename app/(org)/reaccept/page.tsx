@@ -5,6 +5,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getPendingReacceptance } from '@/actions/tenant-consent'
 import { ReacceptForm } from '@/components/legal/reaccept-form'
+import { redirectToLogin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +20,7 @@ export default async function ReacceptPage({ searchParams }: Props) {
 
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
   // Verify the user is an org_admin
   const db = createServiceRoleClient()

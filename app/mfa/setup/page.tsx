@@ -15,6 +15,7 @@ import { redirect } from 'next/navigation'
 import Image from 'next/image'
 import { createServerClient } from '@/lib/supabase/server'
 import { MfaSetupClient } from './setup-client'
+import { safeRelativePath } from '@/lib/safe-redirect'
 
 interface Props {
   searchParams: Promise<{ redirect?: string }>
@@ -22,7 +23,7 @@ interface Props {
 
 export default async function MfaSetupPage({ searchParams }: Props) {
   const { redirect: redirectTo } = await searchParams
-  const safeRedirect = redirectTo && redirectTo.startsWith('/') ? redirectTo : '/dashboard'
+  const safeRedirect = safeRelativePath(redirectTo) ?? '/dashboard'
 
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()

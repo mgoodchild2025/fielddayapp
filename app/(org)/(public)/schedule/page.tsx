@@ -1,5 +1,4 @@
 import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
@@ -8,6 +7,7 @@ import { Footer } from '@/components/layout/footer'
 import { MyGamesClient } from './_client'
 import { fetchPlayerPlayoffGameRows } from '@/lib/playoff-games'
 import Link from 'next/link'
+import { redirectToLogin } from '@/lib/auth'
 
 export default async function SchedulePage() {
   const headersList = await headers()
@@ -16,7 +16,7 @@ export default async function SchedulePage() {
   const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
   // 60-day lookback for past games/sessions
   const pastBound = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()

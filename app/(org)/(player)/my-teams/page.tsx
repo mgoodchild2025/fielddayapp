@@ -1,5 +1,4 @@
 import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
@@ -8,6 +7,7 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { PastGamesToggle } from '@/components/schedule/past-games-toggle'
+import { redirectToLogin } from '@/lib/auth'
 
 const ROLE_LABEL: Record<string, string> = {
   captain: 'Captain',
@@ -22,7 +22,7 @@ export default async function MyTeamsPage() {
   const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
   const [{ data: branding }, { data: memberships }] = await Promise.all([
 

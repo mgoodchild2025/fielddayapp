@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { upsertRsvp } from '@/actions/rsvp'
+import { toast } from 'sonner'
 
 interface Props {
   gameId: string
@@ -22,6 +23,7 @@ export function GameRsvpButton({ gameId, teamId, initialStatus }: Props) {
       const result = await upsertRsvp(gameId, teamId, next)
       if (result.error) {
         setStatus(prev)  // revert on failure
+        toast.error("Couldn't save your RSVP. Check your connection and try again.", { id: 'rsvp-error' })
       }
     })
   }

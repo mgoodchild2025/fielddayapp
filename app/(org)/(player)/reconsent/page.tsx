@@ -4,6 +4,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { getPlayerPendingReconsent } from '@/actions/player-consents'
 import { ReconsentForm } from './reconsent-form'
+import { redirectToLogin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Updated Agreements' }
@@ -18,7 +19,7 @@ export default async function ReconsentPage({
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
   const pending = await getPlayerPendingReconsent(org.id, user.id)
   // Nothing pending → straight through

@@ -1,9 +1,9 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { getMarketingConsent, getPlayerConsentSummary } from '@/actions/player-consents'
+import { redirectToLogin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Communication Preferences' }
@@ -13,7 +13,7 @@ export default async function CommunicationsPage() {
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
   const [marketing, consents] = await Promise.all([
     getMarketingConsent(org.id, user.id),

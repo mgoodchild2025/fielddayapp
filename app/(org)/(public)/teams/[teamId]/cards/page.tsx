@@ -1,6 +1,6 @@
 import { headers } from 'next/headers'
 import Link from 'next/link'
-import { redirect, notFound } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
@@ -9,6 +9,7 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { TeamPageNav } from '@/components/teams/team-page-nav'
 import { Footer } from '@/components/layout/footer'
 import { BioFlipCard } from '@/components/bios/bio-flip-card'
+import { redirectToLogin } from '@/lib/auth'
 
 /**
  * The team card binder (card flip C3): the roster as a grid of full player
@@ -22,7 +23,7 @@ export default async function TeamCardsPage({ params }: { params: Promise<{ team
 
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
   const db = createServiceRoleClient()
   const [{ data: branding }, { data: team }, { data: myMembership }, { data: orgMember }] = await Promise.all([

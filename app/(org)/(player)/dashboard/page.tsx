@@ -1,5 +1,4 @@
 import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
@@ -20,6 +19,7 @@ import type {
   NextSessionItem,
 } from '@/components/dashboard/dashboard-client'
 import { nextSessionPerEvent } from '@/lib/next-sessions'
+import { redirectToLogin } from '@/lib/auth'
 
 export default async function DashboardPage() {
   const headersList = await headers()
@@ -28,7 +28,7 @@ export default async function DashboardPage() {
   const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
   const now = new Date().toISOString()
   const pastBound = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString()

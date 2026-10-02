@@ -1,10 +1,11 @@
 import { headers } from 'next/headers'
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { PrintControls } from '@/components/print/print-controls'
 import { FullScheduleSheet } from '@/components/print/full-schedule-sheet'
+import { redirectToLogin } from '@/lib/auth'
 
 export default async function TeamSchedulePrintPage({
   params,
@@ -18,7 +19,7 @@ export default async function TeamSchedulePrintPage({
   const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
   // Parallel: branding, team info, user's team membership, org admin check
   const [{ data: branding }, { data: orgRow }, { data: team }, { data: myMembership }, { data: orgMember }] = await Promise.all([

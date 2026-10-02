@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import type { EmailOtpType } from '@supabase/supabase-js'
+import { safeRelativePath } from '@/lib/safe-redirect'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
@@ -25,7 +26,7 @@ function getOrigin(request: NextRequest): string {
 /** Normalise a destination to a safe relative path (pathname+search). */
 function safeRelative(url: string | null | undefined): string | null {
   if (!url) return null
-  if (url.startsWith('/')) return url
+  if (url.startsWith('/')) return safeRelativePath(url)
   try {
     const u = new URL(url)
     if (u.hostname === PLATFORM_DOMAIN || u.hostname.endsWith(`.${PLATFORM_DOMAIN}`)) {

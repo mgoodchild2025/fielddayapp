@@ -4,6 +4,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { selfCheckIn } from '@/actions/checkin'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
+import { formatGameTime } from '@/lib/format-time'
 
 export default async function SelfCheckInPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
@@ -13,7 +14,7 @@ export default async function SelfCheckInPage({ params }: { params: Promise<{ to
 
   const { data: branding } = await db
     .from('org_branding')
-    .select('logo_url')
+    .select('logo_url, timezone')
     .eq('organization_id', org.id)
     .single()
 
@@ -47,10 +48,8 @@ export default async function SelfCheckInPage({ params }: { params: Promise<{ to
             <p className="text-lg font-semibold mb-1">{result.playerName}</p>
             <p className="text-sm text-gray-500">
               Checked in at{' '}
-              {new Date(result.checkedInAt).toLocaleTimeString('en-CA', {
-                hour: 'numeric',
-                minute: '2-digit',
-              })}
+              {/* Rendered on the server (UTC) — format in the org's timezone. */}
+              {formatGameTime(result.checkedInAt, branding?.timezone ?? 'America/Toronto').time}
             </p>
           </div>
         )}

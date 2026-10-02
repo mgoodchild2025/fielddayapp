@@ -45,6 +45,11 @@ const leagueAdminNav: NavItem[] = [
 function SidebarContent({ org, role, onClose }: { org: OrgContext; role: string; onClose?: () => void }) {
   const pathname = usePathname()
   const navItems = role === 'league_admin' ? leagueAdminNav : orgAdminNav
+  // One item is current: the longest href the path sits under. (Waivers lives
+  // at /admin/settings/waivers/…, so a plain prefix test lit Settings too.)
+  const currentHref = navItems
+    .filter((item) => pathname === item.href || pathname.startsWith(item.href + '/'))
+    .reduce<string | null>((best, item) => (!best || item.href.length > best.length ? item.href : best), null)
 
   return (
     <div className="flex flex-col h-full">
@@ -66,13 +71,14 @@ function SidebarContent({ org, role, onClose }: { org: OrgContext; role: string;
 
       <nav className="flex-1 min-h-0 overflow-y-auto p-3 space-y-0.5">
         {navItems.map((item) => {
-          const active = pathname.startsWith(item.href)
+          const active = item.href === currentHref
           const Icon = item.icon
           return (
             <Link
               key={item.href}
               href={item.href}
               onClick={onClose}
+              aria-current={active ? 'page' : undefined}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors',
                 active ? 'bg-white/15 font-semibold' : 'opacity-70 hover:opacity-100 hover:bg-white/10'

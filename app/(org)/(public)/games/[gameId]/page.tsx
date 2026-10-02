@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
@@ -11,6 +11,7 @@ import { GameAttendancePanel } from '@/components/schedule/game-attendance-panel
 import { CaptainCheckinButton } from '@/components/checkin/captain-checkin-button'
 import { formatGameTime } from '@/lib/format-time'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
+import { redirectToLogin } from '@/lib/auth'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -64,7 +65,7 @@ export default async function GameMatchupPage({
   const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
   // ── Parallel fetch: branding, game, user's team memberships ──────────────
   const [{ data: branding }, { data: rawGame }, { data: myTeamRows }] = await Promise.all([

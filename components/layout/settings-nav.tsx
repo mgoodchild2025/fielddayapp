@@ -1,44 +1,47 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
+import { ChevronLeft } from 'lucide-react'
+import { SETTINGS_GROUPS, SETTINGS_CATEGORIES } from '@/lib/settings-categories'
 
-const CATEGORIES = [
-  { href: '/admin/settings/billing',       label: 'Billing',         description: 'Manage your Fieldday subscription and payment method.' },
-  { href: '/admin/settings/branding',      label: 'Branding',        description: 'Colours, fonts, logo, and custom domain.' },
-  { href: '/admin/settings/website',       label: 'Website',         description: 'Site theme, homepage hero, and public site layout.' },
-  { href: '/admin/settings/nav',           label: 'Navigation',      description: 'Add custom links to your public navigation bar.' },
-  { href: '/admin/settings/checkin',       label: 'Check-In',        description: 'Check-in sound and kiosk settings for game day.' },
-  { href: '/admin/settings/notifications', label: 'Notifications',   description: 'SMS game reminders and automated player messages.' },
-  { href: '/admin/settings/payments',      label: 'Payments',        description: 'Connect your Stripe account to accept online payments.' },
-  { href: '/admin/settings/waivers',       label: 'Waivers',         description: 'Liability waiver shown during player registration.' },
-  { href: '/admin/settings/event-rules',   label: 'Event Rules',     description: 'Reusable rule templates selectable per event.' },
-  { href: '/admin/settings/positions',     label: 'Positions',       description: 'Customise player positions available per sport.' },
-  { href: '/admin/settings/discounts',     label: 'Discount Codes',  description: 'Create and manage promo / discount codes.' },
-  { href: '/admin/settings/data',          label: 'Data & Privacy',  description: 'Export player data and manage data retention settings.' },
-  { href: '/admin/settings/integrations',  label: 'Integrations',    description: 'Connect YouTube and social accounts to sync videos and detect live streams.' },
-  { href: '/admin/settings/agreements',    label: 'Legal Agreements', description: 'View the Fieldday agreements your organization has accepted.' },
-  { href: '/admin/settings/audit',         label: 'Audit Log',       description: 'A record of important actions taken in your organization.' },
-]
-
+/**
+ * Category switcher on settings sub-pages: a way back to the full list, plus a
+ * select for jumping straight to another category. The landing page
+ * (/admin/settings) is itself the list, so this stays out of the way there.
+ */
 export function SettingsNav() {
   const router = useRouter()
   const pathname = usePathname()
 
-  const current = CATEGORIES.find(c => pathname.startsWith(c.href)) ?? null
+  if (pathname === '/admin/settings') return null
+
+  const current = SETTINGS_CATEGORIES.find(c => pathname === c.href || pathname.startsWith(c.href + '/')) ?? null
 
   return (
     <div className="mb-8">
-      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Settings</p>
+      <Link
+        href="/admin/settings"
+        className="press inline-flex items-center gap-1 min-h-10 -ml-1 pr-2 text-sm font-medium text-gray-500 hover:text-gray-800"
+      >
+        <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+        All settings
+      </Link>
 
-      <div className="relative">
+      <div className="relative mt-1">
         <select
+          aria-label="Settings category"
           value={current?.href ?? ''}
           onChange={e => { if (e.target.value) router.push(e.target.value) }}
           className="w-full appearance-none bg-white border border-gray-300 rounded-lg px-4 py-3 pr-10 text-sm font-medium text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-0 cursor-pointer"
         >
           <option value="" disabled>Select a category…</option>
-          {CATEGORIES.map(c => (
-            <option key={c.href} value={c.href}>{c.label}</option>
+          {SETTINGS_GROUPS.map(g => (
+            <optgroup key={g.title} label={g.title}>
+              {g.items.map(c => (
+                <option key={c.href} value={c.href}>{c.label}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
@@ -49,7 +52,7 @@ export function SettingsNav() {
       </div>
 
       {current?.description && (
-        <p className="mt-2 text-xs text-gray-400">{current.description}</p>
+        <p className="mt-2 text-xs text-gray-500">{current.description}</p>
       )}
 
       <hr className="mt-6 border-gray-100" />

@@ -46,17 +46,26 @@ export async function requireOrgMember(org: OrgContext, allowedRoles?: OrgRole[]
  * Redirects to /login if not authenticated.
  * Redirects to /mfa/verify if the user has enrolled MFA but hasn't verified this session.
  */
+/**
+ * Send a signed-out visitor to /login, coming back to the page they asked for
+ * (proxy.ts puts pathname + search in x-pathname). Use this instead of a bare
+ * redirect('/login') so links from alerts, emails and shares survive sign-in.
+ */
+export async function redirectToLogin(): Promise<never> {
+  const headersList = await headers()
+  const pathname = headersList.get('x-pathname') ?? ''
+  const returnTo = pathname && pathname !== '/login' && !pathname.startsWith('/login?')
+    ? `?redirect=${encodeURIComponent(pathname)}`
+    : ''
+  redirect(`/login${returnTo}`)
+}
+
 export async function requireAuth() {
   const supabase = await createServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) {
-    const headersList = await headers()
-    const pathname = headersList.get('x-pathname') ?? ''
-    const returnTo = pathname && pathname !== '/login' ? `?redirect=${encodeURIComponent(pathname)}` : ''
-    redirect(`/login${returnTo}`)
-  }
+  if (!user) return redirectToLogin()
 
   // If the user has a TOTP factor enrolled but hasn't verified it this session,
   // redirect to the MFA challenge page regardless of role.

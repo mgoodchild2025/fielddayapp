@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { collectedCents, collectedTotals, isOwed, owedCents, outstandingTotals, pickLedgerPayment, type LedgerRow } from './payment-ledger'
+import { collectedCents, collectedTotals, isOwed, owedCents, outstandingTotals, pickLedgerPayment, netRevenueSince, type LedgerRow } from './payment-ledger'
 import type { OrgTaxRate } from './tax'
 
 const HST: OrgTaxRate = { id: 'r1', displayName: 'HST', percentage: 13, inclusive: false, appliesTo: 'all', stripeTaxRateId: null }
@@ -130,5 +130,29 @@ describe('pickLedgerPayment', () => {
     expect(pickLedgerPayment(one)).toBe(one)
     expect(pickLedgerPayment(null)).toBeNull()
     expect(pickLedgerPayment([])).toBeNull()
+  })
+})
+
+describe('netRevenueSince', () => {
+  const since = '2026-09-01T00:00:00.000Z'
+  it('counts payments in the window by paid_at, falling back to created_at', () => {
+    expect(netRevenueSince([
+      { amount_cents: 5000, paid_at: '2026-09-10T00:00:00Z', registration_id: 'r1' },
+      { amount_cents: 3000, paid_at: null, created_at: '2026-09-11T00:00:00Z', registration_id: 'r2' },
+      { amount_cents: 9999, paid_at: '2026-08-31T23:59:59Z', registration_id: 'r3' },
+    ], since)).toBe(8000)
+  })
+  it('subtracts refunds dated in the window, even for older payments', () => {
+    expect(netRevenueSince([
+      { amount_cents: 5000, paid_at: '2026-08-10T00:00:00Z', refunded_cents: 5000, refunded_at: '2026-09-05T00:00:00Z', registration_id: 'r1' },
+      { amount_cents: 4000, paid_at: '2026-09-02T00:00:00Z', refunded_cents: 1000, refunded_at: '2026-09-03T00:00:00Z', registration_id: 'r2' },
+    ], since)).toBe(-5000 + 4000 - 1000)
+  })
+  it('counts a team fee once and skips deleted-registration orphans', () => {
+    const team = { amount_cents: 20000, paid_at: '2026-09-02T00:00:00Z', payment_type: 'team', league_id: 'l1', team_id: 't1' }
+    expect(netRevenueSince([
+      team, { ...team },
+      { amount_cents: 7000, paid_at: '2026-09-02T00:00:00Z', registration_id: null },
+    ], since)).toBe(20000)
   })
 })

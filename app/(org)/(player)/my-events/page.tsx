@@ -1,5 +1,4 @@
 import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
@@ -7,6 +6,7 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { MyEventsClient } from './_client'
 import type { EventItem } from './_client'
+import { redirectToLogin } from '@/lib/auth'
 
 export default async function MyEventsPage() {
   const headersList = await headers()
@@ -15,7 +15,7 @@ export default async function MyEventsPage() {
   const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
   const host = headersList.get('host') ?? ''
   const protocol = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https'
