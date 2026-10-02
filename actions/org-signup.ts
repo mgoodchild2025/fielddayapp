@@ -6,6 +6,7 @@ import { getResend, FROM_EMAIL } from '@/lib/resend'
 import { sendPlatformAlert } from '@/lib/platform-alerts'
 import { getTenantConsentDocs } from './tenant-consent'
 import { writeAcceptanceRows } from '@/lib/tenant-consent'
+import { createClient } from '@supabase/supabase-js'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 const LOGO_URL = `https://${PLATFORM_DOMAIN}/Fieldday-Icon.png`
@@ -106,10 +107,22 @@ export async function orgSignup(input: z.infer<typeof signupSchema>) {
   let confirmationUrl: string | undefined
 
   if (existingAuthUser) {
-    // User already exists — update their password to what they entered on the signup form,
-    // then skip email verification (they're already confirmed).
+    // Existing account: the visitor must prove they own it with its CURRENT
+    // password. (This used to overwrite the password with whatever was typed —
+    // anyone could take over any account, platform admins included, just by
+    // "signing up an org" with that email.) Checked on a throwaway client so
+    // no session cookie is set here.
+    const verifier = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const { error: signInError } = await verifier.auth.signInWithPassword({ email, password })
+    if (signInError) {
+      return {
+        error: 'That email already has a Fieldday account. Enter that account\u2019s password to add an organization to it, or reset the password from the sign-in page.',
+        slug: null,
+      }
+    }
     userId = existingAuthUser.id
-    await service.auth.admin.updateUserById(userId, { password })
     confirmationUrl = undefined
   } else {
     // New user — create via generateLink so we can send verification through Resend.

@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
+import { assertOrgAdmin } from '@/lib/auth'
 import { sendRegistrationConfirmation, sendRegistrationAdminNotification, type RegistrationPaymentMethod } from './emails'
 import { acceptDropInInvite, acceptPickupInvite } from './invites'
 import { consentRequestMeta, type ConsentRow } from './player-consents'
@@ -337,6 +338,9 @@ export async function moveRegistrationToSession(input: z.infer<typeof moveRegist
 export async function removeRegistration(registrationId: string, leagueId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  // Admin-only: this deletes another player's registration with the service role.
+  const auth = await assertOrgAdmin(org)
+  if (auth.error) return { error: auth.error }
 
   const { createServiceRoleClient } = await import('@/lib/supabase/service')
   const db = createServiceRoleClient()
@@ -420,6 +424,8 @@ export async function activateRegistration(registrationId: string) {
 
   const supabase = await createServerClient()
   const db2 = createServiceRoleClient()
+  const { data: { user: caller } } = await supabase.auth.getUser()
+  if (!caller) return { data: null, error: 'Not authenticated' }
 
 
   const { data: reg, error: fetchError } = await db2
@@ -430,6 +436,12 @@ export async function activateRegistration(registrationId: string) {
     .single()
 
   if (fetchError || !reg) return { data: null, error: 'Registration not found' }
+
+  // Only the player finishing their own registration, or an org/league admin.
+  if ((reg as { user_id: string | null }).user_id !== caller.id) {
+    const auth = await assertOrgAdmin(org)
+    if (auth.error) return { data: null, error: 'Registration not found' }
+  }
 
   const { error } = await db2
     .from('registrations')

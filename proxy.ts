@@ -138,6 +138,10 @@ export async function proxy(request: NextRequest) {
   // no org resolves (the marketing apex), a spoofed x-org-id would otherwise
   // pass straight through to the app, which has many direct readers.
   requestHeaders.delete('x-org-id')
+  // Same for x-impersonating: the admin layout and billing actions skip the
+  // membership check when it's '1', so a client-sent copy must never survive —
+  // only a verified platform admin's impersonation (above) may set it.
+  requestHeaders.delete('x-impersonating')
   if (orgId) requestHeaders.set('x-org-id', orgId)
   if (isImpersonating) requestHeaders.set('x-impersonating', '1')
   // Expose the full pathname+search so server components can build return-to URLs
