@@ -29,7 +29,7 @@ export default async function CommunicationsPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <div className="mb-1 text-sm text-gray-400">
+      <div className="mb-1 text-sm text-gray-500">
         <Link href="/profile" className="hover:text-gray-600 transition-colors">Profile</Link>
         <span className="mx-1">/</span>
         <span className="text-gray-700 font-medium">Communication Preferences</span>
@@ -48,10 +48,10 @@ export default async function CommunicationsPage() {
             <div>
               <p className="font-medium text-gray-800">Privacy Policy</p>
               {privacy ? (
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-gray-500">
                   {privacy.document_version ? `v${privacy.document_version} · ` : ''}accepted {new Date(privacy.consented_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })}
                 </p>
-              ) : <p className="text-xs text-gray-400">Not on record</p>}
+              ) : <p className="text-xs text-gray-500">Not on record</p>}
             </div>
             <a href="https://fielddayapp.ca/privacy" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">View →</a>
           </div>
@@ -59,14 +59,14 @@ export default async function CommunicationsPage() {
             <div>
               <p className="font-medium text-gray-800">League Waiver</p>
               {waiver ? (
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-gray-500">
                   {waiver.document_version ? `v${waiver.document_version} · ` : ''}accepted {new Date(waiver.consented_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })}
                 </p>
-              ) : <p className="text-xs text-gray-400">Not on record</p>}
+              ) : <p className="text-xs text-gray-500">Not on record</p>}
             </div>
           </div>
         </div>
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="text-xs text-gray-500 mt-2">
           To withdraw consent to the Privacy Policy or waiver, please delete your account from Profile.
         </p>
       </section>

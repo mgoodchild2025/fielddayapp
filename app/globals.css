@@ -11,6 +11,21 @@
   --color-brand-secondary: var(--brand-secondary, #0f172a);
   --color-brand-bg: var(--brand-bg, #ffffff);
   --color-brand-text: var(--brand-text, #111827);
+  /* Readable text on a brand-primary fill: white, or near-black when the
+     org's primary is too pale for white (BrandProvider, lib/contrast.ts). */
+  --color-on-brand: var(--brand-on-primary, #ffffff);
+}
+
+/* Text on brand fills follows --brand-on-primary, so a pale primary can't
+   produce white-on-yellow buttons. Most fills are written as an inline
+   style (SSR serialises it without a space, the browser with one) and set
+   text-white, so this sits unlayered to beat the utility. No visible change
+   for orgs whose primary already suits white. New code: bg-brand-primary +
+   text-on-brand. */
+[style*="background-color:var(--brand-primary)"],
+[style*="background-color: var(--brand-primary)"],
+.bg-brand-primary {
+  color: var(--brand-on-primary, #ffffff);
 }
 
 /* Motion tokens (also usable as ease-snap / ease-drawer utilities).
@@ -177,6 +192,24 @@ a,
   :where(a[href], button, [role="button"], summary, [tabindex]:not([tabindex="-1"])):focus-visible {
     outline: 2px solid var(--color-brand-primary);
     outline-offset: 2px;
+  }
+}
+
+/* ── Menus & popovers ───────────────────────────────────────────────────────
+   `fd-pop` on a dropdown panel: it grows out of its trigger (pair it with an
+   origin-* utility for the corner nearest the button) in 150ms, and closes
+   instantly — menus open tens of times a day and must get out of the way. */
+@layer components {
+  .fd-pop {
+    transition: opacity 150ms var(--ease-snap), transform 150ms var(--ease-snap);
+  }
+  @starting-style {
+    .fd-pop { opacity: 0; transform: scale(0.97); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    @starting-style {
+      .fd-pop { transform: none; }
+    }
   }
 }
 

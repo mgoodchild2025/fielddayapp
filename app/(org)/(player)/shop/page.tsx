@@ -68,7 +68,7 @@ export default async function ShopPage() {
               </svg>
             </div>
             <p className="font-semibold text-gray-700">No items available yet</p>
-            <p className="text-sm text-gray-400">{org.name} hasn&apos;t added any shop items yet. Check back soon.</p>
+            <p className="text-sm text-gray-500">{org.name} hasn&apos;t added any shop items yet. Check back soon.</p>
           </div>
         ) : (
           <ShopClient items={items} />

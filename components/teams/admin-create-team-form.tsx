@@ -114,7 +114,7 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabe
                 onChange={(e) => setSelectedColor(e.target.value)}
                 className="opacity-0 absolute w-0 h-0"
               />
-              <span className="text-gray-400 text-xs leading-none">+</span>
+              <span className="text-gray-500 text-xs leading-none">+</span>
             </label>
             {/* Preview swatch */}
             {selectedColor && (
@@ -142,7 +142,7 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabe
                 <option key={label} value={label}>{label}</option>
               ))}
             </select>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-500 mt-1">
               All games scheduled for this slot will be reassigned to the new team.
             </p>
           </div>

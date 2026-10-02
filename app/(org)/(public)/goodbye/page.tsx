@@ -27,7 +27,7 @@ export default async function GoodbyePage() {
         Payment and registration records have been anonymized and are retained as required by Canadian tax law.
       </p>
       {branding?.contact_email && (
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-gray-500">
           Questions?{' '}
           <a href={`mailto:${branding.contact_email}`} className="underline hover:text-gray-600">
             {branding.contact_email}

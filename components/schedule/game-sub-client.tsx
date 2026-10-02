@@ -73,7 +73,7 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
             </div>
           )}
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Sub Invite</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sub Invite</p>
             <p className="font-bold text-gray-900 leading-tight">
               {invite.teamName}
               {invite.opponentName && <span className="font-normal text-gray-500"> vs {invite.opponentName}</span>}
@@ -82,7 +82,7 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
         </div>
         <div className="space-y-0.5 text-sm text-gray-500">
           <p>{gameDate} · {gameTime}{invite.court ? ` · ${invite.court}` : ''}</p>
-          {invite.leagueName && <p className="text-xs text-gray-400">{invite.leagueName}</p>}
+          {invite.leagueName && <p className="text-xs text-gray-500">{invite.leagueName}</p>}
         </div>
         {invite.message && (
           <p className="mt-3 text-sm text-gray-600 italic border-l-2 border-gray-200 pl-3">
@@ -174,7 +174,7 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
         {gameCard}
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center space-y-2">
           <p className="font-semibold text-gray-700">You&apos;ve declined this invite.</p>
-          <p className="text-sm text-gray-400">The captain has been notified.</p>
+          <p className="text-sm text-gray-500">The captain has been notified.</p>
         </div>
       </div>
     )

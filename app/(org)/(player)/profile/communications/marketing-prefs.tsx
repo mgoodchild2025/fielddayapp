@@ -54,7 +54,7 @@ export function MarketingPrefs({ initialEmail, initialSms }: { initialEmail: boo
         <Toggle checked={sms} onChange={(v) => update('marketing_sms', v)} disabled={isPending} />
       </div>
       <div className="px-5 py-3 flex items-center justify-between">
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-500">
           Transactional messages (game schedules, registration confirmations) are not affected by these preferences.
         </p>
         {saved && <span className="text-xs text-green-600 shrink-0 ml-2">✓ Saved</span>}

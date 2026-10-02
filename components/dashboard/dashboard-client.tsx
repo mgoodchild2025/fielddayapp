@@ -297,7 +297,7 @@ function GameHero({
             />
             <div>
               <p className="font-bold text-gray-900 text-sm leading-tight">{item.opponentName}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{item.leagueName}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{item.leagueName}</p>
             </div>
           </TeamLink>
         </div>
@@ -477,7 +477,7 @@ function SessionHero({ item, timezone }: { item: NextSessionItem; timezone: stri
           <div>
             <p className="font-bold text-gray-900 text-lg leading-tight">{item.leagueName}</p>
             {item.leagueSport && (
-              <p className="text-sm text-gray-400 mt-0.5">
+              <p className="text-sm text-gray-500 mt-0.5">
                 {item.leagueSport.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
               </p>
             )}
@@ -536,7 +536,7 @@ function MyCardSection({ myCardBio, myCareer, myCardHref }: {
           className="block rounded-xl border-2 border-dashed border-gray-300 px-5 py-6 text-center hover:border-gray-400 transition-colors"
         >
           <p className="text-sm font-semibold text-gray-600">Set up your player card →</p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-gray-500">
             Add your number, position, and a photo — it shows on your team page and can rotate on event displays.
           </p>
         </Link>
@@ -546,13 +546,13 @@ function MyCardSection({ myCardBio, myCareer, myCardHref }: {
   return (
     <div className="mt-4 max-w-md">
       <div className="mb-2 flex items-baseline justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">My card</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">My card</p>
         <span className="flex items-center gap-3">
-          <Link href="/profile#bio" className="text-xs font-medium text-gray-400 hover:text-gray-600">
+          <Link href="/profile#bio" className="text-xs font-medium text-gray-500 hover:text-gray-600">
             Edit →
           </Link>
           {myCardHref && (
-            <Link href={myCardHref} className="text-xs font-medium text-gray-400 hover:text-gray-600">
+            <Link href={myCardHref} className="text-xs font-medium text-gray-500 hover:text-gray-600">
               View &amp; share →
             </Link>
           )}
@@ -643,7 +643,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 pb-24 space-y-8">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">{todayLabel()}</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1">{todayLabel()}</p>
           <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>
             {greeting()}, {firstName}
           </h1>
@@ -679,7 +679,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
 
       {/* ── Greeting ── */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">{todayLabel()}</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1">{todayLabel()}</p>
         <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           {greeting()}, {firstName}
         </h1>
@@ -719,7 +719,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
       {nextItem?.kind === 'game' && (
         <section>
           <div className="flex items-baseline justify-between mb-3">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">Next Game</h2>
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Next Game</h2>
             <Link href="/schedule" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
               Full schedule →
             </Link>
@@ -763,7 +763,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
       {selectedSession && (
         <section>
           <div className="flex items-baseline justify-between mb-3">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">Next Session</h2>
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Next Session</h2>
             {nextItem?.kind !== 'game' && (
               <Link href="/schedule" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
                 Full schedule →
@@ -806,7 +806,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
       {nextItem?.kind !== 'game' && !selectedSession && (
         <section>
           <div className="flex items-baseline justify-between mb-3">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">Next Game</h2>
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Next Game</h2>
             <Link href="/schedule" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
               Full schedule →
             </Link>
@@ -816,7 +816,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                 <Calendar className="w-6 h-6 text-gray-300" />
               </div>
               <p className="text-sm font-medium text-gray-500">No upcoming games or sessions</p>
-              <p className="text-xs text-gray-400 mt-1">Check back soon — your schedule will appear here.</p>
+              <p className="text-xs text-gray-500 mt-1">Check back soon — your schedule will appear here.</p>
             </div>
         </section>
       )}
@@ -847,7 +847,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
         <>
           {/* Season stats */}
           <section>
-            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">
               Season Stats · {team.teamName}
             </h2>
             <div className="grid grid-cols-3 gap-3">
@@ -855,15 +855,15 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Record</p>
                 <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-secondary)' }}>
                   <span>{team.record.wins}</span>
-                  <span className="text-sm font-bold text-gray-400 ml-0.5">W</span>
+                  <span className="text-sm font-bold text-gray-500 ml-0.5">W</span>
                   {' '}
                   <span>{team.record.losses}</span>
-                  <span className="text-sm font-bold text-gray-400 ml-0.5">L</span>
+                  <span className="text-sm font-bold text-gray-500 ml-0.5">L</span>
                   {team.record.ties > 0 && (
                     <>
                       {' '}
                       <span>{team.record.ties}</span>
-                      <span className="text-sm font-bold text-gray-400 ml-0.5">T</span>
+                      <span className="text-sm font-bold text-gray-500 ml-0.5">T</span>
                     </>
                   )}
                 </p>
@@ -879,13 +879,13 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                         {team.record.standing}{ordinal(team.record.standing)}
                       </span>
                       {team.record.totalTeams !== null && (
-                        <span className="text-sm font-semibold text-gray-400 ml-0.5"> / {team.record.totalTeams}</span>
+                        <span className="text-sm font-semibold text-gray-500 ml-0.5"> / {team.record.totalTeams}</span>
                       )}
                     </p>
                     <p className="text-[11px] text-gray-400 mt-1.5 truncate">{team.leagueName}</p>
                   </>
                 ) : (
-                  <p className="text-sm text-gray-400 mt-1">—</p>
+                  <p className="text-sm text-gray-500 mt-1">—</p>
                 )}
               </Link>
 
@@ -905,14 +905,14 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
             {/* Recent Results */}
             <section>
               <div className="flex items-baseline justify-between mb-3">
-                <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">Recent Results</h2>
+                <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Recent Results</h2>
                 <Link href="/schedule" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
                   See all →
                 </Link>
               </div>
 
               {team.recentResults.length === 0 ? (
-                <div className="bg-white rounded-xl border p-6 text-center text-sm text-gray-400">
+                <div className="bg-white rounded-xl border p-6 text-center text-sm text-gray-500">
                   No results yet this season
                 </div>
               ) : (
@@ -932,12 +932,12 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                             ? `${team.teamName} vs ${r.opponentName}`
                             : `${r.opponentName} vs ${team.teamName}`}
                         </p>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-gray-500">
                           {r.isHome ? `${r.homeScore} – ${r.awayScore}` : `${r.awayScore} – ${r.homeScore}`}
                           {r.isExhibition && <ExhibitionBadge isExhibition className="ml-1.5 align-middle" />}
                         </p>
                       </div>
-                      <span className="text-xs text-gray-400 shrink-0">{formatShortDate(r.scheduledAt)}</span>
+                      <span className="text-xs text-gray-500 shrink-0">{formatShortDate(r.scheduledAt)}</span>
                     </div>
                   ))}
                 </div>
@@ -947,7 +947,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
             {/* Team card + quick links */}
             <section>
               <div className="flex items-baseline justify-between mb-3">
-                <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">My Team</h2>
+                <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">My Team</h2>
                 {teams.length > 1 && (
                   <Link href="/my-teams" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
                     All teams →
@@ -972,7 +972,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5 truncate">{team.leagueName}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 truncate">{team.leagueName}</p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-400 transition-colors shrink-0" />
               </Link>
@@ -1003,7 +1003,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
       {/* ── Quick links for session-only players (no active team) ── */}
       {!team && nextItem && (
         <section>
-          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Explore</h2>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">Explore</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {([
               { href: '/events',    Icon: Trophy,       label: 'Browse Events' },

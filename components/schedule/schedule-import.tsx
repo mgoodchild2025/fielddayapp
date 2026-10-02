@@ -71,10 +71,10 @@ export function ScheduleImport({ leagueId, sport, pools = [] }: Props) {
   return (
     <div className="bg-white rounded-lg border p-4">
       <h3 className="font-semibold mb-1 text-sm">Import from CSV</h3>
-      <p className="text-xs text-gray-400 mb-1">
+      <p className="text-xs text-gray-500 mb-1">
         Columns: date (YYYY-MM-DD), time (HH:MM), home_team, away_team, {venueLabelLower(sport)} (column name: <code className="font-mono">court</code>), week{pools.length > 0 ? <>, pool (optional — must match an existing pool name)</> : null}
       </p>
-      <p className="text-xs text-gray-400 mb-3">
+      <p className="text-xs text-gray-500 mb-3">
         Times are interpreted in your org&apos;s configured timezone.
       </p>
 

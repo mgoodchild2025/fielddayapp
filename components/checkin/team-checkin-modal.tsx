@@ -122,7 +122,7 @@ function TeamCheckinContent({ teamId, leagueId, timezone, onClose }: Props) {
               className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
               style={
                 uncheckedMembers.length > 0
-                  ? { backgroundColor: 'var(--brand-primary)', color: 'white' }
+                  ? { backgroundColor: 'var(--brand-primary)', color: 'var(--brand-on-primary)' }
                   : { backgroundColor: '#f0fdf4', color: '#15803d' }
               }
             >

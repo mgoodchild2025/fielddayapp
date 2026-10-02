@@ -165,7 +165,7 @@ export function ProfileForm({
             <p className="text-sm font-medium text-gray-700">
               {avatarUploading ? 'Uploading…' : 'Click your photo to change it'}
             </p>
-            <p className="text-xs text-gray-400 mt-0.5">JPEG, PNG, WebP or GIF · max 5 MB</p>
+            <p className="text-xs text-gray-500 mt-0.5">JPEG, PNG, WebP or GIF · max 5 MB</p>
             <UploadStatus active={avatarUploading} label="Uploading photo" className="mt-1" />
             {avatarError && (
               <p className="text-xs text-red-600 mt-1">{avatarError}</p>
@@ -288,7 +288,7 @@ export function ProfileForm({
           <input {...register('show_contact_info')} type="checkbox" className="rounded mt-0.5" />
           <div>
             <span className="text-sm font-medium text-gray-700">Show my contact info to teammates</span>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-gray-500 mt-0.5">
               When enabled, your email and phone number are visible to players on the same team.
               Org admins can always see your contact info.
             </p>

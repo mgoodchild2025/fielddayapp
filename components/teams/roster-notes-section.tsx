@@ -216,7 +216,7 @@ function NoteRow({
       <div className="flex items-start gap-3">
         {/* Avatar placeholder */}
         <div className="w-8 h-8 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center shrink-0 mt-0.5">
-          <span className="text-xs text-gray-400">?</span>
+          <span className="text-xs text-gray-500">?</span>
         </div>
 
         <div className="flex-1 min-w-0">
@@ -227,7 +227,7 @@ function NoteRow({
             </span>
           </div>
           {note.email && !inviteSuccess && (
-            <p className="text-xs text-gray-400 mt-0.5">{note.email}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{note.email}</p>
           )}
           {note.note && (
             <p className="text-xs text-gray-500 mt-0.5 italic">{note.note}</p>
@@ -311,7 +311,7 @@ export function RosterNotesSection({ teamId, initialNotes }: Props) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="font-semibold text-sm text-gray-700">Roster Plan</h2>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-gray-500 mt-0.5">
               Track who you expect — people not yet registered.
             </p>
           </div>
@@ -332,7 +332,7 @@ export function RosterNotesSection({ teamId, initialNotes }: Props) {
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="w-full mt-1 py-3 rounded-lg border border-dashed border-gray-200 text-sm text-gray-400 hover:border-gray-300 hover:text-gray-500 transition-colors"
+            className="w-full mt-1 py-3 rounded-lg border border-dashed border-gray-200 text-sm text-gray-500 hover:border-gray-300 hover:text-gray-500 transition-colors"
           >
             + Add your first planning entry
           </button>

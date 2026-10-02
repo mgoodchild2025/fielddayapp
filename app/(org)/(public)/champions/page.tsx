@@ -92,7 +92,7 @@ export default async function ChampionsPage() {
                           <span className="font-semibold text-gray-800">{d.teamName}</span>
                           <span className="text-gray-500">
                             {d.titles}× champions <span className="text-gray-300">·</span>{' '}
-                            <span className="text-xs text-gray-400">{d.years.join(', ')}</span>
+                            <span className="text-xs text-gray-500">{d.years.join(', ')}</span>
                           </span>
                         </li>
                       ))}
@@ -108,7 +108,7 @@ export default async function ChampionsPage() {
                           <PlayerName userId={p.userId} name={p.name} />
                           <span className="text-gray-500">
                             {'🥇'.repeat(Math.min(p.titles, 5))}{p.titles > 5 ? `×${p.titles}` : ''}{' '}
-                            <span className="text-xs text-gray-400">{p.years.join(', ')}</span>
+                            <span className="text-xs text-gray-500">{p.years.join(', ')}</span>
                           </span>
                         </li>
                       ))}
@@ -129,7 +129,7 @@ export default async function ChampionsPage() {
                             <details open={open}>
                               <summary className="flex cursor-pointer items-baseline justify-between gap-3 list-none">
                                 <span className="tracking-wide">{shelf}</span>
-                                <span className="text-xs text-gray-400">
+                                <span className="text-xs text-gray-500">
                                   {tier.players.length} player{tier.players.length !== 1 ? 's' : ''}
                                   <span className="ml-1 text-gray-300">▾</span>
                                 </span>
@@ -157,7 +157,7 @@ export default async function ChampionsPage() {
                         <li key={tier.seasons} className="text-sm">
                           <p className="flex items-baseline justify-between gap-3">
                             <span className="font-semibold text-gray-800">{tier.seasons} seasons</span>
-                            <span className="text-xs text-gray-400">{tier.players.length} player{tier.players.length !== 1 ? 's' : ''}</span>
+                            <span className="text-xs text-gray-500">{tier.players.length} player{tier.players.length !== 1 ? 's' : ''}</span>
                           </p>
                           <p className="mt-1 text-gray-700 leading-relaxed">
                             {tier.players.map((p, j) => (
@@ -179,7 +179,7 @@ export default async function ChampionsPage() {
                       {board.players.map((p, i) => (
                         <li key={p.userId ?? p.name} className="flex items-baseline justify-between gap-3 text-sm">
                           <span className="flex items-baseline gap-2">
-                            <span className="w-4 text-right font-mono text-xs text-gray-400">{i + 1}</span>
+                            <span className="w-4 text-right font-mono text-xs text-gray-500">{i + 1}</span>
                             <PlayerName userId={p.userId} name={p.name} />
                           </span>
                           <span className="font-mono text-gray-700" style={{ fontVariantNumeric: 'tabular-nums' }}>{p.value}</span>
@@ -223,7 +223,7 @@ export default async function ChampionsPage() {
 function Board({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border bg-white p-5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{title}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</p>
       <p className="text-[11px] text-gray-400">{sub}</p>
       {children}
     </div>

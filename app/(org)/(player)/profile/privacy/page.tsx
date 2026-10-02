@@ -114,7 +114,7 @@ export default async function PrivacyPage() {
         </div>
 
         {/* Footer note */}
-        <div className="mt-8 pt-6 border-t text-xs text-gray-400 space-y-1">
+        <div className="mt-8 pt-6 border-t text-xs text-gray-500 space-y-1">
           <p>
             For questions about how your data is used, or to submit a written correction or deletion
             request, contact{' '}

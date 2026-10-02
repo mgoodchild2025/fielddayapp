@@ -66,7 +66,7 @@ export function GameAttendancePanel({ gameId, teamId, initialCounts, isCaptain, 
       {open && (
         <div className="mt-2 rounded-lg border border-gray-100 bg-gray-50 overflow-hidden">
           {isPending ? (
-            <p className="px-3 py-3 text-xs text-gray-400">Loading…</p>
+            <p className="px-3 py-3 text-xs text-gray-500">Loading…</p>
           ) : fetchError ? (
             <p className="px-3 py-3 text-xs text-red-500">{fetchError}</p>
           ) : players ? (
@@ -99,7 +99,7 @@ export function GameAttendancePanel({ gameId, teamId, initialCounts, isCaptain, 
                     {/* Name */}
                     <span
                       className={`text-xs flex-1 truncate ${
-                        p.rsvp === null ? 'text-gray-400' : 'text-gray-700'
+                        p.rsvp === null ? 'text-gray-500' : 'text-gray-700'
                       }`}
                     >
                       {p.name}

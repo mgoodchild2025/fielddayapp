@@ -83,7 +83,7 @@ export function AdminEditTeamForm({ team, leagueId }: Props) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="text-xs text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100 transition-colors"
+        className="text-xs text-gray-500 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100 transition-colors"
         title="Edit team"
       >
         Edit
@@ -103,7 +103,7 @@ export function AdminEditTeamForm({ team, leagueId }: Props) {
               <p className="text-sm font-semibold">Edit Team</p>
               <button
                 onClick={handleClose}
-                className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+                className="text-gray-500 hover:text-gray-600 text-lg leading-none"
                 aria-label="Close"
               >
                 ×
@@ -151,7 +151,7 @@ export function AdminEditTeamForm({ team, leagueId }: Props) {
                       onChange={(e) => setColor(e.target.value)}
                       className="opacity-0 absolute w-0 h-0"
                     />
-                    <span className="text-gray-400 text-xs leading-none">+</span>
+                    <span className="text-gray-500 text-xs leading-none">+</span>
                   </label>
                   <div className="w-7 h-7 rounded-full border" style={{ backgroundColor: color }} />
                 </div>
@@ -177,7 +177,7 @@ export function AdminEditTeamForm({ team, leagueId }: Props) {
                     </button>
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-400 mb-2">No logo uploaded.</p>
+                  <p className="text-xs text-gray-500 mb-2">No logo uploaded.</p>
                 )}
                 <input
                   ref={fileInputRef}
@@ -186,7 +186,7 @@ export function AdminEditTeamForm({ team, leagueId }: Props) {
                   onChange={handleFileChange}
                   className="w-full text-xs text-gray-600 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
                 />
-                <p className="text-xs text-gray-400 mt-1">JPG, PNG, GIF, WebP or SVG · max 5 MB · auto-converted to WebP</p>
+                <p className="text-xs text-gray-500 mt-1">JPG, PNG, GIF, WebP or SVG · max 5 MB · auto-converted to WebP</p>
                 <UploadStatus active={pending && !!logoFile} label="Uploading logo" file={logoFile} className="mt-1" />
               </div>
 

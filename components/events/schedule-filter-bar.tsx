@@ -45,7 +45,7 @@ export function ScheduleFilterBar({
               className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
                 active
                   ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]'
-                  : 'border-transparent text-gray-400 hover:text-white'
+                  : 'border-transparent text-gray-500 hover:text-white'
               }`}
             >
               {v === 'upcoming' ? 'Upcoming' : 'Results'}

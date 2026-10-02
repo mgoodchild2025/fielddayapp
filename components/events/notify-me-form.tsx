@@ -68,7 +68,7 @@ export function NotifyMeForm({ leagueId, source = 'coming_soon' }: Props) {
         </button>
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}
-      <p className="text-xs text-gray-400">We&rsquo;ll only email you about this event. Unsubscribe anytime.</p>
+      <p className="text-xs text-gray-500">We&rsquo;ll only email you about this event. Unsubscribe anytime.</p>
     </form>
   )
 }

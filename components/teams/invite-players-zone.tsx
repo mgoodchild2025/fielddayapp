@@ -75,7 +75,7 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
 
   return (
     <div className="px-4 py-4 border-b">
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Invite Players</p>
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Invite Players</p>
 
       {/* Join link */}
       {inviteUrl && (
@@ -100,7 +100,7 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
       {/* Code + regenerate */}
       {code && (
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs text-gray-400">Code:</span>
+          <span className="text-xs text-gray-500">Code:</span>
           <span className="font-mono font-bold text-sm tracking-widest bg-gray-100 px-2 py-0.5 rounded">
             {code}
           </span>
@@ -108,7 +108,7 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
             onClick={handleRegenerate}
             disabled={regenerating}
             title="Regenerate code"
-            className="text-xs text-gray-400 hover:text-gray-600 px-1 py-0.5 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
+            className="text-xs text-gray-500 hover:text-gray-600 px-1 py-0.5 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
           >
             {regenerating ? '…' : '↺ Regenerate'}
           </button>

@@ -35,7 +35,7 @@ export function StatsEntryTable({ leagueId, games, teams, statDefs, allGameStats
 
   if (games.length === 0) {
     return (
-      <div className="text-center py-16 text-gray-400 text-sm">
+      <div className="text-center py-16 text-gray-500 text-sm">
         No completed games yet. Stats can be entered once games have been played.
       </div>
     )
@@ -51,7 +51,7 @@ export function StatsEntryTable({ leagueId, games, teams, statDefs, allGameStats
           >
             {/* Game info */}
             <div className="min-w-0">
-              <p className="text-xs text-gray-400 mb-0.5">{game.label}</p>
+              <p className="text-xs text-gray-500 mb-0.5">{game.label}</p>
               <p className="text-sm font-semibold">
                 {game.homeTeamName}
                 <span className="text-gray-400 font-normal mx-1.5">vs</span>

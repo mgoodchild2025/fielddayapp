@@ -100,7 +100,7 @@ function Legend({ items }: { items: { abbr: string; label: string }[] }) {
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1 px-1">
       {items.map(({ abbr, label }) => (
-        <span key={abbr} className="text-xs text-gray-400">
+        <span key={abbr} className="text-xs text-gray-500">
           <span className="font-semibold text-gray-500">{abbr}</span> = {label}
         </span>
       ))}
@@ -126,7 +126,7 @@ function StandingsTable({
   const sorted = sortStandings(teams, sport, mode, method)
 
   if (sorted.length === 0) {
-    return <p className="text-gray-400 text-sm text-center py-8">No results yet — standings appear after the first scores are in.</p>
+    return <p className="text-gray-500 text-sm text-center py-8">No results yet — standings appear after the first scores are in.</p>
   }
 
   // ── Set-based table ────────────────────────────────────────────────────────
@@ -161,7 +161,7 @@ function StandingsTable({
                   const pd = team.pointsFor - team.pointsAgainst
                   return (
                     <tr key={team.id} className="border-b last:border-0 odd:bg-gray-50/60 hover:bg-gray-50 transition-colors">
-                      <td className={`px-4 py-3 text-xs tabular-nums ${i < 3 ? 'font-bold text-gray-700' : 'text-gray-400'}`}>{i + 1}</td>
+                      <td className={`px-4 py-3 text-xs tabular-nums ${i < 3 ? 'font-bold text-gray-700' : 'text-gray-500'}`}>{i + 1}</td>
                       <td className="px-4 py-3 font-medium">
                         <Link href={`/teams/${team.id}/stats`} className="flex items-center gap-2 min-w-0 hover:underline">
                           <TeamAvatar logoUrl={team.logoUrl ?? null} color={team.color ?? null} name={team.name} size="sm" />
@@ -239,7 +239,7 @@ function StandingsTable({
                 const pts = computePts(team, method)
                 return (
                   <tr key={team.id} className="border-b last:border-0 odd:bg-gray-50/60 hover:bg-gray-50 transition-colors">
-                    <td className={`px-4 py-3 text-xs tabular-nums ${i < 3 ? 'font-bold text-gray-700' : 'text-gray-400'}`}>{i + 1}</td>
+                    <td className={`px-4 py-3 text-xs tabular-nums ${i < 3 ? 'font-bold text-gray-700' : 'text-gray-500'}`}>{i + 1}</td>
                     <td className="px-4 py-3 font-medium">
                       <Link href={`/teams/${team.id}/stats`} className="flex items-center gap-2 min-w-0 hover:underline">
                         <TeamAvatar logoUrl={team.logoUrl ?? null} color={team.color ?? null} name={team.name} size="sm" />
@@ -342,7 +342,7 @@ function DateGroup({
 }) {
   return (
     <div>
-      <p className={`text-sm font-semibold mb-2 ${isPast ? 'text-gray-400' : 'text-gray-100'}`}>{date}</p>
+      <p className={`text-sm font-semibold mb-2 ${isPast ? 'text-gray-500' : 'text-gray-100'}`}>{date}</p>
       <div className="space-y-2">
         {games.map((game) => {
           const homeTeam = Array.isArray(game.home_team) ? game.home_team[0] : game.home_team
@@ -383,7 +383,7 @@ function DateGroup({
               {/* ── Mobile layout: stacked teams ── */}
               <div className="md:hidden">
                 {/* Meta row: time · court · week */}
-                <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-2.5 tabular-nums">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-2.5 tabular-nums">
                   <span className="font-medium text-gray-500">{gameTime}</span>
                   {game.court && <><span>·</span><span>Court {game.court}</span></>}
                   {game.week_number && showWeek && <><span>·</span><span>Wk {game.week_number}</span></>}
@@ -402,7 +402,7 @@ function DateGroup({
                   ] as const).map((team, idx) => (
                     <div key={idx} className="flex items-center justify-between gap-2">
                       <span
-                        className={`text-sm truncate ${team.won ? 'font-bold' : hasScore ? 'font-normal text-gray-400' : 'font-semibold'}`}
+                        className={`text-sm truncate ${team.won ? 'font-bold' : hasScore ? 'font-normal text-gray-500' : 'font-semibold'}`}
                         style={team.won ? { color: 'var(--brand-primary)' } : undefined}
                       >
                         {team.name}
@@ -455,10 +455,10 @@ function DateGroup({
 
               {/* ── Desktop layout: single row ── */}
               <div className={`hidden md:flex items-center gap-3 ${game.status === 'cancelled' || game.status === 'postponed' ? 'opacity-70' : ''}`}>
-                <div className="w-14 shrink-0 text-xs text-gray-400 tabular-nums">{gameTime}</div>
+                <div className="w-14 shrink-0 text-xs text-gray-500 tabular-nums">{gameTime}</div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className={`text-sm ${game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-400' : ''}`}>
+                    <p className={`text-sm ${game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-500' : ''}`}>
                       {/* Home team name */}
                       <span
                         className={`font-semibold ${hasScore && !homeWon ? (isPast ? 'text-gray-400 font-normal' : 'text-gray-400 font-normal') : isPast ? 'text-gray-500' : ''}`}
@@ -480,7 +480,7 @@ function DateGroup({
                     <ExhibitionBadge isExhibition={game.is_exhibition} />
                     {isForfeit && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Forfeit</span>}
                   </div>
-                  <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
                     {game.court && <span>Court {game.court}</span>}
                     {game.week_number && showWeek && <><span>·</span><span>Wk {game.week_number}</span></>}
                     {showKind && <GameKindBadge poolName={game.poolName} isPlayoff={game.isPlayoff} />}
@@ -2250,7 +2250,7 @@ export default async function EventDetailPage({
                 )}
 
                 {(!sessions || sessions.length === 0) ? (
-                  <p className="text-gray-400 text-sm py-8 text-center bg-white border rounded-lg">No sessions scheduled yet — check back soon.</p>
+                  <p className="text-gray-500 text-sm py-8 text-center bg-white border rounded-lg">No sessions scheduled yet — check back soon.</p>
                 ) : (
                   <div className="space-y-3">
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -2290,7 +2290,7 @@ export default async function EventDetailPage({
                                   : <span className="text-green-700 font-medium">{remaining} of {capacity} spots left</span>
                               )}
                             </div>
-                            {s.notes && <p className="text-xs text-gray-400 mt-1">{s.notes}</p>}
+                            {s.notes && <p className="text-xs text-gray-500 mt-1">{s.notes}</p>}
                           </div>
                           {!isSeasonPickup && !mySeasonRegistration && (
                             <div className="shrink-0">
@@ -2529,7 +2529,7 @@ export default async function EventDetailPage({
                         className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
                           active
                             ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]'
-                            : 'border-transparent text-gray-400 hover:text-white'
+                            : 'border-transparent text-gray-500 hover:text-white'
                         }`}
                       >
                         {v.label}
@@ -2576,7 +2576,7 @@ export default async function EventDetailPage({
                     })}
                     {standingsTeams.filter((t) => !t.division_id).length > 0 && (
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Unassigned</p>
+                        <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">Unassigned</p>
                         <StandingsTable teams={standingsTeams.filter((t) => !t.division_id)} sport={league.sport ?? null} ptsMethod={standingsPtsMethod} volleyballMode={standingsVolleyballMode} />
                       </div>
                     )}

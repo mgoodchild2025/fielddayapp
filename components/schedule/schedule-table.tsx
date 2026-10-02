@@ -423,7 +423,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                   href={`${printBase}?date=${dateKey}&type=schedule`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-600"
                 >
                   <PrintIcon />
                   Print day
@@ -449,14 +449,14 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                         />
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs text-gray-400 mb-1">
+                        <p className="text-xs text-gray-500 mb-1">
                           {game.timeLabel}
                           {game.court ? ` · ${venueLabel(sport)} ${game.court}` : ''}
                           {showWeek && game.weekNumber ? ` · Wk ${game.weekNumber}` : ''}
                           {game.poolName ? ` · ${game.poolName}` : ''}
                         </p>
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className={`font-semibold text-sm ${game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-400' : ''}`}>
+                          <p className={`font-semibold text-sm ${game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-500' : ''}`}>
                             {game.homeTeamName} <span className="text-gray-400 font-normal">vs</span> {game.awayTeamName}
                           </p>
                           {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
@@ -524,7 +524,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
             </div>
           </div>
         )) : (
-          <div className="bg-white rounded-lg border px-4 py-12 text-center text-gray-400 text-sm">
+          <div className="bg-white rounded-lg border px-4 py-12 text-center text-gray-500 text-sm">
             {hideCompleted ? 'No games awaiting scores in this view. 🎉' : filter === 'needs' ? 'All games have scores — nice work! 🎉' : filter === 'cancelled' ? 'No cancelled or postponed games.' : jumpFilter !== 'all' ? 'No games in this selection.' : 'No games scheduled yet.'}
           </div>
         )}
@@ -571,7 +571,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                                 href={`${printBase}?date=${dateKey}&type=schedule`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 transition-colors"
+                                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
                                 title="Print day schedule"
                               >
                                 <PrintIcon />
@@ -595,7 +595,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                             />
                           </td>
                         )}
-                        {showWeek && <td className="px-4 py-3 text-gray-400 text-xs">{game.weekNumber ?? '—'}</td>}
+                        {showWeek && <td className="px-4 py-3 text-gray-500 text-xs">{game.weekNumber ?? '—'}</td>}
                         <td className="px-4 py-3">
                           <div className="text-xs text-gray-500">{game.timeLabel}</div>
                         </td>
@@ -603,7 +603,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-400' : ''}>
                               {game.homeTeamName}{' '}
-                              <span className="text-gray-400 font-normal text-xs">vs</span>{' '}
+                              <span className="text-gray-500 font-normal text-xs">vs</span>{' '}
                               {game.awayTeamName}
                             </span>
                             {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
@@ -630,7 +630,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => setEditingGame(game)}
-                              className="text-xs text-gray-400 hover:text-blue-600 hover:underline"
+                              className="text-xs text-gray-500 hover:text-blue-600 hover:underline"
                             >
                               Edit
                             </button>

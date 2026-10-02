@@ -47,7 +47,7 @@ export default async function DisplayPage({
         <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
           Display is offline
         </p>
-        <p className={`text-base ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
+        <p className={`text-base ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
           Screen {screen} · {league.name}
         </p>
         <p className={`text-sm ${isDark ? 'text-zinc-600' : 'text-gray-300'}`}>

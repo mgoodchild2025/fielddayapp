@@ -155,7 +155,7 @@ export function OrganizersPanel({
 
       <div className="space-y-1">
         {activeOrganizers.length === 0 && (
-          <p className="text-sm text-gray-400 py-2">No organizers assigned yet.</p>
+          <p className="text-sm text-gray-500 py-2">No organizers assigned yet.</p>
         )}
 
         {activeOrganizers.map(organizer => (
@@ -166,7 +166,7 @@ export function OrganizersPanel({
                   {organizer.full_name ?? organizer.invited_email}
                 </p>
                 {organizer.full_name && (
-                  <p className="text-xs text-gray-400 truncate">{organizer.invited_email}</p>
+                  <p className="text-xs text-gray-500 truncate">{organizer.invited_email}</p>
                 )}
               </div>
               <div className="shrink-0 flex items-center gap-2">
@@ -177,7 +177,7 @@ export function OrganizersPanel({
                       <button
                         onClick={() => handleResend(organizer)}
                         disabled={actionPending}
-                        className="text-xs text-gray-400 hover:text-gray-600 disabled:opacity-50 px-1"
+                        className="text-xs text-gray-500 hover:text-gray-600 disabled:opacity-50 px-1"
                       >
                         Resend
                       </button>
@@ -197,7 +197,7 @@ export function OrganizersPanel({
             {/* Contact info visibility toggle — active organizers only */}
             {isOrgAdmin && organizer.status === 'active' && (
               <div className="flex items-center justify-between mt-1.5">
-                <span className="text-xs text-gray-400">Show contact info to participants</span>
+                <span className="text-xs text-gray-500">Show contact info to participants</span>
                 <button
                   type="button"
                   role="switch"

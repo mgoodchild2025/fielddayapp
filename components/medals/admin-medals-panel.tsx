@@ -61,7 +61,7 @@ export function AdminMedalsPanel({ medals, leagueId }: { medals: AdminMedalRow[]
       <div className="px-5 py-3 bg-gray-50 border-b flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-baseline gap-2">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Medals Awarded</p>
-          <p className="text-xs text-gray-400">What players see in their trophy cases</p>
+          <p className="text-xs text-gray-500">What players see in their trophy cases</p>
         </div>
         <button
           type="button"
@@ -76,7 +76,7 @@ export function AdminMedalsPanel({ medals, leagueId }: { medals: AdminMedalRow[]
       {err && <p className="px-5 py-2 text-xs text-red-500 border-b">{err}</p>}
       {awardMsg && <p className="px-5 py-2 text-xs text-green-700 bg-green-50 border-b">{awardMsg}</p>}
       {medals.length === 0 && (
-        <p className="px-5 py-6 text-sm text-gray-400 text-center">
+        <p className="px-5 py-6 text-sm text-gray-500 text-center">
           No medals yet. They are awarded automatically when the event is marked complete, or tap Award Medals once the title match has a result.
         </p>
       )}

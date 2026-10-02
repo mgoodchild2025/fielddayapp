@@ -114,7 +114,7 @@ function EventCard({ item, timezone, faded }: { item: EventItem; timezone: strin
               {statusInfo.label}
             </span>
           </div>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs text-gray-500 mt-0.5">
             {league.sport ? formatSport(league.sport) : ''}
             {sessionLabel
               ? <>{league.sport ? ' · ' : ''}<span className="font-medium text-gray-500">{sessionLabel}</span></>
@@ -196,7 +196,7 @@ export function MyEventsClient({ currentEvents, pastEvents, timezone, gameDots =
   if (isEmpty) {
     return (
       <div className="bg-white rounded-xl border p-10 text-center">
-        <p className="text-gray-400 text-sm mb-3">You haven&apos;t registered for any events yet.</p>
+        <p className="text-gray-500 text-sm mb-3">You haven&apos;t registered for any events yet.</p>
         <Link
           href="/events"
           className="text-sm font-semibold px-4 py-2 rounded-lg text-white"

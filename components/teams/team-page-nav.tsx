@@ -43,7 +43,7 @@ export function TeamPageNav({
             className={`px-3 sm:px-4 py-2 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap transition-colors ${
               isActive
                 ? 'border-[var(--brand-primary)] text-gray-900'
-                : 'border-transparent text-gray-400 hover:text-gray-600'
+                : 'border-transparent text-gray-500 hover:text-gray-600'
             }`}
           >
             {t.label}

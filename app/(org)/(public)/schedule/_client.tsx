@@ -186,7 +186,7 @@ export function MyGamesClient({
               bold={isHomeMyTeam}
               href={homeTeam?.id ? `/teams/${homeTeam.id}/stats` : undefined}
             />
-            <span className="text-gray-400 text-sm mx-0.5">vs</span>
+            <span className="text-gray-500 text-sm mx-0.5">vs</span>
             <TeamBadge
               name={awayTeam?.name ?? 'TBD'}
               logoUrl={awayLogoUrl}
@@ -195,7 +195,7 @@ export function MyGamesClient({
               href={awayTeam?.id ? `/teams/${awayTeam.id}/stats` : undefined}
             />
           </div>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs text-gray-500 mt-0.5">
             {[league?.name, g.isPlayoff ? [g.playoffTier, g.playoffRound].filter(Boolean).join(' · ') : null].filter(Boolean).join(' · ')}
           </p>
 
@@ -244,7 +244,7 @@ export function MyGamesClient({
           {location ? ` · ${location}` : ''}
         </p>
         <p className="font-medium mt-0.5">Pickup Session</p>
-        <p className="text-xs text-gray-400">{league?.name}</p>
+        <p className="text-xs text-gray-500">{league?.name}</p>
       </div>
     )
   }
@@ -348,7 +348,7 @@ export function MyGamesClient({
             {filteredUpcoming.length > 0
               ? filteredUpcoming.map(renderItem)
               : (
-                <div className="border rounded-md p-6 text-center text-sm text-gray-400 bg-white">
+                <div className="border rounded-md p-6 text-center text-sm text-gray-500 bg-white">
                   {activeLeague
                     ? 'No upcoming games for this league.'
                     : 'No upcoming games — check back when your league publishes the schedule.'}

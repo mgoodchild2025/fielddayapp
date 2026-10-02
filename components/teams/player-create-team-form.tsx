@@ -57,7 +57,7 @@ export function PlayerCreateTeamForm({ leagueId }: Props) {
         <h3 className="font-semibold text-sm">Create Your Team</h3>
         <button
           onClick={() => { setOpen(false); setError(null) }}
-          className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+          className="text-gray-500 hover:text-gray-600 text-lg leading-none"
           aria-label="Close"
         >
           ×

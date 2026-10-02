@@ -121,7 +121,7 @@ export function EventInterestManager({
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {rows.length === 0 ? (
-        <div className="bg-white border rounded-lg px-6 py-10 text-center text-gray-400 text-sm">
+        <div className="bg-white border rounded-lg px-6 py-10 text-center text-gray-500 text-sm">
           No one has signed up to be notified yet.
         </div>
       ) : (

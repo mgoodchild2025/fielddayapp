@@ -36,7 +36,7 @@ export function StatsLeaderboard({ statDefs, players, includeUncredited = false,
   // A roster is still worth showing for a sport that tracks no stats at all.
   if (statDefs.length === 0 && !includeUncredited) {
     return (
-      <p className="text-center text-gray-400 text-sm py-12">
+      <p className="text-center text-gray-500 text-sm py-12">
         No stats recorded yet.
       </p>
     )
@@ -102,7 +102,7 @@ export function StatsLeaderboard({ statDefs, players, includeUncredited = false,
       {/* Leaderboard list */}
       {sorted.length === 0 ? (
         <div className="bg-white rounded-xl border py-12 text-center">
-          <p className="text-gray-400 text-sm">
+          <p className="text-gray-500 text-sm">
             {hasStats ? `No ${activeDef.label.toLowerCase()} recorded yet.` : 'No players on the roster yet.'}
           </p>
         </div>
@@ -122,7 +122,7 @@ export function StatsLeaderboard({ statDefs, players, includeUncredited = false,
                 {/* Rank — only meaningful for a player with a recorded value */}
                 <span
                   className={`w-6 text-center text-sm font-bold shrink-0 ${
-                    !ranked ? 'text-gray-200' : i === 0 ? 'text-amber-500' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-orange-400' : 'text-gray-300'
+                    !ranked ? 'text-gray-200' : i === 0 ? 'text-amber-500' : i === 1 ? 'text-gray-500' : i === 2 ? 'text-orange-400' : 'text-gray-300'
                   }`}
                 >
                   {ranked ? i + 1 : '·'}
@@ -138,7 +138,7 @@ export function StatsLeaderboard({ statDefs, players, includeUncredited = false,
                       ? <BioNameButton bio={player.bio} userId={player.userId}>{player.name}</BioNameButton>
                       : player.name}
                   </p>
-                  <p className="text-xs text-gray-400 truncate">{player.teamName}</p>
+                  <p className="text-xs text-gray-500 truncate">{player.teamName}</p>
                 </div>
 
                 {/* Stat value — a dash reads as "nothing recorded", not zero */}
@@ -160,7 +160,7 @@ export function StatsLeaderboard({ statDefs, players, includeUncredited = false,
       {hasStats && (
       <div className="flex flex-wrap gap-x-4 gap-y-1 px-1 pt-1">
         {statDefs.map(def => (
-          <span key={def.key} className="text-xs text-gray-400">
+          <span key={def.key} className="text-xs text-gray-500">
             <span className="font-semibold text-gray-500">{def.label}</span>
             {' '}({def.key})
           </span>

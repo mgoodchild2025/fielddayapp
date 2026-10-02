@@ -77,13 +77,13 @@ export default async function InvitePage({
             >
               {invite.team_name.charAt(0).toUpperCase()}
             </div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{org.name}</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{org.name}</p>
             <h1 className="text-2xl font-bold text-gray-900">{invite.team_name}</h1>
             {invite.league_name && (
               <p className="text-sm text-gray-500">{invite.league_name}</p>
             )}
             {invite.max_team_size != null && (
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 {invite.member_count} / {invite.max_team_size} players
               </p>
             )}
@@ -139,7 +139,7 @@ export default async function InvitePage({
                   >
                     Create account
                   </Link>
-                  <p className="text-center text-xs text-gray-400">
+                  <p className="text-center text-xs text-gray-500">
                     You need an account to accept this invitation.
                   </p>
                 </div>

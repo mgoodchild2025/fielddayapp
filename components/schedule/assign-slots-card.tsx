@@ -77,7 +77,7 @@ export function AssignSlotsCard({ leagueId, slotLabels, teams }: Props) {
           {slotLabels.length} unassigned
         </span>
       </div>
-      <p className="text-xs text-gray-400 mb-3">
+      <p className="text-xs text-gray-500 mb-3">
         {hasTeams
           ? 'Map imported team names to real teams.'
           : 'These team names were imported from your CSV. Create teams (or wait for players to register) to map them.'}
@@ -121,7 +121,7 @@ export function AssignSlotsCard({ leagueId, slotLabels, teams }: Props) {
                 </select>
               </>
             ) : (
-              <span className="text-xs text-gray-400 italic">— no teams yet —</span>
+              <span className="text-xs text-gray-500 italic">— no teams yet —</span>
             )}
           </div>
         ))}

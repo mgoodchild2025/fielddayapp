@@ -133,7 +133,7 @@ export default async function StandingsPage() {
       <div className="flex-1 max-w-5xl mx-auto w-full px-6 py-10">
         {activeLeagues.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-gray-400 text-lg">No standings yet.</p>
+            <p className="text-gray-500 text-lg">No standings yet.</p>
             <p className="text-gray-300 text-sm mt-1">
               Standings appear once a league or tournament is under way.
             </p>
@@ -171,7 +171,7 @@ export default async function StandingsPage() {
                     {league.name}
                   </h2>
                   {league.season_start_date && (
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-gray-500 mt-1">
                       Season started{' '}
                       {formatDateOnly(league.season_start_date, {
                         month: 'short',

@@ -160,7 +160,7 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
                           className="group block bg-white border rounded-xl p-5 hover:border-gray-300 hover:shadow-sm transition-all"
                         >
                           <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs font-medium px-2 py-0.5 rounded-full capitalize" style={{ backgroundColor: 'var(--brand-primary)', color: 'white' }}>
+                            <span className="text-xs font-medium px-2 py-0.5 rounded-full capitalize" style={{ backgroundColor: 'var(--brand-primary)', color: 'var(--brand-on-primary)' }}>
                               {league.event_type ?? 'league'}
                             </span>
                             {atCapacity

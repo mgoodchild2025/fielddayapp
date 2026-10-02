@@ -35,7 +35,7 @@ function CodeBox({ value, onCopy, copied }: { value: string; onCopy: (v: string)
         type="button"
         onClick={() => onCopy(value)}
         className="text-xs font-medium shrink-0 px-2 py-0.5 rounded border transition-colors"
-        style={isCopied ? { backgroundColor: 'var(--brand-primary)', color: 'white', borderColor: 'var(--brand-primary)' } : {}}
+        style={isCopied ? { backgroundColor: 'var(--brand-primary)', color: 'var(--brand-on-primary)', borderColor: 'var(--brand-primary)' } : {}}
       >
         {isCopied ? 'Copied!' : 'Copy'}
       </button>

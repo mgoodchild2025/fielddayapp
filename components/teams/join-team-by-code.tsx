@@ -88,7 +88,7 @@ export function JoinTeamByCode() {
         <button
           type="button"
           onClick={() => { setOpen(false); setTeamCode(''); setError(null) }}
-          className="text-xs text-gray-400 hover:text-gray-600"
+          className="text-xs text-gray-500 hover:text-gray-600"
         >
           Cancel
         </button>
@@ -104,7 +104,7 @@ export function JoinTeamByCode() {
       />
       {error && <p className="text-xs text-red-500">{error}</p>}
       {loading && (
-        <p className="text-xs text-gray-400">Joining team…</p>
+        <p className="text-xs text-gray-500">Joining team…</p>
       )}
       <button
         type="submit"

@@ -62,7 +62,7 @@ export function PendingJoinRequests({ teamId, initialRequests }: Props) {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-sm font-medium truncate">{req.playerName || req.playerEmail}</p>
-                <p className="text-xs text-gray-400 truncate">{req.playerEmail}</p>
+                <p className="text-xs text-gray-500 truncate">{req.playerEmail}</p>
                 {req.message && (
                   <p className="text-xs text-gray-600 mt-1 italic">&ldquo;{req.message}&rdquo;</p>
                 )}

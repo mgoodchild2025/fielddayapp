@@ -92,7 +92,7 @@ function ResultRow({ result, showKind }: { result: SeasonResult; showKind?: bool
     <div className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors relative">
       <Link href={`/games/${result.gameId}`} className="absolute inset-0" aria-label="View game" />
 
-      <span className="text-xs text-gray-400 w-14 shrink-0 relative z-10">{result.dateLabel}</span>
+      <span className="text-xs text-gray-500 w-14 shrink-0 relative z-10">{result.dateLabel}</span>
 
       <div className="flex items-center gap-2 flex-1 min-w-0 relative z-10">
         <TeamAvatar
@@ -159,7 +159,7 @@ function ResultsList({
 }) {
   if (pastResults.length === 0 && upcomingResults.length === 0) {
     return (
-      <div className="bg-white rounded-xl border p-8 text-center text-sm text-gray-400">
+      <div className="bg-white rounded-xl border p-8 text-center text-sm text-gray-500">
         No games scheduled yet.
       </div>
     )
@@ -228,7 +228,7 @@ function H2HRow({ record, showKind }: { record: H2HRecord; showKind?: boolean })
                 href={`/games/${g.gameId}`}
                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors"
               >
-                <span className="text-xs text-gray-400 w-14 shrink-0">{g.dateLabel}</span>
+                <span className="text-xs text-gray-500 w-14 shrink-0">{g.dateLabel}</span>
                 <span className="text-xs text-gray-500 flex-1 tabular-nums">
                   {g.outcome === 'upcoming' ? 'Upcoming' : `${myScore ?? '?'}–${theirScore ?? '?'}`}
                 </span>
@@ -248,7 +248,7 @@ function H2HRow({ record, showKind }: { record: H2HRecord; showKind?: boolean })
 function H2HList({ h2h, showKind }: { h2h: H2HRecord[]; showKind?: boolean }) {
   if (h2h.length === 0) {
     return (
-      <p className="text-sm text-gray-400 text-center py-8 bg-white rounded-xl border">
+      <p className="text-sm text-gray-500 text-center py-8 bg-white rounded-xl border">
         No opponents yet this season.
       </p>
     )
@@ -295,7 +295,7 @@ export function TeamStatsTabs({ pastResults, upcomingResults, h2h, showKind, pla
               className={`px-3 sm:px-4 py-2 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap transition-colors ${
                 active
                   ? 'border-[var(--brand-primary)] text-gray-900'
-                  : 'border-transparent text-gray-400 hover:text-gray-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-600'
               }`}
             >
               {t.label}
