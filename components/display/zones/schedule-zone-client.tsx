@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import type { DisplayGame } from '@/lib/display-types'
 import { useLiveScores } from '@/lib/use-live-scores'
+import { ScoreTick } from '@/components/scoreboard/score-tick'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -333,7 +334,7 @@ export function ScheduleClient({ games, timezone, isDark, scrollSpeed, leagueId 
                     display: 'inline-flex', alignItems: 'center', gap: 5,
                   }}>
                     <span className="animate-pulse" style={{ width: 6, height: 6, borderRadius: 99, backgroundColor: '#ef4444', display: 'inline-block' }} />
-                    {liveBoards[g.id].a}&thinsp;–&thinsp;{liveBoards[g.id].b}
+                    <ScoreTick value={liveBoards[g.id].a} />&thinsp;–&thinsp;<ScoreTick value={liveBoards[g.id].b} />
                   </span>
                 ) : (
                   <span style={{ fontSize: 12, color: teamDim }}>vs</span>

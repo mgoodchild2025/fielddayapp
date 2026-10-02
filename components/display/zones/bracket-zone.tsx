@@ -3,6 +3,7 @@
 import type { DisplayBracketMatch, ZoneConfig } from '@/lib/display-types'
 import { FitContent } from './fit-content'
 import { useLiveScores, type LiveBoard } from '@/lib/use-live-scores'
+import { ScoreTick } from '@/components/scoreboard/score-tick'
 
 type Tier = { name: string | null; matches: DisplayBracketMatch[] }
 
@@ -148,7 +149,7 @@ function MatchCard({
             flexShrink: 0,
             color: isLive ? '#ef4444' : scoreColor(t1Wins),
           }}>
-            {isLive ? live!.a : match.score1}
+            {isLive ? <ScoreTick value={live!.a} /> : match.score1}
           </span>
         )}
       </div>
@@ -218,7 +219,7 @@ function MatchCard({
             flexShrink: 0,
             color: isLive ? '#ef4444' : scoreColor(t2Wins),
           }}>
-            {isLive ? live!.b : match.score2}
+            {isLive ? <ScoreTick value={live!.b} /> : match.score2}
           </span>
         )}
       </div>

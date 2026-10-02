@@ -22,6 +22,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { upsertRsvp } from '@/actions/rsvp'
+import { RsvpChoice } from '@/components/schedule/rsvp-choice'
 import Image from 'next/image'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { toast } from 'sonner'
@@ -328,7 +329,7 @@ function GameHero({
           <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Playoff game</span>
         </div>
       ) : (
-        <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-t border-gray-100">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 py-3 bg-gray-50 border-t border-gray-100">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 text-xs text-gray-500">
               <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
@@ -339,29 +340,7 @@ function GameHero({
               {rsvpOut} out
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onRsvp('out')}
-              aria-pressed={myRsvp === 'out'}
-              className={`press min-h-10 px-3.5 rounded-lg text-sm font-semibold border ${
-                myRsvp === 'out'
-                  ? 'bg-red-50 border-red-200 text-red-600'
-                  : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-              }`}
-            >
-              {myRsvp === 'out' ? '✗ Can\'t make it' : 'Can\'t make it'}
-            </button>
-            <button
-              onClick={() => onRsvp('in')}
-              aria-pressed={myRsvp === 'in'}
-              className={`press min-h-10 px-3.5 rounded-lg text-sm font-semibold ${
-                myRsvp === 'in' ? 'opacity-100' : 'opacity-70 hover:opacity-100'
-              } text-white`}
-              style={{ backgroundColor: 'var(--brand-primary)' }}
-            >
-              {myRsvp === 'in' ? '✓ I\'m in' : 'I\'m in'}
-            </button>
-          </div>
+          <RsvpChoice value={myRsvp} onChange={onRsvp} size="md" />
         </div>
       )}
     </div>
@@ -417,24 +396,8 @@ function SameDayGameRow({
       {item.isPlayoff ? (
         <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Playoff</span>
       ) : (
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            onClick={() => onRsvp('out')}
-            aria-pressed={myRsvp === 'out'}
-            className={`press min-h-10 min-w-12 px-3 rounded-lg text-sm font-semibold border ${
-              myRsvp === 'out' ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-            }`}
-          >
-            {myRsvp === 'out' ? '✗ Out' : 'Out'}
-          </button>
-          <button
-            onClick={() => onRsvp('in')}
-            aria-pressed={myRsvp === 'in'}
-            className={`press min-h-10 min-w-12 px-3 rounded-lg text-sm font-semibold text-white ${myRsvp === 'in' ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
-            style={{ backgroundColor: 'var(--brand-primary)' }}
-          >
-            {myRsvp === 'in' ? '✓ In' : 'In'}
-          </button>
+        <div className="shrink-0">
+          <RsvpChoice value={myRsvp} onChange={onRsvp} />
         </div>
       )}
     </div>
@@ -689,16 +652,11 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
         <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           {greeting()}, {firstName}
         </h1>
-        {medals.length > 0 && (
-          <div className="mt-3">
-            <MedalCase medals={medals} isOwner title="Your trophy case" />
-          </div>
-        )}
-        <MyCardSection myCardBio={myCardBio} myCareer={myCareer} myCardHref={myCardHref} />
       </div>
 
-      {/* ── Phone alerts nudge (mobile, from 2nd visit; install → enable push) ── */}
-      <AlertsNudge orgName={orgName} />
+      {/* Order = what a player needs first: to-dos, then the next game/session
+          (RSVP above the fold on a phone), then stats; the trophy case and card
+          follow — they're the career, not this week. */}
 
       {/* ── Action banners ── */}
       {pendingActions.map((action) => (
@@ -741,7 +699,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
           {sameDayGames.length > 0 && (
             <div className="mt-3 space-y-2">
               <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 px-1">
-                Later that day <span className="text-gray-300 normal-case font-medium tracking-normal">· follows your hero RSVP</span>
+                Later that day <span className="text-gray-500 normal-case font-medium tracking-normal">· your RSVP above applies to these too</span>
               </p>
               {sameDayGames.map((g) => {
                 const st = sameDayRsvp[g.id] ?? { myRsvp: g.myRsvp, in: g.rsvpIn, out: g.rsvpOut }
@@ -807,6 +765,9 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
           <SessionHero item={selectedSession} timezone={timezone} />
         </section>
       )}
+
+      {/* ── Phone alerts nudge (mobile, from 2nd visit; install → enable push) ── */}
+      <AlertsNudge orgName={orgName} />
 
       {/* ── Nothing coming up ── */}
       {nextItem?.kind !== 'game' && !selectedSession && (
@@ -1005,6 +966,12 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
           </div>
         </>
       )}
+
+      {/* ── Trophy case + player card ── */}
+      <section>
+        {medals.length > 0 && <MedalCase medals={medals} isOwner title="Your trophy case" />}
+        <MyCardSection myCardBio={myCardBio} myCareer={myCareer} myCardHref={myCardHref} />
+      </section>
 
       {/* ── Quick links for session-only players (no active team) ── */}
       {!team && nextItem && (

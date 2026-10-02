@@ -1,6 +1,7 @@
 'use client'
 
 import { useLiveScore } from '@/lib/use-live-scores'
+import { ScoreTick } from '@/components/scoreboard/score-tick'
 
 // A tiny live-score chip for schedule/bracket rows: renders nothing unless a
 // scoreboard is actively broadcasting for this game (or bracket match).
@@ -19,7 +20,7 @@ export function LiveScoreBadge({ leagueId, gameId }: { leagueId: string; gameId:
       }`}
     >
       {!board.final && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />}
-      {board.final ? 'FINAL' : 'LIVE'} {board.a}–{board.b}
+      {board.final ? 'FINAL' : 'LIVE'} <ScoreTick value={board.a} />–<ScoreTick value={board.b} />
       {board.mode === 'sets' && !board.final && <span className="font-medium opacity-70">set {board.setNumber}</span>}
     </span>
   )

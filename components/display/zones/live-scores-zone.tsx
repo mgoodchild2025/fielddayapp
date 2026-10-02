@@ -1,6 +1,7 @@
 'use client'
 
 import { useLiveScores, type LiveBoard } from '@/lib/use-live-scores'
+import { ScoreTick } from '@/components/scoreboard/score-tick'
 
 // ── Live Scores zone ──────────────────────────────────────────────────────────
 // Renders whatever scoreboards are actively broadcasting for this event, via
@@ -85,7 +86,7 @@ function BoardCard({ board, isDark, big }: { board: LiveBoard; isDark: boolean; 
                 )}
               </div>
               <span className="text-white font-extrabold tabular-nums leading-none shrink-0" style={{ fontSize: scoreSize, textShadow: '0 2px 12px rgba(0,0,0,0.3)' }}>
-                {row.pts}
+                <ScoreTick value={row.pts} />
               </span>
             </div>
           )
