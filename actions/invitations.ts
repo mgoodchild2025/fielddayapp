@@ -116,7 +116,7 @@ export async function sendTeamInvite(input: z.infer<typeof sendInviteSchema>) {
       .single(),
     db.from('org_members').select('role')
       .eq('organization_id', org.id)
-      .eq('user_id', user.id)
+      .eq('user_id', user.id).eq('status', 'active')
       .single(),
   ])
 
@@ -410,7 +410,7 @@ export async function resendTeamInvite(inviteId: string) {
       .single(),
     db.from('org_members').select('role')
       .eq('organization_id', org.id)
-      .eq('user_id', user.id)
+      .eq('user_id', user.id).eq('status', 'active')
       .single(),
   ])
 
@@ -504,7 +504,7 @@ export async function cancelTeamInvitation(inviteId: string) {
       .single(),
     db.from('org_members').select('role')
       .eq('organization_id', org.id)
-      .eq('user_id', user.id)
+      .eq('user_id', user.id).eq('status', 'active')
       .single(),
   ])
 

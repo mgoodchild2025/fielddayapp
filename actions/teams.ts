@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
+import { assertOrgAdmin } from '@/lib/auth'
 import { sendEmail, buildJoinRequestEmail, buildJoinApprovedEmail, buildJoinDeclinedEmail, buildCaptainAssignedEmail, buildTeamAddedEmail, buildRosterReminderEmail, buildCalendarCtaHtml } from '@/lib/email'
 import { calendarSubscribeUrls, ensureCalendarToken } from '@/lib/calendar-feed'
 import { convertToWebP } from '@/lib/image-utils'
@@ -258,7 +259,7 @@ export async function adminSetCaptain(memberId: string, teamId: string, leagueId
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .single()
 
   if (!orgMember || !['org_admin', 'league_admin'].includes(orgMember.role)) {
@@ -472,7 +473,7 @@ export async function deleteTeam(teamId: string, leagueId: string) {
   const db = createServiceRoleClient()
 
   const { data: member } = await db.from('org_members').select('role')
-    .eq('organization_id', org.id).eq('user_id', user.id)
+    .eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin']).single()
   if (!member) return { error: 'Admin access required' }
 
@@ -767,7 +768,7 @@ export async function approveJoinRequest(requestId: string) {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .single()
 
   const canApprove =
@@ -968,7 +969,7 @@ export async function sendTeamMessage(input: z.infer<typeof sendTeamMessageSchem
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .single()
 
   const isCaptain = callerMembership?.role === 'captain'
@@ -1142,7 +1143,13 @@ export async function updateTeam(
 export async function uploadTeamLogo(teamId: string, formData: FormData) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  // Admins only (the only caller is the admin edit-team form) — this had no
+  // check at all, so anyone could replace or delete any team's logo.
+  const auth = await assertOrgAdmin(org)
+  if (auth.error) return { url: null, error: auth.error }
   const db = createServiceRoleClient()
+  const { data: ownTeam } = await db.from('teams').select('id').eq('id', teamId).eq('organization_id', org.id).maybeSingle()
+  if (!ownTeam) return { url: null, error: 'Team not found' }
 
   const file = formData.get('file') as File | null
   if (!file || file.size === 0) return { url: null, error: 'No file provided' }
@@ -1159,9 +1166,15 @@ export async function uploadTeamLogo(teamId: string, formData: FormData) {
   } catch (err) {
     console.error('[uploadTeamLogo] convertToWebP failed, falling back to original:', err)
   }
+  // An SVG can carry script — only ever store it rasterised.
+  if (!converted && file.type === 'image/svg+xml') {
+    return { url: null, error: 'Could not process that SVG — please upload a PNG or JPEG.' }
+  }
   const uploadBytes = converted?.buffer ?? Buffer.from(bytes)
   const uploadType = converted?.contentType ?? file.type
-  const ext = converted ? 'webp' : (file.name.split('.').pop()?.toLowerCase() ?? 'png')
+  // Extension from the vetted MIME type, never the client's filename.
+  const EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' }
+  const ext = converted ? 'webp' : (EXT[file.type] ?? 'png')
   const path = `${org.id}/${teamId}/logo.${ext}`
 
   // Delete any existing team logo files before uploading (extension may differ)
@@ -1198,7 +1211,7 @@ async function requireCaptainOrCoach(teamId: string) {
   const [{ data: teamMember }, { data: orgMember }] = await Promise.all([
     db.from('team_members').select('role').eq('team_id', teamId).eq('user_id', user.id)
       .eq('organization_id', org.id).eq('status', 'active').single(),
-    db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single(),
+    db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active').single(),
   ])
 
   const isTeamManager = teamMember && ['captain', 'coach'].includes(teamMember.role)
@@ -1290,7 +1303,7 @@ export async function sendRosterReminder(
       .single(),
     db.from('org_members').select('role')
       .eq('organization_id', org.id)
-      .eq('user_id', user.id)
+      .eq('user_id', user.id).eq('status', 'active')
       .single(),
   ])
 

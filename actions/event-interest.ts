@@ -6,9 +6,10 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createServerClient } from '@/lib/supabase/server'
 import { getCurrentOrg } from '@/lib/tenant'
+import { requireCurrentOrgAdmin } from '@/lib/auth'
 import { createRateLimiter } from '@/lib/rate-limit'
 import { sendEmailBatch, buildEventRegistrationOpenEmail } from '@/lib/email'
-import { interestUnsubscribeUrl } from '@/lib/unsubscribe'
+import { interestUnsubscribeUrl, verifyInterestUnsubToken } from '@/lib/unsubscribe'
 
 // Cap public notify-me submissions per IP (mirrors guestRegLimiter).
 const interestLimiter = createRateLimiter({ windowMs: 10 * 60_000, max: 8 })
@@ -94,8 +95,12 @@ export async function recordEventInterest(
   return { error: null }
 }
 
-/** One-click unsubscribe from an event's notify-me list (signed token gate). */
-export async function unsubscribeInterest(interestId: string): Promise<{ error: string | null }> {
+/** One-click unsubscribe from an event's notify-me list — verifies the signed
+ *  token itself (it used to take the interest id, so anyone could unsubscribe anyone). */
+export async function unsubscribeInterest(token: string): Promise<{ error: string | null }> {
+  const parsed = verifyInterestUnsubToken(token)
+  if (!parsed) return { error: 'Invalid link' }
+  const { interestId } = parsed
   const db = createServiceRoleClient()
 
   await db.from('event_interest')
@@ -111,6 +116,9 @@ export async function unsubscribeInterest(interestId: string): Promise<{ error: 
  * Never throws — callers wrap in .catch().
  */
 export async function notifyInterestList(leagueId: string, orgId: string): Promise<void> {
+  // Admin-triggered (registration opens). Public endpoint otherwise: anyone
+  // could mass-email an event's notify-me list and burn its one-time send.
+  await requireCurrentOrgAdmin({ orgId, leagueId })
   const db = createServiceRoleClient()
 
   const { data: rows } = await db
@@ -170,7 +178,7 @@ async function assertInterestAdmin(): Promise<{ orgId: string } | { error: strin
   const db = createServiceRoleClient()
   const { data: m } = await db
     .from('org_members').select('role')
-    .eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
+    .eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active').maybeSingle()
   if (!m || !['org_admin', 'league_admin'].includes(m.role)) return { error: 'Unauthorized' }
   return { orgId: org.id }
 }

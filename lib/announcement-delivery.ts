@@ -2,7 +2,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getResend, FROM_EMAIL } from '@/lib/resend'
 import { sendSms, toE164 } from '@/lib/twilio'
 import { canAccess } from '@/lib/features'
-import { getMarketingConsentBatch, getMarketingOptInUserIds } from '@/actions/player-consents'
+import { getMarketingConsentBatch, getMarketingOptInUserIds } from '@/lib/marketing-consent'
 import { unsubscribeUrl, interestUnsubscribeUrl } from '@/lib/unsubscribe'
 
 /**

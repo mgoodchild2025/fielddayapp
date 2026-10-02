@@ -5,6 +5,7 @@ import { headers } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
+import { assertOrgAdmin } from '@/lib/auth'
 
 export interface TeamMemberCheckinStatus {
   userId: string
@@ -29,6 +30,8 @@ export async function getTeamCheckinStatus(
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Unauthorized' }
+  // Game-day check-in is staff work (admin check-in page only).
+  if ((await assertOrgAdmin(org)).error) return { data: null, error: 'Unauthorized' }
 
   const db = createServiceRoleClient()
 
@@ -108,6 +111,8 @@ export async function toggleTeamMemberCheckin(
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
+  // Game-day check-in is staff work (admin check-in page only).
+  if ((await assertOrgAdmin(org)).error) return { error: 'Unauthorized' }
 
   const db = createServiceRoleClient()
 

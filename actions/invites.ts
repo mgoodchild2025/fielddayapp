@@ -18,7 +18,7 @@ async function requireOrgAdmin() {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .single()
   if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
     return { error: 'Forbidden', org, db }
@@ -129,56 +129,6 @@ export async function getPickupInvites(leagueId: string) {
   return { data, error: null }
 }
 
-export async function checkPickupInvite(leagueId: string, userEmail: string) {
-  const db = createServiceRoleClient()
 
-  const { data } = await db
-    .from('pickup_invites')
-    .select('id')
-    .eq('league_id', leagueId)
-    .eq('email', userEmail.toLowerCase())
-    .eq('invite_type', 'season')
-    .in('status', ['pending', 'accepted'])
-    .maybeSingle()
 
-  return !!data
-}
 
-export async function checkDropInInvite(leagueId: string, userEmail: string) {
-  const db = createServiceRoleClient()
-
-  const { data } = await db
-    .from('pickup_invites')
-    .select('id')
-    .eq('league_id', leagueId)
-    .eq('email', userEmail.toLowerCase())
-    .eq('invite_type', 'drop_in')
-    .eq('status', 'pending')
-    .maybeSingle()
-
-  return !!data
-}
-
-export async function acceptPickupInvite(leagueId: string, userEmail: string) {
-  const db = createServiceRoleClient()
-
-  await db
-    .from('pickup_invites')
-    .update({ status: 'accepted' })
-    .eq('league_id', leagueId)
-    .eq('email', userEmail.toLowerCase())
-    .eq('invite_type', 'season')
-    .eq('status', 'pending')
-}
-
-export async function acceptDropInInvite(leagueId: string, userEmail: string) {
-  const db = createServiceRoleClient()
-
-  await db
-    .from('pickup_invites')
-    .update({ status: 'accepted' })
-    .eq('league_id', leagueId)
-    .eq('email', userEmail.toLowerCase())
-    .eq('invite_type', 'drop_in')
-    .eq('status', 'pending')
-}

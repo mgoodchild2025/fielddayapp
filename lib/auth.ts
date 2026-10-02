@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import type { OrgContext } from '@/lib/tenant'
+import { getCurrentOrg, type OrgContext } from '@/lib/tenant'
 
 export type OrgRole = 'org_admin' | 'league_admin' | 'captain' | 'player'
 
@@ -150,4 +150,27 @@ export async function requirePlatformAdmin(): Promise<{ userId: string; email: s
   if (profile?.platform_role !== 'platform_admin') throw new Error('Platform admin required')
 
   return { userId: user.id, email: user.email ?? null }
+}
+
+/**
+ * Guard for private data loaders exported from 'use server' files (each export
+ * there is a public endpoint that takes ids from its caller): the caller must
+ * be an active admin of the CURRENT org (proxy x-org-id); a passed orgId must
+ * be that org, and a passed leagueId must be one of its events. Throws —
+ * loaders return data, and pages render ErrorScreen.
+ */
+export async function requireCurrentOrgAdmin(
+  opts: { orgId?: string; leagueId?: string } = {},
+  allowedRoles: OrgRole[] = ['org_admin', 'league_admin'],
+): Promise<OrgContext> {
+  const org = await getCurrentOrg(await headers())
+  if (opts.orgId && opts.orgId !== org.id) throw new Error('Unauthorized')
+  const auth = await assertOrgAdmin(org, allowedRoles)
+  if (auth.error) throw new Error('Unauthorized')
+  if (opts.leagueId) {
+    const { data: league } = await createServiceRoleClient()
+      .from('leagues').select('id').eq('id', opts.leagueId).eq('organization_id', org.id).maybeSingle()
+    if (!league) throw new Error('Unauthorized')
+  }
+  return org
 }

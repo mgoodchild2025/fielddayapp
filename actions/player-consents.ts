@@ -6,6 +6,8 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { recordConsents } from '@/lib/consents'
+import { verifyUnsubscribeToken } from '@/lib/unsubscribe'
+import { assertOrgAdmin } from '@/lib/auth'
 
 // Types moved to lib/consents.ts; re-exported here so existing imports hold.
 export type { ConsentType, ConsentRow } from '@/lib/consents'
@@ -26,6 +28,21 @@ export async function consentRequestMeta(): Promise<{ ip: string | null; userAge
  */
 
 /**
+ * These per-player loaders are public endpoints (this is a 'use server'
+ * file): only the player themselves, or an active admin of the current org,
+ * may read a player's consent state — and only for the current org.
+ */
+async function assertSelfOrOrgAdmin(orgId: string, userId: string): Promise<void> {
+  const org = await getCurrentOrg(await headers())
+  if (orgId !== org.id) throw new Error('Unauthorized')
+  const { data: { user } } = await (await createServerClient()).auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+  if (user.id === userId) return
+  const auth = await assertOrgAdmin(org)
+  if (auth.error) throw new Error('Unauthorized')
+}
+
+/**
  * Current marketing opt-in state for a player within an org, derived from the
  * latest non-withdrawn ledger row per type. Per-tenant (CASL §10.3 isolation).
  */
@@ -33,6 +50,7 @@ export async function getMarketingConsent(
   orgId: string,
   userId: string
 ): Promise<{ email: boolean; sms: boolean }> {
+  await assertSelfOrOrgAdmin(orgId, userId)
   const db = createServiceRoleClient()
 
   const { data } = await db
@@ -113,6 +131,7 @@ export interface PendingReconsent {
  * consent in this org triggers a block.
  */
 export async function getPlayerPendingReconsent(orgId: string, userId: string): Promise<PendingReconsent | null> {
+  await assertSelfOrOrgAdmin(orgId, userId)
   const db = createServiceRoleClient()
 
   // Latest published privacy-policy version that requires reconsent
@@ -171,75 +190,18 @@ export async function acceptPlayerReconsent(versionId: string, versionLabel: str
   return { error: null }
 }
 
-/**
- * Batch marketing-consent lookup for the send layer. Returns the subset of the
- * given user ids who currently have email / SMS marketing consent in this org.
- */
-export async function getMarketingConsentBatch(
-  orgId: string,
-  userIds: string[]
-): Promise<{ email: Set<string>; sms: Set<string> }> {
-  const email = new Set<string>()
-  const sms = new Set<string>()
-  if (userIds.length === 0) return { email, sms }
 
-  const db = createServiceRoleClient()
-
-  const { data } = await db
-    .from('player_consents')
-    .select('user_id, consent_type, consent_given, withdrawn_at, consented_at')
-    .eq('organization_id', orgId)
-    .in('user_id', userIds)
-    .in('consent_type', ['marketing_email', 'marketing_sms'])
-    .order('consented_at', { ascending: false })
-
-  // Take the latest row per (user, type)
-  const seen = new Set<string>()
-  for (const r of (data ?? []) as { user_id: string; consent_type: string; consent_given: boolean; withdrawn_at: string | null }[]) {
-    const key = `${r.user_id}:${r.consent_type}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    if (r.consent_given && !r.withdrawn_at) {
-      if (r.consent_type === 'marketing_email') email.add(r.user_id)
-      else if (r.consent_type === 'marketing_sms') sms.add(r.user_id)
-    }
-  }
-  return { email, sms }
-}
-
-/**
- * All user ids in an org that currently have marketing-email consent (latest
- * non-withdrawn ledger row per user). Used by the outbound "advertise" audience.
- */
-export async function getMarketingOptInUserIds(orgId: string): Promise<string[]> {
-  const db = createServiceRoleClient()
-
-  const { data } = await db
-    .from('player_consents')
-    .select('user_id, consent_given, withdrawn_at, consented_at')
-    .eq('organization_id', orgId)
-    .eq('consent_type', 'marketing_email')
-    .order('consented_at', { ascending: false })
-
-  const seen = new Set<string>()
-  const optedIn: string[] = []
-  for (const r of (data ?? []) as { user_id: string; consent_given: boolean; withdrawn_at: string | null }[]) {
-    if (seen.has(r.user_id)) continue  // latest row per user wins
-    seen.add(r.user_id)
-    if (r.consent_given && !r.withdrawn_at) optedIn.push(r.user_id)
-  }
-  return optedIn
-}
 
 /**
  * One-click unsubscribe (from a commercial email link). Withdraws the active
- * marketing-email consent for a user in an org. No auth — gated by a signed token.
+ * marketing consent for a user in an org. No login — gated by the signed
+ * token, verified HERE (it used to take orgId/userId directly, so anyone
+ * could unsubscribe anyone).
  */
-export async function unsubscribeMarketing(
-  orgId: string,
-  userId: string,
-  type: 'marketing_email' | 'marketing_sms'
-): Promise<{ error: string | null }> {
+export async function unsubscribeMarketing(token: string): Promise<{ error: string | null }> {
+  const parsed = verifyUnsubscribeToken(token)
+  if (!parsed) return { error: 'Invalid link' }
+  const { orgId, userId, type } = parsed
   const db = createServiceRoleClient()
 
   const { data: active } = await db
@@ -261,6 +223,7 @@ export async function unsubscribeMarketing(
 
 /** Player-facing summary of accepted privacy/waiver consents (Legal Agreements view). */
 export async function getPlayerConsentSummary(orgId: string, userId: string) {
+  await assertSelfOrOrgAdmin(orgId, userId)
   const db = createServiceRoleClient()
 
   const { data } = await db

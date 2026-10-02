@@ -3,7 +3,7 @@ import { z } from 'zod'
 import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createServerClient } from '@/lib/supabase/server'
-import { getSeasonPassQuote } from '@/lib/season-pass'
+import { registrationBasePriceCents, applyDiscountCode } from '@/lib/registration-price'
 import { getOrgTaxRates, stripeTaxRateIds } from '@/lib/tax'
 import { canAccess } from '@/lib/features'
 import { createEnrollment } from '@/lib/payment-plans'
@@ -279,49 +279,17 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const isDropIn = registration?.registration_type === 'drop_in'
-  const earlyBirdActive = !isDropIn && league.early_bird_price_cents != null && league.early_bird_deadline != null && new Date() < new Date(league.early_bird_deadline)
-  let priceCents: number = isDropIn
-    ? (league.drop_in_price_cents ?? league.price_cents)
-    : (earlyBirdActive ? league.early_bird_price_cents : league.price_cents)
-
-  // Season pass on a drop-in event with proration on: the charge is the same
-  // quote the player was shown — full price scaled by remaining sessions,
-  // floored at the drop-in price. Computed server-side; never client-supplied.
-  let passQuoteLabel: string | null = null
-  if (!isDropIn && league.event_type === 'drop_in' && league.season_pass_prorate && priceCents > 0) {
-    const quote = await getSeasonPassQuote(db, orgId, leagueId, {
-      fullPriceCents: priceCents,
-      prorate: true,
-      floorCents: league.drop_in_price_cents ?? null,
-    })
-    priceCents = quote.priceCents
-    if (quote.prorated) passQuoteLabel = `Season pass — ${quote.remainingSessions} remaining session${quote.remainingSessions !== 1 ? 's' : ''}`
-  }
+  // One server-side price for card and offline payers (lib/registration-price.ts).
+  const base = await registrationBasePriceCents(db, orgId, leagueId, league, registration?.registration_type)
+  const isDropIn = base.isDropIn
+  let priceCents: number = base.priceCents
+  const passQuoteLabel = base.passQuoteLabel
+  const earlyBirdActive = base.earlyBirdActive
 
   // Apply discount server-side (re-validate to prevent price tampering)
-  let discountApplied: { id: string; type: string; value: number; cents: number } | null = null
-  if (discountId && priceCents > 0) {
-
-    const { data: discountRow } = await db2
-      .from('discount_codes')
-      .select('id, type, value, active, expires_at, max_uses, use_count, applies_to')
-      .eq('id', discountId)
-      .eq('organization_id', orgId)
-      .single()
-    if (
-      discountRow && discountRow.active &&
-      (!discountRow.expires_at || new Date(discountRow.expires_at) > new Date()) &&
-      (!discountRow.max_uses || discountRow.use_count < discountRow.max_uses) &&
-      (discountRow.applies_to === 'all' || discountRow.applies_to === (isDropIn ? 'dropins' : 'leagues'))
-    ) {
-      const reduction = discountRow.type === 'percent'
-        ? Math.round(priceCents * discountRow.value / 100)
-        : Math.min(discountRow.value * 100, priceCents)
-      priceCents = Math.max(0, priceCents - reduction)
-      discountApplied = { id: discountRow.id, type: discountRow.type, value: discountRow.value, cents: reduction }
-    }
-  }
+  const discounted = await applyDiscountCode(db2, orgId, discountId, priceCents, isDropIn ? 'dropins' : 'leagues')
+  priceCents = discounted.priceCents
+  const discountApplied = discounted.discount
 
   // Manual payment mode — skip Stripe entirely and return instructions to the client
   const isManualRegistration =

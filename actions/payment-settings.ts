@@ -23,7 +23,8 @@ export async function savePaymentSettings(input: { stripeSecretKey: string; stri
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  await requireOrgMember(org, ['org_admin', 'league_admin'])
+  // Money settings are org-admin only (CLAUDE.md: league admins never touch payments).
+  await requireOrgMember(org, ['org_admin'])
 
   const db = createServiceRoleClient()
 
@@ -114,7 +115,8 @@ export async function saveRegistrationPaymentSettings(input: {
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  await requireOrgMember(org, ['org_admin', 'league_admin'])
+  // Money settings are org-admin only (CLAUDE.md: league admins never touch payments).
+  await requireOrgMember(org, ['org_admin'])
 
   const db = createServiceRoleClient()
 
@@ -142,7 +144,8 @@ export async function saveRegistrationPaymentSettings(input: {
 export async function clearPaymentSettings() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
-  await requireOrgMember(org, ['org_admin', 'league_admin'])
+  // Money settings are org-admin only (CLAUDE.md: league admins never touch payments).
+  await requireOrgMember(org, ['org_admin'])
 
   const db = createServiceRoleClient()
   await db.from('org_payment_settings').delete().eq('organization_id', org.id)

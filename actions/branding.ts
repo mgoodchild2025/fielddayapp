@@ -49,7 +49,7 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
     .from('org_members')
     .select('role')
     .eq('organization_id', orgId)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .single()
 
   if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
@@ -194,7 +194,7 @@ export async function refreshDnsStatus(orgId: string): Promise<{ records: Railwa
     .from('org_members')
     .select('role')
     .eq('organization_id', orgId)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .single()
 
   if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
@@ -286,7 +286,7 @@ export async function updateCheckinSound(
     .from('org_members')
     .select('role')
     .eq('organization_id', orgId)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .single()
 
   if (!member || !['org_admin', 'league_admin'].includes(member.role)) {

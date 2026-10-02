@@ -2,7 +2,7 @@
 
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createServerClient } from '@/lib/supabase/server'
-import { requirePlatformAdmin } from '@/lib/auth'
+import { requirePlatformAdmin, requireCurrentOrgAdmin } from '@/lib/auth'
 import { writeAcceptanceRows } from '@/lib/tenant-consent'
 import { headers } from 'next/headers'
 
@@ -157,7 +157,13 @@ export async function getPendingReacceptance(orgId: string): Promise<PendingReac
 
 // ── Tenant-facing: read own acceptances ───────────────────────────────────────
 
+/** Org admins: their own org's accepted agreements. */
 export async function getOrgAcceptances(orgId: string): Promise<TenantAcceptance[]> {
+  await requireCurrentOrgAdmin({ orgId })
+  return loadOrgAcceptances(orgId)
+}
+
+async function loadOrgAcceptances(orgId: string): Promise<TenantAcceptance[]> {
   const db = createServiceRoleClient()
 
 
@@ -182,7 +188,7 @@ export async function getOrgAcceptances(orgId: string): Promise<TenantAcceptance
 
 export async function getOrgAcceptancesAdmin(orgId: string): Promise<TenantAcceptance[]> {
   await requirePlatformAdmin()
-  return getOrgAcceptances(orgId)
+  return loadOrgAcceptances(orgId) // platform admin already checked above
 }
 
 export async function searchAcceptances({
@@ -286,7 +292,7 @@ export async function submitReacceptance(
       .from('org_members')
       .select('role')
       .eq('organization_id', orgId)
-      .eq('user_id', user.id)
+      .eq('user_id', user.id).eq('status', 'active')
       .single()
 
     if (!member || member.role !== 'org_admin') {

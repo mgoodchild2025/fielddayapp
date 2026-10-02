@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createServerClient } from '@/lib/supabase/server'
-import { requireOrgMember } from '@/lib/auth'
+import { requireOrgMember, requireCurrentOrgAdmin } from '@/lib/auth'
 import { MAX_MESSAGE_CHARS } from '@/lib/notification-settings-constants'
 import { getResend, FROM_EMAIL } from '@/lib/resend'
 import { buildCaptainPrepEmail, sampleCaptainPrepData } from '@/lib/emails/captain-prep'
@@ -52,6 +52,7 @@ type OrgSmsReminderRow = {
 }
 
 export async function getNotificationSettings(): Promise<NotificationSettings> {
+  await requireCurrentOrgAdmin()
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()

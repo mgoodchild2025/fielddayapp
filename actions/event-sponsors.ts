@@ -314,6 +314,10 @@ export async function removeEventSponsorAd(id: string, leagueId: string): Promis
 export async function recordSponsorImpressions(orgId: string, leagueId: string, keys: string[]): Promise<void> {
   if (!keys.length) return
   try {
+    // Public by design (TV displays have no login), so keep it dull: only the
+    // current org's stats, and a sane cap on how many sponsors one call bumps.
+    const org = await getCurrentOrg(await headers())
+    if (orgId !== org.id || keys.length > 50) return
     const db = createServiceRoleClient()
 
     await db.rpc('bump_sponsor_stats', { p_org: orgId, p_league: leagueId, p_keys: keys, p_kind: 'impression' })

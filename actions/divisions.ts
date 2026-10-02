@@ -14,6 +14,10 @@ export async function createDivision(leagueId: string, name: string) {
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
   const db = createServiceRoleClient()
+  // The event must be this org's (else a division gets attached to someone
+  // else's event).
+  const { data: ownLeague } = await db.from('leagues').select('id').eq('id', leagueId).eq('organization_id', org.id).maybeSingle()
+  if (!ownLeague) return { error: 'Event not found' }
 
   const { data: existing } = await db
     .from('divisions')
@@ -75,6 +79,10 @@ export async function setTeamDivision(
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
   const db = createServiceRoleClient()
+  if (divisionId) {
+    const { data: ownDivision } = await db.from('divisions').select('id').eq('id', divisionId).eq('organization_id', org.id).maybeSingle()
+    if (!ownDivision) return { error: 'Division not found' }
+  }
   const { error } = await db
     .from('teams')
     .update({ division_id: divisionId })
