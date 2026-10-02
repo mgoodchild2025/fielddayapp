@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, X, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import { eventStatusTone } from '@/components/ui/status-chip'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -164,16 +165,11 @@ function getActiveLeaguesForDay(
 // ── Status badge ──────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    active:            'bg-blue-100 text-blue-700',
-    registration_open: 'bg-green-100 text-green-700',
-    completed:         'bg-gray-100 text-gray-600',
-  }
   const labels: Record<string, string> = {
     active: 'In Season', registration_open: 'Open', completed: 'Completed',
   }
   return (
-    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${map[status] ?? 'bg-gray-100 text-gray-600'}`}>
+    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${eventStatusTone(status)}`}>
       {labels[status] ?? status}
     </span>
   )

@@ -7,14 +7,7 @@ import { EventAdminTabs } from '@/components/layout/event-admin-tabs'
 import { getEnforcementState } from '@/lib/billing'
 import { canAccess } from '@/lib/features'
 import { FrozenLeagueBanner } from '@/components/billing/frozen-league-banner'
-
-const statusColors: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-600',
-  registration_open: 'bg-green-100 text-green-700',
-  active: 'bg-blue-100 text-blue-700',
-  completed: 'bg-purple-100 text-purple-700',
-  archived: 'bg-gray-100 text-gray-400',
-}
+import { StatusChip } from '@/components/ui/status-chip'
 
 export default async function EventAdminLayout({
   children,
@@ -63,9 +56,7 @@ export default async function EventAdminLayout({
         </Link>
         <div className="flex items-center gap-3 mt-1">
           <h1 className="text-xl sm:text-2xl font-bold">{league.name}</h1>
-          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[league.status] ?? 'bg-gray-100 text-gray-600'}`}>
-            {league.status.replace(/_/g, ' ')}
-          </span>
+          <StatusChip kind="event" status={league.status} />
         </div>
       </div>
       <div className="print:hidden">

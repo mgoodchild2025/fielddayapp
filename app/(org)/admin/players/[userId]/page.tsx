@@ -13,6 +13,7 @@ import { CollapsiblePast } from '@/components/players/collapsible-past'
 import { removePlayerFromLeague, removePlayerFromTeam } from '@/actions/players'
 import { getMarketingConsent, getPlayerConsentSummary } from '@/actions/player-consents'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
+import { eventStatusTone } from '@/components/ui/status-chip'
 
 const PAST_STATUSES = new Set(['completed', 'archived'])
 
@@ -28,14 +29,6 @@ const regStatusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
   withdrawn: 'bg-red-100 text-red-600',
   waitlisted: 'bg-orange-100 text-orange-700',
-}
-
-const leagueStatusColors: Record<string, string> = {
-  registration_open: 'bg-green-100 text-green-700',
-  active: 'bg-blue-100 text-blue-700',
-  completed: 'bg-gray-100 text-gray-500',
-  archived: 'bg-gray-100 text-gray-400',
-  draft: 'bg-gray-100 text-gray-400',
 }
 
 const leagueStatusLabels: Record<string, string> = {
@@ -350,7 +343,7 @@ export default async function PlayerManagementPage({
                             <span className="text-sm font-medium">{league?.name ?? '—'}</span>
                             {/* League lifecycle status */}
                             {league?.status && (
-                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${leagueStatusColors[league.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${eventStatusTone(league.status)}`}>
                                 {leagueStatusLabels[league.status] ?? league.status}
                               </span>
                             )}
@@ -434,7 +427,7 @@ export default async function PlayerManagementPage({
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-medium">{league?.name ?? '—'}</span>
                             {(league as { status?: string } | null)?.status && (
-                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${leagueStatusColors[(league as { status?: string }).status!] ?? 'bg-gray-100 text-gray-500'}`}>
+                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${eventStatusTone((league as { status?: string }).status ?? '')}`}>
                                 {leagueStatusLabels[(league as { status?: string }).status!] ?? (league as { status?: string }).status}
                               </span>
                             )}

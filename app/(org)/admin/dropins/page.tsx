@@ -4,13 +4,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import Link from 'next/link'
-
-const STATUS_STYLES: Record<string, string> = {
-  open: 'bg-green-100 text-green-700',
-  full: 'bg-yellow-100 text-yellow-700',
-  cancelled: 'bg-red-100 text-red-600',
-  completed: 'bg-gray-100 text-gray-600',
-}
+import { StatusChip } from '@/components/ui/status-chip'
 
 export default async function AdminDropInsPage() {
   const headersList = await headers()
@@ -79,9 +73,7 @@ export default async function AdminDropInsPage() {
                     <td className="px-5 py-3 text-sm text-gray-500">{s.location ?? '—'}</td>
                     <td className="px-5 py-3 text-sm text-gray-700">{regCount} / {s.capacity}</td>
                     <td className="px-5 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_STYLES[s.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                        {s.status}
-                      </span>
+                      <StatusChip status={s.status} />
                     </td>
                     <td className="px-5 py-3 text-right">
                       <Link href={`/admin/dropins/${s.id}`} className="text-sm font-medium text-blue-600 hover:underline">

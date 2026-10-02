@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { DeleteEventRowButton } from '@/components/events/delete-event-row-button'
 import { EventAvatar } from '@/components/ui/event-avatar'
 import { formatEventPrice } from '@/lib/event-price'
-import { StatusChip } from '@/components/ui/status-chip'
+import { StatusChip, eventStatusLabel } from '@/components/ui/status-chip'
 
 type League = {
   id: string
@@ -37,14 +37,6 @@ const eventTypeLabels: Record<string, string> = {
   tournament: 'Tournament',
   pickup: 'Pickup',
   drop_in: 'Drop-in',
-}
-
-const statusLabels: Record<string, string> = {
-  draft: 'Draft',
-  registration_open: 'Open',
-  active: 'Active',
-  completed: 'Completed',
-  archived: 'Archived',
 }
 
 export function EventsTable({ leagues }: { leagues: League[] }) {
@@ -103,7 +95,7 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
         >
           <option value="all">All statuses</option>
           {statuses.map(s => (
-            <option key={s} value={s}>{statusLabels[s] ?? s}</option>
+            <option key={s} value={s}>{eventStatusLabel(s)}</option>
           ))}
         </select>
         {hasFilters && (
@@ -152,7 +144,7 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <StatusChip status={league.status} label={statusLabels[league.status] ?? league.status} />
+                    <StatusChip kind="event" status={league.status} />
                   </td>
                   <td className="px-4 py-3 text-gray-500">{league.venue_name ?? '—'}</td>
                   <td className="px-4 py-3">
@@ -211,7 +203,7 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${eventTypeColors[league.event_type ?? 'league'] ?? 'bg-gray-100 text-gray-600'}`}>
                   {eventTypeLabels[league.event_type ?? 'league'] ?? league.event_type}
                 </span>
-                <StatusChip status={league.status} label={statusLabels[league.status] ?? league.status} />
+                <StatusChip kind="event" status={league.status} />
               </div>
 
               {/* Secondary details */}

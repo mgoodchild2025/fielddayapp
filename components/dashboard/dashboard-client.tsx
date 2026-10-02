@@ -341,7 +341,8 @@ function GameHero({
           <div className="flex items-center gap-2">
             <button
               onClick={() => onRsvp('out')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+              aria-pressed={myRsvp === 'out'}
+              className={`press min-h-10 px-3.5 rounded-lg text-sm font-semibold border ${
                 myRsvp === 'out'
                   ? 'bg-red-50 border-red-200 text-red-600'
                   : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
@@ -351,7 +352,8 @@ function GameHero({
             </button>
             <button
               onClick={() => onRsvp('in')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              aria-pressed={myRsvp === 'in'}
+              className={`press min-h-10 px-3.5 rounded-lg text-sm font-semibold ${
                 myRsvp === 'in' ? 'opacity-100' : 'opacity-70 hover:opacity-100'
               } text-white`}
               style={{ backgroundColor: 'var(--brand-primary)' }}
@@ -417,7 +419,8 @@ function SameDayGameRow({
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={() => onRsvp('out')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
+            aria-pressed={myRsvp === 'out'}
+            className={`press min-h-10 min-w-12 px-3 rounded-lg text-sm font-semibold border ${
               myRsvp === 'out' ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
             }`}
           >
@@ -425,7 +428,8 @@ function SameDayGameRow({
           </button>
           <button
             onClick={() => onRsvp('in')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold text-white transition-all ${myRsvp === 'in' ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
+            aria-pressed={myRsvp === 'in'}
+            className={`press min-h-10 min-w-12 px-3 rounded-lg text-sm font-semibold text-white ${myRsvp === 'in' ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
             style={{ backgroundColor: 'var(--brand-primary)' }}
           >
             {myRsvp === 'in' ? '✓ In' : 'In'}
