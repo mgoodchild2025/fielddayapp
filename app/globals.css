@@ -239,6 +239,22 @@ a,
   }
 }
 
+/* ── Scoreboard gesture feedback (components/scoreboard/scoreboard-app.tsx) ─
+   The "−1" swipe hint firms up once a release would count; the hold ring
+   fills over the last 350ms of the 550ms long-press (it appears at 200ms so
+   ordinary taps never flash it). Reduced motion: the ring shows complete
+   instead of sweeping. */
+.sb-swipe-hint { background: rgb(0 0 0 / 0.25); transition: opacity 80ms linear, background-color 120ms ease, scale 120ms var(--ease-snap); }
+/* `scale`, not transform: the -translate-x-1/2 centring uses the translate property. */
+.sb-swipe-hint[data-armed="true"] { background: rgb(0 0 0 / 0.55); scale: 1.08; }
+.sb-hold-ring { opacity: 0; transition: opacity 120ms ease; }
+.sb-hold-ring .sb-hold-ring__arc { stroke-dashoffset: 100; }
+.sb-hold-ring[data-state="filling"] { opacity: 1; }
+.sb-hold-ring[data-state="filling"] .sb-hold-ring__arc { stroke-dashoffset: 0; transition: stroke-dashoffset 350ms linear; }
+@media (prefers-reduced-motion: reduce) {
+  .sb-hold-ring[data-state="filling"] .sb-hold-ring__arc { transition: none; }
+}
+
 /* ── Menus & popovers ───────────────────────────────────────────────────────
    `fd-pop` on a dropdown panel: it grows out of its trigger (pair it with an
    origin-* utility for the corner nearest the button) in 150ms, and closes

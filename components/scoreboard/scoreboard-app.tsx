@@ -7,6 +7,7 @@ import { submitScore, adminSetScore } from '@/actions/scores'
 import { recordBracketScore } from '@/actions/brackets'
 import { logScoreboardInstall, logScoreboardLaunch } from '@/actions/scoreboard-metrics'
 import { detectPlatform, getDeviceId, isStandaloneLaunch } from '@/lib/scoreboard-device'
+import { rubberband } from '@/lib/drag-physics'
 
 // ── Fieldday Scoreboard ────────────────────────────────────────────────────────
 // A standalone, offline-capable scoreboard: tap a panel to +1, swipe down to −1.
@@ -304,11 +305,11 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       if (d === 1) {
         setFlash(team)
         setTimeout(() => setFlash(null), 180)
-        try {
-          navigator.vibrate?.(30)
-        } catch {
-          // iOS Safari has no vibration API
-        }
+      }
+      try {
+        navigator.vibrate?.(d === 1 ? 30 : 15)
+      } catch {
+        // iOS Safari has no vibration API
       }
     },
     [matchWinner, push]
@@ -316,6 +317,72 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
 
   // ── Panel gestures: tap = +1, swipe down = −1, long-press = edit team ──────
   const gesture = useRef<{ id: number; y: number; x: number; ts: number; team: 'A' | 'B'; longPress: ReturnType<typeof setTimeout>; consumed: boolean } | null>(null)
+
+  // ── Live feedback while a finger is down (visual only — scoring is still
+  // decided in onPointerUp, unchanged). Apple's rule: respond on touch-down,
+  // track continuously, hint where the gesture is going. Written straight to
+  // the DOM through refs so a drag doesn't re-render the whole board.
+  //   shade — the panel darkens the instant it's touched
+  //   num   — the score follows a downward swipe (1:1 to the threshold, then
+  //           rubber-bands), springing back if released short
+  //   hint  — "−1" fades in with the pull and firms up once it will count
+  //   ring  — fills at the finger during a hold, completing at the long-press
+  const SWIPE_COMMIT = 40
+  type Fx = { shade: HTMLDivElement | null; num: HTMLParagraphElement | null; hint: HTMLDivElement | null; ring: HTMLDivElement | null; ringTimer?: ReturnType<typeof setTimeout>; armed?: boolean }
+  const fx = useRef<Record<'A' | 'B', Fx>>({ A: { shade: null, num: null, hint: null, ring: null }, B: { shade: null, num: null, hint: null, ring: null } })
+  const reduceMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  const pressFx = (team: 'A' | 'B', e: React.PointerEvent) => {
+    const f = fx.current[team]
+    if (f.shade) { f.shade.style.transition = 'none'; f.shade.style.opacity = '1' }
+    f.armed = false
+    clearTimeout(f.ringTimer)
+    const ring = f.ring
+    if (ring) {
+      const box = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      ring.style.left = `${e.clientX - box.left}px`
+      ring.style.top = `${e.clientY - box.top}px`
+      ring.dataset.state = 'idle'
+      // Only a deliberate hold shows the ring — a tap is over long before this.
+      f.ringTimer = setTimeout(() => { ring.dataset.state = 'filling' }, 200)
+    }
+  }
+
+  const dragFx = (team: 'A' | 'B', dy: number, dx: number) => {
+    const f = fx.current[team]
+    if (Math.abs(dy) > 12 || dx > 12) {
+      clearTimeout(f.ringTimer)
+      if (f.ring) f.ring.dataset.state = 'idle'
+    }
+    const pulling = dy > 0 && dy > dx
+    const pull = pulling ? (dy <= SWIPE_COMMIT ? dy : SWIPE_COMMIT + rubberband(dy - SWIPE_COMMIT, 240)) : 0
+    if (f.num && !reduceMotion()) {
+      f.num.style.transition = 'none'
+      f.num.style.transform = `translateY(${pull}px)`
+    }
+    const willCount = pulling && dy > SWIPE_COMMIT
+    if (f.hint) {
+      f.hint.style.opacity = String(pulling ? Math.min(1, dy / SWIPE_COMMIT) : 0)
+      f.hint.dataset.armed = willCount ? 'true' : 'false'
+    }
+    if (willCount && !f.armed) {
+      try { navigator.vibrate?.(8) } catch {}
+    }
+    f.armed = willCount
+  }
+
+  const releaseFx = (team: 'A' | 'B') => {
+    const f = fx.current[team]
+    clearTimeout(f.ringTimer)
+    if (f.ring) f.ring.dataset.state = 'idle'
+    if (f.shade) { f.shade.style.transition = 'opacity 200ms ease-out'; f.shade.style.opacity = '0' }
+    if (f.num) {
+      f.num.style.transition = 'transform 300ms cubic-bezier(0.32, 0.72, 0, 1)'
+      f.num.style.transform = ''
+    }
+    if (f.hint) { f.hint.style.opacity = '0'; f.hint.dataset.armed = 'false' }
+    f.armed = false
+  }
 
   const onPointerDown = (team: 'A' | 'B') => (e: React.PointerEvent) => {
     if (gesture.current) {
@@ -335,6 +402,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       }
     }, 550)
     gesture.current = { id: e.pointerId, y: e.clientY, x: e.clientX, ts: Date.now(), team, longPress, consumed: false }
+    pressFx(team, e)
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -342,6 +410,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     if (!g || g.id !== e.pointerId) return
     // Real movement cancels the long-press
     if (Math.abs(e.clientY - g.y) > 12 || Math.abs(e.clientX - g.x) > 12) clearTimeout(g.longPress)
+    if (!g.consumed) dragFx(g.team, e.clientY - g.y, Math.abs(e.clientX - g.x))
   }
 
   const onPointerUp = (e: React.PointerEvent) => {
@@ -349,6 +418,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     if (!g || g.id !== e.pointerId) return
     clearTimeout(g.longPress)
     gesture.current = null
+    releaseFx(g.team)
     if (g.consumed) return
     const dy = e.clientY - g.y
     const dx = Math.abs(e.clientX - g.x)
@@ -360,7 +430,10 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   }
 
   const onPointerCancel = () => {
-    if (gesture.current) clearTimeout(gesture.current.longPress)
+    if (gesture.current) {
+      clearTimeout(gesture.current.longPress)
+      releaseFx(gesture.current.team)
+    }
     gesture.current = null
   }
 
@@ -554,18 +627,30 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
         onPointerCancel={onPointerCancel}
         onContextMenu={(e) => e.preventDefault()}
       >
+        {/* Touch-down shade, swipe hint and hold ring — driven by pressFx /
+            dragFx / releaseFx; purely visual, hidden from assistive tech. */}
+        <div ref={(el) => { fx.current[team].shade = el }} aria-hidden="true" className="pointer-events-none absolute inset-0 bg-black/15 opacity-0" />
+        <div ref={(el) => { fx.current[team].hint = el }} aria-hidden="true" data-armed="false" className="sb-swipe-hint pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 opacity-0 rounded-full px-4 py-1.5 text-lg font-bold tabular-nums text-white">
+          −1
+        </div>
+        <div ref={(el) => { fx.current[team].ring = el }} aria-hidden="true" data-state="idle" className="sb-hold-ring pointer-events-none absolute w-20 h-20 -ml-10 -mt-10">
+          <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
+            <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="5" />
+            <circle className="sb-hold-ring__arc" cx="40" cy="40" r="34" fill="none" stroke="white" strokeWidth="5" strokeLinecap="round" pathLength="100" strokeDasharray="100" />
+          </svg>
+        </div>
         <p className="text-white/85 font-bold uppercase tracking-[0.14em] text-sm sm:text-base px-4 text-center truncate max-w-full">
           {meta.name}
         </p>
-        <p
-          className="text-white font-bold leading-none tabular-nums transition-transform duration-150"
-          style={{
-            fontSize: 'min(34vh, 38vw)',
-            transform: flash === team ? 'scale(1.06)' : 'scale(1)',
-            textShadow: '0 4px 24px rgba(0,0,0,0.35)',
-          }}
-        >
-          {pts}
+        {/* The outer <p> carries the swipe offset (direct style writes); the
+            inner span keeps the +1 pulse, so the two transforms never fight. */}
+        <p ref={(el) => { fx.current[team].num = el }} className="text-white font-bold leading-none tabular-nums" style={{ fontSize: 'min(34vh, 38vw)' }}>
+          <span
+            className="inline-block transition-transform duration-150"
+            style={{ transform: flash === team ? 'scale(1.06)' : 'scale(1)', textShadow: '0 4px 24px rgba(0,0,0,0.35)' }}
+          >
+            {pts}
+          </span>
         </p>
         {game.config.mode === 'sets' && won > 0 && (
           <div className="flex gap-1.5 mt-1" aria-label={`${won} sets won`}>

@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useDragDismiss } from './use-drag-dismiss'
 
 /**
  * The one overlay: modals, mobile bottom sheets, and side drawers.
@@ -15,6 +16,10 @@ import { createPortal } from 'react-dom'
  * @starting-style (browsers without it simply skip the entrance); exits play
  * before unmount and run faster than entrances. Reduced motion keeps the fade
  * and drops the movement.
+ *
+ * Sheets (on phones) can be dragged down to dismiss and drawers swiped right
+ * (see use-drag-dismiss.ts): 1:1 tracking, rubber-banding, and a flick that
+ * projects past half way closes it.
  *
  * Behaviour every overlay needs and used to hand-roll: portal to <body>,
  * backdrop click + Escape to close, page scroll lock, focus moved in on open
@@ -75,8 +80,18 @@ export function Overlay({
   }, [open, mounted])
 
   const panelRef = useRef<HTMLDivElement>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   useEffect(() => { onCloseRef.current = onClose })
+  const dismiss = useCallback(() => onCloseRef.current(), [])
+
+  useDragDismiss({
+    panelRef,
+    backdropRef,
+    axis: variant === 'drawer' ? 'right' : 'down',
+    enabled: open && mounted && variant !== 'modal',
+    onDismiss: dismiss,
+  })
 
   // Scroll lock, Escape, focus in/out, Tab trap — only while open.
   useEffect(() => {
@@ -87,6 +102,11 @@ export function Overlay({
     stack.push(id)
 
     const panel = panelRef.current
+    // Re-opened mid-exit after a drag-dismiss: drop the drag's inline styles
+    // so the open state's transform applies again.
+    if (panel) { panel.style.transform = ''; panel.style.transition = '' }
+    if (backdropRef.current) { backdropRef.current.style.opacity = ''; backdropRef.current.style.transition = '' }
+
     const first = panel?.querySelector<HTMLElement>('[data-autofocus]')
     ;(first ?? panel)?.focus({ preventScroll: true })
 
@@ -125,6 +145,7 @@ export function Overlay({
       style={zIndex !== undefined ? { zIndex } : undefined}
     >
       <div
+        ref={backdropRef}
         className="fd-overlay__backdrop"
         aria-hidden="true"
         onClick={closeOnBackdrop ? onClose : undefined}
