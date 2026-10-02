@@ -35,13 +35,13 @@ if (typeof window !== 'undefined') {
 
 export function undoableRemove(opts: { label: string; restore: () => void; commit: Commit; onCommitted?: () => void }) {
   let settled = false
-  let toastId: string | number | undefined
+  const shown: { id?: string | number } = {}
   const run = async () => {
     if (settled) return
     settled = true
     pending.delete(run)
     // Flushed early (pagehide): retire the toast so a stale Undo can't show.
-    if (toastId !== undefined) toast.dismiss(toastId)
+    if (shown.id !== undefined) toast.dismiss(shown.id)
     try {
       const res = await opts.commit()
       const error = res && typeof res === 'object' && 'error' in res ? (res as { error?: string | null }).error : null
@@ -58,7 +58,7 @@ export function undoableRemove(opts: { label: string; restore: () => void; commi
   }
   pending.add(run)
 
-  toastId = toast(opts.label, {
+  shown.id = toast(opts.label, {
     duration: UNDO_MS,
     action: {
       label: 'Undo',
