@@ -1,5 +1,4 @@
 import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
@@ -7,6 +6,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { DataExportButton, DeleteAccountSection } from '@/components/profile/privacy-controls'
+import { redirectToLogin } from '@/lib/auth'
 
 export default async function PrivacyPage() {
   const headersList = await headers()
@@ -15,7 +15,7 @@ export default async function PrivacyPage() {
   const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
 
   const { data: branding } = await db

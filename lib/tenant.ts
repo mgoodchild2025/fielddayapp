@@ -23,3 +23,17 @@ export const getCurrentOrg = cache(async (headersList: ReadonlyHeaders): Promise
 
   return data
 })
+
+/**
+ * The org's display timezone (org_branding.timezone, default America/Toronto).
+ * Server components render in UTC, so any time they print must be formatted
+ * in this zone — e.g. formatGameTime(iso, await getOrgTimezone(org.id)).
+ */
+export const getOrgTimezone = cache(async (orgId: string): Promise<string> => {
+  const { data } = await createServiceRoleClient()
+    .from('org_branding')
+    .select('timezone')
+    .eq('organization_id', orgId)
+    .maybeSingle()
+  return data?.timezone ?? 'America/Toronto'
+})

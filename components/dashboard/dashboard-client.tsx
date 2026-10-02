@@ -24,6 +24,7 @@ import {
 import { upsertRsvp } from '@/actions/rsvp'
 import Image from 'next/image'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
+import { toast } from 'sonner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -607,6 +608,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
     startTransition(async () => {
       const result = await upsertRsvp(gameId, teamId, status)
       if (result.error) {
+        toast.error("Couldn't save your RSVP. Check your connection and try again.", { id: 'rsvp-error' })
         setMyRsvp(prev)
         setRsvpIn((n)  => status === 'in'  ? Math.max(0, n - 1) : prev === 'in'  ? n + 1 : n)
         setRsvpOut((n) => status === 'out' ? Math.max(0, n - 1) : prev === 'out' ? n + 1 : n)
@@ -621,7 +623,11 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
     setSameDayRsvp((s) => ({ ...s, [game.id]: transitionRsvp(cur, status) }))
     startTransition(async () => {
       const res = await upsertRsvp(game.id, game.teamId, status)
-      if (res.error) setSameDayRsvp((s) => ({ ...s, [game.id]: cur }))
+      if (res.error) {
+        setSameDayRsvp((s) => ({ ...s, [game.id]: cur }))
+        // Same id as the hero's error, so a cascade failure shows one toast.
+        toast.error("Couldn't save your RSVP. Check your connection and try again.", { id: 'rsvp-error' })
+      }
     })
   }
 

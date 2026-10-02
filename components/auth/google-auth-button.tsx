@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { safeRelativePath } from '@/lib/safe-redirect'
 
 interface Props {
   redirectTo?: string
@@ -18,7 +19,7 @@ export function GoogleAuthButton({ redirectTo, label = 'Continue with Google' }:
     // let the callback compute the right destination by org context + role
     // (org → /dashboard, platform admin → /super, org-less → /choose-org).
     // Hardcoding /dashboard here breaks apex/platform logins.
-    const next = redirectTo && redirectTo.startsWith('/') ? redirectTo : null
+    const next = safeRelativePath(redirectTo)
     // Carry the post-login destination in a short-lived cookie rather than as a
     // query string on the OAuth redirectTo. A query on redirectTo can fail
     // Supabase's redirect-allowlist match, which bounces the callback to the

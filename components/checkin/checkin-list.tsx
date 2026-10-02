@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { undoCheckIn, manualSessionCheckIn, undoSessionCheckIn, checkInByToken } from '@/actions/checkin'
+import { toast } from 'sonner'
 
 interface Registration {
   id: string                      // registration.id (event-level)
@@ -83,17 +84,24 @@ export function CheckInList({ registrations, leagueId, timezone, sessionId }: Pr
       const result = sessionId && reg.sessionRegistrationId
         ? await undoSessionCheckIn(reg.sessionRegistrationId, leagueId)
         : await undoCheckIn(reg.id, leagueId)
-      if (result?.error) revertToggle(key, original, useId)
+      if (result?.error) {
+        revertToggle(key, original, useId)
+        toast.error(`Couldn't undo ${reg.playerName}'s check-in. Try again.`)
+      }
     } else {
       // Check in
       if (sessionId && reg.sessionRegistrationId) {
         const result = await manualSessionCheckIn(reg.sessionRegistrationId, leagueId)
-        if (result?.error) revertToggle(key, original, useId)
+        if (result?.error) {
+          revertToggle(key, original, useId)
+          toast.error(`Couldn't check in ${reg.playerName}. Try again.`)
+        }
       } else {
         // Registration-flow drop-in or event-level: use checkin token (updates registrations table)
         const result = await checkInByToken(reg.checkinToken, leagueId)
         if (result.status !== 'success' && result.status !== 'already_checked_in') {
           revertToggle(key, original, useId)
+          toast.error(`Couldn't check in ${reg.playerName}. Try again.`)
         }
       }
     }

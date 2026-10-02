@@ -2,12 +2,13 @@
 
 import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { safeRelativePath } from '@/lib/safe-redirect'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
 function isSafe(url: string): boolean {
   if (!url) return false
-  if (url.startsWith('/')) return true
+  if (url.startsWith('/')) return safeRelativePath(url) !== null
   try {
     const u = new URL(url)
     return u.hostname === PLATFORM_DOMAIN || u.hostname.endsWith(`.${PLATFORM_DOMAIN}`)

@@ -9,6 +9,7 @@ import { toE164 } from '@/lib/twilio'
 import { z } from 'zod'
 import { optionalPhone } from '@/lib/validation'
 import { createRateLimiter } from '@/lib/rate-limit'
+import { safeRelativePath } from '@/lib/safe-redirect'
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 
@@ -103,7 +104,7 @@ export async function login(input: { email: string; password: string; redirectTo
   const orgId = headersList.get('x-org-id')
 
   // Only allow relative paths to prevent open redirect
-  const safeRedirect = input.redirectTo?.startsWith('/') ? input.redirectTo : '/dashboard'
+  const safeRedirect = safeRelativePath(input.redirectTo) ?? '/dashboard'
 
   let destination: string
   if (orgId) {
@@ -152,7 +153,7 @@ export async function signUp(input: { email: string; password: string; fullName:
   const headersList = await headers()
   const origin = getPublicOrigin(headersList) // real public domain (org subdomain, etc.)
 
-  const safeRedirect = input.redirectTo?.startsWith('/') ? input.redirectTo : ''
+  const safeRedirect = safeRelativePath(input.redirectTo) ?? ''
 
   // Use app.PLATFORM_DOMAIN as the stable callback host for the redirectTo
   // option. admin.generateLink() stores no PKCE code_challenge, so Supabase's

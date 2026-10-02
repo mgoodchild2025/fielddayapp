@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { getCurrentOrg } from '@/lib/tenant'
+import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -15,6 +15,7 @@ export default async function AdminDropInDetailPage({
   const { id } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const timeZone = await getOrgTimezone(org.id)
   const supabase = createServiceRoleClient()
 
   const [sessionRes, regsRes] = await Promise.all([
@@ -49,7 +50,7 @@ export default async function AdminDropInDetailPage({
           <Link href="/admin/dropins" className="text-sm text-gray-400 hover:text-gray-600 mb-2 inline-block">← Drop-in Sessions</Link>
           <h1 className="text-2xl font-bold">{session.name}</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {new Date(session.scheduled_at).toLocaleString('en-CA', { weekday: 'short', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            {new Date(session.scheduled_at).toLocaleString('en-CA', { weekday: 'short', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone })}
             {session.location && ` · ${session.location}`}
           </p>
         </div>

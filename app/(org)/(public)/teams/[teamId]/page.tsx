@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
@@ -28,6 +28,7 @@ import { getRosterNotes } from '@/actions/roster-notes'
 import { TeamTutorial } from '@/components/teams/team-tutorial'
 import Link from 'next/link'
 import { CalendarDays, BarChart3 } from 'lucide-react'
+import { redirectToLogin } from '@/lib/auth'
 
 export default async function TeamDetailPage({
   params,
@@ -43,7 +44,7 @@ export default async function TeamDetailPage({
 
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
   const db = createServiceRoleClient()
 

@@ -1,5 +1,4 @@
 import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
@@ -14,6 +13,7 @@ import { ProfileForm } from './profile-form'
 import { MfaSettings } from '@/components/profile/mfa-settings'
 import { PushSettingsCard } from '@/components/pwa/push-settings-card'
 import { getMfaStatus } from '@/lib/mfa'
+import { redirectToLogin } from '@/lib/auth'
 
 export default async function ProfilePage() {
   const headersList = await headers()
@@ -22,7 +22,7 @@ export default async function ProfilePage() {
   const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
   const [{ data: profile }, { data: playerDetails }, { data: branding }, mfa] = await Promise.all([
 

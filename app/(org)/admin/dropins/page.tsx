@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { getCurrentOrg } from '@/lib/tenant'
+import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
@@ -9,6 +9,7 @@ import { StatusChip } from '@/components/ui/status-chip'
 export default async function AdminDropInsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const timeZone = await getOrgTimezone(org.id)
 
   if (!await canAccess(org.id, 'drop_in_sessions')) {
     return (
@@ -68,7 +69,7 @@ export default async function AdminDropInsPage() {
                   <tr key={s.id} className="hover:bg-gray-50">
                     <td className="px-5 py-3 font-medium text-gray-900">{s.name}</td>
                     <td className="px-5 py-3 text-sm text-gray-600 whitespace-nowrap">
-                      {new Date(s.scheduled_at).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      {new Date(s.scheduled_at).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone })}
                     </td>
                     <td className="px-5 py-3 text-sm text-gray-500">{s.location ?? '—'}</td>
                     <td className="px-5 py-3 text-sm text-gray-700">{regCount} / {s.capacity}</td>

@@ -6,6 +6,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgDataControls, type RetentionLog } from '@/components/settings/org-data-controls'
 import { OrgExportControls } from '@/components/settings/org-export-controls'
 import { OrgMediaExport } from '@/components/settings/org-media-export'
+import { redirectToLogin } from '@/lib/auth'
 
 const EXPORT_WINDOW_DAYS = 30
 
@@ -18,7 +19,7 @@ export default async function AdminDataPage() {
   const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
 
   const { data: member } = await db

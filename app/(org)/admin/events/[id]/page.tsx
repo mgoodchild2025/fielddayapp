@@ -1,7 +1,7 @@
 import { formatDateOnly } from '@/lib/format-time'
 import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
-import { getCurrentOrg } from '@/lib/tenant'
+import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { updateLeagueStatus } from '@/actions/events'
@@ -39,6 +39,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
   const { id } = await params
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const timeZone = await getOrgTimezone(org.id)
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
 
@@ -178,10 +179,10 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
             <Row label="Season End" value={formatDateOnly(league.season_end_date, { month: 'long', day: 'numeric', year: 'numeric' })} />
           )}
           {league.registration_opens_at && (
-            <Row label="Reg Opens" value={new Date(league.registration_opens_at).toLocaleString()} />
+            <Row label="Reg Opens" value={new Date(league.registration_opens_at).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short', timeZone })} />
           )}
           {league.registration_closes_at && (
-            <Row label="Reg Closes" value={new Date(league.registration_closes_at).toLocaleString()} />
+            <Row label="Reg Closes" value={new Date(league.registration_closes_at).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short', timeZone })} />
           )}
         </dl>
         {league.description && (

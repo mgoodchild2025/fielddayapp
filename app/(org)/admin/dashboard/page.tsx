@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { CalendarDays } from 'lucide-react'
 import { OnboardingChecklist } from '@/components/admin/onboarding-checklist'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
+import { netRevenueSince, type RevenuePaymentRow } from '@/lib/payment-ledger'
 
 export default async function AdminDashboardPage() {
   const headersList = await headers()
@@ -26,7 +27,10 @@ export default async function AdminDashboardPage() {
   }
 
   // Upcoming events window: now → 7 days out
-  const now7d = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  const nowMs = Date.now()
+  const DAY = 24 * 60 * 60 * 1000
+  const now7d = new Date(nowMs + 7 * DAY)
+  const revenueSince = new Date(nowMs - 30 * DAY).toISOString()
 
   const [
     { count: leagueCount },
@@ -41,6 +45,7 @@ export default async function AdminDashboardPage() {
     { data: owedPaymentRows },
     { data: unsignedWaiverRows },
     { data: activeOrgWaiver },
+    { data: revenueRows },
   ] = await Promise.all([
 
     db.from('leagues').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).is('deleted_at', null).neq('status', 'archived'),
@@ -104,6 +109,13 @@ export default async function AdminDashboardPage() {
       .in('leagues.status', ['registration_open', 'active']),
 
     db.from('waivers').select('id').eq('organization_id', org.id).eq('is_active', true).limit(1).maybeSingle(),
+
+    // Payments paid, created or refunded in the last 30 days (netRevenueSince sorts out which count).
+    db.from('payments')
+      .select('amount_cents, refunded_cents, refunded_at, paid_at, created_at, payment_type, league_id, team_id, registration_id')
+      .eq('organization_id', org.id)
+      .in('status', ['paid', 'manual', 'refunded'])
+      .or(`paid_at.gte.${revenueSince},created_at.gte.${revenueSince},refunded_at.gte.${revenueSince}`),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -172,8 +184,8 @@ export default async function AdminDashboardPage() {
 
   const todayLocalStr = localDate(new Date().toISOString())
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const totalRevenue = recentPayments?.filter((p: any) => p.status === 'paid').reduce((acc: number, p: any) => acc + p.amount_cents, 0) ?? 0
+  // Last 30 days, by the same rules as Finances (refunds net out, team fees once).
+  const totalRevenue = netRevenueSince((revenueRows ?? []) as RevenuePaymentRow[], revenueSince)
 
   // Onboarding checklist — compute completion and visibility
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -190,7 +202,7 @@ export default async function AdminDashboardPage() {
   const stats = [
     { label: 'Active Events', shortLabel: 'Events', value: leagueCount ?? 0, href: '/admin/events' },
     { label: 'Members', shortLabel: 'Members', value: memberCount ?? 0, href: '/admin/players' },
-    { label: 'Recent Revenue', shortLabel: 'Revenue', value: `$${(totalRevenue / 100).toFixed(0)}`, href: '/admin/payments' },
+    { label: 'Revenue · 30 days', shortLabel: 'Revenue 30d', value: `$${(totalRevenue / 100).toFixed(0)}`, href: '/admin/payments' },
   ]
 
   // ── Action center rollup ────────────────────────────────────────────────

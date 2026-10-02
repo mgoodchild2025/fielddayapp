@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { signUp } from '@/actions/auth'
 import Link from 'next/link'
 import { GoogleAuthButton } from '@/components/auth/google-auth-button'
+import { safeRelativePath } from '@/lib/safe-redirect'
 
 const schema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -29,7 +30,7 @@ export default function RegisterPage() {
   const searchParams = useSearchParams()
   // Only allow relative paths to prevent open redirect
   const redirectParam = searchParams.get('redirect') ?? ''
-  const redirectTo = redirectParam.startsWith('/') ? redirectParam : ''
+  const redirectTo = safeRelativePath(redirectParam) ?? ''
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),

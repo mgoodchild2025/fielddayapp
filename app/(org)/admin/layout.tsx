@@ -12,6 +12,7 @@ import { MfaGraceBanner } from '@/components/mfa/mfa-grace-banner'
 import { getLimit, getActiveLeagueCount } from '@/lib/features'
 import { getEnforcementState } from '@/lib/billing'
 import { getPendingReacceptance } from '@/actions/tenant-consent'
+import { redirectToLogin } from '@/lib/auth'
 
 export default async function AdminLayout({
   children,
@@ -25,7 +26,7 @@ export default async function AdminLayout({
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
   let memberRole: string = 'org_admin'
   let mfaGraceDaysLeft: number | null = null

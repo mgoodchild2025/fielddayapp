@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
@@ -9,6 +9,7 @@ import { TeamPageNav } from '@/components/teams/team-page-nav'
 import { Footer } from '@/components/layout/footer'
 import { MyGamesClient } from '../../../schedule/_client'
 import type { GameSub } from '@/actions/game-subs'
+import { redirectToLogin } from '@/lib/auth'
 
 export default async function TeamSchedulePage({
   params,
@@ -22,7 +23,7 @@ export default async function TeamSchedulePage({
   const db = createServiceRoleClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirectToLogin()
 
   // Parallel: branding, team info, viewer's team memberships, org admin check
   const [{ data: branding }, { data: team }, { data: myTeams }, { data: orgMember }] = await Promise.all([
