@@ -182,7 +182,7 @@ function MatchCard({
             maxWidth: '90%',
             textOverflow: 'ellipsis',
           }}>
-            <span style={isLive ? { color: '#ef4444' } : undefined} className={isLive ? 'animate-pulse' : undefined}>
+            <span style={isLive ? { color: '#ef4444' } : undefined} className={isLive ? 'motion-safe:animate-pulse' : undefined}>
               {timeLabel}
             </span>
           </span>

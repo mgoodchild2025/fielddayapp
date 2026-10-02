@@ -333,7 +333,7 @@ export function ScheduleClient({ games, timezone, isDark, scrollSpeed, leagueId 
                     fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
                     display: 'inline-flex', alignItems: 'center', gap: 5,
                   }}>
-                    <span className="animate-pulse" style={{ width: 6, height: 6, borderRadius: 99, backgroundColor: '#ef4444', display: 'inline-block' }} />
+                    <span className="motion-safe:animate-pulse" style={{ width: 6, height: 6, borderRadius: 99, backgroundColor: '#ef4444', display: 'inline-block' }} />
                     <ScoreTick value={liveBoards[g.id].a} />&thinsp;–&thinsp;<ScoreTick value={liveBoards[g.id].b} />
                   </span>
                 ) : (

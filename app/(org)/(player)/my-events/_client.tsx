@@ -2,13 +2,14 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { List, CalendarDays } from 'lucide-react'
+import { List, CalendarDays, Trophy } from 'lucide-react'
 import { QRCodeDisplay } from '@/components/checkin/qr-code-display'
 import { PastGamesToggle } from '@/components/schedule/past-games-toggle'
 import { EventAvatar } from '@/components/ui/event-avatar'
 import { PlayerCalendar, toLocalDate } from '@/components/ui/player-calendar'
 import type { CalendarDot } from '@/components/ui/player-calendar'
 import { leagueColor } from '@/lib/league-color'
+import { EmptyState } from '@/components/ui/empty-state'
 
 export interface GameDotItem {
   leagueId: string
@@ -195,16 +196,12 @@ export function MyEventsClient({ currentEvents, pastEvents, timezone, gameDots =
 
   if (isEmpty) {
     return (
-      <div className="bg-white rounded-xl border p-10 text-center">
-        <p className="text-gray-500 text-sm mb-3">You haven&apos;t registered for any events yet.</p>
-        <Link
-          href="/events"
-          className="text-sm font-semibold px-4 py-2 rounded-lg text-white"
-          style={{ backgroundColor: 'var(--brand-primary)' }}
-        >
-          Browse Events
-        </Link>
-      </div>
+      <EmptyState
+        icon={Trophy}
+        title="You haven't registered for any events yet"
+        hint="Leagues, tournaments and drop-ins you sign up for show up here."
+        action={{ href: '/events', label: 'Browse events' }}
+      />
     )
   }
 

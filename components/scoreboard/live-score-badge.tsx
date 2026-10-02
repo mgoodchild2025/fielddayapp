@@ -19,7 +19,7 @@ export function LiveScoreBadge({ leagueId, gameId }: { leagueId: string; gameId:
         board.final ? 'bg-gray-100 text-gray-600' : 'bg-red-50 text-red-600'
       }`}
     >
-      {!board.final && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />}
+      {!board.final && <span className="w-1.5 h-1.5 rounded-full bg-red-500 motion-safe:animate-pulse shrink-0" />}
       {board.final ? 'FINAL' : 'LIVE'} <ScoreTick value={board.a} />–<ScoreTick value={board.b} />
       {board.mode === 'sets' && !board.final && <span className="font-medium opacity-70">set {board.setNumber}</span>}
     </span>

@@ -246,14 +246,14 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
               {/* Scanning */}
               {(isPending || scanState.type === 'scanning') && (
                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                  <p className="text-white text-sm font-medium animate-pulse">Checking in…</p>
+                  <p className="text-white text-sm font-medium motion-safe:animate-pulse">Checking in…</p>
                 </div>
               )}
 
               {/* Success */}
               {scanState.type === 'success' && (
-                <div className="absolute inset-0 bg-green-900/95 flex flex-col items-center justify-center px-6 text-center">
-                  <p className="text-5xl mb-3">✓</p>
+                <div className="fd-result-in absolute inset-0 bg-green-900/95 flex flex-col items-center justify-center px-6 text-center">
+                  <p className="text-5xl mb-3"><span className="fd-check-pop">✓</span></p>
                   <p className="font-bold text-white text-xl leading-tight">{scanState.playerName}</p>
                   {scanState.teamName && <p className="text-sm text-green-300 mt-1">{scanState.teamName}</p>}
                   <p className="text-xs text-green-400 mt-2">Checked in</p>
@@ -274,8 +274,8 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
 
               {/* Walk-in success */}
               {scanState.type === 'walk_in_success' && (
-                <div className="absolute inset-0 bg-green-900/95 flex flex-col items-center justify-center px-6 text-center">
-                  <p className="text-5xl mb-3">✓</p>
+                <div className="fd-result-in absolute inset-0 bg-green-900/95 flex flex-col items-center justify-center px-6 text-center">
+                  <p className="text-5xl mb-3"><span className="fd-check-pop">✓</span></p>
                   <p className="font-bold text-white text-xl">{scanState.playerName}</p>
                   <p className="text-xs text-green-400 mt-2">Added as walk-in &amp; checked in</p>
                 </div>
@@ -283,7 +283,7 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
 
               {/* Not in session */}
               {scanState.type === 'not_in_session' && (
-                <div className="absolute inset-0 bg-amber-900/95 flex flex-col items-center justify-center px-6 text-center">
+                <div className="fd-result-in absolute inset-0 bg-amber-900/95 flex flex-col items-center justify-center px-6 text-center">
                   <p className="text-4xl mb-3">⚠</p>
                   <p className="font-bold text-white text-lg">{scanState.playerName}</p>
                   <p className="text-xs text-amber-200 mt-1">Not registered for this session</p>
@@ -311,7 +311,7 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
 
               {/* Already checked in */}
               {scanState.type === 'already_in' && (
-                <div className="absolute inset-0 bg-amber-900/95 flex flex-col items-center justify-center px-6 text-center">
+                <div className="fd-result-in absolute inset-0 bg-amber-900/95 flex flex-col items-center justify-center px-6 text-center">
                   <p className="text-4xl mb-3">⚠</p>
                   <p className="font-bold text-white text-lg">{scanState.playerName}</p>
                   <p className="text-xs text-amber-200 mt-2">
@@ -322,7 +322,7 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
 
               {/* Error */}
               {scanState.type === 'error' && (
-                <div className="absolute inset-0 bg-red-900/95 flex flex-col items-center justify-center px-6 text-center">
+                <div className="fd-result-in absolute inset-0 bg-red-900/95 flex flex-col items-center justify-center px-6 text-center">
                   <p className="text-4xl mb-3">✗</p>
                   <p className="text-sm text-white">{scanState.message}</p>
                 </div>

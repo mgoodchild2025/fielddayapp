@@ -26,6 +26,7 @@ import { RsvpChoice } from '@/components/schedule/rsvp-choice'
 import Image from 'next/image'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { toast } from 'sonner'
+import { EmptyState } from '@/components/ui/empty-state'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -748,7 +749,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                     type="button"
                     aria-pressed={on}
                     onClick={() => setSessionIdx(i)}
-                    className={`max-w-full px-3 py-1.5 rounded-full text-sm font-semibold transition-all ${
+                    className={`press max-w-full min-h-10 px-3.5 rounded-full text-sm font-semibold ${
                       on
                         ? 'text-white shadow-sm'
                         : 'bg-white border text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -778,13 +779,12 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
               Full schedule →
             </Link>
           </div>
-            <div className="bg-white rounded-2xl border p-10 text-center">
-              <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center bg-gray-50">
-                <Calendar className="w-6 h-6 text-gray-300" />
-              </div>
-              <p className="text-sm font-medium text-gray-500">No upcoming games or sessions</p>
-              <p className="text-xs text-gray-500 mt-1">Check back soon — your schedule will appear here.</p>
-            </div>
+            <EmptyState
+              icon={Calendar}
+              title="No upcoming games or sessions"
+              hint="Your schedule appears here as soon as games are set — or find something new to play."
+              action={{ href: '/events', label: 'Browse events' }}
+            />
         </section>
       )}
 
@@ -795,7 +795,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
             <button
               key={t.teamId}
               onClick={() => setActiveIdx(i)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold transition-all ${
+              className={`press flex items-center gap-2 min-h-10 px-3.5 rounded-full text-sm font-semibold ${
                 i === activeIdx
                   ? 'text-white shadow-sm'
                   : 'bg-white border text-gray-500 hover:text-gray-700 hover:border-gray-300'

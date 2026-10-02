@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Collapse } from '@/components/ui/collapse'
 
 interface Props {
   /** Number of hidden items — if 0 the component renders nothing */
@@ -33,11 +34,10 @@ export function CollapsiblePast({ count, noun, children }: Props) {
           : `Show ${count} completed ${noun}${count !== 1 ? 's' : ''}`}
       </button>
 
-      {expanded && (
-        <div className="mt-1 border-t pt-1 opacity-70">
+      <Collapse open={expanded} className="mt-1 border-t pt-1 opacity-70">
+        
           {children}
-        </div>
-      )}
+      </Collapse>
     </div>
   )
 }

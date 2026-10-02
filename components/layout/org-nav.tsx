@@ -96,7 +96,7 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
           className="flex items-center justify-center gap-2 bg-red-600 text-white text-sm font-semibold py-1.5 px-4 hover:bg-red-700 transition-colors"
         >
           <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+            <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
           </span>
           <Radio className="w-4 h-4 shrink-0" />

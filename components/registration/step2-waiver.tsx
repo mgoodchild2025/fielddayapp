@@ -277,7 +277,7 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registr
               {/* label */}
               <div className="bg-white pb-2 flex flex-col items-center gap-0.5">
                 <svg
-                  className="w-4 h-4 text-gray-400 animate-bounce"
+                  className="w-4 h-4 text-gray-400 fd-nudge"
                   fill="none" stroke="currentColor" viewBox="0 0 24 24"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

@@ -704,7 +704,7 @@ function ScreenEditor({
         <div className="flex items-center gap-3">
           {isDirty && !isSaving && (
             <span className="flex items-center gap-1.5 text-xs text-amber-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 motion-safe:animate-pulse" />
               Unsaved changes
             </span>
           )}

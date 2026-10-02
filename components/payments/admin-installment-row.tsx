@@ -6,6 +6,7 @@ import { InstallmentSchedule } from './installment-schedule'
 import type { InstallmentRow } from './installment-schedule'
 import { adminMarkInstallmentPaid } from '@/actions/payment-plans'
 import { toast } from 'sonner'
+import { Collapse } from '@/components/ui/collapse'
 
 interface Props {
   registrationId: string
@@ -51,14 +52,14 @@ export function AdminInstallmentRow({ registrationId, installments, canMarkPaid 
         {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
       </button>
 
-      {open && (
+      <Collapse open={open}>
         <div className="mt-2 max-w-sm" data-registration-id={registrationId}>
           <InstallmentSchedule
             installments={localInstallments}
             onMarkPaid={canMarkPaid ? handleMarkPaid : undefined}
           />
         </div>
-      )}
+      </Collapse>
     </div>
   )
 }

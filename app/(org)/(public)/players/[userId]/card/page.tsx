@@ -1,14 +1,14 @@
 import { headers } from 'next/headers'
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth, getCurrentUser } from '@/lib/auth'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getPlayerCardData } from '@/lib/player-card'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { BioFlipCard } from '@/components/bios/bio-flip-card'
 import { CopyLinkButton } from '@/components/bios/copy-link-button'
+import { BackLink } from '@/components/ui/back-link'
 
 /**
  * The shareable card page (card flip C3): one player's full-size flippable
@@ -34,6 +34,7 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ use
     .maybeSingle()
   const isPublicCard = consent?.show_on_displays === true && consent?.hidden_by_admin !== true
   if (!isPublicCard) await requireAuth()
+  const viewer = await getCurrentUser()
   const [card, { data: branding }] = await Promise.all([
     getPlayerCardData(db, org.id, userId),
     db.from('org_branding').select('logo_url').eq('organization_id', org.id).maybeSingle(),
@@ -46,7 +47,10 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ use
       <div className="flex-1 mx-auto w-full max-w-md px-4 py-10">
         <BioFlipCard bio={card.bio} career={card.career} />
         <div className="mt-4 flex items-center justify-between gap-3">
-          <Link href="/dashboard" className="text-sm text-gray-500 hover:underline">← Dashboard</Link>
+          {/* A shared card is mostly opened by other people — only its owner goes "home". */}
+          {viewer?.id === userId
+            ? <BackLink fallbackHref="/dashboard" fallbackLabel="Home" />
+            : <BackLink fallbackHref="/" fallbackLabel={org.name} />}
           <CopyLinkButton />
         </div>
       </div>

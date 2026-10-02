@@ -10,6 +10,7 @@ import type { ActiveMember, PendingInvite } from '@/components/teams/roster-mana
 import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
 import { RosterNotesSection } from '@/components/teams/roster-notes-section'
 import type { RosterNote } from '@/actions/roster-notes'
+import { Collapse } from '@/components/ui/collapse'
 
 interface JoinRequest {
   id: string
@@ -186,8 +187,8 @@ export function AdminTeamCard({
       </div>
 
       {/* ── Expanded body ── */}
-      {expanded && (
-        <div className="border-t">
+      <Collapse open={expanded} className="border-t">
+        
           {/* 1. Invite players — join link + email invite */}
           <InvitePlayersZone teamId={team.id} teamCode={team.team_code ?? null} />
 
@@ -219,8 +220,7 @@ export function AdminTeamCard({
               initialInvites={initialInvites}
             />
           </div>
-        </div>
-      )}
+      </Collapse>
     </div>
   )
 }

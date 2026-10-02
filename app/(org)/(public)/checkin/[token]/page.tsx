@@ -29,9 +29,9 @@ export default async function SelfCheckInPage({ params }: { params: Promise<{ to
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
       <div className="max-w-sm mx-auto px-4 py-16 text-center">
         {isSuccess && (
-          <div className="bg-white rounded-2xl border p-8 shadow-sm">
+          <div className="fd-step-in bg-white rounded-2xl border p-8 shadow-sm">
             <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">✓</span>
+              <span className="fd-check-pop text-3xl">✓</span>
             </div>
             <h1 className="text-xl font-bold text-green-800 mb-1">Checked In!</h1>
             <p className="text-lg font-semibold mb-1">{result.playerName}</p>
@@ -40,7 +40,7 @@ export default async function SelfCheckInPage({ params }: { params: Promise<{ to
         )}
 
         {isAlreadyIn && (
-          <div className="bg-white rounded-2xl border p-8 shadow-sm">
+          <div className="fd-step-in bg-white rounded-2xl border p-8 shadow-sm">
             <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
               <span className="text-3xl">⚠</span>
             </div>
@@ -55,7 +55,7 @@ export default async function SelfCheckInPage({ params }: { params: Promise<{ to
         )}
 
         {isNotFound && (
-          <div className="bg-white rounded-2xl border p-8 shadow-sm">
+          <div className="fd-step-in bg-white rounded-2xl border p-8 shadow-sm">
             <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
               <span className="text-3xl">✗</span>
             </div>

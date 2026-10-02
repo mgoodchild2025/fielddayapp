@@ -7,6 +7,8 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import Link from 'next/link'
+import { EmptyState } from '@/components/ui/empty-state'
+import { BarChart3 } from 'lucide-react'
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   league: 'League',
@@ -132,19 +134,13 @@ export default async function StandingsPage() {
       {/* League picker */}
       <div className="flex-1 max-w-5xl mx-auto w-full px-6 py-10">
         {activeLeagues.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-gray-500 text-lg">No standings yet.</p>
-            <p className="text-gray-300 text-sm mt-1">
-              Standings appear once a league or tournament is under way.
-            </p>
-            <Link
-              href="/events"
-              className="inline-block mt-6 px-5 py-2.5 rounded text-sm font-semibold text-white transition-opacity hover:opacity-90 active:opacity-75"
-              style={{ backgroundColor: 'var(--brand-primary)' }}
-            >
-              View all events →
-            </Link>
-          </div>
+          <EmptyState
+            icon={BarChart3}
+            title="No standings yet"
+            hint="Standings appear once a league or tournament is under way."
+            action={{ href: '/events', label: 'View all events' }}
+            className="my-10"
+          />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {activeLeagues.map((league) => {
