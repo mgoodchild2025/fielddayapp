@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { acceptOrganizerInvitation, declineOrganizerInvitation } from '@/actions/organizers'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 export function OrganizerInviteActions({ token }: { token: string }) {
   const router = useRouter()
@@ -23,8 +24,8 @@ export function OrganizerInviteActions({ token }: { token: string }) {
     })
   }
 
-  function handleDecline() {
-    if (!confirm('Decline this invitation?')) return
+  async function handleDecline() {
+    if (!(await confirmAction({ title: "Decline this invitation?", confirmLabel: "Decline", destructive: true }))) return
     setError(null)
     startDecline(async () => {
       const result = await declineOrganizerInvitation(token)

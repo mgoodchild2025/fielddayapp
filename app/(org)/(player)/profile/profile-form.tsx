@@ -10,6 +10,7 @@ import { optionalPhone } from '@/lib/validation'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import type { Database } from '@/types/database'
 import { UploadStatus } from '@/components/ui/upload-status'
+import { toast } from 'sonner'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type PlayerDetails = Database['public']['Tables']['player_details']['Row']
@@ -40,7 +41,6 @@ export function ProfileForm({
   playerDetails: PlayerDetails | null
   orgId: string
 }) {
-  const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
 
@@ -82,8 +82,7 @@ export function ProfileForm({
     if (result.error) {
       setServerError(result.error)
     } else {
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
+      toast.success('Profile saved')
     }
     setLoading(false)
   }
@@ -120,11 +119,6 @@ export function ProfileForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-      {saved && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded text-sm">
-          Profile saved.
-        </div>
-      )}
       {serverError && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
           {serverError}

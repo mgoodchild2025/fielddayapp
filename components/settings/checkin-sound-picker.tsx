@@ -98,7 +98,7 @@ export function CheckinSoundPicker({ currentSound, orgId }: Props) {
           {isPending ? 'Saving…' : 'Save Sound'}
         </button>
         {saved && (
-          <span className="text-sm text-green-600 font-medium">✓ Saved</span>
+          <span className="fd-fade-in text-sm text-green-600 font-medium">✓ Saved</span>
         )}
       </div>
     </div>

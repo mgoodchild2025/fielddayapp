@@ -54,7 +54,7 @@ export function NewOrgNotificationForm({ current }: { current: string | null }) 
         >
           {isPending ? 'Saving…' : 'Save'}
         </button>
-        {saved && <span className="text-xs text-emerald-400">Saved</span>}
+        {saved && <span className="fd-fade-in text-xs text-emerald-400">Saved</span>}
         {email.trim() && !isPending && (
           <button
             type="button"

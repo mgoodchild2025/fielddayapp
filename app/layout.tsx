@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import { Toaster } from 'sonner'
+import { ConfirmHost } from '@/components/ui/confirm-dialog'
 
 // icon.png is picked up automatically by Next.js App Router.
 // opengraph-image.png is listed explicitly so we can declare its dimensions
@@ -42,7 +44,17 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* One toaster and one confirm host for the whole app (never per page).
+            On phones toasts sit above the bottom tab bar. */}
+        <Toaster
+          position="bottom-center"
+          mobileOffset={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 72px)' }}
+          toastOptions={{ classNames: { actionButton: '!bg-brand-primary !text-on-brand !font-semibold' } }}
+        />
+        <ConfirmHost />
+      </body>
     </html>
   )
 }

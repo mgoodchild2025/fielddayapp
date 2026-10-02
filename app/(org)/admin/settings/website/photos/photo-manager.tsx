@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { uploadOrgPhoto, deleteOrgPhoto, updatePhotoCaption, reorderOrgPhotos, rotateOrgPhoto, togglePhotoFeatured } from '@/actions/org-photos'
+import { undoableRemove, insertAt } from '@/components/ui/use-undoable-remove'
+import { toast } from 'sonner'
 
 type Photo = { id: string; url: string; caption: string | null; display_order: number; featured: boolean }
 
@@ -92,7 +94,6 @@ function UploadProgress({ items }: { items: UploadItem[] }) {
 export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
   const [photos, setPhotos]                 = useState<Photo[]>(initialPhotos)
   const [uploadItems, setUploadItems]       = useState<UploadItem[] | null>(null)
-  const [deletingId, setDeletingId]         = useState<string | null>(null)
   const [rotatingId, setRotatingId]         = useState<string | null>(null)
   const [togglingId, setTogglingId]         = useState<string | null>(null)
   const [editingCaption, setEditingCaption] = useState<{ id: string; value: string } | null>(null)
@@ -180,16 +181,18 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
 
   // ── Delete ────────────────────────────────────────────────────────────────
 
-  async function handleDelete(id: string) {
-    if (!confirm('Remove this photo from your gallery?')) return
-    setDeletingId(id)
-    const result = await deleteOrgPhoto(id)
-    setDeletingId(null)
-    if (result.error) {
-      alert(result.error)
-    } else {
-      setPhotos(prev => prev.filter(p => p.id !== id))
-    }
+  // Removes at once with Undo (no confirm); the delete runs when Undo expires
+  // and the photo comes back with the error if it fails.
+  function handleDelete(id: string) {
+    const index = photos.findIndex(p => p.id === id)
+    const item = photos[index]
+    if (!item) return
+    setPhotos(prev => prev.filter(p => p.id !== id))
+    undoableRemove({
+      label: 'Photo removed',
+      restore: () => setPhotos(prev => insertAt(prev, index, item)),
+      commit: () => deleteOrgPhoto(id),
+    })
   }
 
   // ── Rotate ───────────────────────────────────────────────────────────────
@@ -199,7 +202,7 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
     const result = await rotateOrgPhoto(id, direction)
     setRotatingId(null)
     if (result.error) {
-      alert(result.error)
+      toast.error(result.error)
     } else if (result.url) {
       setPhotos(prev => prev.map(p => p.id === id ? { ...p, url: result.url! } : p))
     }
@@ -223,7 +226,7 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
     const result = await togglePhotoFeatured(id, !current)
     setTogglingId(null)
     if (result.error) {
-      alert(result.error)
+      toast.error(result.error)
     } else {
       setPhotos(prev => prev.map(p => p.id === id ? { ...p, featured: !current } : p))
     }
@@ -490,11 +493,10 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                         {/* Delete */}
                         <button
                           onClick={() => handleDelete(photo.id)}
-                          disabled={deletingId === photo.id}
                           className="flex-1 text-xs text-red-300 hover:text-red-200 disabled:opacity-50 text-center py-0.5 rounded hover:bg-white/10"
                           title="Remove"
                         >
-                          {deletingId === photo.id ? '…' : '✕'}
+                          ✕
                         </button>
                       </div>
                     </div>
@@ -548,7 +550,7 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                           {/* Rotate CCW */}
                           <button
                             onClick={() => handleRotate(photo.id, 'ccw')}
-                            disabled={rotatingId === photo.id || deletingId === photo.id}
+                            disabled={rotatingId === photo.id}
                             className="w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-white text-sm disabled:opacity-50"
                             aria-label="Rotate left"
                           >
@@ -557,7 +559,7 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                           {/* Rotate CW */}
                           <button
                             onClick={() => handleRotate(photo.id, 'cw')}
-                            disabled={rotatingId === photo.id || deletingId === photo.id}
+                            disabled={rotatingId === photo.id}
                             className="w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-white text-sm disabled:opacity-50"
                             aria-label="Rotate right"
                           >
@@ -566,20 +568,13 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                           {/* Delete */}
                           <button
                             onClick={() => handleDelete(photo.id)}
-                            disabled={deletingId === photo.id || rotatingId === photo.id}
+                            disabled={rotatingId === photo.id}
                             className="w-7 h-7 rounded-full bg-black/50 flex items-center justify-center disabled:opacity-50"
                             aria-label="Remove photo"
                           >
-                            {deletingId === photo.id ? (
-                              <svg className="w-3 h-3 text-white animate-spin" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                              </svg>
-                            ) : (
-                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            )}
+                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
                           </button>
                         </div>
                       )}

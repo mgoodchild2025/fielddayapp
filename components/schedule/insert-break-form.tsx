@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { insertBreak } from '@/actions/schedule'
+import { toast } from 'sonner'
 
 interface Props {
   leagueId: string
@@ -15,7 +16,6 @@ export function InsertBreakForm({ leagueId, gameTimes }: Props) {
   const [breakAt, setBreakAt] = useState('')
   const [duration, setDuration] = useState(60)
   const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // Count how many games would shift (scheduled_at >= breakAt)
@@ -30,7 +30,6 @@ export function InsertBreakForm({ leagueId, gameTimes }: Props) {
     if (!breakAt || duration <= 0) return
 
     setLoading(true)
-    setSuccess(null)
     setError(null)
 
     const breakAtUtc = new Date(breakAt).toISOString()
@@ -42,7 +41,7 @@ export function InsertBreakForm({ leagueId, gameTimes }: Props) {
     } else if (result.count === 0) {
       setError('No games found at or after that time.')
     } else {
-      setSuccess(`${result.count} game${result.count !== 1 ? 's' : ''} shifted forward by ${duration} min.`)
+      toast.success(`${result.count} game${result.count !== 1 ? 's' : ''} shifted forward by ${duration} min.`)
       setBreakAt('')
       setDuration(60)
       router.refresh()
@@ -56,11 +55,6 @@ export function InsertBreakForm({ leagueId, gameTimes }: Props) {
         Games at or after the break time will shift forward by the break duration.
       </p>
 
-      {success && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-xs mb-3">
-          {success}
-        </div>
-      )}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-xs mb-3">
           {error}

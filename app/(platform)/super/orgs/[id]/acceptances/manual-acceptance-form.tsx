@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { recordManualAcceptance } from '@/actions/tenant-consent'
+import { toast } from 'sonner'
 
 interface Props {
   organizationId: string
@@ -22,7 +23,6 @@ export function ManualAcceptanceForm({ organizationId, admins, versions }: Props
   const [notes, setNotes] = useState('')
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
 
   const selectedVersion = versions.find((v) => v.id === versionId)
 
@@ -33,7 +33,6 @@ export function ManualAcceptanceForm({ organizationId, admins, versions }: Props
       return
     }
     setError(null)
-    setSuccess(false)
     startTransition(async () => {
       const result = await recordManualAcceptance({
         organizationId,
@@ -47,10 +46,10 @@ export function ManualAcceptanceForm({ organizationId, admins, versions }: Props
       if (result.error) {
         setError(result.error)
       } else {
-        setSuccess(true)
+        toast.success('Manual acceptance recorded')
         setNotes('')
         setVersionId('')
-        setTimeout(() => { setSuccess(false); window.location.reload() }, 1500)
+        setTimeout(() => window.location.reload(), 1500)
       }
     })
   }
@@ -111,7 +110,6 @@ export function ManualAcceptanceForm({ organizationId, admins, versions }: Props
       </div>
 
       {error && <p className="text-sm text-red-400 bg-red-900/20 px-3 py-2 rounded-lg">{error}</p>}
-      {success && <p className="text-sm text-emerald-400">✓ Manual acceptance recorded.</p>}
 
       <button
         type="submit"

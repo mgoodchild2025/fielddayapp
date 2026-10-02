@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { upsertRuleTemplate, deleteRuleTemplate } from '@/actions/event-rules'
 import { RichTextEditor } from '@/components/ui/rich-text-editor'
+import { undoableRemove, insertAt } from '@/components/ui/use-undoable-remove'
 
 interface Template {
   id: string
@@ -24,8 +25,17 @@ export function RuleTemplateList({ templates: initial }: { templates: Template[]
     })
   }
 
-  function handleDeleted(id: string) {
+  // Removes at once with Undo; the delete runs when Undo expires.
+  function handleDeleted(id: string, { restore, commit }: { restore: () => void; commit: () => Promise<{ error?: string | null }> }) {
+    const index = templates.findIndex((t) => t.id === id)
+    const item = templates[index]
+    if (!item) return
     setTemplates((prev) => prev.filter((t) => t.id !== id))
+    undoableRemove({
+      label: 'Template deleted',
+      restore: () => { restore(); setTemplates((prev) => insertAt(prev, index, item)) },
+      commit,
+    })
   }
 
   return (
@@ -71,7 +81,7 @@ export function RuleTemplateList({ templates: initial }: { templates: Template[]
               >
                 {editingId === t.id ? 'Cancel' : 'Edit'}
               </button>
-              <DeleteButton templateId={t.id} onDeleted={() => handleDeleted(t.id)} />
+              <DeleteButton templateId={t.id} onDeleted={(o) => handleDeleted(t.id, o)} />
             </div>
           </div>
 
@@ -164,15 +174,17 @@ function TemplateForm({
 
 // ─── Delete button ────────────────────────────────────────────────────────────
 
-function DeleteButton({ templateId, onDeleted }: { templateId: string; onDeleted: () => void }) {
+function DeleteButton({ templateId, onDeleted }: { templateId: string; onDeleted: (o: { restore: () => void; commit: () => Promise<{ error?: string | null }> }) => void }) {
   const [loading, setLoading] = useState(false)
 
-  async function handle() {
-    if (!confirm('Delete this template?\n\nLeagues using it will keep their rules content but the template link will be cleared.')) return
+  // Hides the row at once with Undo (no confirm); the delete runs when Undo
+  // expires. Leagues using the template keep their rules content.
+  function handle() {
     setLoading(true)
-    const result = await deleteRuleTemplate(templateId)
-    if (result.error) { alert(result.error); setLoading(false); return }
-    onDeleted()
+    onDeleted({
+      restore: () => setLoading(false),
+      commit: () => deleteRuleTemplate(templateId),
+    })
   }
 
   return (

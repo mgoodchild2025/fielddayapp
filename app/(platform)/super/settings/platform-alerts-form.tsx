@@ -132,7 +132,7 @@ export function PlatformAlertsForm({ initial }: { initial: PlatformAlerts }) {
         >
           {isPending ? 'Saving…' : 'Save'}
         </button>
-        {saved && <span className="text-xs text-emerald-400">✓ Saved</span>}
+        {saved && <span className="fd-fade-in text-xs text-emerald-400">✓ Saved</span>}
       </div>
     </form>
   )

@@ -8,6 +8,7 @@ import { AttachmentsControl } from '@/components/finances/receipt-control'
 import { TaxCalc } from '@/components/finances/tax-calc'
 import type { EventExpense } from '@/actions/finances'
 import { EXPENSE_CATEGORIES, type ExpenseCategory } from '@/lib/finance-constants'
+import { useUndoableRemove } from '@/components/ui/use-undoable-remove'
 
 export type ExpenseSession = { id: string; label: string }
 const ALL_SESSIONS = '__all__'
@@ -37,6 +38,7 @@ export function EventExpensesManager({
   defaultTaxPct?: number
 }) {
   const router = useRouter()
+  const { isHidden, remove: removeWithUndo } = useUndoableRemove()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   // null = form closed · 'new' = adding · otherwise the id being edited
@@ -100,13 +102,14 @@ export function EventExpensesManager({
     })
   }
 
+  // Hidden at once with Undo; the expense (and its attachments) is deleted
+  // only when Undo expires.
   function remove(id: string) {
-    if (!confirm('Delete this expense and its attachments?')) return
     setError(null)
-    startTransition(async () => {
-      const res = await deleteEventExpense(id, leagueId)
-      if (res.error) { setError(res.error); return }
-      router.refresh()
+    removeWithUndo(id, {
+      label: 'Expense deleted',
+      commit: () => deleteEventExpense(id, leagueId),
+      onCommitted: () => router.refresh(),
     })
   }
 
@@ -188,7 +191,7 @@ export function EventExpensesManager({
         <div className="bg-white rounded-lg border overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100 text-sm">
             <tbody className="divide-y divide-gray-50">
-              {initialExpenses.map((e) => (
+              {initialExpenses.filter((e) => !isHidden(e.id)).map((e) => (
                 editing === e.id ? (
                   <tr key={e.id}>
                     <td colSpan={3} className="p-2">{form}</td>

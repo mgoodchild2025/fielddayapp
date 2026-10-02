@@ -3,6 +3,7 @@
 import { useState, useTransition, useRef, useEffect } from 'react'
 import { addRosterNote, updateRosterNote, deleteRosterNote, type RosterNote } from '@/actions/roster-notes'
 import { sendTeamInvite } from '@/actions/invitations'
+import { undoableRemove } from '@/components/ui/use-undoable-remove'
 
 interface Props {
   teamId: string
@@ -168,7 +169,8 @@ function NoteRow({
   const [inviteRole, setInviteRole] = useState<InviteRole>(note.invite_role ?? 'player')
   const [inviteSuccess, setInviteSuccess] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
-  const [deleting, startDelete] = useTransition()
+  // Hidden at once with Undo; the entry is deleted only when Undo expires.
+  const [removed, setRemoved] = useState(false)
   const [invitePending, startInvite] = useTransition()
   const [rolePending, startRoleTransition] = useTransition()
 
@@ -180,10 +182,12 @@ function NoteRow({
   }
 
   function handleDelete() {
-    if (!confirm(`Remove "${note.name}" from the planning list?`)) return
-    startDelete(async () => {
-      await deleteRosterNote(note.id, teamId)
-      onDelete(note.id)
+    setRemoved(true)
+    undoableRemove({
+      label: `${note.name} removed from the planning list`,
+      restore: () => setRemoved(false),
+      commit: () => deleteRosterNote(note.id, teamId),
+      onCommitted: () => onDelete(note.id),
     })
   }
 
@@ -199,6 +203,8 @@ function NoteRow({
       }
     })
   }
+
+  if (removed) return null
 
   if (editing) {
     return (
@@ -233,7 +239,7 @@ function NoteRow({
             <p className="text-xs text-gray-500 mt-0.5 italic">{note.note}</p>
           )}
           {inviteSuccess && (
-            <p className="text-xs text-green-600 mt-0.5 font-medium">✓ Invite sent to {note.email}</p>
+            <p className="fd-fade-in text-xs text-green-600 mt-0.5 font-medium">✓ Invite sent to {note.email}</p>
           )}
           {inviteError && (
             <p className="text-xs text-red-500 mt-0.5">{inviteError}</p>
@@ -276,7 +282,6 @@ function NoteRow({
         <button
           type="button"
           onClick={handleDelete}
-          disabled={deleting}
           className="py-1.5 px-3 rounded-md text-xs font-medium text-red-500 border border-red-100 hover:bg-red-50 disabled:opacity-40 transition-colors"
         >
           Remove

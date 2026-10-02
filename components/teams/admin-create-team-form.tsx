@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { adminCreateTeam } from '@/actions/teams'
+import { toast } from 'sonner'
 
 const schema = z.object({
   name: z.string().min(2, 'Name required'),
@@ -34,7 +35,6 @@ interface Props {
 
 export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabels = [] }: Props) {
   const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedColor, setSelectedColor] = useState<string>('')
   const [captainUserId, setCaptainUserId] = useState<string>('')
@@ -47,7 +47,6 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabe
   async function onSubmit(data: FormData) {
     setLoading(true)
     setError(null)
-    setSuccess(false)
     const result = await adminCreateTeam({
       leagueId,
       ...data,
@@ -58,7 +57,7 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabe
     if (result.error) {
       setError(result.error)
     } else {
-      setSuccess(true)
+      toast.success('Team created')
       reset()
       setSelectedColor('')
       setCaptainUserId('')
@@ -71,7 +70,6 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabe
     <div className="bg-white rounded-lg border p-5">
       <h3 className="font-semibold text-sm mb-4">Add Team</h3>
 
-      {success && <p className="text-green-600 text-xs mb-3">Team created.</p>}
       {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">

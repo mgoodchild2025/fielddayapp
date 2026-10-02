@@ -3,6 +3,8 @@
 import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { captainAddPlayerByEmail, regenerateTeamCode } from '@/actions/teams'
+import { confirmAction } from '@/components/ui/confirm-dialog'
+import { toast } from 'sonner'
 
 type Role = 'captain' | 'coach' | 'player' | 'sub'
 
@@ -38,7 +40,7 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
   // Regenerate code
   const [regenerating, setRegenerating] = useState(false)
   async function handleRegenerate() {
-    if (!confirm('Generate a new code? The old link will stop working immediately.')) return
+    if (!(await confirmAction({ title: "Generate a new invite code?", message: "The old link stops working immediately.", confirmLabel: "Generate new code" }))) return
     setRegenerating(true)
     const result = await regenerateTeamCode(teamId)
     setRegenerating(false)
@@ -51,12 +53,10 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
   const [role, setRole] = useState<Role>('player')
   const [pending, startTransition] = useTransition()
   const [formError, setFormError] = useState<string | null>(null)
-  const [formSuccess, setFormSuccess] = useState<string | null>(null)
 
   function handleSend(e: React.FormEvent) {
     e.preventDefault()
     setFormError(null)
-    setFormSuccess(null)
     const emailToSend = email
     const roleToSend = role
     startTransition(async () => {
@@ -64,7 +64,7 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
       if (result.error) {
         setFormError(result.error)
       } else {
-        setFormSuccess(`Invite sent to ${emailToSend}`)
+        toast.success(`Invite sent to ${emailToSend}`)
         setEmail('')
         setRole('player')
         setShowForm(false)
@@ -92,7 +92,7 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
               : { borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }
             }
           >
-            {copied ? '✓ Copied' : 'Copy link'}
+            {copied ? <span key="copied" className="fd-fade-in">✓ Copied</span> : 'Copy link'}
           </button>
         </div>
       )}
@@ -119,7 +119,7 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
       {!showForm ? (
         <button
           type="button"
-          onClick={() => { setShowForm(true); setFormSuccess(null) }}
+          onClick={() => { setShowForm(true) }}
           className="text-xs font-medium transition-colors"
           style={{ color: 'var(--brand-primary)' }}
         >
@@ -169,7 +169,6 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
         </form>
       )}
 
-      {formSuccess && <p className="text-xs text-green-600 mt-1.5">{formSuccess}</p>}
     </div>
   )
 }

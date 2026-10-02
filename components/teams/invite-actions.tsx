@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { acceptTeamInvitation, declineTeamInvitation } from '@/actions/invitations'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 export function InviteActions({ token }: { token: string }) {
   const [declined, setDeclined] = useState(false)
@@ -18,8 +19,8 @@ export function InviteActions({ token }: { token: string }) {
     })
   }
 
-  function handleDecline() {
-    if (!confirm('Decline this invitation?')) return
+  async function handleDecline() {
+    if (!(await confirmAction({ title: "Decline this invitation?", confirmLabel: "Decline", destructive: true }))) return
     setError(null)
     startDecline(async () => {
       const result = await declineTeamInvitation(token)

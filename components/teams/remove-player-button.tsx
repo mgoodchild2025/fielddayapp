@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { removeTeamMember } from '@/actions/teams'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 interface Props {
   memberId: string
@@ -13,7 +14,7 @@ export function RemovePlayerButton({ memberId, leagueId, playerName }: Props) {
   const [loading, setLoading] = useState(false)
 
   async function handleRemove() {
-    if (!confirm(`Remove ${playerName} from this team?`)) return
+    if (!(await confirmAction({ title: `Remove ${playerName} from this team?`, confirmLabel: "Remove", destructive: true }))) return
     setLoading(true)
     await removeTeamMember(memberId, leagueId)
     // revalidatePath in the action will refresh the page data

@@ -9,6 +9,8 @@ import {
   Clock, Palette, Radio, Megaphone, Square, Sparkles, Zap,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { confirmAction } from '@/components/ui/confirm-dialog'
+import { toast } from 'sonner'
 
 // ── Layout definitions ────────────────────────────────────────────────────────
 
@@ -746,13 +748,11 @@ export function DisplayControlPanel({
   const [activeScreen, setActiveScreen] = useState(screens[0].screen)
   const [isPending, startTransition] = useTransition()
   const [error, setError]   = useState<string | null>(null)
-  const [saved, setSaved]   = useState(false)
   const [dirty, setDirty]   = useState(false)
 
   const currentScreen = screens.find((s) => s.screen === activeScreen)!
 
   function updateScreen(updated: ScreenState) {
-    setSaved(false)
     setDirty(true)
     setScreens((prev) => prev.map((s) => s.screen === updated.screen ? updated : s))
   }
@@ -768,12 +768,11 @@ export function DisplayControlPanel({
 
   function handleSave() {
     setError(null)
-    setSaved(false)
     const toSave = screens.find((s) => s.screen === activeScreen)!
     startTransition(async () => {
       const result = await saveDisplayConfig(leagueId, toSave.screen, toSave.config, toSave.enabled)
       if (result.error) { setError(result.error) }
-      else { setSaved(true); setDirty(false) }
+      else { toast.success(`Screen ${activeScreen} saved`, { description: `The TV display will update within ${currentScreen.config.refresh_seconds}s.` }); setDirty(false) }
     })
   }
 
@@ -781,19 +780,18 @@ export function DisplayControlPanel({
   // is passed explicitly to avoid saving against stale React state.
   function handleToggleEnabled(newEnabled: boolean) {
     setError(null)
-    setSaved(false)
     const current = screens.find((s) => s.screen === activeScreen)!
     const updated = { ...current, enabled: newEnabled }
     setScreens((prev) => prev.map((s) => s.screen === updated.screen ? updated : s))
     startTransition(async () => {
       const result = await saveDisplayConfig(leagueId, updated.screen, updated.config, newEnabled)
       if (result.error) { setError(result.error) }
-      else { setSaved(true); setDirty(false) }
+      else { toast.success(`Screen ${activeScreen} saved`, { description: `The TV display will update within ${currentScreen.config.refresh_seconds}s.` }); setDirty(false) }
     })
   }
 
-  function handleDelete() {
-    if (!confirm(`Remove Screen ${activeScreen}? This cannot be undone.`)) return
+  async function handleDelete() {
+    if (!(await confirmAction({ title: `Remove Screen ${activeScreen}?`, message: "This can't be undone.", confirmLabel: "Remove screen", destructive: true }))) return
     setError(null)
     startTransition(async () => {
       await deleteDisplayScreen(leagueId, activeScreen)
@@ -825,7 +823,7 @@ export function DisplayControlPanel({
           <button
             key={s.screen}
             type="button"
-            onClick={() => { setActiveScreen(s.screen); setSaved(false); setError(null); setDirty(false) }}
+            onClick={() => { setActiveScreen(s.screen); setError(null); setDirty(false) }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               s.screen === activeScreen
                 ? 'bg-gray-700 text-white'
@@ -851,11 +849,6 @@ export function DisplayControlPanel({
       {error && (
         <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-400">
           {error}
-        </div>
-      )}
-      {saved && !dirty && (
-        <div className="mb-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 text-sm text-emerald-400">
-          ✓ Screen {activeScreen} saved — the TV display will update within {currentScreen.config.refresh_seconds}s.
         </div>
       )}
 

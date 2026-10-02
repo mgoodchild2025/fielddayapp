@@ -408,7 +408,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
         >
           {isPending ? 'Saving…' : 'Save'}
         </button>
-        {saved && <span className="text-sm text-green-600">Saved</span>}
+        {saved && <span className="fd-fade-in text-sm text-green-600">Saved</span>}
       </div>
     </form>
   )

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 import {
   inviteCoOrganizer,
   addOrgAdminAsOrganizer,
@@ -10,6 +11,7 @@ import {
   type OrganizerRow,
   type AvailableAdmin,
 } from '@/actions/organizers'
+import { toast } from 'sonner'
 
 function StatusBadge({ row }: { row: OrganizerRow }) {
   if (row.is_org_admin) {
@@ -44,7 +46,6 @@ export function OrganizersPanel({
   const [selectedAdminId, setSelectedAdminId] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteError, setInviteError] = useState<string | null>(null)
-  const [inviteSuccess, setInviteSuccess] = useState(false)
   const [addAdminError, setAddAdminError] = useState<string | null>(null)
   const [addAdminPending, startAddAdmin] = useTransition()
   const [invitePending, startInvite] = useTransition()
@@ -86,13 +87,12 @@ export function OrganizersPanel({
   function handleInvite(e: React.FormEvent) {
     e.preventDefault()
     setInviteError(null)
-    setInviteSuccess(false)
     startInvite(async () => {
       const result = await inviteCoOrganizer({ leagueId, email: inviteEmail.trim() })
       if (result.error) {
         setInviteError(result.error)
       } else {
-        setInviteSuccess(true)
+        toast.success('Invitation sent')
         setInviteEmail('')
         setOrganizers(prev => [
           ...prev,
@@ -112,8 +112,8 @@ export function OrganizersPanel({
     })
   }
 
-  function handleRemove(organizer: OrganizerRow) {
-    if (!confirm(`Remove ${organizer.full_name ?? organizer.invited_email} as an organizer?`)) return
+  async function handleRemove(organizer: OrganizerRow) {
+    if (!(await confirmAction({ title: `Remove ${organizer.full_name ?? organizer.invited_email} as an organizer?`, confirmLabel: "Remove", destructive: true }))) return
     startAction(async () => {
       const result = await removeCoOrganizer(organizer.id)
       if (!result.error) {
@@ -255,7 +255,7 @@ export function OrganizersPanel({
               <input
                 type="email"
                 value={inviteEmail}
-                onChange={e => { setInviteEmail(e.target.value); setInviteError(null); setInviteSuccess(false) }}
+                onChange={e => { setInviteEmail(e.target.value); setInviteError(null) }}
                 placeholder="Email address"
                 required
                 className="flex-1 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0"
@@ -270,7 +270,6 @@ export function OrganizersPanel({
               </button>
             </div>
             {inviteError && <p className="text-xs text-red-600 mt-1.5">{inviteError}</p>}
-            {inviteSuccess && <p className="text-xs text-green-600 mt-1.5">Invitation sent!</p>}
           </form>
         </div>
       )}

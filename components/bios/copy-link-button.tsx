@@ -16,7 +16,7 @@ export function CopyLinkButton() {
       }}
       className="rounded-md border px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
     >
-      {copied ? '✓ Link copied' : '🔗 Copy link'}
+      {copied ? <span key="copied" className="fd-fade-in">✓ Link copied</span> : '🔗 Copy link'}
     </button>
   )
 }

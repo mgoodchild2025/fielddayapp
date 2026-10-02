@@ -7,6 +7,7 @@ import { resendTeamInvite, cancelTeamInvitation } from '@/actions/invitations'
 import { setTeamMemberPosition } from '@/actions/positions'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { Copy, Check } from 'lucide-react'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 type Role = 'captain' | 'coach' | 'player' | 'sub'
 
@@ -121,8 +122,8 @@ export function RosterManager({
     })
   }
 
-  function handleRemoveMember(memberId: string, name: string) {
-    if (!confirm(`Remove ${name} from the team?`)) return
+  async function handleRemoveMember(memberId: string, name: string) {
+    if (!(await confirmAction({ title: `Remove ${name} from the team?`, confirmLabel: "Remove", destructive: true }))) return
     setMembers((prev) => prev.filter((m) => m.id !== memberId))
     startActionTransition(async () => {
       clearFeedback()
@@ -151,8 +152,8 @@ export function RosterManager({
     })
   }
 
-  function handleCancelInvite(inviteId: string, email: string) {
-    if (!confirm(`Cancel the invitation to ${email}?`)) return
+  async function handleCancelInvite(inviteId: string, email: string) {
+    if (!(await confirmAction({ title: `Cancel the invitation to ${email}?`, confirmLabel: "Cancel invitation", cancelLabel: "Keep", destructive: true }))) return
     setInvites((prev) => prev.filter((i) => i.id !== inviteId))
     startActionTransition(async () => {
       clearFeedback()
@@ -245,7 +246,7 @@ export function RosterManager({
                         className="text-xs px-2 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
                         title="Copy invite link"
                       >
-                        {copiedInviteId === inv.id ? 'Copied!' : 'Copy link'}
+                        {copiedInviteId === inv.id ? <span key="copied" className="fd-fade-in">Copied!</span> : 'Copy link'}
                       </button>
                       <button
                         onClick={() => openReminder(inv.id, inv.invitedEmail, 'invite')}
@@ -405,7 +406,7 @@ export function RosterManager({
                   aria-label="Copy join code"
                 >
                   {copiedField === 'code'
-                    ? <><Check className="w-3.5 h-3.5" /> Copied</>
+                    ? <span key="copied" className="fd-fade-in inline-flex items-center gap-1.5"><Check className="w-3.5 h-3.5" /> Copied</span>
                     : <><Copy className="w-3.5 h-3.5" /> Copy</>
                   }
                 </button>
@@ -431,7 +432,7 @@ export function RosterManager({
                   aria-label="Copy join link"
                 >
                   {copiedField === 'link'
-                    ? <><Check className="w-3.5 h-3.5" /> Copied</>
+                    ? <span key="copied" className="fd-fade-in inline-flex items-center gap-1.5"><Check className="w-3.5 h-3.5" /> Copied</span>
                     : <><Copy className="w-3.5 h-3.5" /> Copy</>
                   }
                 </button>

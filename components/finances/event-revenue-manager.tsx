@@ -6,6 +6,7 @@ import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { addEventRevenue, updateEventRevenue, deleteEventRevenue } from '@/actions/finances'
 import type { EventRevenue } from '@/actions/finances'
 import { REVENUE_CATEGORIES, type RevenueCategory } from '@/lib/finance-constants'
+import { useUndoableRemove } from '@/components/ui/use-undoable-remove'
 
 const CATEGORY_LABELS: Record<RevenueCategory, string> = {
   donation: 'Donation',
@@ -22,6 +23,7 @@ function money(cents: number) {
 
 export function EventRevenueManager({ leagueId, initialRevenue }: { leagueId: string; initialRevenue: EventRevenue[] }) {
   const router = useRouter()
+  const { isHidden, remove: removeWithUndo } = useUndoableRemove()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   // null = form closed · 'new' = adding · otherwise the id being edited
@@ -72,13 +74,13 @@ export function EventRevenueManager({ leagueId, initialRevenue }: { leagueId: st
     })
   }
 
+  // Hidden at once with Undo; deleted only when Undo expires.
   function remove(id: string) {
-    if (!confirm('Delete this income entry?')) return
     setError(null)
-    startTransition(async () => {
-      const res = await deleteEventRevenue(id, leagueId)
-      if (res.error) { setError(res.error); return }
-      router.refresh()
+    removeWithUndo(id, {
+      label: 'Income entry deleted',
+      commit: () => deleteEventRevenue(id, leagueId),
+      onCommitted: () => router.refresh(),
     })
   }
 
@@ -138,7 +140,7 @@ export function EventRevenueManager({ leagueId, initialRevenue }: { leagueId: st
         <div className="bg-white rounded-lg border overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100 text-sm">
             <tbody className="divide-y divide-gray-50">
-              {initialRevenue.map((e) => (
+              {initialRevenue.filter((e) => !isHidden(e.id)).map((e) => (
                 editing === e.id ? (
                   <tr key={e.id}>
                     <td colSpan={3} className="p-2">{form}</td>

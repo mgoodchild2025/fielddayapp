@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { addGame } from '@/actions/schedule'
 import { venueLabel } from '@/lib/venue-label'
+import { toast } from 'sonner'
 
 const schema = z.object({
   homeTeamId: z.string().optional(),
@@ -38,7 +39,6 @@ interface Props {
 
 export function AddGameForm({ leagueId, sport, teams, pools = [] }: Props) {
   const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<FormData>({
@@ -52,7 +52,6 @@ export function AddGameForm({ leagueId, sport, teams, pools = [] }: Props) {
 
   async function onSubmit(data: FormData) {
     setLoading(true)
-    setSuccess(false)
     setServerError(null)
     // Convert datetime-local string (treated as local time by the browser) to UTC ISO
     const scheduledAtUtc = data.scheduledAt
@@ -73,7 +72,7 @@ export function AddGameForm({ leagueId, sport, teams, pools = [] }: Props) {
     if (result.error) {
       setServerError(result.error)
     } else {
-      setSuccess(true)
+      toast.success('Game added')
       reset()
     }
     setLoading(false)
@@ -83,11 +82,6 @@ export function AddGameForm({ leagueId, sport, teams, pools = [] }: Props) {
     <div className="bg-white rounded-lg border p-4">
       <h3 className="font-semibold mb-3 text-sm">Add Game</h3>
 
-      {success && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-xs mb-3">
-          Game added successfully.
-        </div>
-      )}
       {serverError && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-xs mb-3">
           {serverError}

@@ -211,7 +211,7 @@ export function PlanConfigEditor({ tiers, featureGroups, configMap }: Props) {
       <div className="sticky bottom-4 sm:bottom-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-gray-900 border border-gray-700 rounded-xl px-4 sm:px-5 py-3 shadow-2xl">
         <div className="text-sm">
           {error && <span className="text-red-400">{error}</span>}
-          {saved && !error && <span className="text-emerald-400">✓ Changes saved</span>}
+          {saved && !error && <span className="fd-fade-in text-emerald-400">✓ Changes saved</span>}
           {!saved && !error && <span className="text-gray-500">Unsaved changes will be lost if you navigate away</span>}
         </div>
         <button

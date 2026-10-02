@@ -4,6 +4,7 @@ import { useState, useRef, useTransition } from 'react'
 import Image from 'next/image'
 import { upsertSponsor, deleteSponsor, uploadSponsorLogo } from '@/actions/org-sponsors'
 import { UploadStatus, Spinner } from '@/components/ui/upload-status'
+import { undoableRemove, insertAt } from '@/components/ui/use-undoable-remove'
 
 type Sponsor = { id: string; name: string; logo_url: string | null; website_url: string | null; tier: string; display_order: number }
 type Tier = 'gold' | 'silver' | 'bronze' | 'standard'
@@ -83,7 +84,6 @@ export function SponsorManager({ initialSponsors }: { initialSponsors: Sponsor[]
   const [sponsors, setSponsors] = useState<Sponsor[]>(initialSponsors)
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [uploadingId, setUploadingId] = useState<string | null>(null)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
@@ -96,12 +96,17 @@ export function SponsorManager({ initialSponsors }: { initialSponsors: Sponsor[]
     setEditingId(null)
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('Remove this sponsor?')) return
-    setDeletingId(id)
-    await deleteSponsor(id)
+  // Removes at once with Undo (no confirm); the delete runs when Undo expires.
+  function handleDelete(id: string) {
+    const index = sponsors.findIndex(s => s.id === id)
+    const item = sponsors[index]
+    if (!item) return
     setSponsors(prev => prev.filter(s => s.id !== id))
-    setDeletingId(null)
+    undoableRemove({
+      label: 'Sponsor removed',
+      restore: () => setSponsors(prev => insertAt(prev, index, item)),
+      commit: () => deleteSponsor(id),
+    })
   }
 
   async function handleLogoChange(sponsorId: string, e: React.ChangeEvent<HTMLInputElement>) {
@@ -165,8 +170,8 @@ export function SponsorManager({ initialSponsors }: { initialSponsors: Sponsor[]
                   {sponsor.logo_url ? 'Logo' : '+ Logo'}
                 </button>
                 <button onClick={() => setEditingId(sponsor.id)} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-50">Edit</button>
-                <button onClick={() => handleDelete(sponsor.id)} disabled={deletingId === sponsor.id} className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50">
-                  {deletingId === sponsor.id ? '…' : 'Remove'}
+                <button onClick={() => handleDelete(sponsor.id)} className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50">
+                  Remove
                 </button>
               </div>
             </div>

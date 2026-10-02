@@ -3,6 +3,7 @@
 import { useTransition } from 'react'
 import { deleteDropInSession } from '@/actions/dropins'
 import { useRouter } from 'next/navigation'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 export function DeleteSessionButton({ sessionId }: { sessionId: string }) {
   const [pending, start] = useTransition()
@@ -10,8 +11,8 @@ export function DeleteSessionButton({ sessionId }: { sessionId: string }) {
 
   return (
     <button
-      onClick={() => {
-        if (!confirm('Delete this session and all registrations? This cannot be undone.')) return
+      onClick={async () => {
+        if (!(await confirmAction({ title: "Delete this session?", message: "All its registrations are deleted too. This can't be undone.", confirmLabel: "Delete session", destructive: true }))) return
         start(async () => { await deleteDropInSession(sessionId); router.push('/admin/dropins') })
       }}
       disabled={pending}

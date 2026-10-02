@@ -28,8 +28,8 @@ export function CopyWaiverLink({ url, compact = false }: Props) {
         className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
         title="Copy waiver link"
       >
-        {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Link className="w-3.5 h-3.5" />}
-        {copied ? 'Copied!' : 'Copy waiver link'}
+        {copied ? <span key="copied" className="fd-fade-in inline-flex"><Check className="w-3.5 h-3.5 text-green-500" /></span> : <Link className="w-3.5 h-3.5" />}
+        {copied ? <span key="copied" className="fd-fade-in">Copied!</span> : 'Copy waiver link'}
       </button>
     )
   }
@@ -63,8 +63,8 @@ export function CopyWaiverLink({ url, compact = false }: Props) {
               onClick={handleCopy}
               className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md font-medium bg-amber-600 text-white hover:bg-amber-700 transition-colors shrink-0"
             >
-              {copied ? <Check className="w-3.5 h-3.5" /> : <Link className="w-3.5 h-3.5" />}
-              {copied ? 'Copied!' : 'Copy link'}
+              {copied ? <span key="copied" className="fd-fade-in inline-flex"><Check className="w-3.5 h-3.5" /></span> : <Link className="w-3.5 h-3.5" />}
+              {copied ? <span key="copied" className="fd-fade-in">Copied!</span> : 'Copy link'}
             </button>
             <a
               href={printHref}

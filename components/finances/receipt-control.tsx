@@ -9,6 +9,7 @@ import {
 } from '@/actions/finances'
 import { ATTACHMENT_LABELS } from '@/lib/finance-constants'
 import { UploadStatus } from '@/components/ui/upload-status'
+import { useUndoableRemove } from '@/components/ui/use-undoable-remove'
 
 /**
  * Attachments on an expense / overhead row — any number of files (invoice,
@@ -21,6 +22,7 @@ export function AttachmentsControl({ kind, expenseId, attachments }: {
   attachments: ExpenseAttachment[]
 }) {
   const router = useRouter()
+  const { isHidden, remove: removeWithUndo } = useUndoableRemove()
   const fileRef = useRef<HTMLInputElement>(null)
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -52,13 +54,13 @@ export function AttachmentsControl({ kind, expenseId, attachments }: {
     })
   }
 
+  // Hidden at once with Undo; the file is removed only when Undo expires.
   function remove(id: string, name: string) {
-    if (!confirm(`Remove ${name}?`)) return
     setError(null)
-    startTransition(async () => {
-      const res = await removeExpenseAttachment(id)
-      if (res.error) { setError(res.error); return }
-      router.refresh()
+    removeWithUndo(id, {
+      label: `Removed ${name}`,
+      commit: () => removeExpenseAttachment(id),
+      onCommitted: () => router.refresh(),
     })
   }
 
@@ -71,7 +73,7 @@ export function AttachmentsControl({ kind, expenseId, attachments }: {
         className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }}
       />
-      {attachments.map((a) => (
+      {attachments.filter((a) => !isHidden(a.id)).map((a) => (
         <span key={a.id} className="inline-flex items-center gap-1 whitespace-nowrap">
           <button type="button" onClick={() => view(a.id)} disabled={pending}
             className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 underline underline-offset-2 disabled:opacity-50 py-2 -my-2">

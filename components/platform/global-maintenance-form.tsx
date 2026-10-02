@@ -116,7 +116,7 @@ export function GlobalMaintenanceForm({ initialEnabled, initialMessage, initialU
         >
           {loading ? 'Saving…' : 'Save'}
         </button>
-        {saved && <span className="text-xs text-green-400">Saved</span>}
+        {saved && <span className="fd-fade-in text-xs text-green-400">Saved</span>}
       </div>
     </form>
   )

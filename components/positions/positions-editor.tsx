@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { addOrgPosition, removeOrgPosition, resetOrgPositions } from '@/actions/positions'
 import type { SportPosition } from '@/actions/positions'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 interface Props {
   sport: string
@@ -50,8 +51,8 @@ export function PositionsEditor({ sport, positions: initialPositions, isCustom }
     })
   }
 
-  function handleReset() {
-    if (!confirm('Reset to platform defaults? Your custom positions for this sport will be deleted.')) return
+  async function handleReset() {
+    if (!(await confirmAction({ title: "Reset to platform defaults?", message: "Your custom positions for this sport will be deleted.", confirmLabel: "Reset", destructive: true }))) return
     setCustomized(false)
     startTransition(async () => {
       const result = await resetOrgPositions(sport)

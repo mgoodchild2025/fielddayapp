@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { adminSetCaptain } from '@/actions/teams'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 interface Props {
   memberId: string
@@ -14,8 +15,8 @@ export function MakeCaptainButton({ memberId, teamId, leagueId, playerName }: Pr
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  function handleClick() {
-    if (!confirm(`Make ${playerName} the captain of this team? The current captain will be changed to player.`)) return
+  async function handleClick() {
+    if (!(await confirmAction({ title: `Make ${playerName} the captain?`, message: "The current captain becomes a player.", confirmLabel: "Make captain" }))) return
     setError(null)
     startTransition(async () => {
       const result = await adminSetCaptain(memberId, teamId, leagueId)

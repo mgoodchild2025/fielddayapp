@@ -1,9 +1,10 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { Trash2 } from 'lucide-react'
 import { deleteDiscount, updateDiscount } from '@/actions/discounts'
 import { useRouter } from 'next/navigation'
+import { undoableRemove } from '@/components/ui/use-undoable-remove'
 
 interface DiscountCode {
   id: string
@@ -26,6 +27,8 @@ const APPLIES_LABELS: Record<string, string> = {
 export function DiscountRow({ code }: { code: DiscountCode }) {
   const router = useRouter()
   const [pending, start] = useTransition()
+  // Hidden at once with Undo; the code is deleted only when Undo expires.
+  const [removed, setRemoved] = useState(false)
 
   // Fixed-amount value is stored as dollars (e.g. 10 = $10), NOT cents.
   const discountLabel = code.type === 'percent'
@@ -35,6 +38,8 @@ export function DiscountRow({ code }: { code: DiscountCode }) {
   const scopeLabel = code.league_name
     ? code.league_name
     : (APPLIES_LABELS[code.applies_to] ?? code.applies_to)
+
+  if (removed) return null
 
   return (
     <tr className={`hover:bg-gray-50 ${!code.active ? 'opacity-50' : ''}`}>
@@ -66,8 +71,13 @@ export function DiscountRow({ code }: { code: DiscountCode }) {
       <td className="px-4 py-3 text-right">
         <button
           onClick={() => {
-            if (!confirm(`Delete code "${code.code}"? This cannot be undone.`)) return
-            start(async () => { await deleteDiscount(code.id); router.refresh() })
+            setRemoved(true)
+            undoableRemove({
+              label: `Code ${code.code} deleted`,
+              restore: () => setRemoved(false),
+              commit: () => deleteDiscount(code.id),
+              onCommitted: () => router.refresh(),
+            })
           }}
           disabled={pending}
           className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 rounded px-2 py-1 transition-colors disabled:opacity-40"

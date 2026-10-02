@@ -30,7 +30,7 @@ export function ToggleSignups({ enabled }: { enabled: boolean }) {
         </p>
       </div>
       <div className="flex items-center gap-3 ml-6 shrink-0">
-        {saved && <span className="text-xs text-emerald-400 font-medium">Saved</span>}
+        {saved && <span className="fd-fade-in text-xs text-emerald-400 font-medium">Saved</span>}
         <button
           onClick={toggle}
           disabled={pending}
