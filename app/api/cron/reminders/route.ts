@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getResend, FROM_EMAIL } from '@/lib/resend'
 import { sendSms } from '@/lib/twilio'
-import { deliverAnnouncementEmails } from '@/actions/messages'
+import { deliverAnnouncement } from '@/lib/announcement-delivery'
 import { formatCourtLabel } from '@/lib/venue-label'
 import { sendPlatformAlert } from '@/lib/platform-alerts'
 import { buildCaptainPrepEmail, type PrepPlayer } from '@/lib/emails/captain-prep'
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
   }
 
   for (const ann of due ?? []) {
-    await deliverAnnouncementEmails(ann.id, ann.organization_id, {
+    await deliverAnnouncement(ann.id, ann.organization_id, {
       title: ann.title,
       body: ann.body,
       audience_type: ann.audience_type ?? 'org',
