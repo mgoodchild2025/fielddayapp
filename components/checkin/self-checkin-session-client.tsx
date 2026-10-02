@@ -97,15 +97,15 @@ export function SelfCheckinSessionClient({
       {/* Loading */}
       {state.phase === 'loading' && (
         <div className="bg-white rounded-2xl border shadow-sm p-8 text-center space-y-4">
-          <div className="text-4xl animate-pulse">⏳</div>
+          <div className="text-4xl motion-safe:animate-pulse">⏳</div>
           <p className="text-sm text-gray-500">Checking you in…</p>
         </div>
       )}
 
       {/* Result */}
       {state.phase === 'done' && (
-        <div className="bg-white rounded-2xl border shadow-sm p-8 text-center space-y-4">
-          <div className="text-5xl">{state.icon}</div>
+        <div className="fd-step-in bg-white rounded-2xl border shadow-sm p-8 text-center space-y-4">
+          <div className="text-5xl"><span className={state.success ? 'fd-check-pop' : undefined}>{state.icon}</span></div>
           <div>
             <h1 className={`text-xl font-bold ${state.success ? 'text-green-700' : 'text-gray-800'}`}>
               {state.heading}

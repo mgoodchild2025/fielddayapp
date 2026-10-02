@@ -43,7 +43,7 @@ export function GoLivePanel({
           <div className="px-5 py-3">
             <h2 className="font-semibold text-sm flex items-center gap-2">
               <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
               </span>
               Live now ({activeStreams.length})

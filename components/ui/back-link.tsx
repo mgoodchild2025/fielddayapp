@@ -13,7 +13,7 @@ export function BackLink({ fallbackHref, fallbackLabel }: Props) {
   return (
     <Link
       href={fallbackHref}
-      className="text-xs opacity-60 hover:opacity-90 transition-opacity"
+      className="press inline-flex items-center min-h-10 -ml-1 px-1 text-sm text-gray-500 hover:text-gray-800"
     >
       ← {fallbackLabel}
     </Link>

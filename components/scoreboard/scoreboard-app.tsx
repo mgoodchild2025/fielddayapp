@@ -9,6 +9,7 @@ import { logScoreboardInstall, logScoreboardLaunch } from '@/actions/scoreboard-
 import { detectPlatform, getDeviceId, isStandaloneLaunch } from '@/lib/scoreboard-device'
 import { rubberband } from '@/lib/drag-physics'
 import { toast } from 'sonner'
+import { Overlay, useRetained } from '@/components/ui/overlay'
 
 // ── Fieldday Scoreboard ────────────────────────────────────────────────────────
 // A standalone, offline-capable scoreboard: tap a panel to +1, swipe down to −1.
@@ -127,6 +128,8 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   const [loaded, setLoaded] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [editTeam, setEditTeam] = useState<'A' | 'B' | null>(null)
+  // Keeps the team on screen while the edit sheet animates out.
+  const shownTeam = useRetained(editTeam)
   const [flash, setFlash] = useState<'A' | 'B' | null>(null)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null)
@@ -797,7 +800,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
 
       {/* Match-over overlay — shown when the scorekeeper ends the match */}
       {matchWinner && (
-        <Overlay>
+        <MatchOverlay>
           <p className="text-4xl mb-2">{matchWinner === 'tie' ? '🤝' : '🏆'}</p>
           <p className="text-white text-2xl font-bold mb-1">
             {matchWinner === 'tie'
@@ -820,20 +823,20 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
               </button>
             </div>
           </div>
-        </Overlay>
+        </MatchOverlay>
       )}
 
       {/* Team edit sheet — top-anchored so the phone keyboard never covers the fields */}
-      {editTeam && (
-        <Sheet onClose={() => setEditTeam(null)} title={`Edit ${editTeam === 'A' ? 'first' : 'second'} team`} align="top">
+      <Sheet open={!!editTeam} onClose={() => setEditTeam(null)} title={`Edit ${shownTeam === 'A' ? 'first' : 'second'} team`} align="top">
+        {shownTeam && (<>
           <label className="block text-xs text-white/60 mb-1">Team name</label>
           <input
             autoFocus
-            value={(editTeam === 'A' ? game.teamA : game.teamB).name}
+            value={(shownTeam === 'A' ? game.teamA : game.teamB).name}
             onChange={(e) =>
               setGame((g) => ({
                 ...g,
-                [editTeam === 'A' ? 'teamA' : 'teamB']: { ...(editTeam === 'A' ? g.teamA : g.teamB), name: e.target.value.slice(0, 24) },
+                [shownTeam === 'A' ? 'teamA' : 'teamB']: { ...(shownTeam === 'A' ? g.teamA : g.teamB), name: e.target.value.slice(0, 24) },
               }))
             }
             className="w-full rounded-lg bg-white/10 text-white px-3 py-2.5 mb-4 outline-none focus:ring-2 focus:ring-emerald-400"
@@ -846,21 +849,20 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
                 onClick={() =>
                   setGame((g) => ({
                     ...g,
-                    [editTeam === 'A' ? 'teamA' : 'teamB']: { ...(editTeam === 'A' ? g.teamA : g.teamB), color: c },
+                    [shownTeam === 'A' ? 'teamA' : 'teamB']: { ...(shownTeam === 'A' ? g.teamA : g.teamB), color: c },
                   }))
                 }
                 aria-label={`Colour ${c}`}
                 className="w-9 h-9 rounded-full border-2"
-                style={{ background: c, borderColor: (editTeam === 'A' ? game.teamA : game.teamB).color === c ? 'white' : 'transparent' }}
+                style={{ background: c, borderColor: (shownTeam === 'A' ? game.teamA : game.teamB).color === c ? 'white' : 'transparent' }}
               />
             ))}
           </div>
-        </Sheet>
-      )}
+        </>)}
+      </Sheet>
 
       {/* Menu sheet */}
-      {menuOpen && (
-        <Sheet onClose={() => setMenuOpen(false)} title="Scoreboard">
+      <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Scoreboard">
           <div className="space-y-4">
             {attached && (
               <div className="rounded-lg bg-white/5 px-3 py-2.5">
@@ -976,8 +978,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
               — free league management for community sports
             </p>
           </div>
-        </Sheet>
-      )}
+      </Sheet>
     </div>
   )
 }
@@ -1074,34 +1075,34 @@ function InstallHint({
   )
 }
 
-function Overlay({ children }: { children: React.ReactNode }) {
+function MatchOverlay({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-40 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center text-center px-6">
+    <div className="fd-result-in fixed inset-0 z-40 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center text-center px-6">
       {children}
     </div>
   )
 }
 
-function Sheet({ title, onClose, children, align = 'bottom' }: { title: string; onClose: () => void; children: React.ReactNode; align?: 'bottom' | 'top' }) {
+// Scoreboard sheets on the shared Overlay: slide up / drag down to dismiss
+// (bottom), or a top-anchored card on phones so the keyboard never covers
+// the team-name field (top). Dark surface to match the board.
+function Sheet({ open, title, onClose, children, align = 'bottom' }: { open: boolean; title: string; onClose: () => void; children: React.ReactNode; align?: 'bottom' | 'top' }) {
   return (
-    <div
-      className={`fixed inset-0 z-50 bg-black/60 flex justify-center ${align === 'top' ? 'items-start pt-4 sm:items-center sm:pt-0' : 'items-end sm:items-center'}`}
-      onClick={onClose}
+    <Overlay
+      open={open}
+      onClose={onClose}
+      variant={align === 'top' ? 'modal' : 'sheet'}
+      label={title}
+      className={align === 'top' ? 'items-start pt-4 sm:items-center sm:pt-4' : ''}
+      panelClassName={`w-full sm:max-w-sm bg-[#141c18] text-white p-5 pb-8 max-h-[85vh] overflow-y-auto ${align === 'top' ? 'mx-3 rounded-2xl' : 'rounded-t-2xl'} sm:rounded-2xl`}
     >
-      <div
-        className={`w-full sm:max-w-sm bg-[#141c18] p-5 pb-8 max-h-[85vh] overflow-y-auto ${align === 'top' ? 'mx-3 rounded-2xl' : 'rounded-t-2xl'} sm:rounded-2xl`}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label={title}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-white font-bold">{title}</p>
-          <button onClick={onClose} className="text-white/50 hover:text-white text-2xl leading-none px-1" aria-label="Close">
-            ×
-          </button>
-        </div>
-        {children}
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-white font-bold">{title}</p>
+        <button onClick={onClose} className="press text-white/50 hover:text-white text-2xl leading-none min-h-10 min-w-10 -mr-2" aria-label="Close">
+          ×
+        </button>
       </div>
-    </div>
+      {children}
+    </Overlay>
   )
 }

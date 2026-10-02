@@ -46,7 +46,7 @@ export function LiveZone({ live, theme }: Props) {
         {/* Live badge */}
         <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+            <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
           </span>
           LIVE
@@ -68,7 +68,7 @@ export function LiveZone({ live, theme }: Props) {
     <div className="flex flex-col items-center justify-center h-full gap-4 px-6 text-center">
       <div className="flex items-center gap-2 bg-red-600 text-white text-sm font-bold px-3 py-1.5 rounded-full">
         <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+          <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
           <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
         </span>
         LIVE NOW

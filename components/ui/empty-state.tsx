@@ -24,8 +24,7 @@ export function EmptyState({ icon: Icon, title, hint, action, className = '' }: 
       {action && (
         <Link
           href={action.href}
-          className="mt-4 inline-block rounded-md px-4 py-2 text-sm font-semibold text-white"
-          style={{ backgroundColor: 'var(--brand-primary)' }}
+          className="press mt-4 inline-flex items-center min-h-10 rounded-md px-4 text-sm font-semibold bg-brand-primary text-on-brand"
         >
           {action.label}
         </Link>

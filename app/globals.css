@@ -293,6 +293,35 @@ a,
   }
 }
 
+/* ── Check-in result (QR scanner, self check-in) ─────────────────────────────
+   The result panel fades in (180ms) and the ✓ settles from 90% (260ms, no
+   overshoot) — a clear "you're in" at the door, in step with the check-in
+   sound. Reduced motion: fade only. */
+@layer components {
+  .fd-result-in { animation: fd-result-in 180ms var(--ease-snap) backwards; }
+  @keyframes fd-result-in { from { opacity: 0; } }
+  .fd-check-pop { display: inline-block; animation: fd-check-pop 260ms var(--ease-snap) backwards; }
+  @keyframes fd-check-pop { from { opacity: 0; transform: scale(0.9); } }
+  @media (prefers-reduced-motion: reduce) {
+    @keyframes fd-check-pop { from { opacity: 0; } }
+  }
+}
+
+/* ── Nudge ───────────────────────────────────────────────────────────────────
+   `fd-nudge` on a "scroll down" chevron: three small bounces, then it rests —
+   an endless bounce kept pulling the eye while people read the waiver.
+   Nothing under reduced motion. */
+@layer components {
+  .fd-nudge { animation: fd-nudge 900ms ease-in-out 3; }
+  @keyframes fd-nudge {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(3px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fd-nudge { animation: none; }
+  }
+}
+
 /* ── Step entrance (registration flow, success page) ─────────────────────────
    `fd-step-in` on content that replaces the previous step: 220ms fade + 6px
    rise. Fill is `backwards` only, so no transform lingers once it ends (a

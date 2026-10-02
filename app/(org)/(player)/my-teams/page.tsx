@@ -8,6 +8,8 @@ import { Footer } from '@/components/layout/footer'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { PastGamesToggle } from '@/components/schedule/past-games-toggle'
 import { redirectToLogin } from '@/lib/auth'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Users } from 'lucide-react'
 
 const ROLE_LABEL: Record<string, string> = {
   captain: 'Captain',
@@ -101,16 +103,12 @@ export default async function MyTeamsPage() {
         </h1>
 
         {teams.length === 0 ? (
-          <div className="bg-white rounded-xl border p-10 text-center">
-            <p className="text-gray-500 text-sm mb-3">You&apos;re not on any teams yet.</p>
-            <Link
-              href="/events"
-              className="text-sm font-semibold px-4 py-2 rounded-lg text-white"
-              style={{ backgroundColor: 'var(--brand-primary)' }}
-            >
-              Browse Events
-            </Link>
-          </div>
+          <EmptyState
+            icon={Users}
+            title="You're not on any teams yet"
+            hint="Join one when you register for a team event, or with the join link your captain shares."
+            action={{ href: '/events', label: 'Browse events' }}
+          />
         ) : (
           <div className="space-y-6">
             {active.length > 0 && (

@@ -62,7 +62,7 @@ function BoardCard({ board, isDark, big }: { board: LiveBoard; isDark: boolean; 
         <span>{board.court ?? 'Live'}</span>
         <span>
           {board.final ? 'FINAL' : board.mode === 'sets' ? `SET ${board.setNumber} · LIVE` : 'LIVE'}
-          {!board.final && <span className="inline-block w-2 h-2 rounded-full bg-red-500 ml-1.5 animate-pulse align-middle" />}
+          {!board.final && <span className="inline-block w-2 h-2 rounded-full bg-red-500 ml-1.5 motion-safe:animate-pulse align-middle" />}
         </span>
       </div>
       <div className="flex-1 min-h-0 flex flex-col">

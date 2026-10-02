@@ -5,6 +5,7 @@ import { getGameAttendanceDetails } from '@/actions/rsvp'
 import { InviteSubButton } from '@/components/schedule/invite-sub-button'
 import type { AttendancePlayer } from '@/actions/rsvp'
 import type { GameSub } from '@/actions/game-subs'
+import { Collapse } from '@/components/ui/collapse'
 
 interface Props {
   gameId: string
@@ -63,8 +64,7 @@ export function GameAttendancePanel({ gameId, teamId, initialCounts, isCaptain, 
       </button>
 
       {/* Expanded roster panel */}
-      {open && (
-        <div className="mt-2 rounded-lg border border-gray-100 bg-gray-50 overflow-hidden">
+      <Collapse open={open} className="mt-2 rounded-lg border border-gray-100 bg-gray-50 overflow-hidden">
           {isPending ? (
             <p className="px-3 py-3 text-xs text-gray-500">Loading…</p>
           ) : fetchError ? (
@@ -126,8 +126,7 @@ export function GameAttendancePanel({ gameId, teamId, initialCounts, isCaptain, 
               )}
             </>
           ) : null}
-        </div>
-      )}
+      </Collapse>
     </div>
   )
 }

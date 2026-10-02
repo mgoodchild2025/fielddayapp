@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
+import { Overlay, useRetained } from '@/components/ui/overlay'
 
 type Photo = { id: string; url: string; caption: string | null; display_order: number }
 
@@ -12,23 +13,20 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
   const prev  = useCallback(() => setOpenIndex((i) => (i !== null && i > 0 ? i - 1 : i)), [])
   const next  = useCallback(() => setOpenIndex((i) => (i !== null && i < photos.length - 1 ? i + 1 : i)), [photos.length])
 
-  // Keyboard navigation
+  // Arrow keys step through photos (Escape, scroll lock and focus are the
+  // shared Overlay's).
   useEffect(() => {
     if (openIndex === null) return
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape')     close()
       if (e.key === 'ArrowLeft')  prev()
       if (e.key === 'ArrowRight') next()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [openIndex, close, prev, next])
+  }, [openIndex, prev, next])
 
-  // Lock body scroll while lightbox is open
-  useEffect(() => {
-    document.body.style.overflow = openIndex !== null ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
-  }, [openIndex])
+  // The photo stays on screen while the lightbox fades out.
+  const shownIndex = useRetained(openIndex)
 
   if (photos.length === 0) {
     return (
@@ -42,7 +40,7 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
     )
   }
 
-  const current = openIndex !== null ? photos[openIndex] : null
+  const current = shownIndex !== null ? photos[shownIndex] : null
 
   return (
     <>
@@ -73,69 +71,73 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
         ))}
       </div>
 
-      {/* Lightbox */}
-      {current && openIndex !== null && (
-        <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
-          onClick={close}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Photo lightbox"
-        >
-          {/* Close button */}
-          <button
-            className="absolute top-4 right-5 text-white/60 hover:text-white text-4xl leading-none z-10 transition-colors"
-            onClick={close}
-            aria-label="Close"
-          >
-            ×
-          </button>
-
-          {/* Prev arrow */}
-          {openIndex > 0 && (
+      {/* Lightbox — the shared Overlay (fade in/out, scroll lock, Escape,
+          focus trap + restore); photos cross-fade as you step through. */}
+      <Overlay
+        open={openIndex !== null}
+        onClose={close}
+        label="Photo lightbox"
+        className="p-0"
+        panelClassName="relative w-screen h-dvh bg-black/90 flex items-center justify-center"
+      >
+        {current && shownIndex !== null && (
+          <div className="absolute inset-0 flex items-center justify-center" onClick={close}>
+            {/* Close button */}
             <button
-              className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 text-white/60 hover:text-white text-5xl z-10 px-2 transition-colors"
-              onClick={(e) => { e.stopPropagation(); prev() }}
-              aria-label="Previous photo"
+              className="press absolute top-3 right-3 min-h-11 min-w-11 text-white/60 hover:text-white text-4xl leading-none z-10"
+              onClick={close}
+              aria-label="Close"
             >
-              ‹
+              ×
             </button>
-          )}
 
-          {/* Image — stopPropagation prevents close when clicking the image itself */}
-          <div
-            className="max-w-5xl max-h-[90vh] mx-14 sm:mx-20 flex flex-col items-center gap-3"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Image
-              src={current.url}
-              alt={current.caption ?? `Gallery photo ${openIndex !== null ? openIndex + 1 : ''}`}
-              width={1920}
-              height={1080}
-              sizes="90vw"
-              priority
-              className="max-h-[80vh] w-auto object-contain rounded-lg shadow-2xl"
-            />
-            {current.caption && (
-              <p className="text-white/80 text-sm text-center max-w-xl px-2">{current.caption}</p>
+            {/* Prev arrow */}
+            {shownIndex > 0 && (
+              <button
+                className="press absolute left-1 sm:left-4 top-1/2 -translate-y-1/2 min-h-11 min-w-11 text-white/60 hover:text-white text-5xl z-10"
+                onClick={(e) => { e.stopPropagation(); prev() }}
+                aria-label="Previous photo"
+              >
+                ‹
+              </button>
             )}
-            <p className="text-white/40 text-xs">
-              {openIndex + 1} / {photos.length}
-            </p>
-          </div>
 
-          {/* Next arrow */}
-          {openIndex < photos.length - 1 && (
-            <button
-              className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 text-white/60 hover:text-white text-5xl z-10 px-2 transition-colors"
-              onClick={(e) => { e.stopPropagation(); next() }}
-              aria-label="Next photo"
+            {/* Image — stopPropagation prevents close when clicking the image itself */}
+            <div
+              className="max-w-5xl max-h-[90vh] mx-14 sm:mx-20 flex flex-col items-center gap-3"
+              onClick={(e) => e.stopPropagation()}
             >
-              ›
-            </button>
-          )}
-        </div>
-      )}
+              <Image
+                key={current.id}
+                src={current.url}
+                alt={current.caption ?? `Gallery photo ${shownIndex + 1}`}
+                width={1920}
+                height={1080}
+                sizes="90vw"
+                priority
+                className="fd-result-in max-h-[80vh] w-auto object-contain rounded-lg shadow-2xl"
+              />
+              {current.caption && (
+                <p className="text-white/80 text-sm text-center max-w-xl px-2">{current.caption}</p>
+              )}
+              <p className="text-white/60 text-xs" aria-live="polite">
+                {shownIndex + 1} / {photos.length}
+              </p>
+            </div>
+
+            {/* Next arrow */}
+            {shownIndex < photos.length - 1 && (
+              <button
+                className="press absolute right-1 sm:right-4 top-1/2 -translate-y-1/2 min-h-11 min-w-11 text-white/60 hover:text-white text-5xl z-10"
+                onClick={(e) => { e.stopPropagation(); next() }}
+                aria-label="Next photo"
+              >
+                ›
+              </button>
+            )}
+          </div>
+        )}
+      </Overlay>
     </>
   )
 }

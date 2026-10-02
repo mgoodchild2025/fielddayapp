@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { Collapse } from '@/components/ui/collapse'
 
 interface Props {
   count: number
@@ -21,7 +22,7 @@ export function PastGamesToggle({ count, label = 'games', children }: Props) {
         {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         {open ? `Hide past ${label}` : `Show past ${label} (${count})`}
       </button>
-      {open && <div className="space-y-2">{children}</div>}
+      <Collapse open={open} className="space-y-2">{children}</Collapse>
     </div>
   )
 }

@@ -12,6 +12,7 @@ import { CaptainCheckinButton } from '@/components/checkin/captain-checkin-butto
 import { formatGameTime } from '@/lib/format-time'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { redirectToLogin } from '@/lib/auth'
+import { BackLink } from '@/components/ui/back-link'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -241,9 +242,9 @@ export default async function GameMatchupPage({
       <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-10 flex-1">
 
         {/* Back link */}
-        <Link href="/schedule" className="text-sm text-gray-500 hover:underline">
-          ← My Games
-        </Link>
+        {myTeamId || !league?.slug
+          ? <BackLink fallbackHref="/schedule" fallbackLabel="My Games" />
+          : <BackLink fallbackHref={`/events/${league.slug}?tab=schedule`} fallbackLabel={league.name} />}
 
         {/* ── Hero card ── */}
         <div className="mt-4 bg-white border rounded-xl p-5 sm:p-6">

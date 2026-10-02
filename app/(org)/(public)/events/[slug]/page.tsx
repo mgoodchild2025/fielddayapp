@@ -30,12 +30,13 @@ import Link from 'next/link'
 import { MapLink } from '@/components/ui/map-link'
 import { BackLink } from '@/components/ui/back-link'
 import { formatGameTime, formatDateOnly } from '@/lib/format-time'
+import { EmptyState } from '@/components/ui/empty-state'
 import {
   computePts, sortStandings, VOLLEYBALL_SPORTS,
   accumulateGameResult, emptyTeamStat, computeStreaks,
   type TeamStat as BaseTeamStat, type TeamStatTotals,
   type PtsMethod, type VolleyballMode, countsForStandings } from '@/lib/standings'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, CalendarDays, BarChart3 } from 'lucide-react'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { EventAvatar } from '@/components/ui/event-avatar'
@@ -79,6 +80,18 @@ function Legend({ items }: { items: { abbr: string; label: string }[] }) {
   )
 }
 
+// Raw game statuses read as code ("scheduled", "in_progress") — say them like people do.
+function gameStatusLabel(status: string | null | undefined): string {
+  switch (status) {
+    case 'completed': return 'Final'
+    case 'scheduled': return 'Scheduled'
+    case 'in_progress': return 'In progress'
+    case 'cancelled': return 'Cancelled'
+    case 'postponed': return 'Postponed'
+    default: return status ? status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ') : ''
+  }
+}
+
 function StandingsTable({
   teams,
   sport,
@@ -117,8 +130,8 @@ function StandingsTable({
             <table className="text-sm" style={{ minWidth: 480 }}>
               <thead>
                 <tr className="border-b bg-gray-50 text-left">
-                  <th className="px-4 py-3 font-medium text-gray-500 w-14 text-xs uppercase tracking-wide">RANK</th>
-                  <th className="px-4 py-3 font-medium text-gray-500 min-w-[120px]">Team</th>
+                  <th className="sticky left-0 z-[1] bg-inherit px-4 py-3 font-medium text-gray-500 w-14 text-xs uppercase tracking-wide">RANK</th>
+                  <th className="sticky left-14 z-[1] bg-inherit shadow-[1px_0_0_rgb(0_0_0/0.06)] px-4 py-3 font-medium text-gray-500 min-w-[120px]">Team</th>
                   <th className="px-3 py-3 font-medium text-gray-500 text-center">MP</th>
                   <th className="px-3 py-3 font-medium text-gray-500 text-center">SW</th>
                   <th className="px-3 py-3 font-medium text-gray-500 text-center">SL</th>
@@ -131,9 +144,9 @@ function StandingsTable({
                 {sorted.map((team, i) => {
                   const pd = team.pointsFor - team.pointsAgainst
                   return (
-                    <tr key={team.id} className="border-b last:border-0 odd:bg-gray-50/60 hover:bg-gray-50 transition-colors">
-                      <td className={`px-4 py-3 text-xs tabular-nums ${i < 3 ? 'font-bold text-gray-700' : 'text-gray-500'}`}>{i + 1}</td>
-                      <td className="px-4 py-3 font-medium">
+                    <tr key={team.id} className="border-b last:border-0 bg-white odd:bg-gray-50 hover:bg-gray-100 transition-colors">
+                      <td className={`sticky left-0 z-[1] bg-inherit px-4 py-3 text-xs tabular-nums ${i < 3 ? 'font-bold text-gray-700' : 'text-gray-500'}`}>{i + 1}</td>
+                      <td className="sticky left-14 z-[1] bg-inherit shadow-[1px_0_0_rgb(0_0_0/0.06)] px-4 py-3 font-medium">
                         <Link href={`/teams/${team.id}/stats`} className="flex items-center gap-2 min-w-0 hover:underline">
                           <TeamAvatar logoUrl={team.logoUrl ?? null} color={team.color ?? null} name={team.name} size="sm" />
                           <span className="truncate">{team.name}</span>
@@ -189,8 +202,8 @@ function StandingsTable({
           <table className="text-sm" style={{ minWidth: tableMinWidth }}>
             <thead>
               <tr className="border-b bg-gray-50 text-left">
-                <th className="px-4 py-3 font-medium text-gray-500 w-14 text-xs uppercase tracking-wide">RANK</th>
-                <th className="px-4 py-3 font-medium text-gray-500 min-w-[120px]">Team</th>
+                <th className="sticky left-0 z-[1] bg-inherit px-4 py-3 font-medium text-gray-500 w-14 text-xs uppercase tracking-wide">RANK</th>
+                <th className="sticky left-14 z-[1] bg-inherit shadow-[1px_0_0_rgb(0_0_0/0.06)] px-4 py-3 font-medium text-gray-500 min-w-[120px]">Team</th>
                 <th className="px-3 py-3 font-medium text-gray-500 text-center">MP</th>
                 <th className="px-3 py-3 font-medium text-gray-500 text-center">W</th>
                 <th className="px-3 py-3 font-medium text-gray-500 text-center">L</th>
@@ -209,9 +222,9 @@ function StandingsTable({
                 const pd = team.pointsFor - team.pointsAgainst
                 const pts = computePts(team, method)
                 return (
-                  <tr key={team.id} className="border-b last:border-0 odd:bg-gray-50/60 hover:bg-gray-50 transition-colors">
-                    <td className={`px-4 py-3 text-xs tabular-nums ${i < 3 ? 'font-bold text-gray-700' : 'text-gray-500'}`}>{i + 1}</td>
-                    <td className="px-4 py-3 font-medium">
+                  <tr key={team.id} className="border-b last:border-0 bg-white odd:bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <td className={`sticky left-0 z-[1] bg-inherit px-4 py-3 text-xs tabular-nums ${i < 3 ? 'font-bold text-gray-700' : 'text-gray-500'}`}>{i + 1}</td>
+                    <td className="sticky left-14 z-[1] bg-inherit shadow-[1px_0_0_rgb(0_0_0/0.06)] px-4 py-3 font-medium">
                       <Link href={`/teams/${team.id}/stats`} className="flex items-center gap-2 min-w-0 hover:underline">
                         <TeamAvatar logoUrl={team.logoUrl ?? null} color={team.color ?? null} name={team.name} size="sm" />
                         <span className="truncate">{team.name}</span>
@@ -380,7 +393,7 @@ function DateGroup({
                       </span>
                       {hasScore && (
                         <span
-                          className={`text-sm tabular-nums shrink-0 font-semibold ${isTie ? 'text-red-500' : !team.won ? 'text-gray-300 font-normal' : ''}`}
+                          className={`text-sm tabular-nums shrink-0 font-semibold ${isTie ? 'text-gray-700' : !team.won ? 'text-gray-300 font-normal' : ''}`}
                           style={(!isTie && team.won) ? { color: 'var(--brand-primary)' } : undefined}
                         >
                           {team.score}
@@ -414,7 +427,7 @@ function DateGroup({
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                         game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
                       }`}>
-                        {game.status === 'completed' ? 'Final' : game.status}
+                        {gameStatusLabel(game.status)}
                       </span>
                     )}
                     {game.cancellation_reason && (game.status === 'cancelled' || game.status === 'postponed') && (
@@ -468,14 +481,14 @@ function DateGroup({
                     <div>
                       <p className="tabular-nums text-sm font-semibold">
                         <span
-                          className={`${isTie ? 'text-red-500' : !homeWon ? 'text-gray-400 font-normal' : 'font-bold'}`}
+                          className={`${isTie ? 'text-gray-700' : !homeWon ? 'text-gray-400 font-normal' : 'font-bold'}`}
                           style={(!isTie && homeWon) ? { color: 'var(--brand-primary)' } : undefined}
                         >
                           {result!.home_score}
                         </span>
                         <span className="mx-1 text-gray-400 font-normal">–</span>
                         <span
-                          className={`${isTie ? 'text-red-500' : !awayWon ? 'text-gray-400 font-normal' : 'font-bold'}`}
+                          className={`${isTie ? 'text-gray-700' : !awayWon ? 'text-gray-400 font-normal' : 'font-bold'}`}
                           style={(!isTie && awayWon) ? { color: 'var(--brand-primary)' } : undefined}
                         >
                           {result!.away_score}
@@ -496,7 +509,7 @@ function DateGroup({
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                         game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
                       }`}>
-                        {game.status === 'completed' ? 'Final' : game.status}
+                        {gameStatusLabel(game.status)}
                       </span>
                     </span>
                   ) : null}
@@ -1692,7 +1705,7 @@ export default async function EventDetailPage({
         <a href={eventLiveStream.url} target="_blank" rel="noopener noreferrer"
           className="flex items-center justify-center gap-2 bg-red-600 text-white text-sm font-semibold py-1.5 px-4 hover:bg-red-700 transition-colors">
           <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+            <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
           </span>
           🔴 This event is live{eventLiveStream.title ? ` — ${eventLiveStream.title}` : ''} · Watch →
@@ -2431,7 +2444,7 @@ export default async function EventDetailPage({
         {activeTab === 'schedule' && (
           <div className="bg-gray-900 rounded-xl p-4 sm:p-6">
             {games.length === 0 ? (
-              <p className="text-gray-400 text-center py-16">No games scheduled yet.</p>
+              <EmptyState icon={CalendarDays} title="No games scheduled yet" hint="The schedule appears here as soon as the organizer publishes it." />
             ) : (
               <>
                 {schedulePhaseList.length > 0 && (
@@ -2451,9 +2464,11 @@ export default async function EventDetailPage({
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-400 text-center py-16">
-                      {teamFilter === 'all' ? 'No upcoming games.' : 'No upcoming games for this team.'}
-                    </p>
+                    <EmptyState
+                      icon={CalendarDays}
+                      title={teamFilter === 'all' ? 'No upcoming games' : 'No upcoming games for this team'}
+                      action={teamFilter === 'all' ? undefined : { href: `/events/${slug}?tab=schedule`, label: 'Show all teams' }}
+                    />
                   )
                 ) : (
                   pastGroups.length > 0 ? (
@@ -2463,9 +2478,11 @@ export default async function EventDetailPage({
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-400 text-center py-16">
-                      {teamFilter === 'all' ? 'No results yet.' : 'No results yet for this team.'}
-                    </p>
+                    <EmptyState
+                      icon={CalendarDays}
+                      title={teamFilter === 'all' ? 'No results yet' : 'No results yet for this team'}
+                      action={teamFilter === 'all' ? undefined : { href: `/events/${slug}?tab=schedule`, label: 'Show all teams' }}
+                    />
                   )
                 )}
               </>
@@ -2497,10 +2514,11 @@ export default async function EventDetailPage({
                       <a
                         key={v.key}
                         href={`?tab=standings&standingsView=${v.key}`}
-                        className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                        aria-current={active ? 'page' : undefined}
+                        className={`inline-flex items-center min-h-11 px-4 text-sm font-medium border-b-2 -mb-px transition-colors ${
                           active
-                            ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]'
-                            : 'border-transparent text-gray-500 hover:text-white'
+                            ? 'border-brand-primary text-brand-primary'
+                            : 'border-transparent text-gray-400 hover:text-white'
                         }`}
                       >
                         {v.label}
@@ -2511,7 +2529,7 @@ export default async function EventDetailPage({
               )}
 
               {views.length === 0 ? (
-                <p className="text-gray-400 text-center py-16">No games recorded yet.</p>
+                <EmptyState icon={BarChart3} title="No results yet" hint="Standings fill in after the first game is scored." action={{ href: `/events/${slug}?tab=schedule`, label: 'View schedule' }} />
               ) : activeView === 'overall' ? (
                 /* Overall standings across all pools — mirrors the admin standings tab */
                 <div>

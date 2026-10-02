@@ -29,6 +29,7 @@ import { TeamTutorial } from '@/components/teams/team-tutorial'
 import Link from 'next/link'
 import { CalendarDays, BarChart3 } from 'lucide-react'
 import { redirectToLogin } from '@/lib/auth'
+import { BackLink } from '@/components/ui/back-link'
 
 export default async function TeamDetailPage({
   params,
@@ -351,7 +352,10 @@ export default async function TeamDetailPage({
       <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
 
-        <Link href="/my-teams" className="text-sm text-gray-500 hover:underline">← My Teams</Link>
+        {/* Back names where it goes: your teams if you're on this one, else the event. */}
+        {myMembership || !league?.slug
+          ? <BackLink fallbackHref="/my-teams" fallbackLabel="My Teams" />
+          : <BackLink fallbackHref={`/events/${league.slug}?tab=standings`} fallbackLabel={league.name} />}
 
         {/* Payment success banner */}
         {paymentResult === 'success' && (

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { GameKindBadge, ExhibitionBadge } from '@/components/schedule/game-kind-badge'
+import { Collapse } from '@/components/ui/collapse'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -216,8 +217,7 @@ function H2HRow({ record, showKind }: { record: H2HRecord; showKind?: boolean })
       </button>
 
       {/* Expanded game list */}
-      {open && (
-        <div className="border-t divide-y">
+      <Collapse open={open} className="border-t divide-y">
           {games.map(g => {
             const myScore = g.isHome ? g.homeScore : g.awayScore
             const theirScore = g.isHome ? g.awayScore : g.homeScore
@@ -239,8 +239,7 @@ function H2HRow({ record, showKind }: { record: H2HRecord; showKind?: boolean })
               </Link>
             )
           })}
-        </div>
-      )}
+      </Collapse>
     </div>
   )
 }

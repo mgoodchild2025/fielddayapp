@@ -449,7 +449,7 @@ function MatchCard({
               )}
             </div>
             <span className={`font-bold tabular-nums text-sm ml-2 ${live ? 'text-red-500' : ''}`}>
-              {live && <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse mr-1 align-middle" />}
+              {live && <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 motion-safe:animate-pulse mr-1 align-middle" />}
               {isCompleted && match.score1 !== null ? match.score1 : live ? <ScoreTick value={live.a} /> : (isDeclared && match.winnerTeamId === match.team1Id ? 'W' : '')}
             </span>
           </div>
@@ -825,7 +825,7 @@ function BracketScoreList({
                         {!isCompleted && liveBoards[match.id] && (
                           <div className="shrink-0 text-right">
                             <div className="text-sm font-bold tabular-nums text-red-500">
-                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse mr-1 align-middle" />
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 motion-safe:animate-pulse mr-1 align-middle" />
                               <ScoreTick value={liveBoards[match.id].a} />
                             </div>
                             <div className="text-sm font-bold tabular-nums text-red-500"><ScoreTick value={liveBoards[match.id].b} /></div>
