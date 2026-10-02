@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { upsertRsvp } from '@/actions/rsvp'
 import { toast } from 'sonner'
+import { RsvpChoice } from '@/components/schedule/rsvp-choice'
 
 interface Props {
   gameId: string
@@ -16,7 +17,6 @@ export function GameRsvpButton({ gameId, teamId, initialStatus }: Props) {
   const [isPending, startTransition] = useTransition()
 
   function tap(next: 'in' | 'out') {
-    if (status === next) return  // already set — no-op
     const prev = status
     setStatus(next)  // optimistic
     startTransition(async () => {
@@ -30,33 +30,8 @@ export function GameRsvpButton({ gameId, teamId, initialStatus }: Props) {
 
   return (
     <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-gray-100">
-      <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mr-0.5">Going?</span>
-      <button
-        type="button"
-        onClick={() => tap('in')}
-        disabled={isPending}
-        aria-pressed={status === 'in'}
-        className={`press flex items-center gap-1.5 min-h-10 px-4 rounded-full text-sm font-semibold border select-none ${
-          status === 'in'
-            ? 'bg-green-500 text-white border-green-500 shadow-sm'
-            : 'bg-white border-gray-200 text-gray-500 hover:border-green-400 hover:text-green-600'
-        } disabled:opacity-60`}
-      >
-        <span className="text-xs" aria-hidden="true">✓</span> In
-      </button>
-      <button
-        type="button"
-        onClick={() => tap('out')}
-        disabled={isPending}
-        aria-pressed={status === 'out'}
-        className={`press flex items-center gap-1.5 min-h-10 px-4 rounded-full text-sm font-semibold border select-none ${
-          status === 'out'
-            ? 'bg-red-500 text-white border-red-500 shadow-sm'
-            : 'bg-white border-gray-200 text-gray-500 hover:border-red-400 hover:text-red-600'
-        } disabled:opacity-60`}
-      >
-        <span className="text-xs" aria-hidden="true">✗</span> Out
-      </button>
+      <span className="text-xs font-medium text-gray-500 mr-0.5">Going?</span>
+      <RsvpChoice value={status} onChange={tap} disabled={isPending} />
     </div>
   )
 }

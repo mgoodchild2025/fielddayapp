@@ -293,6 +293,39 @@ a,
   }
 }
 
+/* ── Live score tick (components/scoreboard/score-tick.tsx) ──────────────────
+   A changed live number rises into place (260ms) under a brief brand wash
+   (900ms) — causality at a glance. Reduced motion keeps the wash, drops the
+   movement. */
+@layer components {
+  .fd-score-tick {
+    display: inline-block;
+    border-radius: 4px;
+    animation: fd-score-rise 260ms var(--ease-snap) both, fd-score-wash 900ms ease-out;
+  }
+  @keyframes fd-score-rise {
+    from { transform: translateY(40%); opacity: 0; }
+  }
+  @keyframes fd-score-wash {
+    from { background-color: color-mix(in srgb, var(--brand-primary, #10b981) 35%, transparent); }
+    to { background-color: transparent; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fd-score-tick { animation: fd-score-wash 900ms ease-out; }
+  }
+}
+
+/* ── Event page tabs (components/events/event-tabs.tsx) ──────────────────────
+   While a tapped tab loads, the current content dims — after a 100ms beat, so a
+   fast response never flickers. The tab itself lights instantly in JS. */
+@layer components {
+  [data-tab-panel] { transition: opacity 150ms var(--ease-snap); }
+  body:has([data-event-tabs][data-pending]) [data-tab-panel] {
+    opacity: 0.5;
+    transition: opacity 200ms var(--ease-snap) 100ms;
+  }
+}
+
 /* ── Overlay (components/ui/overlay.tsx) ────────────────────────────────────
    Transitions, not keyframes: a close that interrupts an open retargets from
    wherever it is. Enter via @starting-style; exits are faster than entrances

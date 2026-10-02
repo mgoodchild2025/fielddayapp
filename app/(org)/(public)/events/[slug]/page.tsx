@@ -41,7 +41,7 @@ import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { EventAvatar } from '@/components/ui/event-avatar'
 import { NotifyMeForm } from '@/components/events/notify-me-form'
 import { StickyRegisterBar } from '@/components/events/sticky-register-bar'
-import { EventTabSelect } from '@/components/events/event-tab-select'
+import { EventTabNav, EventTabPills } from '@/components/events/event-tabs'
 import { CaptainStatsEntry } from '@/components/stats/captain-stats-entry'
 import { StatsLeaderboard } from '@/components/stats/stats-leaderboard'
 import type { LeaderboardPlayer } from '@/components/stats/stats-leaderboard'
@@ -58,35 +58,6 @@ import { SocialEmbeds } from '@/components/media/social-embeds'
 import { isCloudinaryConfigured, cloudinaryApiKey, CLOUD_NAME } from '@/lib/cloudinary'
 import { getEnrollmentForRegistration } from '@/lib/payment-plans'
 import { PlayerInstallmentSchedule } from '@/components/payments/player-installment-schedule'
-
-// ── Tab nav ───────────────────────────────────────────────────────────────────
-
-function TabNav({ slug, activeTab, tabs }: { slug: string; activeTab: string; tabs: { id: string; label: string }[] }) {
-  return (
-    <div className="border-b sticky top-14 z-30 bg-white">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 relative">
-        {/* Right-edge fade — visible on mobile only, hints that tabs are scrollable */}
-        <div className="pointer-events-none absolute right-4 sm:right-6 inset-y-0 w-10 bg-gradient-to-l from-white to-transparent z-10 sm:hidden" />
-        <nav className="flex gap-0 -mb-px overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-          {tabs.map((tab) => (
-            <Link
-              key={tab.id}
-              href={`/events/${slug}?tab=${tab.id}`}
-              className={`shrink-0 px-3.5 sm:px-5 py-3.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'border-current text-current'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-              style={activeTab === tab.id ? { color: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' } : {}}
-            >
-              {tab.label}
-            </Link>
-          ))}
-        </nav>
-      </div>
-    </div>
-  )
-}
 
 // ── Standings helpers ─────────────────────────────────────────────────────────
 
@@ -1846,12 +1817,12 @@ export default async function EventDetailPage({
       {/* ── Tab bar ── */}
       {tabs.length > 1 && (
         isInSeasonOrCompleted
-          ? <EventTabSelect slug={slug} activeTab={activeTab} tabs={tabs} />
-          : <TabNav slug={slug} activeTab={activeTab} tabs={tabs} />
+          ? <EventTabPills slug={slug} activeTab={activeTab} tabs={tabs} />
+          : <EventTabNav slug={slug} activeTab={activeTab} tabs={tabs} />
       )}
 
-      {/* ── Tab content ── */}
-      <div className={`max-w-3xl mx-auto px-4 sm:px-6 py-8 ${stickyBar ? 'pb-28 md:pb-8' : ''}`}>
+      {/* ── Tab content ── (dims while another tab loads — see event-tabs.tsx) */}
+      <div data-tab-panel="" className={`max-w-3xl mx-auto px-4 sm:px-6 py-8 ${stickyBar ? 'pb-28 md:pb-8' : ''}`}>
 
         {/* ──────────────── MEDIA TAB ──────────────── */}
         {activeTab === 'media' && (
