@@ -11,6 +11,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import type { OrgContext } from '@/lib/tenant'
 import { cn } from '@/lib/utils'
+import { Overlay } from '@/components/ui/overlay'
 
 interface NavItem { label: string; href: string; icon: LucideIcon }
 
@@ -55,7 +56,7 @@ function SidebarContent({ org, role, onClose }: { org: OrgContext; role: string;
           <p className="font-bold text-sm leading-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>{org.name}</p>
         </div>
         {onClose && (
-          <button onClick={onClose} className="p-1 opacity-60 hover:opacity-100 transition-opacity lg:hidden">
+          <button onClick={onClose} className="p-2 -mr-1 opacity-60 hover:opacity-100 transition-opacity lg:hidden" aria-label="Close menu">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -117,15 +118,6 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
     return () => { document.documentElement.style.overflow = '' }
   }, [])
 
-  useEffect(() => {
-    document.body.style.overflow = mobileOpen ? 'hidden' : ''
-    document.documentElement.style.overflowX = mobileOpen ? 'hidden' : ''
-    return () => {
-      document.body.style.overflow = ''
-      document.documentElement.style.overflowX = ''
-    }
-  }, [mobileOpen])
-
   return (
     <>
       <aside
@@ -153,22 +145,17 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
         </button>
       </div>
 
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden print:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
-      <aside
-        className={cn(
-          'fixed top-0 right-0 h-full w-64 z-50 lg:hidden print:hidden transition-transform duration-200',
-          mobileOpen ? 'translate-x-0' : 'translate-x-full'
-        )}
-        style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
+      <Overlay
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        variant="drawer"
+        label="Admin menu"
+        className="lg:hidden print:hidden"
+        panelClassName="w-64"
+        panelStyle={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
       >
         <SidebarContent org={org} role={role} onClose={() => setMobileOpen(false)} />
-      </aside>
+      </Overlay>
     </>
   )
 }

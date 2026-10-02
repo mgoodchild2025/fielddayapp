@@ -479,7 +479,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                   onClick={() => setValue('event_type', et.value, { shouldValidate: false })}
                   className={`text-left rounded-lg border-2 px-4 py-3 transition-colors ${
                     active
-                      ? 'border-brand-primary bg-blue-50'
+                      ? 'border-brand-primary bg-brand-primary/10'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                   style={

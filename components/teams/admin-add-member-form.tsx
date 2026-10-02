@@ -71,14 +71,14 @@ export function AdminAddMemberForm({ teamId, leagueId, registeredPlayers = [] }:
           <button
             type="button"
             onClick={() => { setMode('registered'); setError(null); setSuccessMsg(null) }}
-            className={`flex-1 py-1.5 transition-colors ${mode === 'registered' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+            className={`flex-1 py-1.5 transition-colors ${mode === 'registered' ? 'bg-brand-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
           >
             Registered Player
           </button>
           <button
             type="button"
             onClick={() => { setMode('email'); setError(null); setSuccessMsg(null) }}
-            className={`flex-1 py-1.5 transition-colors ${mode === 'email' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+            className={`flex-1 py-1.5 transition-colors ${mode === 'email' ? 'bg-brand-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
           >
             Invite by Email
           </button>
@@ -141,7 +141,7 @@ export function AdminAddMemberForm({ teamId, leagueId, registeredPlayers = [] }:
       <button
         type="submit"
         disabled={loading || !canSubmit}
-        className="w-full py-2 px-4 rounded-md text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        className="w-full py-2 px-4 rounded-md text-sm font-semibold text-white bg-brand-primary hover:opacity-90 disabled:opacity-50 transition-opacity"
       >
         {loading ? 'Adding…' : mode === 'email' ? 'Send Invite' : 'Add Player'}
       </button>

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { GameStatsSheet } from './game-stats-sheet'
 import type { RosterMember } from './game-stats-sheet'
 import type { StatDef, GameStats } from '@/actions/stats'
+import { useRetained } from '@/components/ui/overlay'
 
 export interface GameForStats {
   id: string
@@ -26,7 +27,9 @@ interface Props {
 export function StatsEntryTable({ leagueId, games, teams, statDefs, allGameStats }: Props) {
   const [activeGameId, setActiveGameId] = useState<string | null>(null)
 
-  const activeGame = games.find(g => g.id === activeGameId)
+  // The last opened game stays resolved through the sheet's exit.
+  const shownGameId = useRetained(activeGameId)
+  const activeGame = games.find(g => g.id === shownGameId)
   const homeTeam = activeGame ? teams[activeGame.homeTeamId] : null
   const awayTeam = activeGame ? teams[activeGame.awayTeamId] : null
 
@@ -75,6 +78,7 @@ export function StatsEntryTable({ leagueId, games, teams, statDefs, allGameStats
       {/* Stats sheet portal */}
       {activeGame && homeTeam && awayTeam && (
         <GameStatsSheet
+          open={activeGameId !== null}
           gameId={activeGame.id}
           leagueId={leagueId}
           homeTeam={homeTeam}

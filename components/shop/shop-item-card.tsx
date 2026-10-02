@@ -1,8 +1,8 @@
 'use client'
 
 import Image from 'next/image'
-import { useState, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useEffect } from 'react'
+import { Overlay } from '@/components/ui/overlay'
 import type { ShopItem } from '@/actions/merchandise'
 import type { CartItem } from './cart-provider'
 
@@ -19,10 +19,6 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
   const [quantity, setQuantity] = useState(1)
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedImageIdx, setSelectedImageIdx] = useState(0)
-  const modalRef = useRef<HTMLDivElement>(null)
-  // Portal target — only available after mount (client only).
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
 
   // All images: primary + gallery
   const allImages = [item.image_url, ...(item.additional_images ?? [])].filter(Boolean) as string[]
@@ -49,22 +45,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
     setQuantity((q) => Math.min(q, Math.max(1, maxQty)))
   }, [maxQty])
 
-  // Close modal on Escape
-  useEffect(() => {
-    if (!modalOpen) return
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setModalOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [modalOpen])
-
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (modalOpen) document.body.style.overflow = 'hidden'
-    else document.body.style.overflow = ''
-    return () => { document.body.style.overflow = '' }
-  }, [modalOpen])
+  // Escape, scroll lock, focus and the portal come from the Overlay below.
 
   const cardKey = `${item.id}:${selectedVariantId ?? 'none'}`
   const justAdded = addedKey === cardKey
@@ -210,33 +191,22 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
         </div>
       </div>
 
-      {/* Modal — portaled to <body> so it escapes any card stacking context
-          and reliably sits above the fixed bottom nav. */}
-      {modalOpen && mounted && createPortal(
-        <div
-          className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label={item.name}
-        >
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setModalOpen(false)}
-          />
-
-          {/* Panel — bottom sheet on mobile, centered dialog on desktop.
-              Uses dvh so the full panel (incl. the Add button) stays visible
-              within the actual viewport on mobile browsers. */}
-          <div
-            ref={modalRef}
-            className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md max-h-[88dvh] sm:max-h-[90vh] overflow-y-auto"
-          >
+      {/* Bottom sheet on mobile, centred dialog on desktop. Uses dvh so the
+          full panel (incl. the Add button) stays visible within the actual
+          viewport on mobile browsers. */}
+      <Overlay
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        variant="sheet"
+        label={item.name}
+        zIndex={60}
+        panelClassName="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md max-h-[88dvh] sm:max-h-[90vh] overflow-y-auto"
+      >
             {/* Close button */}
             <button
               type="button"
               onClick={() => setModalOpen(false)}
-              className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm text-gray-500 hover:text-gray-800 hover:bg-white shadow-sm transition-colors"
+              className="absolute top-3 right-3 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm text-gray-500 hover:text-gray-800 hover:bg-white shadow-sm transition-colors"
               aria-label="Close"
             >
               ✕
@@ -360,10 +330,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
                 {addButton(true)}
               </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      </Overlay>
     </>
   )
 }

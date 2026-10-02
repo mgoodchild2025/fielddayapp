@@ -164,14 +164,12 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
   return (
     <>
       {/* Team check-in modal — rendered outside the scanner modal so z-index stacks correctly */}
-      {teamModalId && (
-        <TeamCheckinModal
-          teamId={teamModalId}
-          leagueId={leagueId}
-          timezone={timezone}
-          onClose={() => setTeamModalId(null)}
-        />
-      )}
+      <TeamCheckinModal
+        teamId={teamModalId}
+        leagueId={leagueId}
+        timezone={timezone}
+        onClose={() => setTeamModalId(null)}
+      />
 
       {/* Start Scanning button */}
       {!isActive && (

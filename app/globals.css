@@ -1,13 +1,44 @@
 @import "tailwindcss";
 
+/* Org branding as real Tailwind colours. BrandProvider sets the --brand-*
+   variables on :root per org; `inline` makes the utilities reference them
+   directly, so bg-brand-primary, ring-brand-primary, text-brand-secondary,
+   border-brand-primary/40 etc. follow each org's colours. (tailwind.config.ts
+   is not loaded by Tailwind v4 — theme tokens belong here.) The fallbacks
+   cover the platform pages, which have no BrandProvider. */
+@theme inline {
+  --color-brand-primary: var(--brand-primary, #10b981);
+  --color-brand-secondary: var(--brand-secondary, #0f172a);
+  --color-brand-bg: var(--brand-bg, #ffffff);
+  --color-brand-text: var(--brand-text, #111827);
+}
+
+/* Motion tokens (also usable as ease-snap / ease-drawer utilities).
+   snap   — strong ease-out for things entering or responding to a tap.
+   drawer — iOS-like curve for sheets and drawers sliding in. */
+@theme {
+  --ease-snap: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 @layer base {
-  html, body {
+  /* The WINDOW must be the page's scroller. Back-navigation scroll restore,
+     iOS tap-status-bar-to-top and the collapsing URL bar all only work for
+     window scrolling, and scroll-driven code reads window.scrollY.
+     - overflow-x lives on <body> only: with <html> left at visible, the
+       browser propagates body's overflow to the viewport and body itself
+       stays non-scrolling. (Putting it on <html> too made <body> its own
+       scroll box — the page scrolled while window.scrollY stayed 0.)
+     - body uses min-height, not height: a fixed-height body would also cap
+       sticky headers at the first screen.
+     Scroll locks set body.style.overflow = 'hidden', which propagates the
+     same way. Never set overflow on <html> for public pages; the admin shell
+     (h-dvh + its own scrolling <main>) locks <html> deliberately. */
+  html {
     height: 100%;
   }
-  html {
-    overflow-x: hidden;
-  }
   body {
+    min-height: 100%;
     overflow-x: hidden;
     max-width: 100%;
   }
@@ -26,7 +57,7 @@
 
 @layer components {
   .input {
-    @apply w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white;
+    @apply w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary bg-white;
   }
 
   /* Prevent date/datetime inputs from overflowing their containers on mobile */
@@ -119,4 +150,100 @@ button,
 a,
 [role="button"] {
   touch-action: manipulation;
+}
+
+/* ── Keyboard focus ─────────────────────────────────────────────────────────
+   One visible focus ring for everything a keyboard can reach, in the org's
+   colour. :focus-visible only shows for keyboard (and programmatic) focus, so
+   taps and clicks stay clean. Base layer + :where() = zero specificity, so any
+   component's own focus-visible:ring-* or outline-* utility still wins. */
+@layer base {
+  :where(a[href], button, [role="button"], summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* ── Overlay (components/ui/overlay.tsx) ────────────────────────────────────
+   Transitions, not keyframes: a close that interrupts an open retargets from
+   wherever it is. Enter via @starting-style; exits are faster than entrances
+   (the system responding should feel instant). Only transform + opacity move. */
+@layer components {
+  .fd-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+  }
+  .fd-overlay[data-state="closed"] { pointer-events: none; }
+  .fd-overlay--modal { align-items: center; justify-content: center; padding: 1rem; }
+  .fd-overlay--sheet { align-items: flex-end; justify-content: center; }
+  .fd-overlay--drawer { justify-content: flex-end; }
+
+  .fd-overlay__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgb(0 0 0 / 0.45);
+    opacity: 1;
+    transition: opacity 240ms var(--ease-snap);
+  }
+  .fd-overlay[data-state="closed"] .fd-overlay__backdrop { opacity: 0; transition-duration: 180ms; }
+
+  .fd-overlay__panel {
+    position: relative;
+    outline: none;
+    max-height: 100%;
+    transition: transform 300ms var(--ease-drawer), opacity 200ms var(--ease-snap);
+  }
+
+  /* Modal: scale up from 0.96 with a fade. */
+  .fd-overlay--modal .fd-overlay__panel { transition: transform 200ms var(--ease-snap), opacity 200ms var(--ease-snap); }
+  .fd-overlay--modal[data-state="closed"] .fd-overlay__panel {
+    opacity: 0; transform: scale(0.96); transition-duration: 150ms;
+  }
+
+  /* Sheet: up from below its own height on phones. */
+  .fd-overlay--sheet[data-state="closed"] .fd-overlay__panel {
+    transform: translateY(100%); transition-duration: 200ms;
+  }
+
+  /* Drawer: in from the right edge. */
+  .fd-overlay--drawer .fd-overlay__panel { height: 100%; }
+  .fd-overlay--drawer[data-state="closed"] .fd-overlay__panel {
+    transform: translateX(100%); transition-duration: 200ms;
+  }
+
+  /* From sm up a sheet is a centred modal. */
+  @media (min-width: 640px) {
+    .fd-overlay--sheet { align-items: center; padding: 1rem; }
+    .fd-overlay--sheet .fd-overlay__panel { transition: transform 200ms var(--ease-snap), opacity 200ms var(--ease-snap); }
+    .fd-overlay--sheet[data-state="closed"] .fd-overlay__panel {
+      opacity: 0; transform: scale(0.96); transition-duration: 150ms;
+    }
+  }
+
+  @starting-style {
+    .fd-overlay[data-state="open"] .fd-overlay__backdrop { opacity: 0; }
+    .fd-overlay--modal[data-state="open"] .fd-overlay__panel { opacity: 0; transform: scale(0.96); }
+    .fd-overlay--sheet[data-state="open"] .fd-overlay__panel { transform: translateY(100%); }
+    .fd-overlay--drawer[data-state="open"] .fd-overlay__panel { transform: translateX(100%); }
+  }
+  @media (min-width: 640px) {
+    @starting-style {
+      .fd-overlay--sheet[data-state="open"] .fd-overlay__panel { opacity: 0; transform: scale(0.96); }
+    }
+  }
+
+  /* Reduced motion: keep the fade (it explains the change), drop the movement. */
+  @media (prefers-reduced-motion: reduce) {
+    .fd-overlay .fd-overlay__panel,
+    .fd-overlay[data-state="closed"] .fd-overlay__panel {
+      transform: none;
+      transition: opacity 150ms ease;
+    }
+    .fd-overlay[data-state="closed"] .fd-overlay__panel { opacity: 0; }
+    @starting-style {
+      .fd-overlay[data-state="open"] .fd-overlay__panel { transform: none; opacity: 0; }
+    }
+  }
 }

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useTransition } from 'react'
+import { Overlay } from '@/components/ui/overlay'
 import { useRouter } from 'next/navigation'
 import { overrideBracketSlot, updateMatchSchedule, updateMatchRouting, clearBracketMatchResult } from '@/actions/brackets'
 import { adminClearScore } from '@/actions/scores'
@@ -43,7 +43,22 @@ interface Props {
   onClose: () => void
 }
 
-export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }: Props) {
+/** The Edit Match sheet. Its form remounts on every open (fresh from `match`). */
+export function MatchEditModal({ open, ...props }: Props & { open: boolean }) {
+  return (
+    <Overlay
+      open={open}
+      onClose={props.onClose}
+      variant="sheet"
+      labelledBy="match-edit-title"
+      panelClassName="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92dvh] overflow-y-auto"
+    >
+      <MatchEditContent {...props} />
+    </Overlay>
+  )
+}
+
+function MatchEditContent({ match, bracketId, leagueId, allTeams, onClose }: Props) {
   const router = useRouter()
   const timezone = useBracketTimezone()
   const [isPending, startTransition] = useTransition()
@@ -91,13 +106,6 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
       return acc
     }, new Map<string, typeof routingTargets>())
   )
-
-  // Close on Escape
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   async function handleSave() {
     setErr(null)
@@ -179,12 +187,8 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
   const team1Label = match.team1Name ?? match.team1Label ?? 'TBD'
   const team2Label = match.team2Name ?? match.team2Label ?? 'TBD'
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden">
+  return (
+    <>
         {/* Drag handle (mobile) */}
         <div className="pt-3 pb-1 flex justify-center sm:hidden">
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
@@ -194,10 +198,10 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
           {/* Header */}
           <div className="flex items-start justify-between">
             <div>
-              <h3 className="font-semibold text-base text-gray-900">Edit Match</h3>
+              <h3 id="match-edit-title" className="font-semibold text-base text-gray-900">Edit Match</h3>
               <p className="text-sm text-gray-500 mt-0.5 truncate">{team1Label} vs {team2Label}</p>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none mt-0.5">×</button>
+            <button onClick={onClose} className="w-10 h-10 -mr-2 -mt-2 flex items-center justify-center text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Close">×</button>
           </div>
 
           {/* Team overrides */}
@@ -406,8 +410,6 @@ export function MatchEditModal({ match, bracketId, leagueId, allTeams, onClose }
             </button>
           </div>
         </div>
-      </div>
-    </div>,
-    document.body
+    </>
   )
 }

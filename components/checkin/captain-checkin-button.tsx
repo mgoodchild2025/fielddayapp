@@ -28,14 +28,12 @@ export function CaptainCheckinButton({ teamId, leagueId, timezone, teamName }: P
         Check In {teamName ? `${teamName}` : 'Team'}
       </button>
 
-      {open && (
-        <TeamCheckinModal
-          teamId={teamId}
-          leagueId={leagueId}
-          timezone={timezone}
-          onClose={() => setOpen(false)}
-        />
-      )}
+      <TeamCheckinModal
+        teamId={open ? teamId : null}
+        leagueId={leagueId}
+        timezone={timezone}
+        onClose={() => setOpen(false)}
+      />
     </>
   )
 }
