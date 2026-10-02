@@ -6,9 +6,11 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
+import { originFromHeaders } from '@/lib/public-origin'
+import { registrationBasePriceCents } from '@/lib/registration-price'
 import { assertOrgAdmin } from '@/lib/auth'
 import { sendRegistrationConfirmation, sendRegistrationAdminNotification, type RegistrationPaymentMethod } from './emails'
-import { acceptDropInInvite, acceptPickupInvite } from './invites'
+import { acceptDropInInvite, acceptPickupInvite } from '@/lib/pickup-invites'
 import { consentRequestMeta, type ConsentRow } from './player-consents'
 import { recordConsents } from '@/lib/consents'
 import { recordAuditLog, getAuditActor } from '@/lib/audit'
@@ -276,7 +278,7 @@ export async function moveRegistrationToSession(input: z.infer<typeof moveRegist
   const db = createServiceRoleClient()
   const { data: caller } = await db
     .from('org_members').select('role')
-    .eq('organization_id', org.id).eq('user_id', user.id).single()
+    .eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active').single()
   if (!caller || !['org_admin', 'league_admin'].includes(caller.role)) return { error: 'Unauthorized' }
 
 
@@ -418,6 +420,53 @@ export async function removeRegistration(registrationId: string, leagueId: strin
   return { error: null }
 }
 
+/**
+ * When a player may activate their OWN registration (activateRegistration is
+ * a public endpoint, so this is the rule — not the UI flow):
+ *  - per-team events (the team pays, not the player), or
+ *  - it costs nothing (server-computed price), or
+ *  - a payment is recorded: paid / manual, or an offline method chosen
+ *    (pending e-transfer / cash / cheque — the admin collects it), or
+ *  - the event takes no online payments at all (legacy offline instructions).
+ * Otherwise payment is by card, and Stripe's webhook / verified return
+ * activates it.
+ */
+async function mayActivateWithoutAdmin(
+  db: ReturnType<typeof createServiceRoleClient>,
+  orgId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  reg: any,
+): Promise<boolean> {
+  const league = Array.isArray(reg.leagues) ? reg.leagues[0] : reg.leagues
+  if (!league) return false
+  if (league.payment_mode === 'per_team') return true
+
+  const base = await registrationBasePriceCents(db, orgId, league.id, league, reg.registration_type)
+  if (base.priceCents <= 0) return true
+
+  const { data: payments } = await db
+    .from('payments')
+    .select('status, payment_method')
+    .eq('organization_id', orgId)
+    .eq('registration_id', reg.id)
+  for (const p of (payments ?? []) as { status: string; payment_method: string | null }[]) {
+    if (p.status === 'paid' || p.status === 'manual') return true
+    if (p.status === 'pending' && ['etransfer', 'cash', 'cheque'].includes(p.payment_method ?? '')) return true
+  }
+
+  // No online payments for this event → the legacy "pay the organizer" step.
+  const methods = (league.payment_methods ?? []) as string[]
+  if (methods.length > 0) return !methods.includes('card')
+  const { data: pay } = await db
+    .from('org_payment_settings')
+    .select('stripe_secret_key, registration_payment_mode')
+    .eq('organization_id', orgId)
+    .maybeSingle()
+  // Same test the register page uses for hasOnlinePayments.
+  const online = !!pay?.stripe_secret_key && (pay.registration_payment_mode ?? 'stripe') !== 'manual'
+  return !online
+}
+
 export async function activateRegistration(registrationId: string) {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
@@ -430,7 +479,7 @@ export async function activateRegistration(registrationId: string) {
 
   const { data: reg, error: fetchError } = await db2
     .from('registrations')
-    .select('*, checkin_token, profiles!registrations_user_id_fkey(full_name, email), leagues!registrations_league_id_fkey(id, name, slug, sport, event_type, checkin_enabled, calendar_token, price_cents, drop_in_price_cents, payment_mode, season_start_date, game_start_time, game_end_time, days_of_week, venue_name, venue_address, venue_maps_url)')
+    .select('*, checkin_token, profiles!registrations_user_id_fkey(full_name, email), leagues!registrations_league_id_fkey(id, name, slug, sport, event_type, checkin_enabled, calendar_token, price_cents, drop_in_price_cents, payment_mode, early_bird_price_cents, early_bird_deadline, season_pass_prorate, payment_methods, season_start_date, game_start_time, game_end_time, days_of_week, venue_name, venue_address, venue_maps_url)')
     .eq('id', registrationId)
     .eq('organization_id', org.id)
     .single()
@@ -441,6 +490,10 @@ export async function activateRegistration(registrationId: string) {
   if ((reg as { user_id: string | null }).user_id !== caller.id) {
     const auth = await assertOrgAdmin(org)
     if (auth.error) return { data: null, error: 'Registration not found' }
+  } else if (!(await mayActivateWithoutAdmin(db2, org.id, reg))) {
+    // A player may not activate a registration that still needs paying online —
+    // card payments are activated by the Stripe webhook / verified return.
+    return { data: null, error: 'Payment is required to complete this registration.' }
   }
 
   const { error } = await db2
@@ -633,7 +686,7 @@ export async function adminAddRegistrant(input: z.infer<typeof adminAddRegistran
   const db = createServiceRoleClient()
   const { data: caller } = await db
     .from('org_members').select('role')
-    .eq('organization_id', org.id).eq('user_id', user.id).single()
+    .eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active').single()
   if (!caller || !['org_admin', 'league_admin'].includes(caller.role)) return { error: 'Unauthorized' }
   // League admins can add registrants, but recording money is org-admin only
   // (see assertPaymentAdmin) — their form doesn't offer the payment fields.
@@ -968,14 +1021,25 @@ export async function claimGuestRegistration(input: z.infer<typeof claimGuestSch
   const { data: existing } = await db.from('profiles').select('id').ilike('email', email).maybeSingle()
   if (existing) return { error: 'An account already exists for this email. Please sign in instead.', email }
 
-  const { data: created, error: createErr } = await db.auth.admin.createUser({
+  // Create the account UNCONFIRMED and email a confirmation link, exactly like
+  // a normal sign-up. (It used to be created with email_confirm: true — the
+  // guest email is never verified, so anyone could register a drop-in under
+  // someone else's address, claim it, and own a verified account for it.)
+  const origin = originFromHeaders(headersList)
+  const isDev = process.env.NODE_ENV === 'development'
+  const { data: linkData, error: createErr } = await db.auth.admin.generateLink({
+    type: 'signup',
     email,
     password: parsed.data.password,
-    email_confirm: true,
-    user_metadata: { full_name: reg.guest_name ?? '' },
+    options: {
+      data: { full_name: reg.guest_name ?? '', redirect_destination: `${origin}/dashboard` },
+      redirectTo: isDev ? `${origin}/auth/callback` : `https://app.${process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'}/auth/callback`,
+    },
   })
-  if (createErr || !created?.user) return { error: createErr?.message ?? 'Could not create the account', email }
-  const newUserId = created.user.id
+  if (createErr || !linkData?.user) return { error: createErr?.message ?? 'Could not create the account', email }
+  const newUserId = linkData.user.id
+  const { sendSignupConfirmation } = await import('@/actions/emails')
+  await sendSignupConfirmation({ email, fullName: reg.guest_name ?? '', confirmUrl: linkData.properties.action_link })
 
   await db.from('profiles').update({
     full_name: reg.guest_name ?? '', // profiles.full_name is NOT NULL
@@ -1003,5 +1067,6 @@ export async function claimGuestRegistration(input: z.infer<typeof claimGuestSch
   await db.from('payments').update({ user_id: newUserId })
     .eq('organization_id', org.id).eq('registration_id', reg.id).is('user_id', null)
 
-  return { error: null, email }
+  // The player confirms from their inbox, then signs in.
+  return { error: null, email, confirmEmail: true as const }
 }

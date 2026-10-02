@@ -26,6 +26,7 @@ async function requireCheckInStaff(): Promise<{ orgId: string; userId: string } 
     .select('role')
     .eq('organization_id', org.id)
     .eq('user_id', user.id)
+    .eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .maybeSingle()
 
@@ -413,11 +414,9 @@ export async function checkInSelfForSession(sessionId: string): Promise<SelfChec
 
 // Admin resets an event-level check-in (correction)
 export async function undoCheckIn(registrationId: string, leagueId: string) {
-  const headersList = await headers()
-  const org = await getCurrentOrg(headersList)
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
+  // Staff only — any signed-in member could undo anyone's check-in before.
+  const staff = await requireCheckInStaff()
+  if ('error' in staff) return { error: staff.error }
 
   const db = createServiceRoleClient()
 
@@ -425,7 +424,7 @@ export async function undoCheckIn(registrationId: string, leagueId: string) {
     .from('registrations')
     .update({ checked_in_at: null, checked_in_by: null })
     .eq('id', registrationId)
-    .eq('organization_id', org.id)
+    .eq('organization_id', staff.orgId)
 
   if (error) return { error: error.message }
 

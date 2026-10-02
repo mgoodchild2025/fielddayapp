@@ -272,6 +272,16 @@ CSS variables set by `BrandProvider` from `org_branding` row:
 - **One toast style** (sonner, ONE `<Toaster />` + `<ConfirmHost />` in `app/layout.tsx`; mobile offset clears the tab bar). `toast.success` for confirmations that aren't next to the control that caused them ("Branding saved", "Invite sent to …"); `toast.error` for errors that aren't tied to a field. `toast()` is client-only: server actions return results and the client toasts.
 - **Inline notes that sit next to their control stay inline** ("Saved" beside a Save button, a Copy button's label swapping to "Copied!") but fade in with `fd-fade-in` (160ms, 2px rise, opacity-only under reduced motion). For a label that swaps in place, wrap the copied state in `<span key="copied" className="fd-fade-in">` so it remounts on each copy.
 
+## Server action security (read before adding an action)
+- **Every export of a `'use server'` file is a public POST endpoint** — anyone can call it with any arguments (with the service role, RLS doesn't save you). Each export must establish the caller itself: `requireOrgMember` / `assertOrgAdmin(org, roles?)` / `assertPaymentAdmin` / `requirePlatformAdmin`, or ownership (`row.user_id === user.id`). Internal helpers that take ids and trust them (email fan-out, consent batches, invite lookups) belong in plain `lib/` modules, never exported from `actions/` (see `lib/announcement-delivery.ts`, `lib/marketing-consent.ts`, `lib/pickup-invites.ts`; `actions/emails.ts` is deliberately not `'use server'`).
+- **Never trust an org or league id from the caller.** Use the proxy's org (`getCurrentOrg(headers())`) and scope every query with `.eq('organization_id', org.id)`; when an action receives a `leagueId`/`teamId`/`divisionId`, verify it belongs to the org before writing — especially before an upsert whose conflict key doesn't include the org. Private data loaders guard with `requireCurrentOrgAdmin({ orgId?, leagueId? })` (lib/auth.ts; throws) — finances have `guardFinanceRead`.
+- **Caller role lookups require `status = 'active'`** (suspended admins keep nothing).
+- **Never spread raw client input into an update** (`...input`): parse with zod (which strips unknown keys) and write only the keys sent — zod 4 fills `.default()`s even under `.partial()`. `updateLeague` blocks identity columns explicitly.
+- **Money is computed server-side.** `lib/registration-price.ts` (`registrationBasePriceCents` + `applyDiscountCode`) is the one price for card checkout and offline payments; clients send a `discountId`, never an amount. A player may activate their own registration only when `mayActivateWithoutAdmin` allows it (per-team, free, a recorded/offline payment, or no online payments) — card payments are activated by the webhook / verified return.
+- **Internal headers**: `proxy.ts` deletes client-sent `x-org-id` and `x-impersonating` before setting its own; add any new trusted header to that list.
+- **Accounts**: never set or change a password for an existing account from a sign-up form, and never create a pre-confirmed account for an unverified email (guest claim uses the normal confirmation link).
+- **Uploads**: admin-only unless genuinely public; derive the extension from the vetted MIME type, and never store an unconverted SVG.
+
 ## Common patterns
 ```typescript
 // Server component — get org context

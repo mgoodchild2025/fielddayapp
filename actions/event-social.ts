@@ -27,7 +27,7 @@ async function requireSocialAdmin(orgId: string): Promise<string | null> {
   const db = createServiceRoleClient()
   const { data: member } = await db
     .from('org_members').select('role')
-    .eq('organization_id', orgId).eq('user_id', user.id).single()
+    .eq('organization_id', orgId).eq('user_id', user.id).eq('status', 'active').single()
   if (!member || !['org_admin', 'league_admin'].includes(member.role)) return null
   return user.id
 }

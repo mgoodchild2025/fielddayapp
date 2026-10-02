@@ -403,6 +403,10 @@ export async function updateLeague(
   // blank instructions → null.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const u = updates as any
+  // updates is spread into the row below. Never let a caller rewrite identity
+  // or lifecycle columns through it (organization_id would move the event to
+  // another org); status changes go through updateLeagueStatus.
+  for (const k of ['id', 'organization_id', 'created_at', 'deleted_at', 'status', 'slug'] as const) delete u[k]
   if (Array.isArray(u.payment_methods) && u.payment_methods.length === 0) u.payment_methods = null
   if (typeof u.payment_instructions === 'string') u.payment_instructions = u.payment_instructions.trim() || null
   if (typeof u.teaser_text === 'string') u.teaser_text = u.teaser_text.trim() || null

@@ -2,6 +2,9 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { headers } from 'next/headers'
+import { getCurrentOrg } from '@/lib/tenant'
+import { assertOrgAdmin } from '@/lib/auth'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_SIZE = 10 * 1024 * 1024 // 10 MB
@@ -12,6 +15,11 @@ export async function uploadContentImage(
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { url: null, error: 'Not authenticated' }
+  // Every rich-text editor is an admin screen — any signed-in user could
+  // upload to this public bucket before.
+  const org = await getCurrentOrg(await headers())
+  const auth = await assertOrgAdmin(org)
+  if (auth.error) return { url: null, error: auth.error }
 
   const file = formData.get('file') as File | null
   if (!file || file.size === 0) return { url: null, error: 'No file provided' }
@@ -29,7 +37,7 @@ export async function uploadContentImage(
     : file.type === 'image/webp' ? 'webp'
     : 'gif'
 
-  const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const path = `${org.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
 
   const db = createServiceRoleClient()
   const { error: uploadError } = await db.storage

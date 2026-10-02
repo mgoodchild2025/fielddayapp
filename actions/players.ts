@@ -24,7 +24,7 @@ async function requireOrgAdmin() {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .single()
 
   if (!member || member.role !== 'org_admin') {
@@ -43,6 +43,17 @@ const detailsSchema = z.object({
   how_did_you_hear: z.string().optional().nullable(),
 })
 
+/** The target user must belong to this org — profiles are global (shared by
+ *  every org a player is in), so without this an admin of one org could edit
+ *  or message anyone on the platform by user id. */
+async function isOrgMember(db: ReturnType<typeof createServiceRoleClient>, orgId: string, userId: string): Promise<boolean> {
+  const { data } = await db
+    .from('org_members').select('id')
+    .eq('organization_id', orgId).eq('user_id', userId)
+    .limit(1).maybeSingle()
+  return !!data
+}
+
 export async function updatePlayerDetails(
   userId: string,
   input: z.infer<typeof detailsSchema>
@@ -52,6 +63,7 @@ export async function updatePlayerDetails(
 
   const parsed = detailsSchema.safeParse(input)
   if (!parsed.success) return { error: 'Invalid input' }
+  if (!(await isOrgMember(db, org.id, userId))) return { error: 'Player not found' }
 
   const { full_name, phone, ...details } = parsed.data
 
@@ -249,6 +261,7 @@ export async function sendPlayerNotification(userId: string, title: string, body
   try {
   const { error, org, db } = await requireOrgAdmin()
   if (error) return { error, smsError: null }
+  if (!(await isOrgMember(db, org.id, userId))) return { error: 'Player not found', smsError: null }
 
   const { error: e } = await createNotifications({
     organization_id: org.id,

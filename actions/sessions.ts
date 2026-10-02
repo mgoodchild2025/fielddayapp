@@ -263,6 +263,10 @@ export async function joinSession(sessionId: string, leagueId: string) {
     .select('id, capacity, status')
     .eq('id', sessionId)
     .eq('organization_id', org.id)
+    // The session must belong to the event whose join rules were checked
+    // above — else a private event's session could be joined by passing a
+    // public event's id.
+    .eq('league_id', leagueId)
     .single()
 
   if (!session) return { error: 'Session not found' }

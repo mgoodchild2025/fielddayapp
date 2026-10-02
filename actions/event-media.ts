@@ -9,6 +9,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { destroyAsset, archiveDownloadUrl } from '@/lib/cloudinary'
 import { sendSms } from '@/lib/twilio'
 import { createNotifications } from '@/lib/notify'
+import { requireCurrentOrgAdmin } from '@/lib/auth'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ export async function getApprovedEventMedia(leagueId: string): Promise<EventMedi
 
 /** All media for one event, any status (admin moderation queue). */
 export async function getEventMediaForAdmin(leagueId: string): Promise<EventMediaItem[]> {
+  await requireCurrentOrgAdmin({ leagueId })
   const db = createServiceRoleClient()
 
   const { data } = await db
@@ -243,7 +245,7 @@ async function requireMediaAdmin(orgId: string) {
   const db = createServiceRoleClient()
   const { data: member } = await db
     .from('org_members').select('role')
-    .eq('organization_id', orgId).eq('user_id', user.id).single()
+    .eq('organization_id', orgId).eq('user_id', user.id).eq('status', 'active').single()
   if (!member || !['org_admin', 'league_admin'].includes(member.role)) return null
   return user.id
 }
@@ -316,7 +318,7 @@ export async function exportOrgEventMedia(): Promise<{ error: string | null; dat
   const db = createServiceRoleClient()
   const { data: member } = await db
     .from('org_members').select('role')
-    .eq('organization_id', org.id).eq('user_id', user.id).single()
+    .eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active').single()
   if (member?.role !== 'org_admin') return { error: 'Only org admins can export media.', data: null }
 
 

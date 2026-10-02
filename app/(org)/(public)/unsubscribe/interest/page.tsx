@@ -14,7 +14,7 @@ export default async function InterestUnsubscribePage({
 
   let ok = false
   if (parsed) {
-    const res = await unsubscribeInterest(parsed.interestId)
+    const res = await unsubscribeInterest(token!)
     ok = !res.error
   }
 

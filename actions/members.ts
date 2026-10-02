@@ -40,7 +40,7 @@ export async function changeMemberRole(memberId: string, newRole: OrgRole) {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .single()
 
   if (!caller || caller.role !== 'org_admin') return { error: 'Unauthorized' }
@@ -84,7 +84,7 @@ export async function suspendMember(memberId: string) {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .single()
 
   if (!caller || caller.role !== 'org_admin') return { error: 'Unauthorized' }
@@ -115,7 +115,7 @@ export async function reinstateMember(memberId: string) {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .single()
 
   if (!caller || caller.role !== 'org_admin') return { error: 'Unauthorized' }
@@ -152,7 +152,7 @@ export async function deleteMember(memberId: string) {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .single()
 
   if (!caller || caller.role !== 'org_admin') return { error: 'Unauthorized' }
@@ -249,7 +249,7 @@ export async function inviteMember(input: FormData) {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .single()
 
   if (!caller || !['org_admin', 'league_admin'].includes(caller.role)) {
@@ -272,6 +272,22 @@ export async function inviteMember(input: FormData) {
     .single()
 
   if (existingProfile) {
+    // Already in this org? Inviting must never change an existing membership —
+    // the upsert below used to overwrite role + status, so a league admin could
+    // "invite" an org admin as a player (demoting them) or reactivate a
+    // suspended member. Role changes and reactivation have their own controls.
+    const { data: existingMember } = await service
+      .from('org_members').select('role, status')
+      .eq('organization_id', org.id).eq('user_id', existingProfile.id)
+      .maybeSingle()
+    if (existingMember) {
+      return {
+        error: existingMember.status === 'suspended'
+          ? 'This person is suspended in your organization — reactivate them from the Players page.'
+          : 'This person is already a member — change their role from the Players page.',
+      }
+    }
+
     // User already has an account — add them directly
     const { error } = await service
       .from('org_members')

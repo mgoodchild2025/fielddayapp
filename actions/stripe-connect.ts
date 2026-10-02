@@ -21,8 +21,11 @@ async function requireOrgAdmin() {
     .select('role')
     .eq('organization_id', org.id)
     .eq('user_id', user.id)
+    .eq('status', 'active')
     .single()
-  if (!member || !['org_admin', 'league_admin'].includes(member.role)) redirect('/admin/dashboard')
+  // Connecting/disconnecting the payout account is org-admin only — a league
+  // admin must not be able to route registration revenue to their own Stripe.
+  if (!member || member.role !== 'org_admin') redirect('/admin/dashboard')
   return org
 }
 

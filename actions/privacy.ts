@@ -42,7 +42,7 @@ export async function exportMyData(): Promise<{ data: Record<string, unknown> | 
 
     db.from('org_members')
       .select('role, status, joined_at, organizations(name, slug)')
-      .eq('user_id', user.id),
+      .eq('user_id', user.id).eq('status', 'active'),
 
     db.from('registrations')
       .select('status, created_at, leagues(name, slug, event_type)')

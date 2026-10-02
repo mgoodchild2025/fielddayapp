@@ -115,7 +115,7 @@ export async function addGame(input: z.infer<typeof addGameSchema>) {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .single()
 
@@ -194,7 +194,7 @@ export async function generateRoundRobinSchedule(input: {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .single()
 
@@ -298,7 +298,7 @@ export async function updateGame(input: z.infer<typeof updateGameSchema>) {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .single()
 
@@ -346,7 +346,7 @@ export async function deleteGame(gameId: string, leagueId: string) {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .single()
 
@@ -381,7 +381,7 @@ export async function deleteGames(gameIds: string[], leagueId: string) {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .single()
 
@@ -421,7 +421,7 @@ export async function assignSlotToTeam(input: {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .single()
   if (!adminMember) return { error: 'Admin access required', count: 0 }
@@ -476,7 +476,7 @@ export async function insertBreak(input: {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .single()
   if (!adminMember) return { error: 'Admin access required', count: 0 }
@@ -540,7 +540,7 @@ export async function delayRemainingGames(input: {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .single()
   if (!adminMember) return { error: 'Admin access required', count: 0 }
@@ -639,7 +639,7 @@ async function getGameForStatusChange(gameId: string) {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .single()
   if (!adminMember) return { org: null, db: null, game: null, error: 'Admin access required' as string }
@@ -889,7 +889,7 @@ export async function setSchedulePublished(leagueId: string, published: boolean)
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .single()
 
@@ -923,7 +923,7 @@ export async function clearAllGames(leagueId: string) {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .single()
 
@@ -972,7 +972,7 @@ export async function generateWeeklyLeagueSchedule(input: {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .single()
   if (!adminMember) return { error: 'Admin access required', count: 0 }
@@ -1083,7 +1083,7 @@ export async function generatePickupSchedule(input: {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .single()
   if (!adminMember) return { error: 'Admin access required', count: 0 }
@@ -1156,7 +1156,7 @@ export async function importGamesFromCsv(leagueId: string, rows: CsvGameRow[]) {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .single()
 

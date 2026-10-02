@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { claimGuestRegistration } from '@/actions/registrations'
 
 interface Props {
@@ -20,6 +19,7 @@ export function GuestAccountClaim({ registrationId, guestEmail }: Props) {
   const [show, setShow] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [sentTo, setSentTo] = useState<string | null>(null)
 
   async function claim() {
     setBusy(true); setError(null)
@@ -29,15 +29,24 @@ export function GuestAccountClaim({ registrationId, guestEmail }: Props) {
       setBusy(false)
       return
     }
-    // Sign the new account in, then send them to their dashboard.
-    const supabase = createClient()
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email: result.email, password })
-    if (signInError) {
-      // Account exists but sign-in failed — fall back to the login page.
-      router.push('/login')
-      return
-    }
-    router.push('/dashboard')
+    // The account is created unconfirmed: the player proves the email is
+    // theirs from their inbox, then signs in (same as a normal sign-up).
+    setSentTo(result.email)
+    setBusy(false)
+  }
+
+  if (sentTo) {
+    return (
+      <div role="status" className="fd-fade-in rounded-xl border bg-white p-5 text-left">
+        <p className="font-semibold text-gray-900">Check your email</p>
+        <p className="text-sm text-gray-600 mt-1">
+          We sent a link to <strong>{sentTo}</strong>. Tap it to confirm your account, then sign in with the password you just chose.
+        </p>
+        <button type="button" onClick={() => router.push('/login')} className="press mt-3 min-h-10 px-4 rounded-md text-sm font-semibold bg-brand-primary text-on-brand">
+          Go to sign in
+        </button>
+      </div>
+    )
   }
 
   if (!open) {

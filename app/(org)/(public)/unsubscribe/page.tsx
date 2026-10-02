@@ -19,7 +19,7 @@ export default async function UnsubscribePage({
 
   let ok = false
   if (parsed) {
-    const res = await unsubscribeMarketing(parsed.orgId, parsed.userId, parsed.type)
+    const res = await unsubscribeMarketing(token!)
     ok = !res.error
   }
 

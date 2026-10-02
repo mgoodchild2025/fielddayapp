@@ -11,6 +11,7 @@ import { resolveLeagueMethods, isOfflineMethod, PAYMENT_METHOD_LABELS, type Paym
 import { sendRegistrationAdminNotification, type RegistrationPaymentMethod } from './emails'
 import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
 import { getOrgTaxRates, ratesForScope, computeTax } from '@/lib/tax'
+import { registrationBasePriceCents, applyDiscountCode } from '@/lib/registration-price'
 
 const selectOfflinePaymentSchema = z.object({
   registrationId: z.string().uuid(),
@@ -45,11 +46,11 @@ export async function selectOfflinePayment(
   const [{ data: reg }, { data: league }, { data: orgPay }] = await Promise.all([
 
     db.from('registrations')
-      .select('id, user_id, organization_id, league_id, status')
+      .select('id, user_id, organization_id, league_id, status, registration_type')
       .eq('id', parsed.data.registrationId).maybeSingle(),
 
     db.from('leagues')
-      .select('id, name, price_cents, currency, payment_methods, payment_instructions')
+      .select('id, name, price_cents, currency, payment_methods, payment_instructions, drop_in_price_cents, early_bird_price_cents, early_bird_deadline, event_type, season_pass_prorate')
       .eq('id', parsed.data.leagueId).eq('organization_id', org.id).maybeSingle(),
 
     db.from('org_payment_settings')
@@ -68,9 +69,15 @@ export async function selectOfflinePayment(
     return { instructions: null, methodLabel: '', error: 'That payment method is not accepted for this event.' }
   }
 
-  // Use the discounted amount when the player applied a discount code;
-  // fall back to the league price so free registrations still work.
-  const subtotalCents = parsed.data.discountedAmountCents ?? league.price_cents ?? 0
+  if (reg.league_id !== league.id) return { instructions: null, methodLabel: '', error: 'Registration not found' }
+
+  // Price + discount computed here, exactly as the card checkout does — the
+  // client used to send discountedAmountCents and it was trusted (a player
+  // could record $0.01 owed). The code is re-validated; any amount the client
+  // sends is ignored.
+  const base = await registrationBasePriceCents(db, org.id, league.id, league, reg.registration_type)
+  const discounted = await applyDiscountCode(db, org.id, parsed.data.discountId, base.priceCents, base.isDropIn ? 'dropins' : 'leagues')
+  const subtotalCents = discounted.priceCents
   // Offline payers owe the SAME gross a card payer is charged: discounts
   // first, then tax — the shared helper keeps both worlds identical.
   const offlineTax = computeTax(subtotalCents, ratesForScope(await getOrgTaxRates(db, org.id), 'registrations'))
@@ -81,6 +88,20 @@ export async function selectOfflinePayment(
   // method change) warrants it — repeating the same method (page re-run, double
   // click, the flow re-invoking this) must NOT re-send an identical email.
   let shouldNotify = true
+
+  // A code that makes it free is still a recorded outcome: a $0 'manual'
+  // payment naming the code. (activateRegistration lets a player complete
+  // their own registration only when it's free or a payment is recorded.)
+  if (amountCents === 0 && discounted.discount) {
+    const { data: prior } = await db.from('payments').select('id').eq('registration_id', reg.id).eq('organization_id', org.id).limit(1).maybeSingle()
+    if (!prior) {
+      await db.from('payments').insert({
+        organization_id: org.id, registration_id: reg.id, user_id: user.id, league_id: league.id,
+        amount_cents: 0, tax_cents: 0, currency, status: 'manual', payment_method: method,
+        discount_code_id: discounted.discount.id, discount_cents: discounted.discount.cents,
+      })
+    }
+  }
 
   // Record a pending payment (skip when free) — reuse any existing row.
   if (amountCents > 0) {
@@ -106,8 +127,8 @@ export async function selectOfflinePayment(
         currency,
         status: 'pending',
         payment_method: method,
-        discount_code_id: parsed.data.discountId ?? null,
-        discount_cents: parsed.data.discountCents ?? 0,
+        discount_code_id: discounted.discount?.id ?? null,
+        discount_cents: discounted.discount?.cents ?? 0,
       })
       shouldNotify = true
     } else if (existing.status !== 'paid') {
@@ -115,8 +136,8 @@ export async function selectOfflinePayment(
       await db.from('payments')
         .update({
           payment_method: method, amount_cents: amountCents, tax_cents: offlineTax.taxCents, currency, status: 'pending',
-          discount_code_id: parsed.data.discountId ?? null,
-          discount_cents: parsed.data.discountCents ?? 0,
+          discount_code_id: discounted.discount?.id ?? null,
+          discount_cents: discounted.discount?.cents ?? 0,
         })
         .eq('id', existing.id)
       // Re-notify only if the player actually switched methods.
@@ -150,8 +171,10 @@ const selectOfflineTeamPaymentSchema = z.object({
   teamId: z.string().uuid(),
   leagueId: z.string().uuid(),
   method: z.enum(['etransfer', 'cash', 'cheque']),
-  /** Discounted amount in cents. When provided, used instead of league.price_cents. */
+  /** Ignored — kept so older clients still validate. The amount is computed server-side. */
   discountedAmountCents: z.number().int().nonnegative().optional(),
+  /** Discount code the captain applied; re-validated server-side. */
+  discountId: z.string().uuid().optional(),
 })
 
 /**
@@ -187,7 +210,7 @@ export async function selectOfflineTeamPayment(
     db.from('team_members').select('role')
       .eq('team_id', parsed.data.teamId).eq('user_id', user.id).eq('status', 'active').maybeSingle(),
 
-    db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).maybeSingle(),
+    db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active').maybeSingle(),
   ])
 
   if (!team || team.organization_id !== org.id || !league) {
@@ -206,7 +229,11 @@ export async function selectOfflineTeamPayment(
     return { instructions: null, methodLabel: '', error: 'That payment method is not accepted for this event.' }
   }
 
-  const teamSubtotalCents = parsed.data.discountedAmountCents ?? league.price_cents ?? 0
+  // Team fee + re-validated discount, as the card checkout computes it — never
+  // the client's amount (it was trusted: a captain could record $0 owed and,
+  // with $0, no payment row at all).
+  const teamDiscounted = await applyDiscountCode(db, org.id, parsed.data.discountId, league.price_cents ?? 0, 'leagues')
+  const teamSubtotalCents = teamDiscounted.priceCents
   const teamOfflineTax = computeTax(teamSubtotalCents, ratesForScope(await getOrgTaxRates(db, org.id), 'registrations'))
   const amountCents = teamOfflineTax.totalCents
   const currency = league.currency ?? 'cad'
@@ -236,11 +263,17 @@ export async function selectOfflineTeamPayment(
         status: 'pending',
         payment_type: 'team',
         payment_method: method,
+        discount_code_id: teamDiscounted.discount?.id ?? null,
+        discount_cents: teamDiscounted.discount?.cents ?? 0,
       })
     } else if (existing.status !== 'paid') {
 
       await db.from('payments')
-        .update({ payment_method: method, amount_cents: amountCents, tax_cents: teamOfflineTax.taxCents, currency, status: 'pending' })
+        .update({
+          payment_method: method, amount_cents: amountCents, tax_cents: teamOfflineTax.taxCents, currency, status: 'pending',
+          discount_code_id: teamDiscounted.discount?.id ?? null,
+          discount_cents: teamDiscounted.discount?.cents ?? 0,
+        })
         .eq('id', existing.id)
     }
   }

@@ -59,10 +59,18 @@ export async function updateDiscount(id: string, input: Partial<z.infer<typeof d
   if (auth.error) return { error: auth.error }
   const supabase = createServiceRoleClient()
 
+  // Validate + whitelist: the raw input was spread into the update, so a
+  // caller could set organization_id (move a code to another org) or use_count.
+  // Zod objects strip unknown keys.
+  const parsed = discountSchema.partial().extend({ active: z.boolean().optional() }).safeParse(input)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid input' }
+  // Only the fields the caller sent — zod 4 fills .default()s even under
+  // .partial(), which would reset applies_to to 'all' on an active toggle.
+  const changes = Object.fromEntries(Object.entries(parsed.data).filter(([k]) => k in (input as object)))
 
   const { error } = await supabase
     .from('discount_codes')
-    .update({ ...input, updated_at: new Date().toISOString() })
+    .update({ ...changes, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('organization_id', org.id)
 

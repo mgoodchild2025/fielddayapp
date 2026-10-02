@@ -139,7 +139,7 @@ export async function submitGameStats(
       .from('org_members')
       .select('role')
       .eq('organization_id', org.id)
-      .eq('user_id', user.id)
+      .eq('user_id', user.id).eq('status', 'active')
       .in('role', ['org_admin', 'league_admin'])
       .single(),
     supabase
@@ -316,7 +316,7 @@ export async function updateStatsPublic(
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .single()
 

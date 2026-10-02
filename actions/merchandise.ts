@@ -7,6 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { convertToWebP } from '@/lib/image-utils'
 import { createNotifications } from '@/lib/notify'
+import { requireCurrentOrgAdmin } from '@/lib/auth'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -133,7 +134,7 @@ async function getCallerRole(orgId: string) {
     .from('org_members')
     .select('role')
     .eq('organization_id', orgId)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .single()
 
   return member?.role ?? null
@@ -143,6 +144,7 @@ async function getCallerRole(orgId: string) {
 
 /** Fetch all merchandise items (active + inactive) for the org's item library. */
 export async function getMerchandiseItems(orgId: string): Promise<MerchItem[]> {
+  await requireCurrentOrgAdmin({ orgId })
   const db = createServiceRoleClient()
 
 
@@ -259,6 +261,7 @@ export async function getLeagueMerchandise(leagueId: string): Promise<LeagueMerc
 
 /** Fetch all orders for a league with joined player and item details. */
 export async function getMerchandiseOrders(leagueId: string): Promise<MerchOrder[]> {
+  await requireCurrentOrgAdmin({ leagueId })
   const db = createServiceRoleClient()
 
 
@@ -631,6 +634,14 @@ export async function toggleLeagueMerchandise(
 
   const db = createServiceRoleClient()
 
+  // Both the event and the item must be this org's (these rows carry no
+  // organization_id of their own, so scoping happens here).
+  const [{ data: ownLeague }, { data: ownItem }] = await Promise.all([
+    db.from('leagues').select('id').eq('id', leagueId).eq('organization_id', org.id).maybeSingle(),
+    db.from('merchandise_items').select('id').eq('id', itemId).eq('organization_id', org.id).maybeSingle(),
+  ])
+  if (!ownLeague || !ownItem) return { error: 'Not found' }
+
   if (enabled) {
 
     const { error } = await db
@@ -667,6 +678,14 @@ export async function updateLeagueMerchandisePrice(
   }
 
   const db = createServiceRoleClient()
+
+  // Both the event and the item must be this org's (these rows carry no
+  // organization_id of their own, so scoping happens here).
+  const [{ data: ownLeague }, { data: ownItem }] = await Promise.all([
+    db.from('leagues').select('id').eq('id', leagueId).eq('organization_id', org.id).maybeSingle(),
+    db.from('merchandise_items').select('id').eq('id', itemId).eq('organization_id', org.id).maybeSingle(),
+  ])
+  if (!ownLeague || !ownItem) return { error: 'Not found' }
 
   const { error } = await db
     .from('league_merchandise')
@@ -879,6 +898,17 @@ export async function recordInPersonSale(input: {
   if (lines.some((l) => !validItemIds.has(l.itemId))) {
     return { error: 'One or more items are not part of this organization.', orderIds: [] }
   }
+  // …and each variant must belong to its line's item (else another org's
+  // variant stock could be decremented below).
+  const variantIds = [...new Set(lines.map((l) => l.variantId).filter(Boolean) as string[])]
+  if (variantIds.length > 0) {
+    const { data: variants } = await db
+      .from('merchandise_variants').select('id, item_id').in('id', variantIds)
+    const itemOf = new Map(((variants ?? []) as { id: string; item_id: string }[]).map((v) => [v.id, v.item_id]))
+    if (lines.some((l) => l.variantId && itemOf.get(l.variantId) !== l.itemId)) {
+      return { error: 'One or more sizes don\u2019t match their item.', orderIds: [] }
+    }
+  }
 
   // Insert the order rows (the sale + revenue ledger).
   const rows = lines.map((l) => ({
@@ -981,6 +1011,7 @@ export async function getShopItems(orgId: string): Promise<ShopItem[]> {
 
 /** Fetch all standalone shop orders (league_id IS NULL) for an org. */
 export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
+  await requireCurrentOrgAdmin({ orgId })
   const db = createServiceRoleClient()
 
 
@@ -1051,6 +1082,7 @@ export async function getShopOrders(orgId: string): Promise<MerchOrder[]> {
 
 /** Fetch ALL merchandise orders for an org across shop + all events, with league name. */
 export async function getAllMerchandiseOrders(orgId: string): Promise<MerchOrder[]> {
+  await requireCurrentOrgAdmin({ orgId })
   const db = createServiceRoleClient()
 
 
@@ -1132,6 +1164,7 @@ export async function fulfillAllOrgOrders(orgId: string): Promise<{ error: strin
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const role = await getCallerRole(org.id)
+  if (orgId !== org.id) return { error: 'Unauthorized', count: 0 } // another org's orders
   if (!role || !['org_admin', 'league_admin'].includes(role)) {
     return { error: 'Unauthorized', count: 0 }
   }
@@ -1141,7 +1174,7 @@ export async function fulfillAllOrgOrders(orgId: string): Promise<{ error: strin
   const { data, error } = await db
     .from('merchandise_orders')
     .update({ status: 'fulfilled', fulfilled_at: new Date().toISOString() })
-    .eq('organization_id', orgId)
+    .eq('organization_id', org.id) // the caller's org — never the argument (cross-org write)
     .in('status', ['pending', 'paid'])
     .select('id')
 
@@ -1362,6 +1395,7 @@ export async function fulfillAllShopOrders(orgId: string): Promise<{ error: stri
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const role = await getCallerRole(org.id)
+  if (orgId !== org.id) return { error: 'Unauthorized', count: 0 } // another org's orders
   if (!role || !['org_admin', 'league_admin'].includes(role)) {
     return { error: 'Unauthorized', count: 0 }
   }
@@ -1371,7 +1405,7 @@ export async function fulfillAllShopOrders(orgId: string): Promise<{ error: stri
   const { data, error } = await db
     .from('merchandise_orders')
     .update({ status: 'fulfilled', fulfilled_at: new Date().toISOString() })
-    .eq('organization_id', orgId)
+    .eq('organization_id', org.id) // the caller's org — never the argument (cross-org write)
     .is('league_id', null)
     .in('status', ['pending', 'paid'])
     .select('id')

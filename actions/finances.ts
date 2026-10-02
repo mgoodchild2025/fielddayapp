@@ -20,11 +20,32 @@ async function requireFinanceAdmin(orgId: string): Promise<{ userId: string } | 
     .select('role')
     .eq('organization_id', orgId)
     .eq('user_id', user.id)
+    .eq('status', 'active')
     .single()
   if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
     return { error: 'Unauthorized' }
   }
   return { userId: user.id }
+}
+
+/**
+ * Read guard for every exported finance loader. These live in a 'use server'
+ * file, so each is a public endpoint taking an org/league id from its caller:
+ * require a finance admin of the CURRENT org (from the proxy's x-org-id), and
+ * refuse any other org's id. Event-scoped loaders also check the event is
+ * this org's. Throws — loaders return data, and pages render ErrorScreen.
+ */
+async function guardFinanceRead(opts: { orgId?: string; leagueId?: string } = {}): Promise<string> {
+  const org = await getCurrentOrg(await headers())
+  if (opts.orgId && opts.orgId !== org.id) throw new Error('Unauthorized')
+  const auth = await requireFinanceAdmin(org.id)
+  if ('error' in auth) throw new Error('Unauthorized')
+  if (opts.leagueId) {
+    const { data: league } = await createServiceRoleClient()
+      .from('leagues').select('id').eq('id', opts.leagueId).eq('organization_id', org.id).maybeSingle()
+    if (!league) throw new Error('Unauthorized')
+  }
+  return org.id
 }
 
 /** Variant cost overrides item cost; null at both levels = untracked. */
@@ -76,6 +97,7 @@ export type ShopPnl = {
  * with no cost on record are surfaced separately rather than assumed free.
  */
 export async function getShopPnl(orgId: string): Promise<ShopPnl> {
+  await guardFinanceRead({ orgId })
   const db = createServiceRoleClient()
 
 
@@ -219,6 +241,7 @@ async function attachmentsFor(kind: ReceiptKind, expenseIds: string[]): Promise<
 }
 
 export async function getEventExpenses(leagueId: string): Promise<EventExpense[]> {
+  await guardFinanceRead({ leagueId })
   const db = createServiceRoleClient()
 
   const { data } = await db
@@ -457,6 +480,7 @@ export type FinancialReport = {
  * the P&L rules (team fees once per team, deleted-registration orphans excluded).
  */
 export async function getFinancialReport(orgId: string, fromDate: string, toDate: string): Promise<FinancialReport> {
+  await guardFinanceRead({ orgId })
   const db = createServiceRoleClient()
   const fromTs = `${fromDate}T00:00:00.000Z`
   const toTs = `${toDate}T23:59:59.999Z`
@@ -644,6 +668,7 @@ export type EventPnl = {
  * payments; merch counts paid + fulfilled orders (honouring amount_paid + discounts).
  */
 export async function getEventPnl(leagueId: string, orgId: string): Promise<EventPnl> {
+  await guardFinanceRead({ orgId, leagueId })
   const db = createServiceRoleClient()
 
   const [{ data: payments }, { data: merchOrders }, { data: expenses }, { data: otherRevenue }] = await Promise.all([
@@ -751,6 +776,7 @@ export type SessionRevenueRow = {
 /** Paid/manual registration revenue grouped by the paying registration's
  *  session. Deleted-registration orphans are excluded, same as getEventPnl. */
 export async function getEventRevenueBySession(leagueId: string, orgId: string): Promise<SessionRevenueRow[]> {
+  await guardFinanceRead({ orgId, leagueId })
   const db = createServiceRoleClient()
   const { data } = await db
     .from('payments')
@@ -790,6 +816,7 @@ export type OrgOverhead = {
 }
 
 export async function getOrgOverhead(orgId: string): Promise<OrgOverhead[]> {
+  await guardFinanceRead({ orgId })
   const db = createServiceRoleClient()
 
   const [{ data }, { data: allocRows }] = await Promise.all([
@@ -824,6 +851,7 @@ export type AllocationTarget = { leagueId: string; name: string; status: string;
 /** Events an overhead cost can be allocated to, with session counts for the
  *  "split by sessions" helper. */
 export async function getAllocationTargets(orgId: string): Promise<AllocationTarget[]> {
+  await guardFinanceRead({ orgId })
   const db = createServiceRoleClient()
   const [{ data: leagues }, { data: sessions }] = await Promise.all([
     db.from('leagues')
@@ -1189,6 +1217,7 @@ export async function getOrgPnl(
   orgId: string,
   windowMonths: number = DEFAULT_WINDOW_MONTHS,
 ): Promise<OrgPnl> {
+  await guardFinanceRead({ orgId })
   const db = createServiceRoleClient()
 
   // Bounded to a rolling window. This used to read an org's entire history on
@@ -1398,6 +1427,7 @@ export type EventBudget = {
 }
 
 export async function getEventBudget(leagueId: string): Promise<EventBudget> {
+  await guardFinanceRead({ leagueId })
   const db = createServiceRoleClient()
 
 
@@ -1525,6 +1555,7 @@ export type EventRevenue = {
 }
 
 export async function getEventRevenue(leagueId: string): Promise<EventRevenue[]> {
+  await guardFinanceRead({ leagueId })
   const db = createServiceRoleClient()
 
   const { data } = await db

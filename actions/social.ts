@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { requireOrgMember } from '@/lib/auth'
+import { requireOrgMember, requireCurrentOrgAdmin } from '@/lib/auth'
 import { canAccess } from '@/lib/features'
 import { resolveYouTubeChannel } from '@/lib/youtube'
 
@@ -31,6 +31,7 @@ export type SyncedItem = {
 }
 
 export async function getYouTubeConnection(orgId: string): Promise<SocialConnection | null> {
+  await requireCurrentOrgAdmin({ orgId })
   const db = createServiceRoleClient()
 
   const { data } = await db
@@ -89,6 +90,7 @@ export async function disconnectYouTube(): Promise<{ error: string | null }> {
 
 /** Admin: list synced items (the moderation queue) for an org. */
 export async function listSyncedItems(orgId: string): Promise<SyncedItem[]> {
+  await requireCurrentOrgAdmin({ orgId })
   const db = createServiceRoleClient()
 
   const { data } = await db

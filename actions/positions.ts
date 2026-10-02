@@ -89,7 +89,7 @@ export async function addOrgPosition(input: z.infer<typeof addOrgPositionSchema>
 
   const db = createServiceRoleClient()
   const { data: member } = await db.from('org_members').select('role')
-    .eq('organization_id', org.id).eq('user_id', user.id).single()
+    .eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active').single()
 
   if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
     return { error: 'Not authorized' }
@@ -149,7 +149,7 @@ export async function removeOrgPosition(positionId: string) {
 
   const db = createServiceRoleClient()
   const { data: member } = await db.from('org_members').select('role')
-    .eq('organization_id', org.id).eq('user_id', user.id).single()
+    .eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active').single()
 
   if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
     return { error: 'Not authorized' }
@@ -176,7 +176,7 @@ export async function resetOrgPositions(sport: string) {
 
   const db = createServiceRoleClient()
   const { data: member } = await db.from('org_members').select('role')
-    .eq('organization_id', org.id).eq('user_id', user.id).single()
+    .eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active').single()
 
   if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
     return { error: 'Not authorized' }
@@ -221,7 +221,7 @@ export async function setTeamMemberPosition(input: z.infer<typeof setTeamMemberP
       .single(),
     db.from('org_members').select('role')
       .eq('organization_id', org.id)
-      .eq('user_id', user.id)
+      .eq('user_id', user.id).eq('status', 'active')
       .single(),
   ])
 

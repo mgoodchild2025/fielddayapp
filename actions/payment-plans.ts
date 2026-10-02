@@ -26,6 +26,14 @@ export async function upsertPaymentPlan(input: z.infer<typeof planSchema>) {
   if (auth.error) return { error: auth.error }
   const supabase = createServiceRoleClient()
 
+  // The event must be this org's. (The upsert conflicts on league_id alone, so
+  // without this an admin of one org could overwrite another org's plan.)
+  const { data: league } = await supabase
+    .from('leagues').select('id')
+    .eq('id', parsed.data.league_id).eq('organization_id', org.id)
+    .maybeSingle()
+  if (!league) return { error: 'Event not found' }
+
   const { error } = await supabase
     .from('payment_plans')
     .upsert(

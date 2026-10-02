@@ -21,6 +21,10 @@ export async function setWeekPhase(
   await requireOrgMember(org, ['org_admin', 'league_admin'])
 
   const db = createServiceRoleClient()
+  // The upsert conflicts on (league_id, week_number) alone, so the event must
+  // be this org's — else another org's phase row could be overwritten.
+  const { data: ownLeague } = await db.from('leagues').select('id').eq('id', leagueId).eq('organization_id', org.id).maybeSingle()
+  if (!ownLeague) return { error: 'Event not found' }
 
   if (phase === null) {
 

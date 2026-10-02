@@ -446,7 +446,7 @@ export async function acceptOrganizerInvitation(token: string) {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .maybeSingle()
 
   if (!existingMember) {

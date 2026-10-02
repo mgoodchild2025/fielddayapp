@@ -72,7 +72,7 @@ export async function inviteGameSub(
       .eq('organization_id', org.id).eq('status', 'active').maybeSingle(),
 
     db.from('org_members').select('role')
-      .eq('organization_id', org.id).eq('user_id', user.id).maybeSingle(),
+      .eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active').maybeSingle(),
   ])
 
   const isCaptain  = teamMember && ['captain', 'coach'].includes(teamMember.role)
@@ -465,7 +465,7 @@ export async function removeGameSub(
       .eq('organization_id', org.id).eq('status', 'active').maybeSingle(),
 
     db.from('org_members').select('role')
-      .eq('organization_id', org.id).eq('user_id', user.id).maybeSingle(),
+      .eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active').maybeSingle(),
   ])
 
   const isCaptain  = tm && ['captain', 'coach'].includes(tm.role)

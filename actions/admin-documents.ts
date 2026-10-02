@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { requireCurrentOrgAdmin } from '@/lib/auth'
 
 export type AdminDocument = {
   id: string
@@ -33,7 +34,7 @@ async function requireOrgAdminCtx(orgId: string): Promise<{ userId: string } | {
   const db = createServiceRoleClient()
   const { data: member } = await db
     .from('org_members').select('role')
-    .eq('organization_id', orgId).eq('user_id', user.id).single()
+    .eq('organization_id', orgId).eq('user_id', user.id).eq('status', 'active').single()
   if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
     return { error: 'Unauthorized' }
   }
@@ -42,6 +43,7 @@ async function requireOrgAdminCtx(orgId: string): Promise<{ userId: string } | {
 
 /** Documents for one event (leagueId) or the org level (leagueId null). */
 export async function listAdminDocuments(orgId: string, leagueId: string | null): Promise<AdminDocument[]> {
+  await requireCurrentOrgAdmin({ orgId, leagueId: leagueId ?? undefined })
   const db = createServiceRoleClient()
   let query = db
     .from('admin_documents')

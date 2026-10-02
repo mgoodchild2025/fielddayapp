@@ -79,7 +79,7 @@ export async function sendAnnouncement(input: FormData) {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .single()
 
   if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
@@ -181,7 +181,7 @@ export async function deleteAnnouncement(id: string) {
     .from('org_members')
     .select('role')
     .eq('organization_id', org.id)
-    .eq('user_id', user.id)
+    .eq('user_id', user.id).eq('status', 'active')
     .in('role', ['org_admin', 'league_admin'])
     .maybeSingle()
   if (!member) return { error: 'Admin access required' }
