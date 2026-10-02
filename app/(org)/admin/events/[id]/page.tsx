@@ -1,3 +1,4 @@
+import { formatDateOnly } from '@/lib/format-time'
 import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
@@ -171,10 +172,10 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
             </div>
           )}
           {league.season_start_date && (
-            <Row label="Season Start" value={new Date(league.season_start_date).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })} />
+            <Row label="Season Start" value={formatDateOnly(league.season_start_date, { month: 'long', day: 'numeric', year: 'numeric' })} />
           )}
           {league.season_end_date && (
-            <Row label="Season End" value={new Date(league.season_end_date).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })} />
+            <Row label="Season End" value={formatDateOnly(league.season_end_date, { month: 'long', day: 'numeric', year: 'numeric' })} />
           )}
           {league.registration_opens_at && (
             <Row label="Reg Opens" value={new Date(league.registration_opens_at).toLocaleString()} />

@@ -1,5 +1,6 @@
 'use client'
 
+import { formatDateOnly } from '@/lib/format-time'
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { DeleteEventRowButton } from '@/components/events/delete-event-row-button'
@@ -158,7 +159,7 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
                     {formatEventPrice(league)}
                   </td>
                   <td className="px-4 py-3 text-gray-500">
-                    {league.season_start_date ? new Date(league.season_start_date).toLocaleDateString() : '—'}
+                    {league.season_start_date ? formatDateOnly(league.season_start_date) : '—'}
                   </td>
                   <td className="px-4 py-3 flex items-center gap-2">
                     <Link href={`/admin/events/${league.id}`} className="text-xs font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
@@ -217,7 +218,7 @@ export function EventsTable({ leagues }: { leagues: League[] }) {
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500">
                 {league.venue_name && <span>{league.venue_name}</span>}
                 {league.season_start_date && (
-                  <span>{new Date(league.season_start_date).toLocaleDateString()}</span>
+                  <span>{formatDateOnly(league.season_start_date)}</span>
                 )}
                 <span>
                   {formatEventPrice(league)}

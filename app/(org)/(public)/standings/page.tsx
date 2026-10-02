@@ -1,3 +1,4 @@
+import { formatDateOnly } from '@/lib/format-time'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
@@ -172,7 +173,7 @@ export default async function StandingsPage() {
                   {league.season_start_date && (
                     <p className="text-xs text-gray-400 mt-1">
                       Season started{' '}
-                      {new Date(league.season_start_date).toLocaleDateString('en-CA', {
+                      {formatDateOnly(league.season_start_date, {
                         month: 'short',
                         day: 'numeric',
                         year: 'numeric',

@@ -1,5 +1,6 @@
 'use client'
 
+import { formatDateOnly } from '@/lib/format-time'
 import { useEffect, useRef } from 'react'
 import { activateRegistration } from '@/actions/registrations'
 import Link from 'next/link'
@@ -33,7 +34,7 @@ export function Step4Confirmation({ league, registrationId }: Props) {
       </p>
       {league.season_start_date && (
         <p className="text-sm text-gray-500">
-          Season starts {new Date(league.season_start_date).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' })}
+          Season starts {formatDateOnly(league.season_start_date, { weekday: 'long', month: 'long', day: 'numeric' })}
         </p>
       )}
       <div className="flex flex-col gap-2 pt-2">

@@ -1,3 +1,4 @@
+import { formatDateOnly } from '@/lib/format-time'
 import Image from 'next/image'
 import Link from 'next/link'
 import { OrgNav } from '@/components/layout/org-nav'
@@ -174,7 +175,7 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
                           </div>
                           {(league.season_start_date || timeRangeClub(league.game_start_time, league.game_end_time)) && (
                             <p className="text-xs text-gray-400 mt-1">
-                              {league.season_start_date && new Date(league.season_start_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              {league.season_start_date && formatDateOnly(league.season_start_date, { month: 'short', day: 'numeric', year: 'numeric' })}
                               {league.season_start_date && timeRangeClub(league.game_start_time, league.game_end_time) && ' · '}
                               {timeRangeClub(league.game_start_time, league.game_end_time)}
                             </p>

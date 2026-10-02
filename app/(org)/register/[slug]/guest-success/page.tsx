@@ -1,3 +1,4 @@
+import { formatDateOnly } from '@/lib/format-time'
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
@@ -123,7 +124,7 @@ export default async function GuestRegistrationSuccessPage({
         </p>
         {league?.season_start_date && (
           <p className="mt-2 text-gray-500 text-sm">
-            Starts {new Date(league.season_start_date).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            Starts {formatDateOnly(league.season_start_date, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
           </p>
         )}
 
