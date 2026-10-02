@@ -29,7 +29,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { MapLink } from '@/components/ui/map-link'
 import { BackLink } from '@/components/ui/back-link'
-import { formatGameTime } from '@/lib/format-time'
+import { formatGameTime, formatDateOnly } from '@/lib/format-time'
 import {
   computePts, sortStandings, VOLLEYBALL_SPORTS,
   accumulateGameResult, emptyTeamStat, computeStreaks,
@@ -634,7 +634,7 @@ export default async function EventDetailPage({
       ? new Date(league.registration_opens_at).toLocaleString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz })
       : null
     const startLabel = league.season_start_date
-      ? new Date(league.season_start_date).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+      ? formatDateOnly(league.season_start_date, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
       : null
     return (
       <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
@@ -1758,7 +1758,7 @@ export default async function EventDetailPage({
             )}
             {league.season_start_date && (
               <span className="text-sm opacity-70">
-                {new Date(league.season_start_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', timeZone: 'UTC' })}
+                {formatDateOnly(league.season_start_date, { month: 'short', day: 'numeric', timeZone: 'UTC' })}
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 {(league as any).end_date ? ` – ${new Date((league as any).end_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}` : ''}
               </span>
@@ -1791,8 +1791,8 @@ export default async function EventDetailPage({
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
                 {league.season_start_date && (
                   <span>
-                    {new Date(league.season_start_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    {league.season_end_date && ` – ${new Date(league.season_end_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                    {formatDateOnly(league.season_start_date, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {league.season_end_date && ` – ${formatDateOnly(league.season_end_date, { month: 'short', day: 'numeric', year: 'numeric' })}`}
                   </span>
                 )}
                 {league.age_group && <span>{league.age_group}</span>}
@@ -1898,7 +1898,7 @@ export default async function EventDetailPage({
                     {league.event_type === 'league' ? 'Season Start' : 'Event Date'}
                   </p>
                   <p className="font-semibold mt-1">
-                    {new Date(league.season_start_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {formatDateOnly(league.season_start_date, { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
                 </div>
               )}
@@ -1906,7 +1906,7 @@ export default async function EventDetailPage({
                 <div className="bg-white rounded-lg border p-4">
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Season End</p>
                   <p className="font-semibold mt-1">
-                    {new Date(league.season_end_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {formatDateOnly(league.season_end_date, { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
                 </div>
               )}

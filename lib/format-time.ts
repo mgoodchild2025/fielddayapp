@@ -81,3 +81,21 @@ export function formatGameTime(
 
   return { date, time, full }
 }
+
+/**
+ * Format a calendar date stored without a time ("YYYY-MM-DD", e.g.
+ * leagues.season_start_date) as that same day, everywhere.
+ *
+ * `new Date('2026-11-21')` is midnight UTC, so formatting it in local time
+ * shows Nov 20 to anyone west of Greenwich — and when a component renders on
+ * both the server (UTC) and the browser, the two disagree (React #418) and
+ * the browser's wrong day wins. Pinning the format to UTC keeps the stored
+ * date. Accepts a full ISO timestamp too (only the date part is used).
+ */
+export function formatDateOnly(
+  dateStr: string,
+  options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' },
+  locale = 'en-CA',
+): string {
+  return new Date(`${dateStr.slice(0, 10)}T00:00:00Z`).toLocaleDateString(locale, { ...options, timeZone: 'UTC' })
+}

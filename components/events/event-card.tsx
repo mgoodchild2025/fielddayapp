@@ -1,3 +1,4 @@
+import { formatDateOnly } from '@/lib/format-time'
 import Link from 'next/link'
 import { EventAvatar } from '@/components/ui/event-avatar'
 import { formatEventPrice } from '@/lib/event-price'
@@ -95,7 +96,7 @@ export function EventCard({ league, spots }: { league: EventCardLeague; spots: E
       </div>
       {league.season_start_date && (
         <p className="text-sm text-gray-500 mt-1">
-          Starts {new Date(league.season_start_date).toLocaleDateString('en-CA', {
+          Starts {formatDateOnly(league.season_start_date, {
             month: 'short', day: 'numeric', year: 'numeric',
           })}
         </p>

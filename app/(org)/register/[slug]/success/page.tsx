@@ -1,3 +1,4 @@
+import { formatDateOnly } from '@/lib/format-time'
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { OrgNav } from '@/components/layout/org-nav'
@@ -138,7 +139,7 @@ export default async function RegistrationSuccessPage({
         </p>
         {league?.season_start_date && (
           <p className="mt-2 text-gray-500 text-sm">
-            Season starts {new Date(league.season_start_date).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            Season starts {formatDateOnly(league.season_start_date, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
           </p>
         )}
 

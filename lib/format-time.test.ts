@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseLocalToUtc, formatGameTime } from './format-time'
+import { parseLocalToUtc, formatGameTime, formatDateOnly } from './format-time'
 
 // America/Toronto: EDT (UTC-4) in summer, EST (UTC-5) in winter.
 // DST 2026: begins Mar 8, ends Nov 1.
@@ -74,5 +74,36 @@ describe('formatGameTime', () => {
     const { date, time } = formatGameTime('2026-07-16T03:00:00.000Z', 'America/Toronto')
     expect(time).toMatch(/11:00/)
     expect(date).toMatch(/15/)
+  })
+})
+
+describe('formatDateOnly', () => {
+  // Node honours runtime TZ changes, so these run as if in each zone.
+  const inZone = <T,>(tz: string, fn: () => T): T => {
+    const prev = process.env.TZ
+    process.env.TZ = tz
+    try { return fn() } finally { process.env.TZ = prev }
+  }
+
+  it('shows the stored day in every time zone', () => {
+    for (const tz of ['UTC', 'America/Toronto', 'America/Vancouver', 'Pacific/Auckland']) {
+      expect(inZone(tz, () => formatDateOnly('2026-11-21'))).toBe('Nov 21, 2026')
+    }
+  })
+
+  it('is the bug it replaces: a bare date in local time shows the day before west of UTC', () => {
+    const naive = inZone('America/Toronto', () =>
+      new Date('2026-11-21').toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }))
+    expect(naive).toBe('Nov 20, 2026')
+  })
+
+  it('passes formatting options through', () => {
+    expect(inZone('America/Toronto', () =>
+      formatDateOnly('2026-11-21', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })))
+      .toBe('Saturday, November 21, 2026')
+  })
+
+  it('uses only the date part of a full timestamp', () => {
+    expect(inZone('America/Toronto', () => formatDateOnly('2026-09-16T00:00:00+00:00'))).toBe('Sep 16, 2026')
   })
 })
