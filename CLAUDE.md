@@ -235,6 +235,13 @@ Admin → Payments shows ONE row per team for per-team leagues (synthesized team
 CSS variables set by `BrandProvider` from `org_branding` row:
 - `--brand-primary`, `--brand-secondary`, `--brand-bg`, `--brand-text`
 - `--brand-heading-font`, `--brand-body-font`
+- These are also **Tailwind colours** via `@theme inline` in `app/globals.css`: `bg-brand-primary`, `ring-brand-primary`, `text-brand-secondary`, `bg-brand-primary/10`, … (fallbacks cover platform pages). `tailwind.config.ts` is **not loaded** by Tailwind v4 — add theme tokens to `globals.css`, never to the config. Prefer the utilities over `style={{ backgroundColor: 'var(--brand-primary)' }}` in new code, and don't hardcode `bg-blue-600`/`bg-emerald-*` for primary actions on org surfaces (Fieldday-voice surfaces — super admin, platform legal re-accept, billing notices, the scoreboard — stay emerald on purpose).
+- Keyboard focus: one global `:focus-visible` outline in the brand colour (`globals.css`, zero specificity). Don't add `outline-none` without a `focus-visible:ring-*` replacement.
+
+## Page scrolling & overlays
+- **The window is the scroller.** `globals.css` puts `overflow-x` on `<body>` only and uses `min-height` (not `height`) on body; with `<html>` left at `overflow: visible`, the browser propagates body's overflow to the viewport. Never set `overflow` on `<html>` or a fixed `height` on `<body>` for public pages — it turns body into its own scroll box and breaks Back-button scroll restore, iOS tap-to-top, and anything reading `window.scrollY`. (The admin shell is the deliberate exception: `h-dvh` + its own scrolling `<main>`.) Scroll locks set `document.body.style.overflow = 'hidden'`.
+- **One overlay component**: `components/ui/overlay.tsx` (`Overlay`, variants `modal` | `sheet` | `drawer`) for every modal, mobile bottom sheet, and side drawer — portal, backdrop, motion (CSS transitions in `globals.css` `.fd-overlay*`: enter via `@starting-style`, faster exit, reduced-motion = fade only), scroll lock, Escape (topmost only), focus in / Tab trap / focus restore. Keep the `Overlay` rendered and drive `open` so the exit can play; put form state in a child so it remounts per open, and use `useRetained(value)` when the content's data is cleared on close (e.g. `editingGame`). Mark the first field `data-autofocus`. Not yet migrated (still hand-rolled): gallery lightbox, PDF viewer, medal-case celebration, scoreboard sheet, QR scanner, legal editors, the player bio-card, roster, team-edit, add-registrant, record-sale, privacy and help modals, stripe setup guide, super create-org.
+- Motion tokens: `--ease-snap` (strong ease-out, UI responses) and `--ease-drawer` (sheets/drawers), also as `ease-snap` / `ease-drawer` utilities.
 
 ## Common patterns
 ```typescript

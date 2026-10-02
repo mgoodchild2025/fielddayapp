@@ -48,8 +48,9 @@ export function CaptainStatsEntry({ gameId, captainTeamId }: Props) {
         {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
       </div>
 
-      {open && data && (
+      {data && (
         <GameStatsSheet
+          open={open}
           gameId={gameId}
           leagueId={data.leagueId}
           homeTeam={data.homeTeam}

@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { inviteMember } from '@/actions/members'
+import { Overlay } from '@/components/ui/overlay'
 
 interface Props {
   orgSlug: string
@@ -41,21 +42,19 @@ export function InvitePlayerButton({ orgSlug }: Props) {
         Add Player
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={handleClose}
-          />
-
-          {/* Panel */}
-          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-6">
+      <Overlay
+        open={open}
+        onClose={handleClose}
+        variant="sheet"
+        labelledBy="add-player-title"
+        panelClassName="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-xl p-6 max-h-[92dvh] overflow-y-auto"
+      >
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-semibold text-gray-900">Add Player</h2>
+              <h2 id="add-player-title" className="text-lg font-semibold text-gray-900">Add Player</h2>
               <button
                 onClick={handleClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="w-10 h-10 -mr-2 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -160,9 +159,7 @@ export function InvitePlayerButton({ orgSlug }: Props) {
                 </div>
               </form>
             )}
-          </div>
-        </div>
-      )}
+      </Overlay>
     </>
   )
 }

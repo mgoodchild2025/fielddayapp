@@ -122,12 +122,13 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
     })
   }
 
+  // Rendered inside an Overlay (see schedule-table.tsx), which supplies the
+  // backdrop, motion, scroll lock, Escape and focus handling.
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 my-auto">
+    <>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <h2 className="font-semibold text-base">Edit Game</h2>
+            <h2 id="edit-game-title" className="font-semibold text-base">Edit Game</h2>
             {gameStatus === 'cancelled' && (
               <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>
             )}
@@ -135,7 +136,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
               <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>
             )}
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+          <button onClick={onClose} className="w-10 h-10 -mr-3 -mt-2 flex items-center justify-center text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Close">×</button>
         </div>
 
         <form onSubmit={handleSave} className="space-y-3">
@@ -366,7 +367,6 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
             </button>
           )}
         </div>
-      </div>
-    </div>
+    </>
   )
 }

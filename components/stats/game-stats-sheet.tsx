@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { createPortal } from 'react-dom'
+import { Overlay } from '@/components/ui/overlay'
 import { submitGameStats } from '@/actions/stats'
 import type { StatDef } from '@/actions/stats'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
@@ -105,7 +105,25 @@ function TeamStatsGrid({
   )
 }
 
-export function GameStatsSheet({
+/**
+ * The stats-entry sheet. Callers keep it rendered once they have data and
+ * drive `open`, so the exit can play; the form remounts per game.
+ */
+export function GameStatsSheet({ open, ...props }: Props & { open: boolean }) {
+  return (
+    <Overlay
+      open={open}
+      onClose={props.onClose}
+      variant="sheet"
+      label="Enter game stats"
+      panelClassName="w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col max-h-[90dvh]"
+    >
+      <GameStatsContent key={props.gameId} {...props} />
+    </Overlay>
+  )
+}
+
+function GameStatsContent({
   gameId,
   leagueId,
   homeTeam,
@@ -176,16 +194,8 @@ export function GameStatsSheet({
     })
   }
 
-  const sheet = (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center sm:items-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-      />
-
-      {/* Sheet */}
-      <div className="relative w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col max-h-[90dvh]">
+  return (
+    <>
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
@@ -268,11 +278,6 @@ export function GameStatsSheet({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </>
   )
-
-  return typeof document !== 'undefined'
-    ? createPortal(sheet, document.body)
-    : null
 }

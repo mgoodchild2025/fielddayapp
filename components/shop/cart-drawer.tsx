@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Image from 'next/image'
 import { useCart } from './cart-provider'
 import { validateDiscountCode, incrementDiscountUse } from '@/actions/discounts'
+import { Overlay } from '@/components/ui/overlay'
 
 interface Props {
   taxSuffix?: string
@@ -23,16 +24,6 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
     id: string; code: string; type: 'percent' | 'fixed'; value: number
   } | null>(null)
   const [showDiscountInput, setShowDiscountInput] = useState(false)
-
-  // Lock body scroll when drawer is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
-    return () => { document.body.style.overflow = '' }
-  }, [isOpen])
 
   async function handleApplyDiscount() {
     const code = discountInput.trim()
@@ -99,23 +90,14 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
 
   return (
     <>
-      {/* Backdrop */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] transition-opacity print:hidden"
-          onClick={closeCart}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Drawer panel */}
-      <div
-        className={`fixed top-0 right-0 z-50 h-full w-full max-w-sm bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out print:hidden ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Shopping cart"
+      {/* Drawer — Overlay handles backdrop, motion, scroll lock, Escape, focus */}
+      <Overlay
+        open={isOpen}
+        onClose={closeCart}
+        variant="drawer"
+        label="Shopping cart"
+        className="print:hidden"
+        panelClassName="w-full max-w-sm bg-white shadow-2xl flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b">
@@ -332,7 +314,7 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
             </button>
           </div>
         )}
-      </div>
+      </Overlay>
     </>
   )
 }

@@ -7,6 +7,7 @@ import { ChevronRight, CalendarDays, Trophy, Users, CircleUser, ShoppingBag, Cal
 import { logout } from '@/actions/auth'
 import { clearOfflineCache } from '@/lib/push-client'
 import type { NavLink } from '@/actions/nav-links'
+import { Overlay } from '@/components/ui/overlay'
 
 interface Props {
   userName: string | null
@@ -31,16 +32,6 @@ export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], show
   // Close on route change
   useEffect(() => { setOpen(false) }, [pathname])
 
-  // Prevent body scroll + iOS right-edge viewport expansion when open
-  useEffect(() => {
-    document.body.style.overflow = open ? 'hidden' : ''
-    document.documentElement.style.overflowX = open ? 'hidden' : ''
-    return () => {
-      document.body.style.overflow = ''
-      document.documentElement.style.overflowX = ''
-    }
-  }, [open])
-
   return (
     <>
       <button
@@ -60,23 +51,19 @@ export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], show
         )}
       </button>
 
-      {/* Backdrop */}
-      {open && (
-        <div
-          className="fixed inset-0 z-[55] bg-black/40 md:hidden"
-          onClick={() => setOpen(false)}
-        />
-      )}
-
-      {/* Drawer — slides from right */}
-      <div
-        className={`fixed top-0 right-0 w-72 z-[60] flex flex-col md:hidden transition-transform duration-200 ${
-          open ? 'translate-x-0' : 'translate-x-full'
-        }`}
-        style={{ backgroundColor: 'var(--brand-secondary)', color: 'white', height: '100dvh' }}
+      {/* Drawer — slides from right (Overlay handles backdrop, scroll lock, Escape, focus) */}
+      <Overlay
+        open={open}
+        onClose={() => setOpen(false)}
+        variant="drawer"
+        label="Menu"
+        className="md:hidden"
+        zIndex={60}
+        panelClassName="w-72 flex flex-col"
+        panelStyle={{ backgroundColor: 'var(--brand-secondary)', color: 'white', height: '100dvh' }}
       >
         <div className="h-12 flex items-center justify-end px-5 border-b border-white/10">
-          <button onClick={() => setOpen(false)} className="p-1 opacity-70 hover:opacity-100">
+          <button onClick={() => setOpen(false)} className="p-2 -mr-1 opacity-70 hover:opacity-100" aria-label="Close menu">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -218,7 +205,7 @@ export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], show
             </Link>
           )}
         </nav>
-      </div>
+      </Overlay>
     </>
   )
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useTransition } from 'react'
 import { getTeamCheckinStatus, toggleTeamMemberCheckin } from '@/actions/team-checkin'
 import type { TeamMemberCheckinStatus } from '@/actions/team-checkin'
+import { Overlay, useRetained } from '@/components/ui/overlay'
 
 interface Props {
   teamId: string
@@ -11,18 +12,30 @@ interface Props {
   onClose: () => void
 }
 
-export function TeamCheckinModal({ teamId, leagueId, timezone, onClose }: Props) {
+/** Team check-in sheet. Open it by setting `teamId`; clear it (null) to close. */
+export function TeamCheckinModal({ teamId, ...rest }: Omit<Props, 'teamId'> & { teamId: string | null }) {
+  // Keep the roster rendered through the exit after teamId is cleared.
+  const shownTeamId = useRetained(teamId)
+  return (
+    <Overlay
+      open={!!teamId}
+      onClose={rest.onClose}
+      variant="sheet"
+      label="Team check-in"
+      zIndex={500}
+      panelClassName="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
+    >
+      {shownTeamId && <TeamCheckinContent key={shownTeamId} teamId={shownTeamId} {...rest} />}
+    </Overlay>
+  )
+}
+
+function TeamCheckinContent({ teamId, leagueId, timezone, onClose }: Props) {
   const [teamName, setTeamName] = useState<string>('')
   const [members, setMembers] = useState<TeamMemberCheckinStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isAllPending, startAllTransition] = useTransition()
-
-  // Lock body scroll
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
-  }, [])
 
   // Load team data on mount
   useEffect(() => {
@@ -73,12 +86,7 @@ export function TeamCheckinModal({ teamId, leagueId, timezone, onClose }: Props)
   }
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-end sm:items-center justify-center p-0 sm:p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
-
-      {/* Panel — full-width sheet on mobile, centred card on desktop */}
-      <div className="relative w-full sm:max-w-md bg-white sm:rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+    <>
 
         {/* Header */}
         <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b shrink-0">
@@ -190,7 +198,6 @@ export function TeamCheckinModal({ teamId, leagueId, timezone, onClose }: Props)
             )
           })}
         </div>
-      </div>
-    </div>
+    </>
   )
 }

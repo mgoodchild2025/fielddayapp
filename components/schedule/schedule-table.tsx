@@ -7,6 +7,7 @@ import { EditGameModal } from '@/components/schedule/edit-game-modal'
 import { venueLabel } from '@/lib/venue-label'
 import { deleteGame, deleteGames, setSchedulePublished, clearAllGames } from '@/actions/schedule'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
+import { Overlay, useRetained } from '@/components/ui/overlay'
 
 interface SetScore { home: number; away: number }
 
@@ -112,6 +113,8 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [editingGame, setEditingGame] = useState<Game | null>(null)
+  // Keeps the editor rendered through its exit after editingGame is cleared.
+  const shownGame = useRetained(editingGame)
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isClearing, setIsClearing] = useState(false)
@@ -681,34 +684,43 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
         )}
       </div>
 
-      {editingGame && (
-        <EditGameModal
-          game={{
-            id: editingGame.id,
-            leagueId,
-            homeTeamId: editingGame.homeTeamId,
-            awayTeamId: editingGame.awayTeamId,
-            homeTeamLabel: editingGame.homeTeamLabel,
-            awayTeamLabel: editingGame.awayTeamLabel,
-            scheduledAt: editingGame.scheduledAt,
-            court: editingGame.court,
-            weekNumber: editingGame.weekNumber,
-            poolId: editingGame.poolId,
-            status: editingGame.status,
-            cancellationReason: editingGame.cancellationReason,
-            isExhibition: editingGame.isExhibition ?? false,
-          }}
-          teams={teams}
-          pools={pools}
-          sport={sport}
-          onClose={() => setEditingGame(null)}
-          onDeleted={() => {
-            setDeletedIds((prev) => new Set([...prev, editingGame.id]))
-            setEditingGame(null)
-          }}
-          onStatusChanged={handleStatusChanged}
-        />
-      )}
+      <Overlay
+        open={!!editingGame}
+        onClose={() => setEditingGame(null)}
+        variant="modal"
+        labelledBy="edit-game-title"
+        panelClassName="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 overflow-y-auto"
+      >
+        {shownGame && (
+          <EditGameModal
+            key={shownGame.id}
+            game={{
+              id: shownGame.id,
+              leagueId,
+              homeTeamId: shownGame.homeTeamId,
+              awayTeamId: shownGame.awayTeamId,
+              homeTeamLabel: shownGame.homeTeamLabel,
+              awayTeamLabel: shownGame.awayTeamLabel,
+              scheduledAt: shownGame.scheduledAt,
+              court: shownGame.court,
+              weekNumber: shownGame.weekNumber,
+              poolId: shownGame.poolId,
+              status: shownGame.status,
+              cancellationReason: shownGame.cancellationReason,
+              isExhibition: shownGame.isExhibition ?? false,
+            }}
+            teams={teams}
+            pools={pools}
+            sport={sport}
+            onClose={() => setEditingGame(null)}
+            onDeleted={() => {
+              setDeletedIds((prev) => new Set([...prev, shownGame.id]))
+              setEditingGame(null)
+            }}
+            onStatusChanged={handleStatusChanged}
+          />
+        )}
+      </Overlay>
     </>
   )
 }

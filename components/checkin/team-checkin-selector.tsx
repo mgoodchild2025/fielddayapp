@@ -37,14 +37,12 @@ export function TeamCheckinSelector({ teams, leagueId, timezone }: Props) {
         </div>
       </div>
 
-      {selectedTeamId && (
-        <TeamCheckinModal
-          teamId={selectedTeamId}
-          leagueId={leagueId}
-          timezone={timezone}
-          onClose={() => setSelectedTeamId(null)}
-        />
-      )}
+      <TeamCheckinModal
+        teamId={selectedTeamId}
+        leagueId={leagueId}
+        timezone={timezone}
+        onClose={() => setSelectedTeamId(null)}
+      />
     </>
   )
 }

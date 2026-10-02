@@ -354,7 +354,7 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
                 <button
                   onClick={handleResume}
                   disabled={isPending}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-brand-primary hover:opacity-90 text-white text-sm font-semibold rounded-lg transition-opacity disabled:opacity-50"
                 >
                   {pendingAction === 'resume' ? 'Resuming…' : `Wake up (restore ${subscription?.pre_hibernate_tier ?? 'paid'} plan)`}
                 </button>
@@ -591,7 +591,7 @@ export function BillingPageClient({ org, subscription, successRedirect, canceled
                 <button
                   onClick={handleHibernate}
                   disabled={isPending}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-brand-primary hover:opacity-90 text-white text-sm font-semibold rounded-lg transition-opacity disabled:opacity-50"
                 >
                   {pendingAction === 'hibernate' ? 'Hibernating…' : 'Confirm hibernate'}
                 </button>

@@ -9,15 +9,6 @@ body:has(.fd-tour) {
   background: #05070d;
 }
 
-/* globals.css gives body `height: 100%` + `overflow-x: hidden`, which makes
-   body its own scroll box: the page scrolls but window.scrollY stays 0, and
-   the tour's camera (driven by the window's scroll) never moves. Hand the
-   scroll back to the window here; .fd-tour clips its own horizontal overflow. */
-body:has(.fd-tour) {
-  height: auto;
-  overflow: visible;
-}
-
 .fd-tour {
   --night: #05070d;
   --ink: #eef2f7;

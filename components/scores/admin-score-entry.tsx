@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useTransition } from 'react'
+import { Overlay } from '@/components/ui/overlay'
 import { adminSetScore, adminClearScore, recordForfeit } from '@/actions/scores'
 
 const SET_SPORTS    = new Set(['volleyball', 'beach_volleyball'])
@@ -128,18 +128,7 @@ function ScoreEntrySheet({
     })
   }
 
-  // Lock body scroll while sheet is open
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
-  }, [])
-
-  // Escape to close
-  useEffect(() => {
-    const fn = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', fn)
-    return () => document.removeEventListener('keydown', fn)
-  }, [onClose])
+  // Scroll lock, Escape and focus come from the Overlay this renders inside.
 
   function updateSet(i: number, side: 'home' | 'away', val: string) {
     setSets((prev) => prev.map((s, idx) => idx === i ? { ...s, [side]: val } : s))
@@ -200,12 +189,8 @@ function ScoreEntrySheet({
     })
   }
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden">
+  return (
+      <>
         {/* Drag handle — mobile only */}
         <div className="pt-3 pb-1 flex justify-center sm:hidden">
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
@@ -240,7 +225,7 @@ function ScoreEntrySheet({
                       onChange={(e) => updateSet(i, 'home', e.target.value)}
                       onFocus={(e) => e.target.select()}
                       onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-                      className="w-16 h-12 border-2 rounded-xl text-2xl font-bold tabular-nums text-center focus:outline-none focus:border-blue-400"
+                      className="w-16 h-12 border-2 rounded-xl text-2xl font-bold tabular-nums text-center focus:outline-none focus:border-brand-primary"
                     />
                   </div>
                   <span className="text-gray-300 font-bold text-lg w-4 text-center">–</span>
@@ -252,7 +237,7 @@ function ScoreEntrySheet({
                       onChange={(e) => updateSet(i, 'away', e.target.value)}
                       onFocus={(e) => e.target.select()}
                       onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-                      className="w-16 h-12 border-2 rounded-xl text-2xl font-bold tabular-nums text-center focus:outline-none focus:border-blue-400"
+                      className="w-16 h-12 border-2 rounded-xl text-2xl font-bold tabular-nums text-center focus:outline-none focus:border-brand-primary"
                     />
                   </div>
                   {sets.length > 1 && scoringMode !== 'innings' && (
@@ -296,7 +281,7 @@ function ScoreEntrySheet({
                     onChange={(e) => setHomeScore(e.target.value)}
                     onFocus={(e) => e.target.select()}
                     onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-                    className="w-14 text-4xl font-bold tabular-nums text-center border-0 outline-none bg-transparent"
+                    className="w-14 text-4xl font-bold tabular-nums text-center border-0 bg-transparent rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                   />
                   <button type="button"
                     onClick={() => setHomeScore((v) => String(parseInt(v || '0') + 1))}
@@ -321,7 +306,7 @@ function ScoreEntrySheet({
                     onChange={(e) => setAwayScore(e.target.value)}
                     onFocus={(e) => e.target.select()}
                     onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-                    className="w-14 text-4xl font-bold tabular-nums text-center border-0 outline-none bg-transparent"
+                    className="w-14 text-4xl font-bold tabular-nums text-center border-0 bg-transparent rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                   />
                   <button type="button"
                     onClick={() => setAwayScore((v) => String(parseInt(v || '0') + 1))}
@@ -397,9 +382,7 @@ function ScoreEntrySheet({
             </div>
           )}
         </div>
-      </div>
-    </div>,
-    document.body
+      </>
   )
 }
 
@@ -414,7 +397,13 @@ export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTea
 
   return (
     <>
-      {sheetOpen && (
+      <Overlay
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        variant="sheet"
+        label={`Score: ${homeTeamName} vs ${awayTeamName}`}
+        panelClassName="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden"
+      >
         <ScoreEntrySheet
           gameId={gameId}
           leagueId={leagueId}
@@ -424,7 +413,7 @@ export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTea
           existingResult={existingResult}
           onClose={() => setSheetOpen(false)}
         />
-      )}
+      </Overlay>
 
       {/* Compact mode: full-width action button for mobile card rows */}
       {compact ? (

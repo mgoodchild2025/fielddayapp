@@ -2,8 +2,8 @@
 
 import { getRoundName, roundDisplayName, LB_ROUND_BASE, GF_ROUND } from '@/lib/bracket'
 import { recordBracketScore, swapBracketTeams, advanceBestLoser, overrideBracketSlot, declareMatchWinner, clearBracketMatchResult, type BestLoserCandidate } from '@/actions/brackets'
-import { useState, useTransition, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useTransition } from 'react'
+import { Overlay } from '@/components/ui/overlay'
 import { useRouter } from 'next/navigation'
 import { MatchEditModal } from './match-edit-modal'
 import { TeamAvatar } from '@/components/ui/team-avatar'
@@ -117,16 +117,8 @@ function ScoreModal({
 
   const [err, setErr] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-  const firstInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
-
-  useEffect(() => { firstInputRef.current?.focus() }, [])
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  // Escape, scroll lock and focus (first [data-autofocus]) come from the Overlay.
 
   function updateSet(idx: number, field: 's1' | 's2', val: string) {
     setSets((prev) => prev.map((s, i) => i === idx ? { ...s, [field]: val } : s))
@@ -165,12 +157,8 @@ function ScoreModal({
     })
   }
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden">
+  return (
+    <>
         <div className="pt-3 pb-1 flex justify-center sm:hidden">
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
         </div>
@@ -194,12 +182,12 @@ function ScoreModal({
                   <span className="text-xs text-gray-400 w-10 text-center font-semibold">{i + 1}</span>
                   <div className="flex-1 flex justify-center">
                     <input
-                      ref={i === 0 ? firstInputRef : undefined}
+                      data-autofocus={i === 0 ? true : undefined}
                       value={set.s1}
                       onChange={(e) => updateSet(i, 's1', e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
                       type="number" inputMode="numeric" pattern="[0-9]*" min={0}
-                      className="w-16 h-12 border-2 rounded-xl text-2xl font-bold tabular-nums text-center focus:outline-none focus:border-blue-400"
+                      className="w-16 h-12 border-2 rounded-xl text-2xl font-bold tabular-nums text-center focus:outline-none focus:border-brand-primary"
                       placeholder="0"
                     />
                   </div>
@@ -210,7 +198,7 @@ function ScoreModal({
                       onChange={(e) => updateSet(i, 's2', e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
                       type="number" inputMode="numeric" pattern="[0-9]*" min={0}
-                      className="w-16 h-12 border-2 rounded-xl text-2xl font-bold tabular-nums text-center focus:outline-none focus:border-blue-400"
+                      className="w-16 h-12 border-2 rounded-xl text-2xl font-bold tabular-nums text-center focus:outline-none focus:border-brand-primary"
                       placeholder="0"
                     />
                   </div>
@@ -237,11 +225,11 @@ function ScoreModal({
                     onClick={() => setS1((v) => String(Math.max(0, parseInt(v || '0') - 1)))}
                     className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-transform flex items-center justify-center select-none">−</button>
                   <input
-                    ref={firstInputRef}
+                    data-autofocus
                     value={s1} onChange={(e) => setS1(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
                     type="number" inputMode="numeric" pattern="[0-9]*" min={0}
-                    className="w-14 text-4xl font-bold tabular-nums text-center border-0 outline-none bg-transparent"
+                    className="w-14 text-4xl font-bold tabular-nums text-center border-0 bg-transparent rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                     placeholder="0"
                   />
                   <button type="button"
@@ -261,7 +249,7 @@ function ScoreModal({
                     value={s2} onChange={(e) => setS2(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
                     type="number" inputMode="numeric" pattern="[0-9]*" min={0}
-                    className="w-14 text-4xl font-bold tabular-nums text-center border-0 outline-none bg-transparent"
+                    className="w-14 text-4xl font-bold tabular-nums text-center border-0 bg-transparent rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                     placeholder="0"
                   />
                   <button type="button"
@@ -287,9 +275,7 @@ function ScoreModal({
             </button>
           </div>
         </div>
-      </div>
-    </div>,
-    document.body
+    </>
   )
 }
 
@@ -385,14 +371,21 @@ function MatchCard({
 
   return (
     <>
-      {modalOpen && (
+      <Overlay
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        variant="sheet"
+        label="Enter match score"
+        panelClassName="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden"
+      >
         <ScoreModal
           match={match} bracketId={bracketId} leagueId={leagueId} sport={sport}
           onClose={() => setModalOpen(false)}
         />
-      )}
-      {editOpen && isAdmin && allTeams && (
+      </Overlay>
+      {isAdmin && allTeams && (
         <MatchEditModal
+          open={editOpen}
           match={match} bracketId={bracketId} leagueId={leagueId}
           allTeams={allTeams}
           onClose={() => setEditOpen(false)}
@@ -1043,7 +1036,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezon
                 setSwapErr(null)
               }}
               className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                swapMode ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                swapMode ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
               ⇄ Swap teams
