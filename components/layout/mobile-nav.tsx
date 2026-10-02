@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronRight, CalendarDays, Trophy, Users, CircleUser, ShoppingBag, CalendarRange, LayoutDashboard, LogOut, Images, FileText, ExternalLink, Timer } from 'lucide-react'
+import { ChevronRight, CalendarDays, Trophy, Users, CircleUser, ShoppingBag, CalendarRange, LayoutDashboard, LogOut, Images, FileText, ExternalLink, Timer, House } from 'lucide-react'
 import { logout } from '@/actions/auth'
 import { clearOfflineCache } from '@/lib/push-client'
 import type { NavLink } from '@/actions/nav-links'
@@ -97,17 +97,18 @@ export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], show
             <>
               <Link href="/events" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium opacity-80 hover:opacity-100 hover:bg-white/10 transition-colors">
                 <CalendarRange className="w-4 h-4 shrink-0" />
-                Events
+                Browse Events
               </Link>
 
               <div className="border-t border-white/10 my-4" />
 
+              {/* Same labels and icons as the mobile tab bar (mobile-bottom-nav-client.tsx). */}
               {[
-                { href: '/dashboard', label: 'Dashboard',  Icon: LayoutDashboard },
-                { href: '/schedule',  label: 'My Games',   Icon: CalendarDays    },
-                { href: '/my-events', label: 'My Events',  Icon: Trophy          },
+                { href: '/dashboard', label: 'Home',       Icon: House           },
+                { href: '/schedule',  label: 'Games',      Icon: CalendarDays    },
+                { href: '/my-events', label: 'Events',     Icon: Trophy          },
                 { href: '/my-teams',  label: 'My Teams',   Icon: Users           },
-                { href: '/profile',   label: 'My Profile', Icon: CircleUser      },
+                { href: '/profile',   label: 'Me',         Icon: CircleUser      },
               ].map(({ href, label, Icon }) => (
                 <Link
                   key={href}
