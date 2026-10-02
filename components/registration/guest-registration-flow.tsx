@@ -252,11 +252,11 @@ export function GuestRegistrationFlow({
         <div className="space-y-3">
           <label className="block text-sm font-medium text-gray-700">
             Full name
-            <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 text-sm" placeholder="Jordan Smith" />
+            <input value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" className="mt-1 w-full border rounded-md px-3 py-2 text-sm" placeholder="Jordan Smith" />
           </label>
           <label className="block text-sm font-medium text-gray-700">
             Email
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} readOnly={!!lockedEmail}
+            <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} readOnly={!!lockedEmail}
               className={`mt-1 w-full border rounded-md px-3 py-2 text-sm ${lockedEmail ? 'bg-gray-50 text-gray-500' : ''}`} placeholder="you@example.com" />
             <span className="block text-xs font-normal text-gray-400 mt-1">
               {lockedEmail ? 'This event is invite-only — registering with your invited email.' : 'For your receipt and check-in details.'}
@@ -264,7 +264,7 @@ export function GuestRegistrationFlow({
           </label>
           <label className="block text-sm font-medium text-gray-700">
             Phone <span className="font-normal text-gray-400">(optional)</span>
-            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 text-sm" placeholder="(555) 123-4567" />
+            <input type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 text-sm" placeholder="(555) 123-4567" />
           </label>
 
           {sessions.length > 0 && (

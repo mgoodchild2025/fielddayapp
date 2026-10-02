@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -17,7 +17,7 @@ const SHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const
 
 const schema = z.object({
   full_name: z.string().min(2, 'Full name required'),
-  email: z.string().email(),
+  email: z.string().email('Enter a valid email address'),
   phone: z.string().min(10, 'Phone number required'),
   skill_level: z.enum(['beginner', 'intermediate', 'competitive']),
   // Optional everywhere — an unanswered select submits '', normalized away.
@@ -48,12 +48,23 @@ interface Props {
   /** Player already agreed to the current Privacy Policy version — skip re-consent */
   privacyAlreadyAccepted?: boolean
   /** registrationId is always provided; joinedTeamId is set when the player joined a team via code */
+  /** The step after this one ("Waiver", "Payment"…), or null when submitting completes registration. */
+  nextStepLabel?: string | null
   onComplete: (registrationId: string, joinedTeamId?: string) => void
 }
 
-export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, positions = [], registrationType = 'season', sessionId = null, showTeamCode = true, initialTeamCode = null, waiverSignatureId = null, privacyAlreadyAccepted = false, onComplete }: Props) {
+export function Step1PlayerDetails({ org, profile, playerDetails, league, userId, positions = [], registrationType = 'season', sessionId = null, showTeamCode = true, initialTeamCode = null, waiverSignatureId = null, privacyAlreadyAccepted = false, nextStepLabel = 'Waiver', onComplete }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [privacyError, setPrivacyError] = useState(false)
+  // Server errors render at the top of a long form — bring them into view
+  // (on a phone the button is far below, so the tap otherwise looked dead).
+  const errorRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!error) return
+    errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    errorRef.current?.focus({ preventScroll: true })
+  }, [error])
   const [selectedPosition, setSelectedPosition] = useState('')
   const [teamCode, setTeamCode] = useState(initialTeamCode ?? '')
   const [teamCodeError, setTeamCodeError] = useState<string | null>(null)
@@ -87,6 +98,9 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
   const isDropIn = registrationType === 'drop_in'
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+    // Check each field when the player leaves it (then live while they fix it),
+    // not only on submit. On submit, the first invalid field gets focus.
+    mode: 'onTouched',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema) as any,
     defaultValues: {
@@ -124,7 +138,9 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
     }
 
     if (!privacyAccepted) {
-      setError('Please agree to the Privacy Policy to continue.')
+      // Said beside the checkbox, not in a banner at the top.
+      setPrivacyError(true)
+      document.getElementById('privacy-consent')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       return
     }
 
@@ -165,27 +181,32 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">{error}</div>}
+      {error && (
+        <div ref={errorRef} tabIndex={-1} role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm outline-none">
+          {error}
+        </div>
+      )}
 
       <div className="bg-white rounded-lg border p-5 space-y-4">
         <h2 className="font-semibold">Your Info</h2>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { label: 'Full Name', name: 'full_name' as keyof FormData, type: 'text' },
-            { label: 'Email', name: 'email' as keyof FormData, type: 'email' },
-            { label: 'Phone', name: 'phone' as keyof FormData, type: 'tel' },
-          ].map(({ label, name, type }) => (
+            { label: 'Full Name', name: 'full_name' as keyof FormData, type: 'text', autoComplete: 'name' },
+            { label: 'Email', name: 'email' as keyof FormData, type: 'email', autoComplete: 'email' },
+            { label: 'Phone', name: 'phone' as keyof FormData, type: 'tel', autoComplete: 'tel' },
+          ].map(({ label, name, type, autoComplete }) => (
             <div key={name} className={name === 'full_name' ? 'col-span-2' : ''}>
               <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
               <input
                 {...register(name)}
                 id={name}
                 type={type}
+                autoComplete={autoComplete}
                 aria-invalid={errors[name] ? true : undefined}
                 aria-describedby={errors[name] ? `${name}-error` : undefined}
                 className="w-full border rounded-md px-3 py-2 text-base"
               />
-              {errors[name] && <p id={`${name}-error`} className="text-red-500 text-xs mt-1">{errors[name]?.message as string}</p>}
+              {errors[name] && <p id={`${name}-error`} className="text-red-600 text-xs mt-1">{errors[name]?.message as string}</p>}
             </div>
           ))}
         </div>
@@ -205,7 +226,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
               <option value="intermediate">Intermediate</option>
               <option value="competitive">Competitive</option>
             </select>
-            {errors.skill_level && <p id="skill_level-error" className="text-red-500 text-xs mt-1">{errors.skill_level.message}</p>}
+            {errors.skill_level && <p id="skill_level-error" className="text-red-600 text-xs mt-1">{errors.skill_level.message}</p>}
           </div>
           {!isDropIn && (
             <div>
@@ -214,7 +235,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
                 <option value="">Select…</option>
                 {SHIRT_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
-              {errors.t_shirt_size && <p className="text-red-500 text-xs mt-1">{errors.t_shirt_size.message}</p>}
+              {errors.t_shirt_size && <p className="text-red-600 text-xs mt-1">{errors.t_shirt_size.message}</p>}
             </div>
           )}
         </div>
@@ -239,20 +260,22 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
         <h2 className="font-semibold">Emergency Contact</h2>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { label: 'Name', name: 'emergency_contact_name' as keyof FormData, type: 'text' },
-            { label: 'Phone', name: 'emergency_contact_phone' as keyof FormData, type: 'tel' },
-          ].map(({ label, name, type }) => (
+            // Someone else's details — keep the browser from filling in the player's own.
+            { label: 'Name', name: 'emergency_contact_name' as keyof FormData, type: 'text', autoComplete: 'off' },
+            { label: 'Phone', name: 'emergency_contact_phone' as keyof FormData, type: 'tel', autoComplete: 'off' },
+          ].map(({ label, name, type, autoComplete }) => (
             <div key={name}>
               <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
               <input
                 {...register(name)}
                 id={name}
                 type={type}
+                autoComplete={autoComplete}
                 aria-invalid={errors[name] ? true : undefined}
                 aria-describedby={errors[name] ? `${name}-error` : undefined}
                 className="w-full border rounded-md px-3 py-2 text-base"
               />
-              {errors[name] && <p id={`${name}-error`} className="text-red-500 text-xs mt-1">{errors[name]?.message as string}</p>}
+              {errors[name] && <p id={`${name}-error`} className="text-red-600 text-xs mt-1">{errors[name]?.message as string}</p>}
             </div>
           ))}
         </div>
@@ -279,7 +302,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
                 maxLength={6}
                 className="w-full border rounded-md px-3 py-2 text-sm font-mono tracking-widest uppercase"
               />
-              {teamCodeError && <p className="text-red-500 text-xs mt-1">{teamCodeError}</p>}
+              {teamCodeError && <p className="text-red-600 text-xs mt-1">{teamCodeError}</p>}
               {teamCodeValid && (
                 <p className="text-green-600 text-xs mt-1">✓ Joining <strong>{teamCodeValid.name}</strong></p>
               )}
@@ -316,29 +339,40 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
             ✓ You&apos;ve already agreed to the current{' '}
             <a href="https://fielddayapp.ca/privacy" target="_blank" rel="noopener noreferrer"
               className="underline text-blue-600 hover:text-blue-800">Fieldday Privacy Policy</a>.
-            <span className="block text-xs text-gray-400 mt-0.5">
-              You&apos;ll review and sign the league waiver on the next step.
-            </span>
+            {nextStepLabel === 'Waiver' && (
+              <span className="block text-xs text-gray-500 mt-0.5">
+                You&apos;ll review and sign the league waiver on the next step.
+              </span>
+            )}
           </p>
         ) : (
-          <div className="space-y-2">
+          <div id="privacy-consent" className="space-y-2">
             <p className="text-sm text-gray-600">To continue, please review and agree to the following.</p>
             <label className="flex items-start gap-3 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={privacyAccepted}
-                onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                onChange={(e) => { setPrivacyAccepted(e.target.checked); if (e.target.checked) setPrivacyError(false) }}
+                aria-invalid={privacyError || undefined}
+                aria-describedby={privacyError ? 'privacy-error' : undefined}
                 className="mt-0.5 h-4 w-4 rounded border-gray-300"
               />
               <span className="text-sm text-gray-700">
                 I have read and agree to the{' '}
                 <a href="https://fielddayapp.ca/privacy" target="_blank" rel="noopener noreferrer"
                   className="underline text-blue-600 hover:text-blue-800">Fieldday Privacy Policy</a>.
-                <span className="block text-xs text-gray-400 mt-0.5">
-                  You&apos;ll review and sign the league waiver on the next step.
-                </span>
+                {nextStepLabel === 'Waiver' && (
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    You&apos;ll review and sign the league waiver on the next step.
+                  </span>
+                )}
               </span>
             </label>
+            {privacyError && (
+              <p id="privacy-error" role="alert" className="fd-fade-in text-red-600 text-xs font-medium pl-7">
+                Tick this box to agree to the Privacy Policy and continue.
+              </p>
+            )}
           </div>
         )}
 
@@ -374,11 +408,10 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
 
       <button
         type="submit"
-        disabled={loading || !privacyAccepted}
-        className="w-full py-3 rounded-md font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed"
-        style={{ backgroundColor: 'var(--brand-primary)' }}
+        disabled={loading}
+        className="press w-full min-h-12 rounded-md font-semibold bg-brand-primary text-on-brand disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        {loading ? 'Saving…' : 'Continue to Waiver →'}
+        {loading ? 'Saving…' : nextStepLabel ? `Continue to ${nextStepLabel} →` : 'Complete registration'}
       </button>
     </form>
   )
