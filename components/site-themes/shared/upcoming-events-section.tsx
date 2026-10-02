@@ -58,7 +58,7 @@ export function UpcomingEventsSection({ events, timezone }: { events: UpcomingLe
                     </span>
                   )}
                 </div>
-                <span className="text-xs font-semibold shrink-0 px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--brand-primary)', color: 'white' }}>
+                <span className="text-xs font-semibold shrink-0 px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--brand-primary)', color: 'var(--brand-on-primary)' }}>
                   Coming Soon
                 </span>
               </div>

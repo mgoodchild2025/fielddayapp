@@ -59,7 +59,7 @@ export function LeagueDocumentsManager({ leagueId, initialDocuments }: Props) {
       )}
 
       {docs.length === 0 && !adding && (
-        <p className="text-sm text-gray-400 text-center py-4">
+        <p className="text-sm text-gray-500 text-center py-4">
           No documents yet. Add a PDF for players to download.
         </p>
       )}
@@ -98,7 +98,7 @@ export function LeagueDocumentsManager({ leagueId, initialDocuments }: Props) {
         </button>
       )}
 
-      <p className="text-xs text-gray-400">
+      <p className="text-xs text-gray-500">
         {docs.length}/{MAX_DOCS} documents · PDF only · max 10 MB each
       </p>
     </div>

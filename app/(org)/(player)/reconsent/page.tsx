@@ -35,7 +35,7 @@ export default async function ReconsentPage({
         <div className="rounded-lg border bg-gray-50 p-4 mb-5">
           <div className="flex items-center justify-between">
             <p className="font-medium text-gray-900">{pending.title}</p>
-            <span className="text-xs text-gray-400">v{pending.version}</span>
+            <span className="text-xs text-gray-500">v{pending.version}</span>
           </div>
           {pending.summary && (
             <p className="text-sm text-gray-600 mt-1.5">{pending.summary}</p>

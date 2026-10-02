@@ -246,10 +246,10 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
         <div>
           <h2 className="font-semibold">League Details</h2>
           {activeWaiver && (
-            <p className="text-xs text-gray-400 mt-0.5">Waiver: {activeWaiver.title}</p>
+            <p className="text-xs text-gray-500 mt-0.5">Waiver: {activeWaiver.title}</p>
           )}
           {(activeTemplate || league.rules_content) && (
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-gray-500 mt-0.5">
               Rules: {activeTemplate ? activeTemplate.title : 'Custom'}
             </p>
           )}
@@ -268,7 +268,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
     <div>
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold">Edit Event Details</h2>
-        <button onClick={() => setOpen(false)} className="text-sm text-gray-400 hover:text-gray-600">
+        <button onClick={() => setOpen(false)} className="text-sm text-gray-500 hover:text-gray-600">
           Cancel
         </button>
       </div>
@@ -360,14 +360,14 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           <div className="grid grid-cols-2 gap-3">
             <Field label="Season fee">
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">$</span>
                 <input name="price_cents" type="number" min="0" step="0.01" placeholder="0.00"
                   defaultValue={(league.price_cents / 100).toFixed(2)} className="input" style={{ paddingLeft: '1.75rem' }} />
               </div>
             </Field>
             <Field label="Drop-in fee (blank = none)">
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">$</span>
                 <input name="drop_in_price_cents" type="number" min="0" step="0.01"
                   defaultValue={league.drop_in_price_cents != null ? (league.drop_in_price_cents / 100).toFixed(2) : ''}
                   placeholder="Leave blank" className="input" style={{ paddingLeft: '1.75rem' }} />
@@ -378,7 +378,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           <div className="grid grid-cols-2 gap-3">
             <Field label="Price">
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">$</span>
                 <input name="price_cents" type="number" min="0" step="0.01" placeholder="0.00"
                   defaultValue={(league.price_cents / 100).toFixed(2)} className="input" style={{ paddingLeft: '1.75rem' }} />
               </div>
@@ -411,7 +411,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Early bird price">
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">$</span>
                   <input
                     name="early_bird_price_cents"
                     type="number"
@@ -630,14 +630,14 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
             <input type="checkbox" name="advertised" defaultChecked={!!league.advertised} className="w-4 h-4 mt-0.5 rounded border-gray-300" />
             <span className="text-sm text-gray-700">
               Advertise as “Coming Soon”
-              <span className="block text-xs text-gray-400">Show a public teaser with a “Notify me” signup before registration opens. Set <em>Reg Opens</em> above to a future date.</span>
+              <span className="block text-xs text-gray-500">Show a public teaser with a “Notify me” signup before registration opens. Set <em>Reg Opens</em> above to a future date.</span>
             </span>
           </label>
           <label className="flex items-start gap-3 cursor-pointer">
             <input type="checkbox" name="featured" defaultChecked={!!league.featured} className="w-4 h-4 mt-0.5 rounded border-gray-300" />
             <span className="text-sm text-gray-700">
               Feature on homepage
-              <span className="block text-xs text-gray-400">Highlight this event at the top of your public homepage and events list.</span>
+              <span className="block text-xs text-gray-500">Highlight this event at the top of your public homepage and events list.</span>
             </span>
           </label>
           <Field label="Teaser blurb">
@@ -647,7 +647,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
             <input type="checkbox" name="notify_on_open" defaultChecked={league.notify_on_open ?? true} className="w-4 h-4 mt-0.5 rounded border-gray-300" />
             <span className="text-sm text-gray-700">
               Email the notify-me list when registration opens
-              <span className="block text-xs text-gray-400">Turn off to collect interest now and send a promotion yourself later from the Promote tab.</span>
+              <span className="block text-xs text-gray-500">Turn off to collect interest now and send a promotion yourself later from the Promote tab.</span>
             </span>
           </label>
         </div>
@@ -662,7 +662,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
             />
             <span className="text-sm text-gray-700">Enable QR code check-in</span>
           </label>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             Players will receive a QR code in their confirmation email and can show it for check-in.
           </p>
         </div>
@@ -670,7 +670,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
         {/* Tab visibility */}
         <div className="border-t pt-3">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Tab Visibility</p>
-          <p className="text-xs text-gray-400 mb-3">Control who can see each tab on the public event page.</p>
+          <p className="text-xs text-gray-500 mb-3">Control who can see each tab on the public event page.</p>
           <div className="space-y-2">
             {[
               { name: 'schedule_visibility', label: 'Schedule', default: league.schedule_visibility ?? 'public' },
@@ -694,7 +694,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           <div className="border-t pt-3 space-y-3">
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Standings Mode</p>
-              <p className="text-xs text-gray-400 mb-3">Choose how standings are ranked and which columns are displayed.</p>
+              <p className="text-xs text-gray-500 mb-3">Choose how standings are ranked and which columns are displayed.</p>
               <div className="grid grid-cols-2 gap-2">
                 {([
                   {
@@ -719,7 +719,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
                     }`}
                   >
                     <span className="text-sm font-semibold">{opt.label}</span>
-                    <span className="text-xs text-gray-400">{opt.desc}</span>
+                    <span className="text-xs text-gray-500">{opt.desc}</span>
                   </button>
                 ))}
               </div>
@@ -783,7 +783,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
             </button>
             {formatExpanded && (
               <div className="p-3 space-y-2">
-                <p className="text-xs text-gray-400">Describe how the event is structured — playoff format, set/period rules, tiebreakers, etc.</p>
+                <p className="text-xs text-gray-500">Describe how the event is structured — playoff format, set/period rules, tiebreakers, etc.</p>
                 <input type="hidden" name="format_content" value={formatContent} />
                 <RichTextEditor
                   content={formatContent}
@@ -839,7 +839,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
                   </p>
                 )}
                 {rulesContent && (
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-500">
                     Editing the content here only affects this event — the template is not modified.
                   </p>
                 )}

@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  parseHex, relativeLuminance, contrastRatio, formatRatio, checkContrast,
-  AA_NORMAL_TEXT, AA_NON_TEXT,
-} from './contrast'
+import { parseHex, relativeLuminance, contrastRatio, formatRatio, checkContrast, AA_NORMAL_TEXT, AA_NON_TEXT, readableTextOn, DARK_ON_BRAND } from './contrast'
 
 describe('parseHex', () => {
   it('parses six-digit and three-digit hex, with or without the hash', () => {
@@ -82,5 +79,23 @@ describe('checkContrast', () => {
 
   it('returns null rather than guessing when a colour is mid-edit', () => {
     expect(checkContrast('#ff', '#ffffff', 'x')).toBeNull()
+  })
+})
+
+describe('readableTextOn', () => {
+  it('keeps white on saturated brand colours', () => {
+    expect(readableTextOn('#FF5C00')).toBe('#ffffff') // 3.1:1 — KABOOM / the default
+    expect(readableTextOn('#2563EB')).toBe('#ffffff')
+    expect(readableTextOn('#0F1F3D')).toBe('#ffffff')
+  })
+  it('switches to dark text when white fails 3:1', () => {
+    expect(readableTextOn('#FFB000')).toBe(DARK_ON_BRAND) // amber, 1.8:1
+    expect(readableTextOn('#FFE600')).toBe(DARK_ON_BRAND) // yellow, 1.3:1
+    expect(readableTextOn('#38BDF8')).toBe(DARK_ON_BRAND) // sky, 2.1:1
+    expect(readableTextOn('#10B981')).toBe(DARK_ON_BRAND) // emerald-500, 2.5:1
+  })
+  it('accepts shorthand hex and falls back to white on bad input', () => {
+    expect(readableTextOn('#fe0')).toBe(DARK_ON_BRAND)
+    expect(readableTextOn('not-a-colour')).toBe('#ffffff')
   })
 })

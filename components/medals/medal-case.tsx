@@ -126,7 +126,7 @@ function MedalModal({ medal, confetti, onClose }: { medal: MedalView; confetti: 
               <span key={name} className="rounded-full border bg-gray-50 px-2.5 py-1 text-xs text-gray-600">{name}</span>
             ))}
             {medal.teammates.length > 10 && (
-              <span className="rounded-full border bg-gray-50 px-2.5 py-1 text-xs text-gray-400">
+              <span className="rounded-full border bg-gray-50 px-2.5 py-1 text-xs text-gray-500">
                 +{medal.teammates.length - 10} more
               </span>
             )}
@@ -182,7 +182,7 @@ export function MedalCase({
   return (
     <div>
       {title && (
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{title}</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</p>
       )}
       <div className="flex flex-wrap items-center gap-1.5">
         {medals.map((m) => (

@@ -117,7 +117,7 @@ export default async function GuestWaiverPage({
       <OrgNav org={org} logoUrl={logoUrl} />
       <div className="max-w-xl mx-auto px-4 py-10">
         <div className="text-center mb-6">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">{org.name}</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{org.name}</p>
           <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--brand-heading-font)' }}>
             Sign Waiver
           </h1>

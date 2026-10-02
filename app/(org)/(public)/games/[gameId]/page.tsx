@@ -330,7 +330,7 @@ export default async function GameMatchupPage({
               {gameDate} · {gameTime}
               {rawGame.court ? ` · ${rawGame.court}` : ''}
             </p>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-500">
               {league?.name ?? ''}
               {rawGame.week_number != null && league?.event_type !== 'tournament'
                 ? ` · Week ${rawGame.week_number}`
@@ -379,7 +379,7 @@ export default async function GameMatchupPage({
         {/* ── Head-to-head section ── */}
         {h2hGames.length > 0 && (
           <section className="mt-6">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
               Head to Head · {league?.name}
             </h2>
 
@@ -388,17 +388,17 @@ export default async function GameMatchupPage({
               <div className="bg-white border rounded-xl p-4 mb-3 flex items-center justify-center gap-6 sm:gap-10">
                 <div className="text-center">
                   <p className="text-2xl font-bold">{homeWins}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 leading-tight">{homeTeam?.name}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-tight">{homeTeam?.name}</p>
                 </div>
                 {draws > 0 && (
                   <div className="text-center">
                     <p className="text-2xl font-bold text-gray-400">{draws}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Draws</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Draws</p>
                   </div>
                 )}
                 <div className="text-center">
                   <p className="text-2xl font-bold">{awayWins}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 leading-tight">{awayTeam?.name}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-tight">{awayTeam?.name}</p>
                 </div>
               </div>
             )}
@@ -436,7 +436,7 @@ export default async function GameMatchupPage({
                           {gDone ? ` ${gResult.home_score} – ${gResult.away_score} ` : ' vs '}
                           {gAway?.name ?? 'TBD'}
                         </p>
-                        <p className="text-xs text-gray-400 mt-0.5">
+                        <p className="text-xs text-gray-500 mt-0.5">
                           {gDate} · {gTime}
                           {g.court ? ` · ${g.court}` : ''}
                           {g.is_exhibition && <ExhibitionBadge isExhibition className="ml-1.5 align-middle" />}

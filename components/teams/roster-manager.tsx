@@ -200,7 +200,7 @@ export function RosterManager({
       <div className="bg-white rounded-lg border overflow-hidden" data-tutorial="roster-section">
         <div className="px-5 py-4 border-b flex items-center gap-3">
           <h2 className="font-semibold">Active Roster</h2>
-          <span className="text-xs text-gray-400">{totalCount} player{totalCount !== 1 ? 's' : ''}</span>
+          <span className="text-xs text-gray-500">{totalCount} player{totalCount !== 1 ? 's' : ''}</span>
         </div>
 
         {/* ── Pending invites section ── */}
@@ -292,9 +292,9 @@ export function RosterManager({
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">
                           {m.name || m.email}
-                          {m.isMe && <span className="ml-1.5 text-xs text-gray-400">(you)</span>}
+                          {m.isMe && <span className="ml-1.5 text-xs text-gray-500">(you)</span>}
                         </p>
-                        {m.email && <p className="text-xs text-gray-400 truncate">{m.email}</p>}
+                        {m.email && <p className="text-xs text-gray-500 truncate">{m.email}</p>}
                         {/* Status pills */}
                         {leagueId && (
                           <div className="flex flex-wrap gap-1 mt-1">
@@ -361,10 +361,10 @@ export function RosterManager({
                 )
               })}
               {members.length === 0 && invites.length > 0 && (
-                <li className="px-5 py-4 text-center text-sm text-gray-400">No active members yet.</li>
+                <li className="px-5 py-4 text-center text-sm text-gray-500">No active members yet.</li>
               )}
               {members.length === 0 && invites.length === 0 && (
-                <li className="px-5 py-6 text-center text-sm text-gray-400">No members yet. Add a player below.</li>
+                <li className="px-5 py-6 text-center text-sm text-gray-500">No members yet. Add a player below.</li>
               )}
             </ul>
           </>

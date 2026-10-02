@@ -144,7 +144,7 @@ export default async function OrganizerInvitePage({
                   >
                     Create Account
                   </Link>
-                  <p className="text-xs text-gray-400 text-center mt-3">
+                  <p className="text-xs text-gray-500 text-center mt-3">
                     Use the email address this invitation was sent to.
                   </p>
                 </div>

@@ -471,7 +471,7 @@ export default async function TeamStatsPage({
 
         {/* ── Season Summary ── */}
         <section>
-          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Season Summary</h2>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">Season Summary</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
 
             <div className="bg-white rounded-xl border p-4">
@@ -514,12 +514,12 @@ export default async function TeamStatsPage({
                 <>
                   <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-primary)' }}>
                     {standing}<sup className="text-sm font-bold">{ordinal(standing)}</sup>
-                    {totalTeams > 0 && <span className="text-sm font-semibold text-gray-400"> /{totalTeams}</span>}
+                    {totalTeams > 0 && <span className="text-sm font-semibold text-gray-500"> /{totalTeams}</span>}
                   </p>
                   <p className="text-[11px] text-gray-400 mt-1.5 truncate">{league?.name}</p>
                 </>
               ) : (
-                <p className="text-sm text-gray-400 mt-1">—</p>
+                <p className="text-sm text-gray-500 mt-1">—</p>
               )}
             </div>
           </div>

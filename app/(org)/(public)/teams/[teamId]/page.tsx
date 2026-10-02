@@ -471,7 +471,7 @@ export default async function TeamDetailPage({
           <div className="mt-6 bg-white rounded-lg border overflow-hidden">
             <div className="px-5 py-4 border-b">
               <h2 className="font-semibold">
-                Roster <span className="text-gray-400 font-normal text-sm ml-1">{activeMembers.length} player{activeMembers.length !== 1 ? 's' : ''}</span>
+                Roster <span className="text-gray-500 font-normal text-sm ml-1">{activeMembers.length} player{activeMembers.length !== 1 ? 's' : ''}</span>
               </h2>
             </div>
             <ul className="divide-y">
@@ -487,7 +487,7 @@ export default async function TeamDetailPage({
                           <BioNameButton bio={cardFor(m.user_id, profile?.full_name ?? '—', profile?.avatar_url ?? null, m.position)} userId={m.user_id}>
                             {profile?.full_name ?? '—'}
                           </BioNameButton>
-                          {isMe && <span className="ml-1.5 text-xs text-gray-400">(you)</span>}
+                          {isMe && <span className="ml-1.5 text-xs text-gray-500">(you)</span>}
                           {(() => {
                             const c = m.user_id ? memberMedalCounts.get(m.user_id) : undefined
                             if (!c) return null
@@ -501,7 +501,7 @@ export default async function TeamDetailPage({
                           })()}
                         </p>
                         {isMe && profile?.email && (
-                          <a href={`mailto:${profile.email}`} className="text-xs text-gray-400 hover:text-blue-600 truncate block">
+                          <a href={`mailto:${profile.email}`} className="text-xs text-gray-500 hover:text-blue-600 truncate block">
                             {profile.email}
                           </a>
                         )}
@@ -540,7 +540,7 @@ export default async function TeamDetailPage({
                 )
               })}
               {activeMembers.length === 0 && (
-                <li className="px-5 py-8 text-center text-sm text-gray-400">No active members yet.</li>
+                <li className="px-5 py-8 text-center text-sm text-gray-500">No active members yet.</li>
               )}
             </ul>
           </div>

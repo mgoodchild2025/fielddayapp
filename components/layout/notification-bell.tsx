@@ -82,7 +82,7 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
       </button>
 
       {open && (
-        <div className={`absolute right-0 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden text-gray-900 ${dropUp ? 'bottom-full mb-2' : 'mt-2'}`}>
+        <div className={`fd-pop absolute right-0 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden text-gray-900 ${dropUp ? 'origin-bottom-right bottom-full mb-2' : 'origin-top-right mt-2'}`}>
           <div className="px-4 py-3 border-b flex items-center justify-between">
             <span className="font-semibold text-sm">Notifications</span>
             {count > 0 && (

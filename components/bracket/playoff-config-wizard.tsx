@@ -673,7 +673,7 @@ function ManageHeader({
             </button>
 
             {moreOpen && (
-              <div className="absolute right-0 top-full mt-1 z-20 bg-white border rounded-lg shadow-lg py-1 min-w-[180px]">
+              <div className="fd-pop origin-top-right absolute right-0 top-full mt-1 z-20 bg-white border rounded-lg shadow-lg py-1 min-w-[180px]">
                 <button
                   onClick={() => { setMoreOpen(false); onRegenerate() }}
                   disabled={isPending}

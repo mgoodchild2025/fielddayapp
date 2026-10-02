@@ -59,14 +59,14 @@ export default async function TeamCardsPage({ params }: { params: Promise<{ team
         <p className="text-sm text-gray-500 mt-1">Tap any card to flip it over.</p>
 
         {cards.length === 0 ? (
-          <p className="mt-10 text-center text-sm text-gray-400">No players on the roster yet.</p>
+          <p className="mt-10 text-center text-sm text-gray-500">No players on the roster yet.</p>
         ) : (
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {cards.map(({ card, userId }) => (
               <div key={userId}>
                 <BioFlipCard bio={card.bio} career={card.career} />
                 <p className="mt-1 text-right">
-                  <Link href={`/players/${userId}/card`} className="text-xs text-gray-400 hover:underline">
+                  <Link href={`/players/${userId}/card`} className="text-xs text-gray-500 hover:underline">
                     Open card →
                   </Link>
                 </p>

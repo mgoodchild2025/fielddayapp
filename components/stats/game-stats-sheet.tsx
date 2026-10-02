@@ -55,7 +55,7 @@ function TeamStatsGrid({
   onChange: (userId: string, key: string, value: number) => void
 }) {
   if (team.members.length === 0) {
-    return <p className="text-sm text-gray-400 py-4 text-center">No roster members.</p>
+    return <p className="text-sm text-gray-500 py-4 text-center">No roster members.</p>
   }
 
   return (
@@ -200,7 +200,7 @@ function GameStatsContent({
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
           <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Enter Stats</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Enter Stats</p>
             <p className="text-sm font-semibold mt-0.5">
               {homeTeam.name} <span className="text-gray-400 font-normal">vs</span> {awayTeam.name}
             </p>
@@ -219,7 +219,7 @@ function GameStatsContent({
         {/* Body — scrollable */}
         <div className="overflow-y-auto flex-1 px-4 py-4 space-y-6">
           {statDefs.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">
+            <p className="text-sm text-gray-500 text-center py-8">
               No stat categories defined for this sport.
             </p>
           ) : (
@@ -245,7 +245,7 @@ function GameStatsContent({
                 <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Column Definitions</p>
                 <div className="flex flex-wrap gap-x-4 gap-y-1">
                   {statDefs.map(def => (
-                    <span key={def.key} className="text-xs text-gray-400">
+                    <span key={def.key} className="text-xs text-gray-500">
                       <span className="font-semibold text-gray-500">{def.label}</span>
                       {' '}({def.key})
                     </span>

@@ -96,11 +96,11 @@ export default async function ProfilePage() {
         {/* Trophy case — every medal earned in this org, grouped by year */}
         {medalsByYear.length > 0 && (
           <div className="mt-8 bg-white rounded-xl border p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Trophy Case</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Trophy Case</p>
             <div className="space-y-4">
               {medalsByYear.map(([year, yearMedals]) => (
                 <div key={year} className="flex items-start gap-4">
-                  <span className="text-xs font-semibold text-gray-400 w-10 shrink-0 pt-2">{year}</span>
+                  <span className="text-xs font-semibold text-gray-500 w-10 shrink-0 pt-2">{year}</span>
                   <MedalCase medals={yearMedals} isOwner />
                 </div>
               ))}
@@ -122,7 +122,7 @@ export default async function ProfilePage() {
         <div className="mt-8 pt-6 border-t flex flex-col gap-3">
           <Link
             href="/profile/communications"
-            className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-600 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -131,7 +131,7 @@ export default async function ProfilePage() {
           </Link>
           <Link
             href="/profile/privacy"
-            className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-600 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />

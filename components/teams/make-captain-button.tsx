@@ -29,7 +29,7 @@ export function MakeCaptainButton({ memberId, teamId, leagueId, playerName }: Pr
         onClick={handleClick}
         disabled={isPending}
         title="Make captain"
-        className="text-xs text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50 px-1"
+        className="text-xs text-gray-500 hover:text-blue-600 transition-colors disabled:opacity-50 px-1"
       >
         {isPending ? '…' : '★'}
       </button>

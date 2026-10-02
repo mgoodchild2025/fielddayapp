@@ -203,7 +203,7 @@ export function TeamTutorial({
           <div className="flex items-center gap-2">
             <button
               onClick={finish}
-              className="text-xs text-gray-400 hover:text-gray-600 transition-colors px-2 py-1.5"
+              className="text-xs text-gray-500 hover:text-gray-600 transition-colors px-2 py-1.5"
             >
               Skip
             </button>

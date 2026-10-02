@@ -72,7 +72,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
         <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Message Team</p>
         <button
           onClick={() => { setOpen(false); reset() }}
-          className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+          className="text-gray-500 hover:text-gray-600 text-lg leading-none"
           aria-label="Close"
         >
           ×
@@ -159,7 +159,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
           <button
             type="button"
             onClick={() => { setOpen(false); reset() }}
-            className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5"
+            className="text-xs text-gray-500 hover:text-gray-600 px-3 py-1.5"
           >
             Cancel
           </button>

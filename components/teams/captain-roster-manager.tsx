@@ -88,7 +88,7 @@ export function CaptainRosterManager({ teamId, initialMembers, positions = [] }:
     <div className="mt-6 bg-white rounded-lg border overflow-hidden">
       <div className="px-5 py-4 border-b flex items-center justify-between">
         <h2 className="font-semibold">Manage Roster</h2>
-        <span className="text-xs text-gray-400">{members.length} player{members.length !== 1 ? 's' : ''}</span>
+        <span className="text-xs text-gray-500">{members.length} player{members.length !== 1 ? 's' : ''}</span>
       </div>
 
       {/* Member rows */}
@@ -101,9 +101,9 @@ export function CaptainRosterManager({ teamId, initialMembers, positions = [] }:
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">
                   {m.name || m.email}
-                  {m.isMe && <span className="ml-1.5 text-xs text-gray-400">(you)</span>}
+                  {m.isMe && <span className="ml-1.5 text-xs text-gray-500">(you)</span>}
                 </p>
-                {m.email && <p className="text-xs text-gray-400 truncate">{m.email}</p>}
+                {m.email && <p className="text-xs text-gray-500 truncate">{m.email}</p>}
               </div>
               {!m.isMe && (
                 <button
@@ -143,7 +143,7 @@ export function CaptainRosterManager({ teamId, initialMembers, positions = [] }:
           </li>
         ))}
         {members.length === 0 && (
-          <li className="px-5 py-6 text-center text-sm text-gray-400">No active members.</li>
+          <li className="px-5 py-6 text-center text-sm text-gray-500">No active members.</li>
         )}
       </ul>
 

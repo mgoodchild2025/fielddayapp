@@ -11,7 +11,7 @@ import { DnsRecordsPanel } from '@/components/branding/dns-records-panel'
 import { UpgradeBadge } from '@/components/ui/upgrade-prompt'
 import type { RailwayDnsRecord } from '@/lib/railway'
 import { UploadStatus, Spinner } from '@/components/ui/upload-status'
-import { checkContrast } from '@/lib/contrast'
+import { checkContrast, readableTextOn } from '@/lib/contrast'
 
 // Minimal subset of org_branding needed by this form (avoids depending on generated DB types
 // for columns that may not yet be in the snapshot)
@@ -179,9 +179,14 @@ export function BrandingForm({
   // Nothing downstream can catch it — the values are runtime data. Warn here,
   // where the choice is made. Advisory, not blocking: an org may knowingly
   // accept the risk, and we should not hold their branding hostage.
+  // Text on the primary is chosen by readableTextOn (white, or dark when the
+  // primary is too pale for white) — check the colour the site will use.
+  const onPrimary = readableTextOn(primaryColor)
   const contrastChecks = [
     checkContrast(textColor, bgColor, 'Body text on the page background'),
-    checkContrast('#ffffff', primaryColor, 'White text on the primary colour'),
+    checkContrast(onPrimary, primaryColor, onPrimary === '#ffffff'
+      ? 'White text on the primary colour'
+      : 'Button text on the primary colour (dark, because white would be unreadable)'),
     checkContrast('#ffffff', secondaryColor, 'White text on the secondary colour'),
   ].filter((c): c is NonNullable<typeof c> => c !== null)
   const contrastFailures = contrastChecks.filter((c) => !c.passes)

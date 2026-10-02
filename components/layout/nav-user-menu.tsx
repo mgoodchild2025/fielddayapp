@@ -43,7 +43,7 @@ export function NavUserMenu({ userName, isAdmin }: Props) {
       <button
         onClick={() => setOpen((o) => !o)}
         className="px-4 py-1.5 rounded-md font-semibold transition-opacity hover:opacity-90 active:opacity-75 flex items-center gap-2 max-w-[200px]"
-        style={{ backgroundColor: 'var(--brand-primary)', color: 'white' }}
+        style={{ backgroundColor: 'var(--brand-primary)', color: 'var(--brand-on-primary)' }}
       >
         <span className="truncate">{userName ?? 'My Account'}</span>
         <svg className={`w-3 h-3 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,7 +52,7 @@ export function NavUserMenu({ userName, isAdmin }: Props) {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-lg border py-1 z-50 text-gray-800 text-sm">
+        <div className="fd-pop origin-top-right absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-lg border py-1 z-50 text-gray-800 text-sm">
           {PRIMARY_NAV_ITEMS.map(({ href, label, Icon }) => (
             <Link
               key={href}

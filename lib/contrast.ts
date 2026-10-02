@@ -80,3 +80,22 @@ export function checkContrast(
       : `${what}: ${formatRatio(ratio)}:1 — below the ${required}:1 minimum for readability.`,
   }
 }
+
+export const DARK_ON_BRAND = '#111827'
+
+/**
+ * Text colour for content sitting on a brand fill (buttons, badges, banners).
+ *
+ * White, unless white would fall below WCAG's 3:1 minimum for large/bold
+ * text on this background — then near-black. The threshold is deliberately
+ * the lenient one: saturated brand colours (e.g. #FF5C00 at 3.1:1) keep the
+ * white text their org designed around, while genuinely pale picks (amber,
+ * yellow, sky, light green — 1.3–2.5:1) stop producing unreadable buttons.
+ * Unparseable input keeps white, the long-standing default.
+ */
+export function readableTextOn(background: string): string {
+  const white = contrastRatio('#ffffff', background)
+  if (white === null || white >= AA_LARGE_TEXT) return '#ffffff'
+  const dark = contrastRatio(DARK_ON_BRAND, background) ?? 0
+  return dark > white ? DARK_ON_BRAND : '#ffffff'
+}

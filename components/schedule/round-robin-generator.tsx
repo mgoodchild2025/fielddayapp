@@ -513,7 +513,7 @@ export function RoundRobinGenerator({
                 />
                 <div>
                   <span className="text-sm font-medium text-gray-700">Repeat schedule when all teams have played each other</span>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-xs text-gray-500 mt-0.5">
                     The fixture list restarts after one full round-robin, filling all remaining game days.
                   </p>
                 </div>
@@ -692,7 +692,7 @@ export function RoundRobinGenerator({
               <div>
                 <label className="block text-xs text-gray-500 mb-0.5">Simultaneous {venueLbl.toLowerCase()}s</label>
                 <input type="number" min={1} max={10} value={dsCourts} onChange={e => setDsCourts(e.target.value)} className={inputCls} />
-                <p className="text-xs text-gray-400 mt-0.5">Games in a round fill all {venueLbl.toLowerCase()}s; overflow spills to the next time slot.</p>
+                <p className="text-xs text-gray-500 mt-0.5">Games in a round fill all {venueLbl.toLowerCase()}s; overflow spills to the next time slot.</p>
               </div>
 
               {/* Special breaks */}
@@ -708,7 +708,7 @@ export function RoundRobinGenerator({
                   </button>
                 </div>
                 {specialBreaks.length === 0 && (
-                  <p className="text-xs text-gray-400">No breaks added. Use &ldquo;Add break&rdquo; for lunch, halftime, etc.</p>
+                  <p className="text-xs text-gray-500">No breaks added. Use &ldquo;Add break&rdquo; for lunch, halftime, etc.</p>
                 )}
                 {specialBreaks.map(br => (
                   <div key={br.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-1.5 items-center bg-gray-50 border border-gray-100 rounded-md p-2">

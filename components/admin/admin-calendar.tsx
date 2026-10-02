@@ -410,7 +410,7 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
                           'self-end inline-flex items-center justify-center w-6 h-6 text-xs sm:text-sm font-medium rounded-full mb-0.5',
                           isToday ? 'text-white' : 'text-gray-600',
                         ].join(' ')}
-                        style={isToday ? { backgroundColor: 'var(--brand-primary)', color: 'white' } : {}}
+                        style={isToday ? { backgroundColor: 'var(--brand-primary)', color: 'var(--brand-on-primary)' } : {}}
                       >
                         {dayNum(dateStr)}
                       </span>

@@ -114,7 +114,7 @@ export function AdminTeamCard({
               )}
             </div>
             {captainName && (
-              <p className="text-xs text-gray-400 truncate">Captain: {captainName}</p>
+              <p className="text-xs text-gray-500 truncate">Captain: {captainName}</p>
             )}
             {/* A paid team with nobody leading it: if a captain signs up on their own
                 they create a SECOND team and get charged again. Assign one here. */}

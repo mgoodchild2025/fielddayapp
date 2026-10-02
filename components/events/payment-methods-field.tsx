@@ -27,7 +27,7 @@ export function PaymentMethodsField({ value, onChange, instructions, onInstructi
   return (
     <div className={disabled ? 'opacity-50 pointer-events-none' : ''}>
       <p className="text-sm font-medium text-gray-700 mb-1">Accepted payment methods</p>
-      <p className="text-xs text-gray-400 mb-2">
+      <p className="text-xs text-gray-500 mb-2">
         Players choose from these at checkout. Leave all unchecked to use your organization&apos;s
         default payment setting.
       </p>
@@ -57,7 +57,7 @@ export function PaymentMethodsField({ value, onChange, instructions, onInstructi
         })}
       </div>
       {value.includes('card') && (
-        <p className="text-xs text-gray-400 mt-1.5">
+        <p className="text-xs text-gray-500 mt-1.5">
           Card payments require Stripe to be configured in Settings → Payments.
         </p>
       )}
@@ -74,7 +74,7 @@ export function PaymentMethodsField({ value, onChange, instructions, onInstructi
             placeholder="e.g. Send Interac e-Transfer to pay@yourclub.ca, or bring cash to the first session."
             className="w-full border rounded-md px-3 py-2 text-sm"
           />
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             Shown to players who pick an offline method. Leave blank to use your organization&apos;s
             default instructions.
           </p>

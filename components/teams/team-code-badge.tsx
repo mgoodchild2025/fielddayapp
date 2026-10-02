@@ -30,7 +30,7 @@ export function TeamCodeBadge({ teamId, code: initialCode }: Props) {
 
   return (
     <div className="flex items-center gap-1.5 mt-2">
-      <span className="text-xs text-gray-400">Code:</span>
+      <span className="text-xs text-gray-500">Code:</span>
       <button
         onClick={handleCopy}
         aria-label="Copy team code"
@@ -49,7 +49,7 @@ export function TeamCodeBadge({ teamId, code: initialCode }: Props) {
         onClick={handleRegenerate}
         disabled={regenerating}
         title="Regenerate code"
-        className="text-xs text-gray-400 hover:text-gray-600 px-1 py-0.5 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
+        className="text-xs text-gray-500 hover:text-gray-600 px-1 py-0.5 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
       >
         {regenerating ? '…' : '↺'}
       </button>

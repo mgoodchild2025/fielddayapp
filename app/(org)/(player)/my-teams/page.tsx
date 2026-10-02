@@ -77,7 +77,7 @@ export default async function MyTeamsPage() {
             )}
           </div>
           {league && (
-            <p className="text-xs text-gray-400 mt-0.5 truncate">{league.name}</p>
+            <p className="text-xs text-gray-500 mt-0.5 truncate">{league.name}</p>
           )}
         </div>
 
@@ -102,7 +102,7 @@ export default async function MyTeamsPage() {
 
         {teams.length === 0 ? (
           <div className="bg-white rounded-xl border p-10 text-center">
-            <p className="text-gray-400 text-sm mb-3">You&apos;re not on any teams yet.</p>
+            <p className="text-gray-500 text-sm mb-3">You&apos;re not on any teams yet.</p>
             <Link
               href="/events"
               className="text-sm font-semibold px-4 py-2 rounded-lg text-white"
@@ -115,7 +115,7 @@ export default async function MyTeamsPage() {
           <div className="space-y-6">
             {active.length > 0 && (
               <section>
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
                   Current
                 </h2>
                 <div className="space-y-3">

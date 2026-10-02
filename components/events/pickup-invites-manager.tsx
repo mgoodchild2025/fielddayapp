@@ -69,7 +69,7 @@ function InviteSection({
     <div className="space-y-4">
       <div className="bg-white border rounded-lg p-5">
         <h3 className="font-semibold text-sm mb-1">{title}</h3>
-        <p className="text-xs text-gray-400 mb-3">{description}</p>
+        <p className="text-xs text-gray-500 mb-3">{description}</p>
         <form onSubmit={handleInvite} className="flex gap-2">
           <input
             type="email"
@@ -97,7 +97,7 @@ function InviteSection({
             <div key={invite.id} className="flex items-center justify-between px-4 py-3 gap-4">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{invite.email}</p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-gray-500 mt-0.5">
                   Invited {new Date(invite.invited_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </p>
               </div>
@@ -141,7 +141,7 @@ function InviteSection({
       )}
 
       {invites.length === 0 && (
-        <p className="text-xs text-gray-400 text-center py-4">No {inviteType === 'drop_in' ? 'drop-in' : 'season'} invites sent yet.</p>
+        <p className="text-xs text-gray-500 text-center py-4">No {inviteType === 'drop_in' ? 'drop-in' : 'season'} invites sent yet.</p>
       )}
     </div>
   )

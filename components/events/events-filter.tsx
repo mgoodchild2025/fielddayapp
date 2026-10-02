@@ -114,7 +114,7 @@ function ComingSoonCard({ event, timezone }: { event: EventItem; timezone?: stri
             <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">★ Featured</span>
           )}
         </div>
-        <span className="text-xs font-semibold shrink-0 px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--brand-primary)', color: 'white' }}>
+        <span className="text-xs font-semibold shrink-0 px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--brand-primary)', color: 'var(--brand-on-primary)' }}>
           Coming Soon
         </span>
       </div>
@@ -145,7 +145,7 @@ function EventRow({ event, variant }: { event: EventItem; variant: 'inseason' | 
         <div className="min-w-0">
           <p className="text-sm font-semibold text-gray-800 truncate">{event.name}</p>
           {(event.sport || event.skill_level) && (
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-gray-500 mt-0.5">
               {event.sport ? formatSport(event.sport) : ''}
               {event.sport && event.skill_level ? ' · ' : ''}
               {event.skill_level ? event.skill_level.charAt(0).toUpperCase() + event.skill_level.slice(1) : ''}
@@ -155,7 +155,7 @@ function EventRow({ event, variant }: { event: EventItem; variant: 'inseason' | 
       </div>
       <div className="flex items-center gap-3 shrink-0">
         {(event.season_start_date || formatTimeRange(event.game_start_time, event.game_end_time)) && (
-          <span className="text-xs text-gray-400 hidden sm:block text-right">
+          <span className="text-xs text-gray-500 hidden sm:block text-right">
             {event.season_start_date && (
               <span>{variant === 'past' ? formatYear(event.season_start_date) : formatDate(event.season_start_date)}</span>
             )}
@@ -310,7 +310,7 @@ export function EventsFilter({ events, timezone }: { events: EventItem[]; timezo
             <div className="flex">
               <button
                 onClick={() => { setSelectedSport(null); setSelectedType(null) }}
-                className="text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1"
+                className="text-xs font-medium text-gray-500 hover:text-gray-600 transition-colors flex items-center gap-1"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

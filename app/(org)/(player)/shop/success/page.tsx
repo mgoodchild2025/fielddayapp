@@ -45,7 +45,7 @@ export default async function ShopSuccessPage({ searchParams }: Props) {
               </p>
             )}
 
-            <p className="text-xs text-gray-400 mt-2">
+            <p className="text-xs text-gray-500 mt-2">
               Your order will be fulfilled once payment is received. Items will be ready for
               pickup at a future event.
             </p>

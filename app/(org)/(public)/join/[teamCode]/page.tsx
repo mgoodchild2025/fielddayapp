@@ -153,13 +153,13 @@ export default async function JoinTeamPage({
               {team.name.charAt(0).toUpperCase()}
             </div>
 
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{org.name}</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{org.name}</p>
             <h1 className="text-2xl font-bold text-gray-900">{team.name}</h1>
             {leagueName && (
               <p className="text-sm text-gray-500">{leagueName}</p>
             )}
             {maxTeamSize != null && (
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 {memberCount ?? 0} / {maxTeamSize} players
               </p>
             )}
@@ -206,7 +206,7 @@ export default async function JoinTeamPage({
                 >
                   Create account
                 </Link>
-                <p className="text-center text-xs text-gray-400">
+                <p className="text-center text-xs text-gray-500">
                   You need an account to accept this invitation.
                 </p>
               </div>

@@ -113,14 +113,14 @@ export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = fa
           defaultValue={defaultBody}
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
-        <p className="text-xs text-gray-400 mt-1">Tip: keep the register link in the message so recipients can sign up in one tap.</p>
+        <p className="text-xs text-gray-500 mt-1">Tip: keep the register link in the message so recipients can sign up in one tap.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Schedule (optional)</label>
           <input name="scheduled_for" type="datetime-local" className="w-full border rounded-md px-3 py-2 text-sm" />
-          <p className="text-xs text-gray-400 mt-1">Leave blank to send now.</p>
+          <p className="text-xs text-gray-500 mt-1">Leave blank to send now.</p>
         </div>
         <label className="flex items-center gap-2 mt-7 text-sm text-gray-700">
           <input type="checkbox" name="cc_self" className="w-4 h-4 rounded border-gray-300" />

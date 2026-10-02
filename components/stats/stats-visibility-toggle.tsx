@@ -54,7 +54,7 @@ export function StatsVisibilityToggle({ leagueId, initialValue }: Props) {
           />
         </span>
       </button>
-      <p className="text-xs text-gray-400 mt-2">
+      <p className="text-xs text-gray-500 mt-2">
         {isPublic
           ? 'Stats leaderboard is public — visible to anyone, including non-members.'
           : 'Stats are members-only — only logged-in users can view them.'}

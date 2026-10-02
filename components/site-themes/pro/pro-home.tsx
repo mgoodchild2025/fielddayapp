@@ -297,7 +297,7 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
             <div className="mt-6 flex flex-wrap gap-3">
               <Link href={ctaHref}
                 className="px-6 py-2.5 rounded font-bold text-sm uppercase tracking-wide transition-opacity hover:opacity-90 active:opacity-75"
-                style={{ backgroundColor: 'var(--brand-primary)', color: 'white', fontFamily: 'var(--brand-heading-font)' }}
+                style={{ backgroundColor: 'var(--brand-primary)', color: 'var(--brand-on-primary)', fontFamily: 'var(--brand-heading-font)' }}
               >
                 {ctaLabel}
               </Link>

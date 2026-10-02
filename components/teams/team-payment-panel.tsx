@@ -167,7 +167,7 @@ export function TeamPaymentPanel({
               <p className="text-sm text-amber-700">Please contact the organizer to arrange payment.</p>
             )}
           </div>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             Your team&apos;s spot is reserved. The organizer will confirm once payment is received.
           </p>
         </div>
@@ -240,11 +240,11 @@ export function TeamPaymentPanel({
               <div className="flex items-center justify-between py-3 px-4">
                 <div>
                   <p className="font-medium text-sm">Team registration fee</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{memberCount} player{memberCount !== 1 ? 's' : ''} currently on the roster</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{memberCount} player{memberCount !== 1 ? 's' : ''} currently on the roster</p>
                 </div>
-                <p className={`font-bold text-lg tabular-nums ${appliedDiscount ? 'line-through text-gray-400' : ''}`} style={appliedDiscount ? {} : { color: 'var(--brand-primary)' }}>
+                <p className={`font-bold text-lg tabular-nums ${appliedDiscount ? 'line-through text-gray-500' : ''}`} style={appliedDiscount ? {} : { color: 'var(--brand-primary)' }}>
                   ${price.toFixed(0)} {curr}
-                  {taxSuffix && <span className="ml-1 text-xs font-normal text-gray-400">{taxSuffix}</span>}
+                  {taxSuffix && <span className="ml-1 text-xs font-normal text-gray-500">{taxSuffix}</span>}
                 </p>
               </div>
 
@@ -268,7 +268,7 @@ export function TeamPaymentPanel({
                   <span className="text-sm text-gray-600">After discount</span>
                   <span className="font-bold text-lg tabular-nums" style={{ color: 'var(--brand-primary)' }}>
                     ${(discountedPriceCents / 100).toFixed(2)} {curr}
-                    {taxSuffix && <span className="ml-1 text-xs font-normal text-gray-400">{taxSuffix}</span>}
+                    {taxSuffix && <span className="ml-1 text-xs font-normal text-gray-500">{taxSuffix}</span>}
                   </span>
                 </div>
               )}
@@ -285,7 +285,7 @@ export function TeamPaymentPanel({
             {!appliedDiscount && (
               <div>
                 {!showDiscountInput ? (
-                  <button type="button" onClick={() => setShowDiscountInput(true)} className="text-sm text-gray-400 hover:text-gray-600 underline underline-offset-2">
+                  <button type="button" onClick={() => setShowDiscountInput(true)} className="text-sm text-gray-500 hover:text-gray-600 underline underline-offset-2">
                     Have a discount code?
                   </button>
                 ) : (
@@ -310,7 +310,7 @@ export function TeamPaymentPanel({
                       >
                         {discountLoading ? '…' : 'Apply'}
                       </button>
-                      <button type="button" onClick={() => { setShowDiscountInput(false); setDiscountInput(''); setDiscountError(null) }} className="px-3 py-2 rounded-md text-sm text-gray-400 hover:text-gray-600">✕</button>
+                      <button type="button" onClick={() => { setShowDiscountInput(false); setDiscountInput(''); setDiscountError(null) }} className="px-3 py-2 rounded-md text-sm text-gray-500 hover:text-gray-600">✕</button>
                     </div>
                     {discountError && <p className="text-xs text-red-600">{discountError}</p>}
                   </div>
@@ -371,7 +371,7 @@ export function TeamPaymentPanel({
             </button>
 
             {selectedMethod === 'card' && (
-              <p className="text-xs text-center text-gray-400">
+              <p className="text-xs text-center text-gray-500">
                 Secure checkout via Stripe. Once payment is complete, all team members&apos; registrations will be activated automatically.
               </p>
             )}
