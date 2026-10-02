@@ -85,8 +85,8 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
 
   return (
     <nav
-      className="sticky top-0 z-40 border-b border-white/10"
-      style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
+      className="fd-bar-brand sticky top-0 z-40 border-b border-white/10"
+      style={{ color: 'white' }}
     >
       {liveStream && (
         <a
