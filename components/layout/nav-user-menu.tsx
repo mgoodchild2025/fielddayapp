@@ -11,11 +11,12 @@ interface Props {
   isAdmin: boolean
 }
 
-// Same labels and icons as the mobile tab bar (mobile-bottom-nav-client.tsx).
+// Same labels and icons as the mobile tab bar (mobile-bottom-nav-client.tsx),
+// except My Events: the desktop top nav already has an Events (browse) link.
 const PRIMARY_NAV_ITEMS = [
   { href: '/dashboard', label: 'Home',       Icon: House           },
   { href: '/schedule',  label: 'Games',      Icon: CalendarDays    },
-  { href: '/my-events', label: 'Events',     Icon: Trophy          },
+  { href: '/my-events', label: 'My Events',  Icon: Trophy          },
   { href: '/my-teams',  label: 'My Teams',   Icon: Users           },
   { href: '/profile',   label: 'Me',         Icon: CircleUser      },
 ] as const
