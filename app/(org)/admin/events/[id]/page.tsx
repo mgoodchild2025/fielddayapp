@@ -13,7 +13,7 @@ import { getMerchandiseOrders } from '@/actions/merchandise'
 import { getLeagueDocuments } from '@/actions/league-documents'
 import { listAdminDocuments } from '@/actions/admin-documents'
 import { AdminDocumentsCard } from '@/components/documents/admin-documents-card'
-import { StatusChip } from '@/components/ui/status-chip'
+import { StatusChip, eventStatusLabel } from '@/components/ui/status-chip'
 import { EditEventForm } from '@/components/events/edit-event-form'
 import { DeleteEventButton } from '@/components/events/delete-event-button'
 import { OrganizersPanel } from '@/components/events/organizers-panel'
@@ -278,7 +278,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
                   className="flex-1 border rounded-md px-2 py-1.5 text-sm text-gray-700 bg-white"
                 >
                   {([ 'draft', 'registration_open', 'active', 'completed', 'archived' ] as LeagueStatus[]).map((s) => (
-                    <option key={s} value={s}>{statusLabel(s)}</option>
+                    <option key={s} value={s}>{eventStatusLabel(s)}</option>
                   ))}
                 </select>
                 <button
@@ -326,17 +326,6 @@ function Row({ label, value }: { label: string; value: string }) {
   )
 }
 
-function statusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    draft: 'Draft',
-    registration_open: 'Registration Open',
-    active: 'Active',
-    completed: 'Completed',
-    archived: 'Archived',
-  }
-  return labels[status] ?? status
-}
-
 function StatusBadge({ status }: { status: string }) {
-  return <StatusChip status={status} label={statusLabel(status)} />
+  return <StatusChip kind="event" status={status} />
 }

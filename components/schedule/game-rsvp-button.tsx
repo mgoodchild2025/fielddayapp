@@ -34,26 +34,26 @@ export function GameRsvpButton({ gameId, teamId, initialStatus }: Props) {
         onClick={() => tap('in')}
         disabled={isPending}
         aria-pressed={status === 'in'}
-        className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border transition-all select-none ${
+        className={`press flex items-center gap-1.5 min-h-10 px-4 rounded-full text-sm font-semibold border select-none ${
           status === 'in'
             ? 'bg-green-500 text-white border-green-500 shadow-sm'
             : 'bg-white border-gray-200 text-gray-500 hover:border-green-400 hover:text-green-600'
         } disabled:opacity-60`}
       >
-        <span className="text-[10px]">✓</span> In
+        <span className="text-xs" aria-hidden="true">✓</span> In
       </button>
       <button
         type="button"
         onClick={() => tap('out')}
         disabled={isPending}
         aria-pressed={status === 'out'}
-        className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border transition-all select-none ${
+        className={`press flex items-center gap-1.5 min-h-10 px-4 rounded-full text-sm font-semibold border select-none ${
           status === 'out'
             ? 'bg-red-500 text-white border-red-500 shadow-sm'
             : 'bg-white border-gray-200 text-gray-500 hover:border-red-400 hover:text-red-600'
         } disabled:opacity-60`}
       >
-        <span className="text-[10px]">✗</span> Out
+        <span className="text-xs" aria-hidden="true">✗</span> Out
       </button>
     </div>
   )

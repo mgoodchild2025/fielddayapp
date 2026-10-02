@@ -152,6 +152,22 @@ a,
   touch-action: manipulation;
 }
 
+/* ── Press feedback ─────────────────────────────────────────────────────────
+   `press` on any tappable control: a quick 0.97 scale while held, so a tap
+   visibly lands (most of the app is used one-handed on a phone). Also
+   transitions the colour props a state change touches, so it replaces
+   transition-all / transition-colors on the element. Disabled controls don't
+   move; reduced motion keeps the colour change and drops the scale. */
+@utility press {
+  transition-property: transform, color, background-color, border-color, opacity, box-shadow;
+  transition-duration: 160ms;
+  transition-timing-function: var(--ease-snap);
+  &:active:not(:disabled) { transform: scale(0.97); }
+  @media (prefers-reduced-motion: reduce) {
+    &:active:not(:disabled) { transform: none; }
+  }
+}
+
 /* ── Keyboard focus ─────────────────────────────────────────────────────────
    One visible focus ring for everything a keyboard can reach, in the org's
    colour. :focus-visible only shows for keyboard (and programmatic) focus, so
