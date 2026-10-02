@@ -31,7 +31,11 @@ type RegistrationRow = {
   payment: PaymentRecord | PaymentRecord[] | null
 }
 
-export default async function AdminPaymentsPage() {
+const STATUS_FILTERS = ['all', 'paid', 'unpaid', 'free', 'refunded', 'failed']
+
+export default async function AdminPaymentsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  const { status } = await searchParams
+  const initialStatus = status && STATUS_FILTERS.includes(status) ? status : 'all'
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = createServiceRoleClient()
@@ -186,7 +190,7 @@ export default async function AdminPaymentsPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Payments</h1>
-      <PaymentsTable rows={ledger} isOrgAdmin={scope.isOrgAdmin} taxRates={taxRates} />
+      <PaymentsTable rows={ledger} isOrgAdmin={scope.isOrgAdmin} taxRates={taxRates} initialStatus={initialStatus} />
     </div>
   )
 }

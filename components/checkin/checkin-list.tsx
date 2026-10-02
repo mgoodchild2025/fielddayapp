@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { undoCheckIn, manualSessionCheckIn, undoSessionCheckIn, checkInByToken } from '@/actions/checkin'
 import { toast } from 'sonner'
 
@@ -72,7 +72,26 @@ export function CheckInList({ registrations, leagueId, timezone, sessionId }: Pr
     )
   }
 
+  // Rows with a check-in/undo in flight. The ref guards synchronously (a
+  // double-tap lands before React re-renders); the state dims the button.
+  const inFlight = useRef(new Set<string>())
+  const [busyRows, setBusyRows] = useState<ReadonlySet<string>>(() => new Set())
+  const rowKey = (reg: Registration) => reg.sessionRegistrationId ?? reg.id
+
   async function handleToggle(reg: Registration, currentlyCheckedIn: boolean) {
+    const row = rowKey(reg)
+    if (inFlight.current.has(row)) return
+    inFlight.current.add(row)
+    setBusyRows((b) => new Set(b).add(row))
+    try {
+      await toggle(reg, currentlyCheckedIn)
+    } finally {
+      inFlight.current.delete(row)
+      setBusyRows((b) => { const n = new Set(b); n.delete(row); return n })
+    }
+  }
+
+  async function toggle(reg: Registration, currentlyCheckedIn: boolean) {
     // Registration-flow drop-ins have no sessionRegistrationId — use reg.id as key
     const useId = sessionId ? !reg.sessionRegistrationId : false
     const key = useId ? reg.id : (sessionId ? (reg.sessionRegistrationId ?? reg.id) : reg.id)
@@ -198,7 +217,10 @@ export function CheckInList({ registrations, leagueId, timezone, sessionId }: Pr
                 <button
                   type="button"
                   onClick={() => handleToggle(reg, checkedIn)}
-                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                  disabled={busyRows.has(key)}
+                  aria-busy={busyRows.has(key) || undefined}
+                  aria-pressed={checkedIn}
+                  className={`press shrink-0 flex items-center gap-1.5 min-h-11 px-4 rounded-full text-sm font-semibold disabled:opacity-60 ${
                     checkedIn
                       ? 'bg-green-100 text-green-700 hover:bg-green-200'
                       : 'bg-gray-100 text-gray-500 hover:bg-gray-200'

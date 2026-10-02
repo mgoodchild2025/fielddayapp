@@ -133,9 +133,10 @@ function FilterCard({ label, active, tone, onToggle, children }: {
   )
 }
 
-export function PaymentsTable({ rows, isOrgAdmin = true, taxRates = [] }: { rows: Row[]; isOrgAdmin?: boolean; taxRates?: OrgTaxRate[] }) {
+export function PaymentsTable({ rows, isOrgAdmin = true, taxRates = [], initialStatus = 'all' }: { rows: Row[]; isOrgAdmin?: boolean; taxRates?: OrgTaxRate[]; initialStatus?: string }) {
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  // ?status= (e.g. from the dashboard's "offline payments still owed") picks the starting filter.
+  const [statusFilter, setStatusFilter] = useState(initialStatus)
   const [eventFilter, setEventFilter] = useState('all')
   const [page, setPage] = useState(1)
 

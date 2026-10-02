@@ -14,6 +14,7 @@ import { removePlayerFromLeague, removePlayerFromTeam } from '@/actions/players'
 import { getMarketingConsent, getPlayerConsentSummary } from '@/actions/player-consents'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { eventStatusTone } from '@/components/ui/status-chip'
+import { SubmitButton } from '@/components/ui/submit-button'
 
 const PAST_STATUSES = new Set(['completed', 'archived'])
 
@@ -389,12 +390,13 @@ export default async function PlayerManagementPage({
 
                         {isOrgAdmin && (
                           <form action={removeLeague}>
-                            <button
-                              type="submit"
-                              className="text-xs text-red-500 hover:text-red-700 shrink-0"
+                            <SubmitButton
+                              pendingLabel="Removing…"
+                              confirm={{ title: 'Remove this player from the event?', message: 'Their registration is deleted. Any payment record stays in the ledger.', confirmLabel: 'Remove', destructive: true }}
+                              className="press min-h-9 px-1 text-xs text-red-600 hover:text-red-700 shrink-0"
                             >
                               Remove
-                            </button>
+                            </SubmitButton>
                           </form>
                         )}
                       </div>
@@ -454,9 +456,9 @@ export default async function PlayerManagementPage({
                         </div>
                         {isOrgAdmin && (
                           <form action={removePastLeague}>
-                            <button type="submit" className="text-xs text-red-500 hover:text-red-700 shrink-0">
+                            <SubmitButton pendingLabel="Removing…" confirm={{ title: 'Remove this player from the event?', message: 'Their registration is deleted. Any payment record stays in the ledger.', confirmLabel: 'Remove', destructive: true }} className="press min-h-9 px-1 text-xs text-red-600 hover:text-red-700 shrink-0">
                               Remove
-                            </button>
+                            </SubmitButton>
                           </form>
                         )}
                       </div>
@@ -506,7 +508,7 @@ export default async function PlayerManagementPage({
                         <div className="flex items-center gap-3 shrink-0">
                           <TeamRoleSelect teamMemberId={tm.id} currentRole={tm.role} userId={userId} />
                           <form action={removeTeam}>
-                            <button type="submit" className="text-xs text-red-500 hover:text-red-700">Remove</button>
+                            <SubmitButton pendingLabel="Removing…" confirm={{ title: 'Remove this player from the team?', confirmLabel: 'Remove', destructive: true }} className="press min-h-9 px-1 text-xs text-red-600 hover:text-red-700">Remove</SubmitButton>
                           </form>
                         </div>
                       )}
@@ -541,7 +543,7 @@ export default async function PlayerManagementPage({
                         <div className="flex items-center gap-3 shrink-0">
                           <TeamRoleSelect teamMemberId={tm.id} currentRole={tm.role} userId={userId} />
                           <form action={removePastTeam}>
-                            <button type="submit" className="text-xs text-red-500 hover:text-red-700">Remove</button>
+                            <SubmitButton pendingLabel="Removing…" confirm={{ title: 'Remove this player from the team?', confirmLabel: 'Remove', destructive: true }} className="press min-h-9 px-1 text-xs text-red-600 hover:text-red-700">Remove</SubmitButton>
                           </form>
                         </div>
                       )}

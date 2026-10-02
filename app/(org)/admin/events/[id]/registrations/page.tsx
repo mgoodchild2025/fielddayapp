@@ -14,6 +14,7 @@ import { StatusChip } from '@/components/ui/status-chip'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { getTeamPaymentInfo } from '@/lib/team-payments'
 import type { InstallmentRow } from '@/components/payments/installment-schedule'
+import { SubmitButton } from '@/components/ui/submit-button'
 
 type PaymentEditStatus = 'paid' | 'pending' | 'refunded'
 type PaymentEditMethod = 'cash' | 'etransfer' | 'cheque' | 'stripe' | 'card' | 'other'
@@ -422,13 +423,12 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                       <div className="flex items-center gap-3">
                         {reg.status === 'pending' && (
                           <form action={approveAction}>
-                            <button
-                              type="submit"
-                              className="text-xs font-medium hover:underline"
-                              style={{ color: 'var(--brand-primary)' }}
+                            <SubmitButton
+                              pendingLabel="Approving…"
+                              className="press min-h-9 text-xs font-medium text-brand-primary hover:underline"
                             >
                               Approve
-                            </button>
+                            </SubmitButton>
                           </form>
                         )}
                         <RemoveRegistrationButton

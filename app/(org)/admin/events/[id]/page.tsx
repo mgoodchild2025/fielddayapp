@@ -24,6 +24,7 @@ import { LeagueDocumentsManager } from '@/components/events/league-documents-man
 import { PaymentPlanConfig } from '@/components/events/payment-plan-config'
 import { RichTextContent } from '@/components/ui/rich-text-content'
 import type { Database } from '@/types/database'
+import { SubmitButton } from '@/components/ui/submit-button'
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
 
@@ -259,13 +260,15 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
             {/* Quick-advance button */}
             {transition && (
               <form action={changeStatus}>
-                <button
-                  type="submit"
-                  className="w-full py-2 rounded-md text-sm font-semibold text-white transition-opacity hover:opacity-90 active:opacity-75"
-                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                <SubmitButton
+                  pendingLabel="Updating…"
+                  className="press w-full min-h-10 rounded-md text-sm font-semibold bg-brand-primary text-on-brand hover:opacity-90"
+                  confirm={transition.next === 'archived'
+                    ? { title: 'Archive this event?', message: 'It moves out of the active lists and off the public site. You can restore it later.', confirmLabel: 'Archive' }
+                    : undefined}
                 >
                   {transition.label} →
-                </button>
+                </SubmitButton>
               </form>
             )}
 
@@ -282,12 +285,13 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
                     <option key={s} value={s}>{eventStatusLabel(s)}</option>
                   ))}
                 </select>
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 rounded-md text-sm font-medium border border-gray-300 hover:bg-gray-50 transition-colors"
+                <SubmitButton
+                  pendingLabel="Setting…"
+                  className="press min-h-9 px-3 rounded-md text-sm font-medium border border-gray-300 hover:bg-gray-50"
+                  confirmIf={{ field: 'status', value: 'archived', title: 'Archive this event?', message: 'It moves out of the active lists and off the public site. You can restore it later.', confirmLabel: 'Archive' }}
                 >
                   Set
-                </button>
+                </SubmitButton>
               </div>
             </form>
           </div>

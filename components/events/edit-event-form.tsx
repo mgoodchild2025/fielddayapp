@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 import { updateLeague } from '@/actions/events'
 import { RichTextEditor } from '@/components/ui/rich-text-editor'
 import { PaymentMethodsField } from '@/components/events/payment-methods-field'
@@ -132,6 +133,23 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  // Edited since opening? Drives the save bar and the leave/cancel guards.
+  // Set from real user input bubbling to the <form> (typing, selects,
+  // checkboxes, contenteditable, toggle buttons) — never from the editors'
+  // programmatic syncs.
+  const [dirty, setDirty] = useState(false)
+  useEffect(() => {
+    if (!open || !dirty) return
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [open, dirty])
+
+  async function cancelEdit() {
+    if (dirty && !(await confirmAction({ title: 'Discard your changes?', message: 'Edits to this event haven’t been saved.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true }))) return
+    setDirty(false)
+    setOpen(false)
+  }
   const [descriptionContent, setDescriptionContent] = useState(league.description ?? '')
   // Controlled: the highlight was bound to the SERVER value, so clicking a
   // mode visibly did nothing (the hidden radio changed, the border didn't).
@@ -234,6 +252,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
       setError(result.error)
     } else {
       setSuccess(true)
+      setDirty(false)
       setOpen(false)
     }
   }
@@ -244,7 +263,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
     return (
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="font-semibold">League Details</h2>
+          <h2 className="font-semibold">Event Details</h2>
           {activeWaiver && (
             <p className="text-xs text-gray-500 mt-0.5">Waiver: {activeWaiver.title}</p>
           )}
@@ -255,8 +274,8 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           )}
         </div>
         <button
-          onClick={() => { setOpen(true); setSuccess(false) }}
-          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+          onClick={() => { setOpen(true); setSuccess(false); setDirty(false) }}
+          className="press min-h-9 px-2 -mr-2 text-sm text-brand-primary hover:opacity-80 font-medium"
         >
           Edit
         </button>
@@ -268,12 +287,19 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
     <div>
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold">Edit Event Details</h2>
-        <button onClick={() => setOpen(false)} className="text-sm text-gray-500 hover:text-gray-600">
+        <button onClick={cancelEdit} className="press min-h-9 px-2 -mr-2 text-sm text-gray-500 hover:text-gray-700">
           Cancel
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        onSubmit={handleSubmit}
+        onInput={() => setDirty(true)}
+        onChange={() => setDirty(true)}
+        onClick={(e) => { if ((e.target as Element).closest('button[type="button"]:not([data-no-dirty])')) setDirty(true) }}
+        className="space-y-4"
+      >
+        <SectionTitle first>Basics</SectionTitle>
         <Field label="Name">
           <input name="name" defaultValue={league.name} required className="input" />
         </Field>
@@ -287,7 +313,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           />
         </Field>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Sport">
             <select
               name="sport"
@@ -356,8 +382,9 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           </Field>
         )}
 
+        <SectionTitle>Pricing &amp; payment</SectionTitle>
         {(league.event_type === 'pickup' || league.event_type === 'drop_in') ? (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Season fee">
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">$</span>
@@ -375,7 +402,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
             </Field>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Price">
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">$</span>
@@ -436,7 +463,8 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
+        <SectionTitle>Teams &amp; capacity</SectionTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Age Group">
             <select name="age_group" defaultValue={league.age_group ?? ''} className="input">
               <option value="">All ages</option>
@@ -459,7 +487,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <Field label="Min Team Size">
             <input name="min_team_size" type="number" min="1" defaultValue={league.min_team_size ?? 1} className="input" />
           </Field>
@@ -605,6 +633,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           </div>
         </div>
 
+        <SectionTitle>Dates</SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Season Start">
             <input name="season_start_date" type="date" defaultValue={toDateInput(league.season_start_date)} className="input w-full" />
@@ -615,14 +644,15 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label="Reg Opens">
+          <Field label="Registration opens">
             <input name="registration_opens_at" type="datetime-local" defaultValue={toDateTimeInput(league.registration_opens_at)} className="input w-full" />
           </Field>
-          <Field label="Reg Closes">
+          <Field label="Registration closes">
             <input name="registration_closes_at" type="datetime-local" defaultValue={toDateTimeInput(league.registration_closes_at)} className="input w-full" />
           </Field>
         </div>
 
+        <SectionTitle>Promotion &amp; check-in</SectionTitle>
         {/* Advertising — promote the event before registration opens */}
         <div className="rounded-lg border border-gray-200 p-4 space-y-3">
           <p className="text-sm font-semibold text-gray-900">Advertising</p>
@@ -849,18 +879,33 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           </div>
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-2 rounded-md text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90 active:opacity-75"
-          style={{ backgroundColor: 'var(--brand-primary)' }}
-        >
-          {loading ? 'Saving…' : 'Save Changes'}
-        </button>
+        {/* Save bar — stays in view while scrolling a long form (the admin
+            <main> is the scroller), and says when there's something to save. */}
+        <div className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-6 px-5 py-3 bg-white/95 backdrop-blur border-t flex items-center gap-3 rounded-b-lg">
+          <p className="flex-1 min-w-0 text-xs text-gray-500" aria-live="polite">
+            {dirty ? <span className="fd-fade-in font-medium text-amber-700">Unsaved changes</span> : 'No changes yet'}
+          </p>
+          <button type="button" data-no-dirty onClick={cancelEdit} className="press min-h-10 px-4 rounded-md text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="press min-h-10 px-5 rounded-md text-sm font-semibold bg-brand-primary text-on-brand disabled:opacity-50 hover:opacity-90"
+          >
+            {loading ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
       </form>
     </div>
+  )
+}
+
+function SectionTitle({ children, first }: { children: React.ReactNode; first?: boolean }) {
+  return (
+    <h3 className={`text-sm font-semibold text-gray-900 ${first ? '' : 'pt-4 mt-2 border-t'}`}>{children}</h3>
   )
 }
 
