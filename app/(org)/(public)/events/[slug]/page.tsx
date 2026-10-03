@@ -32,7 +32,7 @@ import { BackLink } from '@/components/ui/back-link'
 import { formatGameTime, formatDateOnly } from '@/lib/format-time'
 import { EmptyState } from '@/components/ui/empty-state'
 import {
-  computePts, sortStandings, VOLLEYBALL_SPORTS,
+  VOLLEYBALL_SPORTS,
   accumulateGameResult, emptyTeamStat, computeStreaks,
   type TeamStat as BaseTeamStat, type TeamStatTotals,
   type PtsMethod, type VolleyballMode, countsForStandings } from '@/lib/standings'
@@ -43,6 +43,7 @@ import { EventAvatar } from '@/components/ui/event-avatar'
 import { NotifyMeForm } from '@/components/events/notify-me-form'
 import { StickyRegisterBar } from '@/components/events/sticky-register-bar'
 import { EventTabNav, EventTabPills } from '@/components/events/event-tabs'
+import { StandingsTable } from '@/components/events/standings-table'
 import { CaptainStatsEntry } from '@/components/stats/captain-stats-entry'
 import { StatsLeaderboard } from '@/components/stats/stats-leaderboard'
 import type { LeaderboardPlayer } from '@/components/stats/stats-leaderboard'
@@ -68,17 +69,6 @@ interface TeamStat extends BaseTeamStat {
   pool_id: string | null
 }
 
-function Legend({ items }: { items: { abbr: string; label: string }[] }) {
-  return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1 px-1">
-      {items.map(({ abbr, label }) => (
-        <span key={abbr} className="text-xs text-gray-500">
-          <span className="font-semibold text-gray-500">{abbr}</span> = {label}
-        </span>
-      ))}
-    </div>
-  )
-}
 
 // Raw game statuses read as code ("scheduled", "in_progress") — say them like people do.
 function gameStatusLabel(status: string | null | undefined): string {
@@ -90,176 +80,6 @@ function gameStatusLabel(status: string | null | undefined): string {
     case 'postponed': return 'Postponed'
     default: return status ? status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ') : ''
   }
-}
-
-function StandingsTable({
-  teams,
-  sport,
-  ptsMethod,
-  volleyballMode,
-}: {
-  teams: TeamStat[]
-  sport?: string | null
-  ptsMethod?: PtsMethod
-  volleyballMode?: VolleyballMode
-}) {
-  const isVolleyball = VOLLEYBALL_SPORTS.has(sport ?? '')
-  const mode: VolleyballMode = volleyballMode ?? 'match_based'
-  const method: PtsMethod = ptsMethod ?? 'wins'
-
-  const sorted = sortStandings(teams, sport, mode, method)
-
-  if (sorted.length === 0) {
-    return <p className="text-gray-500 text-sm text-center py-8">No results yet — standings appear after the first scores are in.</p>
-  }
-
-  // ── Set-based table ────────────────────────────────────────────────────────
-  if (isVolleyball && mode === 'set_based') {
-    const legend = [
-      { abbr: 'MP', label: 'Matches Played' },
-      { abbr: 'SW', label: 'Sets Won' },
-      { abbr: 'SL', label: 'Sets Lost' },
-      { abbr: 'SPF', label: 'Set Points For (total points scored)' },
-      { abbr: 'SPA', label: 'Set Points Against (total points allowed)' },
-      { abbr: 'PD', label: 'Point Differential (SPF − SPA)' },
-    ]
-    return (
-      <div className="space-y-3">
-        <div className="bg-white rounded-lg border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="text-sm" style={{ minWidth: 480 }}>
-              <thead>
-                <tr className="border-b bg-gray-50 text-left">
-                  <th className="sticky left-0 z-[1] bg-inherit px-4 py-3 font-medium text-gray-500 w-14 text-xs uppercase tracking-wide">RANK</th>
-                  <th className="sticky left-14 z-[1] bg-inherit shadow-[1px_0_0_rgb(0_0_0/0.06)] px-4 py-3 font-medium text-gray-500 min-w-[120px]">Team</th>
-                  <th className="px-3 py-3 font-medium text-gray-500 text-center">MP</th>
-                  <th className="px-3 py-3 font-medium text-gray-500 text-center">SW</th>
-                  <th className="px-3 py-3 font-medium text-gray-500 text-center">SL</th>
-                  <th className="px-3 py-3 font-medium text-gray-500 text-center">SPF</th>
-                  <th className="px-3 py-3 font-medium text-gray-500 text-center">SPA</th>
-                  <th className="px-3 py-3 font-medium text-gray-500 text-center">PD</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((team, i) => {
-                  const pd = team.pointsFor - team.pointsAgainst
-                  return (
-                    <tr key={team.id} className="border-b last:border-0 bg-white odd:bg-gray-50 hover:bg-gray-100 transition-colors">
-                      <td className={`sticky left-0 z-[1] bg-inherit px-4 py-3 text-xs tabular-nums ${i < 3 ? 'font-bold text-gray-700' : 'text-gray-500'}`}>{i + 1}</td>
-                      <td className="sticky left-14 z-[1] bg-inherit shadow-[1px_0_0_rgb(0_0_0/0.06)] px-4 py-3 font-medium">
-                        <Link href={`/teams/${team.id}/stats`} className="flex items-center gap-2 min-w-0 hover:underline">
-                          <TeamAvatar logoUrl={team.logoUrl ?? null} color={team.color ?? null} name={team.name} size="sm" />
-                          <span className="truncate">{team.name}</span>
-                        </Link>
-                      </td>
-                      <td className="px-3 py-3 text-center text-gray-500">{team.matchesPlayed}</td>
-                      <td className="px-3 py-3 text-center font-semibold" style={{ color: 'var(--brand-primary)' }}>{team.setWins}</td>
-                      <td className="px-3 py-3 text-center text-gray-500">{team.setLosses}</td>
-                      <td className="px-3 py-3 text-center text-gray-500">{team.pointsFor}</td>
-                      <td className="px-3 py-3 text-center text-gray-500">{team.pointsAgainst}</td>
-                      <td className="px-3 py-3 text-center text-gray-500">{pd > 0 ? '+' : ''}{pd}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <Legend items={legend} />
-      </div>
-    )
-  }
-
-  // ── Match-based table (default, also used for non-volleyball sports) ────────
-  const ptsLabel = {
-    wins: 'Match Wins',
-    set_wins: 'Set Wins (SW)',
-    set_differential: 'Set Differential (SW − SL)',
-    points_for: 'Points For (PF)',
-  }[method]
-
-  const legend: { abbr: string; label: string }[] = [
-    { abbr: 'MP', label: 'Matches Played' },
-    { abbr: 'W', label: 'Match Wins' },
-    { abbr: 'L', label: 'Match Losses' },
-    ...(isVolleyball ? [
-      { abbr: 'SW', label: 'Sets Won' },
-      { abbr: 'SL', label: 'Sets Lost' },
-    ] : []),
-    { abbr: 'PF', label: isVolleyball ? 'Points For (set-level)' : 'Points For' },
-    { abbr: 'PA', label: isVolleyball ? 'Points Against (set-level)' : 'Points Against' },
-    { abbr: 'PD', label: 'Point Differential (PF − PA)' },
-    ...(isVolleyball ? [{ abbr: 'PTS', label: `Standings Points — ${ptsLabel}` }] : []),
-  ]
-
-  // min-width sized to fit all columns without squishing on mobile
-  const tableMinWidth = isVolleyball ? 620 : 420
-
-  return (
-    <div className="space-y-3">
-      <div className="bg-white rounded-lg border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="text-sm" style={{ minWidth: tableMinWidth }}>
-            <thead>
-              <tr className="border-b bg-gray-50 text-left">
-                <th className="sticky left-0 z-[1] bg-inherit px-4 py-3 font-medium text-gray-500 w-14 text-xs uppercase tracking-wide">RANK</th>
-                <th className="sticky left-14 z-[1] bg-inherit shadow-[1px_0_0_rgb(0_0_0/0.06)] px-4 py-3 font-medium text-gray-500 min-w-[120px]">Team</th>
-                <th className="px-3 py-3 font-medium text-gray-500 text-center">MP</th>
-                <th className="px-3 py-3 font-medium text-gray-500 text-center">W</th>
-                <th className="px-3 py-3 font-medium text-gray-500 text-center">L</th>
-                {isVolleyball && <>
-                  <th className="px-3 py-3 font-medium text-gray-500 text-center">SW</th>
-                  <th className="px-3 py-3 font-medium text-gray-500 text-center">SL</th>
-                </>}
-                <th className="px-3 py-3 font-medium text-gray-500 text-center">PF</th>
-                <th className="px-3 py-3 font-medium text-gray-500 text-center">PA</th>
-                <th className="px-3 py-3 font-medium text-gray-500 text-center">PD</th>
-                {isVolleyball && <th className="px-3 py-3 font-medium text-gray-500 text-center">PTS</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((team, i) => {
-                const pd = team.pointsFor - team.pointsAgainst
-                const pts = computePts(team, method)
-                return (
-                  <tr key={team.id} className="border-b last:border-0 bg-white odd:bg-gray-50 hover:bg-gray-100 transition-colors">
-                    <td className={`sticky left-0 z-[1] bg-inherit px-4 py-3 text-xs tabular-nums ${i < 3 ? 'font-bold text-gray-700' : 'text-gray-500'}`}>{i + 1}</td>
-                    <td className="sticky left-14 z-[1] bg-inherit shadow-[1px_0_0_rgb(0_0_0/0.06)] px-4 py-3 font-medium">
-                      <Link href={`/teams/${team.id}/stats`} className="flex items-center gap-2 min-w-0 hover:underline">
-                        <TeamAvatar logoUrl={team.logoUrl ?? null} color={team.color ?? null} name={team.name} size="sm" />
-                        <span className="truncate">{team.name}</span>
-                        {team.streak && (
-                          <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold tabular-nums ${team.streak.startsWith('W') ? 'bg-green-50 text-green-700' : team.streak.startsWith('L') ? 'bg-red-50 text-red-500' : 'bg-gray-100 text-gray-500'}`} title={team.streak.startsWith('W') ? `${team.streak.slice(1)}-game win streak` : team.streak.startsWith('L') ? `${team.streak.slice(1)}-game losing streak` : `${team.streak.slice(1)} straight ties`}>
-                            {team.streak}
-                          </span>
-                        )}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-3 text-center text-gray-500">{team.matchesPlayed}</td>
-                    <td className="px-3 py-3 text-center font-semibold" style={{ color: 'var(--brand-primary)' }}>{team.wins}</td>
-                    <td className="px-3 py-3 text-center text-gray-500">{team.losses}</td>
-                    {isVolleyball && <>
-                      <td className="px-3 py-3 text-center text-gray-500">{team.setWins}</td>
-                      <td className="px-3 py-3 text-center text-gray-500">{team.setLosses}</td>
-                    </>}
-                    <td className="px-3 py-3 text-center text-gray-500">{team.pointsFor}</td>
-                    <td className="px-3 py-3 text-center text-gray-500">{team.pointsAgainst}</td>
-                    <td className="px-3 py-3 text-center tabular-nums text-gray-500">{pd > 0 ? '+' : ''}{pd}</td>
-                    {isVolleyball && (
-                      <td className="px-3 py-3 text-center font-bold" style={{ color: 'var(--brand-primary)' }}>
-                        {pts}
-                      </td>
-                    )}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <Legend items={legend} />
-    </div>
-  )
 }
 
 // ── Schedule helpers ──────────────────────────────────────────────────────────
