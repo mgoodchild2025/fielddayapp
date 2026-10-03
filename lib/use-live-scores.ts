@@ -1,8 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
-import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
-import { createClient } from '@/lib/supabase/client'
+import { createBroadcastSocket } from '@/lib/realtime-broadcast'
 
 // ── Live scoreboard feed ──────────────────────────────────────────────────────
 // One Realtime subscription per event (channel `scoreboard:<leagueId>`), shared
@@ -12,6 +11,11 @@ import { createClient } from '@/lib/supabase/client'
 //
 // The board key (`gameId`) is games.id for regular games and bracket_matches.id
 // for playoff boards — matching the row ids each surface already renders.
+//
+// Listening goes through lib/realtime-broadcast (a plain WebSocket), NOT
+// supabase-js: this hook is on the event page, the TV display and the admin
+// bracket, and supabase-js cost those pages ~52KB gz of first-load JS. The
+// scoreboard app still SENDS with supabase-js; the protocol is the same.
 
 export type LiveBoard = {
   gameId: string
@@ -59,8 +63,7 @@ export function pruneStale(
 
 type Listener = (boards: Record<string, LiveBoard>) => void
 type Entry = {
-  supabase: SupabaseClient
-  channel: RealtimeChannel
+  unsubscribe: () => void
   refs: number
   boards: Record<string, LiveBoard>
   listeners: Set<Listener>
@@ -69,29 +72,35 @@ type Entry = {
 
 const registry = new Map<string, Entry>()
 
+// One socket per page, shared by every event channel.
+let socket: ReturnType<typeof createBroadcastSocket> | null = null
+function getSocket() {
+  return (socket ??= createBroadcastSocket({
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    apiKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    watchLifecycle: true,
+  }))
+}
+
 function acquire(leagueId: string): Entry {
   const existing = registry.get(leagueId)
   if (existing) return existing
 
-  const supabase = createClient()
   const entry: Entry = {
-    supabase,
-    channel: null as unknown as RealtimeChannel,
+    unsubscribe: () => {},
     refs: 0,
     boards: {},
     listeners: new Set(),
     pruner: null as unknown as ReturnType<typeof setInterval>,
   }
 
-  entry.channel = supabase
-    .channel(`scoreboard:${leagueId}`)
-    .on('broadcast', { event: 'score' }, ({ payload }) => {
-      const p = payload as Omit<LiveBoard, 'receivedAt'>
-      if (!p?.gameId) return
-      entry.boards = mergeBoard(entry.boards, { ...p, receivedAt: Date.now() })
-      entry.listeners.forEach((l) => l(entry.boards))
-    })
-    .subscribe()
+  entry.unsubscribe = getSocket().subscribe(`scoreboard:${leagueId}`, (event, payload) => {
+    if (event !== 'score') return
+    const p = payload as Omit<LiveBoard, 'receivedAt'>
+    if (!p?.gameId) return
+    entry.boards = mergeBoard(entry.boards, { ...p, receivedAt: Date.now() })
+    entry.listeners.forEach((l) => l(entry.boards))
+  })
 
   entry.pruner = setInterval(() => {
     const fresh = pruneStale(entry.boards, Date.now())
@@ -103,6 +112,14 @@ function acquire(leagueId: string): Entry {
 
   registry.set(leagueId, entry)
   return entry
+}
+
+function release(leagueId: string, entry: Entry) {
+  entry.refs--
+  if (entry.refs > 0) return
+  clearInterval(entry.pruner)
+  entry.unsubscribe()
+  registry.delete(leagueId)
 }
 
 /** Live boards for an event, keyed by game/bracket-match id. Empty when none broadcast. */
@@ -118,12 +135,7 @@ export function useLiveScores(leagueId: string | null | undefined): Record<strin
     setBoards(entry.boards)
     return () => {
       entry.listeners.delete(listener)
-      entry.refs--
-      if (entry.refs <= 0) {
-        clearInterval(entry.pruner)
-        entry.supabase.removeChannel(entry.channel)
-        registry.delete(leagueId)
-      }
+      release(leagueId, entry)
     }
   }, [leagueId])
 
@@ -155,12 +167,7 @@ export function useLiveScore(
       entry.listeners.add(listener)
       return () => {
         entry.listeners.delete(listener)
-        entry.refs--
-        if (entry.refs <= 0) {
-          clearInterval(entry.pruner)
-          entry.supabase.removeChannel(entry.channel)
-          registry.delete(leagueId)
-        }
+        release(leagueId, entry)
       }
     },
     [leagueId, gameId],
