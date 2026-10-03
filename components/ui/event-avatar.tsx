@@ -11,6 +11,7 @@ import {
   IconTrophy,
 } from '@tabler/icons-react'
 import type { Icon as TablerIcon } from '@tabler/icons-react'
+import { canOptimizeImage } from '@/lib/image-src'
 
 // Sport → Tabler icon.  Sports without a specific icon fall back to IconTrophy.
 const sportIcons: Record<string, TablerIcon> = {
@@ -75,7 +76,7 @@ export function EventAvatar({ logoUrl, name, sport, size = 'sm', className = '' 
           height={px}
           className="w-full h-full object-cover"
           style={{ imageOrientation: 'from-image' }}
-          unoptimized
+          unoptimized={!canOptimizeImage(logoUrl)}
         />
       </div>
     )

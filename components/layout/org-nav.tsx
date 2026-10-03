@@ -11,6 +11,7 @@ import { getCurrentLiveStream } from '@/actions/live'
 import { canAccess } from '@/lib/features'
 import type { OrgContext } from '@/lib/tenant'
 import type { NavLink } from '@/actions/nav-links'
+import { canOptimizeImage } from '@/lib/image-src'
 
 interface OrgNavProps {
   org: OrgContext
@@ -115,7 +116,7 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
                 width={32}
                 height={32}
                 className="w-full h-full object-contain"
-                unoptimized
+                unoptimized={!canOptimizeImage(logoUrl)}
               />
             </div>
           )}

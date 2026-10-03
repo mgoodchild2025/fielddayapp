@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { BrandProvider } from '@/components/branding/brand-provider'
+import { BrandFonts } from '@/components/branding/brand-fonts'
 import { CartProvider } from '@/components/shop/cart-provider'
 import { CartButton } from '@/components/shop/cart-button'
 import { MaintenancePage } from '@/components/maintenance-page'
@@ -179,18 +180,15 @@ export default async function OrgLayout({
 
   const headingFont = branding?.heading_font ?? 'Barlow Condensed'
   const bodyFont = branding?.body_font ?? 'DM Sans'
-  const googleFontsUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(headingFont)}:wght@400;600;700&family=${encodeURIComponent(bodyFont)}:wght@400;500;600&display=swap`
 
   // Sales-tax hint for the merch cart ("+ HST 13%")
   const merchTaxSuffix = user ? taxSuffix(await getOrgTaxRatesCached(orgId), 'merch') : ''
 
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link href={googleFontsUrl} rel="stylesheet" />
+      <BrandFonts headingFont={headingFont} bodyFont={bodyFont} />
       <BrandProvider branding={branding as OrgBranding | null}>
-        <CartProvider orgId={orgId} userId={user?.id ?? null}>
+        <CartProvider userId={user?.id ?? null}>
           {children}
           {user && <CartButton orgId={orgId} taxSuffix={merchTaxSuffix} />}
           {user && <PwaRegistrar />}

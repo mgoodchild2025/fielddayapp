@@ -8,6 +8,7 @@ import { HeroSocialLinks } from '@/components/ui/social-links'
 import type { OrgContext } from '@/lib/tenant'
 import { formatEventPrice } from '@/lib/event-price'
 import { UpcomingEventsSection } from '@/components/site-themes/shared/upcoming-events-section'
+import { canOptimizeImage } from '@/lib/image-src'
 
 type League = {
   id: string; name: string; slug: string; event_type: string | null; status: string
@@ -73,7 +74,7 @@ function SponsorStrip({ sponsors }: { sponsors: Sponsor[] }) {
         <div className="flex flex-wrap items-center justify-center gap-8">
           {sorted.map((s) => {
             const el = s.logo_url ? (
-              <Image src={s.logo_url} alt={s.name} width={120} height={48} className="max-h-12 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity" unoptimized />
+              <Image src={s.logo_url} alt={s.name} width={120} height={48} className="max-h-12 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity" unoptimized={!canOptimizeImage(s.logo_url)} />
             ) : (
               <span className="text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors">{s.name}</span>
             )
@@ -102,7 +103,7 @@ function StaffRow({ staff }: { staff: StaffMember[] }) {
             <div key={member.id} className="flex items-center gap-3 bg-white border rounded-xl px-4 py-3 min-w-[180px]">
               <div className="shrink-0 w-10 h-10 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--brand-primary)' }}>
                 {member.avatar_url ? (
-                  <Image src={member.avatar_url} alt={member.name} width={40} height={40} className="w-full h-full object-cover" unoptimized />
+                  <Image src={member.avatar_url} alt={member.name} width={40} height={40} className="w-full h-full object-cover" unoptimized={!canOptimizeImage(member.avatar_url)} />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-sm font-bold text-white">
                     {member.name.charAt(0).toUpperCase()}
@@ -253,7 +254,7 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center gap-8">
           {branding?.logo_url && (
             <div className="shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white/10 overflow-hidden">
-              <Image src={branding.logo_url} alt={org.name} width={96} height={96} className="w-full h-full object-contain" unoptimized />
+              <Image src={branding.logo_url} alt={org.name} width={96} height={96} className="w-full h-full object-contain" unoptimized={!canOptimizeImage(branding.logo_url)} />
             </div>
           )}
           <div className="text-white text-center sm:text-left">

@@ -176,16 +176,19 @@ function daysUntil(iso: string, tz: string): string {
   return `In ${diff} day${diff !== 1 ? 's' : ''}`
 }
 
-function greeting(): string {
-  const h = new Date().getHours()
+// Both run on the server (UTC) and again on the phone. Pinned to the org's
+// timezone so the two agree — a mismatch makes React throw away the server
+// HTML and re-render the whole dashboard on the phone.
+function greeting(timeZone: string): string {
+  const h = Number(new Intl.DateTimeFormat('en-CA', { hour: 'numeric', hourCycle: 'h23', timeZone }).format(new Date()))
   if (h < 12) return 'Good morning'
   if (h < 17) return 'Good afternoon'
   return 'Good evening'
 }
 
-function todayLabel(): string {
+function todayLabel(timeZone: string): string {
   return new Date().toLocaleDateString('en-CA', {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone,
   })
 }
 
@@ -613,9 +616,9 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 pb-24 space-y-8">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1">{todayLabel()}</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1" suppressHydrationWarning>{todayLabel(timezone)}</p>
           <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-            {greeting()}, {firstName}
+            <span suppressHydrationWarning>{greeting(timezone)}</span>, {firstName}
           </h1>
           {medals.length > 0 && (
             <div className="mt-3">
@@ -649,9 +652,9 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
 
       {/* ── Greeting ── */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1">{todayLabel()}</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1" suppressHydrationWarning>{todayLabel(timezone)}</p>
         <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>
-          {greeting()}, {firstName}
+          <span suppressHydrationWarning>{greeting(timezone)}</span>, {firstName}
         </h1>
       </div>
 

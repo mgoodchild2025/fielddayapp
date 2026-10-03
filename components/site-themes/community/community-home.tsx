@@ -7,6 +7,7 @@ import { HeroSocialLinks } from '@/components/ui/social-links'
 import type { OrgContext } from '@/lib/tenant'
 import { EventCard } from '@/components/events/event-card'
 import { UpcomingEventsSection } from '@/components/site-themes/shared/upcoming-events-section'
+import { canOptimizeImage } from '@/lib/image-src'
 
 type Photo = { id: string; url: string; caption: string | null; display_order: number }
 type StaffMember = { id: string; name: string; role: string | null; bio: string | null; avatar_url: string | null; display_order: number }
@@ -92,7 +93,7 @@ function StaffAvatar({ member }: { member: StaffMember }) {
       <div className="w-20 h-20 rounded-full overflow-hidden mx-auto mb-3 ring-2 ring-white shadow-sm"
         style={{ backgroundColor: 'var(--brand-secondary)' }}>
         {member.avatar_url ? (
-          <Image src={member.avatar_url} alt={member.name} width={80} height={80} className="w-full h-full object-cover" unoptimized />
+          <Image src={member.avatar_url} alt={member.name} width={80} height={80} className="w-full h-full object-cover" unoptimized={!canOptimizeImage(member.avatar_url)} />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-white">
             {initial}
@@ -262,7 +263,7 @@ export function CommunityHome({
                     width={600}
                     height={400}
                     className="w-full object-cover"
-                    unoptimized
+                    unoptimized={!canOptimizeImage(photo.url)}
                   />
                   {photo.caption && (
                     <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-3 py-2 translate-y-full group-hover:translate-y-0 transition-transform">
@@ -302,7 +303,7 @@ export function CommunityHome({
           {branding?.logo_url && (
             <div className="mb-6 flex justify-center">
               <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full ring-4 ring-white/20 overflow-hidden">
-                <Image src={branding.logo_url} alt={org.name} width={112} height={112} className="w-full h-full object-contain" unoptimized />
+                <Image src={branding.logo_url} alt={org.name} width={112} height={112} className="w-full h-full object-contain" unoptimized={!canOptimizeImage(branding.logo_url)} />
               </div>
             </div>
           )}

@@ -9,7 +9,7 @@ import { MatchEditModal } from './match-edit-modal'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { formatGameTime } from '@/lib/format-time'
 import { BracketTimezoneContext, useBracketTimezone } from './bracket-timezone'
-import { useLiveScores } from '@/lib/use-live-scores'
+import { useLiveScore, useLiveScores } from '@/lib/use-live-scores'
 import { ScoreTick } from '@/components/scoreboard/score-tick'
 
 /** Compact venue-time label for a bracket match, e.g. "Sat, Aug 15, 6:00 p.m." */
@@ -325,9 +325,11 @@ function MatchCard({
   const isDeclared = isCompleted && match.score1 === null && match.score2 === null
 
   // A phone scoreboard broadcasting this match right now (shared channel, one
-  // subscription per event regardless of how many cards render)
-  const liveBoards = useLiveScores(leagueId)
-  const live = !isCompleted && !isBye ? liveBoards[match.id] : undefined
+  // subscription per event regardless of how many cards render). Single-match
+  // hook: the card re-renders only when ITS board changes, not on every
+  // broadcast, heartbeat and prune tick for the event. Finished matches and
+  // byes don't subscribe at all — a completed bracket opens no channel.
+  const live = useLiveScore(leagueId, !isCompleted && !isBye ? match.id : null)
 
   // Medal matches: gold decides 1st/2nd, bronze decides 3rd. Trophies appear
   // once the match is completed.
@@ -746,7 +748,8 @@ function BracketScoreList({
   const [activeMatch, setActiveMatch] = useState<BracketMatchData | null>(null)
   const timezone = useBracketTimezone()
   const bracketSize = bracket.bracketSize
-  const liveBoards = useLiveScores(leagueId)
+  // No channel once every match is decided.
+  const liveBoards = useLiveScores(bracket.matches.some((m) => m.status !== 'completed' && !m.isBye) ? leagueId : null)
 
   const isDE = bracket.bracketType === 'double_elimination'
   const roundNumbers = Array.from(new Set(bracket.matches.map((m) => m.roundNumber)))

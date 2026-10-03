@@ -39,6 +39,9 @@ function TeamBadge({
   return (
     <Link
       href={href}
+      // Rows repeat per game: viewport prefetch would fire one request per
+      // link on a phone scroll. Hover/touch still prefetches.
+      prefetch={false}
       onClick={(e) => e.stopPropagation()}
       className="relative z-10 hover:underline"
     >
@@ -147,6 +150,7 @@ export function MyGamesClient({
         >
           <Link
             href={g.isPlayoff ? `/events/${league?.slug ?? ''}?tab=bracket` : `/games/${g.id}`}
+            prefetch={false}
             className="absolute inset-0 rounded-md"
             aria-label={g.isPlayoff ? 'View bracket' : 'View game details'}
           />

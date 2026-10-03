@@ -18,7 +18,9 @@
 // Scoreboard keeps its own offline worker at /scoreboard-sw.js (scope
 // '/scoreboard' — the more specific scope wins there, so the two never fight).
 const SW_SOURCE = `
-const APP_CACHE = 'fieldday-app-v1';
+const APP_CACHE = 'fieldday-app-v2';       // offline copies of OFFLINE_PAGES
+const STATIC_CACHE = 'fieldday-static-v1';  // hashed /_next/static assets
+const STATIC_MAX = 300;                     // every deploy adds new hashes: keep the newest
 const SHARE_CACHE = 'fieldday-share-inbox';
 const OFFLINE_PAGES = ['/dashboard', '/schedule', '/standings'];
 
@@ -26,11 +28,31 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => {
   event.waitUntil(Promise.all([
     self.clients.claim(),
+    // Navigation preload: the page request starts while the worker boots,
+    // instead of after (worker start-up is 50–500ms on a phone).
+    self.registration.navigationPreload ? self.registration.navigationPreload.enable().catch(() => {}) : null,
+    // v1 kept static assets and pages together and never pruned; drop it.
     caches.keys().then((keys) => Promise.all(
-      keys.filter((k) => k.startsWith('fieldday-app-') && k !== APP_CACHE).map((k) => caches.delete(k))
+      keys.filter((k) => (k.startsWith('fieldday-app-') && k !== APP_CACHE) || (k.startsWith('fieldday-static-') && k !== STATIC_CACHE)).map((k) => caches.delete(k))
     )),
   ]));
 });
+
+// Oldest first (Cache API keys come back in insertion order).
+let trimming = false;
+function trimStatic() {
+  if (trimming) return;
+  trimming = true;
+  caches.open(STATIC_CACHE)
+    .then((c) => c.keys().then((keys) => Promise.all(keys.slice(0, Math.max(0, keys.length - STATIC_MAX)).map((k) => c.delete(k)))))
+    .catch(() => {})
+    .then(() => { trimming = false; });
+}
+
+// The preloaded response when navigation preload is on, else a normal fetch.
+function navigationFetch(event) {
+  return Promise.resolve(event.preloadResponse).then((pre) => pre || fetch(event.request));
+}
 
 // ── Push + badge ─────────────────────────────────────────────────────────────
 function setBadge(count) {
@@ -140,8 +162,8 @@ self.addEventListener('fetch', (event) => {
   // Hashed build assets: cache-first.
   if (url.pathname.startsWith('/_next/static/')) {
     event.respondWith(
-      caches.match(req).then((hit) => hit || fetch(req).then((res) => {
-        if (res.ok) { const copy = res.clone(); caches.open(APP_CACHE).then((c) => c.put(req, copy)); }
+      caches.match(req, { cacheName: STATIC_CACHE }).then((hit) => hit || fetch(req).then((res) => {
+        if (res.ok) { const copy = res.clone(); caches.open(STATIC_CACHE).then((c) => c.put(req, copy)).then(trimStatic); }
         return res;
       }))
     );
@@ -152,8 +174,10 @@ self.addEventListener('fetch', (event) => {
   if (req.mode === 'navigate' && OFFLINE_PAGES.includes(url.pathname)) {
     const key = new Request(url.pathname); // ignore query strings
     event.respondWith(
-      fetch(req).then((res) => {
-        if (res.redirected || res.status === 401 || res.status === 403) {
+      navigationFetch(event).then((res) => {
+        // A preloaded redirect arrives as an opaque redirect, a fetched one
+        // as redirected — both mean signed out.
+        if (res.redirected || res.type === 'opaqueredirect' || res.status === 401 || res.status === 403) {
           // Signed out (or lost access): nothing cached may outlive the session.
           caches.delete(APP_CACHE);
         } else if (res.ok && res.type === 'basic') {
@@ -168,7 +192,7 @@ self.addEventListener('fetch', (event) => {
 
   // Any other navigation: network, else the offline page (never a stale copy).
   if (req.mode === 'navigate') {
-    event.respondWith(fetch(req).catch(() => offlineResponse()));
+    event.respondWith(navigationFetch(event).catch(() => offlineResponse()));
   }
 });
 `

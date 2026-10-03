@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useCart } from './cart-provider'
 import { validateDiscountCode, incrementDiscountUse } from '@/actions/discounts'
 import { Overlay } from '@/components/ui/overlay'
+import { canOptimizeImage } from '@/lib/image-src'
 
 interface Props {
   taxSuffix?: string
@@ -146,7 +147,7 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
                         fill
                         sizes="64px"
                         className="object-cover"
-                        unoptimized
+                        unoptimized={!canOptimizeImage(item.imageUrl)}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">

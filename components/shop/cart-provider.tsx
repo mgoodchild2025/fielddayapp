@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { loadCart, saveCartItem, deleteCartItem, clearCartItems } from '@/actions/cart'
 
 // ── Public CartItem type ───────────────────────────────────────────────────────
 
@@ -39,9 +39,10 @@ export const CartContext = createContext<CartContextValue | null>(null)
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
-export function CartProvider({ orgId, userId, children }: { orgId: string; userId: string | null; children: React.ReactNode }) {
+export function CartProvider({ userId, children }: { userId: string | null; children: React.ReactNode }) {
   const [items,     setItems]     = useState<StoredItem[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  // Signed out: nothing to load (cart rows belong to a user).
+  const [isLoading, setIsLoading] = useState(!!userId)
   const [isOpen,    setIsOpen]    = useState(false)
 
   // Keep a ref in sync so callbacks can read current items without stale closure
@@ -53,143 +54,44 @@ export function CartProvider({ orgId, userId, children }: { orgId: string; userI
   // the cart after a clear — the race that left purchased items lingering.
   const clearedRef = useRef(false)
 
-  // Single shared browser-client instance
-
-  const db = useCallback(() => createClient(), [])()
-
-  // userId comes from the server-side layout — available synchronously, no race condition
-  const userIdRef = useRef<string | null>(userId)
-
-  // ── Auth state listener ────────────────────────────────────────────────────
-  // The server-side session can be stale (expired refresh token). When the
-  // Supabase client refreshes auth on the client side, pick up the new userId
-  // and reload the cart so cross-device sync works even with stale cookies.
-  useEffect(() => {
-    const { data: { subscription } } = db.auth.onAuthStateChange((event, session) => {
-      const newId = session?.user?.id ?? null
-      if (newId && newId !== userIdRef.current) {
-        userIdRef.current = newId
-        // Trigger a cart reload by setting a flag via setIsLoading
-        setIsLoading(true)
-      }
-      if (!session) {
-        userIdRef.current = null
-        setItems([])
-      }
-    })
-    return () => subscription.unsubscribe()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // The layout re-renders with a new userId after sign-in / sign-out
+  // navigations: follow it (state adjusted during render).
+  const [prevUserId, setPrevUserId] = useState(userId)
+  if (userId !== prevUserId) {
+    setPrevUserId(userId)
+    if (userId) setIsLoading(true)
+    else setItems([])
+  }
 
   // ── DB helpers ─────────────────────────────────────────────────────────────
+  // Server actions (actions/cart.ts), not a browser Supabase client: this
+  // provider wraps every org page, and the client library cost ~52KB gzipped
+  // of first-load JS on all of them. The server reads the session from the
+  // cookie (refreshed by the proxy on every request) and the org from the
+  // host, so the actions take only ids.
 
-  const dbSave = useCallback(async (
-    itemId: string, variantId: string | null, quantity: number
-  ): Promise<string | null> => {
-    const uid = userIdRef.current
+  const dbSave = useCallback(
+    (itemId: string, variantId: string | null, quantity: number) => saveCartItem(itemId, variantId, quantity),
+    [],
+  )
+  const dbDelete = useCallback((cartItemId: string) => deleteCartItem(cartItemId), [])
+  const dbClear = useCallback(() => clearCartItems(), [])
 
-    const q = db.from('cart_items').select('id').eq('organization_id', orgId).eq('item_id', itemId)
-    const { data: existing } = await (variantId ? q.eq('variant_id', variantId) : q.is('variant_id', null)).maybeSingle()
-
-    if (existing?.id) {
-
-      await db.from('cart_items').update({ quantity, updated_at: new Date().toISOString() }).eq('id', existing.id)
-      return existing.id as string
-    }
-
-    if (!uid) return null
-
-
-    const { data: inserted, error } = await db
-      .from('cart_items')
-      .insert({ user_id: uid, organization_id: orgId, item_id: itemId, variant_id: variantId ?? null, quantity })
-      .select('id')
-      .single()
-    if (error) console.error('[cart] insert error:', error.message)
-    return (inserted?.id as string) ?? null
-  }, [db, orgId])
-
-  const dbDelete = useCallback(async (cartItemId: string) => {
-
-    const { error } = await db.from('cart_items').delete().eq('id', cartItemId)
-    if (error) console.error('[cart] delete error:', error.message)
-  }, [db])
-
-  const dbClear = useCallback(async () => {
-
-    const { error } = await db.from('cart_items').delete().eq('organization_id', orgId)
-    if (error) console.error('[cart] clear error:', error.message)
-  }, [db, orgId])
-
-  // ── Load on mount + after auth resolves ───────────────────────────────────
+  // ── Load on mount + after sign-in ─────────────────────────────────────────
 
   useEffect(() => {
     if (!isLoading) return  // only run when loading flag is set
     // If the cart was just cleared (success page), don't reload stale rows.
     if (clearedRef.current) { setIsLoading(false); return }
     let cancelled = false
-    ;(async () => {
-      try {
-
-        const { data, error } = await db
-          .from('cart_items')
-          .select('id, quantity, item_id, variant_id')
-          .eq('organization_id', orgId)
-          .order('created_at')
-
-        if (error) { console.error('[cart] load error:', error.message); return }
-        if (!data || cancelled) return
-        if (data.length === 0) { setItems([]); return }
-
-        // Enrich with item + variant display data in a single batch
-        const itemIds    = [...new Set((data as { item_id: string }[]).map(r => r.item_id))]
-        const variantIds = [...new Set((data as { variant_id: string | null }[]).map(r => r.variant_id).filter(Boolean) as string[])]
-
-
-        const [{ data: itemRows }, { data: variantRows }] = await Promise.all([
-
-          db.from('merchandise_items').select('id, name, price_cents, currency, image_url').in('id', itemIds),
-          variantIds.length > 0
-
-            ? db.from('merchandise_variants').select('id, label').in('id', variantIds)
-            : Promise.resolve({ data: [] }),
-        ])
-
-        if (cancelled) return
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const itemMap    = new Map<string, any>((itemRows    ?? []).map((r: any) => [r.id, r]))
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const variantMap = new Map<string, any>((variantRows ?? []).map((r: any) => [r.id, r]))
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const loaded: StoredItem[] = (data as any[])
-          .filter((r: any) => itemMap.has(r.item_id))
-          .map((r: any) => {
-            const item    = itemMap.get(r.item_id)
-            const variant = r.variant_id ? (variantMap.get(r.variant_id) ?? null) : null
-            return {
-              cartItemId:     r.id,
-              itemId:         item.id,
-              variantId:      r.variant_id ?? null,
-              quantity:       r.quantity,
-              name:           item.name,
-              variantLabel:   variant?.label ?? null,
-              unitPriceCents: item.price_cents,
-              currency:       item.currency ?? 'cad',
-              imageUrl:       item.image_url ?? null,
-            }
-          })
-
+    loadCart()
+      .then((loaded) => {
         if (cancelled || clearedRef.current) return
         setItems(loaded)
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    })()
+      })
+      .catch((err) => console.error('[cart] load error:', err))
+      .finally(() => { if (!cancelled) setIsLoading(false) })
     return () => { cancelled = true }
-  // Re-runs whenever isLoading is set to true (initial mount + after auth resolves)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading])
 
   // ── addItem ────────────────────────────────────────────────────────────────

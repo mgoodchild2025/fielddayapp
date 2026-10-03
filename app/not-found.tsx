@@ -9,6 +9,7 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav'
 import type { OrgBranding } from '@/types/database'
+import { BrandFonts } from '@/components/branding/brand-fonts'
 
 export const metadata: Metadata = { title: 'Page not found' }
 
@@ -42,10 +43,7 @@ export default async function NotFound() {
 
   return (
     <>
-      <link
-        href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(headingFont)}:wght@400;600;700&family=${encodeURIComponent(bodyFont)}:wght@400;500;600&display=swap`}
-        rel="stylesheet"
-      />
+      <BrandFonts headingFont={headingFont} bodyFont={bodyFont} />
       <BrandProvider branding={b}>
         <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
           <OrgNav org={org} logoUrl={b?.logo_url ?? null} />
