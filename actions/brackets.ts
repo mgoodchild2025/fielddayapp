@@ -25,6 +25,7 @@ import {
   type BracketMatchSpec,
   sameRoundConflict,
 } from '@/lib/bracket'
+import { getLeagueConfirmedResults } from '@/lib/league-results'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -50,10 +51,7 @@ async function computeStandings(
   const [{ data: teams }, { data: results }, { data: leagueRow }] = await Promise.all([
 
     db.from('teams').select('id, name, division_id, pool_id').eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
-    db.from('game_results')
-      .select('home_score, away_score, sets, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
-      .eq('organization_id', orgId)
-      .eq('status', 'confirmed'),
+    getLeagueConfirmedResults(db, orgId, leagueId).then((data) => ({ data })),
 
     db.from('leagues').select('sport, standings_pts_method, volleyball_standings_mode').eq('id', leagueId).maybeSingle(),
   ])
@@ -1204,7 +1202,7 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
 
   const { data: bracket } = await db
     .from('brackets')
-    .select('id, teams_advancing, bracket_type, third_place_game')
+    .select('id, league_id, teams_advancing, bracket_type, third_place_game')
     .eq('id', bracketId)
     .eq('organization_id', org.id)
     .single()
@@ -1272,11 +1270,7 @@ export async function advanceBestLoser(bracketId: string, leagueId: string): Pro
 
   // Fetch all confirmed regular-season and pool-play game results for the league
 
-  const { data: resultRows } = await db
-    .from('game_results')
-    .select('home_score, away_score, sets, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, status)')
-    .eq('organization_id', org.id)
-    .eq('status', 'confirmed')
+  const resultRows = await getLeagueConfirmedResults(db, org.id, bracket.league_id)
 
   type ResultRow = {
     home_score: number | null

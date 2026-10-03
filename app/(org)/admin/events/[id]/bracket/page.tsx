@@ -11,6 +11,7 @@ import { recommendBracket, seedFromStandings, seedFromDivisionStandings, seedFro
 import type { BracketData, BracketMatchData, TeamRef } from '@/components/bracket/bracket-view'
 import type { ExistingConfig } from '@/components/bracket/playoff-config-wizard'
 import type { PoolSeedingMethod } from '@/actions/playoff-config'
+import { getLeagueConfirmedResults } from '@/lib/league-results'
 
 export default async function AdminBracketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: leagueId } = await params
@@ -31,10 +32,7 @@ export default async function AdminBracketPage({ params }: { params: Promise<{ i
     db.from('pools').select('id, name, sort_order').eq('league_id', leagueId).eq('organization_id', org.id).order('sort_order'),
 
     db.from('teams').select('id, name, division_id, pool_id, logo_url, color').eq('league_id', leagueId).eq('organization_id', org.id).eq('status', 'active'),
-    db.from('game_results')
-      .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id)')
-      .eq('organization_id', org.id)
-      .eq('status', 'confirmed'),
+    getLeagueConfirmedResults(db, org.id, leagueId).then((data) => ({ data })),
     // Count regular season games that still need scores (status=scheduled = not yet completed/scored)
 
     db

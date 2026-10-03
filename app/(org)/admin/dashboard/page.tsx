@@ -83,7 +83,7 @@ export default async function AdminDashboardPage() {
     // Scores a captain submitted that the other captain hasn't confirmed.
     db.from('game_results')
       .select('id, game:games!game_results_game_id_fkey!inner(organization_id, league_id, league:leagues!games_league_id_fkey(name))')
-      .eq('games.organization_id', org.id)
+      .eq('organization_id', org.id)
       .eq('status', 'pending'),
 
     // Uploaded photos/videos awaiting approval.

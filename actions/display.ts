@@ -14,6 +14,7 @@ import { getEventSponsors } from '@/actions/event-sponsors'
 import {
   sortStandings, isVolleyballSport, accumulateGameResult, emptyTeamStat,
   type PtsMethod, type VolleyballMode, type TeamStat, type TeamStatTotals, countsForStandings } from '@/lib/standings'
+import { getLeagueConfirmedResults } from '@/lib/league-results'
 
 // ── Config persistence ────────────────────────────────────────────────────────
 
@@ -244,10 +245,7 @@ export async function getDisplayData(
     const [{ data: teamsData }, { data: resultsData }] = await Promise.all([
       db.from('teams').select('id, name, color, logo_url, pool_id')
         .eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
-      db.from('game_results')
-        .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id, is_exhibition)')
-        .eq('organization_id', orgId)
-        .eq('status', 'confirmed'),
+      getLeagueConfirmedResults(db, orgId, leagueId).then((data) => ({ data })),
     ])
 
     // Two record maps:

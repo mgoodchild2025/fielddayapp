@@ -8,6 +8,7 @@ import { MyGamesClient } from './_client'
 import { fetchPlayerPlayoffGameRows } from '@/lib/playoff-games'
 import Link from 'next/link'
 import { redirectToLogin } from '@/lib/auth'
+import { getOrgBrandingCached } from '@/lib/org-cache'
 
 export default async function SchedulePage() {
   const headersList = await headers()
@@ -22,46 +23,27 @@ export default async function SchedulePage() {
   const pastBound = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()
   const nowIso = new Date().toISOString()
 
+  // Who the player is first (one round trip, all independent), then only
+  // their own teams' games — never the whole org's games: that read grows with
+  // every event and hits the 1000-row cap, dropping the newest (upcoming) rows.
   const [
-    { data: branding },
-    { data: allGames },
+    branding,
     { data: myTeams },
+    { data: mySessionRegs },
+    { data: myRegWithSession },
+    { data: mySeasonRegs },
   ] = await Promise.all([
-
-    db.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
-
-    db.from('games').select(`
-      id, scheduled_at, court, week_number, status, is_exhibition,
-      home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
-      away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
-      league:leagues!games_league_id_fkey(name, slug, schedule_published, event_type)
-    `)
-      .eq('organization_id', org.id)
-      .gte('scheduled_at', pastBound)
-      .order('scheduled_at', { ascending: true }),
+    getOrgBrandingCached(org.id),
 
     db.from('team_members').select(`
       id, role,
       team:teams!team_members_team_id_fkey(id, name, league_id)
     `).eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active'),
-  ])
 
-  const timezone = branding?.timezone ?? 'America/Toronto'
-
-  // Filter out games from leagues with unpublished schedules
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const publishedGames = (allGames ?? []).filter((g: any) => {
-
-    const league = Array.isArray(g.league) ? g.league[0] : g.league
-    return league?.schedule_published !== false
-  })
-
-  // Sessions the player should see — three paths:
-  // 1. session_registrations rows (explicit per-session pickup signup)
-  // 2. registrations.session_id (drop-in registered through normal event flow)
-  // 3. All sessions for leagues where they hold a season-pass registration
-
-  const [{ data: mySessionRegs }, { data: myRegWithSession }, { data: mySeasonRegs }] = await Promise.all([
+    // Sessions the player should see — three paths:
+    // 1. session_registrations rows (explicit per-session pickup signup)
+    // 2. registrations.session_id (drop-in registered through normal event flow)
+    // 3. All sessions for leagues where they hold a season-pass registration
     db
       .from('session_registrations')
       .select(`
@@ -99,6 +81,8 @@ export default async function SchedulePage() {
       .or('registration_type.eq.season,registration_type.is.null'),
   ])
 
+  const timezone = branding?.timezone ?? 'America/Toronto'
+
   // ── Derived sets ──────────────────────────────────────────────────────────
   const myTeamIds = new Set(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -108,12 +92,26 @@ export default async function SchedulePage() {
     }).filter(Boolean) as string[]
   )
 
-  // Only show games where the player is on one of the teams
+  // Only games where the player is on one of the teams
+  const teamList = [...myTeamIds].join(',')
+  const { data: allGames } = myTeamIds.size === 0
+    ? { data: [] }
+    : await db.from('games').select(`
+      id, scheduled_at, court, week_number, status, is_exhibition,
+      home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
+      away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
+      league:leagues!games_league_id_fkey(name, slug, schedule_published, event_type)
+    `)
+      .eq('organization_id', org.id)
+      .or(`home_team_id.in.(${teamList}),away_team_id.in.(${teamList})`)
+      .gte('scheduled_at', pastBound)
+      .order('scheduled_at', { ascending: true })
+
+  // Filter out games from leagues with unpublished schedules
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const relevantGames = myTeamIds.size === 0 ? [] : publishedGames.filter((g: any) => {
-    const homeTeam = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
-    const awayTeam = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
-    return myTeamIds.has(homeTeam?.id) || myTeamIds.has(awayTeam?.id)
+  const relevantGames = (allGames ?? []).filter((g: any) => {
+    const league = Array.isArray(g.league) ? g.league[0] : g.league
+    return league?.schedule_published !== false
   })
 
   // Fetch all sessions for season-pass leagues (player attends every session)
@@ -172,7 +170,7 @@ export default async function SchedulePage() {
 
     const [{ data: captainships }, { data: rsvpData }, { data: mySubRows }] = await Promise.all([
 
-      db.from('team_members').select('team_id').eq('user_id', user.id).eq('role', 'captain').eq('status', 'active'),
+      db.from('team_members').select('team_id').eq('organization_id', org.id).eq('user_id', user.id).eq('role', 'captain').eq('status', 'active'),
 
       db.from('game_rsvps').select('game_id, status').eq('user_id', user.id).in('game_id', gameIds),
       // Confirmed game_subs for this user (to show "Sub" badge on game cards)

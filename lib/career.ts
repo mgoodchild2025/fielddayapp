@@ -175,6 +175,7 @@ export async function getPlayerCareer(db: Db, orgId: string, userId: string): Pr
   if (memberships.length === 0) return { seasons: [], tables: [], seasonCount: 0 }
 
   const leagueIds = [...new Set(memberships.map((m) => m.leagueId))]
+  const teamList = [...new Set(memberships.map((m) => m.teamId))].join(',')
   const sports = [...new Set(memberships.map((m) => m.sport))]
 
   const [{ data: statRows }, { data: medalRows }, statDefsList, { data: gameRows }, trackingFlags] = await Promise.all([
@@ -188,22 +189,28 @@ export async function getPlayerCareer(db: Db, orgId: string, userId: string): Pr
       .eq('organization_id', orgId)
       .in('league_id', leagueIds),
     Promise.all(sports.map(async (sport) => ({ sport, defs: await getStatDefinitions(orgId, sport) }))),
-    // Confirmed results for the member leagues — the card back's TEAM record
-    // when a sport tracks no player stats. All confirmed games count (pool and
-    // playoff included): it's a career line, not the standings table.
+    // Confirmed results of the player's own teams — the card back's TEAM
+    // record when a sport tracks no player stats. All confirmed games count
+    // (pool and playoff included): it's a career line, not the standings
+    // table. Only these teams' games: a team's W/L/T depends on nothing else,
+    // and reading every game of every event they played in grows without
+    // bound (and stops at the 1000-row cap).
     db.from('games')
-      .select('league_id, home_team_id, away_team_id, is_exhibition, game_results(home_score, away_score, status, sets, is_forfeit, forfeit_team_id)')
+      .select('league_id, home_team_id, away_team_id, is_exhibition, game_results!inner(home_score, away_score, status, sets, is_forfeit, forfeit_team_id)')
       .eq('organization_id', orgId)
-      .in('league_id', leagueIds),
-    // Does ANYONE have stats in each league? One cheap head-count per league.
+      .in('league_id', leagueIds)
+      .or(`home_team_id.in.(${teamList}),away_team_id.in.(${teamList})`)
+      .eq('game_results.status', 'confirmed'),
+    // Does ANYONE have stats in each league? An existence check per league —
+    // a count would scan every stat row.
     Promise.all(leagueIds.map(async (leagueId) => {
-      const { count } = await db
+      const { data } = await db
         .from('player_game_stats')
-        .select('id', { count: 'exact', head: true })
+        .select('id')
         .eq('organization_id', orgId)
         .eq('league_id', leagueId)
         .limit(1)
-      return { leagueId, tracks: (count ?? 0) > 0 }
+      return { leagueId, tracks: (data?.length ?? 0) > 0 }
     })),
   ])
   const leaguesTrackingStats = new Set(trackingFlags.filter((f) => f.tracks).map((f) => f.leagueId))

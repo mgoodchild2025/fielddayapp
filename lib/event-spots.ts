@@ -28,25 +28,18 @@ export async function getEventSpotsMap(db: Db, leagues: SpotsLeague[]): Promise<
     .filter((l) => l.payment_mode !== 'per_team' && l.event_type !== 'drop_in' && l.max_participants !== null)
     .map((l) => l.id)
 
+  // Counted in the database, one head-only count per event (index-backed) —
+  // downloading rows to count them would also undercount past the 1000-row cap
+  // and show a full event as open.
   const teamCount = new Map<string, number>()
   const regCount = new Map<string, number>()
   await Promise.all([
-    perTeamIds.length > 0
-      ? db.from('teams').select('league_id').in('league_id', perTeamIds)
-          .then(({ data }) => {
-            for (const t of (data ?? []) as { league_id: string }[]) {
-              teamCount.set(t.league_id, (teamCount.get(t.league_id) ?? 0) + 1)
-            }
-          })
-      : Promise.resolve(),
-    perPlayerIds.length > 0
-      ? db.from('registrations').select('league_id').in('league_id', perPlayerIds).in('status', ['active', 'pending'])
-          .then(({ data }) => {
-            for (const r of (data ?? []) as { league_id: string }[]) {
-              regCount.set(r.league_id, (regCount.get(r.league_id) ?? 0) + 1)
-            }
-          })
-      : Promise.resolve(),
+    ...perTeamIds.map((id) =>
+      db.from('teams').select('id', { count: 'exact', head: true }).eq('league_id', id)
+        .then(({ count }) => { teamCount.set(id, count ?? 0) })),
+    ...perPlayerIds.map((id) =>
+      db.from('registrations').select('id', { count: 'exact', head: true }).eq('league_id', id).in('status', ['active', 'pending'])
+        .then(({ count }) => { regCount.set(id, count ?? 0) })),
   ])
 
   const spots = new Map<string, EventSpots>()
