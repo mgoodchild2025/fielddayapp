@@ -10,6 +10,7 @@ import { sendEmail } from '@/lib/email'
 import { sendPlatformAlert } from '@/lib/platform-alerts'
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 import { isUpgrade, tierLabel } from '@/lib/plan-tiers'
+import { invalidateOrgCache } from '@/lib/org-cache'
 
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? 'support@fielddayapp.ca'
 
@@ -139,6 +140,7 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
           updated_at: new Date().toISOString(),
         })
         .eq('organization_id', org.id)
+      invalidateOrgCache(org.id)
 
       await recordAuditLog({
         orgId: org.id, actorUserId: user.id, actorLabel: user.email ?? null,
@@ -171,6 +173,7 @@ export async function switchToFreePlan(): Promise<{ error: string | null }> {
         updated_at: new Date().toISOString(),
       })
       .eq('organization_id', org.id)
+    invalidateOrgCache(org.id)
 
     if (updateError) {
       console.error('[billing] switchToFreePlan DB error:', updateError)
@@ -239,6 +242,7 @@ export async function createSubscriptionCheckout(
         .from('subscriptions')
         .update({ stripe_customer_id: customerId, updated_at: new Date().toISOString() })
         .eq('organization_id', org.id)
+      invalidateOrgCache(org.id)
     }
 
     const orgBase = `https://${org.slug}.${PLATFORM_DOMAIN}`
@@ -373,6 +377,7 @@ export async function changeSubscriptionPlan(
           updated_at: new Date().toISOString(),
         })
         .eq('organization_id', org.id)
+      invalidateOrgCache(org.id)
 
       await recordAuditLog({
         orgId: org.id, actorUserId: user.id, actorLabel: user.email ?? null,
@@ -402,6 +407,7 @@ export async function changeSubscriptionPlan(
         updated_at: new Date().toISOString(),
       })
       .eq('organization_id', org.id)
+    invalidateOrgCache(org.id)
 
     await recordAuditLog({
       orgId: org.id, actorUserId: user.id, actorLabel: user.email ?? null,
@@ -456,6 +462,7 @@ export async function cancelScheduledDowngrade(): Promise<{ error: string | null
         updated_at: new Date().toISOString(),
       })
       .eq('organization_id', org.id)
+    invalidateOrgCache(org.id)
 
     await recordAuditLog({
       orgId: org.id, actorUserId: user.id, actorLabel: user.email ?? null,
@@ -526,6 +533,7 @@ export async function hibernateSubscription(
         updated_at: new Date().toISOString(),
       })
       .eq('organization_id', org.id)
+    invalidateOrgCache(org.id)
 
     await sendPlatformAlert(
       'subscription_change',
@@ -599,6 +607,7 @@ export async function resumeFromHibernation(): Promise<{ error: string | null }>
         updated_at: new Date().toISOString(),
       })
       .eq('organization_id', org.id)
+    invalidateOrgCache(org.id)
 
     await sendPlatformAlert(
       'subscription_change',

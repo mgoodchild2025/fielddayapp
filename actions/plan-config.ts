@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { requirePlatformAdmin } from '@/lib/auth'
 import { invalidatePlanConfigCache } from '@/lib/features'
+import { invalidateOrgCache } from '@/lib/org-cache'
 
 export type PlanConfigRow = {
   tier: string
@@ -70,6 +71,7 @@ export async function saveOrgFeatureOverride(
       { organization_id: orgId, feature, enabled, limit_value: limitValue, note, updated_at: new Date().toISOString() },
       { onConflict: 'organization_id,feature' }
     )
+  invalidateOrgCache(orgId)
   if (error) return { error: error.message }
   revalidatePath(`/super/orgs/${orgId}`)
   return { error: null }
@@ -87,6 +89,7 @@ export async function deleteOrgFeatureOverride(
     .delete()
     .eq('organization_id', orgId)
     .eq('feature', feature)
+  invalidateOrgCache(orgId)
   if (error) return { error: error.message }
   revalidatePath(`/super/orgs/${orgId}`)
   return { error: null }

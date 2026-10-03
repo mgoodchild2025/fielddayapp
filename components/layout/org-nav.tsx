@@ -28,7 +28,7 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let unreadNotifications: { id: string; type: string | null; title: string; body: string | null; created_at: string; data: any }[] = []
 
-  const [navLinksResult, sectionLayoutResult, featMediaGallery, featMerchandiseShop, featCustomNavLinks, medalsCountResult, ...userResults] = await Promise.all([
+  const [navLinksResult, sectionLayoutResult, featMediaGallery, featMerchandiseShop, featCustomNavLinks, medalsCountResult, liveStream, ...userResults] = await Promise.all([
     db.from('org_nav_links')
       .select('id, label, link_type, url, open_in_new_tab, sort_order')
       .eq('organization_id', org.id)
@@ -41,8 +41,11 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
     canAccess(org.id, 'media_gallery'),
     canAccess(org.id, 'merchandise_shop'),
     canAccess(org.id, 'custom_nav_links'),
-    // Champions link shows only once the org has crowned someone (Gallery pattern)
-    db.from('medals').select('id', { count: 'exact', head: true }).eq('organization_id', org.id),
+    // Champions link shows only once the org has crowned someone (Gallery
+    // pattern) — an existence check, not a count of every medal.
+    db.from('medals').select('id').eq('organization_id', org.id).limit(1),
+    // Current live stream (if any) → "Live now" banner. In the batch, not after it.
+    getCurrentLiveStream(org.id),
     ...(user ? [
       db.from('profiles').select('full_name').eq('id', user.id).single(),
       db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).single(),
@@ -55,14 +58,11 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
     ] : []),
   ])
 
-  const showChampions = ((medalsCountResult as { count: number | null }).count ?? 0) > 0
+  const showChampions = ((medalsCountResult as { data: unknown[] | null }).data?.length ?? 0) > 0
 
   // Only show custom links if the plan includes custom_nav_links
   const allCustomLinks: NavLink[] = (navLinksResult.data ?? []) as NavLink[]
   const customLinks: NavLink[] = featCustomNavLinks ? allCustomLinks : []
-
-  // Current live stream (if any) → "Live now" banner
-  const liveStream = await getCurrentLiveStream(org.id)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sectionItems: { key: string; visible: boolean }[] = (sectionLayoutResult?.data as any)?.content?.sections ?? []

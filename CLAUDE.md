@@ -287,6 +287,13 @@ CSS variables set by `BrandProvider` from `org_branding` row:
 - **Accounts**: never set or change a password for an existing account from a sign-up form, and never create a pre-confirmed account for an unverified email (guest claim uses the normal confirmation link).
 - **Uploads**: admin-only unless genuinely public; derive the extension from the vetted MIME type, and never store an unconverted SVG.
 
+## Performance: per-request costs (read before adding queries to layouts/nav)
+- **One Auth round trip per render.** `createServerClient()` (`lib/supabase/server.ts`) is React-`cache`d per server render and memoises `auth.getUser()` (cleared on SIGNED_IN/SIGNED_OUT/USER_UPDATED, listener registered after init). Call it freely in layouts, nav and pages — they share one request. Outside rendering (actions, route handlers) `cache` doesn't memoise, so behaviour there is unchanged. `proxy.ts` makes exactly one `getUser()` per request (session refresh + impersonation check), and caches host→orgId in memory (60s found / 10s unknown).
+- **Per-org data that every page reads is cached in memory** (`lib/org-cache.ts`: `cached(key, ttl, load)`, in-flight sharing, failures never cached): branding (`getOrgBrandingCached`), the maintenance/hibernation gate (`getOrgGateCached`), platform maintenance switch, tax rates, org identity (`getCurrentOrg`), plan tier + overrides (`canAccess`/`getLimit`), legal re-acceptance versions. TTLs are 30–60s. **Any action that writes one of these must call `invalidateOrgCache(orgId)` (or `invalidateGlobalCache()` for platform-wide keys) right after the write** — branding, website, onboarding, check-in sound, logo, plan overrides, billing, platform org/maintenance, tax rates and legal publish already do. Keys are `kind:<orgId>` (org-scoped) or `global:<name>`. Cached values are shared between requests: never mutate them.
+- **Parallelise independent reads** (`Promise.all`); never await a query whose result the next one doesn't need. Start slow, late-needed work early and await it at the end (admin layout `bannerData` pattern; pre-`.catch` it so a `redirect()` can't leave an unhandled rejection).
+- Existence checks use `.select('id').limit(1)`, not `count: 'exact'`.
+- Indexes: migrations 198 + 199 cover the hot filters (games, notifications, payments, registrations/team_members by user, teams/registrations by league, cron scans). Postgres doesn't index foreign keys automatically — add an index with any new hot filter.
+
 ## Common patterns
 ```typescript
 // Server component — get org context

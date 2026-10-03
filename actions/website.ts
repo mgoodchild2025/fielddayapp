@@ -7,6 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
+import { invalidateOrgCache } from '@/lib/org-cache'
 
 const sectionItemSchema = z.object({ key: z.string(), visible: z.boolean() })
 
@@ -40,6 +41,7 @@ export async function saveWebsiteSettings(input: z.infer<typeof websiteSettingsS
       { organization_id: org.id, site_theme: parsed.data.site_theme, website_configured_at: new Date().toISOString() } as any,
       { onConflict: 'organization_id' }
     )
+  invalidateOrgCache(org.id)
   if (brandingErr) return { error: brandingErr.message }
 
   const now = new Date().toISOString()

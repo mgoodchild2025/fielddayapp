@@ -8,6 +8,7 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { recordConsents } from '@/lib/consents'
 import { verifyUnsubscribeToken } from '@/lib/unsubscribe'
 import { assertOrgAdmin } from '@/lib/auth'
+import { cached } from '@/lib/org-cache'
 
 // Types moved to lib/consents.ts; re-exported here so existing imports hold.
 export type { ConsentType, ConsentRow } from '@/lib/consents'
@@ -134,26 +135,29 @@ export async function getPlayerPendingReconsent(orgId: string, userId: string): 
   await assertSelfOrOrgAdmin(orgId, userId)
   const db = createServiceRoleClient()
 
-  // Latest published privacy-policy version that requires reconsent
-
-  const { data: versions } = await db
-    .from('legal_document_versions')
-    .select('id, version, published_at, requires_reconsent, reconsent_summary, document:legal_documents!legal_document_versions_document_id_fkey(slug, title)')
-    .eq('requires_reconsent', true)
-    .order('published_at', { ascending: false })
-    .limit(50)
-  const v = (versions ?? []).find((row: { document: { slug: string } | null }) => row.document?.slug === 'privacy-policy')
+  // Runs on every player page (player layout). The reconsent-requiring
+  // versions are platform-wide → cached (cleared on publish); the player's
+  // latest consent is fetched alongside instead of after.
+  const [versions, { data: last }] = await Promise.all([
+    cached('global:player-reconsent-versions', 60_000, async () => {
+      const { data } = await db
+        .from('legal_document_versions')
+        .select('id, version, published_at, requires_reconsent, reconsent_summary, document:legal_documents!legal_document_versions_document_id_fkey(slug, title)')
+        .eq('requires_reconsent', true)
+        .order('published_at', { ascending: false })
+        .limit(50)
+      return data ?? []
+    }),
+    db
+      .from('player_consents')
+      .select('consented_at')
+      .eq('organization_id', orgId).eq('user_id', userId)
+      .eq('consent_type', 'privacy_policy')
+      .order('consented_at', { ascending: false })
+      .limit(1).maybeSingle(),
+  ])
+  const v = versions.find((row: { document: { slug: string } | null }) => row.document?.slug === 'privacy-policy')
   if (!v) return null
-
-  // The player's most recent privacy consent in this org
-
-  const { data: last } = await db
-    .from('player_consents')
-    .select('consented_at')
-    .eq('organization_id', orgId).eq('user_id', userId)
-    .eq('consent_type', 'privacy_policy')
-    .order('consented_at', { ascending: false })
-    .limit(1).maybeSingle()
 
   const acceptedAt = last?.consented_at ? new Date(last.consented_at) : null
   const requiredSince = new Date(v.published_at)
