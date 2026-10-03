@@ -19,6 +19,7 @@ import {
 } from '@/lib/bracket'
 import { wireLeagueTierInflows, sourceLoserCount, clearInboundRoutes } from '@/lib/tier-inflows'
 import { EMPTY_ROSTER, type PlayoffRoster } from '@/lib/playoff-roster'
+import { getLeagueConfirmedResults } from '@/lib/league-results'
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 
@@ -39,10 +40,7 @@ async function computeStandings(
   const [{ data: teams }, { data: results }] = await Promise.all([
 
     db.from('teams').select('id, name, division_id, pool_id').eq('league_id', leagueId).eq('organization_id', orgId).eq('status', 'active'),
-    db.from('game_results')
-      .select('home_score, away_score, status, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status)')
-      .eq('organization_id', orgId)
-      .eq('status', 'confirmed'),
+    getLeagueConfirmedResults(db, orgId, leagueId).then((data) => ({ data })),
   ])
 
   const record: Record<string, TeamStanding> = {}

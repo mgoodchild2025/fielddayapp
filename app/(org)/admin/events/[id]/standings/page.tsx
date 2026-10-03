@@ -9,6 +9,7 @@ import {
   type TeamStat as BaseTeamStat, type TeamStatTotals,
   type PtsMethod, type VolleyballMode, countsForStandings } from '@/lib/standings'
 import { TeamAvatar } from '@/components/ui/team-avatar'
+import { getLeagueConfirmedResults } from '@/lib/league-results'
 
 // Standings rows on this page additionally carry division/pool grouping.
 interface TeamStat extends BaseTeamStat {
@@ -166,10 +167,7 @@ export default async function AdminStandingsPage({
 
     db.from('pools').select('id, name, sort_order').eq('league_id', id).eq('organization_id', org.id).order('sort_order'),
 
-    db.from('game_results')
-      .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id, is_exhibition)')
-      .eq('organization_id', org.id)
-      .eq('status', 'confirmed'),
+    getLeagueConfirmedResults(db, org.id, id).then((data) => ({ data })),
   ])
 
   const divisions: { id: string; name: string; sort_order: number }[] = (divsData ?? []).map((d) => ({ ...d, sort_order: d.sort_order ?? 0 }))

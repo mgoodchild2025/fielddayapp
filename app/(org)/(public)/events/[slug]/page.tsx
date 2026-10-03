@@ -4,7 +4,8 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { countDropInRegsBySession } from '@/lib/session-counts'
 import { getSeasonPassQuote, type SeasonPassQuote } from '@/lib/season-pass'
-import { getOrgTaxRates, taxSuffix } from '@/lib/tax'
+import { taxSuffix } from '@/lib/tax'
+import { getOrgBrandingCached, getOrgTaxRatesCached } from '@/lib/org-cache'
 import { EventPodium, type PodiumMedal } from '@/components/medals/event-podium'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
@@ -60,6 +61,7 @@ import { SocialEmbeds } from '@/components/media/social-embeds'
 import { isCloudinaryConfigured, cloudinaryApiKey, CLOUD_NAME } from '@/lib/cloudinary'
 import { getEnrollmentForRegistration } from '@/lib/payment-plans'
 import { PlayerInstallmentSchedule } from '@/components/payments/player-installment-schedule'
+import { getLeagueConfirmedResults } from '@/lib/league-results'
 
 // ── Standings helpers ─────────────────────────────────────────────────────────
 
@@ -414,11 +416,11 @@ export default async function EventDetailPage({
   const { data: { user } } = await supabase.auth.getUser()
 
 
-  const [{ data: league }, { data: branding }] = await Promise.all([
+  const [{ data: league }, branding] = await Promise.all([
     // Note: draft events are NOT filtered out here so advertised "coming soon"
     // events can render a teaser. The gate below decides visibility.
     db.from('leagues').select('*').eq('organization_id', org.id).eq('slug', slug).is('deleted_at', null).maybeSingle(),
-    db.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
+    getOrgBrandingCached(org.id),
   ])
 
   // An advertised draft event whose registration hasn't opened yet shows a public
@@ -485,6 +487,128 @@ export default async function EventDetailPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dropInPriceCents: number | null = (league as any).drop_in_price_cents ?? null
   const hasDropIn = dropInPriceCents !== null
+
+  // ── Early starts ──────────────────────────────────────────────────────────
+  // Reads that need only the league, org and viewer but are used far below.
+  // Starting them here lets them run alongside the batches instead of after
+  // them; each is awaited where it's used. Query builders are lazy — early()
+  // is what sends them. Its .catch only marks the promise handled (an early
+  // exit can't leave an unhandled rejection); awaiting it still throws.
+  const early = <T,>(p: PromiseLike<T>): Promise<T> => {
+    const started = Promise.resolve(p)
+    started.catch(() => {})
+    return started
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const paymentMode: string = (league as any).payment_mode ?? 'per_player'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const maxTeams: number | null = (league as any).max_teams ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const maxParticipants: number | null = (league as any).max_participants ?? null
+
+  const capacityCountsP = early(Promise.all([
+    (isTeamBased && paymentMode === 'per_team')
+      ? db.from('teams').select('*', { count: 'exact', head: true })
+          .eq('league_id', league.id).eq('organization_id', org.id).eq('status', 'active')
+      : Promise.resolve({ count: null }),
+    (paymentMode !== 'per_team' && (maxParticipants !== null || isTeamBased))
+      ? db.from('registrations').select('*', { count: 'exact', head: true })
+          .eq('league_id', league.id).eq('organization_id', org.id).in('status', ['pending', 'active'])
+      : Promise.resolve({ count: null }),
+  ]))
+
+  // The event's teams and the viewer's registration, then the viewer's links
+  // to those teams (needs only the team ids).
+  const teamsAndRegP = early(Promise.all([
+    isTeamBased
+      ? db
+          .from('teams')
+          .select('id, name, color, logo_url, team_members(id, status)')
+          .eq('league_id', league.id)
+          .eq('organization_id', org.id)
+          .eq('status', 'active')
+          .order('name')
+      : Promise.resolve({ data: null }),
+    (user && isTeamBased)
+      ? db.from('registrations').select('id, status').eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]))
+  const myTeamLinksP = early(teamsAndRegP.then(([{ data: teams }]) => Promise.all([
+    (user && teams)
+      ? db.from('team_members').select('team_id').eq('user_id', user.id).in('team_id', teams.map((t: { id: string }) => t.id))
+      : Promise.resolve({ data: null }),
+    (user && teams)
+      ? db.from('team_join_requests').select('team_id, status').eq('user_id', user.id).eq('status', 'pending').in('team_id', teams.map((t: { id: string }) => t.id))
+      : Promise.resolve({ data: null }),
+  ])))
+
+  // Org admin status (visibility bypass)
+  const orgMemberP = early<{ data: { role: string } | null }>(user
+    ? db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).eq('status', 'active').maybeSingle()
+    : Promise.resolve({ data: null }))
+
+  // Event-specific organizers from league_organizers, falling back to the
+  // first org admin.
+  const organizersP = early((async () => {
+    const { data: organizerRows } = await db
+      .from('league_organizers')
+      .select('user_id, show_contact_info')
+      .eq('league_id', league.id)
+      .eq('organization_id', org.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: true })
+
+    const organizerEntries: { user_id: string; show_contact_info: boolean }[] = (organizerRows ?? [])
+      .filter((r): r is typeof r & { user_id: string } => !!r.user_id)
+      .map((r) => ({
+        user_id: r.user_id,
+        show_contact_info: r.show_contact_info ?? true,
+      }))
+
+    const organizerUserIds: string[] = organizerEntries.map(e => e.user_id)
+
+    let eventOrganizers: { full_name: string | null; avatar_url: string | null; email: string | null; phone: string | null; show_contact_info: boolean }[] = []
+
+    if (organizerUserIds.length > 0) {
+      const { data: profiles } = await db
+        .from('profiles')
+        .select('id, full_name, avatar_url, email, phone')
+        .in('id', organizerUserIds)
+      // Preserve the order from league_organizers
+      const profileMap = Object.fromEntries(
+        (profiles ?? []).map((p: { id: string; full_name: string | null; avatar_url: string | null; email: string | null; phone: string | null }) => [p.id, p])
+      )
+      eventOrganizers = organizerEntries
+        .map(e => {
+          const p = profileMap[e.user_id]
+          if (!p) return null
+          return { ...p, show_contact_info: e.show_contact_info }
+        })
+        .filter(Boolean) as typeof eventOrganizers
+    }
+
+    if (eventOrganizers.length === 0) {
+      // Backwards compat: fall back to the first org admin
+      const { data: orgAdminRow } = await db
+        .from('org_members')
+        .select('profiles!org_members_user_id_fkey(full_name, avatar_url, email, phone)')
+        .eq('organization_id', org.id)
+        .eq('role', 'org_admin')
+        .eq('status', 'active')
+        .limit(1)
+        .single()
+      const fallback = orgAdminRow
+        ? (Array.isArray(orgAdminRow.profiles) ? orgAdminRow.profiles[0] : orgAdminRow.profiles)
+        : null
+      // Fallback organizers show contact info by default
+      if (fallback) eventOrganizers = [{ ...fallback, show_contact_info: true }]
+    }
+    return eventOrganizers
+  })())
+
+  const taxRatesP = early(getOrgTaxRatesCached(org.id))
+  // This event's live stream (event-specific only; org-wide is shown by the nav)
+  const liveStreamP = early(getCurrentLiveStream(org.id, league.id))
 
   // ── Overview batch 1 ──────────────────────────────────────────────────────
   // Five independent reads that only need league / org / user, previously run
@@ -780,22 +904,7 @@ export default async function EventDetailPage({
   )
 
   // ── Live capacity counts ──────────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const paymentMode: string = (league as any).payment_mode ?? 'per_player'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const maxTeams: number | null = (league as any).max_teams ?? null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const maxParticipants: number | null = (league as any).max_participants ?? null
-
-  const { count: registeredTeamCount } = (isTeamBased && paymentMode === 'per_team')
-    ? await db.from('teams').select('*', { count: 'exact', head: true })
-        .eq('league_id', league.id).eq('organization_id', org.id).eq('status', 'active')
-    : { count: null }
-
-  const { count: registeredPlayerCount } = (paymentMode !== 'per_team' && (maxParticipants !== null || isTeamBased))
-    ? await db.from('registrations').select('*', { count: 'exact', head: true })
-        .eq('league_id', league.id).eq('organization_id', org.id).in('status', ['pending', 'active'])
-    : { count: null }
+  const [{ count: registeredTeamCount }, { count: registeredPlayerCount }] = await capacityCountsP
 
   // ── Per-session occupancy ───────────────────────────────────────────────────
   // One source for BOTH the session cards and the event-level banner. They
@@ -845,32 +954,8 @@ export default async function EventDetailPage({
   // Teams list (for open-registration team events)
   const canJoinTeam = isTeamBased && league.team_join_policy !== 'admin_only'
 
-  // These two need only ids already in hand, so they go together rather than
-  // one after the other. Each await here is a real network hop to Supabase.
-  const [{ data: teams }, { data: myRegistration }] = await Promise.all([
-    isTeamBased
-      ? db
-          .from('teams')
-          .select('id, name, color, logo_url, team_members(id, status)')
-          .eq('league_id', league.id)
-          .eq('organization_id', org.id)
-          .eq('status', 'active')
-          .order('name')
-      : Promise.resolve({ data: null }),
-    (user && isTeamBased)
-      ? db.from('registrations').select('id, status').eq('league_id', league.id).eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
-      : Promise.resolve({ data: null }),
-  ])
-
-  // Both of these depend on `teams` and on nothing else, so they pair up too.
-  const [{ data: myMemberships }, { data: myRequests }] = await Promise.all([
-    (user && teams)
-      ? db.from('team_members').select('team_id').eq('user_id', user.id).in('team_id', teams.map((t: { id: string }) => t.id))
-      : Promise.resolve({ data: null }),
-    (user && teams)
-      ? db.from('team_join_requests').select('team_id, status').eq('user_id', user.id).eq('status', 'pending').in('team_id', teams.map((t: { id: string }) => t.id))
-      : Promise.resolve({ data: null }),
-  ])
+  const [{ data: teams }, { data: myRegistration }] = await teamsAndRegP
+  const [{ data: myMemberships }, { data: myRequests }] = await myTeamLinksP
 
   const myTeamIds = new Set<string>(myMemberships?.map((m: { team_id: string }) => m.team_id) ?? [])
   const myRequestTeamIds = new Set<string>(myRequests?.map((r: { team_id: string }) => r.team_id) ?? [])
@@ -933,9 +1018,7 @@ export default async function EventDetailPage({
 
   // Also check org admin status for visibility bypass
 
-  const { data: orgMember } = user
-    ? await db.from('org_members').select('role').eq('organization_id', org.id).eq('user_id', user.id).maybeSingle()
-    : { data: null }
+  const { data: orgMember } = await orgMemberP
   const isOrgAdmin = ['org_admin', 'league_admin'].includes(orgMember?.role ?? '')
 
   // ── Team join policy: can this user self-register? ────────────────────────
@@ -968,61 +1051,7 @@ export default async function EventDetailPage({
   // A participant is anyone with a registration OR a team membership in this league
   const isParticipant = isOrgAdmin || !!myRegistration || myTeamIds.size > 0 || !!mySeasonRegistration || mySessionIds.size > 0
 
-  // Fetch event-specific organizers from league_organizers, then fall back to first org admin
-
-  const { data: organizerRows } = await db
-    .from('league_organizers')
-    .select('user_id, show_contact_info')
-    .eq('league_id', league.id)
-    .eq('organization_id', org.id)
-    .eq('status', 'active')
-    .order('created_at', { ascending: true })
-
-  const organizerEntries: { user_id: string; show_contact_info: boolean }[] = (organizerRows ?? [])
-    .filter((r): r is typeof r & { user_id: string } => !!r.user_id)
-    .map((r) => ({
-      user_id: r.user_id,
-      show_contact_info: r.show_contact_info ?? true,
-    }))
-
-  const organizerUserIds: string[] = organizerEntries.map(e => e.user_id)
-
-  let eventOrganizers: { full_name: string | null; avatar_url: string | null; email: string | null; phone: string | null; show_contact_info: boolean }[] = []
-
-  if (organizerUserIds.length > 0) {
-    const { data: profiles } = await db
-      .from('profiles')
-      .select('id, full_name, avatar_url, email, phone')
-      .in('id', organizerUserIds)
-    // Preserve the order from league_organizers
-    const profileMap = Object.fromEntries(
-      (profiles ?? []).map((p: { id: string; full_name: string | null; avatar_url: string | null; email: string | null; phone: string | null }) => [p.id, p])
-    )
-    eventOrganizers = organizerEntries
-      .map(e => {
-        const p = profileMap[e.user_id]
-        if (!p) return null
-        return { ...p, show_contact_info: e.show_contact_info }
-      })
-      .filter(Boolean) as typeof eventOrganizers
-  }
-
-  if (eventOrganizers.length === 0) {
-    // Backwards compat: fall back to the first org admin
-    const { data: orgAdminRow } = await db
-      .from('org_members')
-      .select('profiles!org_members_user_id_fkey(full_name, avatar_url, email, phone)')
-      .eq('organization_id', org.id)
-      .eq('role', 'org_admin')
-      .eq('status', 'active')
-      .limit(1)
-      .single()
-    const fallback = orgAdminRow
-      ? (Array.isArray(orgAdminRow.profiles) ? orgAdminRow.profiles[0] : orgAdminRow.profiles)
-      : null
-    // Fallback organizers show contact info by default
-    if (fallback) eventOrganizers = [{ ...fallback, show_contact_info: true }]
-  }
+  const eventOrganizers = await organizersP
 
   // Filter tabs by visibility — restricted tabs are hidden from non-participants
   const tabs = isInSeasonOrCompleted
@@ -1048,7 +1077,7 @@ export default async function EventDetailPage({
   const baseRegPrice = league.price_cents > 0 ? league.price_cents : (dropInPriceCents ?? 0)
   const effectiveRegPrice = earlyBirdActive ? earlyBirdPriceCents! : baseRegPrice
   // Sales tax: name it wherever a price shows — never a surprise at checkout
-  const regTaxSuffix = taxSuffix(await getOrgTaxRates(db, org.id), 'registrations')
+  const regTaxSuffix = taxSuffix(await taxRatesP, 'registrations')
   const withTax = (label: string) => regTaxSuffix ? `${label} ${regTaxSuffix}` : label
   const priceUnit = paymentMode === 'per_team' ? ' / team' : ' / player'
   const price = effectiveRegPrice === 0 ? 'Free' : withTax(`$${(effectiveRegPrice / 100).toFixed(0)} ${league.currency?.toUpperCase()}${priceUnit}${earlyBirdActive ? ' (Early Bird)' : ''}`)
@@ -1078,7 +1107,9 @@ export default async function EventDetailPage({
 
   if (activeTab === 'schedule' && isTeamBased) {
 
-    const [{ data: gamesData }, { data: poolRows }, { data: weekPhaseRows }] = await Promise.all([
+    // Games, pools, phases, the published playoff games and the viewer's
+    // captaincies are independent — one round trip.
+    const [{ data: gamesData }, { data: poolRows }, { data: weekPhaseRows }, playoffGames, { data: captainships }] = await Promise.all([
 
       db
         .from('games')
@@ -1097,7 +1128,15 @@ export default async function EventDetailPage({
       db.from('pools').select('id, name').eq('league_id', league.id).eq('organization_id', org.id),
 
       db.from('week_phases').select('week_number, phase').eq('league_id', league.id).eq('organization_id', org.id).order('week_number', { ascending: true }),
+
+      fetchLeaguePlayoffGames(db, org.id, league.id),
+
+      user
+        ? db.from('team_members').select('team_id')
+            .eq('organization_id', org.id).eq('user_id', user.id).eq('role', 'captain').eq('status', 'active')
+        : Promise.resolve({ data: null }),
     ])
+    for (const c of captainships ?? []) captainTeamIds.add(c.team_id)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const poolNameById = new Map<string, string>((poolRows ?? []).map((p: any) => [p.id as string, p.name as string]))
@@ -1109,7 +1148,6 @@ export default async function EventDetailPage({
     })) as unknown as GameRow[]
 
     // Merge in published playoff bracket games as read-only schedule rows.
-    const playoffGames = await fetchLeaguePlayoffGames(db, org.id, league.id)
     const playoffRows: GameRow[] = playoffGames
       .filter((pg) => !!pg.scheduledAt)
       .map((pg) => ({
@@ -1141,44 +1179,30 @@ export default async function EventDetailPage({
 
     if (user && games.length > 0) {
       const gameIds = games.map((g) => g.id)
+      const captainTeamIdArray = [...captainTeamIds]
 
-      const [{ data: captainships }, { data: rsvpData }] = await Promise.all([
-        db
-          .from('team_members')
-          .select('team_id')
-          .eq('user_id', user.id)
-          .eq('role', 'captain')
-          .eq('status', 'active'),
-
+      // The viewer's RSVPs, plus — for teams they captain — roster sizes and
+      // team-wide RSVPs for the attendance counts. One round trip.
+      const [{ data: rsvpData }, { data: teamMemberRows }, { data: teamRsvpRows }] = await Promise.all([
         db
           .from('game_rsvps')
           .select('game_id, status')
           .eq('user_id', user.id)
           .in('game_id', gameIds),
+
+        captainTeamIdArray.length > 0
+          ? db.from('team_members').select('team_id').in('team_id', captainTeamIdArray).eq('status', 'active')
+          : Promise.resolve({ data: null }),
+
+        captainTeamIdArray.length > 0
+          ? db.from('game_rsvps').select('game_id, team_id, status').in('team_id', captainTeamIdArray).in('game_id', gameIds)
+          : Promise.resolve({ data: null }),
       ])
-      for (const c of captainships ?? []) captainTeamIds.add(c.team_id)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const r of (rsvpData ?? []) as any[]) myRsvps.set(r.game_id, r.status as 'in' | 'out')
 
       // ── Captain attendance counts ──────────────────────────────────────────
-      // Fetch team-wide RSVP counts + roster sizes for all teams the user captains
       if (captainTeamIds.size > 0) {
-        const captainTeamIdArray = [...captainTeamIds]
-
-        const [{ data: teamMemberRows }, { data: teamRsvpRows }] = await Promise.all([
-          db
-            .from('team_members')
-            .select('team_id')
-            .in('team_id', captainTeamIdArray)
-            .eq('status', 'active'),
-
-          db
-            .from('game_rsvps')
-            .select('game_id, team_id, status')
-            .in('team_id', captainTeamIdArray)
-            .in('game_id', gameIds),
-        ])
-
         // Build team size map: teamId → count
         const teamSizeMap = new Map<string, number>()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1209,15 +1233,6 @@ export default async function EventDetailPage({
           captainAttendance.set(game.id, { in: counts.in, out: counts.out, total })
         }
       }
-    } else if (user) {
-
-      const { data: captainships } = await db
-        .from('team_members')
-        .select('team_id')
-        .eq('user_id', user.id)
-        .eq('role', 'captain')
-        .eq('status', 'active')
-      for (const c of captainships ?? []) captainTeamIds.add(c.team_id)
     }
   }
 
@@ -1248,10 +1263,7 @@ export default async function EventDetailPage({
       db.from('teams').select('id, name, division_id, pool_id, logo_url, color').eq('league_id', league.id).eq('organization_id', org.id).eq('status', 'active'),
       db.from('divisions').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
       db.from('pools').select('id, name, sort_order').eq('league_id', league.id).eq('organization_id', org.id).order('sort_order'),
-      db.from('game_results')
-        .select('home_score, away_score, status, sets, is_forfeit, forfeit_team_id, game:games!game_results_game_id_fkey(home_team_id, away_team_id, league_id, status, pool_id, scheduled_at, is_exhibition)')
-        .eq('organization_id', org.id)
-        .eq('status', 'confirmed'),
+      getLeagueConfirmedResults(db, org.id, league.id).then((data) => ({ data })),
     ])
 
     divisions = (divsData ?? []).map((d) => ({ ...d, sort_order: d.sort_order ?? 0 }))
@@ -1346,17 +1358,18 @@ export default async function EventDetailPage({
     if (Object.keys(totals).length > 0) {
       // Fetch profiles + team names for players that have stats
       const userIds = Object.keys(totals)
-      const { data: profiles } = await db
-        .from('profiles')
-        .select('id, full_name, avatar_url')
-        .in('id', userIds)
-
-      const { data: teamMembersForStats } = await db
-        .from('team_members')
-        .select('user_id, team_id, teams!team_members_team_id_fkey(name)')
-        .eq('organization_id', org.id)
-        .in('user_id', userIds)
-        .in('team_id', (teams ?? []).map((t: { id: string }) => t.id))
+      const [{ data: profiles }, { data: teamMembersForStats }] = await Promise.all([
+        db
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', userIds),
+        db
+          .from('team_members')
+          .select('user_id, team_id, teams!team_members_team_id_fkey(name)')
+          .eq('organization_id', org.id)
+          .in('user_id', userIds)
+          .in('team_id', (teams ?? []).map((t: { id: string }) => t.id)),
+      ])
 
       const profileMap = new Map(
         (profiles ?? []).map(p => [p.id, { name: p.full_name ?? 'Unknown', avatarUrl: p.avatar_url ?? null }])
@@ -1383,7 +1396,7 @@ export default async function EventDetailPage({
   if (activeTab === 'bracket' && hasBracket) {
     // Fetch ALL published brackets for this league (one per tier)
 
-    const { data: rawBrackets } = await db
+    const [{ data: rawBrackets }, { data: bracketTeams }] = await Promise.all([db
       .from('brackets')
       .select(`
         id, name, bracket_size, bracket_type, round_names, third_place_game, status, published_at,
@@ -1398,15 +1411,17 @@ export default async function EventDetailPage({
       .eq('league_id', league.id)
       .eq('organization_id', org.id)
       .not('published_at', 'is', null)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: true }),
+    // Every team in the event, any status — a bracket can name a team that
+    // has since been deactivated.
+    db
+      .from('teams')
+      .select('id, name, logo_url, color')
+      .eq('league_id', league.id)
+      .eq('organization_id', org.id),
+    ])
 
     if (rawBrackets && rawBrackets.length > 0) {
-      // Build team name map from teams already fetched (or fetch them)
-      const { data: bracketTeams } = await db
-        .from('teams')
-        .select('id, name, logo_url, color')
-        .eq('league_id', league.id)
-        .eq('organization_id', org.id)
       const teamNameMap = new Map((bracketTeams ?? []).map((t) => [t.id, t.name]))
       const teamMetaMap = new Map(
         (bracketTeams ?? []).map((t) => [t.id, { logoUrl: t.logo_url ?? null, color: t.color ?? null }])
@@ -1505,9 +1520,7 @@ export default async function EventDetailPage({
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  // This event's live stream (event-specific only; org-wide is shown by the nav)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const eventLive = await getCurrentLiveStream(org.id, (league as any).id)
+  const eventLive = await liveStreamP
   const eventLiveStream = eventLive && eventLive.league_id ? eventLive : null
 
   // Media tab — approved uploads + curated social posts (fetched only on the tab)

@@ -20,6 +20,7 @@ import type {
 } from '@/components/dashboard/dashboard-client'
 import { nextSessionPerEvent } from '@/lib/next-sessions'
 import { redirectToLogin } from '@/lib/auth'
+import { getOrgBrandingCached } from '@/lib/org-cache'
 
 export default async function DashboardPage() {
   const headersList = await headers()
@@ -34,10 +35,23 @@ export default async function DashboardPage() {
   const pastBound = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString()
   // Sessions: look up to 14 days in the past (to include recent ones)
 
+  // Identity (trophy case + card) needs only the user — start it now so it runs
+  // alongside everything below, await it where it's rendered. The .catch only
+  // marks it handled (an early exit can't leave an unhandled rejection);
+  // awaiting it still throws.
+  const identityPromise = Promise.all([
+    getPlayerMedals(db, org.id, user.id),
+    db.from('player_bios')
+      .select('hero_photo_url, jersey_number, position, hometown, years_playing, tagline, hidden_by_admin')
+      .eq('organization_id', org.id).eq('user_id', user.id).maybeSingle(),
+    getPlayerCareer(db, org.id, user.id),
+  ])
+  identityPromise.catch(() => {})
+
   // ── Base queries (always run) ─────────────────────────────────────────────
   const [
     { data: profileRow },
-    { data: branding },
+    branding,
     { data: memberships },
     { data: sessionRegRows },
     { data: dropInRegRows },
@@ -45,7 +59,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     db.from('profiles').select('full_name, avatar_url').eq('id', user.id).single(),
 
-    db.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
+    getOrgBrandingCached(org.id),
     // Active team memberships
 
     db.from('team_members').select(`
@@ -166,13 +180,7 @@ export default async function DashboardPage() {
 
   // ── Identity: trophy case + card — rendered in BOTH paths. A player with
   // nothing scheduled still has a career; the off-season dashboard keeps it.
-  const myMedals = await getPlayerMedals(db, org.id, user.id)
-  const [{ data: myBioRow }, myCareer] = await Promise.all([
-    db.from('player_bios')
-      .select('hero_photo_url, jersey_number, position, hometown, years_playing, tagline, hidden_by_admin')
-      .eq('organization_id', org.id).eq('user_id', user.id).maybeSingle(),
-    getPlayerCareer(db, org.id, user.id),
-  ])
+  const [myMedals, { data: myBioRow }, myCareer] = await identityPromise
   const shelfCounts = myMedals.reduce(
     (acc, m) => { acc[m.placement] = (acc[m.placement] ?? 0) + 1; return acc },
     {} as Record<string, number>
@@ -232,8 +240,6 @@ export default async function DashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let leagueTeams: any[] = []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let myRsvpRows: any[] = []
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let pendingRegs: any[] = []
   let waiverSig: { id: string } | null = null
   let orgHasActiveWaiver = false
@@ -251,7 +257,7 @@ export default async function DashboardPage() {
       { data: rg },
       { data: alr },
       { data: lt },
-      { data: mrr },
+      playoffRows,
       { data: pr },
       { data: ws },
       { data: aw },
@@ -297,6 +303,7 @@ export default async function DashboardPage() {
         game_results(home_score, away_score, status, sets, is_forfeit, forfeit_team_id)
       `)
         .eq('organization_id', org.id)
+        .eq('status', 'completed')
         .in('league_id', leagueIds),
 
       // Active teams in these leagues (for standings + denominator)
@@ -305,11 +312,9 @@ export default async function DashboardPage() {
         ? db.from('teams').select('id, league_id').in('league_id', leagueIds).eq('status', 'active')
         : Promise.resolve({ data: [] }),
 
-      // User's own RSVPs for upcoming games
-
-      db.from('game_rsvps').select('game_id, status')
-        .eq('user_id', user.id)
-        .eq('organization_id', org.id),
+      // The player's upcoming published playoff matches (read-only bracket
+      // games) — merged with regular games for Next / same-day below.
+      fetchPlayerPlayoffGameRows(db, org.id, leagueIds, teamIds),
 
       // Pending registrations for active leagues (action needed)
 
@@ -370,16 +375,12 @@ export default async function DashboardPage() {
     allLeagueResults = alr ?? []
     leagueTeams     = lt  ?? []
 
-    // Merge the player's upcoming published playoff matches (read-only bracket
-    // games) so they appear alongside regular games in Next / same-day.
-    const playoffRows = await fetchPlayerPlayoffGameRows(db, org.id, leagueIds, teamIds)
     const upcomingPlayoff = playoffRows.filter((p) => p.status !== 'completed' && p.scheduled_at >= now)
     if (upcomingPlayoff.length > 0) {
       upcomingGames = [...upcomingGames, ...upcomingPlayoff].sort((a, b) =>
         a.scheduled_at < b.scheduled_at ? -1 : a.scheduled_at > b.scheduled_at ? 1 : 0,
       )
     }
-    myRsvpRows      = mrr ?? []
     pendingRegs     = pr  ?? []
     waiverSig          = ws
     orgHasActiveWaiver = !!aw
@@ -387,32 +388,36 @@ export default async function DashboardPage() {
     pendingTeamPayments = tpp ?? []
   }
 
-  // ── RSVP counts for the globally soonest game ─────────────────────────────
-
-  const myRsvpMap = new Map<string, 'in' | 'out'>()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  for (const r of myRsvpRows as any[]) {
-    myRsvpMap.set(r.game_id as string, r.status as 'in' | 'out')
-  }
-
+  // ── RSVPs for the next game and the rest of its day ───────────────────────
+  // One query: every RSVP on those games (the player's own + their team's
+  // counts). Only these games show an RSVP control, so nothing else is read.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const firstGame = upcomingGames[0] as any | null
-
-  const firstGameRsvpCounts = { in: 0, out: 0 }
-
-  if (firstGame) {
-    const myTeamId = teamIdSet.has(firstGame.home_team_id) ? firstGame.home_team_id : firstGame.away_team_id
-
-    const { data: firstGameRsvpRows } = await db
-      .from('game_rsvps')
-      .select('team_id, status')
-      .eq('game_id', firstGame.id)
-      .eq('team_id', myTeamId)
-
+  const dayKey = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(iso))
+  // upcomingGames is sorted ascending, so these are all later the same day.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sameDayRaw: any[] = firstGame
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const r of (firstGameRsvpRows ?? []) as any[]) {
-      if (r.status === 'in') firstGameRsvpCounts.in++
-      else if (r.status === 'out') firstGameRsvpCounts.out++
+    ? (upcomingGames as any[]).filter((g) => g.id !== firstGame.id && dayKey(g.scheduled_at) === dayKey(firstGame.scheduled_at))
+    : []
+  const myRsvpMap = new Map<string, 'in' | 'out'>()
+  const rsvpCounts = new Map<string, { in: number; out: number }>()
+  if (firstGame) {
+    const myTeamByGame = new Map<string, string>()
+    for (const g of [firstGame, ...sameDayRaw]) {
+      myTeamByGame.set(g.id, teamIdSet.has(g.home_team_id) ? g.home_team_id : g.away_team_id)
+    }
+    const { data: rsvpRows } = await db.from('game_rsvps')
+      .select('game_id, team_id, user_id, status')
+      .in('game_id', [...myTeamByGame.keys()])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const r of (rsvpRows ?? []) as any[]) {
+      if (r.user_id === user.id) myRsvpMap.set(r.game_id, r.status)
+      if (r.team_id !== myTeamByGame.get(r.game_id)) continue  // only the player's team
+      const c = rsvpCounts.get(r.game_id) ?? { in: 0, out: 0 }
+      if (r.status === 'in') c.in++
+      else if (r.status === 'out') c.out++
+      rsvpCounts.set(r.game_id, c)
     }
   }
 
@@ -527,39 +532,13 @@ export default async function DashboardPage() {
     }
   }
 
+  const countsFor = (id: string) => rsvpCounts.get(id) ?? { in: 0, out: 0 }
   const nextGameItem: NextGameItem | null = firstGame
-    ? buildGameItem(firstGame, firstGameRsvpCounts.in, firstGameRsvpCounts.out)
+    ? buildGameItem(firstGame, countsFor(firstGame.id).in, countsFor(firstGame.id).out)
     : null
 
   // ── Other games on the same calendar day (org tz) as the next game ────────
-  let sameDayGames: NextGameItem[] = []
-  if (firstGame) {
-    const dayKey = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(iso))
-    const firstDay = dayKey(firstGame.scheduled_at)
-    // upcomingGames is sorted ascending, so these are all later the same day.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sameDayRaw = (upcomingGames as any[]).filter((g) => g.id !== firstGame.id && dayKey(g.scheduled_at) === firstDay)
-    if (sameDayRaw.length > 0) {
-      const ids = sameDayRaw.map((g) => g.id as string)
-      const myTeamByGame = new Map<string, string>()
-      for (const g of sameDayRaw) myTeamByGame.set(g.id, teamIdSet.has(g.home_team_id) ? g.home_team_id : g.away_team_id)
-
-      const { data: rrows } = await db.from('game_rsvps').select('game_id, team_id, status').in('game_id', ids)
-      const counts = new Map<string, { in: number; out: number }>()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for (const r of (rrows ?? []) as any[]) {
-        if (r.team_id !== myTeamByGame.get(r.game_id)) continue  // only the player's team
-        const c = counts.get(r.game_id) ?? { in: 0, out: 0 }
-        if (r.status === 'in') c.in++
-        else if (r.status === 'out') c.out++
-        counts.set(r.game_id, c)
-      }
-      sameDayGames = sameDayRaw.map((g) => {
-        const c = counts.get(g.id) ?? { in: 0, out: 0 }
-        return buildGameItem(g, c.in, c.out)
-      })
-    }
-  }
+  const sameDayGames: NextGameItem[] = sameDayRaw.map((g) => buildGameItem(g, countsFor(g.id).in, countsFor(g.id).out))
 
   // Every event's next session, for the Next Session section. Sessions no
   // longer compete with games for a single hero: a player on a team league
