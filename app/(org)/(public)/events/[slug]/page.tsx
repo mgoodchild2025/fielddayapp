@@ -16,6 +16,9 @@ import { getEventSponsors } from '@/actions/event-sponsors'
 import { EventSponsorStrip } from '@/components/sponsors/event-sponsor-strip'
 import { CaptainScoreEntry } from '@/components/scores/captain-score-entry'
 import { LiveScoreBadge } from '@/components/scoreboard/live-score-badge'
+// Badges mount only near game time: each mounted badge joins the event's
+// Realtime channel, so a season of past/future rows shouldn't open a socket.
+import { inLiveWindowNow } from '@/lib/live-window'
 import { GameKindBadge, ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { ScheduleFilterBar } from '@/components/events/schedule-filter-bar'
 import { SchedulePhaseSummary } from '@/components/schedule/schedule-phase-summary'
@@ -238,7 +241,7 @@ function DateGroup({
                   </div>
                 ) : (
                   <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                    {game.status !== 'cancelled' && game.status !== 'postponed' && (
+                    {game.status !== 'cancelled' && game.status !== 'postponed' && inLiveWindowNow(game.scheduled_at) && (
                       <LiveScoreBadge leagueId={leagueId} gameId={game.id} />
                     )}
                     {game.status === 'cancelled' ? (
@@ -327,7 +330,7 @@ function DateGroup({
                     </div>
                   ) : game.status !== 'cancelled' && game.status !== 'postponed' ? (
                     <span className="inline-flex items-center gap-1.5">
-                      <LiveScoreBadge leagueId={leagueId} gameId={game.id} />
+                      {inLiveWindowNow(game.scheduled_at) && <LiveScoreBadge leagueId={leagueId} gameId={game.id} />}
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                         game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
                       }`}>
@@ -2186,6 +2189,7 @@ export default async function EventDetailPage({
                         <Link
                           key={team.id}
                           href={`/teams/${team.id}`}
+                          prefetch={false}
                           aria-label={`View ${team.name} team details`}
                           className="bg-white rounded-lg border p-4 flex items-center justify-between gap-3 hover:bg-gray-50 active:bg-gray-100 transition-colors"
                         >

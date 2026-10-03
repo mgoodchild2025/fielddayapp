@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { LoginForm } from './login-form'
+import { canOptimizeImage } from '@/lib/image-src'
 
 export default async function LoginPage({
   searchParams,
@@ -75,7 +76,7 @@ export default async function LoginPage({
                   height={72}
                   className="mx-auto object-contain mb-4"
                   style={{ maxHeight: '72px', width: 'auto' }}
-                  unoptimized
+                  unoptimized={!canOptimizeImage(logoUrl)}
                 />
                 {orgName && (
                   <p

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import { canOptimizeImage } from '@/lib/image-src'
 
 export type MerchItemForStep = {
   id: string
@@ -147,7 +148,7 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
                       fill
                       sizes="64px"
                       className="object-cover"
-                      unoptimized
+                      unoptimized={!canOptimizeImage(item.image_url)}
                     />
                   </div>
                 )}

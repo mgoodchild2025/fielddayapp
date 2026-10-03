@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { Overlay } from '@/components/ui/overlay'
 import type { ShopItem } from '@/actions/merchandise'
 import type { CartItem } from './cart-provider'
+import { canOptimizeImage } from '@/lib/image-src'
 
 interface Props {
   item: ShopItem
@@ -112,7 +113,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               className="object-cover group-hover:scale-105 transition-transform duration-300"
-              unoptimized
+              unoptimized={!canOptimizeImage(item.image_url)}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -224,7 +225,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
                     fill
                     sizes="(max-width: 640px) 100vw, 448px"
                     className="object-cover"
-                    unoptimized
+                    unoptimized={!canOptimizeImage(allImages[selectedImageIdx])}
                   />
 
                   {/* Prev/Next arrows — only when multiple images */}

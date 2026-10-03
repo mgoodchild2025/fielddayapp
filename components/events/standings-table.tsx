@@ -49,7 +49,7 @@ function TeamCell({ team, rank, streak }: { team: { id: string; name: string; lo
     <td className="w-full max-w-0 sm:w-auto sm:max-w-none sm:sticky sm:left-14 sm:z-[1] bg-inherit sm:shadow-[1px_0_0_rgb(0_0_0/0.06)] pl-2.5 pr-1.5 sm:px-4 py-3 font-medium">
       <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
         <span className={`sm:hidden w-3.5 shrink-0 text-xs tabular-nums ${rank <= 3 ? 'font-bold text-gray-700' : 'text-gray-500'}`}>{rank}</span>
-        <Link href={`/teams/${team.id}/stats`} className="flex items-center gap-1.5 sm:gap-2 min-w-0 hover:underline">
+        <Link href={`/teams/${team.id}/stats`} prefetch={false} className="flex items-center gap-1.5 sm:gap-2 min-w-0 hover:underline">
           {/* 24px logo on phones, 32px from sm — every pixel goes to the name. */}
           <TeamAvatar logoUrl={team.logoUrl ?? null} color={team.color ?? null} name={team.name} size="sm" className="max-sm:w-6 max-sm:h-6 max-sm:text-xs" />
           <span className="truncate">{team.name}</span>

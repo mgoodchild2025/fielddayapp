@@ -1,12 +1,17 @@
 'use server'
 
+import { headers } from 'next/headers'
+import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import type { CartItem } from '@/components/shop/cart-provider'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// The persistent merch cart (cart_items, per user + org). CartProvider calls
+// these instead of querying Supabase from the browser, which kept the whole
+// Supabase client in every org page's JavaScript. Each export establishes the
+// caller (signed-in user) and the org (from the proxy, never from the caller).
 
-type StoredCartItem = CartItem & { cartItemId: string }
+export type StoredCartItem = CartItem & { cartItemId: string }
 
 type CartRow = {
   id: string
@@ -15,16 +20,22 @@ type CartRow = {
   variant: { id: string; label: string } | null
 }
 
+const MAX_QTY = 10
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+async function caller() {
+  const [org, supabase] = await Promise.all([getCurrentOrg(await headers()), createServerClient()])
+  const { data: { user } } = await supabase.auth.getUser()
+  return { org, user }
+}
+
 // ── Load ──────────────────────────────────────────────────────────────────────
 
-export async function loadCart(orgId: string): Promise<StoredCartItem[]> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+export async function loadCart(): Promise<StoredCartItem[]> {
+  const { org, user } = await caller()
   if (!user) return []
 
-  const db = createServiceRoleClient()
-
-  const { data, error } = await db
+  const { data, error } = await createServiceRoleClient()
     .from('cart_items')
     .select(`
       id,
@@ -32,7 +43,7 @@ export async function loadCart(orgId: string): Promise<StoredCartItem[]> {
       item:merchandise_items!item_id(id, name, price_cents, currency, image_url),
       variant:merchandise_variants!variant_id(id, label)
     `)
-    .eq('organization_id', orgId)
+    .eq('organization_id', org.id)
     .eq('user_id', user.id)
     .order('created_at')
 
@@ -40,9 +51,8 @@ export async function loadCart(orgId: string): Promise<StoredCartItem[]> {
     console.error('[cart] loadCart error:', error.message)
     return []
   }
-  if (!data) return []
 
-  return (data as unknown as CartRow[])
+  return ((data ?? []) as unknown as CartRow[])
     .filter((row) => row.item !== null)
     .map((row) => ({
       cartItemId:     row.id,
@@ -60,48 +70,56 @@ export async function loadCart(orgId: string): Promise<StoredCartItem[]> {
 // ── Save (insert or update) ───────────────────────────────────────────────────
 
 export async function saveCartItem(
-  orgId:     string,
   itemId:    string,
   variantId: string | null,
   quantity:  number,
 ): Promise<string | null> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  if (!UUID.test(itemId) || (variantId !== null && !UUID.test(variantId))) return null
+  if (!Number.isInteger(quantity) || quantity < 1) return null
+  const qty = Math.min(MAX_QTY, quantity)
 
+  const { org, user } = await caller()
+  if (!user) return null
   const db = createServiceRoleClient()
 
-  // Check for existing row (NULL-safe variant match)
+  // The item must be this org's (and the variant this item's) — the caller
+  // only sends ids.
+  const [{ data: item }, { data: variant }] = await Promise.all([
+    db.from('merchandise_items').select('id').eq('id', itemId).eq('organization_id', org.id).maybeSingle(),
+    variantId
+      ? db.from('merchandise_variants').select('id').eq('id', variantId).eq('item_id', itemId).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+  if (!item || (variantId && !variant)) return null
 
-  let query = db
+  // Existing row (NULL-safe variant match)
+  const base = db
     .from('cart_items')
     .select('id')
-    .eq('organization_id', orgId)
+    .eq('organization_id', org.id)
     .eq('user_id', user.id)
     .eq('item_id', itemId)
-
-  query = variantId ? query.eq('variant_id', variantId) : query.is('variant_id', null)
-
-  const { data: existing } = await query.maybeSingle()
+  const { data: existing } = await (variantId ? base.eq('variant_id', variantId) : base.is('variant_id', null))
+    .limit(1)
+    .maybeSingle()
 
   if (existing?.id) {
-
     await db
       .from('cart_items')
-      .update({ quantity, updated_at: new Date().toISOString() })
+      .update({ quantity: qty, updated_at: new Date().toISOString() })
       .eq('id', existing.id)
+      .eq('user_id', user.id)
     return existing.id as string
   }
-
 
   const { data: inserted, error: insertError } = await db
     .from('cart_items')
     .insert({
-      organization_id: orgId,
+      organization_id: org.id,
       user_id:         user.id,
       item_id:         itemId,
-      variant_id:      variantId ?? null,
-      quantity,
+      variant_id:      variantId,
+      quantity:        qty,
     })
     .select('id')
     .single()
@@ -113,31 +131,27 @@ export async function saveCartItem(
 // ── Delete one ────────────────────────────────────────────────────────────────
 
 export async function deleteCartItem(cartItemId: string): Promise<void> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  if (!UUID.test(cartItemId)) return
+  const { org, user } = await caller()
   if (!user) return
 
-  const db = createServiceRoleClient()
-
-  await db
+  await createServiceRoleClient()
     .from('cart_items')
     .delete()
     .eq('id', cartItemId)
+    .eq('organization_id', org.id)
     .eq('user_id', user.id)
 }
 
 // ── Clear all ─────────────────────────────────────────────────────────────────
 
-export async function clearCartItems(orgId: string): Promise<void> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+export async function clearCartItems(): Promise<void> {
+  const { org, user } = await caller()
   if (!user) return
 
-  const db = createServiceRoleClient()
-
-  await db
+  await createServiceRoleClient()
     .from('cart_items')
     .delete()
-    .eq('organization_id', orgId)
+    .eq('organization_id', org.id)
     .eq('user_id', user.id)
 }

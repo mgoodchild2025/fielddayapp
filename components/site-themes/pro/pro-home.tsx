@@ -8,6 +8,7 @@ import type { OrgContext } from '@/lib/tenant'
 import { formatEventPrice } from '@/lib/event-price'
 import { UpcomingEventsSection } from '@/components/site-themes/shared/upcoming-events-section'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
+import { canOptimizeImage } from '@/lib/image-src'
 
 type League = {
   id: string; name: string; slug: string; event_type: string | null; status: string
@@ -76,7 +77,7 @@ function SponsorLogo({ sponsor, size }: { sponsor: Sponsor; size: 'sm' | 'lg' })
       src={sponsor.logo_url} alt={sponsor.name}
       width={size === 'lg' ? 160 : 100} height={size === 'lg' ? 60 : 40}
       className={`${size === 'lg' ? 'max-h-14' : 'max-h-9'} w-auto object-contain opacity-60 hover:opacity-100 transition-opacity`}
-      unoptimized
+      unoptimized={!canOptimizeImage(sponsor.logo_url)}
     />
   ) : (
     <span className={`font-semibold text-white/60 hover:text-white transition-colors ${size === 'lg' ? 'text-base' : 'text-sm'}`}>
@@ -220,7 +221,7 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
                   <div key={member.id} className="flex items-center gap-3 border rounded-xl px-4 py-3 bg-white">
                     <div className="shrink-0 w-9 h-9 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--brand-secondary)' }}>
                       {member.avatar_url ? (
-                        <Image src={member.avatar_url} alt={member.name} width={36} height={36} className="w-full h-full object-cover" unoptimized />
+                        <Image src={member.avatar_url} alt={member.name} width={36} height={36} className="w-full h-full object-cover" unoptimized={!canOptimizeImage(member.avatar_url)} />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-sm font-black text-white">
                           {member.name.charAt(0).toUpperCase()}
@@ -286,7 +287,7 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
         <div className="relative max-w-4xl mx-auto flex flex-col sm:flex-row items-start gap-8">
           {branding?.logo_url && (
             <div className="shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded overflow-hidden opacity-90">
-              <Image src={branding.logo_url} alt={org.name} width={80} height={80} className="w-full h-full object-contain" unoptimized />
+              <Image src={branding.logo_url} alt={org.name} width={80} height={80} className="w-full h-full object-contain" unoptimized={!canOptimizeImage(branding.logo_url)} />
             </div>
           )}
           <div>
