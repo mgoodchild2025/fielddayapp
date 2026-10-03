@@ -9,8 +9,9 @@ import { MaintenancePage } from '@/components/maintenance-page'
 import { HibernatePage } from '@/components/hibernate-page'
 import { PwaRegistrar } from '@/components/pwa/pwa-registrar'
 import type { OrgBranding } from '@/types/database'
-import { getOrgTaxRates, taxSuffix } from '@/lib/tax'
+import { taxSuffix } from '@/lib/tax'
 import { originFromHeaders } from '@/lib/public-origin'
+import { getOrgBrandingCached, getOrgGateCached, getPlatformMaintenanceCached, getOrgTaxRatesCached } from '@/lib/org-cache'
 
 // ── Dynamic metadata per org ─────────────────────────────────────────────────
 // Sets the browser-tab favicon and Open Graph / Twitter Card tags so links
@@ -27,16 +28,8 @@ export async function generateMetadata(): Promise<Metadata> {
     }
   }
 
-  const db = createServiceRoleClient()
-  const [{ data: org }, { data: branding }] = await Promise.all([
-
-    db.from('organizations').select('name').eq('id', orgId).single(),
-
-    db.from('org_branding')
-      .select('logo_url, tagline, hero_image_url')
-      .eq('organization_id', orgId)
-      .single(),
-  ])
+  // Same cached rows the layout reads (lib/org-cache.ts) — no extra queries.
+  const [org, branding] = await Promise.all([getOrgGateCached(orgId), getOrgBrandingCached(orgId)])
 
   const orgName = org?.name ?? 'Fieldday'
   const logoUrl = branding?.logo_url ?? null
@@ -99,39 +92,19 @@ export default async function OrgLayout({
 
   const supabase = await createServerClient()
   const db2 = createServiceRoleClient()
-  const [
-    { data: branding },
-    { data: { user } },
-    { data: orgRow },
-    { data: platformSettings },
-    { data: subscriptionRow },
-  ] = await Promise.all([
-
-    db2.from('org_branding').select('*').eq('organization_id', orgId).single(),
+  // Branding, the maintenance/hibernation gate and the platform switch rarely
+  // change but every page needs them: served from lib/org-cache.ts (30s,
+  // invalidated by the actions that write them). Only the user is per request.
+  const [branding, { data: { user } }, orgGate, settingsMap] = await Promise.all([
+    getOrgBrandingCached(orgId),
     supabase.auth.getUser(),
-
-    db2
-      .from('organizations')
-      .select('name, maintenance_mode, maintenance_message, maintenance_until')
-      .eq('id', orgId)
-      .single(),
-
-    db2
-      .from('platform_settings')
-      .select('key, value')
-      .in('key', ['maintenance_mode_all', 'maintenance_mode_message', 'maintenance_mode_until']),
-
-    db2
-      .from('subscriptions')
-      .select('status, hibernate_until')
-      .eq('organization_id', orgId)
-      .single(),
+    getOrgGateCached(orgId),
+    getPlatformMaintenanceCached(),
   ])
+  const orgRow = orgGate
+  const subscriptionRow = { status: orgGate.subscriptionStatus, hibernate_until: orgGate.hibernate_until }
 
   // ── Maintenance gate ────────────────────────────────────────────────────────
-  const settingsMap = new Map(
-    ((platformSettings ?? []) as { key: string; value: string }[]).map(r => [r.key, r.value])
-  )
   const globalOn = settingsMap.get('maintenance_mode_all') === 'true'
   const orgOn = orgRow?.maintenance_mode === true
   const isHibernating = subscriptionRow?.status === 'hibernating'
@@ -209,7 +182,7 @@ export default async function OrgLayout({
   const googleFontsUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(headingFont)}:wght@400;600;700&family=${encodeURIComponent(bodyFont)}:wght@400;500;600&display=swap`
 
   // Sales-tax hint for the merch cart ("+ HST 13%")
-  const merchTaxSuffix = user ? taxSuffix(await getOrgTaxRates(db2, orgId), 'merch') : ''
+  const merchTaxSuffix = user ? taxSuffix(await getOrgTaxRatesCached(orgId), 'merch') : ''
 
   return (
     <>

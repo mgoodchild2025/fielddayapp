@@ -7,6 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { EXPENSE_CATEGORIES, type ExpenseCategory, OVERHEAD_CATEGORIES, type OverheadCategory, OVERHEAD_PERIODS, type OverheadPeriod, BUDGET_COST_TYPES, type BudgetCostType, REVENUE_CATEGORIES, type RevenueCategory, ATTACHMENT_LABELS } from '@/lib/finance-constants'
 import { rollingFinanceWindow, DEFAULT_WINDOW_MONTHS } from '@/lib/finance-window'
+import { invalidateOrgCache } from '@/lib/org-cache'
 
 // ── Auth helper ──────────────────────────────────────────────────────────────
 
@@ -1027,6 +1028,7 @@ export async function setFiscalYearStart(month: number): Promise<{ error: string
     .from('org_branding')
     .update({ fiscal_year_start_month: month })
     .eq('organization_id', org.id)
+  invalidateOrgCache(org.id)
   if (error) return { error: error.message }
   revalidatePath('/admin/finances')
   revalidatePath('/admin/settings/payments')

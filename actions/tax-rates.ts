@@ -6,6 +6,7 @@ import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
+import { invalidateOrgCache } from '@/lib/org-cache'
 
 // ── Org tax rates (X1) ────────────────────────────────────────────────────────
 // Each rate is mirrored as a Stripe Tax Rate object in the ORG'S OWN Stripe
@@ -92,6 +93,7 @@ export async function createTaxRate(input: TaxRateInput): Promise<{ error: strin
     applies_to: input.appliesTo,
     stripe_tax_rate_id: stripeTaxRateId,
   })
+  invalidateOrgCache(org.id)
   if (error) return { error: error.message }
 
   revalidatePath('/admin/settings/payments')
@@ -127,6 +129,7 @@ export async function deactivateTaxRate(rateId: string): Promise<{ error: string
   }
 
   const { error } = await db.from('org_tax_rates').update({ active: false }).eq('id', rate.id)
+  invalidateOrgCache(org.id)
   if (error) return { error: error.message }
 
   revalidatePath('/admin/settings/payments')

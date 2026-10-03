@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
 import { assertOrgAdmin } from '@/lib/auth'
+import { invalidateOrgCache } from '@/lib/org-cache'
 
 export async function dismissOnboardingChecklist(): Promise<{ error: string | null }> {
   const headersList = await headers()
@@ -17,6 +18,7 @@ export async function dismissOnboardingChecklist(): Promise<{ error: string | nu
     .from('org_branding')
     .update({ onboarding_dismissed_at: new Date().toISOString() })
     .eq('organization_id', org.id)
+  invalidateOrgCache(org.id)
 
   if (error) return { error: error.message }
 

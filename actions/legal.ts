@@ -3,6 +3,7 @@
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { requirePlatformAdmin } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import { invalidateGlobalCache } from '@/lib/org-cache'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -187,6 +188,7 @@ export async function publishDocument(
         requires_reconsent: opts.requiresReconsent ?? false,
         reconsent_summary: opts.reconsentSummary ?? null,
       })
+    invalidateGlobalCache() // re-acceptance checks read cached versions
 
     if (vErr) return { error: vErr.message }
 

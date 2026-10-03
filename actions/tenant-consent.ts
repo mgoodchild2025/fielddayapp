@@ -9,6 +9,7 @@ import { headers } from 'next/headers'
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 import { TENANT_CONSENT_SLUGS } from '@/lib/tenant-consent-types'
+import { cached } from '@/lib/org-cache'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -105,38 +106,46 @@ export interface PendingReacceptanceDoc {
  */
 export async function getPendingReacceptance(orgId: string): Promise<PendingReacceptanceDoc[]> {
   const db = createServiceRoleClient()
+
+  // Two queries, in parallel (was 2 per slug, in sequence — 6 round trips on
+  // every admin page). The reconsent-requiring versions are platform-wide, so
+  // they're cached (lib/org-cache.ts; cleared when a version is published).
+  const [latestRequired, { data: acceptances }] = await Promise.all([
+    cached('global:reconsent-versions', 60_000, async () => {
+      const { data } = await db
+        .from('legal_document_versions')
+        .select(`
+          id, version, effective_date, published_at, requires_reconsent, reconsent_summary,
+          document:legal_documents!legal_document_versions_document_id_fkey(slug, title)
+        `)
+        .eq('requires_reconsent', true)
+        .order('published_at', { ascending: false })
+        .limit(50)  // enough to find each slug's latest
+      return data ?? []
+    }),
+    db
+      .from('tenant_acceptances')
+      .select('document_slug, accepted_at')
+      .eq('organization_id', orgId)
+      .in('document_slug', [...TENANT_CONSENT_SLUGS])
+      .order('accepted_at', { ascending: false }),
+  ])
+
+  // Latest acceptance per slug (rows are newest-first).
+  const lastAccepted = new Map<string, string>()
+  for (const a of (acceptances ?? []) as { document_slug: string; accepted_at: string | null }[]) {
+    if (a.accepted_at && !lastAccepted.has(a.document_slug)) lastAccepted.set(a.document_slug, a.accepted_at)
+  }
+
   const pending: PendingReacceptanceDoc[] = []
-
   for (const slug of TENANT_CONSENT_SLUGS) {
-    // Get latest published version that requires_reconsent
-
-    const { data: latestRequired } = await db
-      .from('legal_document_versions')
-      .select(`
-        id, version, effective_date, published_at, requires_reconsent, reconsent_summary,
-        document:legal_documents!legal_document_versions_document_id_fkey(slug, title)
-      `)
-      .eq('requires_reconsent', true)
-      .order('published_at', { ascending: false })
-      .limit(50)  // get enough to filter by slug
-
-    const forSlug = (latestRequired ?? []).find(
+    const forSlug = latestRequired.find(
       (v: { document: { slug: string } | null }) => v.document?.slug === slug
     )
     if (!forSlug) continue  // no reconsent-requiring version for this doc
 
-    // Get the org's most recent acceptance for this slug
-
-    const { data: lastAcceptance } = await db
-      .from('tenant_acceptances')
-      .select('accepted_at')
-      .eq('organization_id', orgId)
-      .eq('document_slug', slug)
-      .order('accepted_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    const acceptedAt = lastAcceptance?.accepted_at ? new Date(lastAcceptance.accepted_at) : null
+    const accepted = lastAccepted.get(slug)
+    const acceptedAt = accepted ? new Date(accepted) : null
     const requiredSince = new Date(forSlug.published_at)
 
     if (!acceptedAt || acceptedAt < requiredSince) {

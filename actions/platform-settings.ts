@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { requirePlatformAdmin } from '@/lib/auth'
 import { ALERT_KEYS, sendPlatformAlert } from '@/lib/platform-alerts'
 import { platformEnvFor, type StripeMode } from '@/lib/stripe-platform'
+import { invalidateGlobalCache } from '@/lib/org-cache'
 
 // ── Platform Stripe mode (test / live) ──────────────────────────────────────
 
@@ -115,6 +116,7 @@ export async function setGlobalMaintenance(
   }
 
   await service.from('platform_settings').upsert(upserts, { onConflict: 'key' })
+  invalidateGlobalCache()
 
   // Clear message/until when turning off or when they're empty
   const keysToDelete: string[] = []
@@ -122,6 +124,7 @@ export async function setGlobalMaintenance(
   if (!until) keysToDelete.push('maintenance_mode_until')
   if (keysToDelete.length > 0) {
     await service.from('platform_settings').delete().in('key', keysToDelete)
+    invalidateGlobalCache()
   }
 
   revalidatePath('/super/settings')

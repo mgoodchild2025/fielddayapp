@@ -31,17 +31,52 @@ export default async function AdminLayout({
   let memberRole: string = 'org_admin'
   let mfaGraceDaysLeft: number | null = null
 
+  // Everything below used to run one query after another (≈10 round trips on
+  // every admin page). The banner data starts now and is awaited at the end;
+  // the access checks run together. Its rejection is pre-handled so an early
+  // redirect() can't leave an unhandled promise behind.
+  const db = createServiceRoleClient()
+  const bannerData = Promise.all([
+    db
+      .from('subscriptions')
+      .select('status, trial_end, cancel_at_period_end, current_period_end, hibernate_until, pre_hibernate_tier')
+      .eq('organization_id', org.id)
+      .single(),
+    getLimit(org.id, 'max_players'),
+    getLimit(org.id, 'max_leagues'),
+    getActiveLeagueCount(org.id),
+    db
+      .from('org_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', org.id)
+      .eq('role', 'player')
+      .eq('status', 'active'),
+    getEnforcementState(org.id),
+  ])
+  bannerData.catch(() => {})
+
   if (!isImpersonating) {
     // Use service role for this membership check — RLS on org_members requires
     // app.current_org_id to be set in the Postgres session, which the session
     // client does not provide.  The explicit eq() filters enforce org scoping.
-    const db = createServiceRoleClient()
-    const { data: member } = await db
-      .from('org_members')
-      .select('role')
-      .eq('organization_id', org.id)
-      .eq('user_id', user.id)
-      .single()
+    // MFA, grace date and re-acceptance are only used for org admins, but are
+    // fetched alongside so an org admin's page doesn't wait on each in turn.
+    const [{ data: member }, mfa, { data: profileRow }, pendingReaccept] = await Promise.all([
+      db
+        .from('org_members')
+        .select('role')
+        .eq('organization_id', org.id)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single(),
+      getMfaStatus(),
+      db
+        .from('profiles')
+        .select('mfa_grace_until')
+        .eq('id', user.id)
+        .single(),
+      getPendingReacceptance(org.id),
+    ])
 
     if (!member || !['org_admin', 'league_admin'].includes(member.role)) {
       redirect('/dashboard')
@@ -51,8 +86,6 @@ export default async function AdminLayout({
 
     // MFA enforcement — mandatory for org_admin only
     if (memberRole === 'org_admin') {
-      const mfa = await getMfaStatus()
-
       if (!mfa.isVerified) {
         const pathname = headersList.get('x-pathname') ?? '/admin/dashboard'
 
@@ -62,12 +95,6 @@ export default async function AdminLayout({
         }
 
         // No factor enrolled → check or start grace period
-
-        const { data: profileRow } = await db
-          .from('profiles')
-          .select('mfa_grace_until')
-          .eq('id', user.id)
-          .single()
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const graceUntil = (profileRow as any)?.mfa_grace_until
@@ -95,12 +122,9 @@ export default async function AdminLayout({
         }
       }
     }
-  }
 
-  // Reacceptance check for org_admin (not impersonating)
-  if (memberRole === 'org_admin' && !isImpersonating) {
-    const pending = await getPendingReacceptance(org.id)
-    if (pending.length > 0) {
+    // Reacceptance check for org_admin (not impersonating)
+    if (memberRole === 'org_admin' && pendingReaccept.length > 0) {
       const pathname = headersList.get('x-pathname') ?? '/admin/dashboard'
       // Only block if not already on the reaccept page to avoid redirect loop
       if (!pathname.startsWith('/reaccept')) {
@@ -109,27 +133,8 @@ export default async function AdminLayout({
     }
   }
 
-  // Fetch subscription + plan limits in parallel for banners
-  const db = createServiceRoleClient()
-
-  const [{ data: subscription }, playerLimit, leagueLimit, activeLeagueCount, { count: playerCount }, enforcement] = await Promise.all([
-
-    db
-      .from('subscriptions')
-      .select('status, trial_end, cancel_at_period_end, current_period_end, hibernate_until, pre_hibernate_tier')
-      .eq('organization_id', org.id)
-      .single(),
-    getLimit(org.id, 'max_players'),
-    getLimit(org.id, 'max_leagues'),
-    getActiveLeagueCount(org.id),
-    db
-      .from('org_members')
-      .select('*', { count: 'exact', head: true })
-      .eq('organization_id', org.id)
-      .eq('role', 'player')
-      .eq('status', 'active'),
-    getEnforcementState(org.id),
-  ])
+  // Subscription + plan limits for the banners (started above)
+  const [{ data: subscription }, playerLimit, leagueLimit, activeLeagueCount, { count: playerCount }, enforcement] = await bannerData
 
   return (
     <div

@@ -7,6 +7,25 @@ const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const REST_HEADERS = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
 
+// host → orgId, cached in memory (the app runs as one long-lived process). The
+// proxy runs on every request — including RSC prefetches — so an uncached
+// lookup was 1–2 Supabase round trips before any page could start. Found orgs
+// are cached 60s (a suspension takes effect within a minute); unknown hosts
+// only 10s, so a brand-new org's subdomain works almost immediately.
+const ORG_TTL_MS = 60_000
+const MISS_TTL_MS = 10_000
+const orgCache = new Map<string, { orgId: string | null; expires: number }>()
+
+async function resolveOrgIdCached(baseHost: string): Promise<string | null> {
+  const now = Date.now()
+  const hit = orgCache.get(baseHost)
+  if (hit && hit.expires > now) return hit.orgId
+  const orgId = await resolveOrgId(baseHost)
+  if (orgCache.size > 5_000) orgCache.clear() // bots probing random hosts
+  orgCache.set(baseHost, { orgId, expires: now + (orgId ? ORG_TTL_MS : MISS_TTL_MS) })
+  return orgId
+}
+
 /** Resolve the org UUID for a given hostname. Returns null if not found. */
 async function resolveOrgId(baseHost: string): Promise<string | null> {
   // Subdomain: e.g. "acme.fielddayapp.ca" or "acme.localhost"
@@ -59,24 +78,30 @@ export async function proxy(request: NextRequest) {
   const hostname = request.headers.get('host') ?? ''
   const baseHost = hostname.split(':')[0] // strip port for local dev
 
-  // ── Step 1: refresh Supabase session early so we have the user for auth checks ──
-  // We create a temporary client here to read the current user. The response
-  // is rebuilt below once we know the org context.
+  const isAuthRoute = request.nextUrl.pathname.startsWith('/auth/')
+  const isAppDomain = baseHost === `app.${PLATFORM_DOMAIN}` || baseHost === 'app.localhost'
+
+  // ── Step 1: ONE getUser() per request ─────────────────────────────────────
+  // It refreshes the session if needed (refreshed tokens are written to the
+  // request so server components see them, and collected for the response)
+  // and gives us the user for the impersonation check. This used to be two
+  // separate clients, each making its own round trip to Supabase Auth.
+  // Auth routes (/auth/*) skip it — the OAuth callback writes the session
+  // itself and a refresh mid-exchange can drop the PKCE verifier cookie —
+  // except on the app. domain, which needs the user to vet impersonation.
+  const refreshedCookies: { name: string; value: string; options?: Parameters<NextResponse['cookies']['set']>[2] }[] = []
   let currentUser: { app_metadata?: Record<string, unknown> } | null = null
-  {
-    const tempResponse = NextResponse.next()
-    const tempClient = createServerClient(SUPABASE_URL, ANON_KEY, {
+  if (!isAuthRoute || isAppDomain) {
+    const supabase = createServerClient(SUPABASE_URL, ANON_KEY, {
       cookies: {
         getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          cookiesToSet.forEach(({ name, value, options }) =>
-            tempResponse.cookies.set(name, value, options)
-          )
+          refreshedCookies.push(...cookiesToSet)
         },
       },
     })
-    const { data: { user } } = await tempClient.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
     currentUser = user
   }
 
@@ -84,7 +109,7 @@ export async function proxy(request: NextRequest) {
   let orgId: string | null = null
   let isImpersonating = false
 
-  if (baseHost === `app.${PLATFORM_DOMAIN}` || baseHost === 'app.localhost') {
+  if (isAppDomain) {
     // Super-admin domain — only honor impersonation cookie when the signed-in
     // user is a verified platform admin (app_metadata.is_platform_admin = true,
     // set exclusively via the service role — users cannot self-assign this).
@@ -104,7 +129,7 @@ export async function proxy(request: NextRequest) {
     if (devOrgId) orgId = devOrgId
   } else {
     // Org subdomain / custom domain
-    orgId = await resolveOrgId(baseHost)
+    orgId = await resolveOrgIdCached(baseHost)
     if (!orgId) {
       return new NextResponse('Organization not found', { status: 404 })
     }
@@ -147,41 +172,12 @@ export async function proxy(request: NextRequest) {
   // Expose the full pathname+search so server components can build return-to URLs
   requestHeaders.set('x-pathname', request.nextUrl.pathname + request.nextUrl.search)
 
-  // ── Auth routes: skip the session refresh ─────────────────────────────────
-  // The OAuth callback exchanges the PKCE code and writes the session itself.
-  // Running the session-refresh getUser()/setAll here mutates the auth cookies
-  // mid-exchange and can drop the code-verifier cookie before the callback reads
-  // it ("PKCE code verifier not found in storage"). Org context is still injected
-  // above; we just don't touch cookies on these routes.
-  if (request.nextUrl.pathname.startsWith('/auth/')) {
-    return NextResponse.next({ request: { headers: requestHeaders } })
+  // ── Step 4: the response, carrying any refreshed session cookies ─────────
+  // Auth routes never get cookie writes from here (see Step 1).
+  const response = NextResponse.next({ request: { headers: requestHeaders } })
+  if (!isAuthRoute) {
+    refreshedCookies.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
   }
-
-  // ── Step 4: create the final response, refreshing the Supabase session ────
-  // We do this in one pass so session-refresh cookies land on the correct
-  // response object and aren't lost when we add the org header.
-  let response = NextResponse.next({ request: { headers: requestHeaders } })
-
-  const supabase = createServerClient(SUPABASE_URL, ANON_KEY, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll()
-      },
-      setAll(cookiesToSet) {
-        // Write refreshed tokens back to the request so server components see them
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-        // Rebuild response with the updated request AND keep the org header
-        response = NextResponse.next({ request: { headers: requestHeaders } })
-        // Set refreshed token cookies on the response
-        cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options)
-        )
-      },
-    },
-  })
-
-  // Calling getUser() triggers session refresh if needed (setAll runs if tokens changed)
-  await supabase.auth.getUser()
 
   // If an unauthorised impersonation attempt was detected, clear the cookie
   if (request.cookies.get('fieldday_impersonate_org_id')?.value && !isImpersonating) {

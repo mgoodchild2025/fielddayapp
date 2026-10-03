@@ -7,6 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { requirePlatformAdmin } from '@/lib/auth'
 import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
 import { destroyAssets } from '@/lib/cloudinary'
+import { invalidateOrgCache } from '@/lib/org-cache'
 
 const IMPERSONATE_COOKIE = 'fieldday_impersonate_org_id'
 
@@ -104,6 +105,7 @@ export async function updateOrganization(input: z.infer<typeof updateOrgSchema>)
     .from('organizations')
     .update({ ...updates, city: updates.city ?? null, updated_at: new Date().toISOString() })
     .eq('id', id)
+  invalidateOrgCache(id)
 
   if (error) return { error: error.message }
   revalidatePath('/super')
@@ -140,6 +142,7 @@ export async function updateSubscription(input: z.infer<typeof updateSubscriptio
       },
       { onConflict: 'organization_id' }
     )
+  invalidateOrgCache(parsed.data.orgId)
 
   if (error) return { error: error.message }
   revalidatePath(`/super/orgs/${parsed.data.orgId}`)
@@ -306,6 +309,7 @@ export async function setOrgMaintenance(
       updated_at: new Date().toISOString(),
     })
     .eq('id', orgId)
+  invalidateOrgCache(orgId)
 
   if (error) return { error: (error as { message: string }).message }
 
@@ -323,6 +327,7 @@ export async function setOrgStatus(orgId: string, status: 'active' | 'suspended'
     .from('organizations')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', orgId)
+  invalidateOrgCache(orgId)
 
   if (error) return { error: error.message }
   revalidatePath('/super')

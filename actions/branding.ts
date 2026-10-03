@@ -12,6 +12,7 @@ import { syncCustomDomainRedirectUrls, isSupabaseAuthMgmtConfigured } from '@/li
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit'
 import { verifyCnameRecords } from '@/lib/dns-check'
 import { assertOrgAdmin } from '@/lib/auth'
+import { invalidateOrgCache } from '@/lib/org-cache'
 
 const brandingSchema = z.object({
   orgId: z.string().uuid(),
@@ -114,6 +115,7 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
       social_youtube: brandingData.social_youtube || null,
       timezone: brandingData.timezone || 'America/Toronto',
     }, { onConflict: 'organization_id' })
+  invalidateOrgCache(orgId)
 
   if (error) return { data: null, error: error.message }
 
@@ -149,6 +151,7 @@ export async function updateBranding(input: z.infer<typeof brandingSchema>) {
         railway_txt_value:   dnsRecords.find((r) => r.recordType === 'TXT')?.requiredValue ?? null,
       })
       .eq('organization_id', orgId)
+    invalidateOrgCache(orgId)
   }
 
   await recordAuditLog({
@@ -233,6 +236,7 @@ export async function refreshDnsStatus(orgId: string): Promise<{ records: Railwa
         railway_txt_value:   result.dnsRecords.find((r) => r.recordType === 'TXT')?.requiredValue ?? null,
       })
       .eq('organization_id', orgId)
+    invalidateOrgCache(orgId)
 
     // Return records from the registration call, with our own DNS check layered on top
     if (result.dnsRecords.length > 0) {
@@ -262,6 +266,7 @@ export async function refreshDnsStatus(orgId: string): Promise<{ records: Railwa
       railway_txt_value:   records.find((r) => r.recordType === 'TXT')?.requiredValue ?? null,
     })
     .eq('organization_id', orgId)
+  invalidateOrgCache(orgId)
 
   return { records, error: null }
 }
@@ -297,6 +302,7 @@ export async function updateCheckinSound(
   const { error } = await service
     .from('org_branding')
     .upsert({ organization_id: orgId, checkin_sound: sound }, { onConflict: 'organization_id' })
+  invalidateOrgCache(orgId)
 
   if (error) return { error: error.message }
 
@@ -354,6 +360,7 @@ export async function uploadOrgLogo(formData: FormData): Promise<{ url: string |
   await service
     .from('org_branding')
     .upsert({ organization_id: org.id, logo_url: url }, { onConflict: 'organization_id' })
+  invalidateOrgCache(org.id)
 
   revalidatePath('/admin/settings/branding')
   revalidatePath('/', 'layout')

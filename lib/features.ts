@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { cached } from '@/lib/org-cache'
 
 // ── Feature types ─────────────────────────────────────────────────────────────
 
@@ -155,12 +156,23 @@ async function getOrgOverrides(orgId: string): Promise<OverrideRow[]> {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+// The org's tier + overrides, shared by every canAccess/getLimit for 30s
+// (lib/org-cache.ts). OrgNav alone checks three features per page, and each
+// check used to re-read subscriptions and org_feature_overrides. Billing and
+// override writers call invalidateOrgCache(orgId); Stripe webhooks settle on
+// the TTL.
+function loadOrgPlan(orgId: string): Promise<{ tier: string; overrides: OverrideRow[] }> {
+  return cached(`plan:${orgId}`, 30_000, async () => {
+    const [tier, overrides] = await Promise.all([getOrgTier(orgId), getOrgOverrides(orgId)])
+    return { tier, overrides }
+  })
+}
+
 /** Returns true if the org's plan includes the given boolean feature. */
 export async function canAccess(orgId: string, feature: BooleanFeature): Promise<boolean> {
-  const [tier, configs, overrides] = await Promise.all([
-    getOrgTier(orgId),
+  const [{ tier, overrides }, configs] = await Promise.all([
+    loadOrgPlan(orgId),
     loadPlanConfigs(),
-    getOrgOverrides(orgId),
   ])
 
   // Suspended and hibernating orgs cannot access features
@@ -177,10 +189,9 @@ export async function canAccess(orgId: string, feature: BooleanFeature): Promise
 
 /** Returns the numeric limit for a feature, or null if unlimited. */
 export async function getLimit(orgId: string, feature: LimitFeature): Promise<number | null> {
-  const [tier, configs, overrides] = await Promise.all([
-    getOrgTier(orgId),
+  const [{ tier, overrides }, configs] = await Promise.all([
+    loadOrgPlan(orgId),
     loadPlanConfigs(),
-    getOrgOverrides(orgId),
   ])
 
   if (tier === 'suspended') return 0
