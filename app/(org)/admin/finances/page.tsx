@@ -111,8 +111,8 @@ export default async function FinancesPage() {
                   <tr className="bg-gray-50 text-left">
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Event</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Revenue</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Costs</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Profit</th>
+                    <th className="max-sm:hidden px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Costs</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Profit</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -126,7 +126,7 @@ export default async function FinancesPage() {
                         ) : e.name}
                       </td>
                       <td className="px-4 py-3 text-right text-gray-700">{money(e.revenueCents)}</td>
-                      <td className="px-4 py-3 text-right text-gray-500">{money(e.costCents)}</td>
+                      <td className="max-sm:hidden px-4 py-3 text-right text-gray-500">{money(e.costCents)}</td>
                       <td className={`px-4 py-3 text-right font-medium ${e.profitCents < 0 ? 'text-red-600' : 'text-green-600'}`}>{money(e.profitCents)}</td>
                     </tr>
                   ))}
@@ -135,13 +135,13 @@ export default async function FinancesPage() {
                   <tr className="bg-gray-50 border-t font-semibold text-gray-800">
                     <td className="px-4 py-3">Overhead (org-wide)</td>
                     <td className="px-4 py-3 text-right text-gray-300">—</td>
-                    <td className="px-4 py-3 text-right">{money(pnl.overheadCents)}</td>
+                    <td className="max-sm:hidden px-4 py-3 text-right">{money(pnl.overheadCents)}</td>
                     <td className="px-4 py-3 text-right text-red-600">{money(-pnl.overheadCents)}</td>
                   </tr>
                   <tr className="bg-gray-50 border-t font-bold text-gray-900">
                     <td className="px-4 py-3">Net</td>
                     <td className="px-4 py-3 text-right">{money(pnl.revenueCents)}</td>
-                    <td className="px-4 py-3 text-right">{money(pnl.costCents)}</td>
+                    <td className="max-sm:hidden px-4 py-3 text-right">{money(pnl.costCents)}</td>
                     <td className={`px-4 py-3 text-right ${pnl.profitCents < 0 ? 'text-red-600' : 'text-green-600'}`}>{money(pnl.profitCents)}</td>
                   </tr>
                 </tfoot>
@@ -211,9 +211,9 @@ export default async function FinancesPage() {
                       <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Item</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-400">Units</th>
                       <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Revenue</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">COGS</th>
+                      <th className="max-sm:hidden px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">COGS</th>
                       <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Profit</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Margin</th>
+                      <th className="max-sm:hidden px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Margin</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -222,13 +222,13 @@ export default async function FinancesPage() {
                         <td className="px-4 py-3 text-gray-800 max-w-[220px] truncate">{it.name}</td>
                         <td className="px-4 py-3 text-center text-gray-700">{it.unitsSold}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{money(it.revenueCents)}</td>
-                        <td className="px-4 py-3 text-right text-gray-500">
+                        <td className="max-sm:hidden px-4 py-3 text-right text-gray-500">
                           {it.costCents === null ? <span className="text-gray-300">—</span> : money(it.costCents)}
                         </td>
                         <td className={`px-4 py-3 text-right font-medium ${it.profitCents === null ? 'text-gray-300' : it.profitCents < 0 ? 'text-red-600' : 'text-green-600'}`}>
                           {it.profitCents === null ? 'no cost' : money(it.profitCents)}
                         </td>
-                        <td className="px-4 py-3 text-right text-gray-700">{pct(it.margin)}</td>
+                        <td className="max-sm:hidden px-4 py-3 text-right text-gray-700">{pct(it.margin)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -237,9 +237,9 @@ export default async function FinancesPage() {
                       <td className="px-4 py-3">Total</td>
                       <td />
                       <td className="px-4 py-3 text-right">{money(shop.revenueCents)}</td>
-                      <td className="px-4 py-3 text-right">{money(shop.cogsCents)}</td>
+                      <td className="max-sm:hidden px-4 py-3 text-right">{money(shop.cogsCents)}</td>
                       <td className={`px-4 py-3 text-right ${shop.profitCents < 0 ? 'text-red-600' : 'text-green-600'}`}>{money(shop.profitCents)}</td>
-                      <td className="px-4 py-3 text-right">{pct(shop.margin)}</td>
+                      <td className="max-sm:hidden px-4 py-3 text-right">{pct(shop.margin)}</td>
                     </tr>
                   </tfoot>
                 </table>

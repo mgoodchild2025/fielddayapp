@@ -9,6 +9,8 @@ import Link from 'next/link'
 import { Home, Trophy, Zap, ChevronUp, ChevronDown } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
+import { SaveBar } from '@/components/ui/save-bar'
+import { useUnsavedChanges } from '@/components/ui/use-unsaved-changes'
 
 type Theme = 'community' | 'club' | 'pro'
 type SectionItem = { key: string; label: string; visible: boolean }
@@ -107,6 +109,8 @@ interface Props {
 export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutContent, savedSections }: Props) {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  useUnsavedChanges(dirty && !loading)
 
   const { register, handleSubmit, watch, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -161,6 +165,7 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
     const [moved] = reordered.splice(from, 1)
     reordered.splice(to, 0, moved)
     setSections(reordered)
+    setDirty(true)
     dragKey.current = null
     setDragOverKey(null)
   }
@@ -197,6 +202,7 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
     if (result.error) {
       setSaveError(result.error)
     } else {
+      setDirty(false)
       toast.success('Website settings saved')
     }
   }
@@ -204,12 +210,14 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
   void orgSlug // available for future use (preview link)
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {saveError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
-          {saveError}
-        </div>
-      )}
+    <div className="space-y-6">
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      onInput={() => setDirty(true)}
+      onChange={() => setDirty(true)}
+      onClick={(e) => { if ((e.target as Element).closest('button[type="button"]:not([data-no-dirty])')) setDirty(true) }}
+      className="space-y-6"
+    >
 
       {/* ── Theme Picker ── */}
       <div className="bg-white rounded-lg border p-5 space-y-4">
@@ -426,6 +434,11 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
         </div>
       </div>
 
+      <SaveBar dirty={dirty} saving={loading} error={saveError} label="Save website settings" />
+    </form>
+
+      {/* Separate pages with their own saves — kept outside the form (and
+          below its Save) so "Manage →" never looks like it saves this one. */}
       {/* ── Content sub-pages ── */}
       <div className="bg-white rounded-lg border divide-y">
         {[
@@ -438,21 +451,13 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
               <p className="font-semibold text-sm">{label}</p>
               <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
             </div>
-            <Link href={href} className="shrink-0 px-4 py-2 text-sm font-medium border rounded-md hover:bg-gray-50 transition-colors">
+            <Link href={href} className="press shrink-0 inline-flex items-center min-h-10 px-4 text-sm font-medium border rounded-md hover:bg-gray-50">
               Manage →
             </Link>
           </div>
         ))}
       </div>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="px-6 py-2.5 rounded-md font-semibold text-white disabled:opacity-60"
-        style={{ backgroundColor: 'var(--brand-primary)' }}
-      >
-        {loading ? 'Saving…' : 'Save Website Settings'}
-      </button>
-    </form>
+    </div>
   )
 }

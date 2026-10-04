@@ -4,6 +4,9 @@ import { useState, useRef, useTransition } from 'react'
 import Image from 'next/image'
 import { upsertSponsor, deleteSponsor, uploadSponsorLogo } from '@/actions/org-sponsors'
 import { UploadStatus, Spinner } from '@/components/ui/upload-status'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Handshake } from 'lucide-react'
+import { toast } from 'sonner'
 import { undoableRemove, insertAt } from '@/components/ui/use-undoable-remove'
 
 type Sponsor = { id: string; name: string; logo_url: string | null; website_url: string | null; tier: string; display_order: number }
@@ -115,9 +118,12 @@ export function SponsorManager({ initialSponsors }: { initialSponsors: Sponsor[]
     setUploadingId(sponsorId)
     const fd = new FormData()
     fd.append('logo', file)
-    const result = await uploadSponsorLogo(sponsorId, fd)
+    // A failed upload used to just stop spinning — say why.
+    const result = await uploadSponsorLogo(sponsorId, fd).catch(() => ({ url: null, error: "Couldn't reach the server — check your connection." }))
     if (result.url) {
       setSponsors(prev => prev.map(s => s.id === sponsorId ? { ...s, logo_url: result.url } : s))
+    } else {
+      toast.error("Logo wasn't uploaded", { description: ('error' in result && result.error) || 'Please try again.' })
     }
     setUploadingId(null)
     if (fileRefs.current[sponsorId]) fileRefs.current[sponsorId]!.value = ''
@@ -126,10 +132,7 @@ export function SponsorManager({ initialSponsors }: { initialSponsors: Sponsor[]
   return (
     <div className="space-y-4">
       {sponsors.length === 0 && !adding && (
-        <div className="text-center py-12 border-2 border-dashed rounded-xl text-gray-400">
-          <p className="text-lg">No sponsors yet</p>
-          <p className="text-sm mt-1">Add sponsors to display them on your public site.</p>
-        </div>
+        <EmptyState icon={Handshake} title="No sponsors yet" hint="Add sponsors to show their logos on your public site." />
       )}
 
       {sponsors.map(sponsor => (
@@ -166,11 +169,11 @@ export function SponsorManager({ initialSponsors }: { initialSponsors: Sponsor[]
                   type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" className="hidden"
                   onChange={e => handleLogoChange(sponsor.id, e)}
                 />
-                <button onClick={() => fileRefs.current[sponsor.id]?.click()} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-50">
+                <button onClick={() => fileRefs.current[sponsor.id]?.click()} className="press inline-flex items-center min-h-10 px-2.5 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                   {sponsor.logo_url ? 'Logo' : '+ Logo'}
                 </button>
-                <button onClick={() => setEditingId(sponsor.id)} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-50">Edit</button>
-                <button onClick={() => handleDelete(sponsor.id)} className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50">
+                <button onClick={() => setEditingId(sponsor.id)} className="press inline-flex items-center min-h-10 px-2.5 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">Edit</button>
+                <button onClick={() => handleDelete(sponsor.id)} className="press inline-flex items-center min-h-10 px-2.5 rounded-md text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">
                   Remove
                 </button>
               </div>
@@ -182,7 +185,7 @@ export function SponsorManager({ initialSponsors }: { initialSponsors: Sponsor[]
       {adding ? (
         <SponsorForm onSave={handleSaved} onCancel={() => setAdding(false)} />
       ) : (
-        <button onClick={() => setAdding(true)} className="w-full py-3 border-2 border-dashed rounded-xl text-sm text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-colors">
+        <button onClick={() => setAdding(true)} className="press w-full min-h-12 border-2 border-dashed rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300">
           + Add Sponsor
         </button>
       )}

@@ -1,13 +1,17 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { dismissOnboardingChecklist } from '@/actions/onboarding'
+import { undoableRemove } from '@/components/ui/use-undoable-remove'
 
 export type OnboardingChecklistData = {
   logoSet: boolean
   websiteConfigured: boolean
   eventCreated: boolean
+  paymentsSet: boolean
+  /** The org's display timezone — every game time is shown in it. */
+  timezone: string
 }
 
 const STEPS = [
@@ -20,7 +24,9 @@ const STEPS = [
   {
     key: 'brand',
     title: 'Set up your brand',
-    description: 'Upload your logo and configure your brand colours.',
+    // The time zone lives on the branding page; it defaults to Toronto, and a
+    // wrong one shifts every game time players see — so say which is set.
+    description: 'Upload your logo, set your brand colours, and check your time zone.',
     href: '/admin/settings/branding',
   },
   {
@@ -28,6 +34,12 @@ const STEPS = [
     title: 'Configure your website',
     description: 'Choose a theme and customise your public-facing site.',
     href: '/admin/settings/website',
+  },
+  {
+    key: 'payments',
+    title: 'Set up payments',
+    description: 'Connect Stripe to take card payments, or choose cash / e-transfer.',
+    href: '/admin/settings/payments',
   },
   {
     key: 'event',
@@ -42,6 +54,7 @@ export function OnboardingChecklist({ data }: { data: OnboardingChecklistData })
     portal:  true,
     brand:   data.logoSet,
     website: data.websiteConfigured,
+    payments: data.paymentsSet,
     event:   data.eventCreated,
   }
 
@@ -54,8 +67,6 @@ export function OnboardingChecklist({ data }: { data: OnboardingChecklistData })
   // Success banner — show briefly then unmount
   const [showSuccess, setShowSuccess] = useState(false)
   const [gone, setGone]               = useState(false)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isPending, startTransition]  = useTransition()
 
   useEffect(() => {
     if (allComplete) {
@@ -68,10 +79,12 @@ export function OnboardingChecklist({ data }: { data: OnboardingChecklistData })
   if (dismissed || gone) return null
 
   function handleDismiss() {
-    // Hide immediately — don't wait for the server round-trip
+    // Hide immediately with Undo; it's only saved once the Undo window closes.
     setDismissed(true)
-    startTransition(async () => {
-      await dismissOnboardingChecklist()
+    undoableRemove({
+      label: 'Checklist hidden',
+      restore: () => setDismissed(false),
+      commit: () => dismissOnboardingChecklist(),
     })
   }
 
@@ -115,7 +128,7 @@ export function OnboardingChecklist({ data }: { data: OnboardingChecklistData })
         {/* Dismiss */}
         <button
           onClick={handleDismiss}
-          className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors -mt-0.5"
+          className="press shrink-0 w-10 h-10 -mt-2 -mr-2 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100"
           aria-label="Dismiss checklist"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -149,7 +162,7 @@ export function OnboardingChecklist({ data }: { data: OnboardingChecklistData })
                 ) : (
                   <div className={[
                     'w-5 h-5 rounded-full border-2',
-                    isCurrent ? 'border-orange-400' : 'border-gray-200',
+                    isCurrent ? 'border-brand-primary' : 'border-gray-300',
                   ].join(' ')} />
                 )}
               </div>
@@ -164,7 +177,10 @@ export function OnboardingChecklist({ data }: { data: OnboardingChecklistData })
                   {step.title}
                 </p>
                 {!complete && (
-                  <p className="text-xs text-gray-400 mt-0.5 leading-snug">{step.description}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-snug">
+                    {step.description}
+                    {step.key === 'brand' && <> Currently <span className="font-medium text-gray-700">{data.timezone.replace(/_/g, ' ')}</span>.</>}
+                  </p>
                 )}
               </div>
 
@@ -173,10 +189,10 @@ export function OnboardingChecklist({ data }: { data: OnboardingChecklistData })
                 <Link
                   href={step.href}
                   className={[
-                    'shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full transition-colors',
+                    'press shrink-0 inline-flex items-center min-h-10 text-xs font-semibold px-3 rounded-full',
                     isCurrent
                       ? 'bg-orange-50 text-orange-600 hover:bg-orange-100'
-                      : 'text-gray-400 hover:text-gray-600',
+                      : 'text-gray-500 hover:text-gray-700',
                   ].join(' ')}
                   style={isCurrent ? { color: 'var(--brand-primary, #f97316)', backgroundColor: 'color-mix(in srgb, var(--brand-primary, #f97316) 8%, white)' } : {}}
                 >

@@ -41,6 +41,12 @@ export default async function AdminDashboardPage() {
   const todayStart = parseLocalToUtc(todayKey, '00:00', orgTz)
   const todayEnd = parseLocalToUtc(tomorrowKey, '00:00', orgTz)
 
+  // Started early, read only for the onboarding checklist's payments step.
+  const paySettingsPromise = Promise.resolve(
+    db.from('org_payment_settings').select('stripe_secret_key, registration_payment_mode').eq('organization_id', org.id).maybeSingle()
+  )
+  paySettingsPromise.catch(() => {})
+
   const [
     { count: leagueCount },
     { count: memberCount },
@@ -220,12 +226,16 @@ export default async function AdminDashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const b = branding as any
   const checklistDismissed = !!b?.onboarding_dismissed_at
+  const { data: paySettings } = await paySettingsPromise.catch(() => ({ data: null }))
   const checklistData = {
     logoSet:           !!b?.logo_url,
     websiteConfigured: !!b?.website_configured_at,
     eventCreated:      (leagueCount ?? 0) > 0,
+    // Stripe connected, or an explicit choice of offline payments.
+    paymentsSet:       !!paySettings?.stripe_secret_key || !!paySettings?.registration_payment_mode,
+    timezone:          (b?.timezone as string | null) ?? 'America/Toronto',
   }
-  const allChecklistDone = checklistData.logoSet && checklistData.websiteConfigured && checklistData.eventCreated
+  const allChecklistDone = checklistData.logoSet && checklistData.websiteConfigured && checklistData.eventCreated && checklistData.paymentsSet
   const showChecklist = !checklistDismissed && !allChecklistDone
 
   const stats = [

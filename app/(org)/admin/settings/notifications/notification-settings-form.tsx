@@ -1,6 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
+import { SaveBar } from '@/components/ui/save-bar'
+import { useUnsavedChanges } from '@/components/ui/use-unsaved-changes'
 import { saveNotificationSettings, sendCaptainPrepTestEmail, type NotificationSettings, type SmsReminder } from '@/actions/notification-settings'
 import { TIMING_OPTIONS, DEFAULT_MESSAGES, MAX_MESSAGE_CHARS, EMAIL_TIMING_OPTIONS } from '@/lib/notification-settings-constants'
 
@@ -15,7 +18,8 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+      // 24px track, 40px tap area (the ::before), brand focus ring from globals.
+      className={`relative shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors before:absolute before:-inset-2 before:content-[''] ${
         checked ? 'bg-[var(--brand-primary)]' : 'bg-gray-200'
       }`}
     >
@@ -42,9 +46,11 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
   const [regNotifEmail, setRegNotifEmail] = useState(initial.registrationNotificationEmail ?? '')
   const [paymentFailEnabled, setPaymentFailEnabled] = useState(initial.paymentFailureNotificationsEnabled)
   const [merchOrderNotifEnabled, setMerchOrderNotifEnabled] = useState(initial.merchOrderNotificationsEnabled)
-  const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  // The switches only take effect on Save — the bar says so the moment one flips.
+  const [dirty, setDirty] = useState(false)
+  useUnsavedChanges(dirty && !isPending)
 
   const usedMinutes = new Set(reminders.map((r) => r.minutesBefore))
   const availableOptions = TIMING_OPTIONS.filter((o) => !usedMinutes.has(o.minutes))
@@ -80,7 +86,6 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    setSaved(false)
     startTransition(async () => {
       const res = await saveNotificationSettings({
         smsGameRemindersEnabled: smsEnabled,
@@ -100,8 +105,8 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
       if (res.error) {
         setError(res.error)
       } else {
-        setSaved(true)
-        setTimeout(() => setSaved(false), 3000)
+        setDirty(false)
+        toast.success('Notification settings saved')
       }
     })
   }
@@ -120,7 +125,13 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form
+      onSubmit={handleSubmit}
+      onInput={() => setDirty(true)}
+      onChange={() => setDirty(true)}
+      onClick={(e) => { if ((e.target as Element).closest('button[type="button"]:not([data-no-dirty])')) setDirty(true) }}
+      className="space-y-5"
+    >
       {/* ── Game-day morning SMS — informational, player-controlled ── */}
       <div className="bg-white rounded-lg border p-5 space-y-2">
         <div className="flex items-start gap-3">
@@ -202,8 +213,9 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
                     <button
                       type="button"
                       onClick={() => removeReminder(reminder.key)}
-                      className="text-gray-300 hover:text-red-500 transition-colors p-1"
+                      className="press shrink-0 inline-flex items-center justify-center w-10 h-10 -m-2 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50"
                       title="Remove reminder"
+                      aria-label="Remove reminder"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -315,9 +327,10 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
         <div className="px-5 py-4 flex items-center gap-3 flex-wrap">
           <button
             type="button"
+            data-no-dirty
             onClick={handleSendTest}
             disabled={testState === 'sending'}
-            className="px-3 py-1.5 rounded-md text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="press min-h-10 px-3 rounded-md text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
             {testState === 'sending' ? 'Sending…' : 'Send test email to me'}
           </button>
@@ -397,19 +410,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={isPending}
-          className="px-5 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-50 transition-opacity"
-          style={{ backgroundColor: 'var(--brand-primary)' }}
-        >
-          {isPending ? 'Saving…' : 'Save'}
-        </button>
-        {saved && <span className="fd-fade-in text-sm text-green-600">Saved</span>}
-      </div>
+      <SaveBar dirty={dirty} saving={isPending} error={error} label="Save" />
     </form>
   )
 }

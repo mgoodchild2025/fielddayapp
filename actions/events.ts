@@ -179,7 +179,7 @@ export async function createLeague(
     .select('id')
     .single()
 
-  if (error) return { data: null, error: error.message }
+  if (error) return { data: null, error: leagueWriteError(error) }
 
   await recordAuditLog({
     orgId: org.id,
@@ -214,6 +214,14 @@ export async function createLeague(
 
   revalidatePath('/admin/events')
   return { data, error: null }
+}
+
+/** Plain words for the one write error admins actually hit: a URL slug another event already has. */
+function leagueWriteError(error: { code?: string; message: string }): string {
+  if (error.code === '23505' && /slug/i.test(error.message)) {
+    return 'That URL slug is already used by another event — pick a different one.'
+  }
+  return error.message
 }
 
 export async function updateLeagueStatus(leagueId: string, status: LeagueStatus) {
@@ -434,7 +442,7 @@ export async function updateLeague(
     .eq('id', leagueId)
     .eq('organization_id', org.id)
 
-  if (error) return { data: null, error: error.message }
+  if (error) return { data: null, error: leagueWriteError(error) }
 
 
   const { data: lg } = await db

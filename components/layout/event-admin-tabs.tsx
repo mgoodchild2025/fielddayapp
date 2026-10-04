@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { confirmLeaveIfUnsaved } from '@/components/ui/use-unsaved-changes'
 
 function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
   const base = [
@@ -151,7 +152,11 @@ export function EventAdminTabs({ leagueId, eventType, pickupJoinPolicy = 'public
         <select
           aria-label="Event section"
           value={activeHref()}
-          onChange={(e) => router.push(e.target.value)}
+          onChange={async (e) => {
+            const href = e.target.value
+            // A select can't be intercepted like a link: ask about unsaved edits here.
+            if (await confirmLeaveIfUnsaved()) router.push(href)
+          }}
           className="w-full appearance-none border rounded-lg px-3 py-2.5 pr-8 text-sm font-medium bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-0"
         >
           {grouped.map(({ group, tabs: items }) => (

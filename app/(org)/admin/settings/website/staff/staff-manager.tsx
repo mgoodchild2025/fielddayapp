@@ -4,6 +4,9 @@ import { useState, useRef, useTransition } from 'react'
 import Image from 'next/image'
 import { upsertStaffMember, deleteStaffMember, uploadStaffAvatar } from '@/actions/org-staff'
 import { UploadStatus, Spinner } from '@/components/ui/upload-status'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Users } from 'lucide-react'
+import { toast } from 'sonner'
 import { undoableRemove, insertAt } from '@/components/ui/use-undoable-remove'
 
 type StaffMember = { id: string; name: string; role: string | null; bio: string | null; avatar_url: string | null; display_order: number }
@@ -97,8 +100,10 @@ export function StaffManager({ initialStaff }: { initialStaff: StaffMember[] }) 
     setUploadingId(staffId)
     const fd = new FormData()
     fd.append('avatar', file)
-    const result = await uploadStaffAvatar(staffId, fd)
+    // A failed upload used to just stop spinning — say why.
+    const result = await uploadStaffAvatar(staffId, fd).catch(() => ({ url: null, error: "Couldn't reach the server — check your connection." }))
     if (result.url) setStaff(prev => prev.map(s => s.id === staffId ? { ...s, avatar_url: result.url } : s))
+    else toast.error("Photo wasn't uploaded", { description: ('error' in result && result.error) || 'Please try again.' })
     setUploadingId(null)
     if (fileRefs.current[staffId]) fileRefs.current[staffId]!.value = ''
   }
@@ -106,10 +111,7 @@ export function StaffManager({ initialStaff }: { initialStaff: StaffMember[] }) 
   return (
     <div className="space-y-3">
       {staff.length === 0 && !adding && (
-        <div className="text-center py-12 border-2 border-dashed rounded-xl text-gray-400">
-          <p className="text-lg">No staff listed yet</p>
-          <p className="text-sm mt-1">Add organizers, coaches, or volunteers to feature on your site.</p>
-        </div>
+        <EmptyState icon={Users} title="No staff listed yet" hint="Add organizers, coaches, or volunteers to feature on your site." />
       )}
 
       {staff.map(member => (
@@ -142,11 +144,11 @@ export function StaffManager({ initialStaff }: { initialStaff: StaffMember[] }) 
                   type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
                   onChange={e => handleAvatarChange(member.id, e)}
                 />
-                <button onClick={() => fileRefs.current[member.id]?.click()} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-50">
+                <button onClick={() => fileRefs.current[member.id]?.click()} className="press inline-flex items-center min-h-10 px-2.5 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                   {member.avatar_url ? 'Photo' : '+ Photo'}
                 </button>
-                <button onClick={() => setEditingId(member.id)} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-50">Edit</button>
-                <button onClick={() => handleDelete(member.id)} className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50">
+                <button onClick={() => setEditingId(member.id)} className="press inline-flex items-center min-h-10 px-2.5 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">Edit</button>
+                <button onClick={() => handleDelete(member.id)} className="press inline-flex items-center min-h-10 px-2.5 rounded-md text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">
                   Remove
                 </button>
               </div>
@@ -158,7 +160,7 @@ export function StaffManager({ initialStaff }: { initialStaff: StaffMember[] }) 
       {adding ? (
         <StaffForm onSave={handleSaved} onCancel={() => setAdding(false)} />
       ) : (
-        <button onClick={() => setAdding(true)} className="w-full py-3 border-2 border-dashed rounded-xl text-sm text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-colors">
+        <button onClick={() => setAdding(true)} className="press w-full min-h-12 border-2 border-dashed rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300">
           + Add Person
         </button>
       )}

@@ -11,6 +11,8 @@ import type { Editor } from '@tiptap/core'
 import { uploadContentImage } from '@/actions/content-images'
 import { isSafeLinkHref } from '@/lib/sanitize-html'
 import { UploadStatus } from '@/components/ui/upload-status'
+import { Overlay } from '@/components/ui/overlay'
+import { toast } from 'sonner'
 
 interface Props {
   content: string
@@ -86,10 +88,14 @@ function ToolbarBtn({
   return (
     <button
       type="button"
+      data-no-dirty
       onMouseDown={(e) => { e.preventDefault(); onClick() }}
       title={title}
+      aria-label={title}
+      aria-pressed={active ?? undefined}
       disabled={disabled}
-      className={`w-8 h-8 flex items-center justify-center rounded transition-colors disabled:opacity-40 ${
+      // 40px on phones (thumbs), 32px with a mouse.
+      className={`w-10 h-10 sm:w-8 sm:h-8 flex items-center justify-center rounded transition-colors disabled:opacity-40 ${
         active
           ? 'bg-gray-200 text-gray-900'
           : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
@@ -104,21 +110,81 @@ function Sep() {
   return <span className="w-px h-4 bg-gray-200 mx-0.5 shrink-0" aria-hidden />
 }
 
-function promptLink(editor: Editor) {
-  const prev = editor.getAttributes('link').href as string | undefined
-  const url = window.prompt('Link URL', prev ?? 'https://')
-  if (url === null) return
-  if (!url) {
+/**
+ * Add / edit / remove a link — an in-app sheet instead of window.prompt
+ * (which iOS renders as a tiny system box, and which can't explain a refusal).
+ * ProseMirror keeps the selection while the sheet has focus; `focus()` on
+ * save puts it back before the link is applied.
+ */
+function LinkSheet({ editor, open, onClose }: { editor: Editor | null; open: boolean; onClose: () => void }) {
+  return (
+    <Overlay open={open} onClose={onClose} variant="sheet" labelledBy="rte-link-title"
+      panelClassName="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-xl p-5">
+      {open && editor && <LinkSheetBody editor={editor} onClose={onClose} />}
+    </Overlay>
+  )
+}
+
+function LinkSheetBody({ editor, onClose }: { editor: Editor; onClose: () => void }) {
+  const prev = (editor.getAttributes('link').href as string | undefined) ?? ''
+  const [url, setUrl] = useState(prev || 'https://')
+  const [error, setError] = useState<string | null>(null)
+
+  function save() {
+    const href = url.trim()
+    if (!href || href === 'https://') { remove(); return }
+    // Defence in depth: the renderer sanitizes too, but a javascript: URL should
+    // never reach the database in the first place.
+    if (!isSafeLinkHref(href)) {
+      setError('Use a web address starting with https://, or a mailto: or tel: link.')
+      return
+    }
+    editor.chain().focus().extendMarkRange('link').setLink({ href }).run()
+    onClose()
+  }
+  function remove() {
     editor.chain().focus().extendMarkRange('link').unsetLink().run()
-    return
+    onClose()
   }
-  // Defence in depth: the renderer sanitizes too, but a javascript: URL should
-  // never reach the database in the first place.
-  if (!isSafeLinkHref(url)) {
-    window.alert('That link was not added. Use a web address starting with https://, or a mailto: or tel: link.')
-    return
-  }
-  editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
+
+  return (
+    <div className="space-y-4">
+      <h2 id="rte-link-title" className="text-lg font-semibold text-gray-900">{prev ? 'Edit link' : 'Add link'}</h2>
+      <div>
+        <label htmlFor="rte-link-url" className="block text-sm font-medium text-gray-700 mb-1">Link address</label>
+        <input
+          id="rte-link-url"
+          data-autofocus
+          type="url"
+          inputMode="url"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="done"
+          value={url}
+          onChange={(e) => { setUrl(e.target.value); setError(null) }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); save() } }}
+          aria-invalid={!!error}
+          aria-describedby={error ? 'rte-link-error' : undefined}
+          className="w-full min-h-11 border rounded-md px-3 text-base"
+        />
+        {error && <p id="rte-link-error" role="alert" className="mt-1 text-sm text-red-600">{error}</p>}
+      </div>
+      <div className="flex items-center gap-2">
+        {prev && (
+          <button type="button" onClick={remove} className="press min-h-10 px-3 rounded-md text-sm font-medium text-red-600 hover:bg-red-50 mr-auto">
+            Remove link
+          </button>
+        )}
+        <button type="button" data-no-dirty onClick={onClose} className={`press min-h-10 px-4 rounded-md text-sm font-medium border text-gray-700 hover:bg-gray-50 ${prev ? '' : 'ml-auto'}`}>
+          Cancel
+        </button>
+        <button type="button" onClick={save} className="press min-h-10 px-5 rounded-md text-sm font-semibold bg-brand-primary text-on-brand">
+          {prev ? 'Save link' : 'Add link'}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 // ─── Image upload helper ──────────────────────────────────────────────────────
@@ -143,6 +209,7 @@ async function insertImage(file: File, editor: Editor) {
   const { url, error } = await uploadContentImage(fd)
 
   if (error || !url) {
+    toast.error(`Couldn't upload ${file.name}`, { description: error ?? 'Please try again.' })
     // Upload failed — remove the placeholder image so the user isn't left with a broken base64 blob
     editor.commands.command(({ tr, state }) => {
       state.doc.descendants((node, pos) => {
@@ -173,6 +240,7 @@ export function RichTextEditor({ content, onChange, minHeight = '220px', disable
 
   const editorRef = useRef<Editor | null>(null)
   const [uploadingImage, setUploadingImage] = useState<File | null>(null)
+  const [linkOpen, setLinkOpen] = useState(false)
 
   // Wraps insertImage so the toolbar can show an "Uploading…" status while the
   // background upload runs (the inline data-URL preview alone looks finished).
@@ -284,12 +352,15 @@ export function RichTextEditor({ content, onChange, minHeight = '220px', disable
 
   return (
     <div
-      className={`relative border rounded-lg overflow-hidden transition-shadow ${
+      // No overflow-hidden: it would stop the toolbar sticking while a long
+      // description scrolls (the corners are rounded on the parts instead).
+      className={`relative border rounded-lg transition-shadow ${
         disabled
           ? 'opacity-60 bg-gray-50'
-          : 'focus-within:ring-2 focus-within:ring-orange-400 focus-within:border-orange-400'
+          : 'focus-within:ring-2 focus-within:ring-brand-primary focus-within:border-brand-primary'
       }`}
     >
+      <LinkSheet editor={editor} open={linkOpen} onClose={() => setLinkOpen(false)} />
       {/* Hidden file input for the image toolbar button */}
       <input
         ref={fileInputRef}
@@ -300,7 +371,7 @@ export function RichTextEditor({ content, onChange, minHeight = '220px', disable
       />
 
       {/* Toolbar */}
-      <div className="flex items-center flex-wrap gap-0.5 px-2 py-1.5 border-b bg-gray-50">
+      <div className="sticky top-0 z-[1] flex items-center flex-wrap gap-0.5 px-2 py-1.5 border-b bg-gray-50 rounded-t-lg">
         {/* Text style */}
         <ToolbarBtn
           onClick={() => editor?.chain().focus().toggleBold().run()}
@@ -371,7 +442,7 @@ export function RichTextEditor({ content, onChange, minHeight = '220px', disable
 
         {/* Link, rule, image */}
         <ToolbarBtn
-          onClick={() => editor && promptLink(editor)}
+          onClick={() => setLinkOpen(true)}
           active={editor?.isActive('link')}
           title={editor?.isActive('link') ? 'Edit or remove link' : 'Add link'}
           disabled={!editor || disabled}
