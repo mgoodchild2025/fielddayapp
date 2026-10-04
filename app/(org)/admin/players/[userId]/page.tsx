@@ -166,17 +166,19 @@ export default async function PlayerManagementPage({
     <div>
       {/* Header */}
       <div className="mb-6">
-        <Link href="/admin/players" className="text-sm text-gray-400 hover:text-gray-600">
+        <Link href="/admin/players" className="press inline-flex items-center min-h-10 text-sm text-gray-500 hover:text-gray-700">
           ← Players
         </Link>
-        <div className="flex items-start justify-between mt-2 gap-4">
-          <div className="flex items-center gap-4">
+        {/* Wraps on phones: pills drop under the name, and a long email breaks
+            instead of pushing the page sideways. */}
+        <div className="flex flex-wrap items-start justify-between mt-2 gap-x-4 gap-y-2">
+          <div className="flex items-center gap-4 min-w-0">
             <PlayerAvatar avatarUrl={profile.avatar_url ?? null} name={profile.full_name} size="lg" />
-            <div>
-              <h1 className="text-2xl font-bold">{profile.full_name}</h1>
-              <p className="text-sm text-gray-500 mt-0.5">
-                {profile.email}
-                {profile.phone ? ` · ${profile.phone}` : ''}
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold break-words">{profile.full_name}</h1>
+              <p className="text-sm text-gray-500 mt-0.5 [overflow-wrap:anywhere]">
+                {profile.email && <a href={`mailto:${profile.email}`} className="hover:underline">{profile.email}</a>}
+                {profile.phone ? <> · <a href={`tel:${profile.phone}`} className="hover:underline">{profile.phone}</a></> : ''}
               </p>
             </div>
           </div>
@@ -201,7 +203,7 @@ export default async function PlayerManagementPage({
         </div>
 
         {/* Stats strip */}
-        <div className="flex gap-6 mt-4 text-sm text-gray-500">
+        <div className="flex flex-wrap gap-x-6 gap-y-1 mt-4 text-sm text-gray-500">
           <span>
             <span className="font-semibold text-gray-900">{registrations.length}</span>{' '}
             league{registrations.length !== 1 ? 's' : ''}

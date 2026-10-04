@@ -114,7 +114,7 @@ export function TaxRatesManager({ rates }: { rates: TaxRateRow[] }) {
             </label>
             <label className="text-xs text-gray-500">Rate %
               <input
-                type="number" min="0.01" max="100" step="0.01"
+                type="number" inputMode="decimal" min="0.01" max="100" step="0.01"
                 value={form.percentage}
                 onChange={(e) => setForm({ ...form, percentage: parseFloat(e.target.value) || 0 })}
                 className="mt-1 w-full border rounded px-2 py-1.5 text-sm bg-white"

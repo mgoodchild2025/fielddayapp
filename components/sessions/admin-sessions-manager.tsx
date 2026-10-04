@@ -260,14 +260,14 @@ function CreateForm({ leagueId, timezone, onDone }: { leagueId: string; timezone
         </div>
         <div>
           <label className={LABEL}>Duration (minutes)</label>
-          <input name="duration_minutes" type="number" defaultValue={90} min={15} className={INPUT} />
+          <input name="duration_minutes" type="number" inputMode="numeric" defaultValue={90} min={15} className={INPUT} />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className={LABEL}>Capacity (blank = unlimited)</label>
-          <input name="capacity" type="number" min={1} placeholder="Unlimited" className={INPUT} />
+          <input name="capacity" type="number" inputMode="numeric" min={1} placeholder="Unlimited" className={INPUT} />
         </div>
         <div>
           <label className={LABEL}>Location</label>
@@ -391,14 +391,14 @@ function EditForm({ session, leagueId, timezone, onDone }: { session: Session; l
         </div>
         <div>
           <label className={LABEL}>Duration (minutes)</label>
-          <input name="duration_minutes" type="number" defaultValue={session.duration_minutes} min={15} className={INPUT} />
+          <input name="duration_minutes" type="number" inputMode="numeric" defaultValue={session.duration_minutes} min={15} className={INPUT} />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={LABEL}>Capacity (blank = unlimited)</label>
-          <input name="capacity" type="number" min={1} defaultValue={session.capacity ?? ''} placeholder="Unlimited" className={INPUT} />
+          <input name="capacity" type="number" inputMode="numeric" min={1} defaultValue={session.capacity ?? ''} placeholder="Unlimited" className={INPUT} />
         </div>
         <div>
           <label className={LABEL}>Location</label>

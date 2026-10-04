@@ -53,7 +53,7 @@ export function TaxCalc({ amount, defaultPct = 0, onCalc }: {
       </button>
       <span className="relative">
         <input
-          type="number"
+          type="number" inputMode="decimal"
           step="0.01"
           min="0"
           value={pct}

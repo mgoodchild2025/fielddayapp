@@ -134,7 +134,7 @@ function AllocationEditor({ expense, targets, onDone }: {
               <span className="relative">
                 <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
                 <input
-                  type="number" step="0.01" min="0"
+                  type="number" inputMode="decimal" step="0.01" min="0"
                   value={amounts[t.leagueId] ?? ''}
                   onChange={(e) => setAmounts((prev) => ({ ...prev, [t.leagueId]: e.target.value }))}
                   className="w-24 border rounded pl-5 pr-2 py-1 text-sm text-right"
@@ -241,7 +241,7 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [], de
             </select>
             <div className="relative">
               <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-              <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="w-full border rounded pl-5 pr-2 py-1.5 text-sm" />
+              <input type="number" inputMode="decimal" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="w-full border rounded pl-5 pr-2 py-1.5 text-sm" />
             </div>
           </div>
           <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (e.g. Liability insurance)" className="w-full border rounded px-2 py-1.5 text-sm" />
@@ -259,7 +259,7 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [], de
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-              <input type="number" step="0.01" min="0" value={tax} onChange={(e) => setTax(e.target.value)} placeholder="Tax included (HST/GST) — optional" className="w-full border rounded pl-5 pr-2 py-1.5 text-sm" />
+              <input type="number" inputMode="decimal" step="0.01" min="0" value={tax} onChange={(e) => setTax(e.target.value)} placeholder="Tax included (HST/GST) — optional" className="w-full border rounded pl-5 pr-2 py-1.5 text-sm" />
             </div>
             <TaxCalc amount={amount} defaultPct={defaultTaxPct} onCalc={setTax} />
           </div>

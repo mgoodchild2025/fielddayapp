@@ -81,7 +81,7 @@ export function InsertBreakForm({ leagueId, gameTimes, timezone }: Props) {
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Break duration (min)</label>
           <input
-            type="number"
+            type="number" inputMode="numeric"
             min={1}
             value={duration}
             onChange={e => setDuration(Number(e.target.value))}

@@ -228,7 +228,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Week #</label>
               <input
-                type="number"
+                type="number" inputMode="numeric"
                 value={weekNumber}
                 onChange={(e) => setWeekNumber(e.target.value)}
                 min={1}

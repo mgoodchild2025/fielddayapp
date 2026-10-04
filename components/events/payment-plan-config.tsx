@@ -83,15 +83,15 @@ export function PaymentPlanConfig({ leagueId, existing }: Props) {
           <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="text-xs text-gray-500 mb-0.5 block">Payments</label>
-              <input type="number" min={2} max={12} value={installments} onChange={e => setInstallments(e.target.value)} required className={inputClass} />
+              <input type="number" inputMode="numeric" min={2} max={12} value={installments} onChange={e => setInstallments(e.target.value)} required className={inputClass} />
             </div>
             <div>
               <label className="text-xs text-gray-500 mb-0.5 block">Every (days)</label>
-              <input type="number" min={7} max={90} value={intervalDays} onChange={e => setIntervalDays(e.target.value)} required className={inputClass} />
+              <input type="number" inputMode="numeric" min={7} max={90} value={intervalDays} onChange={e => setIntervalDays(e.target.value)} required className={inputClass} />
             </div>
             <div>
               <label className="text-xs text-gray-500 mb-0.5 block">Upfront %</label>
-              <input type="number" min={0} max={100} value={upfrontPercent} onChange={e => setUpfrontPercent(e.target.value)} className={inputClass} />
+              <input type="number" inputMode="numeric" min={0} max={100} value={upfrontPercent} onChange={e => setUpfrontPercent(e.target.value)} className={inputClass} />
             </div>
           </div>
           <div className="flex gap-2">

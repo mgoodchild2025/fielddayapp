@@ -144,7 +144,7 @@ export function AdminAddRegistrant({
               <label className="block text-xs font-medium text-gray-500 mb-1 mt-2">Amount paid <span className="text-gray-400">(optional)</span></label>
               <div className="relative">
                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-                <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full border rounded-md pl-6 pr-3 py-2 text-sm" placeholder="0.00" />
+                <input type="number" inputMode="decimal" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full border rounded-md pl-6 pr-3 py-2 text-sm" placeholder="0.00" />
               </div>
             </div>
             <div>

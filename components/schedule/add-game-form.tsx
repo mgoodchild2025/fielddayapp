@@ -156,7 +156,7 @@ export function AddGameForm({ leagueId, sport, teams, pools = [], timezone }: Pr
             <label className="block text-xs font-medium text-gray-600 mb-1">Week #</label>
             <input
               {...register('weekNumber', { valueAsNumber: true })}
-              type="number"
+              type="number" inputMode="numeric"
               min={1}
               className="w-full border rounded px-2 py-1.5 text-sm"
             />

@@ -139,7 +139,7 @@ export function BioEditor({
               className="mt-1 w-full border rounded px-2 py-1.5 text-sm" />
           </label>
           <label className="text-xs text-gray-500">Years playing
-            <input type="number" min="0" max="99" value={yearsPlaying} onChange={(e) => setYearsPlaying(e.target.value)}
+            <input type="number" inputMode="numeric" min="0" max="99" value={yearsPlaying} onChange={(e) => setYearsPlaying(e.target.value)}
               className="mt-1 w-full border rounded px-2 py-1.5 text-sm" />
           </label>
         </div>

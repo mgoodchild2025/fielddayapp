@@ -125,9 +125,9 @@ export function EventInterestManager({
           No one has signed up to be notified yet.
         </div>
       ) : (
-        <div className="overflow-x-auto border rounded-lg">
-          <table className="w-full text-sm">
-            <thead>
+        <div className="sm:overflow-x-auto border rounded-lg">
+          <table className="w-full text-sm max-sm:block">
+            <thead className="max-sm:hidden">
               <tr className="bg-gray-50 text-left text-xs font-medium text-gray-500">
                 <th className="px-4 py-2.5">Name</th>
                 <th className="px-4 py-2.5">Email</th>
@@ -136,35 +136,35 @@ export function EventInterestManager({
                 <th className="px-4 py-2.5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y max-sm:block">
               {rows.map((r) => {
                 const st = statusOf(r)
                 const isUnsub = !!r.unsubscribed_at
                 return (
-                  <tr key={r.id} className={isUnsub ? 'opacity-60' : ''}>
-                    <td className="px-4 py-2.5 text-gray-800">{r.name ?? <span className="text-gray-400">—</span>}</td>
-                    <td className="px-4 py-2.5 text-gray-600">{r.email}</td>
-                    <td className="px-4 py-2.5 text-gray-500">{fmtDate(r.created_at)}</td>
-                    <td className="px-4 py-2.5">
+                  <tr key={r.id} className={`max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-x-4 max-sm:gap-y-2 max-sm:p-4 ${isUnsub ? 'opacity-60' : ''}`}>
+                    <td className="px-4 py-2.5 text-gray-800 max-sm:p-0 max-sm:w-full max-sm:font-medium">{r.name ?? <span className="text-gray-400">—</span>}</td>
+                    <td className="px-4 py-2.5 text-gray-600 max-sm:p-0 max-sm:w-full [overflow-wrap:anywhere]">{r.email}</td>
+                    <td data-label="Signed up" className="px-4 py-2.5 text-gray-500 max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500">{fmtDate(r.created_at)}</td>
+                    <td className="px-4 py-2.5 max-sm:p-0">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
                     </td>
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center justify-end gap-3">
+                    <td className="px-4 py-2.5 max-sm:p-0 max-sm:w-full">
+                      <div className="flex items-center justify-end max-sm:justify-start gap-3">
                         <button
                           onClick={() => run(() => adminSetInterestUnsubscribed(r.id, leagueId, !isUnsub), r.id)}
                           disabled={pending && busyId === r.id}
-                          className="text-xs font-medium text-gray-600 hover:underline disabled:opacity-40"
+                          className="press min-h-10 text-xs font-medium text-gray-600 hover:underline disabled:opacity-40"
                         >
                           {isUnsub ? 'Re-subscribe' : 'Unsubscribe'}
                         </button>
                         {confirmDeleteId === r.id ? (
                           <span className="flex items-center gap-2 text-xs">
                             <span className="text-gray-500">Remove?</span>
-                            <button onClick={() => run(() => adminRemoveInterest(r.id, leagueId), r.id)} disabled={pending && busyId === r.id} className="text-red-600 font-medium hover:underline disabled:opacity-40">Yes</button>
-                            <button onClick={() => setConfirmDeleteId(null)} className="text-gray-500 hover:underline">No</button>
+                            <button onClick={() => run(() => adminRemoveInterest(r.id, leagueId), r.id)} disabled={pending && busyId === r.id} className="press min-h-10 px-1 text-red-600 font-medium hover:underline disabled:opacity-40">Yes</button>
+                            <button onClick={() => setConfirmDeleteId(null)} className="press min-h-10 px-1 text-gray-600 hover:underline">No</button>
                           </span>
                         ) : (
-                          <button onClick={() => setConfirmDeleteId(r.id)} className="text-xs text-red-500 hover:underline">Remove</button>
+                          <button onClick={() => setConfirmDeleteId(r.id)} className="press min-h-10 text-xs text-red-600 hover:underline">Remove</button>
                         )}
                       </div>
                     </td>

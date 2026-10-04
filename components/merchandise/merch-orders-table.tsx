@@ -3,6 +3,8 @@
 import { useState, useTransition } from 'react'
 import { fulfillMerchandiseOrder, fulfillAllMerchandiseOrders, fulfillAllShopOrders, fulfillAllOrgOrders, markMerchandiseOrderPaid } from '@/actions/merchandise'
 import type { MerchOrder } from '@/actions/merchandise'
+import { Overlay, useRetained } from '@/components/ui/overlay'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 type FulfillAllTarget =
   | { type: 'league'; leagueId: string }
@@ -79,6 +81,8 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
   const [markPaidNotes, setMarkPaidNotes] = useState('')
   const [markPaidAmount, setMarkPaidAmount] = useState('')
   const [markPaidPendingId, setMarkPaidPendingId] = useState<string | null>(null)
+  // Keep the sheet's order while it plays its exit.
+  const markPaidOrder = useRetained(orders.find((o) => o.id === markPaidOpenId) ?? null)
   const [, startTransition] = useTransition()
 
   const fulfillableOrders = orders.filter((o) => o.status === 'pending' || o.status === 'paid')
@@ -111,7 +115,13 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
     })
   }
 
-  function handleFulfillAll() {
+  async function handleFulfillAll() {
+    // Bulk and one-way — every pending order is marked fulfilled.
+    if (!(await confirmAction({
+      title: `Mark ${fulfillableOrders.length} order${fulfillableOrders.length === 1 ? '' : 's'} as fulfilled?`,
+      message: 'Use this once everything has been handed out.',
+      confirmLabel: 'Fulfill all',
+    }))) return
     setError(null)
     setFulfillAllPending(true)
     startTransition(async () => {
@@ -284,9 +294,10 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
 
       {/* Table */}
       <div className="bg-white rounded-lg border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-100">
-            <thead>
+        {/* Phones: rows fold into cards — the 9-column table hid the Action column off-screen. */}
+        <div className="sm:overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-100 max-sm:block">
+            <thead className="max-sm:hidden">
               <tr className="bg-gray-50">
                 {showSource && (
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Source</th>
@@ -301,39 +312,39 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 max-sm:block">
               {orders.map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
+                <tr key={order.id} className="hover:bg-gray-50/50 transition-colors max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-x-4 max-sm:gap-y-2 max-sm:p-4">
                   {showSource && (
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 max-sm:p-0">
                       <SourceBadge order={order} />
                     </td>
                   )}
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 max-sm:p-0 max-sm:w-full">
                     <div>
-                      <p className="text-sm font-medium text-gray-900 truncate max-w-[160px]">
+                      <p className="text-sm font-medium text-gray-900 truncate max-w-[160px] max-sm:max-w-none">
                         {order.player_name ?? 'Unknown'}
                       </p>
                       {order.player_email && (
-                        <p className="text-xs text-gray-400 truncate max-w-[160px]">{order.player_email}</p>
+                        <p className="text-xs text-gray-400 truncate max-w-[160px] max-sm:max-w-none">{order.player_email}</p>
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <p className="text-sm text-gray-800 max-w-[180px] truncate">{order.item_name}</p>
+                  <td className="px-4 py-3 max-sm:p-0 max-sm:w-full">
+                    <p className="text-sm text-gray-800 max-w-[180px] max-sm:max-w-none truncate">{order.item_name}</p>
                     {order.notes && (
-                      <p className="text-xs text-gray-400 italic max-w-[180px] truncate" title={order.notes}>
+                      <p className="text-xs text-gray-400 italic max-w-[180px] max-sm:max-w-none truncate" title={order.notes}>
                         📝 {order.notes}
                       </p>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td data-label="Size" className="px-4 py-3 max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500">
                     <p className="text-sm text-gray-600">{order.variant_label ?? <span className="text-gray-300">—</span>}</p>
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td data-label="Qty" className="px-4 py-3 text-center max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500">
                     <span className="text-sm text-gray-800">{order.quantity}</span>
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td data-label="Price" className="px-4 py-3 text-right max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500">
                     {order.amount_paid_cents !== null && order.amount_paid_cents !== undefined ? (
                       // Admin collected a custom amount — show override with strikethrough standard
                       <div className="flex flex-col items-end gap-0.5">
@@ -362,7 +373,7 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td data-label="Code" className="px-4 py-3 max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500">
                     {order.discount_code_label ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-violet-50 text-violet-700 border border-violet-200">
                         {order.discount_code_label}
@@ -371,77 +382,25 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                       <span className="text-gray-300 text-sm">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 max-sm:p-0">
                     <StatusBadge order={order} />
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right max-sm:p-0 max-sm:w-full max-sm:text-left">
                     {((order.status === 'pending' && isManualPayment) || (order.status === 'fulfilled' && !order.paid_at)) && (
-                      markPaidOpenId === order.id ? (
-                        <div className="flex flex-col gap-1.5 items-end min-w-[200px]">
-                          <div className="flex gap-1.5 w-full">
-                            <select
-                              value={markPaidMethod}
-                              onChange={e => setMarkPaidMethod(e.target.value as 'etransfer' | 'cash')}
-                              className="border rounded px-1.5 py-1 text-xs flex-1"
-                            >
-                              <option value="etransfer">e-Transfer</option>
-                              <option value="cash">Cash</option>
-                            </select>
-                            <div className="relative">
-                              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-                              <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={markPaidAmount}
-                                onChange={e => setMarkPaidAmount(e.target.value)}
-                                className="border rounded pl-4 pr-1.5 py-1 text-xs w-20"
-                                aria-label="Amount collected"
-                              />
-                            </div>
-                          </div>
-                          <input
-                            type="text"
-                            placeholder="Notes (optional)"
-                            value={markPaidNotes}
-                            onChange={e => setMarkPaidNotes(e.target.value)}
-                            className="border rounded px-1.5 py-1 text-xs w-full"
-                          />
-                          <div className="flex gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleMarkPaid(order.id, standardCents(order))}
-                              disabled={markPaidPendingId === order.id}
-                              className="text-xs px-2.5 py-1 rounded-md font-semibold text-white disabled:opacity-60"
-                              style={{ backgroundColor: 'var(--brand-primary)' }}
-                            >
-                              {markPaidPendingId === order.id ? 'Saving…' : 'Confirm'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => { setMarkPaidOpenId(null); setMarkPaidNotes(''); setMarkPaidAmount('') }}
-                              className="text-xs px-2.5 py-1 rounded-md border text-gray-600 hover:bg-gray-50"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
                         <button
                           type="button"
                           onClick={() => openMarkPaid(order)}
-                          className="text-xs px-2.5 py-1 rounded-md border font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap"
+                          className="press min-h-10 px-3 rounded-md border text-xs font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap"
                         >
                           Mark as Paid
                         </button>
-                      )
                     )}
                     {(order.status === 'pending' || order.status === 'paid') && (
                       <button
                         type="button"
                         onClick={() => handleFulfill(order.id)}
                         disabled={fulfillPendingId === order.id}
-                        className="text-xs font-medium text-[var(--brand-primary)] hover:opacity-75 transition-opacity disabled:opacity-40"
+                        className="press min-h-10 px-3 text-xs font-semibold text-[var(--brand-primary)] hover:opacity-75 disabled:opacity-40"
                       >
                         {fulfillPendingId === order.id ? 'Fulfilling…' : 'Fulfill'}
                       </button>
@@ -480,18 +439,92 @@ export function MerchandiseOrdersTable({ fulfillAllTarget, orders: initialOrders
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr className="bg-gray-50 border-t">
-                <td colSpan={showSource ? 5 : 4} className="px-4 py-3 text-xs font-semibold text-gray-500">Total</td>
-                <td className="px-4 py-3 text-right text-sm font-bold text-gray-800">
+            <tfoot className="max-sm:block">
+              <tr className="bg-gray-50 border-t max-sm:flex max-sm:justify-between max-sm:items-center max-sm:px-4">
+                <td colSpan={showSource ? 5 : 4} className="px-4 py-3 text-xs font-semibold text-gray-500 max-sm:px-0">Total</td>
+                <td className="px-4 py-3 text-right text-sm font-bold text-gray-800 max-sm:px-0">
                   ${(total / 100).toFixed(2)}
                 </td>
-                <td colSpan={2} />
+                <td colSpan={2} className="max-sm:hidden" />
               </tr>
             </tfoot>
           </table>
         </div>
       </div>
+
+      {/* Mark as paid — a sheet (it opened inside the Action cell, at 24px
+          controls, on a table you had to scroll sideways to reach). */}
+      <Overlay
+        open={!!markPaidOpenId}
+        onClose={() => { setMarkPaidOpenId(null); setMarkPaidNotes(''); setMarkPaidAmount('') }}
+        variant="sheet"
+        labelledBy="mark-paid-title"
+        panelClassName="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl p-5"
+      >
+        {markPaidOrder && (
+          <div className="space-y-3">
+            <div>
+              <h2 id="mark-paid-title" className="text-lg font-semibold text-gray-900">Mark as paid</h2>
+              <p className="text-sm text-gray-500 truncate">
+                {markPaidOrder.player_name ?? 'Unknown'} · {markPaidOrder.item_name}{markPaidOrder.variant_label ? ` (${markPaidOrder.variant_label})` : ''} × {markPaidOrder.quantity}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-xs font-medium text-gray-600">Method
+                <select
+                  data-autofocus
+                  value={markPaidMethod}
+                  onChange={e => setMarkPaidMethod(e.target.value as 'etransfer' | 'cash')}
+                  className="mt-1 w-full min-h-11 border rounded-md px-3 text-base sm:text-sm bg-white"
+                >
+                  <option value="etransfer">e-Transfer</option>
+                  <option value="cash">Cash</option>
+                </select>
+              </label>
+              <label className="text-xs font-medium text-gray-600">Amount collected
+                <span className="relative mt-1 block">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={markPaidAmount}
+                    onChange={e => setMarkPaidAmount(e.target.value)}
+                    className="w-full min-h-11 border rounded-md pl-6 pr-2 text-base sm:text-sm"
+                  />
+                </span>
+              </label>
+            </div>
+            <label className="block text-xs font-medium text-gray-600">Notes
+              <input
+                type="text"
+                placeholder="Optional"
+                value={markPaidNotes}
+                onChange={e => setMarkPaidNotes(e.target.value)}
+                className="mt-1 w-full min-h-11 border rounded-md px-3 text-base sm:text-sm"
+              />
+            </label>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => handleMarkPaid(markPaidOrder.id, standardCents(markPaidOrder))}
+                disabled={markPaidPendingId === markPaidOrder.id}
+                className="press flex-1 min-h-11 rounded-lg text-sm font-semibold bg-brand-primary text-on-brand disabled:opacity-60"
+              >
+                {markPaidPendingId === markPaidOrder.id ? 'Saving…' : 'Mark as paid'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMarkPaidOpenId(null); setMarkPaidNotes(''); setMarkPaidAmount('') }}
+                className="press min-h-11 px-4 rounded-lg border text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </Overlay>
     </div>
   )
 }

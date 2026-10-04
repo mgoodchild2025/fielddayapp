@@ -107,7 +107,7 @@ export function DiscountForm({ leagues }: { leagues: League[] }) {
             Value * {type === 'percent' ? '(%)' : '($)'}
           </label>
           <input
-            type="number"
+            type="number" inputMode="numeric"
             min={0}
             step={type === 'percent' ? 1 : 0.01}
             value={value}
@@ -123,7 +123,7 @@ export function DiscountForm({ leagues }: { leagues: League[] }) {
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Max Uses</label>
           <input
-            type="number"
+            type="number" inputMode="numeric"
             min={1}
             value={maxUses}
             onChange={e => setMaxUses(e.target.value)}

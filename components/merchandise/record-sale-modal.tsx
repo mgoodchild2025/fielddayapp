@@ -244,7 +244,7 @@ export function RecordSaleModal({ items }: Props) {
               <div className="flex items-center gap-2">
                 <label className="text-xs text-gray-500 w-10">Qty</label>
                 <input
-                  type="number" min={1} value={draftQty}
+                  type="number" inputMode="numeric" min={1} value={draftQty}
                   onChange={(e) => setDraftQty(parseInt(e.target.value) || 1)}
                   className="border rounded px-2 py-1.5 text-sm w-20"
                 />
@@ -252,7 +252,7 @@ export function RecordSaleModal({ items }: Props) {
                 <div className="relative flex-1">
                   <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
                   <input
-                    type="number" step="0.01" min="0" value={draftPrice}
+                    type="number" inputMode="decimal" step="0.01" min="0" value={draftPrice}
                     onChange={(e) => setDraftPrice(e.target.value)}
                     className="border rounded pl-5 pr-2 py-1.5 text-sm w-full"
                   />

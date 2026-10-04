@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { saveWebsiteSettings } from '@/actions/website'
 import Link from 'next/link'
-import { Home, Trophy, Zap } from 'lucide-react'
+import { Home, Trophy, Zap, ChevronUp, ChevronDown } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -169,6 +169,19 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
     setDragOverKey(null)
   }
 
+  // Up/down buttons: HTML5 drag-and-drop doesn't work reliably on phones
+  // (and has no keyboard path), so the order is editable without dragging.
+  function moveSection(key: string, delta: -1 | 1) {
+    setSections(prev => {
+      const i = prev.findIndex(s => s.key === key)
+      const j = i + delta
+      if (i < 0 || j < 0 || j >= prev.length) return prev
+      const next = [...prev]
+      ;[next[i], next[j]] = [next[j], next[i]]
+      return next
+    })
+  }
+
   function toggleVisible(key: string) {
     setSections(prev => prev.map(s => s.key === key ? { ...s, visible: !s.visible } : s))
   }
@@ -263,7 +276,7 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
             <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-200 text-gray-400 uppercase tracking-wide">Pinned</span>
           </div>
 
-          {sections.map((section) => (
+          {sections.map((section, idx) => (
             <div
               key={section.key}
               draggable
@@ -272,7 +285,7 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
               onDrop={() => handleDrop(section.key)}
               onDragEnd={handleDragEnd}
               className={[
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all cursor-grab active:cursor-grabbing select-none',
+                'flex items-center gap-1.5 pl-3 pr-1 py-1 rounded-lg border transition-all cursor-grab active:cursor-grabbing select-none',
                 dragOverKey === section.key
                   ? 'border-orange-300 bg-orange-50 shadow-sm'
                   : 'border-gray-200 bg-white hover:border-gray-300',
@@ -283,16 +296,37 @@ export function WebsiteSettingsForm({ currentTheme, orgSlug, heroContent, aboutC
               <span className="text-gray-400 w-4 text-center text-lg leading-none">⠿</span>
 
               {/* Label */}
-              <span className={`flex-1 text-sm font-medium ${section.visible ? 'text-gray-700' : 'text-gray-400 line-through'}`}>
+              <span className={`flex-1 min-w-0 truncate text-sm font-medium ${section.visible ? 'text-gray-700' : 'text-gray-500 line-through'}`}>
                 {section.label}
               </span>
+
+              {/* Move up / down */}
+              <button
+                type="button"
+                onClick={() => moveSection(section.key, -1)}
+                disabled={idx === 0}
+                aria-label={`Move ${section.label} up`}
+                className="press inline-flex items-center justify-center min-h-10 min-w-10 rounded text-gray-500 hover:text-gray-800 hover:bg-gray-100 disabled:opacity-25"
+              >
+                <ChevronUp className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => moveSection(section.key, 1)}
+                disabled={idx === sections.length - 1}
+                aria-label={`Move ${section.label} down`}
+                className="press inline-flex items-center justify-center min-h-10 min-w-10 rounded text-gray-500 hover:text-gray-800 hover:bg-gray-100 disabled:opacity-25"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </button>
 
               {/* Visibility toggle */}
               <button
                 type="button"
                 onClick={() => toggleVisible(section.key)}
                 title={section.visible ? 'Hide section' : 'Show section'}
-                className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded"
+                aria-label={section.visible ? `Hide ${section.label}` : `Show ${section.label}`}
+                className="press inline-flex items-center justify-center min-h-10 min-w-10 rounded text-gray-500 hover:text-gray-800 hover:bg-gray-100"
               >
                 {section.visible ? (
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
