@@ -3,6 +3,8 @@
 import { useState, useTransition } from 'react'
 import { approveJoinRequest, rejectJoinRequest } from '@/actions/teams'
 import { confirmAction } from '@/components/ui/confirm-dialog'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 interface JoinRequest {
   id: string
@@ -29,23 +31,44 @@ function relativeTime(dateStr: string) {
 export function PendingJoinRequests({ teamId, initialRequests }: Props) {
   const [requests, setRequests] = useState(initialRequests)
   const [pending, startTransition] = useTransition()
+  const router = useRouter()
 
   if (requests.length === 0) return null
 
+  // Revert only THIS row on failure (resetting to initialRequests brought back
+  // requests already approved), say why, and refresh on success so the new
+  // player shows on the roster. try/catch: a thrown network error inside a
+  // transition replaced the page with the error screen.
+  function settle(req: JoinRequest | undefined, index: number, err: string | null, verb: string) {
+    if (err) {
+      if (req) setRequests((prev) => (prev.some((r) => r.id === req.id) ? prev : [...prev.slice(0, index), req, ...prev.slice(index)]))
+      toast.error(err === 'network' ? `Couldn't ${verb} — check your connection and try again.` : err)
+    } else {
+      router.refresh()
+    }
+  }
+
   function handleApprove(requestId: string) {
+    const index = requests.findIndex((r) => r.id === requestId)
+    const req = requests[index]
     setRequests((prev) => prev.filter((r) => r.id !== requestId))
     startTransition(async () => {
-      const result = await approveJoinRequest(requestId)
-      if (result.error) setRequests(initialRequests) // revert on failure
+      let err: string | null = null
+      try { err = (await approveJoinRequest(requestId)).error ?? null } catch { err = 'network' }
+      settle(req, index, err, 'approve')
+      if (!err && req) toast.success(`${req.playerName || req.playerEmail} added to the team`)
     })
   }
 
   async function handleReject(requestId: string) {
     if (!(await confirmAction({ title: "Decline this join request?", confirmLabel: "Decline", destructive: true }))) return
+    const index = requests.findIndex((r) => r.id === requestId)
+    const req = requests[index]
     setRequests((prev) => prev.filter((r) => r.id !== requestId))
     startTransition(async () => {
-      const result = await rejectJoinRequest(requestId)
-      if (result.error) setRequests(initialRequests)
+      let err: string | null = null
+      try { err = (await rejectJoinRequest(requestId)).error ?? null } catch { err = 'network' }
+      settle(req, index, err, 'decline')
     })
   }
 

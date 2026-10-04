@@ -160,16 +160,19 @@ export function RegistrationFlow({
   const showCaptainPaymentStep =
     isPerTeam && captainTeamId !== null && effectivePriceCents > 0 && !teamAlreadyPaid
 
-  // For per-team events, we show a role-select screen before step 1.
-  // Skip it if: resuming (initialStep > 1), user is already on a team, or teams are full (force player).
+  // For per-team events, the role-select screen (captain or player?) shows
+  // until the registrant is on a team. Skip it when they're already on one, or
+  // teams are full (force player). Resuming is NOT a reason to guess: a new
+  // captain who left before naming their team came back as a "player" with a
+  // join-by-code box — choosing again keeps the step (step 3 = create/join).
   const inferredRole: 'captain' | 'player' | null =
-    isPerTeam && (initialStep > 1 || captainTeamId || playerTeamId || teamsAtCapacity)
+    isPerTeam && (captainTeamId || playerTeamId || teamsAtCapacity)
       ? captainTeamId ? 'captain' : 'player'
       : null
 
   const [role, setRole] = useState<'captain' | 'player' | null>(inferredRole)
   const [showRoleSelect, setShowRoleSelect] = useState(
-    isPerTeam && initialStep === 1 && !captainTeamId && !playerTeamId && !teamsAtCapacity
+    isPerTeam && !captainTeamId && !playerTeamId && !teamsAtCapacity
   )
   // Session picker: shown before step 1 for fresh drop-in registrations with sessions available.
   // Skipped when a session was already chosen on the event page (preselectedSessionId).
@@ -221,9 +224,28 @@ export function RegistrationFlow({
     window.scrollTo({ top: 0, behavior: 'instant' })
   }
 
+  // Activation can be refused ("Payment is required…") or fail on a dropped
+  // connection. Both used to be ignored: the refusal still routed to success,
+  // and a thrown error left "Completing registration…" up forever. Now the
+  // reason shows and the step's button can be tapped again.
+  const [completeError, setCompleteError] = useState<string | null>(null)
+  async function activate(rid: string | null | undefined): Promise<boolean> {
+    if (!rid) return true
+    setCompleteError(null)
+    try {
+      const res = await activateRegistration(rid)
+      if (res?.error) { setCompleteError(res.error); setCompleting(false); return false }
+      return true
+    } catch {
+      setCompleteError("Couldn't reach the server — check your connection and try again.")
+      setCompleting(false)
+      return false
+    }
+  }
+
   async function completeRegistration(regId: string | null) {
     setCompleting(true)
-    if (regId) await activateRegistration(regId)
+    if (!(await activate(regId))) return
     // If the player joined a team via code in Step 1, land on that team page
     if (step1TeamId) {
       router.push(`/teams/${step1TeamId}`)
@@ -247,7 +269,7 @@ export function RegistrationFlow({
         // Player already on a team via invite — activate and skip team-join.
         // Show "Completing registration…" during the round trip (taps repeated).
         setCompleting(true)
-        await activateRegistration(rid!)
+        if (!(await activate(rid))) return
         // If they arrived via an invite link, land on their team page
         if (initialTeamCode) {
           router.push(`/teams/${playerTeamId}`)
@@ -264,7 +286,7 @@ export function RegistrationFlow({
           // New captain creating their own team (no pre-assigned team), or free league.
           // Activate now; team page handles team creation / any team-level payment.
           setCompleting(true)
-          await activateRegistration(rid!)
+          if (!(await activate(rid))) return
           setCompleting(false)
           advanceStep(3)
         }
@@ -498,8 +520,13 @@ export function RegistrationFlow({
         )}
 
         {completing && (
-          <div className="bg-white rounded-lg border p-8 text-center text-gray-500">
+          <div className="bg-white rounded-lg border p-8 text-center text-gray-500" role="status">
             Completing registration…
+          </div>
+        )}
+        {completeError && !completing && (
+          <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {completeError}
           </div>
         )}
 
@@ -623,7 +650,7 @@ export function RegistrationFlow({
             onComplete={async (teamId?: string) => {
               // Activate registration now that the player has joined (or skipped) team selection
               setCompleting(true)
-              if (registrationId) await activateRegistration(registrationId)
+              if (!(await activate(registrationId))) return
               // If the player arrived via an invite link and we know the team, send them there
               if (teamId && initialTeamCode) {
                 router.push(`/teams/${teamId}`)

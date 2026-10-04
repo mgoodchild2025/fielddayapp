@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { exportMyData, deleteMyAccount } from '@/actions/privacy'
 import { Overlay } from '@/components/ui/overlay'
+import { clearOfflineCache } from '@/lib/push-client'
 
 export function DataExportButton() {
   const [loading, setLoading] = useState(false)
@@ -51,7 +52,12 @@ export function DataExportButton() {
   )
 }
 
-export function DeleteAccountSection() {
+export function DeleteAccountSection({ otherOrgNames = [], captainOf = [] }: {
+  /** Other organizations this account belongs to — deletion covers them all. */
+  otherOrgNames?: string[]
+  /** Teams (in live events) this player captains. */
+  captainOf?: string[]
+}) {
   const [open, setOpen] = useState(false)
   const [confirmation, setConfirmation] = useState('')
   const [reason, setReason] = useState('')
@@ -64,9 +70,17 @@ export function DeleteAccountSection() {
   function handleDelete() {
     setError(null)
     startTransition(async () => {
-      const result = await deleteMyAccount(confirmation, reason)
-      if (result?.error) setError(result.error)
-      // On success the server redirects to /goodbye — no client-side action needed
+      // Like signing out: don't leave this player's dashboard in the offline
+      // cache of a (possibly shared) phone.
+      clearOfflineCache()
+      try {
+        const result = await deleteMyAccount(confirmation, reason)
+        if (result?.error) setError(result.error)
+        // On success the server redirects to /goodbye — no client-side action needed
+      } catch (err) {
+        if (err && typeof err === 'object' && 'digest' in err && String((err as { digest: unknown }).digest).startsWith('NEXT_REDIRECT')) throw err
+        setError("Couldn't reach the server — nothing was deleted. Check your connection and try again.")
+      }
     })
   }
 
@@ -95,7 +109,19 @@ export function DeleteAccountSection() {
         panelClassName="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-xl p-6 max-h-[92dvh] overflow-y-auto overscroll-contain"
       >
             <h2 id="delete-account-title" className="text-lg font-bold text-gray-900 mb-1">Delete your account?</h2>
-            <p className="text-sm text-gray-500 mb-4">This is permanent and cannot be undone.</p>
+            <p className="text-sm text-gray-500 mb-4">
+              This is permanent and cannot be undone. It deletes your Fieldday account everywhere
+              {otherOrgNames.length > 0
+                ? <> — including <strong className="text-gray-700">{otherOrgNames.join(', ')}</strong>, not just this site.</>
+                : <>, not just on this site.</>}
+            </p>
+
+            {captainOf.length > 0 && (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-3 mb-4 text-sm text-red-800">
+                <p className="font-semibold">You captain {captainOf.join(', ')}.</p>
+                <p className="mt-0.5">{captainOf.length === 1 ? 'That team' : 'Those teams'} will be left without a captain — ask the organizer to make a teammate captain first.</p>
+              </div>
+            )}
 
             <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-4 text-sm text-amber-800 space-y-1">
               <p className="font-semibold">The following will be permanently removed:</p>

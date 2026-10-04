@@ -38,6 +38,8 @@ export type GameSubInviteDetails = {
   leagueSlug: string | null
   leagueId: string | null
   scheduledAt: string
+  /** games.status — a cancelled/postponed game can't take a sub. */
+  gameStatus: string | null
   court: string | null
   inviterName: string | null
   message: string | null
@@ -201,7 +203,7 @@ export async function getGameSubInviteDetails(
     .select(`
       id, game_id, team_id, invited_email, status, message, expires_at, invited_by,
       game:games!game_subs_game_id_fkey(
-        id, scheduled_at, court, league_id, is_exhibition,
+        id, scheduled_at, court, league_id, is_exhibition, status,
         home_team:teams!games_home_team_id_fkey(id, name),
         away_team:teams!games_away_team_id_fkey(id, name),
         league:leagues!games_league_id_fkey(id, name, slug)
@@ -244,6 +246,7 @@ export async function getGameSubInviteDetails(
     leagueSlug:   league?.slug   ?? null,
     leagueId:     league?.id     ?? game?.league_id ?? null,
     scheduledAt:  game?.scheduled_at ?? '',
+    gameStatus:   game?.status ?? null,
     court:        game?.court    ?? null,
     inviterName:  inviter?.full_name ?? null,
     message:      data.message   ?? null,
@@ -327,6 +330,13 @@ export async function confirmGameSub(
   if (sub.status === 'confirmed') return { error: null } // idempotent
   if (sub.status === 'declined') return { error: 'This invite has been declined' }
   if (new Date(sub.expires_at) < new Date()) return { error: 'This invite has expired' }
+
+  // The invite outlives the game's status: a cancelled or postponed game must
+  // not gain a confirmed sub (and notify the captain that one's coming).
+  const { data: game } = await db.from('games').select('status').eq('id', sub.game_id).eq('organization_id', org.id).maybeSingle()
+  if (!game) return { error: 'This game no longer exists' }
+  if (game.status === 'cancelled') return { error: 'This game was cancelled — there is nothing to sub for.' }
+  if (game.status === 'postponed') return { error: 'This game was postponed. Your captain will send a new invite once it is rescheduled.' }
 
   // Verify email matches
   const { data: profile } = await db.from('profiles').select('email, full_name').eq('id', user.id).single()

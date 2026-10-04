@@ -7,6 +7,7 @@ import { Footer } from '@/components/layout/footer'
 import { InviteActions } from '@/components/teams/invite-actions'
 import { getInviteDetails } from '@/actions/invitations'
 import Link from 'next/link'
+import { SignOutButton } from '@/components/auth/sign-out-button'
 
 export default async function InvitePage({
   params,
@@ -53,6 +54,8 @@ export default async function InvitePage({
   const isInactive = invite.status !== 'pending'
   const teamColor = invite.team_color ?? '#6b7280'
   const returnPath = `/invite/${token}`
+  const wrongAccount = !!user?.email && !!invite.invited_email
+    && user.email.toLowerCase() !== String(invite.invited_email).toLowerCase()
 
   const roleBadgeClass: Record<string, string> = {
     captain: 'bg-blue-100 text-blue-700',
@@ -151,6 +154,21 @@ export default async function InvitePage({
                   <p className="text-center text-xs text-gray-500">
                     You need an account to accept this invitation.
                   </p>
+                </div>
+              ) : wrongAccount ? (
+                // Signed in as someone else (a shared family device, a second
+                // email): Accept could only fail, so say who's who and offer a
+                // one-tap switch that comes straight back here.
+                <div className="space-y-3 text-center">
+                  <p className="text-sm text-gray-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                    This invite was sent to <strong className="break-all">{invite.invited_email}</strong>, but you&apos;re signed in as <strong className="break-all">{user.email}</strong>.
+                  </p>
+                  <SignOutButton
+                    next={`/login?redirect=${encodeURIComponent(returnPath)}`}
+                    label={`Sign in as ${invite.invited_email}`}
+                    className="press w-full flex items-center justify-center gap-2 min-h-11 px-4 rounded-lg font-semibold text-sm bg-brand-primary text-on-brand"
+                  />
+                  <p className="text-xs text-gray-500">Not you? Ask {invite.inviter_name ?? 'your captain'} to invite {user.email} instead.</p>
                 </div>
               ) : (
                 <InviteActions token={token} />

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { login } from '@/actions/auth'
+import { login, resendConfirmation } from '@/actions/auth'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 import { GoogleAuthButton } from '@/components/auth/google-auth-button'
@@ -23,17 +23,46 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const [unconfirmed, setUnconfirmed] = useState(false)
+  const [resend, setResend] = useState<'idle' | 'sending' | 'sent'>('idle')
+
+  const { register, handleSubmit, getValues, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
 
   async function onSubmit(data: FormData) {
     setLoading(true)
     setServerError(null)
-    const result = await login({ ...data, redirectTo })
-    if (result?.error) {
-      setServerError(result.error)
+    setUnconfirmed(false)
+    setResend('idle')
+    try {
+      const result = await login({ ...data, redirectTo })
+      if (result?.error) {
+        setServerError(result.error)
+        setUnconfirmed('unconfirmed' in result && !!result.unconfirmed)
+        setLoading(false)
+      }
+    } catch (err) {
+      // A successful sign-in redirects by throwing — let that through.
+      if (err && typeof err === 'object' && 'digest' in err && String((err as { digest: unknown }).digest).startsWith('NEXT_REDIRECT')) throw err
+      setServerError("Couldn't reach the server — check your connection and try again.")
       setLoading(false)
+    }
+  }
+
+  // Lost the sign-up email? Signing up again says "already registered", so
+  // offer a fresh link right where the "confirm your email" error appears.
+  async function resendLink() {
+    setResend('sending')
+    try {
+      const { email, password } = getValues()
+      const res = await resendConfirmation({ email, password })
+      if (res.error) { setServerError(res.error); setResend('idle'); return }
+      if (res.sent === false) { window.location.assign(redirectTo ?? '/dashboard'); return }
+      setResend('sent')
+    } catch {
+      setServerError("Couldn't reach the server — check your connection and try again.")
+      setResend('idle')
     }
   }
 
@@ -46,8 +75,20 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
       </div>
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       {serverError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
-          {serverError}
+        <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+          {resend === 'sent' ? (
+            <span key="sent" className="fd-fade-in block text-gray-700">New link sent — check your inbox (and spam), then come back and sign in.</span>
+          ) : serverError}
+          {unconfirmed && resend !== 'sent' && (
+            <button
+              type="button"
+              onClick={resendLink}
+              disabled={resend === 'sending'}
+              className="press mt-2 flex items-center min-h-10 font-semibold underline disabled:opacity-60"
+            >
+              {resend === 'sending' ? 'Sending…' : 'Resend confirmation link'}
+            </button>
+          )}
         </div>
       )}
       <div>
@@ -91,7 +132,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         {loading ? 'Signing in…' : 'Sign In'}
       </button>
       <div className="text-sm text-gray-600">
-        <Link href="/reset-password" className="inline-flex items-center min-h-10 hover:underline">Forgot password?</Link>
+        <Link href={redirectTo ? `/reset-password?redirect=${encodeURIComponent(redirectTo)}` : '/reset-password'} className="inline-flex items-center min-h-10 hover:underline">Forgot password?</Link>
       </div>
       {/* First-timers arrive here from "Register" on an event: give them a real
           button, not a small grey link at the bottom. */}

@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { safeRelativePath } from '@/lib/safe-redirect'
 
 const schema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
@@ -24,6 +25,7 @@ function ResetForm() {
 
   const code      = searchParams.get('code')       // PKCE flow — needs exchange
   const tokenHash = searchParams.get('token_hash') // token_hash flow — verify on submit
+  const next      = safeRelativePath(searchParams.get('next')) // where they were headed before "Forgot password?"
 
   // 'exchanging' while we do the PKCE code swap; 'ready' once session exists
   const [status, setStatus] = useState<'exchanging' | 'ready' | 'error'>(
@@ -60,7 +62,8 @@ function ResetForm() {
     if (tokenHash && !code) {
       const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })
       if (error) {
-        setServerError(error.message)
+        setStatus('error')
+        setServerError('This reset link has expired or already been used. Please request a new one.')
         setLoading(false)
         return
       }
@@ -74,7 +77,7 @@ function ResetForm() {
     }
 
     const isAppDomain = window.location.hostname.startsWith('app.')
-    router.push(isAppDomain ? '/super' : '/dashboard')
+    router.push(isAppDomain ? '/super' : next ?? '/dashboard')
   }
 
   return (
@@ -87,12 +90,12 @@ function ResetForm() {
         {status === 'exchanging' ? (
           <p className="text-center text-gray-500 text-sm">Verifying reset link…</p>
         ) : (
-          <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-lg shadow-sm border p-8 space-y-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-lg shadow-sm border p-5 sm:p-8 space-y-5">
             {serverError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+              <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
                 {serverError}
                 {status === 'error' && (
-                  <Link href="/reset-password" className="block mt-2 font-medium underline">
+                  <Link href={next ? `/reset-password?redirect=${encodeURIComponent(next)}` : '/reset-password'} className="flex items-center min-h-10 mt-1 font-medium underline">
                     Request a new reset link
                   </Link>
                 )}
@@ -132,8 +135,7 @@ function ResetForm() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-2.5 rounded-md font-semibold text-white transition-opacity disabled:opacity-60"
-                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                  className="press w-full min-h-11 rounded-md font-semibold bg-brand-primary text-on-brand disabled:opacity-60"
                 >
                   {loading ? 'Saving…' : 'Set New Password'}
                 </button>

@@ -441,6 +441,30 @@ export async function sendSignupConfirmation({
   })
 }
 
+export async function sendPasswordResetEmail({ email, resetUrl }: { email: string; resetUrl: string }) {
+  await getResend().emails.send({
+    from: FROM_EMAIL,
+    replyTo: REPLY_TO,
+    headers: EMAIL_HEADERS,
+    to: email,
+    subject: 'Reset your password',
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+        <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 8px;">Reset your password</h1>
+        <p style="color: #444; font-size: 16px;">Tap the button below to choose a new password. It works in any browser or app.</p>
+        <div style="margin-top: 28px; margin-bottom: 28px; text-align: center;">
+          <a href="${esc(resetUrl)}" style="display: inline-block; background-color: #1f2937; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; padding: 14px 28px; border-radius: 8px;">
+            Choose a new password →
+          </a>
+        </div>
+        <p style="color: #999; font-size: 13px; text-align: center;">
+          This link expires in 1 hour. If you didn&rsquo;t ask to reset your password, you can ignore this email.
+        </p>
+      </div>
+    `,
+  })
+}
+
 export interface MerchOrderLine {
   itemName: string
   variantLabel: string | null

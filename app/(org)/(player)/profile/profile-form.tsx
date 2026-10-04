@@ -78,13 +78,15 @@ export function ProfileForm({
   async function onSubmit(data: FormData) {
     setLoading(true)
     setServerError(null)
-    const result = await updateProfile({ ...data, orgId })
-    if (result.error) {
-      setServerError(result.error)
-    } else {
-      toast.success('Profile saved')
+    try {
+      const result = await updateProfile({ ...data, orgId })
+      if (result.error) setServerError(result.error)
+      else toast.success('Profile saved')
+    } catch {
+      setServerError("Couldn't reach the server — your changes aren't saved yet. Check your connection and try again.")
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   function handleAvatarClick() {
@@ -119,12 +121,6 @@ export function ProfileForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-      {serverError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
-          {serverError}
-        </div>
-      )}
-
       {/* ── Avatar section ── */}
       <div className="bg-white rounded-lg border p-5">
         <h2 className="font-semibold mb-4">Profile Photo</h2>
@@ -295,11 +291,17 @@ export function ProfileForm({
         </label>
       </div>
 
+      {/* By the Save button: at the top of this long form it was off-screen. */}
+      {serverError && (
+        <div role="alert" className="fd-fade-in bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+          {serverError}
+        </div>
+      )}
+
       <button
         type="submit"
         disabled={loading}
-        className="px-6 py-2.5 rounded-md font-semibold text-white disabled:opacity-60"
-        style={{ backgroundColor: 'var(--brand-primary)' }}
+        className="press min-h-11 px-6 rounded-md font-semibold bg-brand-primary text-on-brand disabled:opacity-60"
       >
         {loading ? 'Saving…' : 'Save Profile'}
       </button>

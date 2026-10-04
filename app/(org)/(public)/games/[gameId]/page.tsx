@@ -16,6 +16,8 @@ import { redirectToLogin } from '@/lib/auth'
 import { BackLink } from '@/components/ui/back-link'
 import { MapLink } from '@/components/ui/map-link'
 import { MapPin } from 'lucide-react'
+import { LiveScoreBadge } from '@/components/scoreboard/live-score-badge'
+import { inLiveWindowNow } from '@/lib/live-window'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -299,6 +301,12 @@ export default async function GameMatchupPage({
                 </div>
               ) : (
                 <span className="text-xl font-medium text-gray-500">VS</span>
+              )}
+              {/* The page players reach from the Games tab mid-game: show the
+                  scorer's live board (same rule as the event page — only
+                  while nothing is saved, and only near game time). */}
+              {!result && !isCancelled && !isPostponed && league?.id && inLiveWindowNow(rawGame.scheduled_at) && (
+                <LiveScoreBadge leagueId={league.id} gameId={rawGame.id} />
               )}
               {/* Status badge */}
               {isCancelled && (

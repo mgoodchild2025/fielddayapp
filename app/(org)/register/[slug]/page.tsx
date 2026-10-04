@@ -17,6 +17,33 @@ import type { MerchItemForStep } from '@/components/registration/step-addons'
 import { resolveLeagueMethods } from '@/lib/payment-methods'
 import { canAccess } from '@/lib/features'
 import { countDropInRegsBySession } from '@/lib/session-counts'
+import { getOrgBrandingCached } from '@/lib/org-cache'
+import { EmptyState } from '@/components/ui/empty-state'
+import { CalendarX } from 'lucide-react'
+import type { OrgContext } from '@/lib/tenant'
+
+/**
+ * A register link that no longer leads anywhere (registration closed, the
+ * event under way) used to 404 — old shares and email links said "page not
+ * found" about an event that plainly exists. Say what happened and link to it.
+ */
+async function RegistrationClosed({ org, slug, name, hint }: { org: OrgContext; slug: string; name: string; hint: string }) {
+  const branding = await getOrgBrandingCached(org.id)
+  return (
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--brand-bg)' }}>
+      <OrgNav org={org} logoUrl={branding?.logo_url ?? null} />
+      <main className="flex-1 max-w-md w-full mx-auto px-4 py-16">
+        <EmptyState
+          icon={CalendarX}
+          title={`Registration for ${name} is closed`}
+          hint={hint}
+          action={{ href: `/events/${slug}`, label: 'See the event' }}
+        />
+      </main>
+      <Footer org={org} />
+    </div>
+  )
+}
 
 export default async function RegisterLeaguePage({
   params,
@@ -48,7 +75,18 @@ export default async function RegisterLeaguePage({
     .in('status', ['registration_open', 'active'])
     .single()
 
-  if (!league) notFound()
+  if (!league) {
+    // Exists but isn't taking registrations (drafts stay hidden: 404).
+    const { data: closed } = await db
+      .from('leagues')
+      .select('name, status')
+      .eq('organization_id', org.id)
+      .eq('slug', slug)
+      .in('status', ['completed', 'archived'])
+      .maybeSingle()
+    if (!closed) notFound()
+    return <RegistrationClosed org={org} slug={slug} name={closed.name} hint="This event has finished. See the results, or browse what's coming up next." />
+  }
 
   // ── Event join policy (drop-in / pickup) ──────────────────────────────────
   // Team join policy governs team events only; drop-in/pickup use the event
@@ -305,7 +343,10 @@ export default async function RegisterLeaguePage({
           .in('team_id', teamIds)
           .maybeSingle()).data
       : false
-    if (!hasTeamMembership) notFound()
+    if (!hasTeamMembership) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return <RegistrationClosed org={org} slug={slug} name={(league as any).name} hint="The season is under way. If a captain invited you to their team, open the link from their invite to join." />
+    }
   }
 
   // Online payments require both a Stripe secret key AND the registration payment mode

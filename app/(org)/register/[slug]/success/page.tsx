@@ -1,6 +1,6 @@
-import { formatDateOnly } from '@/lib/format-time'
+import { formatDateOnly, formatGameTime } from '@/lib/format-time'
 import { headers } from 'next/headers'
-import { getCurrentOrg } from '@/lib/tenant'
+import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { createServerClient } from '@/lib/supabase/server'
@@ -90,7 +90,7 @@ export default async function RegistrationSuccessPage({
   const { data: registration } = user && league
     ? await db
         .from('registrations')
-        .select('checkin_token, status')
+        .select('checkin_token, status, session_id')
         .eq('league_id', league.id)
         .eq('organization_id', org.id)
         .eq('user_id', user.id)
@@ -137,6 +137,17 @@ export default async function RegistrationSuccessPage({
     ? await db.from('profiles').select('full_name').eq('id', user.id).single()
     : { data: null }
 
+  // A drop-in booking is for ONE session: say which, instead of the season's
+  // start date (which was often weeks before the night they booked).
+  const bookedSessionId = (registration as { session_id?: string | null } | null)?.session_id ?? null
+  const [{ data: bookedSession }, timezone] = await Promise.all([
+    bookedSessionId
+      ? db.from('event_sessions').select('scheduled_at, location_override').eq('id', bookedSessionId).eq('organization_id', org.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    getOrgTimezone(org.id),
+  ])
+  const sessionWhen = bookedSession ? formatGameTime(bookedSession.scheduled_at, timezone) : null
+
   const SPORT_EMOJI: Record<string, string> = {
     volleyball: '🏐', beach_volleyball: '🏐', soccer: '⚽', basketball: '🏀',
     hockey: '🏒', baseball: '⚾', softball: '🥎', tennis: '🎾',
@@ -179,7 +190,13 @@ export default async function RegistrationSuccessPage({
             instructions={paymentInstructions}
           />
         )}
-        {league?.season_start_date && (
+        {sessionWhen ? (
+          <p className="mt-3 inline-flex flex-wrap items-center justify-center gap-x-1.5 rounded-lg bg-white border px-4 py-2 text-sm text-gray-800">
+            <span className="font-semibold">Your session:</span>
+            <span>{sessionWhen.date} · {sessionWhen.time}</span>
+            {bookedSession?.location_override && <span className="text-gray-500">· {bookedSession.location_override}</span>}
+          </p>
+        ) : league?.season_start_date && (
           <p className="mt-2 text-gray-500 text-sm">
             Season starts {formatDateOnly(league.season_start_date, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
           </p>
