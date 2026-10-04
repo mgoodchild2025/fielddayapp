@@ -34,7 +34,7 @@ export function PrintQrCode({ checkinUrl, eventName, sessionLabel, orgName }: Pr
 
           {/* Event name */}
           <div className="space-y-1">
-            <p className="text-sm font-semibold uppercase tracking-widest text-gray-400">
+            <p className="text-sm font-semibold uppercase tracking-widest text-gray-500">
               {orgName}
             </p>
             <h1 className="text-4xl font-bold text-gray-900 leading-tight">

@@ -41,7 +41,7 @@ import {
   accumulateGameResult, emptyTeamStat, computeStreaks,
   type TeamStat as BaseTeamStat, type TeamStatTotals,
   type PtsMethod, type VolleyballMode, countsForStandings } from '@/lib/standings'
-import { ChevronRight, CalendarDays, BarChart3 } from 'lucide-react'
+import { ChevronRight, CalendarDays, BarChart3, FileText } from 'lucide-react'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { EventAvatar } from '@/components/ui/event-avatar'
@@ -231,11 +231,11 @@ function DateGroup({
                 {/* Result footer */}
                 {hasScore ? (
                   <div className="mt-2 flex items-center gap-2 flex-wrap">
-                    <span className={`text-[10px] font-medium ${result!.status === 'confirmed' ? 'text-green-600' : 'text-amber-600'}`}>
+                    <span className={`text-xs font-medium ${result!.status === 'confirmed' ? 'text-green-700' : 'text-amber-700'}`}>
                       {result!.status === 'confirmed' ? '✓ confirmed' : 'pending confirmation'}
                     </span>
                     {result?.sets && result.sets.length > 0 && (
-                      <span className="text-[10px] text-gray-400">
+                      <span className="text-xs text-gray-500 tabular-nums">
                         ({result.sets.map((s: SetScore) => `${s.home}–${s.away}`).join(', ')})
                       </span>
                     )}
@@ -258,7 +258,7 @@ function DateGroup({
                       </span>
                     ) : null}
                     {game.cancellation_reason && (game.status === 'cancelled' || game.status === 'postponed') && (
-                      <span className="text-[11px] text-gray-400 italic">{game.cancellation_reason}</span>
+                      <span className="text-[11px] text-gray-500 italic">{game.cancellation_reason}</span>
                     )}
                   </div>
                 )}
@@ -277,7 +277,7 @@ function DateGroup({
                       >
                         {homeTeam?.name ?? game.home_team_label ?? 'TBD'}
                       </span>
-                      <span className="mx-2 font-normal text-gray-400">vs</span>
+                      <span className="mx-2 font-normal text-gray-500">vs</span>
                       {/* Away team name */}
                       <span
                         className={`font-semibold ${hasScore && !awayWon ? (isPast ? 'text-gray-400 font-normal' : 'text-gray-400 font-normal') : isPast ? 'text-gray-500' : ''}`}
@@ -313,7 +313,7 @@ function DateGroup({
                         >
                           {result!.home_score}
                         </span>
-                        <span className="mx-1 text-gray-400 font-normal">–</span>
+                        <span className="mx-1 text-gray-500 font-normal">–</span>
                         <span
                           className={`${isTie ? 'text-gray-700' : !awayWon ? 'text-gray-400 font-normal' : 'font-bold'}`}
                           style={(!isTie && awayWon) ? { color: 'var(--brand-primary)' } : undefined}
@@ -322,11 +322,11 @@ function DateGroup({
                         </span>
                       </p>
                       {result?.sets && result.sets.length > 0 && (
-                        <p className="text-[10px] text-gray-400 mt-0.5">
+                        <p className="text-xs text-gray-500 tabular-nums mt-0.5">
                           {result.sets.map((s: SetScore) => `${s.home}–${s.away}`).join(', ')}
                         </p>
                       )}
-                      <p className={`text-[10px] mt-0.5 ${result!.status === 'confirmed' ? 'text-green-600' : 'text-amber-600'}`}>
+                      <p className={`text-xs mt-0.5 ${result!.status === 'confirmed' ? 'text-green-700' : 'text-amber-700'}`}>
                         {result!.status === 'confirmed' ? '✓ confirmed' : 'pending'}
                       </p>
                     </div>
@@ -366,7 +366,7 @@ function DateGroup({
               {!game.isPlayoff && isCaptain && homeTeam && awayTeam && result?.status !== 'confirmed' && game.status !== 'cancelled' && game.status !== 'postponed' && (
                 <a
                   href={`/scoreboard?game=${game.id}`}
-                  className="inline-block text-xs font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+                  className="press inline-flex items-center min-h-10 text-xs font-semibold px-3 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
                 >
                   🔢 Open scoreboard
                 </a>
@@ -2099,7 +2099,7 @@ export default async function EventDetailPage({
                 )}
 
                 {(!sessions || sessions.length === 0) ? (
-                  <p className="text-gray-500 text-sm py-8 text-center bg-white border rounded-lg">No sessions scheduled yet — check back soon.</p>
+                  <EmptyState icon={CalendarDays} title="No sessions scheduled yet" hint="Check back soon — new dates show up here as they're added." />
                 ) : (
                   <div className="space-y-3">
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -2158,8 +2158,7 @@ export default async function EventDetailPage({
                                 ) : !user ? (
                                   <a
                                     href={`/login?redirect=${encodeURIComponent(returnPath)}`}
-                                    className="px-4 py-1.5 rounded-md text-sm font-semibold text-white"
-                                    style={{ backgroundColor: 'var(--brand-primary)' }}
+                                    className="press inline-flex items-center min-h-10 px-4 rounded-md text-sm font-semibold bg-brand-primary text-on-brand"
                                   >
                                     Log in to join
                                   </a>
@@ -2480,7 +2479,7 @@ export default async function EventDetailPage({
                 <RichTextContent content={(league as any).format_content} className="text-gray-700" />
               </div>
             ) : !(league as any).format_pdf_url ? (
-              <p className="text-gray-500 text-center py-16">No format posted yet.</p>
+              <EmptyState icon={FileText} title="No format posted yet" hint="The organiser hasn't added the format for this event." />
             ) : null}
           </div>
         )}
@@ -2496,7 +2495,7 @@ export default async function EventDetailPage({
                 <RichTextContent content={league.rules_content} className="text-gray-700 leading-relaxed" />
               </div>
             ) : !(league as any).rules_pdf_url ? (
-              <p className="text-gray-500 text-center py-16">No rules posted yet.</p>
+              <EmptyState icon={FileText} title="No rules posted yet" hint="The organiser hasn't added rules for this event." />
             ) : null}
           </div>
         )}

@@ -105,7 +105,7 @@ export function GameAttendancePanel({ gameId, teamId, initialCounts, isCaptain, 
                     </span>
                     {/* Captain marker */}
                     {p.role === 'captain' && (
-                      <span className="shrink-0 text-[9px] font-semibold text-gray-400 bg-gray-100 px-1 py-0.5 rounded">
+                      <span className="shrink-0 text-[9px] font-semibold text-gray-500 bg-gray-100 px-1 py-0.5 rounded">
                         C
                       </span>
                     )}

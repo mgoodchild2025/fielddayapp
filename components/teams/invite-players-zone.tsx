@@ -108,7 +108,7 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
             onClick={handleRegenerate}
             disabled={regenerating}
             title="Regenerate code"
-            className="text-xs text-gray-500 hover:text-gray-600 px-1 py-0.5 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
+            className="press text-xs text-gray-500 hover:text-gray-600 px-1 min-h-10 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
           >
             {regenerating ? '…' : '↺ Regenerate'}
           </button>

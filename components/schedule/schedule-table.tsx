@@ -508,14 +508,14 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                         </p>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <p className={`font-semibold text-sm ${game.status === 'cancelled' || game.status === 'postponed' ? 'line-through text-gray-500' : ''}`}>
-                            {game.homeTeamName} <span className="text-gray-400 font-normal">vs</span> {game.awayTeamName}
+                            {game.homeTeamName} <span className="text-gray-500 font-normal">vs</span> {game.awayTeamName}
                           </p>
                           {game.status === 'cancelled' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>}
                           <ExhibitionBadge isExhibition={game.isExhibition} />
                           {game.status === 'postponed' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
                         </div>
                         {game.cancellationReason && (game.status === 'cancelled' || game.status === 'postponed') && (
-                          <p className="text-[11px] text-gray-400 italic mt-0.5">{game.cancellationReason}</p>
+                          <p className="text-[11px] text-gray-500 italic mt-0.5">{game.cancellationReason}</p>
                         )}
                       </div>
                       <div className="shrink-0 text-right">
@@ -525,7 +525,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                               {game.result.homeScore} – {game.result.awayScore}
                             </span>
                             {game.result.sets && game.result.sets.length > 0 && (
-                              <span className="block text-[10px] text-gray-400 tabular-nums">
+                              <span className="block text-[10px] text-gray-500 tabular-nums">
                                 {game.result.sets.map((s) => `${s.home}–${s.away}`).join(', ')}
                               </span>
                             )}
@@ -663,7 +663,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                             {game.status === 'postponed' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>}
                           </div>
                           {game.cancellationReason && (game.status === 'cancelled' || game.status === 'postponed') && (
-                            <p className="text-[11px] text-gray-400 italic mt-0.5">{game.cancellationReason}</p>
+                            <p className="text-[11px] text-gray-500 italic mt-0.5">{game.cancellationReason}</p>
                           )}
                         </td>
                         <td className="px-4 py-3 text-gray-500">{game.court ?? '—'}</td>
@@ -730,7 +730,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
             </table>
           </div>
         ) : (
-          <div className="px-4 py-12 text-center text-gray-400">
+          <div className="px-4 py-12 text-center text-gray-500">
             {hideCompleted ? 'No games awaiting scores in this view. 🎉' : filter === 'needs' ? 'All games have scores — nice work! 🎉' : filter === 'cancelled' ? 'No cancelled or postponed games.' : jumpFilter !== 'all' ? 'No games in this selection.' : 'No games scheduled yet. Add a game or import from CSV.'}
           </div>
         )}

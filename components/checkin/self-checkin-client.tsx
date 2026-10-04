@@ -94,7 +94,7 @@ export function SelfCheckinClient({
       {state.phase === 'idle' && (
         <div className="bg-white rounded-2xl border shadow-sm p-8 text-center space-y-5">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">{leagueName}</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1">{leagueName}</p>
             <p className="text-lg font-semibold text-gray-800">Welcome, {playerName}</p>
           </div>
           <button
@@ -154,7 +154,7 @@ export function SelfCheckinClient({
                 <p className="text-sm font-semibold text-gray-800">
                   You&apos;re a captain for {captainTeamName}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-gray-500 mt-0.5">
                   Check in your teammates while you&apos;re here
                 </p>
               </div>

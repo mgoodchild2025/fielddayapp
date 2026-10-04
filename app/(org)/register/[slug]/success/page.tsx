@@ -195,7 +195,7 @@ export default async function RegistrationSuccessPage({
               playerName={profile?.full_name ?? ''}
               eventName={league?.name ?? ''}
             />
-            <p className="text-xs text-gray-400 mt-3">
+            <p className="text-xs text-gray-500 mt-3">
               You can also find this QR code under My Events at any time.
             </p>
           </div>

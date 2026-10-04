@@ -183,7 +183,7 @@ export function CheckInList({ registrations, leagueId, timezone, sessionId }: Pr
       {/* Roster list */}
       <div className="bg-white rounded-xl border overflow-hidden">
         {filtered.length === 0 ? (
-          <div className="px-5 py-12 text-center text-sm text-gray-400">
+          <div className="px-5 py-12 text-center text-sm text-gray-500">
             {hasFilters ? 'No players match your search.' : 'No registrations yet.'}
           </div>
         ) : (
@@ -207,10 +207,10 @@ export function CheckInList({ registrations, leagueId, timezone, sessionId }: Pr
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     {reg.teamName && (
-                      <span className="text-xs text-gray-400 truncate">{reg.teamName}</span>
+                      <span className="text-xs text-gray-500 truncate">{reg.teamName}</span>
                     )}
                     {checkedIn && reg.checkedInAt && (
-                      <span className={`text-xs text-gray-400 ${reg.teamName ? 'before:content-["·"] before:mr-2' : ''}`}>
+                      <span className={`text-xs text-gray-500 ${reg.teamName ? 'before:content-["·"] before:mr-2' : ''}`}>
                         {new Date(reg.checkedInAt).toLocaleTimeString('en-CA', {
                           hour: 'numeric',
                           minute: '2-digit',

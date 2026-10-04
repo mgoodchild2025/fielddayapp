@@ -113,7 +113,7 @@ export function DeleteAccountSection() {
             </div>
 
             <label className="block mb-1 text-sm font-medium text-gray-700">
-              Reason <span className="font-normal text-gray-400">(optional)</span>
+              Reason <span className="font-normal text-gray-500">(optional)</span>
             </label>
             <input
               type="text"

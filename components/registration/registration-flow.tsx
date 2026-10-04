@@ -317,7 +317,7 @@ export function RegistrationFlow({
               )}
               <div className="flex items-center gap-3 mt-5">
                 <div className="flex-1 border-t border-gray-200" />
-                <span className="text-xs uppercase tracking-wide text-gray-400">or drop in for one session</span>
+                <span className="text-xs uppercase tracking-wide text-gray-500">or drop in for one session</span>
                 <div className="flex-1 border-t border-gray-200" />
               </div>
             </div>

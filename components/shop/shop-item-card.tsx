@@ -137,12 +137,12 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
             >
               <h3 className="font-semibold text-gray-900 text-sm leading-snug hover:underline">{item.name}</h3>
               {descPreview && (
-                <p className="text-xs text-gray-400 mt-0.5 leading-relaxed break-words">{descPreview}</p>
+                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed break-words">{descPreview}</p>
               )}
             </button>
             <p className="text-base font-bold mt-1.5" style={{ color: 'var(--brand-primary)' }}>
               ${(item.price_cents / 100).toFixed(2)}
-              <span className="text-xs font-normal text-gray-400 ml-1">{(item.currency ?? 'cad').toUpperCase()}</span>
+              <span className="text-xs font-normal text-gray-500 ml-1">{(item.currency ?? 'cad').toUpperCase()}</span>
             </p>
           </div>
 
@@ -279,7 +279,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
                 <h2 className="font-bold text-gray-900 text-lg leading-snug">{item.name}</h2>
                 <p className="text-lg font-bold shrink-0" style={{ color: 'var(--brand-primary)' }}>
                   ${(item.price_cents / 100).toFixed(2)}
-                  <span className="text-xs font-normal text-gray-400 ml-1">{(item.currency ?? 'cad').toUpperCase()}</span>
+                  <span className="text-xs font-normal text-gray-500 ml-1">{(item.currency ?? 'cad').toUpperCase()}</span>
                 </p>
               </div>
 

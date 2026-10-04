@@ -34,7 +34,7 @@ export function QRCodeDisplay({ checkinUrl, playerName, eventName, size = 200 }:
           {/* Label */}
           <div>
             <p className="text-sm font-semibold" style={{ color: 'var(--brand-primary)' }}>Check-in QR</p>
-            <p className="text-xs text-gray-400">Tap to expand</p>
+            <p className="text-xs text-gray-500">Tap to expand</p>
           </div>
         </button>
       ) : (
@@ -54,10 +54,10 @@ export function QRCodeDisplay({ checkinUrl, playerName, eventName, size = 200 }:
           {(playerName || eventName) && (
             <div>
               {playerName && <p className="text-sm font-semibold">{playerName}</p>}
-              {eventName && <p className="text-xs text-gray-400">{eventName}</p>}
+              {eventName && <p className="text-xs text-gray-500">{eventName}</p>}
             </div>
           )}
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             Show this to an event rep, or scan to self check-in.
           </p>
         </div>
@@ -78,7 +78,7 @@ export function QRCodeCard({ checkinUrl, playerName, eventName }: Omit<Props, 's
       </div>
       <div>
         <p className="text-base font-semibold">{playerName}</p>
-        <p className="text-xs text-gray-400 mt-1">Present this QR code at check-in</p>
+        <p className="text-xs text-gray-500 mt-1">Present this QR code at check-in</p>
       </div>
     </div>
   )

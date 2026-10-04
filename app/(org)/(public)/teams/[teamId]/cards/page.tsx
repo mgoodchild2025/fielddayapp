@@ -10,6 +10,8 @@ import { TeamPageNav } from '@/components/teams/team-page-nav'
 import { Footer } from '@/components/layout/footer'
 import { BioFlipCard } from '@/components/bios/bio-flip-card'
 import { redirectToLogin } from '@/lib/auth'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Users } from 'lucide-react'
 
 /**
  * The team card binder (card flip C3): the roster as a grid of full player
@@ -60,14 +62,20 @@ export default async function TeamCardsPage({ params }: { params: Promise<{ team
         <p className="text-sm text-gray-500 mt-1">Tap any card to flip it over.</p>
 
         {cards.length === 0 ? (
-          <p className="mt-10 text-center text-sm text-gray-500">No players on the roster yet.</p>
+          <EmptyState
+            className="mt-8"
+            icon={Users}
+            title="No cards yet"
+            hint="Cards appear here once players join the roster."
+            action={{ href: `/teams/${teamId}`, label: 'Back to the team' }}
+          />
         ) : (
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {cards.map(({ card, userId }) => (
               <div key={userId}>
                 <BioFlipCard bio={card.bio} career={card.career} />
                 <p className="mt-1 text-right">
-                  <Link href={`/players/${userId}/card`} className="text-xs text-gray-500 hover:underline">
+                  <Link href={`/players/${userId}/card`} className="inline-flex items-center min-h-10 text-xs text-gray-600 hover:underline">
                     Open card →
                   </Link>
                 </p>
