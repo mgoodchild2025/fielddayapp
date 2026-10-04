@@ -67,7 +67,7 @@ function TeamStatsGrid({
         <table className="w-full text-sm min-w-max">
           <thead>
             <tr className="border-b">
-              <th className="text-left py-2 pr-3 font-medium text-gray-500 text-xs whitespace-nowrap">Player</th>
+              <th className="sticky left-0 z-10 bg-white text-left py-2 pr-3 font-medium text-gray-500 text-xs whitespace-nowrap">Player</th>
               {statDefs.map(def => (
                 <th key={def.key} className="text-center py-2 px-2 font-medium text-gray-500 text-xs whitespace-nowrap">
                   {def.label}
@@ -78,7 +78,8 @@ function TeamStatsGrid({
           <tbody>
             {team.members.map(member => (
               <tr key={member.userId} className="border-b last:border-0">
-                <td className="py-2 pr-3">
+                {/* Name column stays put while the stat columns scroll. */}
+                <td className="sticky left-0 z-10 bg-white py-2 pr-3">
                   <div className="flex items-center gap-2 min-w-0">
                     <PlayerAvatar avatarUrl={member.avatarUrl} name={member.name} size="sm" />
                     <span className="text-xs font-medium truncate max-w-[100px]">{member.name}</span>
@@ -89,9 +90,15 @@ function TeamStatsGrid({
                     <input
                       type="number"
                       min={0}
+                      // Number pad on phones; tapping selects the prefilled 0
+                      // so typing replaces it.
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      onFocus={e => e.target.select()}
+                      aria-label={`${def.label} — ${member.name}`}
                       value={stats[member.userId]?.[def.key] ?? 0}
                       onChange={e => onChange(member.userId, def.key, Math.max(0, Number(e.target.value)))}
-                      className="w-12 border rounded text-center text-sm py-1 font-semibold focus:outline-none focus:ring-2"
+                      className="w-12 min-h-10 border rounded text-center text-base font-semibold tabular-nums focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': 'var(--brand-primary)' } as React.CSSProperties}
                     />
                   </td>

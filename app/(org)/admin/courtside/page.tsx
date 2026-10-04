@@ -1,4 +1,6 @@
 import { headers } from 'next/headers'
+import { EmptyState } from '@/components/ui/empty-state'
+import { CalendarX } from 'lucide-react'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
@@ -189,7 +191,7 @@ export default async function CourtsidePage({
           />
           <a
             href={`/scoreboard?game=${g.id}`}
-            className="mt-2 block text-center text-xs font-semibold text-gray-500 hover:text-gray-700 py-1.5"
+            className="press mt-2 flex items-center justify-center min-h-11 rounded-lg border text-sm font-semibold text-gray-700 hover:bg-gray-50"
           >
             🔢 Open scoreboard →
           </a>
@@ -269,9 +271,7 @@ export default async function CourtsidePage({
       )}
 
       {rows.length === 0 && bracketRows.length === 0 && (
-        <p className="rounded-xl border border-dashed bg-white px-4 py-10 text-center text-sm text-gray-400">
-          No games scheduled this day.
-        </p>
+        <EmptyState icon={CalendarX} title="No games scheduled this day" hint="Use the arrows above to check another day." />
       )}
 
       {unscoredItems.length > 0 && (
