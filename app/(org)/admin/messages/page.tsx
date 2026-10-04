@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { getCurrentOrg } from '@/lib/tenant'
+import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { ComposeMessageForm } from './compose-form'
@@ -8,6 +8,7 @@ import { DeleteAnnouncementButton } from './delete-button'
 export default async function AdminMessagesPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const timeZone = await getOrgTimezone(org.id)
   const db = createServiceRoleClient()
   const canSms = await canAccess(org.id, 'sms_notifications')
 
@@ -138,12 +139,13 @@ export default async function AdminMessagesPage() {
                       </span>
                     </div>
                     <p className="text-sm text-gray-600 mt-1 line-clamp-2">{a.body}</p>
-                    <p className="text-xs text-gray-400 mt-2">
+                    <p className="text-xs text-gray-500 mt-2">
                       Sent by {sender?.full_name ?? 'Unknown'} ·{' '}
                       {new Date(a.created_at).toLocaleDateString('en-CA', {
                         month: 'short',
                         day: 'numeric',
                         year: 'numeric',
+                        timeZone,
                       })}
                     </p>
                   </div>

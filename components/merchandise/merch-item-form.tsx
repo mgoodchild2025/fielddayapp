@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { upsertMerchandiseItem, upsertMerchandiseVariants, uploadMerchandiseImage, uploadMerchandiseGalleryImage, removeMerchandiseGalleryImage } from '@/actions/merchandise'
 import type { MerchItem } from '@/actions/merchandise'
 import { UploadStatus } from '@/components/ui/upload-status'
+import { undoableRemove, insertAt } from '@/components/ui/use-undoable-remove'
 
 type VariantDraft = {
   key: number
@@ -124,10 +125,19 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
     if (galleryInputRef.current) galleryInputRef.current.value = ''
   }
 
-  async function handleGalleryImageRemove(url: string) {
-    if (!item?.id) return
+  // Undo-able: the photo goes at once, the server delete runs when the toast
+  // closes (it used to be an invisible full-tile button — on a phone, tapping
+  // a photo deleted it on the spot).
+  function handleGalleryImageRemove(url: string) {
+    const itemId = item?.id
+    if (!itemId) return
+    const index = galleryImages.indexOf(url)
     setGalleryImages((prev) => prev.filter((u) => u !== url))
-    await removeMerchandiseGalleryImage(item.id, url)
+    undoableRemove({
+      label: 'Photo removed',
+      restore: () => setGalleryImages((prev) => insertAt(prev, index, url)),
+      commit: () => removeMerchandiseGalleryImage(itemId, url),
+    })
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -408,10 +418,10 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
                   <button
                     type="button"
                     onClick={() => handleGalleryImageRemove(url)}
-                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    className="press absolute top-1 right-1 w-7 h-7 rounded-full bg-black/60 hover:bg-black/75 flex items-center justify-center before:absolute before:-inset-1.5 before:content-['']"
                     aria-label="Remove image"
                   >
-                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>

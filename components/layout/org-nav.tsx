@@ -85,10 +85,10 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
   }
 
   return (
-    <nav
-      className="fd-bar-brand sticky top-0 z-40 border-b border-white/10"
-      style={{ color: 'white' }}
-    >
+    <>
+      {/* Above the sticky nav, not inside it: inside, it made the nav taller
+          than h-14, so everything sticking at top-14 (event tabs) slid
+          under it. It scrolls away with the page instead. */}
       {liveStream && (
         <a
           href={liveStream.url}
@@ -104,7 +104,11 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
           Live now{liveStream.title ? ` — ${liveStream.title}` : ''} · Watch →
         </a>
       )}
-      <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
+    <nav
+      className="fd-bar-brand sticky top-0 z-40 border-b border-white/10"
+      style={{ color: 'white' }}
+    >
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
 
         {/* Left: logo (if uploaded) + org name */}
         <Link href="/" className="flex items-center gap-2.5 min-w-0 shrink">
@@ -185,5 +189,6 @@ export async function OrgNav({ org, logoUrl }: OrgNavProps) {
         </div>
       </div>
     </nav>
+    </>
   )
 }

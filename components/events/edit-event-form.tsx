@@ -889,7 +889,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
 
         {/* Save bar — stays in view while scrolling a long form (the admin
             <main> is the scroller), and says when there's something to save. */}
-        <div className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-6 px-5 py-3 bg-white/95 backdrop-blur border-t flex items-center gap-3 rounded-b-lg">
+        <div className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-6 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/95 backdrop-blur border-t flex items-center gap-3 rounded-b-lg">
           <p className="flex-1 min-w-0 text-xs text-gray-500" aria-live="polite">
             {dirty ? <span className="fd-fade-in font-medium text-amber-700">Unsaved changes</span> : 'No changes yet'}
           </p>

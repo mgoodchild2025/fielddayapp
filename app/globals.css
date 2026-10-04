@@ -1,4 +1,8 @@
 @import "tailwindcss";
+/* Rich text (event descriptions, rules, waivers, the editor) uses `prose`.
+   Tailwind v4 never reads tailwind.config.ts, so the plugin listed there did
+   nothing — every description rendered as one unstyled block. */
+@plugin "@tailwindcss/typography";
 
 /* Org branding as real Tailwind colours. BrandProvider sets the --brand-*
    variables on :root per org; `inline` makes the utilities reference them
@@ -412,9 +416,20 @@ summary,
   .fd-overlay[data-state="closed"] { pointer-events: none; }
   .fd-overlay--modal { align-items: center; justify-content: center; padding: 1rem; }
   .fd-overlay--sheet { align-items: flex-end; justify-content: center; }
-  /* Bottom sheets sit on the screen edge: keep their last row above the home
-     indicator (real values now that the viewport is cover). */
-  .fd-overlay--sheet .fd-overlay__panel { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  /* Sheets and drawers reach the screen's bottom edge: keep their last row
+     above the home indicator. A spacer AFTER the content, not padding — a
+     panel's own p-5/p-6 utility beat the old padding-bottom rule (layers), so
+     the last button sat on the indicator. Adds to whatever padding the panel
+     has; 0 where there's no indicator. Panels that pad themselves opt out
+     with .fd-safe-self. */
+  .fd-overlay--sheet .fd-overlay__panel::after,
+  .fd-overlay--drawer .fd-overlay__panel::after {
+    content: '';
+    display: block;
+    flex-shrink: 0;
+    height: env(safe-area-inset-bottom, 0px);
+  }
+  .fd-overlay__panel.fd-safe-self::after { display: none; }
   .fd-overlay--drawer { justify-content: flex-end; }
 
   .fd-overlay__backdrop {

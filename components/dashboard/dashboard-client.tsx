@@ -13,6 +13,7 @@ import {
   Clock,
   MapPin,
   Trophy,
+  Ticket,
   ShoppingBag,
   ClipboardList,
   Calendar,
@@ -132,6 +133,8 @@ export type PendingAction = {
 }
 
 interface Props {
+  /** The org has the shop — otherwise the Shop tile would 404. */
+  showShop?: boolean
   firstName: string
   /** Org name for the phone-alerts nudge copy. */
   orgName?: string
@@ -169,8 +172,10 @@ function formatTime(iso: string, tz: string) {
   })
 }
 
-function formatShortDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
+function formatShortDate(iso: string, tz: string) {
+  // Org timezone: without it a 9pm game was dated the next day on the server
+  // and the phone disagreed (React then re-renders the whole dashboard).
+  return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', timeZone: tz })
 }
 
 function daysUntil(iso: string, tz: string): string {
@@ -556,7 +561,7 @@ function MyCardSection({ myCardBio, myCareer, myCardHref }: {
   )
 }
 
-export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, callOffs = [], nextSessions = [], sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null }: Props) {
+export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, callOffs = [], nextSessions = [], sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null, showShop = false }: Props) {
   const [activeIdx, setActiveIdx] = useState(0)
   // Which event's next session is showing. Defaults to the soonest (index 0);
   // clamped so a refresh that drops an event can't leave it pointing past the end.
@@ -945,7 +950,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                           {r.isExhibition && <ExhibitionBadge isExhibition className="ml-1.5 align-middle" />}
                         </p>
                       </div>
-                      <span className="text-xs text-gray-500 shrink-0">{formatShortDate(r.scheduledAt)}</span>
+                      <span className="text-xs text-gray-500 shrink-0">{formatShortDate(r.scheduledAt, timezone)}</span>
                     </Link>
                   ))}
                 </div>
@@ -987,10 +992,10 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
 
               <div className="grid grid-cols-2 gap-2">
                 {([
-                  { href: '/events',    Icon: Trophy,       label: 'Browse Events' },
+                  { href: '/events',    Icon: Ticket,       label: 'Browse Events' },
                   { href: '/standings', Icon: BarChart3,    label: 'Standings'     },
                   { href: '/schedule',  Icon: CalendarDays, label: 'Schedule'      },
-                  { href: '/shop',      Icon: ShoppingBag,  label: 'Shop'          },
+                  ...(showShop ? [{ href: '/shop',      Icon: ShoppingBag,  label: 'Shop'          }] as const : []),
                 ] as const).map(({ href, Icon, label }) => (
                   <Link
                     key={href}
@@ -1020,10 +1025,10 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
           <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">Explore</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {([
-              { href: '/events',    Icon: Trophy,       label: 'Browse Events' },
+              { href: '/events',    Icon: Ticket,       label: 'Browse Events' },
               { href: '/standings', Icon: BarChart3,    label: 'Standings'     },
               { href: '/my-events', Icon: Users,        label: 'My Events'     },
-              { href: '/shop',      Icon: ShoppingBag,  label: 'Shop'          },
+              ...(showShop ? [{ href: '/shop',      Icon: ShoppingBag,  label: 'Shop'          }] as const : []),
             ] as const).map(({ href, Icon, label }) => (
               <Link
                 key={href}

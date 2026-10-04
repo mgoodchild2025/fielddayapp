@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 import { createSession, updateSession, cancelSession, reopenSession, deleteSession } from '@/actions/sessions'
 import { moveRegistrationToSession } from '@/actions/registrations'
 import { AdminAddRegistrant } from '@/components/registration/admin-add-registrant'
@@ -437,7 +439,6 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
   const [showCreate, setShowCreate] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [showPast, setShowPast] = useState(false)
   const [isPending, startTransition] = useTransition()
 
@@ -450,24 +451,37 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
   const upcoming = sessions.filter((s) => sessionEnd(s) >= now)
   const past = sessions.filter((s) => sessionEnd(s) < now).reverse()
 
-  function handleCancel(sessionId: string) {
+  // Cancelling is recoverable (Reopen), so it acts at once with Undo — it
+  // used to be a bare one-tap link with nothing to say it had happened.
+  function handleCancel(sessionId: string, label: string) {
     startTransition(async () => {
-      await cancelSession(sessionId, leagueId)
+      const res = await cancelSession(sessionId, leagueId)
+      if (res?.error) { toast.error(res.error); return }
+      toast(`Cancelled · ${label}`, {
+        action: { label: 'Undo', onClick: () => handleReopen(sessionId) },
+      })
       router.refresh()
     })
   }
 
   function handleReopen(sessionId: string) {
     startTransition(async () => {
-      await reopenSession(sessionId, leagueId)
+      const res = await reopenSession(sessionId, leagueId)
+      if (res?.error) { toast.error(res.error); return }
       router.refresh()
     })
   }
 
-  function handleDelete(sessionId: string) {
+  async function handleDelete(sessionId: string, label: string) {
+    if (!(await confirmAction({
+      title: `Delete the ${label} session?`,
+      message: "This can't be undone. To call off a night but keep it on record, use Cancel instead.",
+      confirmLabel: 'Delete session',
+      destructive: true,
+    }))) return
     startTransition(async () => {
-      await deleteSession(sessionId, leagueId)
-      setConfirmDeleteId(null)
+      const res = await deleteSession(sessionId, leagueId)
+      if (res?.error) { toast.error(res.error); return }
       router.refresh()
     })
   }
@@ -516,7 +530,7 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
                     <span className="text-xs text-gray-400 italic truncate max-w-xs">{s.notes}</span>
                   )}
 
-                  <div className="ml-auto flex items-center gap-3">
+                  <div className="ml-auto flex flex-wrap items-center gap-x-1 gap-y-1">
                     {s.status === 'cancelled' ? (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>
                     ) : (
@@ -527,7 +541,7 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
                       <button
                         onClick={() => handleReopen(s.id)}
                         disabled={isPending}
-                        className="text-xs font-medium text-green-600 hover:underline disabled:opacity-40"
+                        className="press min-h-10 px-2 text-xs font-medium text-green-700 hover:underline disabled:opacity-40"
                       >
                         Reopen
                       </button>
@@ -536,7 +550,7 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
                     {s.status !== 'cancelled' && (
                       <button
                         onClick={() => { setEditingId(s.id); setShowCreate(false) }}
-                        className="text-xs font-medium text-blue-600 hover:underline"
+                        className="press min-h-10 px-2 text-xs font-medium text-blue-600 hover:underline"
                       >
                         Edit
                       </button>
@@ -544,39 +558,21 @@ export function AdminSessionsManager({ leagueId, initialSessions, timezone, regi
 
                     {s.status !== 'cancelled' && (
                       <button
-                        onClick={() => handleCancel(s.id)}
+                        onClick={() => handleCancel(s.id, formatDateTime(s.scheduled_at, timezone))}
                         disabled={isPending}
-                        className="text-xs text-amber-600 hover:underline disabled:opacity-40"
+                        className="press min-h-10 px-2 text-xs text-amber-700 hover:underline disabled:opacity-40"
                       >
                         Cancel
                       </button>
                     )}
 
-                    {confirmDeleteId === s.id ? (
-                      <span className="flex items-center gap-2 text-xs">
-                        <span className="text-gray-500">Delete?</span>
-                        <button
-                          onClick={() => handleDelete(s.id)}
-                          disabled={isPending}
-                          className="text-red-600 font-medium hover:underline disabled:opacity-40"
-                        >
-                          {isPending ? 'Deleting…' : 'Yes'}
-                        </button>
-                        <button
-                          onClick={() => setConfirmDeleteId(null)}
-                          className="text-gray-500 hover:underline"
-                        >
-                          No
-                        </button>
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => setConfirmDeleteId(s.id)}
-                        className="text-xs text-red-500 hover:underline"
-                      >
-                        Delete
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleDelete(s.id, formatDateTime(s.scheduled_at, timezone))}
+                      disabled={isPending}
+                      className="press min-h-10 px-2 text-xs text-red-600 hover:underline disabled:opacity-40"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
                 {expandedId === s.id && (

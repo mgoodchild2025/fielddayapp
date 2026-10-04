@@ -23,7 +23,9 @@ export function RichTextContent({ content, className }: Props) {
   if (isHtml(content)) {
     return (
       <div
-        className={`prose prose-sm max-w-none ${className ?? ''}`}
+        // Phones: long links/words wrap, wide tables scroll inside the card
+        // instead of being cut off, images never exceed the column.
+        className={`prose prose-sm max-w-none [overflow-wrap:anywhere] prose-table:block prose-table:overflow-x-auto prose-img:max-w-full prose-a:break-words ${className ?? ''}`}
         dangerouslySetInnerHTML={{ __html: sanitizeRichText(content) }}
       />
     )

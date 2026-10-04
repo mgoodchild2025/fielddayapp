@@ -22,6 +22,7 @@ import type {
 import { nextSessionPerEvent } from '@/lib/next-sessions'
 import { redirectToLogin } from '@/lib/auth'
 import { getOrgBrandingCached } from '@/lib/org-cache'
+import { canAccess } from '@/lib/features'
 
 export default async function DashboardPage() {
   const headersList = await headers()
@@ -220,6 +221,7 @@ export default async function DashboardPage() {
           teams={[]}
           pendingActions={[]}
           logoUrl={logoUrl}
+          showShop={await canAccess(org.id, 'merchandise_shop')}
         />
         <Footer org={org} />
       </div>
@@ -789,6 +791,7 @@ export default async function DashboardPage() {
           teams={dashboardTeams}
           pendingActions={pendingActions}
           logoUrl={logoUrl}
+          showShop={await canAccess(org.id, 'merchandise_shop')}
         />
       </div>
       <Footer org={org} />

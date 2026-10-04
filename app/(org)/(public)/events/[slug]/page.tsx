@@ -219,7 +219,7 @@ function DateGroup({
                       </span>
                       {hasScore && (
                         <span
-                          className={`text-sm tabular-nums shrink-0 font-semibold ${isTie ? 'text-gray-700' : !team.won ? 'text-gray-300 font-normal' : ''}`}
+                          className={`text-sm tabular-nums shrink-0 font-semibold ${isTie ? 'text-gray-700' : !team.won ? 'text-gray-500 font-normal' : ''}`}
                           style={(!isTie && team.won) ? { color: 'var(--brand-primary)' } : undefined}
                         >
                           {team.score}
@@ -1753,7 +1753,7 @@ export default async function EventDetailPage({
                 <div className="bg-white rounded-lg border p-4">
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Reg. Closes</p>
                   <p className="font-semibold mt-1">
-                    {new Date(league.registration_closes_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {new Date(league.registration_closes_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', timeZone: timezone })}
                   </p>
                 </div>
               )}
@@ -2202,6 +2202,7 @@ export default async function EventDetailPage({
                     <div className="mt-3">
                       <PlayerInstallmentSchedule
                         installments={myEnrollment.installments}
+                        timeZone={timezone}
                       />
                     </div>
                   )}

@@ -13,6 +13,7 @@ interface Props {
   installments: InstallmentRow[]
   /** Marking an instalment paid records money — org admins only. */
   canMarkPaid?: boolean
+  timeZone?: string
 }
 
 /**
@@ -20,7 +21,7 @@ interface Props {
  * instalment for org admins (read-only for league admins).
  * Rendered inside the registrations table row.
  */
-export function AdminInstallmentRow({ registrationId, installments, canMarkPaid = false }: Props) {
+export function AdminInstallmentRow({ registrationId, installments, canMarkPaid = false, timeZone }: Props) {
   const [open, setOpen] = useState(false)
   const [localInstallments, setLocalInstallments] = useState(installments)
 
@@ -57,6 +58,7 @@ export function AdminInstallmentRow({ registrationId, installments, canMarkPaid 
           <InstallmentSchedule
             installments={localInstallments}
             onMarkPaid={canMarkPaid ? handleMarkPaid : undefined}
+            timeZone={timeZone}
           />
         </div>
       </Collapse>

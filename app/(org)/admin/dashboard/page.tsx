@@ -418,7 +418,7 @@ export default async function AdminDashboardPage() {
               <div key={p.created_at} className="flex items-center justify-between py-2 border-b last:border-0">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-800 truncate">{payerName ?? 'Unknown'}</p>
-                  <span className="text-xs text-gray-500">{new Date(p.created_at).toLocaleDateString()}</span>
+                  <span className="text-xs text-gray-500">{new Date(p.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', timeZone: tz })}</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{p.status}</span>
