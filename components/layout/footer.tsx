@@ -92,7 +92,8 @@ export function Footer({ org, social }: FooterProps) {
                 target={href.startsWith('mailto:') ? undefined : '_blank'}
                 rel="noopener noreferrer"
                 aria-label={label}
-                className="opacity-60 hover:opacity-100 transition-opacity"
+                // 40px target around the 20px icon (same as SocialLinks).
+                className="press inline-flex items-center justify-center w-10 h-10 -m-2 rounded-full opacity-70 hover:opacity-100"
                 style={{ color: 'white' }}
               >
                 {icon}
