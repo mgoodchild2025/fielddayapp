@@ -224,10 +224,15 @@ function CreateForm({ leagueId, timezone, onDone }: { leagueId: string; timezone
     }
   }
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (isPending) return
     setFormError(null)
     const fd = new FormData(e.currentTarget)
+    // In a transition so the button disables while saving — awaited directly,
+    // isPending never flipped and a second tap on gym wifi created the whole
+    // run of weekly sessions twice.
+    startTransition(async () => {
     const result = await createSession(leagueId, {
       scheduled_at: fd.get('scheduled_at') as string,
       duration_minutes: Number(fd.get('duration_minutes') || 90),
@@ -240,6 +245,7 @@ function CreateForm({ leagueId, timezone, onDone }: { leagueId: string; timezone
     if (result.error) { setFormError(result.error); return }
     onDone()
     router.refresh()
+    })
   }
 
   return (

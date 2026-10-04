@@ -111,7 +111,8 @@ export default async function RegistrationSuccessPage({
         .eq('league_id', league.id)
         .eq('user_id', user.id)
         .eq('status', 'pending')
-        .in('payment_method', ['cash', 'etransfer', 'cheque'])
+        // 'other' = an event with no online payments: pay as the instructions say.
+        .in('payment_method', ['cash', 'etransfer', 'cheque', 'other'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()

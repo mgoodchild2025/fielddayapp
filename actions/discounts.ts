@@ -4,7 +4,8 @@ import { z } from 'zod'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServiceRoleClient } from '@/lib/supabase/service'
-import { getCurrentOrg } from '@/lib/tenant'
+import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
+import { parseLocalToUtc } from '@/lib/format-time'
 import { assertOrgAdmin } from '@/lib/auth'
 import { createServerClient } from '@/lib/supabase/server'
 
@@ -17,6 +18,16 @@ const discountSchema = z.object({
   applies_to: z.enum(['all', 'leagues', 'dropins', 'shop']).default('all'),
   league_id: z.string().uuid().optional().nullable(),
 })
+
+/** "Expires Oct 31" means through the END of Oct 31 in the org's timezone.
+ *  The date-only value used to be stored as-is — UTC midnight, i.e. 8pm on
+ *  Oct 30 in Toronto — so codes stopped working a day early. */
+async function endOfDayInOrg(value: string | null | undefined, orgId: string): Promise<string | null> {
+  if (!value) return null
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  const tz = await getOrgTimezone(orgId)
+  return new Date(new Date(parseLocalToUtc(value, '23:59', tz)).getTime() + 59_999).toISOString()
+}
 
 export async function createDiscount(input: z.infer<typeof discountSchema>) {
   const parsed = discountSchema.safeParse(input)
@@ -41,7 +52,7 @@ export async function createDiscount(input: z.infer<typeof discountSchema>) {
     organization_id: org.id,
     ...parsed.data,
     max_uses: parsed.data.max_uses ?? null,
-    expires_at: parsed.data.expires_at || null,
+    expires_at: await endOfDayInOrg(parsed.data.expires_at, org.id),
     league_id: parsed.data.league_id || null,
     use_count: 0,
     active: true,
@@ -67,6 +78,7 @@ export async function updateDiscount(id: string, input: Partial<z.infer<typeof d
   // Only the fields the caller sent — zod 4 fills .default()s even under
   // .partial(), which would reset applies_to to 'all' on an active toggle.
   const changes = Object.fromEntries(Object.entries(parsed.data).filter(([k]) => k in (input as object)))
+  if ('expires_at' in changes) changes.expires_at = await endOfDayInOrg(changes.expires_at as string | null, org.id)
 
   const { error } = await supabase
     .from('discount_codes')

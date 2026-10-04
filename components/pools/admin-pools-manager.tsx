@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useTransition, useMemo } from 'react'
+import { toast } from 'sonner'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 import { createPool, deletePool, renamePool, setTeamPool, generatePoolSchedule, seedPoolsFromStandings, reorderTeamInPool } from '@/actions/pools'
 
 interface Pool {
@@ -69,7 +71,12 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
         courtNames: courtNames.length > 0 ? courtNames : undefined,
       })
       setResult(res)
-      if (!res.error) setOpen(false)
+      // The "Generated N games" line lived inside this form, which closes on
+      // success — so nothing ever said it worked.
+      if (!res.error) {
+        setOpen(false)
+        toast.success(`Generated ${res.count} game${res.count === 1 ? '' : 's'} for ${pool.name}`)
+      }
     })
   }
 
@@ -335,15 +342,24 @@ export function AdminPoolsManager({ leagueId, initialPools, initialTeams, standi
     }
   }
 
-  function handleDelete(poolId: string) {
+  // Cascades (every team unassigned, its games detached) — confirm first; it
+  // was an instant 16px link, and a failure was silently swallowed.
+  async function handleDelete(poolId: string) {
+    const pool = pools.find((p) => p.id === poolId)
+    const count = teams.filter((t) => t.pool_id === poolId).length
+    if (!(await confirmAction({
+      title: `Delete ${pool?.name ?? 'this pool'}?`,
+      message: `${count} team${count === 1 ? '' : 's'} will be unassigned and its games detached from the pool. This can't be undone.`,
+      confirmLabel: 'Delete pool',
+      destructive: true,
+    }))) return
     startTransition(async () => {
       const result = await deletePool(poolId, leagueId)
-      if (!result.error) {
-        setPools((prev) => prev.filter((p) => p.id !== poolId))
-        setTeams((prev) =>
-          prev.map((t) => (t.pool_id === poolId ? { ...t, pool_id: null } : t))
-        )
-      }
+      if (result.error) { toast.error(result.error); return }
+      setPools((prev) => prev.filter((p) => p.id !== poolId))
+      setTeams((prev) =>
+        prev.map((t) => (t.pool_id === poolId ? { ...t, pool_id: null } : t))
+      )
     })
   }
 
@@ -470,7 +486,7 @@ export function AdminPoolsManager({ leagueId, initialPools, initialTeams, standi
               <button
                 onClick={() => handleDelete(pool.id)}
                 disabled={isPending}
-                className="text-xs text-red-500 hover:underline disabled:opacity-40"
+                className="press min-h-10 px-2 text-xs text-red-600 hover:underline disabled:opacity-40"
               >
                 Delete
               </button>

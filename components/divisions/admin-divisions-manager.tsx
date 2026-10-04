@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 import { createDivision, deleteDivision, setTeamDivision } from '@/actions/divisions'
 
 interface Division {
@@ -40,15 +42,23 @@ export function AdminDivisionsManager({ leagueId, initialDivisions, initialTeams
     }
   }
 
-  function handleDelete(divisionId: string) {
+  // Cascades (every team unassigned) — confirm first; errors were swallowed.
+  async function handleDelete(divisionId: string) {
+    const div = divisions.find((d) => d.id === divisionId)
+    const count = teams.filter((t) => t.division_id === divisionId).length
+    if (!(await confirmAction({
+      title: `Delete ${div?.name ?? 'this division'}?`,
+      message: `${count} team${count === 1 ? '' : 's'} will be unassigned. This can't be undone.`,
+      confirmLabel: 'Delete division',
+      destructive: true,
+    }))) return
     startTransition(async () => {
       const result = await deleteDivision(divisionId, leagueId)
-      if (!result.error) {
-        setDivisions((prev) => prev.filter((d) => d.id !== divisionId))
-        setTeams((prev) =>
-          prev.map((t) => (t.division_id === divisionId ? { ...t, division_id: null } : t))
-        )
-      }
+      if (result.error) { toast.error(result.error); return }
+      setDivisions((prev) => prev.filter((d) => d.id !== divisionId))
+      setTeams((prev) =>
+        prev.map((t) => (t.division_id === divisionId ? { ...t, division_id: null } : t))
+      )
     })
   }
 
@@ -102,7 +112,7 @@ export function AdminDivisionsManager({ leagueId, initialDivisions, initialTeams
               <button
                 onClick={() => handleDelete(div.id)}
                 disabled={isPending}
-                className="text-xs text-red-500 hover:underline disabled:opacity-40"
+                className="press min-h-10 px-2 text-xs text-red-600 hover:underline disabled:opacity-40"
               >
                 Delete
               </button>

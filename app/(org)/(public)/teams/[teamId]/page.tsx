@@ -16,6 +16,7 @@ import type { ActiveMember, PendingInvite } from '@/components/teams/roster-mana
 import { AdminEditTeamForm } from '@/components/teams/admin-edit-team-form'
 import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
 import { TeamPaymentPanel } from '@/components/teams/team-payment-panel'
+import { isPaidStatus } from '@/lib/team-payments'
 import { getPositionsForSport } from '@/actions/positions'
 import { resolveLeagueMethods } from '@/lib/payment-methods'
 import { getOrgTaxRates, taxSuffix } from '@/lib/tax'
@@ -134,7 +135,7 @@ export default async function TeamDetailPage({
         // multiples — which read as "Payment required" on a paid team.
         db
           .from('payments')
-          .select('id, status, paid_at, amount_cents')
+          .select('id, status, paid_at, amount_cents, tax_cents, payment_method')
           .eq('team_id', teamId)
           .eq('league_id', leagueId)
           .eq('payment_type', 'team')
@@ -149,8 +150,14 @@ export default async function TeamDetailPage({
       ])
     : [{ data: null }, { data: null }]
   // Prefer a paid row; otherwise the newest (pending/failed) one.
-  const teamPaymentRows = (teamPaymentRes.data ?? []) as { id: string; status: string; paid_at: string | null; amount_cents: number }[]
-  let teamPayment = teamPaymentRows.find((pmt) => pmt.status === 'paid' || pmt.status === 'manual') ?? teamPaymentRows[0] ?? null
+  const teamPaymentRows = (teamPaymentRes.data ?? []) as { id: string; status: string; paid_at: string | null; amount_cents: number; tax_cents?: number | null; payment_method?: string | null }[]
+  let teamPayment = teamPaymentRows.find((pmt) => isPaidStatus(pmt.status)) ?? teamPaymentRows[0] ?? null
+  // The captain chose e-transfer/cash/cheque and hasn't paid yet: the panel
+  // keeps showing the instructions (a reload showed "Payment required" and
+  // the card button again — a double-payment risk).
+  const pendingOfflineTeamPayment = teamPayment && !isPaidStatus(teamPayment.status)
+    ? teamPaymentRows.find((pmt) => pmt.status === 'pending' && ['etransfer', 'cash', 'cheque'].includes(pmt.payment_method ?? '')) ?? null
+    : null
   const myLeagueRegistration = myLeagueRegistrationRes.data
 
   // Sales-tax hint for the team fee ("+ HST 13%" / "incl. …") — the charged
@@ -574,7 +581,8 @@ export default async function TeamDetailPage({
             priceCents={leaguePriceCents}
             currency={leagueCurrency}
             memberCount={activeMembers.length}
-            isPaid={teamPayment?.status === 'paid'}
+            isPaid={isPaidStatus(teamPayment?.status)}
+            pendingOffline={pendingOfflineTeamPayment ? { amountCents: pendingOfflineTeamPayment.amount_cents, taxCents: pendingOfflineTeamPayment.tax_cents ?? 0 } : null}
             paidAt={teamPayment?.paid_at ?? null}
             timezone={timezone}
             captainRegistrationStatus={
@@ -617,8 +625,8 @@ export default async function TeamDetailPage({
 
         {/* Payment status notice for regular players on per-team leagues */}
         {!isManager && isPerTeam && (
-          <div className={`mt-4 rounded-lg border p-4 text-sm ${teamPayment?.status === 'paid' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
-            {teamPayment?.status === 'paid'
+          <div className={`mt-4 rounded-lg border p-4 text-sm ${isPaidStatus(teamPayment?.status) ? 'bg-green-50 border-green-200 text-green-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+            {isPaidStatus(teamPayment?.status)
               ? '✓ Your team payment has been completed. Your registration is confirmed.'
               : '⚠ Team payment is pending. Your captain needs to complete payment to confirm your registration.'}
           </div>

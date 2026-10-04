@@ -992,7 +992,7 @@ export default async function EventDetailPage({
       .eq('user_id', user.id)
       .eq('league_id', league.id)
       .eq('status', 'pending')
-      .in('payment_method', ['cash', 'etransfer', 'cheque'])
+      .in('payment_method', ['cash', 'etransfer', 'cheque', 'other'])
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()

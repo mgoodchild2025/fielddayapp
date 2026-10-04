@@ -24,6 +24,8 @@ interface Props {
   taxSuffix?: string
   /** The recorded payment's gross (tax included) — shown on the paid view. */
   paidAmountCents?: number | null
+  /** An offline (e-transfer/cash/cheque) team payment already chosen and not yet received. */
+  pendingOffline?: { amountCents: number; taxCents: number } | null
 }
 
 export function TeamPaymentPanel({
@@ -40,13 +42,15 @@ export function TeamPaymentPanel({
   captainRegistrationStatus = 'none',
   acceptedMethods = [],
   offlineInstructions = null,
+  pendingOffline = null,
   taxSuffix = '',
   paidAmountCents = null,
 }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [manualInstructions, setManualInstructions] = useState<string | null>(null)
-  const [offlineOwed, setOfflineOwed] = useState<{ amountCents: number; taxCents: number } | null>(null)
+  // Starts on the instructions view when an offline payment is already pending.
+  const [manualInstructions, setManualInstructions] = useState<string | null>(pendingOffline ? (offlineInstructions ?? '') : null)
+  const [offlineOwed, setOfflineOwed] = useState<{ amountCents: number; taxCents: number } | null>(pendingOffline ?? null)
 
   // Discount code
   const [discountInput, setDiscountInput] = useState('')

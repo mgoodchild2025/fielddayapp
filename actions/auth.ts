@@ -1,5 +1,6 @@
 'use server'
 
+import type { Database } from '@/types/database'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
@@ -303,30 +304,25 @@ export async function updateProfile(input: z.infer<typeof updateProfileSchema>) 
   if (!user) return { data: null, error: 'Not authenticated' }
 
   const db = createServiceRoleClient()
-  const [profileRes, detailsRes] = await Promise.all([
+  const d = parsed.data
+  // Write ONLY the keys the caller sent. Registration step 1 sends a few
+  // fields; filling the rest with defaults turned email reminders back on,
+  // hid the player's contact info and re-opted them into texts on every
+  // registration. (CLAUDE.md: never write keys the caller didn't send.)
+  const profileUpdate: Database['public']['Tables']['profiles']['Update'] = { full_name: d.full_name }
+  if (d.phone !== undefined) profileUpdate.phone = d.phone ? toE164(d.phone) : null
+  for (const key of ['email_reminders_enabled', 'sms_opted_in', 'sms_game_day_enabled', 'push_reminders_enabled', 'sms_also_when_push', 'show_contact_info'] as const) {
+    if (d[key] !== undefined) profileUpdate[key] = d[key] as boolean
+  }
+  const detailsUpdate: Database['public']['Tables']['player_details']['Insert'] = { organization_id: d.orgId, user_id: user.id }
+  for (const key of ['skill_level', 't_shirt_size', 'emergency_contact_name'] as const) {
+    if (d[key] !== undefined) (detailsUpdate as Record<string, unknown>)[key] = d[key] || null
+  }
+  if (d.emergency_contact_phone !== undefined) detailsUpdate.emergency_contact_phone = d.emergency_contact_phone || null
 
-    db.from('profiles').update({
-      full_name: parsed.data.full_name,
-      phone: parsed.data.phone ? toE164(parsed.data.phone) : null,
-      email_reminders_enabled: parsed.data.email_reminders_enabled ?? true,
-      // Transactional SMS is opt-out (on by default). When a caller omits the
-      // field we keep it enabled rather than silently disabling it.
-      sms_opted_in: parsed.data.sms_opted_in ?? true,
-      sms_game_day_enabled: parsed.data.sms_game_day_enabled ?? true,
-      // Phone alerts for reminders: on by default; "also text me" off by default
-      // (a player reachable by push isn't texted the same reminder twice).
-      push_reminders_enabled: parsed.data.push_reminders_enabled ?? true,
-      sms_also_when_push: parsed.data.sms_also_when_push ?? false,
-      show_contact_info: parsed.data.show_contact_info ?? false,
-    }).eq('id', user.id),
-    db.from('player_details').upsert({
-      organization_id: parsed.data.orgId,
-      user_id: user.id,
-      skill_level: parsed.data.skill_level ?? null,
-      t_shirt_size: parsed.data.t_shirt_size ?? null,
-      emergency_contact_name: parsed.data.emergency_contact_name ?? null,
-      emergency_contact_phone: parsed.data.emergency_contact_phone ?? null,
-    }, { onConflict: 'organization_id,user_id' }),
+  const [profileRes, detailsRes] = await Promise.all([
+    db.from('profiles').update(profileUpdate).eq('id', user.id),
+    db.from('player_details').upsert(detailsUpdate, { onConflict: 'organization_id,user_id' }),
   ])
 
   if (profileRes.error) return { data: null, error: profileRes.error.message }

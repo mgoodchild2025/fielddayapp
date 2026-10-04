@@ -72,6 +72,37 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
     return { data: null, error: 'Registration is not open for this event' }
   }
 
+  // Existing registration FIRST — before the capacity check, which counts the
+  // player's own spot: going Back to step 1 on a now-full event said "full"
+  // to someone already holding a place.
+  // - season: one per player per event.
+  // - drop-in for a session: one per player per session. Back + resubmit (or
+  //   a second booking) used to create another pending row each time, using
+  //   up spots and risking a double charge.
+  if (parsed.data.registration_type === 'season') {
+    const { data: existing } = await db
+      .from('registrations')
+      .select('id, status')
+      .eq('organization_id', org.id)
+      .eq('league_id', parsed.data.leagueId)
+      .eq('user_id', user.id)
+      .eq('registration_type', 'season')
+      .maybeSingle()
+    if (existing) return { data: { registrationId: existing.id }, error: null }
+  } else if (parsed.data.session_id) {
+    const { data: existing } = await db
+      .from('registrations')
+      .select('id')
+      .eq('organization_id', org.id)
+      .eq('league_id', parsed.data.leagueId)
+      .eq('user_id', user.id)
+      .eq('session_id', parsed.data.session_id)
+      .in('status', ['pending', 'active'])
+      .order('created_at', { ascending: true })
+      .limit(1)
+    if (existing && existing.length > 0) return { data: { registrationId: existing[0].id }, error: null }
+  }
+
   if (leagueCap?.payment_mode !== 'per_team' && leagueCap?.max_participants) {
     const sessionId = parsed.data.session_id ?? null
     if (sessionId) {
@@ -114,21 +145,6 @@ export async function createRegistration(input: z.infer<typeof createRegistratio
         return { data: null, error: 'EVENT_FULL' }
       }
     }
-  }
-
-  // Check for existing registration (skip dedup for drop-in — each invite creates a fresh reg)
-  if (parsed.data.registration_type === 'season') {
-
-    const { data: existing } = await db
-      .from('registrations')
-      .select('id, status')
-      .eq('organization_id', org.id)
-      .eq('league_id', parsed.data.leagueId)
-      .eq('user_id', user.id)
-      .eq('registration_type', 'season')
-      .single()
-
-    if (existing) return { data: { registrationId: existing.id }, error: null }
   }
 
   // Ensure org membership
@@ -382,7 +398,7 @@ export async function removeRegistration(registrationId: string, leagueId: strin
     .delete()
     .eq('registration_id', registrationId)
     .eq('status', 'pending')
-    .in('payment_method', ['cash', 'etransfer', 'cheque'])
+    .in('payment_method', ['cash', 'etransfer', 'cheque', 'other'])
 
   // Nullify registration_id on any remaining payments before deleting — the
   // payments FK has no ON DELETE clause (defaults to RESTRICT), which would

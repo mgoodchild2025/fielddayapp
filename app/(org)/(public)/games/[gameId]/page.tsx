@@ -141,6 +141,19 @@ export default async function GameMatchupPage({
       ? awayTeamId
       : null
 
+  // Did someone on MY team submit the pending score? Then it's not "the
+  // opponent's" to confirm — a co-captain saw Confirm on their own score.
+  let submitterOnMyTeam = false
+  if (result?.submitted_by && captainTeamIdForGame && result.submitted_by !== user.id) {
+    const { data: mate } = await db
+      .from('team_members')
+      .select('id')
+      .eq('team_id', captainTeamIdForGame)
+      .eq('user_id', result.submitted_by)
+      .limit(1)
+    submitterOnMyTeam = !!mate && mate.length > 0
+  }
+
   let rsvpStatus: 'in' | 'out' | null = null
   let attendanceCounts: { in: number; out: number; total: number } | null = null
   let captainGameSubsList: import('@/actions/game-subs').GameSub[] = []
@@ -422,7 +435,7 @@ export default async function GameMatchupPage({
                   homeScore: result.home_score,
                   awayScore: result.away_score,
                   status: result.status,
-                  submittedByOpponent: result.submitted_by != null && result.submitted_by !== user.id,
+                  submittedByOpponent: result.submitted_by != null && result.submitted_by !== user.id && !submitterOnMyTeam,
                   sets: result.sets ?? null,
                 } : null}
               />

@@ -237,9 +237,11 @@ export default async function RegisterLeaguePage({
   const [{ data: playerDetails }, { data: existingReg }, { data: profile }, { data: connectAccount }, { data: captainTeam }, { data: rawTeams }] = await Promise.all([
 
     db.from('player_details').select('*').eq('organization_id', org.id).eq('user_id', user.id).single(),
-    // For invite-based drop-ins, don't resume (each invite = fresh registration).
-    // For open dropin-type events, resume existing registration like a normal event.
-    isDropIn && !isOpenDropIn
+    // Drop-in mode never resumes the SEASON registration: it showed the
+    // drop-in price while checkout charged by the resumed row's type (the
+    // season-pass price). A drop-in for a session that's already booked is
+    // found by createRegistration (one per player per session).
+    isDropIn
       ? Promise.resolve({ data: null })
 
       : db.from('registrations')

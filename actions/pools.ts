@@ -246,6 +246,17 @@ export async function generatePoolSchedule(input: {
   if (!teams || teams.length < 2)
     return { error: 'Need at least 2 teams in the pool', count: 0 }
 
+  // Generating only ever inserts — a second tap (or run) added a second full
+  // round-robin. Refuse while the pool already has games.
+  const { data: existingPoolGames } = await db
+    .from('games')
+    .select('id')
+    .eq('pool_id', input.poolId)
+    .eq('organization_id', org.id)
+    .limit(1)
+  if (existingPoolGames && existingPoolGames.length > 0)
+    return { error: 'This pool already has a schedule. Delete its games from the Schedule tab first to generate a new one.', count: 0 }
+
   // Continue week numbering after the regular season so pool play doesn't
   // restart at week 1. Offset by the highest regular-season (non-pool) week —
   // using non-pool games so every pool starts at the same week rather than

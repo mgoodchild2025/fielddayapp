@@ -188,6 +188,8 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
         orgId: org.id,
         ...(appliedDiscount ? { discountId: appliedDiscount.id } : {}),
         ...(usePlan && paymentPlan ? { planId: paymentPlan.id } : {}),
+        // Cancel at Stripe comes back here, drop-in mode / link key intact.
+        returnTo: window.location.pathname + window.location.search,
       }
 
       if (merchSelections.length > 0) {
