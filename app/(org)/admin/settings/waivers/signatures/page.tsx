@@ -5,6 +5,9 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { SignaturesFilterBar } from './signatures-filter-bar'
 import { SignaturesTable } from './signatures-table'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Waiver signatures' }
 
 interface Props {
   searchParams: Promise<{ q?: string; event?: string; waiver?: string; team?: string; sort?: string }>

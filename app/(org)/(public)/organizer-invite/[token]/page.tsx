@@ -8,6 +8,9 @@ import { OrganizerInviteActions } from '@/components/events/organizer-invite-act
 import { DeclineOrganizerInvite } from '@/components/events/decline-organizer-invite'
 import { getOrganizerInviteDetails } from '@/actions/organizers'
 import Link from 'next/link'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Organizer invite' }
 
 export default async function OrganizerInvitePage({
   params,

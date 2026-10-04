@@ -149,7 +149,7 @@ export function EventLogoUpload({ leagueId, logoUrl, sport, name }: Props) {
       </div>
 
       {error && (
-        <p className="mt-2 text-xs text-red-600">{error}</p>
+        <p role="alert" className="mt-2 text-xs text-red-600">{error}</p>
       )}
     </div>
   )

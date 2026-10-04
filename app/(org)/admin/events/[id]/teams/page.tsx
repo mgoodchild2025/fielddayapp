@@ -10,6 +10,9 @@ import type { ActiveMember, PendingInvite } from '@/components/teams/roster-mana
 import type { RosterNote } from '@/actions/roster-notes'
 import { AssignSlotsCard } from '@/components/schedule/assign-slots-card'
 import { getTeamPaymentInfo, type TeamPaymentInfo } from '@/lib/team-payments'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Teams' }
 
 export default async function TeamsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

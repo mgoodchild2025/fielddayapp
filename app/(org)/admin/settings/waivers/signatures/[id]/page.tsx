@@ -4,6 +4,9 @@ import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { sanitizeRichText } from '@/lib/sanitize-html'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Waiver signature' }
 
 function isHtml(str: string): boolean {
   return /<[a-z][\s\S]*>/i.test(str?.trim() ?? '')

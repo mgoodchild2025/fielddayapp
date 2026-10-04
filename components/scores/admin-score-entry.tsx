@@ -235,6 +235,7 @@ function ScoreEntrySheet({
                       type="number" inputMode="numeric" pattern="[0-9]*" min={0}
                       value={s.home}
                       placeholder="0"
+                      aria-label={`${homeTeamName}, ${segmentLabel(scoringMode, i)}`}
                       onChange={(e) => updateSet(i, 'home', e.target.value)}
                       onFocus={(e) => e.target.select()}
                       onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
@@ -247,6 +248,7 @@ function ScoreEntrySheet({
                       type="number" inputMode="numeric" pattern="[0-9]*" min={0}
                       value={s.away}
                       placeholder="0"
+                      aria-label={`${awayTeamName}, ${segmentLabel(scoringMode, i)}`}
                       onChange={(e) => updateSet(i, 'away', e.target.value)}
                       onFocus={(e) => e.target.select()}
                       onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
@@ -262,7 +264,7 @@ function ScoreEntrySheet({
               ))}
               {canAddMore(scoringMode, sets.length) && (
                 <button type="button" onClick={addSet}
-                  className="text-sm text-blue-600 hover:underline pl-10">
+                  className="press min-h-10 text-sm font-medium text-brand-primary hover:underline pl-10">
                   {addButtonLabel(scoringMode, sets.length)}
                 </button>
               )}
@@ -287,11 +289,13 @@ function ScoreEntrySheet({
                 <div className="flex items-center gap-2">
                   <button type="button"
                     onClick={() => setHomeScore((v) => String(Math.max(0, parseInt(v || '0') - 1)))}
+                    aria-label={`One less for ${homeTeamName}`}
                     className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-transform flex items-center justify-center select-none">−</button>
                   <input
                     type="number" inputMode="numeric" pattern="[0-9]*" min={0}
                     value={homeScore}
                     placeholder="0"
+                    aria-label={`${homeTeamName} score`}
                     onChange={(e) => setHomeScore(e.target.value)}
                     onFocus={(e) => e.target.select()}
                     onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
@@ -299,6 +303,7 @@ function ScoreEntrySheet({
                   />
                   <button type="button"
                     onClick={() => setHomeScore((v) => String(parseInt(v || '0') + 1))}
+                    aria-label={`One more for ${homeTeamName}`}
                     className="w-10 h-10 rounded-full text-white text-xl font-bold active:scale-95 transition-transform flex items-center justify-center select-none"
                     style={{ backgroundColor: 'var(--brand-primary)' }}>+</button>
                 </div>
@@ -312,11 +317,13 @@ function ScoreEntrySheet({
                 <div className="flex items-center gap-2">
                   <button type="button"
                     onClick={() => setAwayScore((v) => String(Math.max(0, parseInt(v || '0') - 1)))}
+                    aria-label={`One less for ${awayTeamName}`}
                     className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-transform flex items-center justify-center select-none">−</button>
                   <input
                     type="number" inputMode="numeric" pattern="[0-9]*" min={0}
                     value={awayScore}
                     placeholder="0"
+                    aria-label={`${awayTeamName} score`}
                     onChange={(e) => setAwayScore(e.target.value)}
                     onFocus={(e) => e.target.select()}
                     onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
@@ -324,6 +331,7 @@ function ScoreEntrySheet({
                   />
                   <button type="button"
                     onClick={() => setAwayScore((v) => String(parseInt(v || '0') + 1))}
+                    aria-label={`One more for ${awayTeamName}`}
                     className="w-10 h-10 rounded-full text-white text-xl font-bold active:scale-95 transition-transform flex items-center justify-center select-none"
                     style={{ backgroundColor: 'var(--brand-primary)' }}>+</button>
                 </div>
@@ -331,7 +339,7 @@ function ScoreEntrySheet({
             </div>
           )}
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
 
           {/* Forfeit — for a no-show. Auto-fills a default win/loss score. */}
           <div className="border-t pt-3">

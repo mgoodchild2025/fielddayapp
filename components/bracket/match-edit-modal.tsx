@@ -390,7 +390,7 @@ function MatchEditContent({ match, bracketId, leagueId, allTeams, onClose }: Pro
             </div>
           )}
 
-          {err && <p className="text-sm text-red-500">{err}</p>}
+          {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
           {saved && <p className="fd-fade-in text-sm text-green-600">✓ Saved</p>}
 
           <div className="flex gap-2 pt-1">

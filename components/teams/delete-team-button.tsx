@@ -32,7 +32,7 @@ export function DeleteTeamButton({ teamId, teamName, leagueId }: Props) {
     <button
       onClick={handleDelete}
       disabled={loading}
-      className="press text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 min-h-10 rounded transition-colors disabled:opacity-50"
+      className="press text-xs text-red-600 hover:text-red-700 hover:bg-red-50 px-2 min-h-10 rounded transition-colors disabled:opacity-50"
     >
       {loading ? 'Deleting…' : 'Delete team'}
     </button>

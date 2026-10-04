@@ -4,6 +4,9 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { StaffManager } from './staff-manager'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Staff & volunteers' }
 
 export default async function StaffPage() {
   const headersList = await headers()

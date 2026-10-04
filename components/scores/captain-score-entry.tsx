@@ -236,7 +236,7 @@ export function CaptainScoreEntry({
             </button>
           </div>
         </div>
-        {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+        {error && <p role="alert" className="text-red-600 text-xs mt-1">{error}</p>}
       </div>
     )
   }
@@ -262,14 +262,16 @@ export function CaptainScoreEntry({
                   <span className="text-xs text-gray-500 w-10 text-center">{segmentLabel(scoringMode, i)}</span>
                   <input
                     type="number" min={0} inputMode="numeric" onFocus={(e) => e.target.select()} value={s.home}
+                    aria-label={`${homeTeamName}, ${segmentLabel(scoringMode, i)}`}
                     onChange={(e) => updateSet(i, 'home', Number(e.target.value))}
-                    className="w-16 h-11 border rounded px-2 text-center text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    className="w-16 h-11 border rounded px-2 text-center text-base font-bold focus:outline-none focus:ring-2 focus:ring-brand-primary"
                   />
                   <span className="text-gray-300 font-bold text-lg w-4 text-center">–</span>
                   <input
                     type="number" min={0} inputMode="numeric" onFocus={(e) => e.target.select()} value={s.away}
+                    aria-label={`${awayTeamName}, ${segmentLabel(scoringMode, i)}`}
                     onChange={(e) => updateSet(i, 'away', Number(e.target.value))}
-                    className="w-16 h-11 border rounded px-2 text-center text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    className="w-16 h-11 border rounded px-2 text-center text-base font-bold focus:outline-none focus:ring-2 focus:ring-brand-primary"
                   />
                   {sets.length > 1 && scoringMode !== 'innings' && (
                     <button type="button" onClick={() => removeSet(i)} aria-label={`Remove ${segmentLabel(scoringMode, i)}`}
@@ -334,7 +336,7 @@ export function CaptainScoreEntry({
             </button>
           </div>
         </form>
-        {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+        {error && <p role="alert" className="text-red-600 text-xs mt-1">{error}</p>}
       </div>
     )
   }

@@ -12,6 +12,9 @@ import { BioFlipCard } from '@/components/bios/bio-flip-card'
 import { redirectToLogin } from '@/lib/auth'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Users } from 'lucide-react'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Card binder' }
 
 /**
  * The team card binder (card flip C3): the roster as a grid of full player

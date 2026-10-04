@@ -183,7 +183,7 @@ export function AdminEditTeamForm({ team, leagueId }: Props) {
                     <button
                       type="button"
                       onClick={handleRemoveLogo}
-                      className="text-xs text-red-500 hover:text-red-700 hover:underline"
+                      className="text-xs text-red-600 hover:text-red-700 hover:underline"
                     >
                       Remove
                     </button>
@@ -202,7 +202,7 @@ export function AdminEditTeamForm({ team, leagueId }: Props) {
                 <UploadStatus active={pending && !!logoFile} label="Uploading logo" file={logoFile} className="mt-1" />
               </div>
 
-              {error && <p className="text-xs text-red-600">{error}</p>}
+              {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
             </div>
 
             <div className="px-5 py-4 border-t flex gap-2">

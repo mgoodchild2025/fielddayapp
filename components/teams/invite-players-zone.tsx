@@ -165,7 +165,7 @@ export function InvitePlayersZone({ teamId, teamCode: initialCode }: Props) {
               Cancel
             </button>
           </div>
-          {formError && <p className="text-xs text-red-600">{formError}</p>}
+          {formError && <p role="alert" className="text-xs text-red-600">{formError}</p>}
         </form>
       )}
 

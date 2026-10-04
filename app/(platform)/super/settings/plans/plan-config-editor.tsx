@@ -132,6 +132,7 @@ export function PlanConfigEditor({ tiers, featureGroups, configMap }: Props) {
         type="button"
         role="switch"
         aria-checked={cell.enabled}
+        aria-label={`${feat.label} on ${tier}`}
         onClick={() => setEnabled(tier, feat.key, !cell.enabled)}
         className={`relative w-9 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-800 ${
           cell.enabled ? 'bg-emerald-500' : 'bg-gray-600'

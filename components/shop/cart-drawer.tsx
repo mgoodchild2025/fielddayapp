@@ -204,7 +204,7 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
         {items.length > 0 && (
           <div className="border-t px-5 py-4 space-y-3">
             {error && (
-              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</p>
+              <p role="alert" className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</p>
             )}
 
             {/* Discount code */}
@@ -252,7 +252,7 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
                         className="press min-h-10 min-w-10 rounded-lg text-gray-500 hover:text-gray-700 text-sm"
                       >✕</button>
                     </div>
-                    {discountError && <p className="text-xs text-red-600">{discountError}</p>}
+                    {discountError && <p role="alert" className="text-xs text-red-600">{discountError}</p>}
                   </div>
                 )}
               </div>

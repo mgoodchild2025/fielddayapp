@@ -113,9 +113,11 @@ function ResetForm() {
                     id="password"
                     type="password"
                     autoComplete="new-password"
+                    aria-invalid={errors.password ? true : undefined}
+                    aria-describedby={errors.password ? 'password-error' : undefined}
                     className="w-full border rounded-md px-3 py-2 text-base focus:outline-none focus:ring-2"
                   />
-                  {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+                  {errors.password && <p id="password-error" role="alert" className="text-red-600 text-xs mt-1">{errors.password.message}</p>}
                 </div>
 
                 <div>
@@ -127,9 +129,11 @@ function ResetForm() {
                     id="confirm"
                     type="password"
                     autoComplete="new-password"
+                    aria-invalid={errors.confirm ? true : undefined}
+                    aria-describedby={errors.confirm ? 'confirm-error' : undefined}
                     className="w-full border rounded-md px-3 py-2 text-base focus:outline-none focus:ring-2"
                   />
-                  {errors.confirm && <p className="text-red-500 text-xs mt-1">{errors.confirm.message}</p>}
+                  {errors.confirm && <p id="confirm-error" role="alert" className="text-red-600 text-xs mt-1">{errors.confirm.message}</p>}
                 </div>
 
                 <button
@@ -142,7 +146,7 @@ function ResetForm() {
               </>
             )}
 
-            <Link href="/login" className="block text-sm text-center text-gray-500 hover:underline pt-2">
+            <Link href="/login" className="flex items-center justify-center min-h-10 text-sm text-gray-600 hover:underline">
               Back to sign in
             </Link>
           </form>

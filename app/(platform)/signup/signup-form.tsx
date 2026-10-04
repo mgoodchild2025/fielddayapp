@@ -323,9 +323,9 @@ function SignupForm({
         </div>
         <div className="mt-1.5 h-4">
           {slug.length >= 2 && (
-            <p className={`text-xs font-medium ${
+            <p aria-live="polite" className={`text-xs font-medium ${
               slugStatus === 'available' ? 'text-emerald-600' :
-              slugStatus === 'taken' ? 'text-red-500' :
+              slugStatus === 'taken' ? 'text-red-600' :
               'text-gray-400'
             }`}>
               {slugStatus === 'checking' && 'Checking availability…'}

@@ -73,7 +73,7 @@ export function AdminMedalsPanel({ medals, leagueId }: { medals: AdminMedalRow[]
           {isAwarding ? 'Awarding…' : '🏅 Award Medals'}
         </button>
       </div>
-      {err && <p className="px-5 py-2 text-xs text-red-500 border-b">{err}</p>}
+      {err && <p role="alert" className="px-5 py-2 text-xs text-red-600 border-b">{err}</p>}
       {awardMsg && <p className="px-5 py-2 text-xs text-green-700 bg-green-50 border-b">{awardMsg}</p>}
       {medals.length === 0 && (
         <p className="px-5 py-6 text-sm text-gray-500 text-center">

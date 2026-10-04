@@ -8,6 +8,9 @@ import { InviteActions } from '@/components/teams/invite-actions'
 import { getInviteDetails } from '@/actions/invitations'
 import Link from 'next/link'
 import { SignOutButton } from '@/components/auth/sign-out-button'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Team invite' }
 
 export default async function InvitePage({
   params,

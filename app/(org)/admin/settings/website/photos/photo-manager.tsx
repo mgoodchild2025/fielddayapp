@@ -83,7 +83,7 @@ function UploadProgress({ items }: { items: UploadItem[] }) {
       </div>
 
       {items.filter(i => i.status === 'error').map((item, i) => (
-        <p key={i} className="text-xs text-red-500">{item.file.name}: {item.errorMsg}</p>
+        <p key={i} className="text-xs text-red-600">{item.file.name}: {item.errorMsg}</p>
       ))}
     </div>
   )
@@ -264,6 +264,15 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
     await reorderOrgPhotos(withOrders.map(p => ({ id: p.id, display_order: p.display_order })))
   }
 
+  // Button path for reordering — dragging needs a pointer and fine motor
+  // control; keyboard and switch users get Move earlier / later.
+  async function movePhoto(id: string, delta: -1 | 1) {
+    const from = photos.findIndex(p => p.id === id)
+    const to = from + delta
+    if (from < 0 || to < 0 || to >= photos.length) return
+    await commitReorder(id, photos[to].id)
+  }
+
   function handlePointerDown(e: React.PointerEvent, id: string) {
     // Only respond to primary pointer (ignore secondary touches)
     if (!e.isPrimary) return
@@ -380,7 +389,7 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
             // Cursor feedback during active drag
             style={{ cursor: dragId ? 'grabbing' : undefined }}
           >
-            {photos.map((photo) => {
+            {photos.map((photo, i) => {
               const isBeingDragged = dragId === photo.id
               const isDropTarget   = dragOverId === photo.id && dragId !== photo.id
               const isEditingThisCaption = editingCaption?.id === photo.id
@@ -434,8 +443,8 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                   )}
 
                   {/* ── Desktop: hover overlay (hidden on touch screens) ── */}
-                  <div className="hidden sm:flex absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors items-end pointer-events-none group-hover:pointer-events-auto">
-                    <div className="w-full p-2 translate-y-full group-hover:translate-y-0 transition-transform space-y-1.5">
+                  <div className="hidden sm:flex absolute inset-0 bg-black/0 group-hover:bg-black/40 group-focus-within:bg-black/40 transition-colors items-end pointer-events-none group-hover:pointer-events-auto group-focus-within:pointer-events-auto">
+                    <div className="w-full p-2 translate-y-full group-hover:translate-y-0 group-focus-within:translate-y-0 transition-transform space-y-1.5">
                       {isEditingThisCaption ? (
                         <div className="flex gap-1" onPointerDown={e => e.stopPropagation()}>
                           <input
@@ -460,6 +469,24 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                         </button>
                       )}
                       <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => movePhoto(photo.id, -1)}
+                          disabled={i === 0}
+                          className="flex-1 text-xs text-white/80 hover:text-white disabled:opacity-30 text-center py-0.5 rounded hover:bg-white/10"
+                          aria-label="Move photo earlier"
+                          title="Move earlier"
+                        >
+                          ←
+                        </button>
+                        <button
+                          onClick={() => movePhoto(photo.id, 1)}
+                          disabled={i === photos.length - 1}
+                          className="flex-1 text-xs text-white/80 hover:text-white disabled:opacity-30 text-center py-0.5 rounded hover:bg-white/10"
+                          aria-label="Move photo later"
+                          title="Move later"
+                        >
+                          →
+                        </button>
                         {/* Featured toggle */}
                         <button
                           onClick={() => handleToggleFeatured(photo.id, photo.featured)}
@@ -469,6 +496,8 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                             photo.featured ? 'text-yellow-300' : 'text-white/60 hover:text-white',
                           ].join(' ')}
                           title={photo.featured ? 'Remove from home page' : 'Feature on home page'}
+                          aria-label={photo.featured ? 'Remove from home page' : 'Feature on home page'}
+                          aria-pressed={photo.featured}
                         >
                           ⭐
                         </button>
@@ -478,6 +507,7 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                           disabled={rotatingId === photo.id}
                           className="flex-1 text-xs text-white/80 hover:text-white disabled:opacity-40 text-center py-0.5 rounded hover:bg-white/10"
                           title="Rotate left"
+                          aria-label="Rotate left"
                         >
                           ↺
                         </button>
@@ -487,6 +517,7 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                           disabled={rotatingId === photo.id}
                           className="flex-1 text-xs text-white/80 hover:text-white disabled:opacity-40 text-center py-0.5 rounded hover:bg-white/10"
                           title="Rotate right"
+                          aria-label="Rotate right"
                         >
                           ↻
                         </button>
@@ -495,6 +526,7 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                           onClick={() => handleDelete(photo.id)}
                           className="flex-1 text-xs text-red-300 hover:text-red-200 disabled:opacity-50 text-center py-0.5 rounded hover:bg-white/10"
                           title="Remove"
+                          aria-label="Remove photo"
                         >
                           ✕
                         </button>
@@ -535,6 +567,22 @@ export function PhotoManager({ initialPhotos }: { initialPhotos: Photo[] }) {
                       {/* Rotate + Delete + Featured buttons */}
                       {!isEditingThisCaption && (
                         <div className="flex items-center gap-1 shrink-0" onPointerDown={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => movePhoto(photo.id, -1)}
+                            disabled={i === 0}
+                            className="w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-white text-sm disabled:opacity-30"
+                            aria-label="Move photo earlier"
+                          >
+                            ←
+                          </button>
+                          <button
+                            onClick={() => movePhoto(photo.id, 1)}
+                            disabled={i === photos.length - 1}
+                            className="w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-white text-sm disabled:opacity-30"
+                            aria-label="Move photo later"
+                          >
+                            →
+                          </button>
                           {/* Featured toggle */}
                           <button
                             onClick={() => handleToggleFeatured(photo.id, photo.featured)}

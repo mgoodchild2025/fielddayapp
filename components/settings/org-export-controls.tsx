@@ -155,15 +155,15 @@ export function OrgExportControls() {
 
               {isFailed && (
                 <div className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-red-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <div>
                     <span className="text-red-700 font-medium">Export failed</span>
                     {job?.error_message && (
-                      <p className="text-red-500 text-xs mt-0.5">{job.error_message}</p>
+                      <p role="alert" className="text-red-600 text-xs mt-0.5">{job.error_message}</p>
                     )}
-                    <p className="text-red-500 text-xs mt-0.5">You can request a new export below.</p>
+                    <p className="text-red-600 text-xs mt-0.5">You can request a new export below.</p>
                   </div>
                 </div>
               )}
@@ -221,7 +221,7 @@ export function OrgExportControls() {
                   </label>
 
                   {requestError && (
-                    <p className="text-sm text-red-500">{requestError}</p>
+                    <p role="alert" className="text-sm text-red-600">{requestError}</p>
                   )}
 
                   <div className="flex gap-2 pt-1">

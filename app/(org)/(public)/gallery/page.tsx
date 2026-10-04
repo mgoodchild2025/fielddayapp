@@ -8,6 +8,9 @@ import { getApprovedVideos } from '@/actions/social'
 import { getOrgApprovedEventMedia } from '@/actions/event-media'
 import { EventMediaGallery } from '@/components/media/event-media-gallery'
 import { cloudinaryThumb } from '@/lib/cloudinary-url'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Gallery' }
 
 export default async function GalleryPage() {
   const headersList = await headers()

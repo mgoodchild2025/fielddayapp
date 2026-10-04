@@ -6,6 +6,9 @@ import { Footer } from '@/components/layout/footer'
 import { formatGameTime } from '@/lib/format-time'
 import { TokenCheckinConfirm } from '@/components/checkin/token-checkin-confirm'
 import Link from 'next/link'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Check in' }
 
 // Opening this page never checks anyone in: the confirmation email links here,
 // and mail scanners open every link (CLAUDE.md: email links never act on GET).

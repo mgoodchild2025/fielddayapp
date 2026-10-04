@@ -103,7 +103,7 @@ export function AddGameForm({ leagueId, sport, teams, pools = [], timezone }: Pr
             className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0"
           />
           {errors.scheduledAt && (
-            <p className="text-red-500 text-xs mt-0.5">{errors.scheduledAt.message}</p>
+            <p role="alert" className="text-red-600 text-xs mt-0.5">{errors.scheduledAt.message}</p>
           )}
         </div>
 
@@ -138,7 +138,7 @@ export function AddGameForm({ leagueId, sport, teams, pools = [], timezone }: Pr
             />
           )}
           {errors.awayTeamId && (
-            <p className="text-red-500 text-xs mt-0.5">{errors.awayTeamId.message}</p>
+            <p role="alert" className="text-red-600 text-xs mt-0.5">{errors.awayTeamId.message}</p>
           )}
         </div>
 

@@ -316,7 +316,7 @@ export function TeamPaymentPanel({
                       </button>
                       <button type="button" onClick={() => { setShowDiscountInput(false); setDiscountInput(''); setDiscountError(null) }} className="px-3 py-2 rounded-md text-sm text-gray-500 hover:text-gray-600">✕</button>
                     </div>
-                    {discountError && <p className="text-xs text-red-600">{discountError}</p>}
+                    {discountError && <p role="alert" className="text-xs text-red-600">{discountError}</p>}
                   </div>
                 )}
               </div>

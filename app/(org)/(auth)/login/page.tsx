@@ -8,6 +8,9 @@ import { LoginForm } from './login-form'
 import { canOptimizeImage } from '@/lib/image-src'
 import { safeRelativePath } from '@/lib/safe-redirect'
 import { BackLink } from '@/components/ui/back-link'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Sign in' }
 
 export default async function LoginPage({
   searchParams,

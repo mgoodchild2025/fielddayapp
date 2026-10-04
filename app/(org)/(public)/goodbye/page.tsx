@@ -1,6 +1,9 @@
 import { headers } from 'next/headers'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getCurrentOrg } from '@/lib/tenant'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Account deleted' }
 
 export default async function GoodbyePage() {
   const headersList = await headers()

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { confirmLeaveIfUnsaved } from '@/components/ui/use-unsaved-changes'
+import { scrollBehavior } from '@/lib/motion'
 
 function tabs(id: string, eventType: string, pickupJoinPolicy: string) {
   const base = [
@@ -182,7 +183,7 @@ export function EventAdminTabs({ leagueId, eventType, pickupJoinPolicy = 'public
           <div className="absolute left-0 top-0 bottom-0 z-10 flex items-end pb-px pointer-events-none">
             <div className="absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-white to-transparent" />
             <button
-              onClick={() => scrollRef.current?.scrollBy({ left: -160, behavior: 'smooth' })}
+              onClick={() => scrollRef.current?.scrollBy({ left: -160, behavior: scrollBehavior() })}
               className="relative z-10 pointer-events-auto p-1 text-gray-400 hover:text-gray-700 transition-colors"
               aria-label="Scroll tabs left"
             >
@@ -226,7 +227,7 @@ export function EventAdminTabs({ leagueId, eventType, pickupJoinPolicy = 'public
           <div className="absolute right-0 top-0 bottom-0 z-10 flex items-end pb-px pointer-events-none">
             <div className="absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white to-transparent" />
             <button
-              onClick={() => scrollRef.current?.scrollBy({ left: 160, behavior: 'smooth' })}
+              onClick={() => scrollRef.current?.scrollBy({ left: 160, behavior: scrollBehavior() })}
               className="relative z-10 pointer-events-auto p-1 text-gray-400 hover:text-gray-700 transition-colors"
               aria-label="Scroll tabs right"
             >

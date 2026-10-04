@@ -4,6 +4,9 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import Link from 'next/link'
 import { EventsTable } from '@/components/admin/events-table'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Events' }
 
 export default async function AdminEventsPage() {
   const headersList = await headers()

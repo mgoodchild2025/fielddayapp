@@ -15,6 +15,9 @@ import { getMarketingConsent, getPlayerConsentSummary } from '@/actions/player-c
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { eventStatusTone } from '@/components/ui/status-chip'
 import { SubmitButton } from '@/components/ui/submit-button'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Player' }
 
 const PAST_STATUSES = new Set(['completed', 'archived'])
 

@@ -66,8 +66,9 @@ export function OrgMaintenanceForm({ orgId, initialEnabled, initialMessage, init
           type="button"
           role="switch"
           aria-checked={enabled}
+          aria-label="Maintenance mode for this org"
           onClick={() => setEnabled(!enabled)}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
             enabled ? 'bg-amber-500' : 'bg-gray-200'
           }`}
         >
@@ -109,7 +110,7 @@ export function OrgMaintenanceForm({ orgId, initialEnabled, initialMessage, init
         </div>
       )}
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
 
       <div className="flex items-center gap-3">
         <button

@@ -45,7 +45,7 @@ export default function ResetPasswordPage() {
         <div className="text-center max-w-md">
           <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--brand-heading-font)' }}>Check your email</h1>
           <p className="text-gray-600">If an account with that email exists, we sent a password reset link. It works on any device and expires in an hour.</p>
-          <Link href="/login" className="mt-6 inline-block text-sm hover:underline" style={{ color: 'var(--brand-primary)' }}>
+          <Link href="/login" className="mt-6 inline-flex items-center min-h-10 text-sm font-medium text-brand-primary hover:underline">
             Back to sign in
           </Link>
         </div>
@@ -67,9 +67,11 @@ export default function ResetPasswordPage() {
               id="email"
               type="email"
               autoComplete="email"
+              aria-invalid={errors.email ? true : undefined}
+              aria-describedby={errors.email ? 'email-error' : undefined}
               className="w-full border rounded-md px-3 py-2 text-base focus:outline-none focus:ring-2"
             />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+            {errors.email && <p id="email-error" role="alert" className="text-red-600 text-xs mt-1">{errors.email.message}</p>}
           </div>
           {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
           <button
@@ -79,7 +81,7 @@ export default function ResetPasswordPage() {
           >
             {loading ? 'Sending…' : 'Send Reset Link'}
           </button>
-          <Link href="/login" className="block text-sm text-center text-gray-500 hover:underline pt-2">
+          <Link href="/login" className="flex items-center justify-center min-h-10 text-sm text-gray-600 hover:underline">
             Back to sign in
           </Link>
         </form>

@@ -21,6 +21,9 @@ import { getOrgBrandingCached } from '@/lib/org-cache'
 import { EmptyState } from '@/components/ui/empty-state'
 import { CalendarX } from 'lucide-react'
 import type { OrgContext } from '@/lib/tenant'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Register' }
 
 /**
  * A register link that no longer leads anywhere (registration closed, the

@@ -8,6 +8,9 @@ import { getAdminScope } from '@/lib/admin-scope'
 import { AdminSessionsManager } from '@/components/sessions/admin-sessions-manager'
 import { DropinWalkupPayment } from '@/components/sessions/dropin-walkup-payment'
 import { CopyLinkButton } from '@/components/sessions/copy-link-button'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Sessions' }
 
 export default async function AdminSessionsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

@@ -60,7 +60,7 @@ export function PaymentPlanConfig({ leagueId, existing }: Props) {
       <div className="flex items-center justify-between mb-2">
         <h2 className="font-semibold text-sm">Payment Plan</h2>
         {existing && (
-          <button onClick={handleDelete} disabled={pending} className="text-xs text-red-500 hover:underline disabled:opacity-50">
+          <button onClick={handleDelete} disabled={pending} className="text-xs text-red-600 hover:underline disabled:opacity-50">
             Remove
           </button>
         )}
@@ -75,7 +75,7 @@ export function PaymentPlanConfig({ leagueId, existing }: Props) {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3">
-          {error && <p className="text-xs text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
           <div>
             <label className="text-xs text-gray-500 mb-0.5 block">Plan name</label>
             <input type="text" value={name} onChange={e => setName(e.target.value)} required className={inputClass} />

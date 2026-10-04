@@ -5,6 +5,9 @@ import { getAdminScope } from '@/lib/admin-scope'
 import { PaymentsTable } from '@/components/admin/payments-table'
 import { getOrgTaxRates, ratesForScope } from '@/lib/tax'
 import { pickLedgerPayment } from '@/lib/payment-ledger'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Payments' }
 
 type PaymentRecord = {
   id: string

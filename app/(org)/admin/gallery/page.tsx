@@ -6,6 +6,9 @@ import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { PhotoManager } from '@/app/(org)/admin/settings/website/photos/photo-manager'
 import Link from 'next/link'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Gallery' }
 
 export default async function AdminGalleryPage() {
   const headersList = await headers()

@@ -3,6 +3,9 @@ import { headers } from 'next/headers'
 import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { notFound } from 'next/navigation'
 import { CheckInScanner } from './check-in-scanner'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Check in' }
 
 export default async function DropInCheckInPage({
   params,

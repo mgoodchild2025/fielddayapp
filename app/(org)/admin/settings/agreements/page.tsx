@@ -4,6 +4,9 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { getOrgAcceptances, getPendingReacceptance } from '@/actions/tenant-consent'
 import { TENANT_CONSENT_SLUGS } from '@/lib/tenant-consent-types'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Agreements' }
 
 export const dynamic = 'force-dynamic'
 

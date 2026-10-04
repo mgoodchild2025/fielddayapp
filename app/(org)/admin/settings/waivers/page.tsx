@@ -3,6 +3,9 @@ import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { WaiverList } from './waiver-list'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Waivers' }
 
 export default async function AdminWaiversPage() {
   const headersList = await headers()

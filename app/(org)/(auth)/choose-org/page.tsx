@@ -4,6 +4,9 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Choose an organization' }
 
 const PLATFORM_DOMAIN = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN ?? 'fielddayapp.ca'
 

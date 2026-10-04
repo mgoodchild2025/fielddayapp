@@ -4,6 +4,9 @@ import { requireOrgMember } from '@/lib/auth'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getMerchandiseItems } from '@/actions/merchandise'
 import { LeagueMerchToggle } from '@/components/merchandise/league-merch-toggle'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Event merchandise' }
 
 export default async function EventMerchandisePage({
   params,

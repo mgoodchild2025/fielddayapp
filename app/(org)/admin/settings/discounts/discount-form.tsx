@@ -42,7 +42,7 @@ export function DiscountForm({ leagues }: { leagues: League[] }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>}
 
       <div className="grid grid-cols-2 gap-4">
         <div>

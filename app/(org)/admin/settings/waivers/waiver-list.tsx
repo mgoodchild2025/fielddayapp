@@ -132,7 +132,7 @@ function WaiverCard({ waiver, editingId, setEditingId, onUpdated, onDeleted, onA
           {!confirmingDelete && (
             <button
               onClick={() => setConfirmingDelete(true)}
-              className="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50"
+              className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50"
             >
               Delete
             </button>
@@ -280,7 +280,7 @@ function WaiverForm({ waiver, onSaved, onCancel }: FormProps) {
         </p>
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
 
       <div className="flex gap-3">
         <button
@@ -367,7 +367,7 @@ function DeleteConfirmPanel({
             />
             <span className="text-red-800 text-xs">I understand this will permanently delete all player signatures</span>
           </label>
-          {error && <p className="text-xs text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
           <div className="flex items-center gap-3">
             <button
               onClick={handleDelete}
@@ -390,7 +390,7 @@ function DeleteConfirmPanel({
           {isActive && (
             <p className="text-xs text-red-600">Any leagues using this waiver will revert to &quot;No waiver required&quot;.</p>
           )}
-          {error && <p className="text-xs text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
           <div className="flex items-center gap-3">
             <button
               onClick={handleDelete}

@@ -97,7 +97,7 @@ export function InstallmentSchedule({ installments, currency = 'CAD', onPayClick
                 <Circle className="w-4 h-4 text-gray-300 shrink-0" />
               )}
               {(inst.status === 'failed' || overdue) && (
-                <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
               )}
 
               {/* Label */}

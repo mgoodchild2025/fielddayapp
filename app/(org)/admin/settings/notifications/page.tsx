@@ -7,6 +7,9 @@ import { getNotificationSettings } from '@/actions/notification-settings'
 import { NotificationSettingsForm } from './notification-settings-form'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { pushConfigured } from '@/lib/push'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Notification settings' }
 
 export default async function NotificationSettingsPage() {
   const headersList = await headers()

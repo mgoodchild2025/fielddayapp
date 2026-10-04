@@ -514,7 +514,7 @@ function TierBracketCard({
               <button
                 onClick={handleDelete}
                 disabled={isPending}
-                className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors disabled:opacity-60"
+                className="p-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors disabled:opacity-60"
                 title="Delete bracket"
                 aria-label="Delete bracket"
               >
@@ -540,7 +540,7 @@ function TierBracketCard({
         </div>
       </div>
 
-      {err && <p className="px-5 pb-3 text-xs text-red-500">{err}</p>}
+      {err && <p role="alert" className="px-5 pb-3 text-xs text-red-600">{err}</p>}
       {bestLoserResult && <p className="px-5 pb-3 text-xs text-green-700 font-medium">✓ {bestLoserResult}</p>}
       {seedingOrder && seedingOrder.length > 0 && (
         <div className="mx-5 mb-3 rounded border border-blue-200 bg-blue-50 p-3">
@@ -1020,7 +1020,7 @@ export function PlayoffConfigWizard({
         {genMsg && (
           <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-4 py-2">{genMsg}</p>
         )}
-        {err && <p className="text-sm text-red-500">{err}</p>}
+        {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
 
         {/* Per-tier bracket cards */}
         {existingConfig.tiers.map((tier) => (
@@ -1294,7 +1294,7 @@ export function PlayoffConfigWizard({
           )}
         </div>
 
-        {err && <p className="text-sm text-red-500">{err}</p>}
+        {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
 
         <div className="flex gap-3 flex-wrap">
           {/* Generate = save config + create all bracket draws in one click */}

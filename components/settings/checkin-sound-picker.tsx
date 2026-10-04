@@ -84,7 +84,7 @@ export function CheckinSoundPicker({ currentSound, orgId }: Props) {
       </div>
 
       {saveError && (
-        <p className="text-sm text-red-500">{saveError}</p>
+        <p role="alert" className="text-sm text-red-600">{saveError}</p>
       )}
 
       <div className="flex items-center gap-3 pt-1">

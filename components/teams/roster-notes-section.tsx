@@ -121,7 +121,7 @@ function EditRow({
           ))}
         </select>
       </div>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
       <div className="flex gap-2 pt-0.5">
         <button
           type="button"
@@ -242,7 +242,7 @@ function NoteRow({
             <p className="fd-fade-in text-xs text-green-600 mt-0.5 font-medium">✓ Invite sent to {note.email}</p>
           )}
           {inviteError && (
-            <p className="text-xs text-red-500 mt-0.5">{inviteError}</p>
+            <p role="alert" className="text-xs text-red-600 mt-0.5">{inviteError}</p>
           )}
         </div>
       </div>
@@ -282,7 +282,7 @@ function NoteRow({
         <button
           type="button"
           onClick={handleDelete}
-          className="press min-h-10 px-3 rounded-md text-xs font-medium text-red-500 border border-red-100 hover:bg-red-50 disabled:opacity-40 transition-colors"
+          className="press min-h-10 px-3 rounded-md text-xs font-medium text-red-600 border border-red-100 hover:bg-red-50 disabled:opacity-40 transition-colors"
         >
           Remove
         </button>

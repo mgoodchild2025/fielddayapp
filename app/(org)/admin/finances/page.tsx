@@ -10,6 +10,9 @@ import { AdminDocumentsCard } from '@/components/documents/admin-documents-card'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getOrgTaxRates } from '@/lib/tax'
 import Link from 'next/link'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Finances' }
 
 function money(cents: number): string {
   const neg = cents < 0

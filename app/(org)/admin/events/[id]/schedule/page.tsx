@@ -16,6 +16,9 @@ import { SchedulePhaseSummary } from '@/components/schedule/schedule-phase-summa
 import { UpgradeBadge } from '@/components/ui/upgrade-prompt'
 import { formatGameTime } from '@/lib/format-time'
 import type { SchedulePhase } from '@/lib/phases'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Schedule' }
 
 export default async function AdminSchedulePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ filter?: string }> }) {
   const { id } = await params

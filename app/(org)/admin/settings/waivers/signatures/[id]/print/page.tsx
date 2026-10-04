@@ -4,6 +4,9 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { PrintControls } from '@/components/print/print-controls'
 import { sanitizeRichText } from '@/lib/sanitize-html'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Waiver signature (print)' }
 
 function isHtml(str: string): boolean {
   return /<[a-z][\s\S]*>/i.test(str?.trim() ?? '')

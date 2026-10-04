@@ -9,6 +9,7 @@ import { updateProfile } from '@/actions/auth'
 import { validateTeamCode, joinTeamByCode } from '@/actions/teams'
 import type { Database } from '@/types/database'
 import { toast } from 'sonner'
+import { scrollBehavior } from '@/lib/motion'
 
 type TeamCodeResult = { id: string; name: string } | null
 
@@ -65,7 +66,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
   const errorRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!error) return
-    errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    errorRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: 'center' })
     errorRef.current?.focus({ preventScroll: true })
   }, [error])
   const [selectedPosition, setSelectedPosition] = useState('')
@@ -155,7 +156,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
     if (!privacyAccepted) {
       // Said beside the checkbox, not in a banner at the top.
       setPrivacyError(true)
-      document.getElementById('privacy-consent')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      document.getElementById('privacy-consent')?.scrollIntoView({ behavior: scrollBehavior(), block: 'center' })
       return
     }
 
@@ -271,7 +272,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
                 <option value="">Select…</option>
                 {SHIRT_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
-              {errors.t_shirt_size && <p className="text-red-600 text-xs mt-1">{errors.t_shirt_size.message}</p>}
+              {errors.t_shirt_size && <p role="alert" className="text-red-600 text-xs mt-1">{errors.t_shirt_size.message}</p>}
             </div>
           )}
         </div>

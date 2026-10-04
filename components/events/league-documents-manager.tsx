@@ -320,7 +320,7 @@ function AddDocumentForm({
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       <UploadStatus active={loading} label="Uploading" file={{ name: fileName }} />
 
       <div className="flex gap-2">

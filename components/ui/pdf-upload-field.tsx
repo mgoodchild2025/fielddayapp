@@ -104,7 +104,7 @@ export function PdfUploadField({ label, currentUrl, onUpload, onRemove }: Props)
       </div>
 
       <p className="text-xs text-gray-400">PDF only · Max 10 MB</p>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
     </div>
   )
 }

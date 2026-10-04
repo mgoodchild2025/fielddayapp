@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { X } from 'lucide-react'
+import { scrollBehavior } from '@/lib/motion'
 
 interface Step {
   target: string
@@ -113,7 +114,7 @@ export function TeamTutorial({
       return
     }
     targetRef.current = el
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.scrollIntoView({ behavior: scrollBehavior(), block: 'center' })
     // First paint once the smooth scroll has mostly settled; the scroll
     // listener below keeps it glued to the target from then on.
     setTimeout(() => {
@@ -165,7 +166,25 @@ export function TeamTutorial({
   function finish() {
     localStorage.setItem(storageKey, '1')
     setStep(-1)
+    // Hand focus back to where it was before the tour took it.
+    returnFocusRef.current?.focus?.()
+    returnFocusRef.current = null
   }
+
+  // A real dialog for keyboard and screen-reader users: focus lands on the
+  // primary button each step, Escape ends the tour.
+  const nextRef = useRef<HTMLButtonElement>(null)
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+  const visible = step >= 0 && !!spotRect
+  useEffect(() => {
+    if (!visible) return
+    if (!returnFocusRef.current) returnFocusRef.current = document.activeElement as HTMLElement | null
+    nextRef.current?.focus({ preventScroll: true })
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') finish() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, step])
 
   if (step < 0 || !spotRect) return null
 
@@ -174,23 +193,27 @@ export function TeamTutorial({
 
   return (
     <>
-      {/* 4-panel spotlight overlay — blocks clicks outside the target */}
+      {/* 4-panel spotlight overlay — blocks clicks outside the target. A stray
+          tap on it no longer ends the tour; Skip / ✕ / Escape do. */}
       {(Object.values(overlays) as React.CSSProperties[]).map((style, i) => (
         <div
           key={i}
+          aria-hidden="true"
           style={{ ...style, position: 'fixed', backgroundColor: 'rgba(0,0,0,0.58)', zIndex: 9990 }}
-          onClick={finish}
         />
       ))}
 
       {/* Tooltip card */}
       <div
+        role="dialog"
+        aria-labelledby="team-tutorial-title"
+        aria-describedby="team-tutorial-body"
         style={tooltipStyle(spotRect)}
         className="bg-white rounded-2xl shadow-2xl p-5 border border-gray-100"
       >
         {/* Header row */}
         <div className="flex items-start justify-between gap-2 mb-2">
-          <p className="text-sm font-semibold text-gray-900 leading-snug">{current.title}</p>
+          <h2 id="team-tutorial-title" className="text-sm font-semibold text-gray-900 leading-snug">{current.title}</h2>
           <button
             onClick={finish}
             className="press shrink-0 -mt-2.5 -mr-2.5 inline-flex items-center justify-center min-h-10 min-w-10 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100"
@@ -201,10 +224,10 @@ export function TeamTutorial({
         </div>
 
         {/* Body */}
-        <p className="text-xs text-gray-500 leading-relaxed mb-4">{current.body}</p>
+        <p id="team-tutorial-body" className="text-sm text-gray-600 leading-relaxed mb-4">{current.body}</p>
 
         {/* Step dots */}
-        <div className="flex items-center justify-center gap-1.5 mb-4">
+        <div aria-hidden="true" className="flex items-center justify-center gap-1.5 mb-4">
           {STEPS.map((_, i) => (
             <div
               key={i}
@@ -229,6 +252,7 @@ export function TeamTutorial({
               Skip
             </button>
             <button
+              ref={nextRef}
               onClick={advance}
               className="press min-h-10 px-4 rounded-lg text-xs font-semibold bg-brand-primary text-on-brand"
             >

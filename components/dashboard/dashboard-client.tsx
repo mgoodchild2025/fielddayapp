@@ -934,7 +934,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                     <Link key={r.gameId} href={`/games/${r.gameId}`} prefetch={false} className="press flex items-center gap-3 bg-white border rounded-xl px-4 py-3 hover:bg-gray-50">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold shrink-0 ${
                         r.outcome === 'W' ? 'bg-emerald-50 text-emerald-600' :
-                        r.outcome === 'L' ? 'bg-red-50 text-red-500' :
+                        r.outcome === 'L' ? 'bg-red-50 text-red-600' :
                         'bg-amber-50 text-amber-600'
                       }`}>
                         {r.outcome}

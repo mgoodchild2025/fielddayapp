@@ -29,7 +29,7 @@ export function ConnectStripeButton({ label }: { label: string }) {
       >
         {pending ? 'Redirecting to Stripe…' : label}
       </button>
-      {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 mt-2">{error}</p>}
     </div>
   )
 }

@@ -399,7 +399,7 @@ export function RoundRobinGenerator({
             ))}
           </div>
 
-          {result?.error && <p className="text-xs text-red-600">{result.error}</p>}
+          {result?.error && <p role="alert" className="text-xs text-red-600">{result.error}</p>}
           {result?.count != null && !result.error && (
             <p className="text-xs text-green-600">
               {result.isTemplate

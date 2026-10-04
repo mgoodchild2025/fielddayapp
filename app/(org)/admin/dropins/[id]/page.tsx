@@ -6,6 +6,9 @@ import Link from 'next/link'
 import { DropInSessionForm } from '../session-form'
 import { CheckInButton } from './check-in-button'
 import { DeleteSessionButton } from './delete-session-button'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Drop-in' }
 
 export default async function AdminDropInDetailPage({
   params,

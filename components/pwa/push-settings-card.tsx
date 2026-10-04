@@ -82,7 +82,7 @@ export function PushSettingsCard() {
       </div>
       <div className="p-5">
         {body}
-        {err && <p className="mt-2 text-xs text-red-500">{err}</p>}
+        {err && <p role="alert" className="mt-2 text-xs text-red-600">{err}</p>}
       </div>
     </div>
   )

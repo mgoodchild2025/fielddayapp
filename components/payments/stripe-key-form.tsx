@@ -139,7 +139,7 @@ export function StripeKeyForm({ orgSlug, hasSecretKey, hasWebhookSecret, isTestM
         </div>
       </div>
 
-      {err && <p className="text-sm text-red-600">{err}</p>}
+      {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
 
       <div className="flex gap-3">
         <button

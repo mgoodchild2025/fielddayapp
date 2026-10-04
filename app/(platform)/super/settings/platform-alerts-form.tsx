@@ -3,14 +3,15 @@
 import { useState, useTransition } from 'react'
 import { setPlatformAlerts, type PlatformAlerts } from '@/actions/platform-settings'
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
       onClick={() => onChange(!checked)}
-      className={`relative shrink-0 inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
+      className={`relative shrink-0 inline-flex h-5 w-9 items-center rounded-full transition-colors ${
         checked ? 'bg-emerald-500' : 'bg-gray-600'
       }`}
     >
@@ -115,6 +116,7 @@ export function PlatformAlertsForm({ initial }: { initial: PlatformAlerts }) {
               </div>
             </div>
             <Toggle
+              label={alert.label}
               checked={toggles[alert.key]}
               onChange={v => setToggles(t => ({ ...t, [alert.key]: v }))}
             />

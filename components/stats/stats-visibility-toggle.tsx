@@ -59,7 +59,7 @@ export function StatsVisibilityToggle({ leagueId, initialValue }: Props) {
           ? 'Stats leaderboard is public — visible to anyone, including non-members.'
           : 'Stats are members-only — only logged-in users can view them.'}
       </p>
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      {error && <p role="alert" className="text-xs text-red-600 mt-1">{error}</p>}
     </div>
   )
 }

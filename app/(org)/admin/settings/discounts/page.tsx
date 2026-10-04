@@ -6,6 +6,9 @@ import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { DiscountForm } from './discount-form'
 import { DiscountRow } from './discount-row'
 import { HelpLink } from '@/components/ui/help-link'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Discount codes' }
 
 export default async function AdminDiscountsPage() {
   const headersList = await headers()

@@ -5,6 +5,9 @@ import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { PositionsEditor } from '@/components/positions/positions-editor'
 import type { SportPosition } from '@/actions/positions'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Positions' }
 
 const SPORT_LABELS: Record<string, string> = {
   beach_volleyball: 'Beach Volleyball',

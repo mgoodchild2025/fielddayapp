@@ -7,6 +7,9 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { GuestWaiverForm } from '@/components/waivers/guest-waiver-form'
 import Link from 'next/link'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Waiver' }
 
 export default async function GuestWaiverPage({
   params,

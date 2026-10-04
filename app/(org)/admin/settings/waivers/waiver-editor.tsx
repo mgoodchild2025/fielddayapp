@@ -90,7 +90,7 @@ export function WaiverEditor({ existing }: Props) {
           />
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
 
         <div className="flex items-center gap-3 pt-1">
           <button

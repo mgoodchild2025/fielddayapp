@@ -10,6 +10,9 @@ import { Footer } from '@/components/layout/footer'
 import { MyGamesClient } from '../../../schedule/_client'
 import type { GameSub } from '@/actions/game-subs'
 import { redirectToLogin } from '@/lib/auth'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Team schedule' }
 
 export default async function TeamSchedulePage({
   params,

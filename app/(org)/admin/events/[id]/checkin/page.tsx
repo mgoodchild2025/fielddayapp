@@ -11,6 +11,9 @@ import { TeamCheckinSelector } from '@/components/checkin/team-checkin-selector'
 import { SessionPicker } from '@/components/checkin/session-picker'
 import { AdminAddRegistrant } from '@/components/registration/admin-add-registrant'
 import { getAdminScope } from '@/lib/admin-scope'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Check-in' }
 
 const SESSION_EVENT_TYPES = ['drop_in', 'pickup']
 

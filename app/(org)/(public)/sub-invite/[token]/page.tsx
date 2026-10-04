@@ -9,6 +9,9 @@ import { getGameSubInviteDetails } from '@/actions/game-subs'
 import { formatGameTime } from '@/lib/format-time'
 import Link from 'next/link'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Sub invite' }
 
 export default async function SubInvitePage({
   params,

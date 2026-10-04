@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { PrintQrCode } from '@/components/checkin/print-qr-code'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Check-in sheet' }
 
 function formatSessionLabel(scheduledAt: string, timezone: string): string {
   return new Date(scheduledAt).toLocaleString('en-CA', {

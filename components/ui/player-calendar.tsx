@@ -142,15 +142,15 @@ export function PlayerCalendar({ dots = [], bands = [], timezone }: Props) {
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <button
           onClick={() => { setCurrentMonth(m => addMonths(m, -1)); setSelectedDate(null) }}
-          className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"
+          className="press w-10 h-10 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-600"
           aria-label="Previous month"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <span className="text-sm font-semibold text-gray-900">{formatMonthYear(currentMonth)}</span>
+        <span className="text-sm font-semibold text-gray-900" aria-live="polite">{formatMonthYear(currentMonth)}</span>
         <button
           onClick={() => { setCurrentMonth(m => addMonths(m, 1)); setSelectedDate(null) }}
-          className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"
+          className="press w-10 h-10 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-600"
           aria-label="Next month"
         >
           <ChevronRight className="w-4 h-4" />
@@ -187,7 +187,12 @@ export function PlayerCalendar({ dots = [], bands = [], timezone }: Props) {
           return (
             <button
               key={i}
+              type="button"
               onClick={() => handleDayClick(dateStr)}
+              // The cell only shows a number and coloured dots: say the date,
+              // how many things are on it, and whether it's today / selected.
+              aria-label={`${day.toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' })}${isToday ? ', today' : ''}${dayDots.length + dayBands.length > 0 ? `, ${dayDots.length + dayBands.length} ${dayDots.length + dayBands.length === 1 ? 'item' : 'items'}` : ''}`}
+              aria-pressed={isSelected}
               className={`
                 relative flex flex-col items-center pt-2 pb-1.5 min-h-[52px] text-xs transition-colors border-b border-r
                 ${i % 7 === 6 ? 'border-r-0' : ''}

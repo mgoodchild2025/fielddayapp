@@ -7,6 +7,9 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { DataExportButton, DeleteAccountSection } from '@/components/profile/privacy-controls'
 import { redirectToLogin } from '@/lib/auth'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Privacy & your data' }
 
 export default async function PrivacyPage() {
   const headersList = await headers()

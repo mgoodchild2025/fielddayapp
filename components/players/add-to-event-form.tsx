@@ -43,7 +43,7 @@ export function AddToEventForm({ userId, leagues }: Props) {
       >
         {isPending ? '…' : 'Add'}
       </button>
-      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+      {error && <p role="alert" className="text-xs text-red-600 mt-1">{error}</p>}
     </form>
   )
 }

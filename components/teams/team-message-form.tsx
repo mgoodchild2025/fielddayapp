@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { sendTeamMessage } from '@/actions/teams'
+import { scrollBehavior } from '@/lib/motion'
 
 interface Props {
   teamId: string
@@ -46,7 +47,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
       setResult('sent')
       setSubject('')
       setBody('')
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      window.scrollTo({ top: 0, behavior: scrollBehavior() })
       setTimeout(() => {
         setOpen(false)
         reset()
@@ -83,7 +84,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
         <p className="text-xs text-green-600 font-medium mb-2">✓ Message sent to all team members!</p>
       )}
       {result === 'error' && errorMsg && (
-        <p className="text-xs text-red-500 mb-2">{errorMsg}</p>
+        <p role="alert" className="text-xs text-red-600 mb-2">{errorMsg}</p>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-2">

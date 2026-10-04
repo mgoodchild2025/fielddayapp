@@ -6,6 +6,9 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { GuestAccountClaim } from '@/components/registration/guest-account-claim'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: "You're registered" }
 
 export const dynamic = 'force-dynamic'
 

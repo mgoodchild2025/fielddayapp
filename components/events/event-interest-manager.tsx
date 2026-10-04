@@ -118,7 +118,7 @@ export function EventInterestManager({
         </form>
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
 
       {rows.length === 0 ? (
         <div className="bg-white border rounded-lg px-6 py-10 text-center text-gray-500 text-sm">

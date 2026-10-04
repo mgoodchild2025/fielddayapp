@@ -40,6 +40,8 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
   const [isPending, startTransition] = useTransition()
   const [actioningId, setActioningId] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
 
   const count = notifications.length
 
@@ -53,7 +55,8 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
     function handlePointer(e: PointerEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
-    function handleKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    // Escape hands focus back to the bell (it was otherwise lost on the page).
+    function handleKey(e: KeyboardEvent) { if (e.key === 'Escape') { setOpen(false); buttonRef.current?.focus() } }
     document.addEventListener('pointerdown', handlePointer)
     document.addEventListener('keydown', handleKey)
     return () => {
@@ -62,9 +65,23 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
     }
   }, [open])
 
+  // A removed row takes the focused button with it: put focus on the row that
+  // slides into its place (or the one above, or the bell) so a keyboard /
+  // screen-reader user isn't dropped back at the top of the page.
+  function refocusAfterRemoving(index: number) {
+    requestAnimationFrame(() => {
+      const rows = listRef.current?.querySelectorAll<HTMLElement>('li')
+      const target = rows?.[index] ?? rows?.[index - 1]
+      const control = target?.querySelector<HTMLElement>('button, a[href]')
+      ;(control ?? buttonRef.current)?.focus()
+    })
+  }
+
   function dismiss(id: string) {
+    const index = notifications.findIndex((x) => x.id === id)
     setNotifications((prev) => prev.filter((x) => x.id !== id))
     markNotificationRead(id)
+    refocusAfterRemoving(index)
   }
 
   // Approve / deny a join request: the notification goes only when the action
@@ -76,7 +93,9 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
         const res = approve ? await approveJoinRequest(requestId) : await rejectJoinRequest(requestId)
         if (res?.error) { toast.error(res.error); return }
         await markNotificationRead(n.id)
+        const index = notifications.findIndex((x) => x.id === n.id)
         setNotifications((prev) => prev.filter((x) => x.id !== n.id))
+        refocusAfterRemoving(index)
         toast.success(approve ? 'Request approved' : 'Request declined')
       } catch {
         toast.error("Couldn't reach the server — try again")
@@ -97,8 +116,10 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
   return (
     <div className="relative" ref={ref}>
       <button
+        ref={buttonRef}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
+        aria-controls="notification-panel"
         className={`relative inline-flex items-center justify-center min-h-10 min-w-10 rounded-full transition-colors ${dropUp ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}
         aria-label={count > 0 ? `${count} unread notification${count !== 1 ? 's' : ''}` : 'Notifications'}
       >
@@ -116,7 +137,7 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
       {open && (
         // Phones: full width under the nav (a 320px panel anchored to the bell
         // started off the left edge of a 375px screen). sm+: the dropdown.
-        <div className={`fd-pop z-50 overflow-hidden bg-white rounded-xl shadow-xl border border-gray-200 text-gray-900 ${
+        <div id="notification-panel" role="region" aria-label="Notifications" className={`fd-pop z-50 overflow-hidden bg-white rounded-xl shadow-xl border border-gray-200 text-gray-900 ${
           dropUp
             ? 'absolute right-0 w-80 max-w-[calc(100vw-1rem)] origin-bottom-right bottom-full mb-2'
             : 'fixed inset-x-2 top-16 origin-top sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:w-80 sm:mt-2 sm:origin-top-right'
@@ -139,7 +160,7 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
               No new notifications
             </div>
           ) : (
-            <ul className="divide-y max-h-[min(24rem,70dvh)] overflow-y-auto overscroll-contain">
+            <ul ref={listRef} className="divide-y max-h-[min(24rem,70dvh)] overflow-y-auto overscroll-contain">
               {notifications.map((n) => {
                 const acceptUrl = n.data?.accept_url as string | undefined
                 // Generic link support: any notification can carry data.href (+ link_label)

@@ -111,7 +111,7 @@ export function OrgDataControls({
                   {downloading ? 'Preparing export…' : 'Download player data (JSON)'}
                 </button>
                 {downloadError && (
-                  <p className="mt-2 text-sm text-red-500">{downloadError}</p>
+                  <p role="alert" className="mt-2 text-sm text-red-600">{downloadError}</p>
                 )}
                 <p className="mt-2 text-xs text-gray-400">
                   The export includes all data Fieldday holds about your players and is suitable for import into spreadsheet or database tools.

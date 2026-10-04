@@ -6,6 +6,9 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getPendingReacceptance } from '@/actions/tenant-consent'
 import { ReacceptForm } from '@/components/legal/reaccept-form'
 import { redirectToLogin } from '@/lib/auth'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Updated terms' }
 
 export const dynamic = 'force-dynamic'
 

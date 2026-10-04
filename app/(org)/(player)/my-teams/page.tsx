@@ -10,6 +10,9 @@ import { PastGamesToggle } from '@/components/schedule/past-games-toggle'
 import { redirectToLogin } from '@/lib/auth'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Users } from 'lucide-react'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'My teams' }
 
 const ROLE_LABEL: Record<string, string> = {
   captain: 'Captain',

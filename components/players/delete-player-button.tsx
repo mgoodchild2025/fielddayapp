@@ -31,7 +31,7 @@ export function DeletePlayerButton({ userId, name }: { userId: string; name: str
         >
           Cancel
         </button>
-        {error && <span className="text-xs text-red-500">{error}</span>}
+        {error && <span className="text-xs text-red-600">{error}</span>}
       </span>
     )
   }
@@ -39,7 +39,7 @@ export function DeletePlayerButton({ userId, name }: { userId: string; name: str
   return (
     <button
       onClick={() => setConfirming(true)}
-      className="text-xs font-medium text-red-500 hover:underline ml-3"
+      className="text-xs font-medium text-red-600 hover:underline ml-3"
     >
       Remove
     </button>

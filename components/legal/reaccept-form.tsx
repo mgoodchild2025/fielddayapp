@@ -114,7 +114,7 @@ export function ReacceptForm({ orgId, orgName, docs, redirectTo }: Props) {
             </label>
 
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+              <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
             )}
 
             {/* Actions */}

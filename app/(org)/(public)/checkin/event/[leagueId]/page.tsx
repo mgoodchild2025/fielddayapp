@@ -6,6 +6,9 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { SelfCheckinClient } from '@/components/checkin/self-checkin-client'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Check in' }
 
 export default async function SelfCheckInEventPage({
   params,

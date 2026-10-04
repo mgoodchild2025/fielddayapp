@@ -9,6 +9,9 @@ import { EventExpensesManager } from '@/components/finances/event-expenses-manag
 import { EventRevenueManager } from '@/components/finances/event-revenue-manager'
 import { BudgetPlanner } from '@/components/finances/budget-planner'
 import { getOrgTaxRates } from '@/lib/tax'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Event finances' }
 
 function money(cents: number): string {
   const neg = cents < 0

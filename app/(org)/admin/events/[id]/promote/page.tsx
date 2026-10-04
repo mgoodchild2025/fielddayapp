@@ -5,6 +5,9 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { PromoteEventForm } from '@/components/events/promote-event'
 import { EventInterestManager, type InterestRow } from '@/components/events/event-interest-manager'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Promote' }
 
 export default async function PromoteEventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

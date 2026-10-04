@@ -35,7 +35,7 @@ export function SuspendOrgButton({ orgId, currentStatus }: { orgId: string; curr
   return (
     <div className="space-y-2">
       {confirm && (
-        <p className="text-xs text-red-600">
+        <p role="alert" className="text-xs text-red-600">
           This will suspend the organization and block access for all members. Click again to confirm.
         </p>
       )}

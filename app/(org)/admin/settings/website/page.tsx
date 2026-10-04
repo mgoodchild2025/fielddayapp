@@ -3,6 +3,9 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { WebsiteSettingsForm } from './website-settings-form'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Website' }
 
 export default async function WebsiteSettingsPage() {
   const headersList = await headers()

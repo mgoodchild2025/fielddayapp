@@ -22,7 +22,9 @@ import { toast } from 'sonner'
  * delete is attempted on pagehide, but the browser may not finish it).
  */
 
-const UNDO_MS = 5000
+// 10s, not 5: enough time to notice, reach the toast (keyboard, screen
+// reader, switch access) and press Undo.
+const UNDO_MS = 10_000
 
 type CommitResult = { error?: string | null } | void | unknown
 type Commit = () => Promise<CommitResult>

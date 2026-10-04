@@ -47,7 +47,7 @@ export function DataExportButton() {
         )}
         {loading ? 'Preparing…' : 'Download my data'}
       </button>
-      {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-red-600">{error}</p>}
     </div>
   )
 }
@@ -165,7 +165,7 @@ export function DeleteAccountSection({ otherOrgNames = [], captainOf = [] }: {
               enterKeyHint="done"
             />
 
-            {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
+            {error && <p role="alert" className="mb-3 text-sm text-red-600">{error}</p>}
 
             <div className="flex gap-2 justify-end">
               <button

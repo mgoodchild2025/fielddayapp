@@ -140,7 +140,7 @@ export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = fa
         </label>
       </div>
 
-      {result?.error && <p className="text-sm text-red-600">{result.error}</p>}
+      {result?.error && <p role="alert" className="text-sm text-red-600">{result.error}</p>}
       {result?.success && <p className="text-sm text-green-700">Sent! 🎉 (or scheduled, if you set a time.)</p>}
 
       <button

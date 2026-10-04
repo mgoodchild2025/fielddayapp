@@ -80,7 +80,7 @@ export function DiscountRow({ code, timeZone = 'America/Toronto' }: { code: Disc
             })
           }}
           disabled={pending}
-          className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 rounded px-2 py-1 transition-colors disabled:opacity-40"
+          className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 rounded px-2 py-1 transition-colors disabled:opacity-40"
           title="Delete discount code"
         >
           <Trash2 className="w-3.5 h-3.5" />

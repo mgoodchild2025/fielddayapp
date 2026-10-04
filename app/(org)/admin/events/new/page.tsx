@@ -3,6 +3,9 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { NewEventForm } from './new-event-form'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Create event' }
 
 export default async function NewEventPage() {
   const headersList = await headers()

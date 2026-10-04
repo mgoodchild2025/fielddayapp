@@ -205,7 +205,7 @@ function PublishDialog({
         <div className="px-6 py-5 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Version <span className="text-red-500">*</span>
+              Version <span className="text-red-600">*</span>
             </label>
             <input
               type="text"
@@ -242,7 +242,7 @@ function PublishDialog({
           </div>
 
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+            <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
           )}
 
           {isTenantDoc && (

@@ -11,6 +11,9 @@ import { AdminScoreEntry } from '@/components/scores/admin-score-entry'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { roundDisplayName } from '@/lib/bracket'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Courtside' }
 
 /**
  * Courtside mode — game-night score entry built for a phone in a dim gym:

@@ -105,7 +105,7 @@ function ColorField({
           className="flex-1 border rounded-md px-3 py-2 text-sm font-mono"
         />
       </div>
-      {errors[name] && <p className="text-red-500 text-xs mt-1">{errors[name]?.message as string}</p>}
+      {errors[name] && <p role="alert" className="text-red-600 text-xs mt-1">{errors[name]?.message as string}</p>}
     </div>
   )
 }

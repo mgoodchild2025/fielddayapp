@@ -66,6 +66,16 @@ import { isCloudinaryConfigured, cloudinaryApiKey, CLOUD_NAME } from '@/lib/clou
 import { getEnrollmentForRegistration } from '@/lib/payment-plans'
 import { PlayerInstallmentSchedule } from '@/components/payments/player-installment-schedule'
 import { getLeagueConfirmedResults } from '@/lib/league-results'
+import type { Metadata } from 'next'
+
+// The tab title and a shared link's preview name the event, not just the org.
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  const org = await getCurrentOrg(await headers())
+  const { data } = await createServiceRoleClient()
+    .from('leagues').select('name').eq('organization_id', org.id).eq('slug', slug).is('deleted_at', null).maybeSingle()
+  return { title: data?.name ?? 'Event' }
+}
 
 // ── Standings helpers ─────────────────────────────────────────────────────────
 

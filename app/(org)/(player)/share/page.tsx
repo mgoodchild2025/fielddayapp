@@ -7,6 +7,9 @@ import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { ShareInbox, type ShareEventOption } from '@/components/pwa/share-inbox'
 import { isCloudinaryConfigured, cloudinaryApiKey, CLOUD_NAME } from '@/lib/cloudinary'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Share photos' }
 
 /**
  * Web Share Target landing page. Files shared from the phone are parked

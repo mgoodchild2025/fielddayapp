@@ -72,7 +72,7 @@ export function DeleteOrgButton({ orgId, orgName }: { orgId: string; orgName: st
         className="w-full border border-red-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
         autoFocus
       />
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
       <div className="flex gap-2">
         <button
           onClick={handleDelete}

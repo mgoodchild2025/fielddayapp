@@ -70,7 +70,7 @@ export function GameAttendancePanel({ gameId, teamId, initialCounts, isCaptain, 
           {isPending ? (
             <p className="px-3 py-3 text-xs text-gray-500">Loading…</p>
           ) : fetchError ? (
-            <p className="px-3 py-3 text-xs text-red-500">{fetchError}</p>
+            <p className="px-3 py-3 text-xs text-red-600">{fetchError}</p>
           ) : players ? (
             <>
               {/* Summary line */}
@@ -92,7 +92,7 @@ export function GameAttendancePanel({ gameId, teamId, initialCounts, isCaptain, 
                         p.rsvp === 'in'
                           ? 'text-green-600'
                           : p.rsvp === 'out'
-                          ? 'text-red-500'
+                          ? 'text-red-600'
                           : 'text-gray-400'
                       }`}
                     >

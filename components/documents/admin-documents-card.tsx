@@ -91,7 +91,7 @@ export function AdminDocumentsCard({ leagueId, initialDocuments }: {
         )}
       </div>
 
-      {error && <p className="px-4 pt-3 text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="px-4 pt-3 text-xs text-red-600">{error}</p>}
 
       {adding && (
         <form onSubmit={submit} className="px-4 py-3 border-b bg-gray-50 space-y-2">

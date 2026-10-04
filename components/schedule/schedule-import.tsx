@@ -79,7 +79,7 @@ export function ScheduleImport({ leagueId, sport, pools = [] }: Props) {
       </p>
 
       <UploadStatus active={loading} label="Importing schedule" className="mb-2" />
-      {error && <p className="text-red-500 text-xs mb-2">{error}</p>}
+      {error && <p role="alert" className="text-red-600 text-xs mb-2">{error}</p>}
       {result && <p className="text-green-600 text-xs mb-2">{result.count} game{result.count !== 1 ? 's' : ''} imported.</p>}
 
       <input ref={inputRef} type="file" accept=".csv" onChange={handleFile} className="hidden" />

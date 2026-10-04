@@ -11,6 +11,7 @@ import { confirmAction } from '@/components/ui/confirm-dialog'
 import { RichTextEditor } from '@/components/ui/rich-text-editor'
 import { PaymentMethodsField } from '@/components/events/payment-methods-field'
 import type { PaymentMethod } from '@/lib/payment-methods'
+import { scrollBehavior } from '@/lib/motion'
 
 function Field({
   label,
@@ -25,7 +26,7 @@ function Field({
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
       {children}
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      {error && <p role="alert" className="text-red-600 text-xs mt-1">{error}</p>}
     </div>
   )
 }
@@ -381,7 +382,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
     window.setTimeout(() => {
       try { setFocus(field as keyof FormData) } catch { /* not a registered input */ }
       const el = document.querySelector<HTMLElement>(`[name="${field}"]`)
-      el?.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+      el?.scrollIntoView({ block: 'center', behavior: scrollBehavior() })
     }, section && openSection !== section ? 320 : 0)
   }
 

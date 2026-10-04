@@ -8,6 +8,9 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { QRCodeCard } from '@/components/checkin/qr-code-display'
 import { PendingPaymentNotice } from '@/components/payments/pending-payment-notice'
 import Link from 'next/link'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: "You're registered" }
 
 export default async function RegistrationSuccessPage({
   params,

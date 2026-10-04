@@ -51,7 +51,7 @@ function SponsorForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-gray-50 rounded-xl border p-4 space-y-3">
-      {error && <p className="text-red-500 text-sm">{error}</p>}
+      {error && <p role="alert" className="text-red-600 text-sm">{error}</p>}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Sponsor Name *</label>

@@ -348,6 +348,7 @@ export function MyGamesClient({
         <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5 shrink-0">
           <button
             onClick={() => setViewMode('list')}
+            aria-pressed={viewMode === 'list'}
             className={`press inline-flex items-center justify-center min-h-10 min-w-10 rounded-md ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
             aria-label="List view"
             title="List view"
@@ -356,6 +357,7 @@ export function MyGamesClient({
           </button>
           <button
             onClick={() => setViewMode('calendar')}
+            aria-pressed={viewMode === 'calendar'}
             className={`press inline-flex items-center justify-center min-h-10 min-w-10 rounded-md ${viewMode === 'calendar' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
             aria-label="Calendar view"
             title="Calendar view"

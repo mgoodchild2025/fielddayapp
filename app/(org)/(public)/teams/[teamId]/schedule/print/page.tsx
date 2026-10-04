@@ -6,6 +6,9 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { PrintControls } from '@/components/print/print-controls'
 import { FullScheduleSheet } from '@/components/print/full-schedule-sheet'
 import { redirectToLogin } from '@/lib/auth'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Team schedule' }
 
 export default async function TeamSchedulePrintPage({
   params,

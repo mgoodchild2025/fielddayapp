@@ -158,7 +158,7 @@ export function ShareInbox({
           </p>
         )}
         {hadError && (
-          <p className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2">Something went wrong receiving those files. Try sharing them again.</p>
+          <p role="alert" className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2">Something went wrong receiving those files. Try sharing them again.</p>
         )}
         <h2 className="font-semibold text-gray-900">Nothing shared yet</h2>
         <p>
@@ -183,7 +183,7 @@ export function ShareInbox({
             className="mt-1 w-full border rounded-md px-3 py-2 text-base bg-white">
             {events.map((e) => <option key={e.id} value={e.id}>{e.mine ? '★ ' : ''}{e.name}</option>)}
           </select>
-          {events.length === 0 && <span className="block text-xs text-red-500 mt-1">No events are open for uploads right now.</span>}
+          {events.length === 0 && <span className="block text-xs text-red-600 mt-1">No events are open for uploads right now.</span>}
         </label>
         <label className="block text-sm">
           <span className="font-medium text-gray-700">Caption <span className="text-gray-400 font-normal">(optional, applies to all)</span></span>

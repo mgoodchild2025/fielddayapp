@@ -157,7 +157,7 @@ function NavLinkForm({ initial, onSave, onCancel, pending, error }: NavLinkFormP
         </div>
       )}
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
 
       <div className="flex gap-2 pt-1">
         <button
@@ -481,7 +481,7 @@ function ReplaceDocField({
         {pending ? 'Uploading…' : 'Replace PDF'}
       </button>
       <p className="text-xs text-gray-400 w-full">PDF only · Max 10 MB</p>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
     </div>
   )
 }
