@@ -131,10 +131,13 @@ export default async function SubInvitePage({
   // ── Logged in — check for existing waiver signature ───────────────────────
   const [existingSigRes, waiverRes] = await Promise.all([
 
+    // limit(1): a returning player has several signatures, and maybeSingle()
+    // errors (→ null) on more than one row — so repeat subs re-signed every time.
     db.from('waiver_signatures')
       .select('id')
       .eq('organization_id', org.id)
       .eq('user_id', user.id)
+      .limit(1)
       .maybeSingle(),
     // Fetch the org's active waiver (if any)
 

@@ -11,7 +11,9 @@ import { GoogleAuthButton } from '@/components/auth/google-auth-button'
 
 const schema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  // Sign-in only checks it's filled in: a length rule here blocked older,
+  // shorter passwords with a misleading message before the server could answer.
+  password: z.string().min(1, 'Enter your password'),
 })
 
 type FormData = z.infer<typeof schema>
@@ -84,14 +86,22 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
       <button
         type="submit"
         disabled={loading}
-        className="w-full py-2.5 rounded-md font-semibold text-white transition-opacity disabled:opacity-60"
-        style={{ backgroundColor: 'var(--brand-primary)' }}
+        className="press w-full min-h-11 rounded-md font-semibold bg-brand-primary text-on-brand disabled:opacity-60"
       >
         {loading ? 'Signing in…' : 'Sign In'}
       </button>
-      <div className="flex items-center justify-between text-sm text-gray-500 pt-2">
-        <Link href="/reset-password" className="hover:underline">Forgot password?</Link>
-        <Link href={redirectTo ? `/register?redirect=${encodeURIComponent(redirectTo)}` : '/register'} className="hover:underline">Create account</Link>
+      <div className="text-sm text-gray-600">
+        <Link href="/reset-password" className="inline-flex items-center min-h-10 hover:underline">Forgot password?</Link>
+      </div>
+      {/* First-timers arrive here from "Register" on an event: give them a real
+          button, not a small grey link at the bottom. */}
+      <div className="border-t pt-4">
+        <Link
+          href={redirectTo ? `/register?redirect=${encodeURIComponent(redirectTo)}` : '/register'}
+          className="press flex items-center justify-center min-h-11 rounded-md border text-sm font-semibold text-gray-800 hover:bg-gray-50"
+        >
+          New here? Create an account
+        </Link>
       </div>
     </form>
     </div>

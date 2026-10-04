@@ -48,7 +48,13 @@ export function GuestRegistrationFlow({
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState(lockedEmail ?? '')
   const [phone, setPhone] = useState('')
-  const [sessionId, setSessionId] = useState(preselectedSessionId ?? (sessions[0]?.id ?? ''))
+  // Default to the first session with room — the first session (often full)
+  // let a guest fill in everything before the server said no.
+  const isSessionFull = (s: SessionOption) => s.capacity != null && s.registered_count >= s.capacity
+  const firstOpen = sessions.find((s) => !isSessionFull(s))
+  const [sessionId, setSessionId] = useState(
+    (preselectedSessionId && sessions.some((s) => s.id === preselectedSessionId && !isSessionFull(s)) ? preselectedSessionId : null)
+      ?? firstOpen?.id ?? '')
   const [agree, setAgree] = useState(false)
 
   // Discount code (online-paid drop-ins)
@@ -77,6 +83,10 @@ export function GuestRegistrationFlow({
   // Waiver
   const sentinelRef = useRef<HTMLDivElement>(null)
   const [scrolledToBottom, setScrolledToBottom] = useState(false)
+  // Fallback when the end-of-text check never fires (zoom, short screens,
+  // assistive tech) — the button used to stay disabled with no way forward.
+  const [acknowledged, setAcknowledged] = useState(false)
+  const canSign = scrolledToBottom || acknowledged
   const [ageConfirmed, setAgeConfirmed] = useState<'adult' | 'minor' | null>(null)
   const [signatureName, setSignatureName] = useState('')
   const [guardianName, setGuardianName] = useState('')
@@ -258,12 +268,12 @@ export function GuestRegistrationFlow({
             Email
             <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} readOnly={!!lockedEmail}
               className={`mt-1 w-full border rounded-md px-3 py-2 text-sm ${lockedEmail ? 'bg-gray-50 text-gray-500' : ''}`} placeholder="you@example.com" />
-            <span className="block text-xs font-normal text-gray-400 mt-1">
+            <span className="block text-xs font-normal text-gray-500 mt-1">
               {lockedEmail ? 'This event is invite-only — registering with your invited email.' : 'For your receipt and check-in details.'}
             </span>
           </label>
           <label className="block text-sm font-medium text-gray-700">
-            Phone <span className="font-normal text-gray-400">(optional)</span>
+            Phone <span className="font-normal text-gray-500">(optional)</span>
             <input type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 text-sm" placeholder="(555) 123-4567" />
           </label>
 
@@ -271,7 +281,7 @@ export function GuestRegistrationFlow({
             <label className="block text-sm font-medium text-gray-700">
               Session
               <select value={sessionId} onChange={(e) => setSessionId(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 text-sm bg-white">
-                {sessions.map((s) => <option key={s.id} value={s.id}>{sessionLabel(s)}</option>)}
+                {sessions.map((s) => <option key={s.id} value={s.id} disabled={isSessionFull(s)}>{sessionLabel(s)}</option>)}
               </select>
             </label>
           )}
@@ -289,14 +299,20 @@ export function GuestRegistrationFlow({
               </div>
             ) : (
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Discount code <span className="font-normal text-gray-400">(optional)</span></label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Discount code <span className="font-normal text-gray-500">(optional)</span></label>
                 <div className="flex gap-2">
                   <input
                     value={discountInput}
                     onChange={(e) => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(null) }}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyDiscount() } }}
                     placeholder="CODE"
-                    className="flex-1 border rounded-md px-3 py-2 text-sm font-mono uppercase tracking-wide"
+                    aria-label="Discount code"
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    autoComplete="off"
+                    spellCheck={false}
+                    enterKeyHint="done"
+                    className="flex-1 min-w-0 border rounded-md px-3 py-2 text-base font-mono uppercase tracking-wide"
                   />
                   <button type="button" onClick={applyDiscount} disabled={discountLoading || !discountInput.trim()}
                     className="px-3 py-2 rounded-md border text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">
@@ -376,11 +392,16 @@ export function GuestRegistrationFlow({
           </div>
         )}
 
-        <div className="border rounded-lg p-4 max-h-72 overflow-y-auto bg-white text-sm text-gray-700">
+        {/* Phones: full text inline (the page scrolls); sm+: a scroll box. */}
+        <div className="border rounded-lg p-4 sm:max-h-72 sm:overflow-y-auto bg-white text-sm text-gray-700">
           <RichTextContent content={waiver.content} className="text-gray-700" />
           <div ref={sentinelRef} className="h-1" />
         </div>
-        {!scrolledToBottom && <p className="text-xs text-gray-400 text-center">Scroll to the bottom to continue.</p>}
+        {!scrolledToBottom && <p className="text-xs text-gray-500 text-center">Read to the end to continue.</p>}
+        <label className="flex items-start gap-2.5 text-sm text-gray-700">
+          <input type="checkbox" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} className="mt-0.5 w-4 h-4 shrink-0" />
+          I have read the waiver in full.
+        </label>
 
         {errorBox}
 
@@ -388,7 +409,7 @@ export function GuestRegistrationFlow({
           <div className="space-y-3">
             <label className="block text-sm font-medium text-gray-700">
               Guardian&apos;s full legal name
-              <input value={guardianName} onChange={(e) => setGuardianName(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 text-sm" placeholder="Full name" />
+              <input value={guardianName} onChange={(e) => setGuardianName(e.target.value)} autoComplete="name" autoCapitalize="words" className="mt-1 w-full border rounded-md px-3 py-2 text-base" placeholder="Full name" />
             </label>
             <fieldset className="flex gap-2">
               {(['parent', 'legal_guardian'] as GuardianRelationship[]).map((rel) => (
@@ -402,16 +423,15 @@ export function GuestRegistrationFlow({
         ) : (
           <label className="block text-sm font-medium text-gray-700">
             Type your full name to sign
-            <input value={signatureName} onChange={(e) => setSignatureName(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 text-sm" placeholder="Your full name" />
+            <input value={signatureName} onChange={(e) => setSignatureName(e.target.value)} autoComplete="name" autoCapitalize="words" enterKeyHint="done" className="mt-1 w-full border rounded-md px-3 py-2 text-base" placeholder="Your full name" />
           </label>
         )}
 
         <button
           type="button"
           onClick={signAndSubmit}
-          disabled={loading || !scrolledToBottom}
-          className="w-full px-4 py-2.5 rounded-md font-semibold text-white disabled:opacity-60"
-          style={{ backgroundColor: 'var(--brand-primary)' }}
+          disabled={loading || !canSign}
+          className="press w-full min-h-11 px-4 rounded-md font-semibold bg-brand-primary text-on-brand disabled:opacity-60"
         >
           {loading ? 'Please wait…' : priceCents > 0 && onlinePayments ? 'Agree & continue to payment' : 'Agree & complete registration'}
         </button>

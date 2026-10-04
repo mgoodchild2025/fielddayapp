@@ -35,6 +35,9 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
 
   // ── Waiver signing state ─────────────────────────────────────────────────
   const [scrolledToBottom, setScrolledToBottom] = useState(false)
+  // "I have read it" fallback, as on the registration waiver.
+  const [acknowledged, setAcknowledged] = useState(false)
+  const canSign = scrolledToBottom || acknowledged
   const sentinelRef = useRef<HTMLDivElement>(null)
   const [ageConfirmed, setAgeConfirmed] = useState<'adult' | 'minor' | null>(null)
   const [signatureName, setSignatureName] = useState('')
@@ -229,12 +232,13 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
         <div className="bg-white rounded-xl border p-5">
           <h2 className="font-semibold mb-3">{waiver.title}</h2>
           <div className="relative">
-            <div className="h-64 overflow-y-auto border rounded-md p-4 text-gray-700 text-sm">
+            {/* Phones: full text inline; sm+: a scroll box. */}
+            <div className="sm:h-64 sm:overflow-y-auto border rounded-md p-4 text-gray-700 text-sm">
               <RichTextContent content={waiver.content} />
               <div ref={sentinelRef} className="h-1" />
             </div>
             {!scrolledToBottom && (
-              <div className="absolute bottom-0 left-0 right-0 pointer-events-none rounded-b-md overflow-hidden">
+              <div className="hidden sm:block absolute bottom-0 left-0 right-0 pointer-events-none rounded-b-md overflow-hidden">
                 <div className="h-12 bg-gradient-to-t from-white to-transparent" />
                 <div className="bg-white pb-2 flex flex-col items-center gap-0.5">
                   <svg className="w-4 h-4 text-gray-400 fd-nudge" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -245,6 +249,10 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
               </div>
             )}
           </div>
+          <label className="mt-3 flex items-start gap-2.5 text-sm text-gray-700">
+            <input type="checkbox" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} className="mt-0.5 w-4 h-4 shrink-0" />
+            I have read the waiver in full.
+          </label>
         </div>
 
         {/* Signature block */}
@@ -257,14 +265,15 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Guardian&apos;s full legal name</label>
                 <input type="text" value={guardianName} onChange={e => setGuardianName(e.target.value)}
-                  disabled={!scrolledToBottom}
-                  placeholder={scrolledToBottom ? 'e.g. Jane Smith' : 'Scroll to enable'}
-                  className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-400" />
+                  disabled={!canSign}
+                  placeholder={canSign ? 'e.g. Jane Smith' : 'Read the waiver to enable'}
+                  autoComplete="name" autoCapitalize="words"
+                  className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Relationship</label>
                 <select value={guardianRelationship} onChange={e => setGuardianRelationship(e.target.value as GuardianRelationship)}
-                  disabled={!scrolledToBottom} className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50">
+                  disabled={!canSign} className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50">
                   <option value="parent">Parent</option>
                   <option value="legal_guardian">Legal Guardian</option>
                 </select>
@@ -274,19 +283,28 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Type your full legal name</label>
               <input type="text" value={signatureName} onChange={e => setSignatureName(e.target.value)}
-                disabled={!scrolledToBottom}
-                placeholder={scrolledToBottom ? 'Your full name' : 'Scroll to enable'}
-                className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-400" />
+                disabled={!canSign}
+                placeholder={canSign ? 'Your full name' : 'Read the waiver to enable'}
+                autoComplete="name" autoCapitalize="words" enterKeyHint="done"
+                className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-500" />
             </div>
           )}
 
           <button
             onClick={handleWaiverSign}
-            disabled={!scrolledToBottom || !(isMinor ? guardianName.trim() : signatureName.trim()) || loading}
-            className="w-full py-3 rounded-lg font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ backgroundColor: 'var(--brand-primary)' }}
+            disabled={!canSign || !(isMinor ? guardianName.trim() : signatureName.trim()) || loading}
+            className="press w-full min-h-12 rounded-lg font-semibold bg-brand-primary text-on-brand disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Confirming…' : 'Sign & Confirm as Sub →'}
+          </button>
+          {/* Can't make it? Say so here — declining used to be offered only
+              after signing the waiver. */}
+          <button
+            onClick={handleDecline}
+            disabled={loading}
+            className="press w-full min-h-11 rounded-lg font-semibold text-sm border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            I Can&apos;t Make It
           </button>
         </div>
       </div>

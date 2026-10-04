@@ -41,31 +41,39 @@ export function StepTeamJoin({ initialTeamCode, onComplete, onBack }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function handleCodeBlur() {
-    const code = teamCode.trim().toUpperCase()
-    if (!code) { setCodeValid(null); setCodeError(null); return }
+  // Checked as soon as the code is complete (and on blur). The Join button is
+  // always there: it used to appear only after the field lost focus, so with
+  // the keyboard up there was no visible next step.
+  async function checkCode(raw: string): Promise<{ id: string; name: string } | null> {
+    const code = raw.trim().toUpperCase()
+    if (!code) { setCodeValid(null); setCodeError(null); return null }
     setValidating(true)
     setCodeError(null)
     const result = await validateTeamCode(code)
     setValidating(false)
-    if (result.error) {
+    if (result.error || !result.data) {
       setCodeValid(null)
-      setCodeError(result.error)
-    } else {
-      setCodeValid(result.data)
+      setCodeError(result.error ?? 'Team code not found')
+      return null
     }
+    setCodeValid(result.data)
+    return result.data
   }
 
   async function handleJoinByCode() {
-    if (!codeValid) return
+    const team = codeValid ?? await checkCode(teamCode)
+    if (!team) {
+      if (!teamCode.trim()) setCodeError('Enter the code your captain shared.')
+      return
+    }
     setJoining(true)
     const result = await joinTeamByCode(teamCode.trim().toUpperCase())
-    setJoining(false)
     if (result?.error) {
+      setJoining(false)
       setCodeError(result.error)
       return
     }
-    onComplete(codeValid.id)
+    onComplete(team.id)
   }
 
   return (
@@ -78,37 +86,45 @@ export function StepTeamJoin({ initialTeamCode, onComplete, onBack }: Props) {
           </p>
         </div>
         <div>
+          <label htmlFor="join_team_code" className="block text-sm font-medium text-gray-700 mb-1">Team code</label>
           <input
+            id="join_team_code"
             type="text"
             value={teamCode}
             onChange={(e) => {
-              setTeamCode(e.target.value.toUpperCase())
+              const next = e.target.value.toUpperCase()
+              setTeamCode(next)
               setCodeValid(null)
               setCodeError(null)
+              if (next.trim().length === 6) checkCode(next)
             }}
-            onBlur={handleCodeBlur}
+            onBlur={() => { if (teamCode.trim() && !codeValid && !validating) checkCode(teamCode) }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleJoinByCode() } }}
             placeholder="e.g. AB3X7K"
             maxLength={6}
+            autoCapitalize="characters"
+            autoCorrect="off"
+            autoComplete="off"
+            spellCheck={false}
+            enterKeyHint="go"
+            aria-invalid={codeError ? true : undefined}
+            aria-describedby={codeError ? 'join_team_code-error' : undefined}
             className="w-full border rounded-md px-3 py-2 text-base font-mono tracking-widest uppercase"
-            autoFocus
           />
-          {validating && <p className="text-xs text-gray-400 mt-1">Checking…</p>}
-          {codeError && <p className="text-red-500 text-xs mt-1">{codeError}</p>}
+          {validating && <p className="text-xs text-gray-500 mt-1">Checking…</p>}
+          {codeError && <p id="join_team_code-error" role="alert" className="text-red-600 text-xs mt-1">{codeError}</p>}
           {codeValid && (
-            <p className="text-green-600 text-xs mt-1">✓ Team: <strong>{codeValid.name}</strong></p>
+            <p className="text-green-700 text-xs mt-1">✓ Team: <strong>{codeValid.name}</strong></p>
           )}
         </div>
-        {codeValid && (
-          <button
-            type="button"
-            onClick={handleJoinByCode}
-            disabled={joining}
-            className="w-full py-2.5 rounded-md font-semibold text-white disabled:opacity-60 text-sm"
-            style={{ backgroundColor: 'var(--brand-primary)' }}
-          >
-            {joining ? 'Joining…' : `Join ${codeValid.name} →`}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleJoinByCode}
+          disabled={joining || validating}
+          className="press w-full min-h-11 rounded-md font-semibold bg-brand-primary text-on-brand disabled:opacity-60 text-sm"
+        >
+          {joining ? 'Joining…' : codeValid ? `Join ${codeValid.name} →` : 'Join team →'}
+        </button>
       </div>
 
       <div className="bg-white rounded-lg border p-5 text-center space-y-2">
@@ -116,8 +132,7 @@ export function StepTeamJoin({ initialTeamCode, onComplete, onBack }: Props) {
         <button
           type="button"
           onClick={() => onComplete()}
-          className="text-sm font-medium underline"
-          style={{ color: 'var(--brand-primary)' }}
+          className="press inline-flex items-center min-h-10 text-sm font-medium underline text-brand-primary"
         >
           Skip — I&apos;ll join a team later →
         </button>
@@ -126,7 +141,7 @@ export function StepTeamJoin({ initialTeamCode, onComplete, onBack }: Props) {
       <button
         type="button"
         onClick={onBack}
-        className="text-sm text-gray-400 hover:text-gray-600"
+        className="press inline-flex items-center min-h-10 text-sm text-gray-500 hover:text-gray-700"
       >
         ← Back
       </button>

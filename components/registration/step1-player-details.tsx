@@ -8,6 +8,9 @@ import { createRegistration } from '@/actions/registrations'
 import { updateProfile } from '@/actions/auth'
 import { validateTeamCode, joinTeamByCode } from '@/actions/teams'
 import type { Database } from '@/types/database'
+import { toast } from 'sonner'
+
+type TeamCodeResult = { id: string; name: string } | null
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type PlayerDetails = Database['public']['Tables']['player_details']['Row']
@@ -115,26 +118,36 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
     },
   })
 
-  async function handleTeamCodeBlur() {
-    const code = teamCode.trim().toUpperCase()
-    if (!code) { setTeamCodeValid(null); setTeamCodeError(null); return }
+  // Check a code as soon as it's complete (6 characters) and again on blur.
+  // On a phone, typing the code then tapping Continue fired blur + submit
+  // together: submit saw "not validated yet" and showed an error under a code
+  // that then turned ✓. Submit now awaits the check instead (below).
+  async function checkTeamCode(raw: string): Promise<TeamCodeResult> {
+    const code = raw.trim().toUpperCase()
+    if (!code) { setTeamCodeValid(null); setTeamCodeError(null); return null }
     setValidating(true)
     setTeamCodeError(null)
     const result = await validateTeamCode(code)
     setValidating(false)
-    if (result.error) {
+    if (result.error || !result.data) {
       setTeamCodeValid(null)
-      setTeamCodeError(result.error)
-    } else {
-      setTeamCodeValid(result.data)
+      setTeamCodeError(result.error ?? 'Team code not found')
+      return null
     }
+    setTeamCodeValid(result.data)
+    return result.data
   }
 
   async function onSubmit(data: FormData) {
-    // Block submit if a code was typed but didn't validate
-    if (teamCode.trim() && !teamCodeValid) {
-      setTeamCodeError('Please enter a valid team code or leave it blank.')
-      return
+    // A typed code must check out — wait for the check rather than racing it.
+    let team = teamCodeValid
+    if (teamCode.trim() && !team) {
+      team = await checkTeamCode(teamCode)
+      if (!team) {
+        setTeamCodeError((e) => e ?? 'Please enter a valid team code or leave it blank.')
+        document.getElementById('team_code')?.focus()
+        return
+      }
     }
 
     if (!privacyAccepted) {
@@ -146,8 +159,13 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
 
     setLoading(true)
     setError(null)
-
-    await updateProfile({ ...data, sms_opted_in: smsOptedIn, orgId: org.id })
+    // try/finally: a dropped connection left the button stuck on "Saving…".
+    try {
+    const profileResult = await updateProfile({ ...data, sms_opted_in: smsOptedIn, orgId: org.id })
+    if (profileResult?.error) {
+      setError(profileResult.error)
+      return
+    }
 
     const result = await createRegistration({
       leagueId: league.id,
@@ -165,18 +183,27 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
       setError(result.error === 'EVENT_FULL'
         ? 'Sorry, this event is full — no more spots are available.'
         : result.error)
-      setLoading(false)
       return
     }
 
-    // If a valid team code was provided, join the team now
+    // If a valid team code was provided, join the team now — and only send
+    // the player to that team if the join actually worked.
     let joinedTeamId: string | undefined
-    if (teamCodeValid) {
-      await joinTeamByCode(teamCode.trim().toUpperCase())
-      joinedTeamId = teamCodeValid.id
+    if (team) {
+      const joined = await joinTeamByCode(teamCode.trim().toUpperCase())
+      if (joined?.error) {
+        toast.error(`You're registered, but joining ${team.name} didn't work: ${joined.error}. Ask your captain for a new code.`)
+      } else {
+        joinedTeamId = team.id
+      }
     }
 
     onComplete(result.data!.registrationId, joinedTeamId)
+    } catch {
+      setError("Couldn't reach the server — check your connection and try again.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -189,13 +216,14 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
 
       <div className="bg-white rounded-lg border p-5 space-y-4">
         <h2 className="font-semibold">Your Info</h2>
-        <div className="grid grid-cols-2 gap-3">
+        {/* One column on phones: side by side, an email address got ~145px. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             { label: 'Full Name', name: 'full_name' as keyof FormData, type: 'text', autoComplete: 'name' },
             { label: 'Email', name: 'email' as keyof FormData, type: 'email', autoComplete: 'email' },
             { label: 'Phone', name: 'phone' as keyof FormData, type: 'tel', autoComplete: 'tel' },
           ].map(({ label, name, type, autoComplete }) => (
-            <div key={name} className={name === 'full_name' ? 'col-span-2' : ''}>
+            <div key={name} className={name === 'full_name' ? 'sm:col-span-2' : ''}>
               <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
               <input
                 {...register(name)}
@@ -258,7 +286,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
 
       <div className="bg-white rounded-lg border p-5 space-y-3">
         <h2 className="font-semibold">Emergency Contact</h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             // Someone else's details — keep the browser from filling in the player's own.
             { label: 'Name', name: 'emergency_contact_name' as keyof FormData, type: 'text', autoComplete: 'off' },
@@ -293,21 +321,30 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
                 type="text"
                 value={teamCode}
                 onChange={(e) => {
-                  setTeamCode(e.target.value.toUpperCase())
+                  const next = e.target.value.toUpperCase()
+                  setTeamCode(next)
                   setTeamCodeValid(null)
                   setTeamCodeError(null)
+                  if (next.trim().length === 6) checkTeamCode(next)
                 }}
-                onBlur={handleTeamCodeBlur}
+                onBlur={() => { if (teamCode.trim() && !teamCodeValid && !validating) checkTeamCode(teamCode) }}
                 placeholder="e.g. AB3X7K"
                 maxLength={6}
-                className="w-full border rounded-md px-3 py-2 text-sm font-mono tracking-widest uppercase"
+                autoCapitalize="characters"
+                autoCorrect="off"
+                autoComplete="off"
+                spellCheck={false}
+                enterKeyHint="done"
+                aria-invalid={teamCodeError ? true : undefined}
+                aria-describedby={teamCodeError ? 'team_code-error' : teamCodeValid ? 'team_code-ok' : undefined}
+                className="w-full border rounded-md px-3 py-2 text-base font-mono tracking-widest uppercase"
               />
-              {teamCodeError && <p className="text-red-600 text-xs mt-1">{teamCodeError}</p>}
+              {teamCodeError && <p id="team_code-error" className="text-red-600 text-xs mt-1">{teamCodeError}</p>}
               {teamCodeValid && (
-                <p className="text-green-600 text-xs mt-1">✓ Joining <strong>{teamCodeValid.name}</strong></p>
+                <p id="team_code-ok" className="text-green-700 text-xs mt-1">✓ Joining <strong>{teamCodeValid.name}</strong></p>
               )}
             </div>
-            {validating && <span className="text-xs text-gray-400 mt-2.5">Checking…</span>}
+            {validating && <span className="text-xs text-gray-500 mt-2.5">Checking…</span>}
           </div>
         </div>
       )}
@@ -323,7 +360,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
           />
           <span className="text-sm text-gray-700">
             Send me game &amp; schedule text alerts to the phone number above.
-            <span className="block text-xs text-gray-400 mt-0.5">Reminders, RSVPs, and schedule changes. Standard message rates may apply. Reply STOP at any time to unsubscribe.</span>
+            <span className="block text-xs text-gray-500 mt-0.5">Reminders, RSVPs, and schedule changes. Standard message rates may apply. Reply STOP at any time to unsubscribe.</span>
           </span>
         </label>
       </div>

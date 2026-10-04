@@ -76,7 +76,8 @@ function getPublicOrigin(headersList: Awaited<ReturnType<typeof headers>>): stri
 
 const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  // Not a length rule: accounts with older, shorter passwords must still sign in.
+  password: z.string().min(1),
 })
 
 export async function login(input: { email: string; password: string; redirectTo?: string }) {
@@ -97,7 +98,17 @@ export async function login(input: { email: string; password: string; redirectTo
     password: parsed.data.password,
   })
 
-  if (error) return { data: null, error: error.message }
+  if (error) {
+    // Plain words for the two answers people actually hit.
+    const code = (error as { code?: string }).code
+    if (code === 'email_not_confirmed' || /email not confirmed/i.test(error.message)) {
+      return { data: null, error: 'Please confirm your email first — tap the link we sent when you signed up (check spam too).' }
+    }
+    if (code === 'invalid_credentials' || /invalid login credentials/i.test(error.message)) {
+      return { data: null, error: "That email and password don't match. Check them, or use “Forgot password?”." }
+    }
+    return { data: null, error: error.message }
+  }
 
   revalidatePath('/', 'layout')
   const headersList = await headers()

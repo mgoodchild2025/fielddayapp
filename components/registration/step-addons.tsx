@@ -1,5 +1,7 @@
 'use client'
 
+import { formatDollars } from '@/lib/money'
+
 import { useState } from 'react'
 import Image from 'next/image'
 import { canOptimizeImage } from '@/lib/image-src'
@@ -162,11 +164,11 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
                     </div>
                     <div className="text-right shrink-0">
                       <span className="font-bold text-lg" style={{ color: 'var(--brand-primary)' }}>
-                        ${(item.effective_price_cents / 100).toFixed(0)}
+                        {formatDollars(item.effective_price_cents)}
                       </span>
                       {item.price_cents !== item.effective_price_cents && (
                         <p className="text-xs text-gray-400 line-through">
-                          ${(item.price_cents / 100).toFixed(0)}
+                          {formatDollars(item.price_cents)}
                         </p>
                       )}
                     </div>

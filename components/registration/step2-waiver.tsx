@@ -171,7 +171,9 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registr
             onChange={(e) => setGuardianName(e.target.value)}
             disabled={!canSign}
             placeholder={canSign ? 'e.g. Jane Smith' : 'Read the waiver to enable signing'}
-            className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-400"
+            autoComplete="name"
+            autoCapitalize="words"
+            className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-500"
           />
         </div>
         <div>
@@ -211,7 +213,10 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registr
           onChange={(e) => setSignatureName(e.target.value)}
           disabled={!canSign}
           placeholder={canSign ? 'Your full name' : 'Read the waiver to enable signing'}
-          className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-400"
+          autoComplete="name"
+          autoCapitalize="words"
+          enterKeyHint="done"
+          className="w-full border rounded-md px-3 py-2 text-base disabled:bg-gray-50 disabled:text-gray-500"
         />
       </div>
       <button
@@ -260,18 +265,22 @@ export function Step2Waiver({ org, waiver, userId, leagueId, leagueName, registr
           {/* tabIndex makes the region focusable so it can be scrolled with the
               arrow keys, Page Down and End — a plain overflow container cannot
               be reached or scrolled by keyboard at all. */}
+          {/* Phones: the full text inline — the page is the scroller, so the
+              reader isn't squinting at a 288px box with a fade over a third of
+              it. sm+: the familiar scroll box. Either way the end-of-text
+              sentinel unlocks signing (observed against the viewport). */}
           <div
             tabIndex={0}
             role="region"
             aria-label={`${waiver.title ?? 'Waiver'} text`}
-            className="h-72 overflow-y-auto border rounded-md p-4 text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-gray-500"
+            className="sm:h-72 sm:overflow-y-auto border rounded-md p-4 text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-gray-500"
           >
             <RichTextContent content={waiver.content} />
             <div ref={sentinelRef} className="h-1" />
           </div>
           {/* Scroll-to-bottom prompt — hidden once signing is unlocked */}
           {!canSign && (
-            <div className="absolute bottom-0 left-0 right-0 pointer-events-none rounded-b-md overflow-hidden">
+            <div className="hidden sm:block absolute bottom-0 left-0 right-0 pointer-events-none rounded-b-md overflow-hidden">
               {/* gradient fade */}
               <div className="h-16 bg-gradient-to-t from-white to-transparent" />
               {/* label */}

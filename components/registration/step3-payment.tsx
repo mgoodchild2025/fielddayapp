@@ -5,6 +5,7 @@ import type { Database } from '@/types/database'
 import type { MerchSelection, MerchItemForStep } from './step-addons'
 import { selectOfflinePayment, selectOfflineTeamPayment } from '@/actions/payments'
 import { validateDiscountCode, incrementDiscountUse } from '@/actions/discounts'
+import { formatDollars } from '@/lib/money'
 import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_METHOD_ICON,
@@ -218,7 +219,6 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
     }
   }
 
-  const registrationPrice = registrationPriceCents / 100
 
   // Offline method confirmed — spot reserved, show payment instructions
   if (offlineDone) {
@@ -324,7 +324,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
                 <p className="text-xs text-gray-400 mt-0.5">Registration fee</p>
               </div>
               <span className={`font-bold text-lg tabular-nums ${appliedDiscount ? 'line-through text-gray-400' : ''}`} style={appliedDiscount ? {} : { color: 'var(--brand-primary)' }}>
-                ${registrationPrice.toFixed(0)} {currency}
+                {formatDollars(registrationPriceCents)} {currency}
               </span>
             </div>
           )}
@@ -406,7 +406,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
               <button
                 type="button"
                 onClick={() => setShowDiscountInput(true)}
-                className="text-sm text-gray-400 hover:text-gray-600 underline underline-offset-2"
+                className="press inline-flex items-center min-h-10 text-sm text-gray-600 hover:text-gray-800 underline underline-offset-2"
               >
                 Have a discount code?
               </button>
@@ -419,7 +419,13 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
                     onChange={(e) => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(null) }}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleApplyDiscount() } }}
                     placeholder="Enter code"
-                    className="flex-1 border rounded-md px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:ring-2"
+                    aria-label="Discount code"
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    autoComplete="off"
+                    spellCheck={false}
+                    enterKeyHint="done"
+                    className="flex-1 min-w-0 border rounded-md px-3 py-2 text-base uppercase tracking-wider focus:outline-none focus:ring-2"
                     style={{ focusRingColor: 'var(--brand-primary)' } as React.CSSProperties}
                     autoFocus
                   />
@@ -427,15 +433,15 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
                     type="button"
                     onClick={handleApplyDiscount}
                     disabled={discountLoading || !discountInput.trim()}
-                    className="px-4 py-2 rounded-md text-sm font-medium text-white disabled:opacity-50"
-                    style={{ backgroundColor: 'var(--brand-primary)' }}
+                    className="press min-h-11 px-4 rounded-md text-sm font-medium bg-brand-primary text-on-brand disabled:opacity-50"
                   >
                     {discountLoading ? '…' : 'Apply'}
                   </button>
                   <button
                     type="button"
                     onClick={() => { setShowDiscountInput(false); setDiscountInput(''); setDiscountError(null) }}
-                    className="px-3 py-2 rounded-md text-sm text-gray-400 hover:text-gray-600"
+                    aria-label="Cancel discount code"
+                    className="press min-h-11 min-w-11 rounded-md text-sm text-gray-500 hover:text-gray-700"
                   >
                     ✕
                   </button>
@@ -549,7 +555,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
             : selectedMethod === 'card' && usePlan && paymentPlan
               ? `Pay $${(planTodayCents / 100).toFixed(2)} today →`
               : selectedMethod === 'card'
-                ? `Pay $${(totalCents / 100).toFixed(0)} ${currency} →`
+                ? `Pay ${formatDollars(totalCents)} ${currency}${taxSuffix && !taxSuffix.startsWith('incl') ? ` ${taxSuffix}` : ''} →`
                 : `Register & pay by ${PAYMENT_METHOD_LABELS[selectedMethod]} →`}
         </button>
 
