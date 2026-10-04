@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { OrganizerInviteActions } from '@/components/events/organizer-invite-actions'
+import { DeclineOrganizerInvite } from '@/components/events/decline-organizer-invite'
 import { getOrganizerInviteDetails } from '@/actions/organizers'
 import Link from 'next/link'
 
@@ -54,16 +55,16 @@ export default async function OrganizerInvitePage({
     )
   }
 
-  // Handle inline decline action (from email link ?action=decline)
+  // Email "Decline" link (?action=decline): ASK, never act on a GET — mail
+  // scanners open links automatically (see DeclineOrganizerInvite).
   if (action === 'decline' && invite.status === 'pending') {
-    const { declineOrganizerInvitation } = await import('@/actions/organizers')
-    await declineOrganizerInvitation(token)
     return (
       <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <OrgNav org={org} logoUrl={logoUrl} />
-        <div className="max-w-md mx-auto px-4 py-16 text-center">
-          <p className="text-2xl font-bold mb-2">Invitation Declined</p>
-          <p className="text-gray-500 text-sm">You&apos;ve declined the invitation to co-organize {invite.league_name}.</p>
+        <div className="max-w-md mx-auto px-4 py-12">
+          <div className="bg-white rounded-xl border shadow-sm p-8">
+            <DeclineOrganizerInvite token={token} leagueName={invite.league_name} />
+          </div>
         </div>
         <Footer org={org} />
       </div>

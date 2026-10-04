@@ -1,5 +1,9 @@
 'use client'
 
+// Date-only columns: formatDateOnly reads them as calendar dates. new Date('2026-10-04')
+// is midnight UTC — the evening before in the Americas, and server/phone disagreed.
+import { formatDateOnly } from '@/lib/format-time'
+
 import { Fragment, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
@@ -317,7 +321,7 @@ export function OrgOverheadManager({ initialOverhead, allocationTargets = [], de
                     <p className="text-xs text-gray-400">
                       {CATEGORY_LABELS[e.category]} · {PERIOD_LABELS[e.period]}
                       {e.applies_to === 'shop' ? ' · Shop' : ''}
-                      {e.incurred_on ? ` · ${new Date(e.incurred_on).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+                      {e.incurred_on ? ` · ${formatDateOnly(e.incurred_on)}` : ''}
                       {e.tax_cents ? ` · incl. ${money(e.tax_cents)} tax` : ''}
                     </p>
                     {allocated > 0 && (

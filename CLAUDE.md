@@ -42,6 +42,7 @@ app/(org)/
 | `lib/auth.ts` | Auth helpers |
 | `lib/format-time.ts` | `formatGameTime()` + DST-safe `parseLocalToUtc()` |
 | `lib/tenant.ts#getOrgTimezone` | Org display timezone (cached). Server components render in **UTC** — any time they print must pass `timeZone` (or go through `formatGameTime(iso, tz)`). |
+| `lib/format-time.ts#utcToLocalInput` | Fills a `datetime-local` field with the ORG's wall-clock time; save with `parseLocalToUtc(date, time, tz)`. Never `iso.slice(0, 16)` (UTC wall-clock → shifts by the offset on every save) or `new Date(localString)` (the browser's zone, not the org's). Date-only columns (`incurred_on`, `season_end_date`, …) display via `formatDateOnly`. |
 | `lib/supabase/server.ts` | Supabase server client (cookie-based) |
 | `actions/` | All server actions (auth, leagues, teams, scores, registrations, etc.) |
 | `components/scores/admin-score-entry.tsx` | Inline score entry for admin schedule table |
@@ -293,6 +294,7 @@ CSS variables set by `BrandProvider` from `org_branding` row:
 - **Money is computed server-side.** `lib/registration-price.ts` (`registrationBasePriceCents` + `applyDiscountCode`) is the one price for card checkout and offline payments; clients send a `discountId`, never an amount. A player may activate their own registration only when `mayActivateWithoutAdmin` allows it (per-team, free, a recorded/offline payment, or no online payments) — card payments are activated by the webhook / verified return.
 - **Internal headers**: `proxy.ts` deletes client-sent `x-org-id` and `x-impersonating` before setting its own; add any new trusted header to that list.
 - **Accounts**: never set or change a password for an existing account from a sign-up form, and never create a pre-confirmed account for an unverified email (guest claim uses the normal confirmation link).
+- **Email links never act on GET**: mail scanners open every link, so a link that declines/accepts/unsubscribes must land on a page with a button (see `DeclineOrganizerInvite`).
 - **Uploads**: admin-only unless genuinely public; derive the extension from the vetted MIME type, and never store an unconverted SVG.
 
 ## Performance: per-request costs (read before adding queries to layouts/nav)

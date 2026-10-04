@@ -8,7 +8,7 @@ import { unlockAudio, playCheckinSound } from '@/lib/audio'
 type State =
   | { phase: 'idle' }
   | { phase: 'loading' }
-  | { phase: 'done'; icon: string; heading: string; body: string; success: boolean }
+  | { phase: 'done'; icon: string; heading: string; body: string; success: boolean; retry?: boolean }
 
 interface Props {
   sessionId: string
@@ -35,12 +35,21 @@ export function SelfCheckinSessionClient({
     setState({ phase: 'loading' })
 
     startTransition(async () => {
-      const result = await checkInSelfForSession(sessionId)
+      // A dropped connection at the door used to leave the spinner up for good
+      // — show the failure and let them try again.
+      let result: Awaited<ReturnType<typeof checkInSelfForSession>>
+      try {
+        result = await checkInSelfForSession(sessionId)
+      } catch {
+        setState({ phase: 'done', icon: '📶', heading: "Couldn't reach the server", body: 'Check your connection and try again.', success: false, retry: true })
+        return
+      }
 
       let icon: string
       let heading: string
       let body: string
       let success = false
+      let retry = false
 
       if (result.status === 'success') {
         icon = '✅'
@@ -66,10 +75,11 @@ export function SelfCheckinSessionClient({
       } else {
         icon = '⚠️'
         heading = 'Something went wrong'
-        body = 'Please see the event staff.'
+        body = 'Try again, or see the event staff.'
+        retry = true
       }
 
-      setState({ phase: 'done', icon, heading, body, success })
+      setState({ phase: 'done', icon, heading, body, success, retry })
     })
   }
 
@@ -112,9 +122,18 @@ export function SelfCheckinSessionClient({
             </h1>
             <p className="text-sm text-gray-500 mt-1 leading-relaxed">{state.body}</p>
           </div>
+          {state.retry && (
+            <button
+              type="button"
+              onClick={handleCheckin}
+              className="press w-full min-h-11 rounded-xl text-base font-semibold bg-brand-primary text-on-brand"
+            >
+              Try again
+            </button>
+          )}
           <div className="pt-2 border-t border-gray-100">
             <p className="text-xs font-medium text-gray-700">{leagueName}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{sessionLabel}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{sessionLabel}</p>
           </div>
           <Link
             href="/schedule"

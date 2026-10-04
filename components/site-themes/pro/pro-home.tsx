@@ -57,6 +57,8 @@ const DEFAULT_SECTION_ORDER = ['results', 'events', 'staff', 'sponsors']
 const TIER_ORDER = ['gold', 'silver', 'bronze', 'standard']
 
 interface ProHomeProps {
+  /** Schedule/standings need sign-in: visitors get a Sign in link instead. */
+  signedIn?: boolean
   org: OrgContext & { name: string; slug: string }
   branding: Branding | null
   heroContent: { headline?: string; subheadline?: string; cta_label?: string; cta_href?: string }
@@ -89,7 +91,7 @@ function SponsorLogo({ sponsor, size }: { sponsor: Sponsor; size: 'sm' | 'lg' })
     : <div>{el}</div>
 }
 
-export function ProHome({ org, branding, heroContent, sponsors, staff, recentResults, openEvents, inSeasonEvents, upcomingEvents, timezone, spotsMap, sectionLayout }: ProHomeProps) {
+export function ProHome({ org, branding, heroContent, sponsors, staff, recentResults, openEvents, inSeasonEvents, upcomingEvents, timezone, spotsMap, sectionLayout, signedIn = false }: ProHomeProps) {
   const headline    = heroContent.headline    || org.name
   const subheadline = heroContent.subheadline || branding?.tagline || null
   const ctaLabel    = heroContent.cta_label   || 'Register'
@@ -302,12 +304,20 @@ export function ProHome({ org, branding, heroContent, sponsors, staff, recentRes
               >
                 {ctaLabel}
               </Link>
-              <Link href="/schedule" className="px-6 py-2.5 rounded font-bold text-sm uppercase tracking-wide border border-white/20 text-white/80 hover:border-white/50 transition-colors">
-                Schedule
-              </Link>
-              <Link href="/standings" className="px-6 py-2.5 rounded font-bold text-sm uppercase tracking-wide border border-white/20 text-white/80 hover:border-white/50 transition-colors">
-                Standings
-              </Link>
+              {signedIn ? (
+                <>
+                  <Link href="/schedule" className="press px-6 py-2.5 rounded font-bold text-sm uppercase tracking-wide border border-white/20 text-white/80 hover:border-white/50">
+                    Schedule
+                  </Link>
+                  <Link href="/standings" className="press px-6 py-2.5 rounded font-bold text-sm uppercase tracking-wide border border-white/20 text-white/80 hover:border-white/50">
+                    Standings
+                  </Link>
+                </>
+              ) : (
+                <Link href="/login?redirect=%2Fschedule" className="press px-6 py-2.5 rounded font-bold text-sm uppercase tracking-wide border border-white/20 text-white/80 hover:border-white/50">
+                  Sign in
+                </Link>
+              )}
             </div>
             <HeroSocialLinks social={branding} />
           </div>

@@ -133,7 +133,7 @@ export default async function AdminDropInDetailPage({
         {/* Edit form */}
         <div>
           <h2 className="font-semibold mb-3">Edit Session</h2>
-          <DropInSessionForm session={session} />
+          <DropInSessionForm timeZone={timeZone} session={session} />
         </div>
       </div>
     </div>

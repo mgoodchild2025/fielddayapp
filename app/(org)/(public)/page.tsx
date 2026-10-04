@@ -6,9 +6,16 @@ import { CommunityHome } from '@/components/site-themes/community/community-home
 import { ClubHome } from '@/components/site-themes/club/club-home'
 import { ProHome } from '@/components/site-themes/pro/pro-home'
 import { getEventSpotsMap } from '@/lib/event-spots'
+import { createServerClient } from '@/lib/supabase/server'
 
 async function OrgHomePage({ orgId }: { orgId: string }) {
   const db = createServiceRoleClient()
+  // Schedule/standings need sign-in, so the themes only link them for members
+  // (memoised per render — the nav already asked).
+  const signedInPromise = createServerClient()
+    .then((sb) => sb.auth.getUser())
+    .then(({ data }) => !!data.user)
+    .catch(() => false)
 
 
   const [{ data: org }, { data: branding }, { data: leagues }, { data: siteContent }, { data: photos }, { data: sponsors }, { data: staff }, { data: recentResultsRaw }] = await Promise.all([
@@ -191,6 +198,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           timezone={timezone}
           spotsMap={spotsMap}
           sectionLayout={sectionLayout}
+          signedIn={await signedInPromise}
         />
       )
     case 'pro':
@@ -202,6 +210,7 @@ async function OrgHomePage({ orgId }: { orgId: string }) {
           sponsors={sponsorList}
           staff={staffList}
           recentResults={recentResults}
+          signedIn={await signedInPromise}
           openEvents={openEvents}
           inSeasonEvents={inSeasonEvents}
           upcomingEvents={upcomingEvents}

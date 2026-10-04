@@ -62,9 +62,11 @@ function amountLabel(r: Row) {
   return `$${(cents / 100).toFixed(2)} ${currency}${refunded > 0 ? ` (−$${(refunded / 100).toFixed(2)} refunded)` : ''}`
 }
 
-function dateLabel(r: Row) {
+// In the org's timezone with a fixed locale: the default locale/zone made the
+// server (UTC) and the phone render different dates, which React rejects.
+function dateLabel(r: Row, timeZone: string) {
   const d = r.payment?.paid_at ?? r.created_at
-  return new Date(d).toLocaleDateString()
+  return new Date(d).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', timeZone })
 }
 
 const VALID_METHODS = ['cash', 'etransfer', 'cheque', 'stripe', 'card', 'other'] as const
@@ -133,7 +135,7 @@ function FilterCard({ label, active, tone, onToggle, children }: {
   )
 }
 
-export function PaymentsTable({ rows, isOrgAdmin = true, taxRates = [], initialStatus = 'all' }: { rows: Row[]; isOrgAdmin?: boolean; taxRates?: OrgTaxRate[]; initialStatus?: string }) {
+export function PaymentsTable({ rows, isOrgAdmin = true, taxRates = [], initialStatus = 'all', timeZone = 'America/Toronto' }: { rows: Row[]; isOrgAdmin?: boolean; taxRates?: OrgTaxRate[]; initialStatus?: string; timeZone?: string }) {
   const [search, setSearch] = useState('')
   // ?status= (e.g. from the dashboard's "offline payments still owed") picks the starting filter.
   const [statusFilter, setStatusFilter] = useState(initialStatus)
@@ -304,7 +306,7 @@ export function PaymentsTable({ rows, isOrgAdmin = true, taxRates = [], initialS
                   <td className="px-4 py-3 text-gray-500 capitalize text-xs">
                     {r.payment?.payment_method ?? '—'}
                   </td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">{dateLabel(r)}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">{dateLabel(r, timeZone)}</td>
                 </tr>
               ))}
               {filtered.length === 0 && (
@@ -358,7 +360,7 @@ export function PaymentsTable({ rows, isOrgAdmin = true, taxRates = [], initialS
                 {r.payment?.payment_method && (
                   <span className="capitalize">{r.payment.payment_method}</span>
                 )}
-                <span>{dateLabel(r)}</span>
+                <span>{dateLabel(r, timeZone)}</span>
               </div>
 
             </div>

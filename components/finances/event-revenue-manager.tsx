@@ -1,5 +1,9 @@
 'use client'
 
+// Date-only columns: formatDateOnly reads them as calendar dates. new Date('2026-10-04')
+// is midnight UTC — the evening before in the Americas, and server/phone disagreed.
+import { formatDateOnly } from '@/lib/format-time'
+
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
@@ -152,7 +156,7 @@ export function EventRevenueManager({ leagueId, initialRevenue }: { leagueId: st
                     <p className="text-xs text-gray-400">
                       {CATEGORY_LABELS[e.category]}
                       {e.source ? ` · ${e.source}` : ''}
-                      {e.received_on ? ` · ${new Date(e.received_on).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+                      {e.received_on ? ` · ${formatDateOnly(e.received_on)}` : ''}
                     </p>
                   </td>
                   <td className="px-4 py-2.5 text-right font-medium text-green-700 whitespace-nowrap">{money(e.amount_cents)}</td>

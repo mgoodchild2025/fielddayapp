@@ -23,8 +23,9 @@ export function CartButton({ orgId, taxSuffix = '' }: Props) {
         <button
           type="button"
           onClick={openCart}
-          className="fixed bottom-20 right-4 sm:bottom-6 z-30 flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full shadow-lg font-semibold text-sm text-white transition-transform hover:scale-105 active:scale-95"
-          style={{ backgroundColor: 'var(--brand-primary)' }}
+          // Phones: sit 12px above the tab bar (56px + home indicator) — bottom-20
+          // left it overlapping the bar on notched phones. The bar is md:hidden.
+          className="press fixed bottom-[calc(68px+env(safe-area-inset-bottom,0px))] right-4 md:bottom-6 z-30 flex items-center gap-2 pl-3 pr-4 min-h-11 rounded-full shadow-lg font-semibold text-sm bg-brand-primary text-on-brand"
           aria-label={`View cart (${totalCount} item${totalCount !== 1 ? 's' : ''})`}
         >
           <span className="relative">

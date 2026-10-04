@@ -1,5 +1,7 @@
 'use client'
 
+import { parseLocalToUtc, utcToLocalInput } from '@/lib/format-time'
+
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createDropInSession, updateDropInSession } from '@/actions/dropins'
@@ -16,10 +18,12 @@ interface Session {
 }
 
 interface Props {
+  /** Org timezone: scheduled time is shown and saved as org wall-clock. */
+  timeZone: string
   session?: Session
 }
 
-export function DropInSessionForm({ session }: Props) {
+export function DropInSessionForm({ session, timeZone }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -27,9 +31,9 @@ export function DropInSessionForm({ session }: Props) {
   const [name, setName] = useState(session?.name ?? '')
   const [description, setDescription] = useState(session?.description ?? '')
   const [scheduledAt, setScheduledAt] = useState(
-    session?.scheduled_at
-      ? new Date(session.scheduled_at).toISOString().slice(0, 16)
-      : ''
+    // Org time both ways — it showed UTC and saved in the phone's timezone,
+    // so editing a session moved it.
+    session?.scheduled_at ? utcToLocalInput(session.scheduled_at, timeZone) : ''
   )
   const [location, setLocation] = useState(session?.location ?? '')
   const [capacity, setCapacity] = useState(String(session?.capacity ?? 20))
@@ -44,7 +48,7 @@ export function DropInSessionForm({ session }: Props) {
     const data = {
       name,
       description,
-      scheduled_at: new Date(scheduledAt).toISOString(),
+      scheduled_at: parseLocalToUtc(scheduledAt.slice(0, 10), scheduledAt.slice(11, 16), timeZone),
       location,
       capacity: parseInt(capacity, 10),
       price_cents: Math.round(parseFloat(priceDollars) * 100),
