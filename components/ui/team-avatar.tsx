@@ -1,5 +1,4 @@
-import Image from 'next/image'
-import { canOptimizeImage } from '@/lib/image-src'
+import { LogoImage } from './logo-image'
 
 // Deterministic pastel background from a name string
 function avatarColor(name: string): string {
@@ -49,16 +48,7 @@ export function TeamAvatar({ logoUrl, color, name, size = 'sm', className = '' }
 
   if (logoUrl) {
     return (
-      <div className={`${sizeClass} rounded-full overflow-hidden shrink-0 ${className}`}>
-        <Image
-          src={logoUrl}
-          alt={name}
-          width={px}
-          height={px}
-          className="w-full h-full object-cover"
-          unoptimized={!canOptimizeImage(logoUrl)}
-        />
-      </div>
+      <LogoImage src={logoUrl} alt={name} px={px} frameClassName={`${sizeClass} rounded-full overflow-hidden shrink-0 ${className}`} />
     )
   }
 

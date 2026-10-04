@@ -1,5 +1,7 @@
 'use client'
 
+import { toast } from 'sonner'
+
 import { useState } from 'react'
 import { submitScore, confirmScore } from '@/actions/scores'
 
@@ -176,8 +178,9 @@ export function CaptainScoreEntry({
     if (res.error) {
       setError(res.error)
     } else {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      // A toast, not a jump to the top of the page (which lost the player's place).
       setOpen(false)
+      toast.success(`Score submitted · ${finalHome}–${finalAway} — the other captain confirms it`)
     }
   }
 
@@ -190,6 +193,7 @@ export function CaptainScoreEntry({
       setError(res.error)
     } else {
       setDone(true)
+      toast.success('Score confirmed')
     }
   }
 
@@ -207,7 +211,7 @@ export function CaptainScoreEntry({
             <p className="text-sm font-bold mt-0.5">
               {existingResult!.homeScore} – {existingResult!.awayScore}
               {existingSets && existingSets.length > 0 && (
-                <span className="ml-2 text-xs font-normal text-gray-400">
+                <span className="ml-2 text-xs font-normal text-gray-500">
                   ({existingSets.map(s => `${s.home}–${s.away}`).join(', ')})
                 </span>
               )}
@@ -218,7 +222,7 @@ export function CaptainScoreEntry({
               <button
                 onClick={handleConfirm}
                 disabled={confirming}
-                className="px-3 py-1.5 text-xs font-semibold text-white rounded disabled:opacity-50"
+                className="press min-h-10 px-4 text-sm font-semibold text-white rounded disabled:opacity-50"
                 style={{ backgroundColor: 'var(--brand-primary)' }}
               >
                 {confirming ? 'Confirming…' : 'Confirm Score'}
@@ -226,7 +230,7 @@ export function CaptainScoreEntry({
             )}
             <button
               onClick={openEdit}
-              className="px-3 py-1.5 text-xs font-semibold border rounded text-gray-600 hover:bg-gray-50"
+              className="press min-h-10 px-4 text-sm font-semibold border rounded text-gray-700 hover:bg-gray-50"
             >
               Edit
             </button>
@@ -246,7 +250,7 @@ export function CaptainScoreEntry({
           {isSegmented ? (
             <div className="space-y-2">
               {/* Column headers */}
-              <div className="flex items-center gap-2 text-[10px] text-gray-400 font-medium">
+              <div className="flex items-center gap-2 text-[11px] text-gray-500 font-medium">
                 <span className="w-10 text-center">{segmentName(scoringMode)}</span>
                 <span className="w-16 text-center truncate">{homeTeamName}</span>
                 <span className="w-4" />
@@ -255,33 +259,33 @@ export function CaptainScoreEntry({
 
               {sets.map((s, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400 w-10 text-center">{segmentLabel(scoringMode, i)}</span>
+                  <span className="text-xs text-gray-500 w-10 text-center">{segmentLabel(scoringMode, i)}</span>
                   <input
-                    type="number" min={0} value={s.home}
+                    type="number" min={0} inputMode="numeric" onFocus={(e) => e.target.select()} value={s.home}
                     onChange={(e) => updateSet(i, 'home', Number(e.target.value))}
-                    className="w-16 border rounded px-2 py-1.5 text-center text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    className="w-16 h-11 border rounded px-2 text-center text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-300"
                   />
                   <span className="text-gray-300 font-bold text-lg w-4 text-center">–</span>
                   <input
-                    type="number" min={0} value={s.away}
+                    type="number" min={0} inputMode="numeric" onFocus={(e) => e.target.select()} value={s.away}
                     onChange={(e) => updateSet(i, 'away', Number(e.target.value))}
-                    className="w-16 border rounded px-2 py-1.5 text-center text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    className="w-16 h-11 border rounded px-2 text-center text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-300"
                   />
                   {sets.length > 1 && scoringMode !== 'innings' && (
-                    <button type="button" onClick={() => removeSet(i)}
-                      className="text-gray-300 hover:text-red-400 text-xl leading-none">×</button>
+                    <button type="button" onClick={() => removeSet(i)} aria-label={`Remove ${segmentLabel(scoringMode, i)}`}
+                      className="press inline-flex items-center justify-center min-h-10 min-w-10 text-gray-500 hover:text-red-500 text-xl leading-none">×</button>
                   )}
                 </div>
               ))}
 
               {canAddMore(scoringMode, sets.length) && (
                 <button type="button" onClick={addSet}
-                  className="text-xs text-blue-500 hover:underline ml-10">
+                  className="press inline-flex items-center min-h-10 text-sm font-medium text-brand-primary hover:underline ml-10">
                   {addButtonLabel(scoringMode, sets.length)}
                 </button>
               )}
 
-              <p className="text-[10px] text-gray-400 ml-10">
+              <p className="text-[11px] text-gray-500 ml-10">
                 {(() => {
                   const [h, a] = calcFinalScore(scoringMode, sets)
                   return `${scoreSummaryLabel(scoringMode)}: ${homeTeamName} ${h} – ${a} ${awayTeamName}`
@@ -291,24 +295,24 @@ export function CaptainScoreEntry({
           ) : (
             <div className="flex items-end gap-3">
               <div className="flex flex-col items-center">
-                <label htmlFor="captain-home-score" className="text-[10px] text-gray-400 mb-1 truncate max-w-[64px] text-center">{homeTeamName}</label>
+                <label htmlFor="captain-home-score" className="text-[11px] text-gray-500 mb-1 truncate max-w-[64px] text-center">{homeTeamName}</label>
                 <input
                   id="captain-home-score"
                   aria-label={`${homeTeamName} score`}
-                  type="number" min={0} value={homeScore}
+                  type="number" min={0} inputMode="numeric" onFocus={(e) => e.target.select()} value={homeScore}
                   onChange={(e) => setHomeScore(Number(e.target.value))}
-                  className="w-16 border rounded px-2 py-1.5 text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-16 h-11 border rounded px-2 text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
               <span className="text-gray-300 font-bold text-xl mb-2">–</span>
               <div className="flex flex-col items-center">
-                <label htmlFor="captain-away-score" className="text-[10px] text-gray-400 mb-1 truncate max-w-[64px] text-center">{awayTeamName}</label>
+                <label htmlFor="captain-away-score" className="text-[11px] text-gray-500 mb-1 truncate max-w-[64px] text-center">{awayTeamName}</label>
                 <input
                   id="captain-away-score"
                   aria-label={`${awayTeamName} score`}
-                  type="number" min={0} value={awayScore}
+                  type="number" min={0} inputMode="numeric" onFocus={(e) => e.target.select()} value={awayScore}
                   onChange={(e) => setAwayScore(Number(e.target.value))}
-                  className="w-16 border rounded px-2 py-1.5 text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-16 h-11 border rounded px-2 text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
             </div>
@@ -317,14 +321,14 @@ export function CaptainScoreEntry({
           <div className="flex gap-2">
             <button
               type="submit" disabled={loading}
-              className="px-3 py-1.5 text-xs font-semibold text-white rounded disabled:opacity-50"
+              className="press min-h-10 px-4 text-sm font-semibold text-white rounded disabled:opacity-50"
               style={{ backgroundColor: 'var(--brand-primary)' }}
             >
               {loading ? 'Submitting…' : 'Submit'}
             </button>
             <button
-              type="button" onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setOpen(false) }}
-              className="px-3 py-1.5 text-xs font-semibold border rounded text-gray-500 hover:bg-gray-50"
+              type="button" onClick={() => setOpen(false)}
+              className="press min-h-10 px-4 text-sm font-semibold border rounded text-gray-700 hover:bg-gray-50"
             >
               Cancel
             </button>
@@ -341,7 +345,7 @@ export function CaptainScoreEntry({
       <div className="mt-3 border-t pt-3">
         <button
           onClick={() => setOpen(true)}
-          className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+          className="press inline-flex items-center min-h-10 text-sm font-semibold text-brand-primary hover:underline"
         >
           + Submit score
         </button>

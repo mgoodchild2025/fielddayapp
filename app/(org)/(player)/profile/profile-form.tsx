@@ -199,14 +199,14 @@ export function ProfileForm({
                 <input {...register('push_reminders_enabled')} type="checkbox" className="rounded mt-0.5" />
                 <span className="text-xs text-gray-600">
                   Game reminders as phone alerts
-                  <span className="block text-[11px] text-gray-400">In the app&rsquo;s notification bell, and as a push notification on phones where you&rsquo;ve turned alerts on.</span>
+                  <span className="block text-[11px] text-gray-500">In the app&rsquo;s notification bell, and as a push notification on phones where you&rsquo;ve turned alerts on.</span>
                 </span>
               </label>
               <label className="flex items-start gap-2 cursor-pointer select-none">
                 <input {...register('sms_opted_in')} type="checkbox" className="rounded mt-0.5" />
                 <span className="text-xs text-gray-600">
                   Game &amp; schedule text alerts
-                  <span className="block text-[11px] text-gray-400">On by default — reminders, RSVPs, and schedule changes. Reply STOP any time to opt out.</span>
+                  <span className="block text-[11px] text-gray-500">On by default — reminders, RSVPs, and schedule changes. Reply STOP any time to opt out.</span>
                 </span>
               </label>
               {smsOptedIn && (
@@ -219,7 +219,7 @@ export function ProfileForm({
                     <input {...register('sms_also_when_push')} type="checkbox" className="rounded mt-0.5" />
                     <span className="text-xs text-gray-500">
                       Text me reminders even when phone alerts are on
-                      <span className="block text-[11px] text-gray-400">Off by default: once a phone of yours gets push alerts, reminders arrive there instead of by text.</span>
+                      <span className="block text-[11px] text-gray-500">Off by default: once a phone of yours gets push alerts, reminders arrive there instead of by text.</span>
                     </span>
                   </label>
                 </>

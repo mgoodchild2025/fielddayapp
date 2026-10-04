@@ -1,5 +1,7 @@
 'use client'
 
+import { undoableRemove, insertAt } from '@/components/ui/use-undoable-remove'
+
 import { useState, useTransition } from 'react'
 import { inviteGameSub, removeGameSub } from '@/actions/game-subs'
 import type { GameSub } from '@/actions/game-subs'
@@ -18,7 +20,6 @@ export function InviteSubButton({ gameId, teamId, initialSubs }: Props) {
   const [error, setError]       = useState<string | null>(null)
   const [success, setSuccess]   = useState<string | null>(null)
   const [subs, setSubs]         = useState<GameSub[]>(initialSubs)
-  const [removingId, setRemovingId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   function handleOpen() {
@@ -54,13 +55,18 @@ export function InviteSubButton({ gameId, teamId, initialSubs }: Props) {
     })
   }
 
+  // Recoverable: the row goes at once with Undo; the delete runs when the
+  // toast closes, and a failed delete brings the row back with the error
+  // (it used to vanish even when the server refused).
   function handleRemove(subId: string) {
-    if (removingId) return
-    setRemovingId(subId)
-    startTransition(async () => {
-      await removeGameSub(subId)
-      setSubs(prev => prev.filter(s => s.id !== subId))
-      setRemovingId(null)
+    const idx = subs.findIndex((s) => s.id === subId)
+    const sub = subs[idx]
+    if (!sub) return
+    setSubs((prev) => prev.filter((s) => s.id !== subId))
+    undoableRemove({
+      label: `Removed ${sub.invitedEmail}`,
+      restore: () => setSubs((prev) => insertAt(prev, idx, sub)),
+      commit: () => removeGameSub(subId),
     })
   }
 
@@ -70,25 +76,25 @@ export function InviteSubButton({ gameId, teamId, initialSubs }: Props) {
       {subs.length > 0 && (
         <ul className="space-y-1">
           {subs.map((sub) => (
-            <li key={sub.id} className="flex items-center gap-2 text-xs">
+            <li key={sub.id} className="flex items-center gap-2 text-sm">
               <span className={`shrink-0 font-bold w-3 text-center ${
                 sub.status === 'confirmed' ? 'text-green-500' : 'text-gray-300'
               }`}>
                 {sub.status === 'confirmed' ? '✓' : '?'}
               </span>
               <span className="flex-1 truncate text-gray-600">{sub.invitedEmail}</span>
-              <span className={`shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
+              <span className={`shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${
                 sub.status === 'confirmed'
                   ? 'bg-green-50 text-green-600 border border-green-100'
-                  : 'bg-gray-50 text-gray-400 border border-gray-100'
+                  : 'bg-gray-50 text-gray-500 border border-gray-100'
               }`}>
                 {sub.status === 'confirmed' ? 'Confirmed' : 'Invited'}
               </span>
               <button
                 type="button"
                 onClick={() => handleRemove(sub.id)}
-                disabled={removingId === sub.id || isPending}
-                className="shrink-0 text-gray-300 hover:text-red-400 transition-colors disabled:opacity-50 text-xs leading-none"
+                disabled={isPending}
+                className="press shrink-0 inline-flex items-center justify-center min-h-10 min-w-10 -my-2 rounded-full text-gray-500 hover:text-red-500 hover:bg-red-50 disabled:opacity-50 text-sm leading-none"
                 aria-label={`Remove ${sub.invitedEmail}`}
                 title="Remove sub"
               >
@@ -113,15 +119,20 @@ export function InviteSubButton({ gameId, teamId, initialSubs }: Props) {
             onChange={e => setEmail(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleSubmit() }}
             placeholder="Sub's email address"
+            aria-label="Sub's email address"
+            autoComplete="email"
+            autoCapitalize="none"
+            enterKeyHint="send"
             autoFocus
-            className="w-full border rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)] bg-white"
+            className="w-full min-h-11 border rounded px-3 text-base focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)] bg-white"
           />
           <input
             type="text"
             value={message}
             onChange={e => setMessage(e.target.value)}
             placeholder="Note to sub (optional)"
-            className="w-full border rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)] bg-white"
+            aria-label="Note to sub (optional)"
+            className="w-full min-h-11 border rounded px-3 text-base focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)] bg-white"
           />
           {error && <p className="text-[11px] text-red-500">{error}</p>}
           <div className="flex gap-1.5">
@@ -129,8 +140,7 @@ export function InviteSubButton({ gameId, teamId, initialSubs }: Props) {
               type="button"
               onClick={handleSubmit}
               disabled={isPending}
-              className="flex-1 py-1.5 rounded text-xs font-semibold text-white disabled:opacity-50 transition-opacity"
-              style={{ backgroundColor: 'var(--brand-primary)' }}
+              className="press flex-1 min-h-10 rounded text-sm font-semibold bg-brand-primary text-on-brand disabled:opacity-50"
             >
               {isPending ? 'Sending…' : 'Send Invite'}
             </button>
@@ -138,7 +148,7 @@ export function InviteSubButton({ gameId, teamId, initialSubs }: Props) {
               type="button"
               onClick={handleCancel}
               disabled={isPending}
-              className="px-2.5 py-1.5 rounded text-xs font-medium text-gray-500 border border-gray-200 hover:bg-white transition-colors"
+              className="press min-h-10 px-3 rounded text-sm font-medium text-gray-700 border border-gray-200 hover:bg-white"
             >
               Cancel
             </button>
@@ -148,9 +158,9 @@ export function InviteSubButton({ gameId, teamId, initialSubs }: Props) {
         <button
           type="button"
           onClick={handleOpen}
-          className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-400 hover:text-gray-600 transition-colors select-none"
+          className="press inline-flex items-center gap-1 min-h-10 text-sm font-semibold text-gray-700 hover:text-gray-900 select-none"
         >
-          <span className="text-[13px] leading-none">+</span> Invite Sub
+          <span className="text-base leading-none">+</span> Invite Sub
         </button>
       )}
     </div>

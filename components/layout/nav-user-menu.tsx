@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { CalendarDays, Trophy, Users, CircleUser, ShoppingBag, Timer, House } from 'lucide-react'
+import { CalendarDays, Ticket, Users, CircleUser, ShoppingBag, Timer, House } from 'lucide-react'
 import { logout } from '@/actions/auth'
 import { clearOfflineCache } from '@/lib/push-client'
 
@@ -16,7 +16,7 @@ interface Props {
 const PRIMARY_NAV_ITEMS = [
   { href: '/dashboard', label: 'Home',       Icon: House           },
   { href: '/schedule',  label: 'Games',      Icon: CalendarDays    },
-  { href: '/my-events', label: 'My Events',  Icon: Trophy          },
+  { href: '/my-events', label: 'My Events',  Icon: Ticket          },
   { href: '/my-teams',  label: 'My Teams',   Icon: Users           },
   { href: '/profile',   label: 'Me',         Icon: CircleUser      },
 ] as const

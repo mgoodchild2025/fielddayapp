@@ -12,6 +12,7 @@ import { formatGameTime } from '@/lib/format-time'
 import type { GameSub } from '@/actions/game-subs'
 import Image from 'next/image'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
+import { EmptyState } from '@/components/ui/empty-state'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ScheduleItem = { _type: 'game' | 'session'; scheduled_at: string; data: any }
@@ -317,7 +318,7 @@ export function MyGamesClient({
           <>
             <button
               onClick={() => setActiveLeague(null)}
-              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              className={`press min-h-10 px-4 rounded-full text-sm font-medium ${
                 !activeLeague ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
               style={!activeLeague ? { backgroundColor: 'var(--brand-primary)' } : {}}
@@ -328,7 +329,7 @@ export function MyGamesClient({
               <button
                 key={slug}
                 onClick={() => setActiveLeague(activeLeague === slug ? null : slug)}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                className={`press min-h-10 px-4 rounded-full text-sm font-medium ${
                   activeLeague === slug ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
                 style={activeLeague === slug ? { backgroundColor: 'var(--brand-primary)' } : {}}
@@ -344,7 +345,7 @@ export function MyGamesClient({
         <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5 shrink-0">
           <button
             onClick={() => setViewMode('list')}
-            className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`press inline-flex items-center justify-center min-h-10 min-w-10 rounded-md ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
             aria-label="List view"
             title="List view"
           >
@@ -352,7 +353,7 @@ export function MyGamesClient({
           </button>
           <button
             onClick={() => setViewMode('calendar')}
-            className={`p-1.5 rounded-md transition-colors ${viewMode === 'calendar' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`press inline-flex items-center justify-center min-h-10 min-w-10 rounded-md ${viewMode === 'calendar' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
             aria-label="Calendar view"
             title="Calendar view"
           >
@@ -374,11 +375,12 @@ export function MyGamesClient({
             {filteredUpcoming.length > 0
               ? filteredUpcoming.map(renderItem)
               : (
-                <div className="border rounded-md p-6 text-center text-sm text-gray-500 bg-white">
-                  {activeLeague
-                    ? 'No upcoming games for this league.'
-                    : 'No upcoming games — check back when your league publishes the schedule.'}
-                </div>
+                <EmptyState
+                  icon={CalendarDays}
+                  title={activeLeague ? 'No upcoming games for this league.' : 'No upcoming games yet.'}
+                  hint={activeLeague ? undefined : 'They show up here as soon as your league publishes its schedule.'}
+                  action={activeLeague ? undefined : { href: '/events', label: 'Browse events' }}
+                />
               )
             }
           </div>

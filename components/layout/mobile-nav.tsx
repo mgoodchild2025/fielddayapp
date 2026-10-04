@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronRight, CalendarDays, Trophy, Users, CircleUser, ShoppingBag, CalendarRange, LayoutDashboard, LogOut, Images, FileText, ExternalLink, Timer, House } from 'lucide-react'
+import { ChevronRight, CalendarDays, Ticket, Trophy, Users, CircleUser, ShoppingBag, CalendarRange, LayoutDashboard, LogOut, Images, FileText, ExternalLink, Timer, House } from 'lucide-react'
 import { logout } from '@/actions/auth'
 import { clearOfflineCache } from '@/lib/push-client'
 import type { NavLink } from '@/actions/nav-links'
@@ -106,7 +106,7 @@ export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], show
               {[
                 { href: '/dashboard', label: 'Home',       Icon: House           },
                 { href: '/schedule',  label: 'Games',      Icon: CalendarDays    },
-                { href: '/my-events', label: 'Events',     Icon: Trophy          },
+                { href: '/my-events', label: 'Events',     Icon: Ticket          },
                 { href: '/my-teams',  label: 'My Teams',   Icon: Users           },
                 { href: '/profile',   label: 'Me',         Icon: CircleUser      },
               ].map(({ href, label, Icon }) => (

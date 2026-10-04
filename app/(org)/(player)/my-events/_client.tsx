@@ -48,7 +48,7 @@ const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   registration_open: { label: 'Open',       className: 'bg-green-50 text-green-700'   },
   active:            { label: 'In Season',  className: 'bg-blue-50 text-blue-700'     },
   completed:         { label: 'Completed',  className: 'bg-gray-100 text-gray-500'    },
-  archived:          { label: 'Archived',   className: 'bg-gray-100 text-gray-400'    },
+  archived:          { label: 'Archived',   className: 'bg-gray-100 text-gray-500'    },
   draft:             { label: 'Draft',      className: 'bg-yellow-50 text-yellow-700' },
 }
 
@@ -134,7 +134,7 @@ function EventCard({ item, timezone, faded }: { item: EventItem; timezone: strin
             <span key={d} className="text-gray-500">{fmtSession(d)}</span>
           ))}
           {myUpcoming.length > 3 && (
-            <span className="text-gray-400">+{myUpcoming.length - 3} more booked</span>
+            <span className="text-gray-500">+{myUpcoming.length - 3} more booked</span>
           )}
           {myUpcoming.length === 0 && eventUpcoming.length > 0 && (
             <Link href={`/events/${league.slug}`} className="font-medium" style={{ color: 'var(--brand-primary)' }}>
@@ -142,7 +142,7 @@ function EventCard({ item, timezone, faded }: { item: EventItem; timezone: strin
             </Link>
           )}
           {attended > 0 && (
-            <span className="text-gray-400">
+            <span className="text-gray-500">
               {attended} session{attended !== 1 ? 's' : ''} attended
             </span>
           )}
@@ -212,7 +212,7 @@ export function MyEventsClient({ currentEvents, pastEvents, timezone, gameDots =
         <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
           <button
             onClick={() => setViewMode('list')}
-            className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`press inline-flex items-center justify-center min-h-10 min-w-10 rounded-md ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
             aria-label="List view"
             title="List view"
           >
@@ -220,7 +220,7 @@ export function MyEventsClient({ currentEvents, pastEvents, timezone, gameDots =
           </button>
           <button
             onClick={() => setViewMode('calendar')}
-            className={`p-1.5 rounded-md transition-colors ${viewMode === 'calendar' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`press inline-flex items-center justify-center min-h-10 min-w-10 rounded-md ${viewMode === 'calendar' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
             aria-label="Calendar view"
             title="Calendar view"
           >

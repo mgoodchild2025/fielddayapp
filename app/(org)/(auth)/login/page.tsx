@@ -6,6 +6,8 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { LoginForm } from './login-form'
 import { canOptimizeImage } from '@/lib/image-src'
+import { safeRelativePath } from '@/lib/safe-redirect'
+import { BackLink } from '@/components/ui/back-link'
 
 export default async function LoginPage({
   searchParams,
@@ -57,9 +59,18 @@ export default async function LoginPage({
     tagline = brandingRes.data?.tagline ?? null
   }
 
+  // A way out: back to the event they came from (public), else the org's home
+  // — the page has no nav, so changing your mind was a dead end.
+  const safeBack = safeRelativePath(redirectTo ?? '')
+  const backHref = safeBack?.startsWith('/events') ? safeBack : '/'
+  const backLabel = backHref === '/' ? (orgName ? `${orgName} home` : 'Home') : 'Back to the event'
+
   return (
     <div className="min-h-dvh flex items-center justify-center px-4" style={{ backgroundColor: 'var(--brand-bg)' }}>
       <div className="w-full max-w-md">
+        <div className="mb-2">
+          <BackLink fallbackHref={backHref} fallbackLabel={backLabel} />
+        </div>
         {errorBanner && (
           <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             {errorBanner}
