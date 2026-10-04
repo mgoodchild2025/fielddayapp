@@ -5,6 +5,7 @@ import { selfCheckIn } from '@/actions/checkin'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { formatGameTime } from '@/lib/format-time'
+import Link from 'next/link'
 
 export default async function SelfCheckInPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
@@ -61,8 +62,9 @@ export default async function SelfCheckInPage({ params }: { params: Promise<{ to
             </div>
             <h1 className="text-xl font-bold text-red-800 mb-1">QR Code Not Found</h1>
             <p className="text-sm text-gray-500">
-              This check-in code is not recognised. Please contact an event representative.
+              This check-in code isn&apos;t recognised. Your current QR code is under My Events — or ask an event organiser to check you in.
             </p>
+            <Link href="/my-events" className="press inline-flex items-center justify-center min-h-11 px-5 rounded-lg font-semibold text-sm bg-brand-primary text-on-brand mt-5 w-full">Open My Events</Link>
           </div>
         )}
       </div>

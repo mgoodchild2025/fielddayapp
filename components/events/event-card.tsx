@@ -49,21 +49,21 @@ function timeRange(start: string | null, end: string | null): string | null {
 }
 
 export function SpotsLabel({ spots }: { spots: EventSpots | undefined }) {
-  if (!spots || spots.max === null) return <span className="text-xs font-medium shrink-0 ml-2 text-green-600">Open</span>
+  if (!spots || spots.max === null) return <span className="text-xs font-semibold shrink-0 ml-2 text-green-700">Open</span>
   const left = spots.max - spots.filled
   const atCapacity = spots.filled >= spots.max
   const isLow = !atCapacity && (left <= (spots.unit === 'team' ? 3 : 5) || spots.filled / spots.max >= 0.8)
   if (atCapacity) {
-    return <span className="text-xs font-medium shrink-0 ml-2 text-amber-600">{spots.unit === 'team' ? 'Teams Full' : 'Full'}</span>
+    return <span className="text-xs font-semibold shrink-0 ml-2 text-amber-700">{spots.unit === 'team' ? 'Teams Full' : 'Full'}</span>
   }
   if (isLow) {
     return (
-      <span className="text-xs font-medium shrink-0 ml-2 text-amber-500">
+      <span className="text-xs font-semibold shrink-0 ml-2 text-amber-700">
         Only {left} {spots.unit} spot{left !== 1 ? 's' : ''} left
       </span>
     )
   }
-  return <span className="text-xs font-medium shrink-0 ml-2 text-green-600">Open</span>
+  return <span className="text-xs font-semibold shrink-0 ml-2 text-green-700">Open</span>
 }
 
 export function EventCard({ league, spots }: { league: EventCardLeague; spots: EventSpots | undefined }) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { X } from 'lucide-react'
 
 interface Step {
@@ -89,6 +89,7 @@ export function TeamTutorial({
 }) {
   const [step, setStep] = useState(-1)
   const [spotRect, setSpotRect] = useState<SpotlightRect | null>(null)
+  const targetRef = useRef<HTMLElement | null>(null)
 
   const storageKey = `fieldday_team_tutorial_${teamId}`
 
@@ -111,7 +112,10 @@ export function TeamTutorial({
       if (s + 1 >= STEPS.length) localStorage.setItem(storageKey, '1')
       return
     }
+    targetRef.current = el
     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    // First paint once the smooth scroll has mostly settled; the scroll
+    // listener below keeps it glued to the target from then on.
     setTimeout(() => {
       const r = el.getBoundingClientRect()
       setSpotRect({ top: r.top, left: r.left, width: r.width, height: r.height })
@@ -123,13 +127,30 @@ export function TeamTutorial({
     else setSpotRect(null)
   }, [step, measureStep])
 
-  // Recompute rect on window resize
+  // Follow the target. The spotlight is position:fixed, so it was measured
+  // once and drifted off as soon as the page scrolled (or a long smooth
+  // scroll was still running). Re-read the rect once per frame on scroll and
+  // resize — no scrollIntoView here, which would fight the user's scroll.
   useEffect(() => {
     if (step < 0) return
-    function onResize() { measureStep(step) }
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [step, measureStep])
+    let frame = 0
+    function follow() {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const el = targetRef.current
+        if (!el || !el.isConnected) return
+        const r = el.getBoundingClientRect()
+        setSpotRect((prev) => (prev ? { top: r.top, left: r.left, width: r.width, height: r.height } : prev))
+      })
+    }
+    window.addEventListener('scroll', follow, { passive: true, capture: true })
+    window.addEventListener('resize', follow)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', follow, { capture: true })
+      window.removeEventListener('resize', follow)
+    }
+  }, [step])
 
   function advance() {
     const next = step + 1
@@ -172,7 +193,7 @@ export function TeamTutorial({
           <p className="text-sm font-semibold text-gray-900 leading-snug">{current.title}</p>
           <button
             onClick={finish}
-            className="shrink-0 text-gray-300 hover:text-gray-500 transition-colors -mt-0.5"
+            className="press shrink-0 -mt-2.5 -mr-2.5 inline-flex items-center justify-center min-h-10 min-w-10 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100"
             aria-label="Close tutorial"
           >
             <X className="w-4 h-4" />

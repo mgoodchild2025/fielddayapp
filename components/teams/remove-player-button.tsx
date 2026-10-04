@@ -25,7 +25,8 @@ export function RemovePlayerButton({ memberId, leagueId, playerName }: Props) {
       onClick={handleRemove}
       disabled={loading}
       title={`Remove ${playerName}`}
-      className="ml-0.5 text-gray-300 hover:text-red-500 disabled:opacity-50 transition-colors leading-none"
+      aria-label={`Remove ${playerName}`}
+      className="press inline-flex items-center justify-center min-h-10 min-w-10 -my-2 rounded-full text-gray-500 hover:text-red-500 hover:bg-red-50 disabled:opacity-50 leading-none"
     >
       {loading ? '…' : '×'}
     </button>

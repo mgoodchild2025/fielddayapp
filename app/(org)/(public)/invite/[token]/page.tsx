@@ -38,10 +38,11 @@ export default async function InvitePage({
         <div className="max-w-md mx-auto px-4 py-16 text-center space-y-3">
           <p className="text-4xl">🔍</p>
           <p className="text-2xl font-bold">Invite Not Found</p>
-          <p className="text-gray-500 text-sm">This invitation link is invalid or has expired.</p>
-          <Link href="/" className="mt-4 inline-block text-sm font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
-            ← Back to home
-          </Link>
+          <p className="text-gray-500 text-sm">This invitation link is invalid or has expired. Ask whoever sent it for a new one.</p>
+          <div className="pt-3 flex flex-wrap items-center justify-center gap-2">
+            <Link href="/events" className="press inline-flex items-center justify-center min-h-11 px-5 rounded-lg font-semibold text-sm bg-brand-primary text-on-brand">Browse events</Link>
+            <Link href="/" className="press inline-flex items-center justify-center min-h-11 px-4 text-sm font-medium text-gray-600 hover:text-gray-900">Home</Link>
+          </div>
         </div>
         <Footer org={org} />
       </div>
@@ -102,8 +103,16 @@ export default async function InvitePage({
 
             {/* Status messages */}
             {(isExpired || (isInactive && invite.status !== 'accepted')) && (
-              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-center text-sm text-red-700">
-                {isExpired ? 'This invitation has expired.' : 'This invitation is no longer active.'}
+              <div className="space-y-3 text-center">
+                <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+                  {isExpired ? 'This invitation has expired.' : 'This invitation is no longer active.'}
+                </div>
+                <p className="text-sm text-gray-600">
+                  Ask {invite.inviter_name ?? 'your captain'} to send you a new invite.
+                </p>
+                <Link href={invite.league_slug ? `/events/${invite.league_slug}` : '/events'} className="press inline-flex items-center justify-center min-h-11 px-5 rounded-lg font-semibold text-sm bg-brand-primary text-on-brand w-full">
+                  {invite.league_slug ? 'See the event' : 'Browse events'}
+                </Link>
               </div>
             )}
 
