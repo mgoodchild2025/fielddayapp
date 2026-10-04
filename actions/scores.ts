@@ -60,6 +60,21 @@ export async function submitScore(input: z.infer<typeof submitScoreSchema>) {
 
   if (!captainship && !adminMember) return { data: null, error: 'Only team captains or admins can submit scores' }
 
+  // A confirmed result is final for captains: a re-submit (e.g. a captain's
+  // phone scoreboard ending the match again) upserted it back to 'pending'
+  // with new numbers. Admins change confirmed scores through adminSetScore.
+  if (!adminMember) {
+    const { data: existing } = await db
+      .from('game_results')
+      .select('status')
+      .eq('game_id', parsed.data.gameId)
+      .eq('organization_id', org.id)
+      .maybeSingle()
+    if (existing?.status === 'confirmed') {
+      return { data: null, error: 'This score is already confirmed. Ask an organiser if it needs changing.' }
+    }
+  }
+
   const { data, error } = await supabase
     .from('game_results')
     .upsert({
