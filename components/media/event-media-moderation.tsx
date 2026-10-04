@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Check, EyeOff, Trash2, RotateCcw } from 'lucide-react'
 import { moderateEventMedia, deleteEventMedia } from '@/actions/event-media'
 import type { EventMediaItem } from '@/actions/event-media'
+import { useUndoableRemove } from '@/components/ui/use-undoable-remove'
 
 const STATUS_BADGE: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700 border-amber-200',
@@ -17,6 +18,9 @@ export function EventMediaModeration({ items }: { items: EventMediaItem[] }) {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  // Delete also removes the file from Cloudinary, so it only runs once the
+  // Undo window closes — a stray tap on the bin is one tap to take back.
+  const { remove, isHidden } = useUndoableRemove()
 
   function run(id: string, fn: () => Promise<{ error: string | null }>) {
     setError(null); setBusyId(id)
@@ -28,9 +32,10 @@ export function EventMediaModeration({ items }: { items: EventMediaItem[] }) {
     })
   }
 
-  const pendingCount = items.filter((m) => m.status === 'pending').length
+  const visible = items.filter((m) => !isHidden(m.id))
+  const pendingCount = visible.filter((m) => m.status === 'pending').length
 
-  if (items.length === 0) {
+  if (visible.length === 0) {
     return (
       <div className="rounded-lg border border-dashed bg-white p-8 text-center text-sm text-gray-400">
         No uploads yet. Player uploads will appear here for approval.
@@ -42,12 +47,12 @@ export function EventMediaModeration({ items }: { items: EventMediaItem[] }) {
     <div className="space-y-3">
       {error && <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
       <p className="text-sm text-gray-500">
-        {items.length} item{items.length !== 1 ? 's' : ''}
+        {visible.length} item{visible.length !== 1 ? 's' : ''}
         {pendingCount > 0 && <span className="text-amber-600"> · {pendingCount} awaiting approval</span>}
       </p>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {items.map((m) => (
+        {visible.map((m) => (
           <div key={m.id} className="rounded-lg border bg-white overflow-hidden">
             <a href={m.url} target="_blank" rel="noopener noreferrer" className="relative block aspect-square bg-gray-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -74,8 +79,15 @@ export function EventMediaModeration({ items }: { items: EventMediaItem[] }) {
                     <EyeOff className="w-3.5 h-3.5" /> Hide
                   </button>
                 )}
-                <button type="button" onClick={() => run(m.id, () => deleteEventMedia(m.id))} disabled={busyId === m.id || pending}
-                  className="inline-flex items-center justify-center rounded-md border text-gray-400 hover:text-red-600 px-2 py-1 disabled:opacity-50" title="Delete">
+                <button
+                  type="button"
+                  onClick={() => remove(m.id, {
+                    label: m.mediaType === 'video' ? 'Video deleted' : 'Photo deleted',
+                    commit: () => deleteEventMedia(m.id),
+                    onCommitted: () => router.refresh(),
+                  })}
+                  disabled={busyId === m.id || pending}
+                  className="inline-flex items-center justify-center rounded-md border text-gray-500 hover:text-red-600 px-2 py-1 disabled:opacity-50" title="Delete" aria-label="Delete">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>

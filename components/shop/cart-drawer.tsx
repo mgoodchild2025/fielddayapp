@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
-  const { items, isLoading, removeItem, updateQty, clearCart, totalCents, isOpen, closeCart } = useCart()
+  const { items, isLoading, removeItem, updateQty, clearCart, clearCartWithUndo, totalCents, isOpen, closeCart } = useCart()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -308,8 +308,9 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
 
             <button
               type="button"
-              onClick={() => { clearCart(); closeCart() }}
-              className="w-full py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              // Sits right under Checkout — a stray tap is one tap to take back.
+              onClick={() => { clearCartWithUndo(); closeCart() }}
+              className="press w-full min-h-10 text-xs text-gray-500 hover:text-gray-700"
             >
               Clear cart
             </button>

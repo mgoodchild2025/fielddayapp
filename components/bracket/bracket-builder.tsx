@@ -9,6 +9,7 @@ import {
 } from '@/actions/brackets'
 import { roundDisplayName } from '@/lib/bracket'
 import type { BracketData } from './bracket-view'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 /**
  * Structure panel for hand-built (custom) brackets — manual brackets M2.
@@ -140,9 +141,18 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
                         </button>
                         <button
                           type="button"
-                          onClick={() => run(() => deleteBracketMatch({ matchId: m.id, bracketId: bracket.id, leagueId }))}
+                          onClick={async () => {
+                            // Also clears every route into it — not one tap away.
+                            if (!(await confirmAction({
+                              title: `Delete match ${m.matchNumber}?`,
+                              message: 'Any teams seated in it and any routes leading into it are removed.',
+                              confirmLabel: 'Delete match',
+                              destructive: true,
+                            }))) return
+                            run(() => deleteBracketMatch({ matchId: m.id, bracketId: bracket.id, leagueId }))
+                          }}
                           disabled={isPending}
-                          className="text-gray-300 hover:text-red-500"
+                          className="inline-flex items-center justify-center min-w-6 min-h-6 text-gray-400 hover:text-red-500"
                           title="Delete match"
                           aria-label={`Delete match ${m.matchNumber}`}
                         >

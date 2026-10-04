@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { sendWaiverReminders } from '@/actions/waiver-requests'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 interface Props {
   leagueId: string
@@ -16,6 +17,12 @@ export function SendWaiverRemindersButton({ leagueId, unsignedCount, hasWaiver }
   if (!hasWaiver) return null
 
   async function handleClick() {
+    // Emails people — can't be unsent.
+    if (!(await confirmAction({
+      title: `Email ${unsignedCount} player${unsignedCount !== 1 ? 's' : ''}?`,
+      message: 'Everyone who hasn\'t signed the waiver gets a reminder email.',
+      confirmLabel: 'Send reminders',
+    }))) return
     setLoading(true)
     setMessage(null)
     const result = await sendWaiverReminders(leagueId)
@@ -44,12 +51,12 @@ export function SendWaiverRemindersButton({ leagueId, unsignedCount, hasWaiver }
       <button
         onClick={handleClick}
         disabled={loading}
-        className="text-xs font-medium px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 transition-colors"
+        className="press text-xs font-medium px-3 min-h-10 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
       >
         {loading ? 'Sending…' : `Send Waiver Reminders (${unsignedCount} unsigned)`}
       </button>
       {message && (
-        <span className={`text-xs font-medium ${message.isError ? 'text-red-600' : 'text-green-600'}`}>
+        <span className={`fd-fade-in text-xs font-medium ${message.isError ? 'text-red-600' : 'text-green-600'}`}>
           {message.text}
         </span>
       )}
