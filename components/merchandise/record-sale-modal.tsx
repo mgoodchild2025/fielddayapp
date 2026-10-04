@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { Overlay } from '@/components/ui/overlay'
 import { X, Plus, Trash2 } from 'lucide-react'
 import { recordInPersonSale } from '@/actions/merchandise'
 import type { MerchItem } from '@/actions/merchandise'
@@ -156,8 +157,7 @@ export function RecordSaleModal({ items }: Props) {
     })
   }
 
-  if (!open) {
-    return (
+  const trigger = (
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -167,16 +167,24 @@ export function RecordSaleModal({ items }: Props) {
         <Plus className="w-4 h-4" />
         Record a sale
       </button>
-    )
-  }
+  )
 
+  // Shared Overlay: a sheet on phones, scroll lock, Escape, focus trap.
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8">
-      <div className="w-full max-w-lg rounded-xl bg-white shadow-xl my-auto">
+    <>
+    {trigger}
+    <Overlay
+      open={open}
+      onClose={close}
+      variant="sheet"
+      labelledBy="record-sale-title"
+      panelClassName="w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-xl shadow-xl max-h-[92dvh] overflow-y-auto"
+    >
+      <div>
         {/* Header */}
         <div className="flex items-center justify-between border-b px-5 py-3.5">
-          <h2 className="text-base font-semibold text-gray-900">Record a sale</h2>
-          <button type="button" onClick={close} className="text-gray-400 hover:text-gray-600" aria-label="Close">
+          <h2 id="record-sale-title" className="text-base font-semibold text-gray-900">Record a sale</h2>
+          <button type="button" onClick={close} className="press -mr-2 inline-flex items-center justify-center min-h-10 min-w-10 rounded-full text-gray-500 hover:text-gray-700" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -320,6 +328,7 @@ export function RecordSaleModal({ items }: Props) {
           </div>
         </div>
       </div>
-    </div>
+    </Overlay>
+    </>
   )
 }

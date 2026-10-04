@@ -387,10 +387,14 @@ function TierBracketCard({
       {/* Tier header */}
       <div className="px-5 py-3.5 space-y-1">
         {/* Row 1: toggle + tier name + action buttons */}
-        <div className="flex items-center gap-2">
+        {/* Wraps: on phones the actions take their own line(s) — as one
+            shrink-0 group they ran off the card (Delete, Clear seeding). */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="text-gray-400 hover:text-gray-600 shrink-0"
+            aria-expanded={expanded}
+            aria-label={expanded ? `Collapse ${tier.name}` : `Expand ${tier.name}`}
+            className="press shrink-0 -ml-2 inline-flex items-center justify-center min-h-10 min-w-10 text-gray-500 hover:text-gray-700"
           >
             {expanded ? '▼' : '▶'}
           </button>
@@ -399,7 +403,7 @@ function TierBracketCard({
           </span>
           <div className="flex-1" />
           {isOrgAdmin && tier.bracket && (
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex flex-wrap items-center gap-1.5 max-sm:w-full">
               {tier.bracketId && (
                 <a
                   href={`/admin/events/${leagueId}/bracket/print?bracketId=${tier.bracketId}&type=scoresheets`}

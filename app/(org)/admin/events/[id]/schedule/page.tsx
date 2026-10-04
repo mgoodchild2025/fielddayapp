@@ -163,10 +163,21 @@ export default async function AdminSchedulePage({ params, searchParams }: { para
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const maxGameWeek = (mappedGames as any[]).reduce((m: number, g: any) => Math.max(m, g.weekNumber ?? 0), 0)
 
+  // Game day: "Running behind?" goes above the list on phones (the sidebar
+  // renders below every game there).
+  const todayKey = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date())
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const playsToday = (mappedGames as any[]).some((g: any) => g.dateKey === todayKey)
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {/* Game list */}
       <div className="md:col-span-2">
+        {isOrgAdmin && playsToday && (
+          <div className="md:hidden mb-4">
+            <DelayScheduleControl leagueId={id} mode="games" collapsible />
+          </div>
+        )}
         {weekPhaseList.length > 0 && (
           <SchedulePhaseSummary weekPhases={weekPhaseList} className="mb-4" />
         )}
@@ -194,7 +205,9 @@ export default async function AdminSchedulePage({ params, searchParams }: { para
           )}
           <RoundRobinGenerator leagueId={id} teamCount={(teams ?? []).length} maxTeams={maxParticipants} sport={sport} />
           <AddGameForm leagueId={id} sport={sport} teams={teams ?? []} pools={pools ?? []} timezone={timezone} />
-          <DelayScheduleControl leagueId={id} mode="games" />
+          <div className={playsToday ? 'max-md:hidden' : undefined}>
+            <DelayScheduleControl leagueId={id} mode="games" />
+          </div>
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <InsertBreakForm leagueId={id} timezone={timezone} gameTimes={(mappedGames as any[]).map((g: any) => g.scheduledAt as string).filter(Boolean)} />
           {canImportCsv

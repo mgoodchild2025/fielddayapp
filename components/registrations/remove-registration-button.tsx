@@ -35,7 +35,7 @@ export function RemoveRegistrationButton({ registrationId, leagueId, playerName 
       <button
         onClick={handle}
         disabled={pending}
-        className="text-xs font-medium text-red-500 hover:text-red-700 hover:underline disabled:opacity-50"
+        className="press min-h-10 text-xs font-medium text-red-600 hover:text-red-700 hover:underline disabled:opacity-50"
       >
         {pending ? '…' : 'Remove'}
       </button>

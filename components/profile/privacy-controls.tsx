@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { exportMyData, deleteMyAccount } from '@/actions/privacy'
+import { Overlay } from '@/components/ui/overlay'
 
 export function DataExportButton() {
   const [loading, setLoading] = useState(false)
@@ -83,10 +84,17 @@ export function DeleteAccountSection() {
         Delete my account
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-1">Delete your account?</h2>
+      {/* Shared Overlay — and the panel scrolls, so with the keyboard open the
+          Delete button can't end up pushed off-screen. */}
+      <Overlay
+        open={open}
+        onClose={() => { if (!isPending) handleClose() }}
+        variant="sheet"
+        labelledBy="delete-account-title"
+        closeOnBackdrop={!isPending}
+        panelClassName="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-xl p-6 max-h-[92dvh] overflow-y-auto overscroll-contain"
+      >
+            <h2 id="delete-account-title" className="text-lg font-bold text-gray-900 mb-1">Delete your account?</h2>
             <p className="text-sm text-gray-500 mb-4">This is permanent and cannot be undone.</p>
 
             <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-4 text-sm text-amber-800 space-y-1">
@@ -112,7 +120,7 @@ export function DeleteAccountSection() {
               value={reason}
               onChange={e => setReason(e.target.value)}
               placeholder="e.g. no longer playing, privacy concerns…"
-              className="w-full border rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-red-400"
+              className="w-full min-h-11 border rounded-lg px-3 text-base sm:text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-red-400"
             />
 
             <label className="block mb-1 text-sm font-medium text-gray-700">
@@ -123,8 +131,12 @@ export function DeleteAccountSection() {
               value={confirmation}
               onChange={e => setConfirmation(e.target.value)}
               placeholder="DELETE"
-              className="w-full border rounded-lg px-3 py-2 text-sm font-mono mb-4 focus:outline-none focus:ring-2 focus:ring-red-400"
+              className="w-full min-h-11 border rounded-lg px-3 text-base sm:text-sm font-mono mb-4 focus:outline-none focus:ring-2 focus:ring-red-400"
               autoComplete="off"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="done"
             />
 
             {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
@@ -133,21 +145,19 @@ export function DeleteAccountSection() {
               <button
                 onClick={handleClose}
                 disabled={isPending}
-                className="px-4 py-2 rounded-lg text-sm font-medium border text-gray-600 hover:bg-gray-50 transition-colors"
+                className="press min-h-11 px-4 rounded-lg text-sm font-medium border text-gray-600 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
                 disabled={!canSubmit}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="press min-h-11 px-4 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isPending ? 'Deleting…' : 'Delete my account'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </Overlay>
     </>
   )
 }

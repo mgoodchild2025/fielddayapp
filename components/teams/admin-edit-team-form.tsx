@@ -4,6 +4,7 @@ import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateTeam, uploadTeamLogo } from '@/actions/teams'
 import { UploadStatus } from '@/components/ui/upload-status'
+import { Overlay } from '@/components/ui/overlay'
 
 interface Props {
   team: {
@@ -53,6 +54,17 @@ export function AdminEditTeamForm({ team, leagueId }: Props) {
     setError(null)
   }
 
+  // Each open starts from the saved team, so a cancelled edit doesn't linger.
+  function handleOpen() {
+    setName(team.name)
+    setColor(team.color ?? '#3b82f6')
+    setLogoPreview(team.logo_url)
+    setLogoFile(null)
+    setRemoveLogo(false)
+    setError(null)
+    setOpen(true)
+  }
+
   function handleSave() {
     setError(null)
     startTransition(async () => {
@@ -82,28 +94,27 @@ export function AdminEditTeamForm({ team, leagueId }: Props) {
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
-        className="text-xs text-gray-500 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100 transition-colors"
+        onClick={handleOpen}
+        className="press text-xs text-gray-600 hover:text-gray-800 min-h-10 px-2 rounded hover:bg-gray-100"
         title="Edit team"
       >
         Edit
       </button>
 
-      {open && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/40 z-40"
-            onClick={handleClose}
-          />
-
-          {/* Modal */}
-          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-white rounded-xl shadow-xl w-full max-w-sm mx-auto max-h-[90dvh] overflow-y-auto">
-            <div className="px-5 py-4 border-b flex items-center justify-between">
-              <p className="text-sm font-semibold">Edit Team</p>
+      {/* Shared Overlay: a sheet on phones (the old fixed box was inset-x-4
+          AND w-full, so it ran 16px off the right edge), scroll lock, Escape. */}
+      <Overlay
+        open={open}
+        onClose={handleClose}
+        variant="sheet"
+        labelledBy={`edit-team-${team.id}`}
+        panelClassName="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92dvh] overflow-y-auto"
+      >
+            <div className="px-5 py-3 border-b flex items-center justify-between">
+              <p id={`edit-team-${team.id}`} className="text-sm font-semibold">Edit Team</p>
               <button
                 onClick={handleClose}
-                className="text-gray-500 hover:text-gray-600 text-lg leading-none"
+                className="press -mr-2 inline-flex items-center justify-center min-h-10 min-w-10 rounded-full text-gray-500 hover:text-gray-700 text-2xl leading-none"
                 aria-label="Close"
               >
                 ×
@@ -116,9 +127,10 @@ export function AdminEditTeamForm({ team, leagueId }: Props) {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Team Name</label>
                 <input
                   type="text"
+                  data-autofocus
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full min-h-11 border rounded-md px-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
                 />
               </div>
 
@@ -198,8 +210,7 @@ export function AdminEditTeamForm({ team, leagueId }: Props) {
                 type="button"
                 onClick={handleSave}
                 disabled={pending}
-                className="flex-1 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-50"
-                style={{ backgroundColor: 'var(--brand-primary)' }}
+                className="press flex-1 min-h-11 rounded-md text-sm font-semibold bg-brand-primary text-on-brand disabled:opacity-50"
               >
                 {pending ? 'Saving…' : 'Save changes'}
               </button>
@@ -207,14 +218,12 @@ export function AdminEditTeamForm({ team, leagueId }: Props) {
                 type="button"
                 onClick={handleClose}
                 disabled={pending}
-                className="px-4 py-2 rounded-md text-sm font-semibold border hover:bg-gray-50"
+                className="press min-h-11 px-4 rounded-md text-sm font-semibold border hover:bg-gray-50"
               >
                 Cancel
               </button>
             </div>
-          </div>
-        </>
-      )}
+      </Overlay>
     </>
   )
 }

@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { delayRemainingGames } from '@/actions/schedule'
 import { delayRemainingBracketMatches } from '@/actions/brackets'
+import { Collapse } from '@/components/ui/collapse'
+import { ChevronDown } from 'lucide-react'
 
 type Mode = 'games' | 'bracket'
 
@@ -11,11 +13,15 @@ interface Props {
   leagueId: string
   /** 'games' delays the regular schedule; 'bracket' delays playoff matches. */
   mode: Mode
+  /** Phones on game day: a one-line "Running behind?" bar above the schedule
+   *  that opens the controls — the sidebar copy sits below every game. */
+  collapsible?: boolean
 }
 
 const PRESETS = [10, 15, 30]
 
-export function DelayScheduleControl({ leagueId, mode }: Props) {
+export function DelayScheduleControl({ leagueId, mode, collapsible = false }: Props) {
+  const [expanded, setExpanded] = useState(!collapsible)
   const router = useRouter()
   const [minutes, setMinutes] = useState(15)
   const [notify, setNotify] = useState(true)
@@ -50,7 +56,21 @@ export function DelayScheduleControl({ leagueId, mode }: Props) {
 
   return (
     <div className="bg-white rounded-lg border p-4">
-      <h3 className="font-semibold mb-1 text-sm flex items-center gap-1.5">⏱️ Running Behind?</h3>
+      {collapsible ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="press -m-4 p-4 w-[calc(100%+2rem)] min-h-12 flex items-center justify-between gap-2 text-left"
+        >
+          <span className="font-semibold text-sm flex items-center gap-1.5">⏱️ Running behind?</span>
+          <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden />
+        </button>
+      ) : (
+        <h3 className="font-semibold mb-1 text-sm flex items-center gap-1.5">⏱️ Running Behind?</h3>
+      )}
+      <Collapse open={expanded}>
+      <div className={collapsible ? 'pt-5' : undefined}>
       <p className="text-xs text-gray-500 mb-3">
         Push back all of today&apos;s remaining {label} by the same amount. Already-played and
         cancelled {label} are left untouched. All courts shift equally.
@@ -70,7 +90,7 @@ export function DelayScheduleControl({ leagueId, mode }: Props) {
             key={p}
             type="button"
             onClick={() => { setMinutes(p); setConfirming(false) }}
-            className={`flex-1 py-1.5 rounded text-sm font-medium border transition-colors ${
+            className={`press flex-1 min-h-10 rounded text-sm font-medium border ${
               minutes === p
                 ? 'border-transparent text-white'
                 : 'border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -90,7 +110,8 @@ export function DelayScheduleControl({ leagueId, mode }: Props) {
           min={1}
           value={minutes}
           onChange={e => { setMinutes(Number(e.target.value)); setConfirming(false) }}
-          className="w-20 border rounded px-2 py-1 text-sm"
+          inputMode="numeric"
+          className="w-20 min-h-10 border rounded px-2 text-base sm:text-sm"
         />
       </div>
 
@@ -112,7 +133,7 @@ export function DelayScheduleControl({ leagueId, mode }: Props) {
           type="button"
           onClick={() => { setConfirming(true); setResult(null) }}
           disabled={minutes <= 0}
-          className="w-full py-2 rounded text-sm font-semibold text-white disabled:opacity-40 transition-opacity"
+          className="press w-full min-h-11 rounded text-sm font-semibold text-white disabled:opacity-40"
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >
           Delay remaining {label} by {minutes} min
@@ -127,7 +148,7 @@ export function DelayScheduleControl({ leagueId, mode }: Props) {
               type="button"
               onClick={apply}
               disabled={loading}
-              className="flex-1 py-2 rounded text-sm font-semibold text-white disabled:opacity-50"
+              className="press flex-1 min-h-11 rounded text-sm font-semibold text-white disabled:opacity-50"
               style={{ backgroundColor: 'var(--brand-primary)' }}
             >
               {loading ? 'Applying…' : 'Confirm delay'}
@@ -135,13 +156,15 @@ export function DelayScheduleControl({ leagueId, mode }: Props) {
             <button
               type="button"
               onClick={() => setConfirming(false)}
-              className="px-3 py-2 rounded text-sm font-medium border text-gray-600 hover:bg-gray-50"
+              className="press min-h-11 px-3 rounded text-sm font-medium border text-gray-600 hover:bg-gray-50"
             >
               Cancel
             </button>
           </div>
         </div>
       )}
+      </div>
+      </Collapse>
     </div>
   )
 }

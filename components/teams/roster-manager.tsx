@@ -8,6 +8,7 @@ import { setTeamMemberPosition } from '@/actions/positions'
 import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { Copy, Check } from 'lucide-react'
 import { confirmAction } from '@/components/ui/confirm-dialog'
+import { Overlay, useRetained } from '@/components/ui/overlay'
 
 type Role = 'captain' | 'coach' | 'player' | 'sub'
 
@@ -90,6 +91,8 @@ export function RosterManager({
 
   // Reminder modal state
   const [reminderTarget, setReminderTarget] = useState<{ id: string; name: string; type: 'member' | 'invite' } | null>(null)
+  // Keeps the sheet's text while it plays its exit.
+  const shownReminder = useRetained(reminderTarget)
   const [reminderMsg, setReminderMsg] = useState('')
   const [reminderPending, startReminderTransition] = useTransition()
 
@@ -443,46 +446,50 @@ export function RosterManager({
         )}
       </div>
 
-      {/* ── Reminder modal ── */}
-      {reminderTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
-            <h3 className="font-semibold text-lg mb-1">
-              {reminderTarget.type === 'invite' ? 'Resend Invite' : 'Send Reminder'}
+      {/* ── Reminder modal — shared Overlay (sheet on phones, scroll lock, Escape) ── */}
+      <Overlay
+        open={!!reminderTarget}
+        onClose={() => setReminderTarget(null)}
+        variant="sheet"
+        labelledBy="roster-reminder-title"
+        panelClassName="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-xl shadow-xl p-6"
+      >
+        {shownReminder && (<>
+            <h3 id="roster-reminder-title" className="font-semibold text-lg mb-1">
+              {shownReminder.type === 'invite' ? 'Resend Invite' : 'Send Reminder'}
             </h3>
             <p className="text-sm text-gray-500 mb-4">
-              {reminderTarget.type === 'invite'
-                ? `Resend the invite email to ${reminderTarget.name}.`
-                : `Send a reminder to ${reminderTarget.name} to complete their registration.`}
+              {shownReminder.type === 'invite'
+                ? `Resend the invite email to ${shownReminder.name}.`
+                : `Send a reminder to ${shownReminder.name} to complete their registration.`}
             </p>
-            {reminderTarget.type === 'member' && (
+            {shownReminder.type === 'member' && (
               <textarea
+                data-autofocus
                 value={reminderMsg}
                 onChange={(e) => setReminderMsg(e.target.value)}
                 placeholder="Optional message…"
                 rows={3}
-                className="w-full border rounded-md px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className="w-full border rounded-md px-3 py-2 text-base sm:text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-brand-primary resize-none"
               />
             )}
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setReminderTarget(null)}
-                className="px-4 py-2 text-sm rounded border text-gray-600 hover:bg-gray-50"
+                className="press min-h-11 px-4 text-sm rounded border text-gray-600 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSendReminder}
                 disabled={reminderPending || actionPending}
-                className="px-4 py-2 text-sm font-semibold rounded text-white disabled:opacity-50"
-                style={{ backgroundColor: 'var(--brand-primary)' }}
+                className="press min-h-11 px-5 text-sm font-semibold rounded bg-brand-primary text-on-brand disabled:opacity-50"
               >
                 {(reminderPending || actionPending) ? 'Sending…' : 'Send'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+        </>)}
+      </Overlay>
     </>
   )
 }
