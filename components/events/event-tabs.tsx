@@ -98,12 +98,27 @@ export function EventTabNav({ slug, activeTab, tabs }: { slug: string; activeTab
 
 export function EventTabPills({ slug, activeTab, tabs }: { slug: string; activeTab: string; tabs: Tab[] }) {
   const { shown, pending, tap, sentinelRef, barRef } = useTappedTab(activeTab)
+  // Keep the current pill in view in the scrolling row (horizontal only — never
+  // scroll the page).
+  const pillsRef = useRef<HTMLElement>(null)
+  useLayoutEffect(() => {
+    const row = pillsRef.current
+    const active = row?.querySelector<HTMLElement>('[data-active]')
+    if (!row || !active || row.scrollWidth <= row.clientWidth) return
+    const left = active.offsetLeft - 16
+    const right = active.offsetLeft + active.offsetWidth + 16 - row.clientWidth
+    if (row.scrollLeft > left) row.scrollLeft = left
+    else if (row.scrollLeft < right) row.scrollLeft = right
+  }, [shown])
   return (
     <>
     <div ref={sentinelRef} aria-hidden="true" />
     <div ref={barRef} data-event-tabs="" data-pending={pending ? '' : undefined} className="border-b sticky top-14 z-30 bg-white shadow-sm">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3">
-        <nav aria-label="Event sections" className="flex gap-2 flex-wrap">
+      <div className="max-w-3xl mx-auto sm:px-6 py-3 relative">
+        {/* Phones: one scrolling row. Wrapped onto two rows, the sticky bar
+            plus nav plus tab bar took over a quarter of the screen. */}
+        <div aria-hidden="true" className="pointer-events-none absolute right-0 inset-y-0 w-8 bg-gradient-to-l from-white to-transparent z-10 sm:hidden" />
+        <nav ref={pillsRef} aria-label="Event sections" className="flex gap-2 overflow-x-auto px-4 sm:px-0 sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
           {tabs.map((tab) => {
             const lit = shown === tab.id
             return (
@@ -113,7 +128,8 @@ export function EventTabPills({ slug, activeTab, tabs }: { slug: string; activeT
                 scroll={false}
                 onClick={() => tap(tab.id)}
                 aria-current={activeTab === tab.id ? 'page' : undefined}
-                className={`press min-h-9 inline-flex items-center px-4 rounded-full text-sm font-semibold whitespace-nowrap ${
+                data-active={lit ? '' : undefined}
+                className={`press shrink-0 min-h-10 inline-flex items-center px-4 rounded-full text-sm font-semibold whitespace-nowrap ${
                   lit ? 'bg-brand-primary text-on-brand' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >

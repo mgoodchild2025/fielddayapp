@@ -138,6 +138,14 @@ export function MyGamesClient({
           ? awayTeam?.id
           : null
 
+      // The player's result on past games: "W 21–18" from their side.
+      const res = Array.isArray(g.game_results) ? g.game_results[0] : g.game_results
+      const hasFinal = res?.status === 'confirmed' && res.home_score != null && res.away_score != null
+      const mine = hasFinal && myTeamId
+        ? (myTeamId === homeTeam?.id ? [res.home_score, res.away_score] : [res.away_score, res.home_score]) as [number, number]
+        : null
+      const outcome = mine ? (mine[0] > mine[1] ? 'W' : mine[0] < mine[1] ? 'L' : 'T') : null
+
       const rsvpStatus = rsvpMap.get(g.id) ?? null
       const attendance = captainTeamIdForGame ? (attendanceMap.get(g.id) ?? null) : null
       const captainSubInfo = captainSubsMap.get(g.id) ?? null
@@ -155,11 +163,25 @@ export function MyGamesClient({
             aria-label={g.isPlayoff ? 'View bracket' : 'View game details'}
           />
           <div className="flex items-start justify-between gap-2">
-            <p className="text-sm text-gray-500">
-              {gameDate} · {gameTime}
-              {g.court ? ` · ${g.court}` : ''}
+            {/* When and where are what a player scans for — the strongest text
+                on the row, not the faintest. */}
+            <p className="text-sm">
+              <span className="font-semibold text-gray-900">{gameDate} · {gameTime}</span>
+              {g.court ? <span className="text-gray-700"> · {g.court}</span> : ''}
             </p>
             <div className="flex items-center gap-1.5 shrink-0">
+              {mine && (
+                <span className={`text-xs font-bold px-1.5 py-0.5 rounded tabular-nums leading-tight ${
+                  outcome === 'W' ? 'bg-green-100 text-green-800' : outcome === 'L' ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-700'
+                }`}>
+                  {outcome} {mine[0]}–{mine[1]}
+                </span>
+              )}
+              {!mine && hasFinal && (
+                <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 tabular-nums leading-tight">
+                  {res.home_score}–{res.away_score}
+                </span>
+              )}
               {isSubGame && (
                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-50 border border-violet-100 text-violet-600 leading-tight">
                   Sub

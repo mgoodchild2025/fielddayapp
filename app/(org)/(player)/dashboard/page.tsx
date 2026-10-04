@@ -17,6 +17,7 @@ import type {
   NextItem,
   NextGameItem,
   NextSessionItem,
+  CallOffItem,
 } from '@/components/dashboard/dashboard-client'
 import { nextSessionPerEvent } from '@/lib/next-sessions'
 import { redirectToLogin } from '@/lib/auth'
@@ -234,6 +235,8 @@ export default async function DashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let upcomingGames: any[] = []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let callOffRows: any[] = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let recentGamesRaw: any[] = []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let allLeagueResults: any[] = []
@@ -264,17 +267,21 @@ export default async function DashboardPage() {
       { data: pp },
       { data: tpp },
     ] = await Promise.all([
-      // Upcoming scheduled games for any of user's teams
+      // Upcoming games for any of user's teams. From 2h ago, so tonight's game
+      // stays the hero while it's being played (it vanished at start time);
+      // cancelled/postponed included so a call-off is announced, not silently
+      // replaced by next week's game.
 
       db.from('games').select(`
-        id, scheduled_at, court, week_number, status, home_team_id, away_team_id, league_id, is_exhibition,
+        id, scheduled_at, court, week_number, status, cancellation_reason, home_team_id, away_team_id, league_id, is_exhibition,
         home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
         away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
-        league:leagues!games_league_id_fkey(name, slug)
+        league:leagues!games_league_id_fkey(name, slug),
+        game_results(status)
       `)
         .eq('organization_id', org.id)
-        .eq('status', 'scheduled')
-        .gte('scheduled_at', now)
+        .in('status', ['scheduled', 'cancelled', 'postponed'])
+        .gte('scheduled_at', new Date(Date.parse(now) - 2 * 60 * 60 * 1000).toISOString())
         .or(`home_team_id.in.(${teamIdList}),away_team_id.in.(${teamIdList})`)
         .order('scheduled_at', { ascending: true })
         .limit(30),
@@ -370,7 +377,18 @@ export default async function DashboardPage() {
         : Promise.resolve({ data: [] }),
     ])
 
-    upcomingGames   = ug  ?? []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ugRows = (ug ?? []) as any[]
+    const soonMs = Date.parse(now) + 36 * 60 * 60 * 1000
+    callOffRows = ugRows.filter((g) =>
+      (g.status === 'cancelled' || g.status === 'postponed') && Date.parse(g.scheduled_at) <= soonMs)
+    upcomingGames = ugRows.filter((g) => {
+      if (g.status !== 'scheduled') return false
+      if (g.scheduled_at >= now) return true
+      // Started: still the hero until it has a confirmed result.
+      const res = Array.isArray(g.game_results) ? g.game_results[0] : g.game_results
+      return res?.status !== 'confirmed'
+    })
     recentGamesRaw  = rg  ?? []
     allLeagueResults = alr ?? []
     leagueTeams     = lt  ?? []
@@ -561,6 +579,22 @@ export default async function DashboardPage() {
   // The game hero shows games only now.
   const nextItem: NextItem = nextGameItem
 
+  // Cancelled / postponed games in the next ~36h — announced above the hero.
+  const callOffs: CallOffItem[] = callOffRows.map((g) => {
+    const home = Array.isArray(g.home_team) ? g.home_team[0] : g.home_team
+    const away = Array.isArray(g.away_team) ? g.away_team[0] : g.away_team
+    const league = Array.isArray(g.league) ? g.league[0] : g.league
+    const mineIsHome = teamIdSet.has(g.home_team_id)
+    return {
+      id: g.id as string,
+      scheduledAt: g.scheduled_at as string,
+      status: g.status as 'cancelled' | 'postponed',
+      reason: (g.cancellation_reason ?? null) as string | null,
+      opponentName: ((mineIsHome ? away?.name : home?.name) ?? 'TBD') as string,
+      leagueName: (league?.name ?? '') as string,
+    }
+  })
+
   // ── Assemble per-team data (stats + recent results only) ──────────────────
   const dashboardTeams: DashboardTeam[] = activeTeams.map((m) => {
     const teamId = m.team.id as string
@@ -749,6 +783,7 @@ export default async function DashboardPage() {
           myCardHref={`/players/${user.id}/card`}
           timezone={timezone}
           nextItem={nextItem}
+          callOffs={callOffs}
           nextSessions={nextSessionItems}
           sameDayGames={sameDayGames}
           teams={dashboardTeams}
