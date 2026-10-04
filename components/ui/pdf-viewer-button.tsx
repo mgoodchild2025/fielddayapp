@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { Overlay } from '@/components/ui/overlay'
 
 interface Props {
   url: string
@@ -31,16 +32,6 @@ export function PdfViewerButton({ url, label = 'View PDF', variant = 'pill', cla
   const [loading, setLoading] = useState(false)
   const [fetchError, setFetchError] = useState(false)
   const blobRef = useRef<string | null>(null)
-
-  // Lock body scroll while modal is open
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
-    return () => { document.body.style.overflow = '' }
-  }, [open])
 
   // Fetch PDF as blob when modal opens — bypasses X-Frame-Options/CSP restrictions
   // that Supabase Storage sets on direct URLs.
@@ -117,37 +108,30 @@ export function PdfViewerButton({ url, label = 'View PDF', variant = 'pill', cla
         </button>
       )}
 
-      {/* ── Modal overlay — only mounted when open ── */}
-      {open && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setOpen(false)}
-            aria-hidden="true"
-          />
-
-          {/* Modal panel */}
-          <div
-            className="relative w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden bg-white flex flex-col"
-            style={{ height: '90vh' }}
-          >
+      {/* ── Shared Overlay: scroll lock, Escape, focus trap; full-screen on phones ── */}
+      <Overlay
+        open={open}
+        onClose={() => setOpen(false)}
+        label={label}
+        className="max-sm:p-0"
+        panelClassName="relative w-full max-w-4xl h-dvh sm:h-[90vh] sm:rounded-xl shadow-2xl overflow-hidden bg-white flex flex-col"
+      >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 shrink-0">
+            <div className="flex items-center justify-between px-4 py-2 border-b bg-gray-50 shrink-0" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
               <span className="text-sm font-medium text-gray-700 truncate pr-4">{label}</span>
               <div className="flex items-center gap-3 shrink-0">
                 <a
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                  className="press inline-flex items-center min-h-10 text-xs font-medium text-gray-600 hover:text-gray-800"
                 >
                   Open in tab ↗
                 </a>
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors"
+                  className="press -mr-2 inline-flex items-center justify-center min-h-10 min-w-10 rounded-full text-gray-500 hover:text-gray-700"
                   aria-label="Close"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -190,9 +174,7 @@ export function PdfViewerButton({ url, label = 'View PDF', variant = 'pill', cla
                 />
               </div>
             )}
-          </div>
-        </div>
-      )}
+      </Overlay>
     </>
   )
 }

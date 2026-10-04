@@ -103,6 +103,7 @@ function StatusBadge({ r, isOrgAdmin, className = '' }: { r: Row; isOrgAdmin: bo
       defaultNotes={r.payment?.notes}
       defaultRefundCents={r.payment?.refunded_cents}
       trigger={badge}
+      payerName={r.player?.full_name ?? r.teamName ?? undefined}
     />
   )
 }

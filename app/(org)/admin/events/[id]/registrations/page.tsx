@@ -21,6 +21,9 @@ type PaymentEditMethod = 'cash' | 'etransfer' | 'cheque' | 'stripe' | 'card' | '
 const EDIT_METHODS = new Set(['cash', 'etransfer', 'cheque', 'stripe', 'card', 'other'])
 
 
+// Phone card cells: the column header becomes an inline label ("Waiver ✓ Signed").
+const LABELLED = 'max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500'
+
 export default async function RegistrationsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const headersList = await headers()
@@ -245,9 +248,11 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
       </div>
 
       <div className="bg-white rounded-lg border overflow-hidden">
-        <div className="overflow-x-auto">
-        <table className={`w-full text-sm ${showTeamColumn ? 'min-w-[720px]' : 'min-w-[600px]'}`}>
-          <thead>
+        {/* Phones: each row folds into a card (max-sm: utilities below) —
+            the 720px table put Approve/Remove ~350px off-screen. */}
+        <div className="sm:overflow-x-auto">
+        <table className={`w-full text-sm max-sm:block ${showTeamColumn ? 'sm:min-w-[720px]' : 'sm:min-w-[600px]'}`}>
+          <thead className="max-sm:hidden">
             <tr className="border-b bg-gray-50 text-left">
               <th className="px-4 py-3 font-medium text-gray-500">Player</th>
               {showTeamColumn && <th className="px-4 py-3 font-medium text-gray-500">Team</th>}
@@ -259,7 +264,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
               {isOrgAdmin && <th className="px-4 py-3"></th>}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="max-sm:block">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {rows.map((reg: any) => {
               const profile = Array.isArray(reg.user_profile)
@@ -286,15 +291,15 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
               const playerTeams = reg.user_id ? (teamsByUserId.get(reg.user_id) ?? []) : []
 
               return (
-                <tr key={reg.id} className="border-b last:border-0 hover:bg-gray-50">
-                  <td className="px-4 py-3">
+                <tr key={reg.id} className="border-b last:border-0 hover:bg-gray-50 max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-x-4 max-sm:gap-y-2 max-sm:p-4">
+                  <td className="px-4 py-3 max-sm:p-0 max-sm:w-full">
                     <div className="font-medium flex items-center gap-1.5">
                       {profile?.full_name ?? guestMap.get(reg.id)?.name ?? '—'}
                       {!reg.user_id && (
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 border">Guest</span>
                       )}
                     </div>
-                    <div className="text-xs text-gray-400">{profile?.email ?? guestMap.get(reg.id)?.email ?? '—'}</div>
+                    <div className="text-xs text-gray-500 break-all">{profile?.email ?? guestMap.get(reg.id)?.email ?? '—'}</div>
                     {isDropIn && (
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
@@ -314,7 +319,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                     )}
                   </td>
                   {showTeamColumn && (
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 max-sm:p-0 max-sm:w-full">
                       {playerTeams.length > 0 ? (
                         <div className="flex flex-col gap-1">
                           {playerTeams.map((t) => (
@@ -334,10 +339,10 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                       )}
                     </td>
                   )}
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 max-sm:p-0">
                     <StatusChip status={reg.status} />
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 max-sm:p-0">
                     {showTeamPayment ? (() => {
                       const tp = teamPaymentByUserId.get(reg.user_id)
                       if (!tp) return <span className="text-xs text-gray-400">No team yet</span>
@@ -383,7 +388,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                       )
                     })()}
                   </td>
-                  <td className="px-4 py-3">
+                  <td data-label="Waiver" className={`px-4 py-3 ${LABELLED}`}>
                     {reg.waiver_signature_id ? (
                       <Link
                         href={`/admin/settings/waivers/signatures/${reg.waiver_signature_id}`}
@@ -397,7 +402,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td data-label="Check-in" className={`px-4 py-3 ${LABELLED}`}>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {(reg as any).checked_in_at ? (
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
@@ -410,7 +415,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-400">
+                  <td data-label="Registered" className={`px-4 py-3 text-xs text-gray-500 ${LABELLED}`}>
                     {new Date(reg.created_at).toLocaleDateString('en-CA', {
                       month: 'short',
                       day: 'numeric',
@@ -419,13 +424,13 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                     })}
                   </td>
                   {isOrgAdmin && (
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
+                    <td className="px-4 py-3 max-sm:p-0 max-sm:w-full max-sm:pt-1">
+                      <div className="flex items-center gap-3 max-sm:gap-5">
                         {reg.status === 'pending' && (
                           <form action={approveAction}>
                             <SubmitButton
                               pendingLabel="Approving…"
-                              className="press min-h-9 text-xs font-medium text-brand-primary hover:underline"
+                              className="press min-h-10 text-xs font-medium text-brand-primary hover:underline"
                             >
                               Approve
                             </SubmitButton>
@@ -443,8 +448,8 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
               )
             })}
             {rows.length === 0 && (
-              <tr>
-                <td colSpan={(isOrgAdmin ? 7 : 6) + (showTeamColumn ? 1 : 0)} className="px-4 py-12 text-center text-gray-400">
+              <tr className="max-sm:block">
+                <td colSpan={(isOrgAdmin ? 7 : 6) + (showTeamColumn ? 1 : 0)} className="px-4 py-12 text-center text-gray-500 max-sm:block">
                   No registrations yet.
                 </td>
               </tr>
