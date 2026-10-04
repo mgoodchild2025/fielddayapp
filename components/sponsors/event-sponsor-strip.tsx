@@ -13,7 +13,7 @@ export function EventSponsorStrip({ sponsors, leagueId }: { sponsors: ResolvedSp
 
   return (
     <div className="bg-white border rounded-xl px-5 py-5">
-      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 text-center mb-4">
+      <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 text-center mb-4">
         Presented by
       </p>
       <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-5">
@@ -23,8 +23,11 @@ export function EventSponsorStrip({ sponsors, leagueId }: { sponsors: ResolvedSp
             <img
               src={s.logo_url!}
               alt={s.name}
+              // A fixed box (logo fitted inside): width:auto reflowed the row
+              // as each logo loaded.
+              loading="lazy"
               className="object-contain opacity-80 hover:opacity-100 transition-opacity"
-              style={{ height: s.tier === 'gold' ? '3.25rem' : '2.25rem', maxWidth: '11rem' }}
+              style={s.tier === 'gold' ? { height: '3.25rem', width: '9rem' } : { height: '2.25rem', width: '6.5rem' }}
             />
           )
           return s.website_url ? (

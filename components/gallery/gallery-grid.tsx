@@ -104,7 +104,7 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
 
             {/* Image — stopPropagation prevents close when clicking the image itself */}
             <div
-              className="max-w-5xl max-h-[90vh] mx-14 sm:mx-20 flex flex-col items-center gap-3"
+              className="max-w-5xl max-h-[90dvh] mx-14 sm:mx-20 flex flex-col items-center gap-3"
               onClick={(e) => e.stopPropagation()}
             >
               <Image
@@ -115,7 +115,7 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
                 height={1080}
                 sizes="90vw"
                 priority
-                className="fd-result-in max-h-[80vh] w-auto object-contain rounded-lg shadow-2xl"
+                className="fd-result-in max-h-[80dvh] w-auto object-contain rounded-lg shadow-2xl"
               />
               {current.caption && (
                 <p className="text-white/80 text-sm text-center max-w-xl px-2">{current.caption}</p>

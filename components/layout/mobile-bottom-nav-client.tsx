@@ -68,7 +68,7 @@ export function MobileBottomNavClient({ signedIn }: { signedIn: boolean }) {
       // data-mobile-tab-bar: globals.css lifts the event page's sticky
       // register bar above this bar while both are on screen.
       data-mobile-tab-bar=""
-      className="fd-bar-light md:hidden fixed bottom-0 inset-x-0 z-50"
+      className="fd-bar-light md:hidden print:hidden fixed bottom-0 inset-x-0 z-50"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       aria-label="Mobile navigation"
     >

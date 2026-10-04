@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Overlay } from '@/components/ui/overlay'
 
 const ROLES = [
   {
@@ -55,26 +56,28 @@ export function PlayersHelpModal() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="w-5 h-5 rounded-full border border-gray-300 text-gray-400 hover:text-gray-600 hover:border-gray-400 transition-colors flex items-center justify-center text-[11px] font-bold leading-none"
+        // 40px tap area around the small ? badge (it was a 20px target).
+        className="press inline-flex items-center justify-center min-h-10 min-w-10 -m-2.5 rounded-full text-gray-500 hover:text-gray-700"
         aria-label="Player roles and actions guide"
         title="Roles & actions guide"
       >
-        ?
+        <span aria-hidden className="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center text-[11px] font-bold leading-none">?</span>
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-
-          {/* Modal */}
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      {/* Shared Overlay: scroll lock, Escape, focus trap; a sheet on phones. */}
+      <Overlay
+        open={open}
+        onClose={() => setOpen(false)}
+        variant="sheet"
+        labelledBy="players-help-title"
+        panelClassName="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90dvh] overflow-y-auto"
+      >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b">
-              <h2 className="font-semibold text-gray-900">Player Roles & Actions</h2>
+              <h2 id="players-help-title" className="font-semibold text-gray-900">Player Roles & Actions</h2>
               <button
                 onClick={() => setOpen(false)}
-                className="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                className="press -mr-2 inline-flex items-center justify-center min-h-10 min-w-10 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                 aria-label="Close"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -87,7 +90,7 @@ export function PlayersHelpModal() {
 
               {/* Roles */}
               <section>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Roles</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Roles</h3>
                 <div className="space-y-3">
                   {ROLES.map((r) => (
                     <div key={r.name} className="flex gap-3">
@@ -104,7 +107,7 @@ export function PlayersHelpModal() {
 
               {/* Actions */}
               <section>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Actions</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Actions</h3>
                 <div className="space-y-3">
                   {ACTIONS.map((a) => (
                     <div key={a.label} className="flex gap-3">
@@ -130,9 +133,7 @@ export function PlayersHelpModal() {
               </section>
 
             </div>
-          </div>
-        </div>
-      )}
+      </Overlay>
     </>
   )
 }
