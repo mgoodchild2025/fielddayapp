@@ -249,13 +249,14 @@ function DateGroup({
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Cancelled</span>
                     ) : game.status === 'postponed' ? (
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Postponed</span>
-                    ) : (
+                    ) : (game.status !== 'scheduled' || isPast) ? (
+                      // An upcoming game needs no "Scheduled" badge on every row.
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                         game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
                       }`}>
                         {gameStatusLabel(game.status)}
                       </span>
-                    )}
+                    ) : null}
                     {game.cancellation_reason && (game.status === 'cancelled' || game.status === 'postponed') && (
                       <span className="text-[11px] text-gray-400 italic">{game.cancellation_reason}</span>
                     )}
@@ -332,11 +333,13 @@ function DateGroup({
                   ) : game.status !== 'cancelled' && game.status !== 'postponed' ? (
                     <span className="inline-flex items-center gap-1.5">
                       {inLiveWindowNow(game.scheduled_at) && <LiveScoreBadge leagueId={leagueId} gameId={game.id} />}
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
-                      }`}>
-                        {gameStatusLabel(game.status)}
-                      </span>
+                      {(game.status !== 'scheduled' || isPast) && (
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                          game.status === 'completed' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
+                        }`}>
+                          {gameStatusLabel(game.status)}
+                        </span>
+                      )}
                     </span>
                   ) : null}
                 </div>
@@ -1603,8 +1606,22 @@ export default async function EventDetailPage({
       {isInSeasonOrCompleted && (
         <div className="bg-white border-b">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 space-y-2">
-            {league.description && (
-              <RichTextContent content={league.description} className="text-sm text-gray-600" />
+            {/* Two lines, not the whole description: during the season people
+                come for the schedule and standings, and a long description
+                pushed the tabs ~900px down on a phone. The full text is the
+                Event Info tab (where this strip hides it, being the same text). */}
+            {league.description && activeTab !== 'overview' && (
+              <div>
+                <div className="relative max-h-[2.6rem] overflow-hidden">
+                  <RichTextContent content={league.description} className="text-sm text-gray-600" />
+                  <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-4 bg-gradient-to-t from-white to-transparent" />
+                </div>
+                {validTabIds.includes('overview') && (
+                  <Link href={`/events/${slug}?tab=overview`} scroll={false} className="inline-flex items-center min-h-8 text-sm font-semibold text-brand-primary">
+                    More about this event →
+                  </Link>
+                )}
+              </div>
             )}
             {(league.season_start_date || league.age_group || league.venue_name ||
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1652,12 +1669,18 @@ export default async function EventDetailPage({
                     })()}
                   </span>
                 )}
-                {league.venue_name && (
-                  <span>
+                {league.venue_name && (league.venue_address ? (
+                  // Tappable: directions from the schedule screen, not just Event Info.
+                  <MapLink address={league.venue_address} title={`Directions to ${league.venue_name}`} className="inline-flex items-center gap-1 min-h-8 font-medium text-brand-primary underline-offset-2 hover:underline">
+                    <svg aria-hidden="true" className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
                     {league.venue_name}
-                    {league.venue_address ? ` · ${league.venue_address}` : ''}
-                  </span>
-                )}
+                  </MapLink>
+                ) : (
+                  <span>{league.venue_name}</span>
+                ))}
               </div>
             )}
           </div>

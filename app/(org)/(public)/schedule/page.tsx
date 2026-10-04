@@ -100,7 +100,8 @@ export default async function SchedulePage() {
       id, scheduled_at, court, week_number, status, is_exhibition,
       home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
       away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
-      league:leagues!games_league_id_fkey(name, slug, schedule_published, event_type)
+      league:leagues!games_league_id_fkey(name, slug, schedule_published, event_type),
+      game_results(home_score, away_score, status)
     `)
       .eq('organization_id', org.id)
       .or(`home_team_id.in.(${teamList}),away_team_id.in.(${teamList})`)

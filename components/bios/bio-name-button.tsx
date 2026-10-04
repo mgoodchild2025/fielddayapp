@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
+import { Overlay } from '@/components/ui/overlay'
 import { getCareerForUser } from '@/actions/career'
 import type { PlayerCareer } from '@/lib/career'
 import type { BioCardData } from './player-bio-card'
@@ -25,36 +25,33 @@ export function BioNameButton({ bio, userId, children }: { bio: BioCardData; use
 
   return (
     <>
+      {/* Permanently dotted: phones never show a hover underline, so the
+          name gave no hint that it opens a card. */}
       <button
         type="button"
         onClick={handleOpen}
-        className="text-left hover:underline decoration-dotted underline-offset-2"
+        className="text-left underline decoration-dotted decoration-gray-400 underline-offset-4 hover:decoration-current"
         title="View player card"
       >
         {children}
       </button>
-      {open && createPortal(
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      {/* Shared Overlay: scroll lock, Escape, focus trap + restore. */}
+      <Overlay
+        open={open}
+        onClose={() => setOpen(false)}
+        variant="modal"
+        label={`${bio.name} player card`}
+        panelClassName="w-full max-w-md"
+      >
+        <BioFlipCard bio={bio} career={career} />
+        <button
+          type="button"
           onClick={() => setOpen(false)}
-          role="dialog" aria-modal="true" aria-label={`${bio.name} player card`}
+          className="press mt-3 w-full min-h-11 rounded-md border border-white/30 text-sm font-medium text-white/90 hover:bg-white/10"
         >
-          <div
-            className="w-full max-w-md"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <BioFlipCard bio={bio} career={career} />
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="mt-3 w-full rounded-md border border-white/20 py-1.5 text-xs text-white/60 hover:bg-white/5"
-            >
-              Close
-            </button>
-          </div>
-        </div>,
-        document.body
-      )}
+          Close
+        </button>
+      </Overlay>
     </>
   )
 }

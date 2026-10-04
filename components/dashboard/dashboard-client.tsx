@@ -31,6 +31,16 @@ import { EmptyState } from '@/components/ui/empty-state'
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 /** The soonest upcoming team game across all the player's teams */
+/** A game of the player's that was called off soon — shown above the hero. */
+export type CallOffItem = {
+  id: string
+  scheduledAt: string
+  status: 'cancelled' | 'postponed'
+  reason: string | null
+  opponentName: string
+  leagueName: string
+}
+
 export type NextGameItem = {
   kind: 'game'
   teamId: string
@@ -127,6 +137,8 @@ interface Props {
   orgName?: string
   timezone: string
   nextItem: NextItem
+  /** Cancelled / postponed games in the next ~36h. */
+  callOffs?: CallOffItem[]
   /** Each active event's next session, soonest first. */
   nextSessions?: NextSessionItem[]
   /** Other games on the same day as the next game (RSVP-able, shown below the hero). */
@@ -179,6 +191,11 @@ function daysUntil(iso: string, tz: string): string {
 // Both run on the server (UTC) and again on the phone. Pinned to the org's
 // timezone so the two agree — a mismatch makes React throw away the server
 // HTML and re-render the whole dashboard on the phone.
+// A game whose start time has passed (kept as the hero until it's scored).
+function hasStarted(iso: string): boolean {
+  return Date.parse(iso) <= Date.now()
+}
+
 function greeting(timeZone: string): string {
   const h = Number(new Intl.DateTimeFormat('en-CA', { hour: 'numeric', hourCycle: 'h23', timeZone }).format(new Date()))
   if (h < 12) return 'Good morning'
@@ -265,8 +282,8 @@ function GameHero({
           </span>
           <ExhibitionBadge isExhibition={item.isExhibition} className="shrink-0" />
         </span>
-        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-emerald-400 bg-emerald-400/10 border border-emerald-400/20">
-          {daysUntil(item.scheduledAt, timezone)}
+        <span suppressHydrationWarning className="text-xs font-semibold px-2.5 py-0.5 rounded-full text-emerald-400 bg-emerald-400/10 border border-emerald-400/20">
+          {hasStarted(item.scheduledAt) ? 'Now' : daysUntil(item.scheduledAt, timezone)}
         </span>
       </div>
 
@@ -325,6 +342,14 @@ function GameHero({
             </div>
           )}
         </div>
+        {/* The game page: score entry for captains, who's coming, head-to-head. */}
+        {!item.isPlayoff && (
+          <div className="mt-3 text-center">
+            <Link href={`/games/${item.id}`} prefetch={false} className="inline-flex items-center min-h-10 px-3 text-sm font-semibold text-brand-primary">
+              Game details →
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* RSVP footer — bracket games are read-only */}
@@ -531,7 +556,7 @@ function MyCardSection({ myCardBio, myCareer, myCardHref }: {
   )
 }
 
-export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, nextSessions = [], sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null }: Props) {
+export function DashboardClient({ firstName, orgName = 'this site', timezone, nextItem, callOffs = [], nextSessions = [], sameDayGames = [], teams, pendingActions, medals = [], myCardBio = null, myCareer = null, myCardHref = null }: Props) {
   const [activeIdx, setActiveIdx] = useState(0)
   // Which event's next session is showing. Defaults to the soonest (index 0);
   // clamped so a refresh that drops an event can't leave it pointing past the end.
@@ -680,6 +705,19 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
           <span className="text-xs font-bold text-amber-700 shrink-0 flex items-center gap-0.5">
             {action.type === 'pending_payment' ? 'View' : 'Complete'} <ChevronRight className="w-3.5 h-3.5" />
           </span>
+        </Link>
+      ))}
+
+      {/* ── Called off: announced, not silently replaced by next week ── */}
+      {callOffs.map((c) => (
+        <Link key={c.id} href={`/games/${c.id}`} prefetch={false}
+          className={`press block rounded-xl border px-4 py-3 ${c.status === 'cancelled' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
+          <p className={`text-sm font-semibold ${c.status === 'cancelled' ? 'text-red-800' : 'text-amber-900'}`}>
+            {c.status === 'cancelled' ? 'Cancelled' : 'Postponed'} · {formatDate(c.scheduledAt, timezone)} {formatTime(c.scheduledAt, timezone)} vs {c.opponentName}
+          </p>
+          <p className={`text-xs mt-0.5 ${c.status === 'cancelled' ? 'text-red-700' : 'text-amber-800'}`}>
+            {c.reason ? c.reason : c.leagueName}
+          </p>
         </Link>
       ))}
 
@@ -888,7 +926,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
               ) : (
                 <div className="space-y-2">
                   {team.recentResults.map((r) => (
-                    <div key={r.gameId} className="flex items-center gap-3 bg-white border rounded-xl px-4 py-3">
+                    <Link key={r.gameId} href={`/games/${r.gameId}`} prefetch={false} className="press flex items-center gap-3 bg-white border rounded-xl px-4 py-3 hover:bg-gray-50">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold shrink-0 ${
                         r.outcome === 'W' ? 'bg-emerald-50 text-emerald-600' :
                         r.outcome === 'L' ? 'bg-red-50 text-red-500' :
@@ -908,7 +946,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                         </p>
                       </div>
                       <span className="text-xs text-gray-500 shrink-0">{formatShortDate(r.scheduledAt)}</span>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )}

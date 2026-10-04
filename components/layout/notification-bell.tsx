@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { markAllNotificationsRead, markNotificationRead } from '@/actions/notifications'
 import { approveJoinRequest, rejectJoinRequest } from '@/actions/teams'
 import { setAppBadge } from '@/lib/push-client'
+import { toast } from 'sonner'
 
 interface Notification {
   id: string
@@ -45,15 +46,45 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
   // Installed app: the icon badge is the unread count, cleared when it hits 0.
   useEffect(() => { setAppBadge(count) }, [count])
 
+  // Close on a tap/click outside (pointerdown — iOS Safari doesn't reliably
+  // fire mousedown on plain areas) or Escape.
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
+    if (!open) return
+    function handlePointer(e: PointerEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
+    function handleKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('pointerdown', handlePointer)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointer)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [open])
+
+  function dismiss(id: string) {
+    setNotifications((prev) => prev.filter((x) => x.id !== id))
+    markNotificationRead(id)
+  }
+
+  // Approve / deny a join request: the notification goes only when the action
+  // worked — it used to vanish even when the server refused.
+  function actOnRequest(n: Notification, requestId: string, approve: boolean) {
+    setActioningId(n.id)
+    startTransition(async () => {
+      try {
+        const res = approve ? await approveJoinRequest(requestId) : await rejectJoinRequest(requestId)
+        if (res?.error) { toast.error(res.error); return }
+        await markNotificationRead(n.id)
+        setNotifications((prev) => prev.filter((x) => x.id !== n.id))
+        toast.success(approve ? 'Request approved' : 'Request declined')
+      } catch {
+        toast.error("Couldn't reach the server — try again")
+      } finally {
+        setActioningId(null)
+      }
+    })
+  }
 
   function handleMarkAllRead() {
     setNotifications([])
@@ -67,7 +98,8 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`relative p-2 rounded-full transition-colors ${dropUp ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}
+        aria-expanded={open}
+        className={`relative inline-flex items-center justify-center min-h-10 min-w-10 rounded-full transition-colors ${dropUp ? 'hover:bg-gray-100' : 'hover:bg-white/10'}`}
         aria-label={count > 0 ? `${count} unread notification${count !== 1 ? 's' : ''}` : 'Notifications'}
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -82,14 +114,20 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
       </button>
 
       {open && (
-        <div className={`fd-pop absolute right-0 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden text-gray-900 ${dropUp ? 'origin-bottom-right bottom-full mb-2' : 'origin-top-right mt-2'}`}>
+        // Phones: full width under the nav (a 320px panel anchored to the bell
+        // started off the left edge of a 375px screen). sm+: the dropdown.
+        <div className={`fd-pop z-50 overflow-hidden bg-white rounded-xl shadow-xl border border-gray-200 text-gray-900 ${
+          dropUp
+            ? 'absolute right-0 w-80 max-w-[calc(100vw-1rem)] origin-bottom-right bottom-full mb-2'
+            : 'fixed inset-x-2 top-16 origin-top sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:w-80 sm:mt-2 sm:origin-top-right'
+        }`}>
           <div className="px-4 py-3 border-b flex items-center justify-between">
             <span className="font-semibold text-sm">Notifications</span>
             {count > 0 && (
               <button
                 onClick={handleMarkAllRead}
                 disabled={isPending}
-                className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50 transition-colors"
+                className="press min-h-10 px-2 -mr-2 text-sm font-medium text-brand-primary disabled:opacity-50"
               >
                 Mark all read
               </button>
@@ -97,11 +135,11 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
           </div>
 
           {count === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-gray-400">
+            <div className="px-4 py-8 text-center text-sm text-gray-500">
               No new notifications
             </div>
           ) : (
-            <ul className="divide-y max-h-96 overflow-y-auto">
+            <ul className="divide-y max-h-[min(24rem,70dvh)] overflow-y-auto overscroll-contain">
               {notifications.map((n) => {
                 const acceptUrl = n.data?.accept_url as string | undefined
                 // Generic link support: any notification can carry data.href (+ link_label)
@@ -112,51 +150,46 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
                 const isActioning = actioningId === n.id
 
                 return (
-                  <li key={n.id} className="px-4 py-3">
+                  <li key={n.id} className="relative pl-4 pr-11 py-3">
                     <p className="text-sm font-medium text-gray-900">{n.title}</p>
-                    {n.body && <p className="text-xs text-gray-500 mt-0.5">{n.body}</p>}
+                    {n.body && <p className="text-sm text-gray-600 mt-0.5">{n.body}</p>}
+                    {!isJoinRequest && (
+                      <button
+                        type="button"
+                        onClick={() => dismiss(n.id)}
+                        aria-label={`Dismiss: ${n.title}`}
+                        className="press absolute top-1.5 right-1.5 inline-flex items-center justify-center min-h-10 min-w-10 rounded-full text-gray-500 hover:bg-gray-100"
+                      >
+                        <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    )}
 
                     {isJoinRequest ? (
                       <div className="flex items-center gap-2 mt-2">
                         <button
                           disabled={isActioning}
-                          onClick={() => {
-                            setActioningId(n.id)
-                            startTransition(async () => {
-                              await Promise.all([approveJoinRequest(requestId), markNotificationRead(n.id)])
-                              setNotifications((prev) => prev.filter((x) => x.id !== n.id))
-                              setActioningId(null)
-                            })
-                          }}
-                          className="flex-1 text-xs font-semibold py-1.5 rounded-md text-white disabled:opacity-50"
-                          style={{ backgroundColor: 'var(--brand-primary)' }}
+                          onClick={() => actOnRequest(n, requestId, true)}
+                          className="press flex-1 min-h-10 text-sm font-semibold rounded-md bg-brand-primary text-on-brand disabled:opacity-50"
                         >
                           {isActioning ? '…' : 'Approve'}
                         </button>
                         <button
                           disabled={isActioning}
-                          onClick={() => {
-                            setActioningId(n.id)
-                            startTransition(async () => {
-                              await Promise.all([rejectJoinRequest(requestId), markNotificationRead(n.id)])
-                              setNotifications((prev) => prev.filter((x) => x.id !== n.id))
-                              setActioningId(null)
-                            })
-                          }}
-                          className="flex-1 text-xs font-semibold py-1.5 rounded-md border text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                          onClick={() => actOnRequest(n, requestId, false)}
+                          className="press flex-1 min-h-10 text-sm font-semibold rounded-md border text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                         >
                           Deny
                         </button>
-                        <p className="text-[10px] text-gray-400 shrink-0">{relativeTime(n.created_at)}</p>
+                        <p className="text-xs text-gray-500 shrink-0">{relativeTime(n.created_at)}</p>
                       </div>
                     ) : (
                       <div className="flex items-center justify-between mt-1.5">
-                        <p className="text-[10px] text-gray-400">{relativeTime(n.created_at)}</p>
+                        <p className="text-xs text-gray-500">{relativeTime(n.created_at)}</p>
                         {acceptUrl ? (
                           <Link
                             href={acceptUrl}
                             onClick={() => setOpen(false)}
-                            className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+                            className="inline-flex items-center min-h-10 text-sm font-semibold text-brand-primary"
                           >
                             View Invite →
                           </Link>
@@ -168,7 +201,7 @@ export function NotificationBell({ initialNotifications, dropUp = false }: Props
                               setNotifications((prev) => prev.filter((x) => x.id !== n.id))
                               setOpen(false)
                             }}
-                            className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+                            className="inline-flex items-center min-h-10 text-sm font-semibold text-brand-primary"
                           >
                             {genericLabel}
                           </Link>
