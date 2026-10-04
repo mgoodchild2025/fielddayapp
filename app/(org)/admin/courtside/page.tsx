@@ -62,7 +62,18 @@ export default async function CourtsidePage({
   if (!scope.isOrgAdmin && scope.assignedLeagueIds !== null) {
     query = query.in('league_id', scope.assignedLeagueIds.length > 0 ? scope.assignedLeagueIds : ['00000000-0000-0000-0000-000000000000'])
   }
-  const { data: games } = await query
+  // Sessions that day (drop-ins / pickup) — for the check-in shortcuts.
+  let sessionsQuery = db
+    .from('event_sessions')
+    .select('id, league_id, league:leagues!event_sessions_league_id_fkey(id, name)')
+    .eq('organization_id', org.id)
+    .neq('status', 'cancelled')
+    .gte('scheduled_at', dayStart)
+    .lt('scheduled_at', dayEnd)
+  if (!scope.isOrgAdmin && scope.assignedLeagueIds !== null) {
+    sessionsQuery = sessionsQuery.in('league_id', scope.assignedLeagueIds.length > 0 ? scope.assignedLeagueIds : ['00000000-0000-0000-0000-000000000000'])
+  }
+  const [{ data: games }, { data: daySessions }] = await Promise.all([query, sessionsQuery])
 
   // Playoff bracket matches aren't games rows — pull the day's scheduled ones
   // too (both teams decided, byes excluded) so playoff night has a courtside.
@@ -105,9 +116,12 @@ export default async function CourtsidePage({
     const league = Array.isArray(g.league) ? g.league[0] : g.league
     return { ...g, result: result ?? null, home, away, league }
   })
-  // Unscored first — that's what courtside is for; scored games sink below.
+  // Unscored first — that's what courtside is for. A captain-submitted score
+  // waiting for the other captain gets its own section with a one-tap Confirm
+  // (it used to sit under "Scored" looking final). Confirmed games sink below.
   const unscored = rows.filter((g) => !g.result || g.result.home_score === null)
-  const scored = rows.filter((g) => g.result && g.result.home_score !== null)
+  const awaiting = rows.filter((g) => g.result && g.result.home_score !== null && g.result.status === 'pending')
+  const scored = rows.filter((g) => g.result && g.result.home_score !== null && g.result.status !== 'pending')
   const bracketUnscored = bracketRows.filter((m) => m.status !== 'completed')
   const bracketScored = bracketRows.filter((m) => m.status === 'completed')
 
@@ -119,7 +133,19 @@ export default async function CourtsidePage({
       ...bs.map((m) => ({ kind: 'bracket' as const, when: m.scheduled_at as string, row: m })),
     ].sort((x, y) => x.when.localeCompare(y.when))
   const unscoredItems = merge(unscored, bracketUnscored)
+  const awaitingItems = merge(awaiting, [])
   const scoredItems = merge(scored, bracketScored)
+
+  // Check-in shortcuts: every event playing this day (games, playoff matches
+  // or sessions), one tap to its check-in screen.
+  const checkinEvents = new Map<string, string>()
+  for (const g of rows) if (g.league?.id) checkinEvents.set(g.league.id, g.league.name)
+  for (const m of bracketRows) if (m.bracket?.league_id && !checkinEvents.has(m.bracket.league_id)) checkinEvents.set(m.bracket.league_id, m.bracket.name)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const s of (daySessions ?? []) as any[]) {
+    const l = Array.isArray(s.league) ? s.league[0] : s.league
+    if (l?.id) checkinEvents.set(l.id, l.name)
+  }
 
   const timeStr = (iso: string) =>
     new Intl.DateTimeFormat('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: tz }).format(new Date(iso))
@@ -129,7 +155,7 @@ export default async function CourtsidePage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const GameCard = ({ g }: { g: any }) => (
     <div className="rounded-xl border bg-white p-4">
-      <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+      <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
         <span className="flex items-center gap-1.5">
           {timeStr(g.scheduled_at)}{g.court ? ` · ${g.court}` : ''}
           <ExhibitionBadge isExhibition={g.is_exhibition} />
@@ -159,6 +185,7 @@ export default async function CourtsidePage({
             awayTeamName={g.away.name}
             existingResult={g.result ? { homeScore: g.result.home_score, awayScore: g.result.away_score, status: g.result.status, sets: g.result.sets ?? null } : null}
             compact
+            large
           />
           <a
             href={`/scoreboard?game=${g.id}`}
@@ -176,7 +203,7 @@ export default async function CourtsidePage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const BracketCard = ({ m }: { m: any }) => (
     <div className="rounded-xl border border-amber-200 bg-white p-4">
-      <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+      <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
         <span>{timeStr(m.scheduled_at)}{m.court ? ` · ${m.court}` : ''}</span>
         <span className="truncate max-w-[55%] text-amber-700 font-semibold">
           🏆 {m.bracket?.name} · {roundDisplayName(m.bracket?.round_names ?? null, m.round_number, m.bracket?.bracket_size ?? 0, m.match_number)}
@@ -208,14 +235,15 @@ export default async function CourtsidePage({
     item.kind === 'game' ? <GameCard key={item.row.id} g={item.row} /> : <BracketCard key={item.row.id} m={item.row} />
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-6 pb-24">
+    // The admin shell already pads 16px; no second gutter on phones.
+    <div className="max-w-xl mx-auto sm:px-4 py-2 sm:py-6 pb-24">
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-xl font-bold">Courtside</h1>
-        <Link href="/admin/dashboard" className="text-sm text-gray-400 hover:text-gray-600">← Dashboard</Link>
+        <Link href="/admin/dashboard" className="inline-flex items-center min-h-10 text-sm text-gray-500 hover:text-gray-700">← Dashboard</Link>
       </div>
       <div className="flex items-center justify-between mb-5">
         <Link href={`/admin/courtside?date=${prevDateStr}`} aria-label="Previous day"
-          className="px-4 py-2 rounded-lg border bg-white text-gray-600 font-bold">‹</Link>
+          className="press inline-flex items-center justify-center min-h-11 min-w-11 rounded-lg border bg-white text-gray-600 font-bold">‹</Link>
         <div className="text-center">
           <p className="text-sm font-semibold">{dayLabel}</p>
           {date !== todayLocal && (
@@ -223,8 +251,22 @@ export default async function CourtsidePage({
           )}
         </div>
         <Link href={`/admin/courtside?date=${nextDateStr}`} aria-label="Next day"
-          className="px-4 py-2 rounded-lg border bg-white text-gray-600 font-bold">›</Link>
+          className="press inline-flex items-center justify-center min-h-11 min-w-11 rounded-lg border bg-white text-gray-600 font-bold">›</Link>
       </div>
+
+      {checkinEvents.size > 0 && (
+        <div className="mb-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Check-in</p>
+          <div className="flex flex-wrap gap-2">
+            {[...checkinEvents.entries()].map(([id, name]) => (
+              <Link key={id} href={`/admin/events/${id}/checkin`}
+                className="press inline-flex items-center gap-1.5 min-h-11 px-4 rounded-full border bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                ✓ <span className="truncate max-w-[14rem]">{name}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {rows.length === 0 && bracketRows.length === 0 && (
         <p className="rounded-xl border border-dashed bg-white px-4 py-10 text-center text-sm text-gray-400">
@@ -236,6 +278,12 @@ export default async function CourtsidePage({
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Needs a score · {unscoredItems.length}</p>
           {unscoredItems.map(renderItem)}
+        </div>
+      )}
+      {awaitingItems.length > 0 && (
+        <div className="space-y-3 mt-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Waiting for confirmation · {awaitingItems.length}</p>
+          {awaitingItems.map(renderItem)}
         </div>
       )}
       {scoredItems.length > 0 && (

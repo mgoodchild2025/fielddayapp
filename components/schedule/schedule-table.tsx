@@ -62,6 +62,8 @@ interface Props {
   timezone: string
   schedulePublished?: boolean
   isAdmin?: boolean
+  /** Deep link: `?filter=needs|pending` (dashboard "awaiting confirmation"). */
+  initialFilter?: 'all' | 'needs' | 'pending' | 'cancelled'
 }
 
 function needsScore(game: Game) {
@@ -109,7 +111,7 @@ function IndeterminateCheckbox({ checked, indeterminate, onChange, className }: 
   )
 }
 
-export function ScheduleTable({ games, teams, pools = [], leagueId, sport, eventType, timezone, schedulePublished = true, isAdmin = false }: Props) {
+export function ScheduleTable({ games, teams, pools = [], leagueId, sport, eventType, timezone, schedulePublished = true, isAdmin = false, initialFilter = 'all' }: Props) {
   const showWeek = eventType !== 'tournament'
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -120,11 +122,19 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isClearing, setIsClearing] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [filter, setFilter] = useState<'all' | 'needs' | 'cancelled'>('all')
+  const [filter, setFilter] = useState<'all' | 'needs' | 'pending' | 'cancelled'>(initialFilter)
+  // "Needs scores" = games that have STARTED with no score. Counting future
+  // games made the badge read 48 in week 3 and buried tonight's few.
+  const [nowMs] = useState(() => Date.now())
+  const isDue = (g: Game) => new Date(g.scheduledAt).getTime() <= nowMs
+  const needsNow = (g: Game) => needsScore(g) && g.status === 'scheduled' && isDue(g)
+  // Captain-submitted, not yet confirmed by the other captain.
+  const awaitingConfirm = (g: Game) => g.result?.status === 'pending' && g.result.homeScore !== null
   // Jump to a specific week (leagues) or date (tournaments); 'all' shows everything.
   const [jumpFilter, setJumpFilter] = useState<string>('all')
-  // Date-group order — default newest first so recently-played games are on top.
-  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
+  // Date-group order. Oldest first, opened scrolled to today (below): newest
+  // first put every future week above tonight in a running season.
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('oldest')
   // Hide date groups where every game already has a score.
   const [hideCompleted, setHideCompleted] = useState(false)
   // Track status overrides applied optimistically within this session
@@ -141,7 +151,14 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
     })
   }
 
-  function handlePublishToggle() {
+  async function handlePublishToggle() {
+    // Unpublishing hides the schedule from every player at once — one stray
+    // tap on a phone shouldn't do that.
+    if (schedulePublished && !(await confirmAction({
+      title: 'Unpublish the schedule?',
+      message: 'Players will no longer see any games for this event until you publish again.',
+      confirmLabel: 'Unpublish',
+    }))) return
     startTransition(async () => {
       await setSchedulePublished(leagueId, !schedulePublished)
       router.refresh()
@@ -211,7 +228,8 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
 
   const visible = allVisible
     .filter((g) => {
-      if (filter === 'needs') return needsScore(g) && g.status === 'scheduled'
+      if (filter === 'needs') return needsNow(g)
+      if (filter === 'pending') return awaitingConfirm(g)
       if (filter === 'cancelled') return g.status === 'cancelled' || g.status === 'postponed'
       return true
     })
@@ -219,7 +237,8 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
       if (jumpFilter === 'all') return true
       return showWeek ? String(g.weekNumber ?? '') === jumpFilter : g.dateKey === jumpFilter
     })
-  const needsCount = allVisible.filter((g) => needsScore(g) && g.status === 'scheduled').length
+  const needsCount = allVisible.filter(needsNow).length
+  const pendingCount = allVisible.filter(awaitingConfirm).length
   const cancelledCount = allVisible.filter((g) => g.status === 'cancelled' || g.status === 'postponed').length
 
   let groups = groupByDate(visible)
@@ -230,6 +249,20 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
   if (sortOrder === 'newest') {
     groups = [...groups].reverse()
   }
+
+  // Open at today: scroll the first date group from today onward into view
+  // (once, on the unfiltered list). Each layout tags its groups with an id.
+  const todayKey = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(nowMs))
+  const scrolledRef = useRef(false)
+  useEffect(() => {
+    if (scrolledRef.current || filter !== 'all' || jumpFilter !== 'all' || sortOrder !== 'oldest') return
+    scrolledRef.current = true
+    const target = groups.find((grp) => grp.dateKey && grp.dateKey !== 'undated' && grp.dateKey >= todayKey)
+    if (!target || target === groups[0]) return
+    const el = [document.getElementById(`day-m-${target.dateKey}`), document.getElementById(`day-d-${target.dateKey}`)]
+      .find((n) => n && n.offsetParent !== null)
+    el?.scrollIntoView({ block: 'start' })
+  })
 
   // Selection state relative to currently visible games
   const visibleIds = visible.map(g => g.id)
@@ -311,6 +344,23 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
             </span>
           )}
         </button>
+        {pendingCount > 0 && (
+          <button
+            onClick={() => setFilter('pending')}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5 ${
+              filter === 'pending'
+                ? 'bg-amber-500 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            Awaiting confirmation
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+              filter === 'pending' ? 'bg-white/30' : 'bg-amber-100 text-amber-800'
+            }`}>
+              {pendingCount}
+            </span>
+          </button>
+        )}
         {cancelledCount > 0 && (
           <button
             onClick={() => setFilter('cancelled')}
@@ -415,7 +465,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
       {/* ── Mobile: card list ── */}
       <div className="md:hidden space-y-4">
         {groups.length > 0 ? groups.map(({ dateKey, dateLabel, games: dayGames }) => (
-          <div key={dateKey}>
+          <div key={dateKey} id={`day-m-${dateKey}`} className="scroll-mt-2">
             {/* Mobile date header */}
             <div className="flex items-center justify-between px-1 mb-2">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{dateLabel}</span>
@@ -505,7 +555,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                     </div>
                     <button
                       onClick={() => setEditingGame(game)}
-                      className="px-4 py-2.5 text-xs text-gray-500 hover:bg-gray-50 active:bg-gray-100"
+                      className="press min-h-11 px-4 text-sm text-gray-600 hover:bg-gray-50 active:bg-gray-100"
                     >
                       Edit
                     </button>
@@ -513,8 +563,9 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                       <button
                         onClick={() => handleDeleteGame(game.id)}
                         disabled={deletingId === game.id}
-                        className="px-3 py-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 active:bg-red-100 disabled:opacity-40"
+                        className="press min-h-11 min-w-11 flex items-center justify-center text-gray-500 hover:text-red-500 hover:bg-red-50 active:bg-red-100 disabled:opacity-40"
                         title="Delete game"
+                        aria-label={`Delete ${game.homeTeamName} vs ${game.awayTeamName}`}
                       >
                         <TrashIcon />
                       </button>
@@ -560,7 +611,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
                 {groups.map(({ dateKey, dateLabel, games: dayGames }) => (
                   <>
                     {/* Date group header */}
-                    <tr key={`header-${dateKey}`} className="bg-gray-50 border-b border-t">
+                    <tr key={`header-${dateKey}`} id={`day-d-${dateKey}`} className="bg-gray-50 border-b border-t">
                       <td colSpan={isAdmin ? (showWeek ? 8 : 7) : (showWeek ? 7 : 6)} className="px-4 py-2">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
@@ -695,6 +746,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
         {shownGame && (
           <EditGameModal
             key={shownGame.id}
+            timezone={timezone}
             game={{
               id: shownGame.id,
               leagueId,

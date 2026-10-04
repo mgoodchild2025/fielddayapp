@@ -8,6 +8,8 @@ import { CalendarDays } from 'lucide-react'
 import { OnboardingChecklist } from '@/components/admin/onboarding-checklist'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { netRevenueSince, type RevenuePaymentRow } from '@/lib/payment-ledger'
+import { getOrgBrandingCached } from '@/lib/org-cache'
+import { parseLocalToUtc } from '@/lib/format-time'
 
 export default async function AdminDashboardPage() {
   const headersList = await headers()
@@ -26,11 +28,18 @@ export default async function AdminDashboardPage() {
     if (m?.role === 'league_admin') redirect('/admin/events')
   }
 
-  // Upcoming events window: now → 7 days out
+  // Upcoming events window: start of TODAY (org time) → 7 days out. From
+  // "now" a game dropped off "Today" the minute it started — exactly when the
+  // organizer is looking for it.
   const nowMs = Date.now()
   const DAY = 24 * 60 * 60 * 1000
   const now7d = new Date(nowMs + 7 * DAY)
   const revenueSince = new Date(nowMs - 30 * DAY).toISOString()
+  const orgTz = (await getOrgBrandingCached(org.id))?.timezone ?? 'America/Toronto'
+  const todayKey = new Intl.DateTimeFormat('en-CA', { timeZone: orgTz }).format(new Date(nowMs))
+  const tomorrowKey = new Date(Date.parse(`${todayKey}T12:00:00Z`) + DAY).toISOString().slice(0, 10)
+  const todayStart = parseLocalToUtc(todayKey, '00:00', orgTz)
+  const todayEnd = parseLocalToUtc(tomorrowKey, '00:00', orgTz)
 
   const [
     { count: leagueCount },
@@ -47,6 +56,8 @@ export default async function AdminDashboardPage() {
     { data: activeOrgWaiver },
     { data: revenueRows },
     { count: activeLeagueCount },
+    { data: tonightGames },
+    { data: tonightSessions },
   ] = await Promise.all([
 
     db.from('leagues').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).is('deleted_at', null).neq('status', 'archived'),
@@ -64,7 +75,7 @@ export default async function AdminDashboardPage() {
       .select('id, scheduled_at, court, status, is_exhibition, home_team:teams!games_home_team_id_fkey(name), away_team:teams!games_away_team_id_fkey(name), league:leagues!games_league_id_fkey(id, name, game_start_time, game_end_time)')
       .eq('organization_id', org.id)
       .eq('status', 'scheduled')
-      .gte('scheduled_at', new Date().toISOString())
+      .gte('scheduled_at', todayStart)
       .lte('scheduled_at', now7d.toISOString())
       .order('scheduled_at', { ascending: true })
       .limit(20),
@@ -74,7 +85,7 @@ export default async function AdminDashboardPage() {
       .select('id, scheduled_at, duration_minutes, capacity, league:leagues!event_sessions_league_id_fkey(id, name, game_start_time, game_end_time)')
       .eq('organization_id', org.id)
       .eq('status', 'open')
-      .gte('scheduled_at', new Date().toISOString())
+      .gte('scheduled_at', todayStart)
       .lte('scheduled_at', now7d.toISOString())
       .order('scheduled_at', { ascending: true })
       .limit(10),
@@ -120,6 +131,20 @@ export default async function AdminDashboardPage() {
 
     // The "Active" stat counts what the Active Events list shows (open + active).
     db.from('leagues').select('*', { count: 'exact', head: true }).eq('organization_id', org.id).is('deleted_at', null).in('status', ['registration_open', 'active']),
+
+    // ── Tonight: today's games + sessions (org time), for the game-night card.
+    db.from('games')
+      .select('id, scheduled_at, league_id, league:leagues!games_league_id_fkey(id, name), game_results(home_score, status)')
+      .eq('organization_id', org.id)
+      .not('status', 'in', '(cancelled,postponed)')
+      .gte('scheduled_at', todayStart)
+      .lt('scheduled_at', todayEnd),
+    db.from('event_sessions')
+      .select('id, league_id, league:leagues!event_sessions_league_id_fkey(id, name)')
+      .eq('organization_id', org.id)
+      .neq('status', 'cancelled')
+      .gte('scheduled_at', todayStart)
+      .lt('scheduled_at', todayEnd),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -240,7 +265,7 @@ export default async function AdminDashboardPage() {
       label: 'score' + (pendingScores.length !== 1 ? 's' : '') + ' awaiting confirmation',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       detail: leagueNamesOf(pendingScores, (r: any) => (Array.isArray(r.game) ? r.game[0] : r.game)?.league),
-      href: scoreLeague ? `/admin/events/${scoreLeague}/schedule` : '/admin/events',
+      href: scoreLeague ? `/admin/events/${scoreLeague}/schedule?filter=pending` : '/admin/events',
     },
     {
       count: pendingMedia.length,
@@ -264,9 +289,47 @@ export default async function AdminDashboardPage() {
     },
   ].filter((a) => a.count > 0)
 
+  // ── Tonight card ──────────────────────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tGames = (tonightGames ?? []) as any[]
+  const tonightEvents = new Map<string, string>()
+  for (const r of [...tGames, ...((tonightSessions ?? []) as typeof tGames)]) {
+    const l = Array.isArray(r.league) ? r.league[0] : r.league
+    if (l?.id) tonightEvents.set(l.id, l.name)
+  }
+  const tonightUnscored = tGames.filter((g) => {
+    const res = Array.isArray(g.game_results) ? g.game_results[0] : g.game_results
+    return new Date(g.scheduled_at).getTime() <= nowMs && (!res || res.home_score === null)
+  }).length
+  const tonightSessionCount = (tonightSessions ?? []).length
+  const onlyEvent = tonightEvents.size === 1 ? [...tonightEvents.keys()][0] : null
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">{org.name} — Dashboard</h1>
+
+      {/* ── Tonight: game-night shortcuts, first thing on a game day ───────── */}
+      {tonightEvents.size > 0 && (
+        <div className="mb-6 rounded-xl border-2 border-brand-primary/30 bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-primary">Today</p>
+          <p className="mt-0.5 text-sm text-gray-700">
+            {[
+              tGames.length > 0 && `${tGames.length} game${tGames.length !== 1 ? 's' : ''}`,
+              tonightSessionCount > 0 && `${tonightSessionCount} session${tonightSessionCount !== 1 ? 's' : ''}`,
+            ].filter(Boolean).join(' · ')}
+            {tonightUnscored > 0 && <span className="font-semibold text-orange-700"> · {tonightUnscored} need{tonightUnscored === 1 ? 's' : ''} a score</span>}
+            <span className="text-gray-500"> · {[...tonightEvents.values()].slice(0, 2).join(', ')}{tonightEvents.size > 2 ? ` +${tonightEvents.size - 2}` : ''}</span>
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Link href="/admin/courtside" className="press flex items-center justify-center gap-1.5 min-h-12 rounded-lg bg-brand-primary text-on-brand text-base font-semibold">
+              ⏱ Courtside
+            </Link>
+            <Link href={onlyEvent ? `/admin/events/${onlyEvent}/checkin` : '/admin/courtside'} className="press flex items-center justify-center gap-1.5 min-h-12 rounded-lg border text-base font-semibold text-gray-800 hover:bg-gray-50">
+              ✓ Check-in
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* ── Action center: what needs you today ─────────────────────────────── */}
       <div className="mb-6 rounded-xl border bg-white overflow-hidden">
@@ -427,7 +490,7 @@ export default async function AdminDashboardPage() {
                     {items.slice(0, 3).map((item) => (
                       <Link
                         key={item.id}
-                        href={`/admin/events/${item.leagueId}/schedule`}
+                        href={`/admin/events/${item.leagueId}/${item.type === 'session' ? 'sessions' : 'schedule'}`}
                         className="flex items-center gap-3 group"
                       >
                         <span className={`shrink-0 w-1 h-full min-h-[1.5rem] rounded-full ${item.type === 'session' ? 'bg-orange-400' : 'bg-[var(--brand-primary)]'}`} />

@@ -1,5 +1,7 @@
 'use client'
 
+import { parseLocalToUtc } from '@/lib/format-time'
+
 import { useState, useTransition } from 'react'
 import { updateGame, deleteGame, cancelGame, postponeGame, restoreGame } from '@/actions/schedule'
 import { venueLabel } from '@/lib/venue-label'
@@ -36,21 +38,28 @@ interface Props {
   onClose: () => void
   onDeleted: () => void
   onStatusChanged?: (gameId: string, newStatus: string, reason: string | null) => void
+  /** Org display timezone — the time field is in org time, not the phone's. */
+  timezone: string
 }
 
-function toLocalDatetimeValue(utcIso: string): string {
-  const d = new Date(utcIso)
-  // Format as YYYY-MM-DDTHH:mm for datetime-local input (browser local time)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+// The datetime-local input shows and edits the time in the ORG's timezone.
+// It used the phone's own timezone, so an admin travelling (or with a phone
+// set to another zone) saw the wrong time and saving shifted the game.
+function toOrgDatetimeValue(utcIso: string, timeZone: string): string {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(new Date(utcIso)).map((p) => [p.type, p.value]),
+  )
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`
 }
 
-export function EditGameModal({ game, teams, pools = [], sport, onClose, onDeleted, onStatusChanged }: Props) {
+export function EditGameModal({ game, teams, pools = [], sport, onClose, onDeleted, onStatusChanged, timezone }: Props) {
   const [homeTeamId, setHomeTeamId] = useState(game.homeTeamId ?? '')
   const [awayTeamId, setAwayTeamId] = useState(game.awayTeamId ?? '')
   const [homeTeamLabel, setHomeTeamLabel] = useState(game.homeTeamLabel ?? '')
   const [awayTeamLabel, setAwayTeamLabel] = useState(game.awayTeamLabel ?? '')
-  const [scheduledAt, setScheduledAt] = useState(toLocalDatetimeValue(game.scheduledAt))
+  const [scheduledAt, setScheduledAt] = useState(toOrgDatetimeValue(game.scheduledAt, timezone))
   const [court, setCourt] = useState(game.court ?? '')
   const [weekNumber, setWeekNumber] = useState(game.weekNumber?.toString() ?? '')
   const [poolId, setPoolId] = useState(game.poolId ?? '')
@@ -76,7 +85,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
         awayTeamId: awayTeamId || undefined,
         homeTeamLabel: homeTeamLabel || undefined,
         awayTeamLabel: awayTeamLabel || undefined,
-        scheduledAt: new Date(scheduledAt).toISOString(),
+        scheduledAt: parseLocalToUtc(scheduledAt.slice(0, 10), scheduledAt.slice(11, 16), timezone),
         court: court || undefined,
         weekNumber: weekNumber ? Number(weekNumber) : undefined,
         poolId: poolId || null,
