@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { loadCart, saveCartItem, deleteCartItem, clearCartItems } from '@/actions/cart'
+import { undoableRemove } from '@/components/ui/use-undoable-remove'
 
 // ── Public CartItem type ───────────────────────────────────────────────────────
 
@@ -28,6 +29,8 @@ type CartContextValue = {
   removeItem: (index: number)  => void
   updateQty:  (index: number, qty: number) => void
   clearCart:  () => void
+  /** The drawer's "Clear cart": empties now, Undo for a few seconds. */
+  clearCartWithUndo: () => void
   totalCents: number
   totalCount: number
   isOpen:     boolean
@@ -145,6 +148,23 @@ export function CartProvider({ userId, children }: { userId: string | null; chil
     dbClear().catch(console.error)
   }, [dbClear])
 
+  // Deletes only the rows that were in the cart when Clear was tapped, so an
+  // item added during the Undo window survives.
+  const clearCartWithUndo = useCallback(() => {
+    const snapshot = itemsRef.current
+    if (snapshot.length === 0) return
+    const keyOf = (c: StoredItem) => `${c.itemId}:${c.variantId ?? 'none'}`
+    setItems([])
+    undoableRemove({
+      label: 'Cart cleared',
+      restore: () => setItems((prev) => [...snapshot.filter((c) => !prev.some((p) => keyOf(p) === keyOf(c))), ...prev]),
+      commit: async () => {
+        await Promise.all(snapshot.filter((c) => c.cartItemId).map((c) => dbDelete(c.cartItemId!)))
+        return { error: null }
+      },
+    })
+  }, [dbDelete])
+
   // ── Derived values ─────────────────────────────────────────────────────────
 
   const totalCents = items.reduce((s, c) => s + c.unitPriceCents * c.quantity, 0)
@@ -154,7 +174,7 @@ export function CartProvider({ userId, children }: { userId: string | null; chil
   return (
     <CartContext.Provider value={{
       items: publicItems, isLoading,
-      addItem, removeItem, updateQty, clearCart,
+      addItem, removeItem, updateQty, clearCart, clearCartWithUndo,
       totalCents, totalCount,
       isOpen, openCart: () => setIsOpen(true), closeCart: () => setIsOpen(false),
     }}>

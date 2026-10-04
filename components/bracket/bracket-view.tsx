@@ -11,6 +11,7 @@ import { formatGameTime } from '@/lib/format-time'
 import { BracketTimezoneContext, useBracketTimezone } from './bracket-timezone'
 import { useLiveScore, useLiveScores } from '@/lib/use-live-scores'
 import { ScoreTick } from '@/components/scoreboard/score-tick'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 /** Compact venue-time label for a bracket match, e.g. "Sat, Aug 15, 6:00 p.m." */
 function fmtMatchTime(iso: string, timezone: string): string {
@@ -569,9 +570,20 @@ function MatchCard({
         {!swapMode && isAdmin && isCompleted && !match.gameId && (
           <div className="border-t">
             <button
-              onClick={() => runManual(() => clearBracketMatchResult({ matchId: match.id, bracketId, leagueId }))}
+              onClick={async () => {
+                // Cascades: pulls the advanced teams back out of later rounds.
+                if (!(await confirmAction({
+                  title: isDeclared ? 'Undo this result?' : 'Clear this result?',
+                  message: isDeclared
+                    ? 'The winner is pulled back out of the next match.'
+                    : 'The score is removed and both teams are pulled back out of later matches.',
+                  confirmLabel: 'Clear result',
+                  destructive: true,
+                }))) return
+                runManual(() => clearBracketMatchResult({ matchId: match.id, bracketId, leagueId }))
+              }}
               disabled={isManualPending}
-              className="w-full px-3 py-1.5 text-[10px] font-medium text-center text-gray-400 hover:bg-gray-50 hover:text-red-600 transition-colors disabled:opacity-50"
+              className="press w-full px-3 min-h-10 text-xs font-medium text-center text-gray-500 hover:bg-gray-50 hover:text-red-600 disabled:opacity-50"
               title={isDeclared ? 'Undo the declared result and pull the winner back' : 'Remove the score and pull the teams back out of later matches'}
             >
               ↺ Clear result

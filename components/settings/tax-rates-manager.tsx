@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createTaxRate, deactivateTaxRate, type TaxRateInput } from '@/actions/tax-rates'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 /**
  * Sales-tax rates (X1): the org defines its rates once; every checkout
@@ -45,11 +46,20 @@ export function TaxRatesManager({ rates }: { rates: TaxRateRow[] }) {
     })
   }
 
-  function remove(id: string) {
+  async function remove(r: TaxRateRow) {
+    // Can't be switched back on (Stripe rates are immutable) — re-adding
+    // creates a new rate, so ask first.
+    if (!(await confirmAction({
+      title: `Stop charging ${r.displayName}?`,
+      message: `New charges stop including ${r.displayName} ${r.percentage}% straight away. To charge it again you'll need to add the rate again.`,
+      confirmLabel: 'Deactivate',
+      destructive: true,
+    }))) return
+    const id = r.id
     setErr(null)
     startTransition(async () => {
-      const r = await deactivateTaxRate(id)
-      if (r.error) { setErr(r.error); return }
+      const res = await deactivateTaxRate(id)
+      if (res.error) { setErr(res.error); return }
       router.refresh()
     })
   }
@@ -70,15 +80,15 @@ export function TaxRatesManager({ rates }: { rates: TaxRateRow[] }) {
             <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
               <span>
                 <span className="font-semibold">{r.displayName} {r.percentage}%</span>
-                <span className="ml-2 text-xs text-gray-400">
+                <span className="ml-2 text-xs text-gray-500">
                   {SCOPE_LABEL[r.appliesTo] ?? r.appliesTo} · {r.inclusive ? 'included in prices' : 'added at checkout'}
                 </span>
               </span>
               <button
                 type="button"
-                onClick={() => remove(r.id)}
+                onClick={() => remove(r)}
                 disabled={isPending}
-                className="text-xs text-gray-400 hover:text-red-600 disabled:opacity-50"
+                className="press shrink-0 min-h-10 px-2 text-xs text-gray-500 hover:text-red-600 disabled:opacity-50"
               >
                 Deactivate
               </button>

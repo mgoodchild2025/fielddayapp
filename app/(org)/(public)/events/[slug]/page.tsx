@@ -953,6 +953,10 @@ export default async function EventDetailPage({
     (registeredTeamCount ?? 0) >= maxTeams
 
   // Urgency: ≤30% of spots remaining
+  // A one-day tournament stores the same start and end — show it once.
+  const endDate = league.season_end_date && league.season_end_date.slice(0, 10) !== league.season_start_date?.slice(0, 10)
+    ? league.season_end_date
+    : null
   const teamSpotsLeft   = maxTeams        !== null ? maxTeams        - (registeredTeamCount  ?? 0) : null
   const playerSpotsLeft = (!isSessionBased && maxParticipants !== null) ? maxParticipants - (registeredPlayerCount ?? 0) : null
   const teamUrgent   = !teamsAtCapacity  && teamSpotsLeft   !== null && maxTeams        !== null && teamSpotsLeft   <= Math.ceil(maxTeams        * 0.30)
@@ -1582,8 +1586,8 @@ export default async function EventDetailPage({
             )}
             {league.season_start_date && (
               <span className="text-sm opacity-70">
-                {formatDateOnly(league.season_start_date, { month: 'short', day: 'numeric', timeZone: 'UTC' })}
-                {league.season_end_date ? ` – ${formatDateOnly(league.season_end_date, { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+                {formatDateOnly(league.season_start_date, endDate ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' })}
+                {endDate ? ` – ${formatDateOnly(endDate, { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
               </span>
             )}
             {((league.status === 'registration_open' && !teamsAtCapacity) || isOrgAdmin) && (
@@ -1629,7 +1633,7 @@ export default async function EventDetailPage({
                 {league.season_start_date && (
                   <span>
                     {formatDateOnly(league.season_start_date, { month: 'short', day: 'numeric', year: 'numeric' })}
-                    {league.season_end_date && ` – ${formatDateOnly(league.season_end_date, { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                    {endDate && ` – ${formatDateOnly(endDate, { month: 'short', day: 'numeric', year: 'numeric' })}`}
                   </span>
                 )}
                 {league.age_group && <span>{league.age_group}</span>}
@@ -1745,11 +1749,11 @@ export default async function EventDetailPage({
                   </p>
                 </div>
               )}
-              {league.season_end_date && (
+              {endDate && (
                 <div className="bg-white rounded-lg border p-4">
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Season End</p>
                   <p className="font-semibold mt-1">
-                    {formatDateOnly(league.season_end_date, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {formatDateOnly(endDate, { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
                 </div>
               )}
