@@ -245,7 +245,9 @@ export function RegistrationFlow({
       advanceStep(3)
     } else if (isPerTeam) {
       if (isPlayer && playerTeamId) {
-        // Player already on a team via invite — activate and skip team-join
+        // Player already on a team via invite — activate and skip team-join.
+        // Show "Completing registration…" during the round trip (taps repeated).
+        setCompleting(true)
         await activateRegistration(rid!)
         // If they arrived via an invite link, land on their team page
         if (initialTeamCode) {
@@ -262,7 +264,9 @@ export function RegistrationFlow({
         } else {
           // New captain creating their own team (no pre-assigned team), or free league.
           // Activate now; team page handles team creation / any team-level payment.
+          setCompleting(true)
           await activateRegistration(rid!)
+          setCompleting(false)
           advanceStep(3)
         }
       } else {
@@ -319,6 +323,14 @@ export function RegistrationFlow({
             </div>
           )}
 
+          {/* Every session full: say so (and where to go) instead of a list of
+              greyed-out cards with no explanation. */}
+          {dropInSessions.length > 0 && dropInSessions.every((sess) => sess.capacity !== null && sess.registered_count >= sess.capacity) && (
+            <div role="status" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="font-semibold">All upcoming sessions are full</p>
+              <p className="mt-0.5 text-amber-800">Spots open up when players leave — check back, or contact the organizer.</p>
+            </div>
+          )}
           <div className="space-y-3">
             {dropInSessions.map(session => {
               const date = new Date(session.scheduled_at)
@@ -622,6 +634,7 @@ export function RegistrationFlow({
             initialTeamCode={initialTeamCode}
             onComplete={async (teamId?: string) => {
               // Activate registration now that the player has joined (or skipped) team selection
+              setCompleting(true)
               if (registrationId) await activateRegistration(registrationId)
               // If the player arrived via an invite link and we know the team, send them there
               if (teamId && initialTeamCode) {

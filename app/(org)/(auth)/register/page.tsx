@@ -9,15 +9,14 @@ import { signUp } from '@/actions/auth'
 import Link from 'next/link'
 import { GoogleAuthButton } from '@/components/auth/google-auth-button'
 import { safeRelativePath } from '@/lib/safe-redirect'
+import { Eye, EyeOff } from 'lucide-react'
 
+// One password field with a show toggle instead of "confirm password": typing
+// it twice on a phone keyboard is the friction, and seeing it is the check.
 const schema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  confirm_password: z.string(),
-}).refine((d) => d.password === d.confirm_password, {
-  message: 'Passwords do not match',
-  path: ['confirm_password'],
 })
 
 type FormData = z.infer<typeof schema>
@@ -25,15 +24,17 @@ type FormData = z.infer<typeof schema>
 export default function RegisterPage() {
   const [serverError, setServerError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const [sentTo, setSentTo] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
 
   const searchParams = useSearchParams()
   // Only allow relative paths to prevent open redirect
   const redirectParam = searchParams.get('redirect') ?? ''
   const redirectTo = safeRelativePath(redirectParam) ?? ''
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
+    mode: 'onTouched',
   })
 
   async function onSubmit(data: FormData) {
@@ -45,19 +46,29 @@ export default function RegisterPage() {
       setServerError(result.error)
       setLoading(false)
     } else {
-      setSuccess(true)
+      setSentTo(data.email)
+      setLoading(false)
     }
   }
 
-  if (success) {
+  if (sentTo) {
     return (
       <div className="min-h-dvh flex items-center justify-center px-4" style={{ backgroundColor: 'var(--brand-bg)' }}>
         <div className="text-center max-w-md">
           <div className="text-5xl mb-4">✓</div>
           <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--brand-heading-font)' }}>Check your email</h1>
           <p className="text-gray-600">
-            We sent a confirmation link to your email address. Click it to activate your account.
+            We sent a confirmation link to <strong className="text-gray-900 break-all">{sentTo}</strong>. Tap it to activate your account
+            {redirectTo ? ' — it brings you straight back here.' : '.'}
           </p>
+          <p className="mt-3 text-sm text-gray-500">Not there in a minute? Check your spam or promotions folder.</p>
+          <button
+            type="button"
+            onClick={() => { setSentTo(null); reset({ full_name: '', email: '', password: '' }) }}
+            className="press mt-4 inline-flex items-center min-h-11 px-4 rounded-md border text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+          >
+            Wrong address? Start over
+          </button>
         </div>
       </div>
     )
@@ -86,8 +97,6 @@ export default function RegisterPage() {
           {[
             { id: 'full_name', label: 'Full Name', type: 'text', autoComplete: 'name' },
             { id: 'email', label: 'Email', type: 'email', autoComplete: 'email' },
-            { id: 'password', label: 'Password', type: 'password', autoComplete: 'new-password' },
-            { id: 'confirm_password', label: 'Confirm Password', type: 'password', autoComplete: 'new-password' },
           ].map(({ id, label, type, autoComplete }) => (
             <div key={id}>
               <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor={id}>{label}</label>
@@ -96,18 +105,44 @@ export default function RegisterPage() {
                 id={id}
                 type={type}
                 autoComplete={autoComplete}
+                autoCapitalize={id === 'email' ? 'none' : 'words'}
+                aria-invalid={errors[id as keyof FormData] ? true : undefined}
                 className="w-full border rounded-md px-3 py-2 text-base focus:outline-none focus:ring-2"
               />
               {errors[id as keyof FormData] && (
-                <p className="text-red-500 text-xs mt-1">{errors[id as keyof FormData]?.message}</p>
+                <p className="text-red-600 text-xs mt-1">{errors[id as keyof FormData]?.message}</p>
               )}
             </div>
           ))}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">Password</label>
+            <div className="relative">
+              <input
+                {...register('password')}
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                aria-invalid={errors.password ? true : undefined}
+                aria-describedby="password-hint"
+                className="w-full border rounded-md px-3 py-2 pr-11 text-base focus:outline-none focus:ring-2"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute inset-y-0 right-0 flex items-center justify-center w-11 text-gray-500 hover:text-gray-700"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            {errors.password
+              ? <p className="text-red-600 text-xs mt-1">{errors.password.message}</p>
+              : <p id="password-hint" className="text-gray-500 text-xs mt-1">At least 8 characters.</p>}
+          </div>
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-md font-semibold text-white transition-opacity disabled:opacity-60"
-            style={{ backgroundColor: 'var(--brand-primary)' }}
+            className="press w-full min-h-11 rounded-md font-semibold bg-brand-primary text-on-brand disabled:opacity-60"
           >
             {loading ? 'Creating account…' : 'Create Account'}
           </button>

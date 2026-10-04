@@ -1,5 +1,7 @@
 'use client'
 
+import { formatDollars } from '@/lib/money'
+
 interface Props {
   leagueName: string
   priceCents: number
@@ -8,7 +10,7 @@ interface Props {
 }
 
 export function Step0RoleSelect({ leagueName, priceCents, teamsAtCapacity = false, onSelect }: Props) {
-  const price = priceCents > 0 ? `$${(priceCents / 100).toFixed(0)}` : null
+  const price = priceCents > 0 ? formatDollars(priceCents) : null
 
   return (
     <div className="space-y-4">
