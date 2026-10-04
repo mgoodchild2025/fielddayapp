@@ -9,7 +9,7 @@ import { CaptainCheckinButton } from '@/components/checkin/captain-checkin-butto
 type State =
   | { phase: 'idle' }
   | { phase: 'loading' }
-  | { phase: 'done'; icon: string; heading: string; body: string; success: boolean }
+  | { phase: 'done'; icon: string; heading: string; body: string; success: boolean; retry?: boolean }
 
 interface Props {
   leagueId: string
@@ -39,12 +39,21 @@ export function SelfCheckinClient({
     setState({ phase: 'loading' })
 
     startTransition(async () => {
-      const result = await checkInSelfForEvent(leagueId)
+      // A dropped connection at the door used to leave the spinner up for good
+      // — show the failure and let them try again.
+      let result: Awaited<ReturnType<typeof checkInSelfForEvent>>
+      try {
+        result = await checkInSelfForEvent(leagueId)
+      } catch {
+        setState({ phase: 'done', icon: '📶', heading: "Couldn't reach the server", body: 'Check your connection and try again.', success: false, retry: true })
+        return
+      }
 
       let icon: string
       let heading: string
       let body: string
       let success = false
+      let retry = false
 
       if (result.status === 'success') {
         icon = '✅'
@@ -70,10 +79,11 @@ export function SelfCheckinClient({
       } else {
         icon = '⚠️'
         heading = 'Something went wrong'
-        body = 'Please see the event staff.'
+        body = 'Try again, or see the event staff.'
+        retry = true
       }
 
-      setState({ phase: 'done', icon, heading, body, success })
+      setState({ phase: 'done', icon, heading, body, success, retry })
     })
   }
 
@@ -116,8 +126,17 @@ export function SelfCheckinClient({
               </h1>
               <p className="text-sm text-gray-500 mt-1 leading-relaxed">{state.body}</p>
             </div>
+            {state.retry && (
+              <button
+                type="button"
+                onClick={handleCheckin}
+                className="press w-full min-h-11 rounded-xl text-base font-semibold bg-brand-primary text-on-brand"
+              >
+                Try again
+              </button>
+            )}
             <div className="pt-2 border-t border-gray-100">
-              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{leagueName}</p>
+              <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">{leagueName}</p>
             </div>
             <Link
               href="/schedule"

@@ -11,13 +11,15 @@ interface Props {
 }
 
 export function ShopClient({ items }: Props) {
-  const { addItem, openCart } = useCart()
+  const { addItem, openCart, totalCount } = useCart()
   const [addedKey, setAddedKey] = useState<string | null>(null)
 
   function handleAddToCart(item: CartItem) {
     // Only auto-open the cart drawer when the cart was previously empty;
     // subsequent additions just flash "Added ✓" so the user can keep browsing.
-    const wasEmpty = items.length === 0
+    // (It checked the shop's item list, which is never empty here — so the
+    // drawer never opened.)
+    const wasEmpty = totalCount === 0
     addItem(item)
     const key = `${item.itemId}:${item.variantId ?? 'none'}`
     setAddedKey(key)

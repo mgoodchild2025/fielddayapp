@@ -6,6 +6,7 @@ import { updateLeague } from '@/actions/events'
 import { RichTextEditor } from '@/components/ui/rich-text-editor'
 import { PaymentMethodsField } from '@/components/events/payment-methods-field'
 import { sanitizeMethods, type PaymentMethod } from '@/lib/payment-methods'
+import { utcToLocalInput } from '@/lib/format-time'
 
 interface League {
   id: string
@@ -80,6 +81,8 @@ interface Props {
   waivers: Waiver[]
   ruleTemplates: RuleTemplate[]
   hasEarlyBird?: boolean
+  /** Org display timezone — the datetime fields are org wall-clock time. */
+  timeZone: string
 }
 
 const SPORTS = [
@@ -103,8 +106,11 @@ function toDateInput(iso: string | null) {
   return iso ? iso.slice(0, 10) : ''
 }
 
-function toDateTimeInput(iso: string | null) {
-  return iso ? iso.slice(0, 16) : ''
+// datetime-local fields show the ORG's wall-clock time (the save converts them
+// back from org time). iso.slice(0,16) showed UTC, so every save — even one that
+// only changed the price — moved these times by the UTC offset.
+function toDateTimeInput(iso: string | null, timeZone: string) {
+  return utcToLocalInput(iso, timeZone)
 }
 
 const DAYS = [
@@ -128,7 +134,7 @@ const OFFICIATED_OPTIONS = [
   { value: 'referee', label: 'Referee' },
 ] as const
 
-export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = false }: Props) {
+export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = false, timeZone }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -455,7 +461,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
                 <input
                   name="early_bird_deadline"
                   type="datetime-local"
-                  defaultValue={toDateTimeInput(league.early_bird_deadline)}
+                  defaultValue={toDateTimeInput(league.early_bird_deadline, timeZone)}
                   className="input w-full"
                 />
               </Field>
@@ -645,10 +651,10 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Registration opens">
-            <input name="registration_opens_at" type="datetime-local" defaultValue={toDateTimeInput(league.registration_opens_at)} className="input w-full" />
+            <input name="registration_opens_at" type="datetime-local" defaultValue={toDateTimeInput(league.registration_opens_at, timeZone)} className="input w-full" />
           </Field>
           <Field label="Registration closes">
-            <input name="registration_closes_at" type="datetime-local" defaultValue={toDateTimeInput(league.registration_closes_at)} className="input w-full" />
+            <input name="registration_closes_at" type="datetime-local" defaultValue={toDateTimeInput(league.registration_closes_at, timeZone)} className="input w-full" />
           </Field>
         </div>
 

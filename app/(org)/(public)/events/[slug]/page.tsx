@@ -1583,8 +1583,7 @@ export default async function EventDetailPage({
             {league.season_start_date && (
               <span className="text-sm opacity-70">
                 {formatDateOnly(league.season_start_date, { month: 'short', day: 'numeric', timeZone: 'UTC' })}
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {(league as any).end_date ? ` – ${new Date((league as any).end_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}` : ''}
+                {league.season_end_date ? ` – ${formatDateOnly(league.season_end_date, { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
               </span>
             )}
             {((league.status === 'registration_open' && !teamsAtCapacity) || isOrgAdmin) && (
@@ -1595,7 +1594,7 @@ export default async function EventDetailPage({
                 )}
               </>
             )}
-            {teamsAtCapacity && !isOrgAdmin && (
+            {teamsAtCapacity && !isOrgAdmin && (league.status === 'registration_open' || league.status === 'active') && (
               <span className="text-sm text-amber-300 font-medium">🙋 Players can still join a team</span>
             )}
           </div>
@@ -1777,7 +1776,7 @@ export default async function EventDetailPage({
                       <p className="text-xs text-amber-600 mt-0.5">out of {maxTeams} total</p>
                     </>
                   ) : (
-                    <p className="font-semibold mt-1">{maxTeams} team spots available</p>
+                    <p className="font-semibold mt-1">{teamSpotsLeft ?? maxTeams} of {maxTeams} team spots left</p>
                   )}
                 </div>
               )}
@@ -1793,7 +1792,7 @@ export default async function EventDetailPage({
                       <p className="text-xs text-amber-600 mt-0.5">out of {maxParticipants} total</p>
                     </>
                   ) : (
-                    <p className="font-semibold mt-1">{maxParticipants} spots available</p>
+                    <p className="font-semibold mt-1">{playerSpotsLeft ?? maxParticipants} of {maxParticipants} spots left</p>
                   )}
                 </div>
               )}
@@ -2450,7 +2449,7 @@ export default async function EventDetailPage({
                   {allBracketData.length > 1 && (
                     <h2 className="text-lg font-bold mb-4 px-1">{bracket.name}</h2>
                   )}
-                  <BracketView bracket={bracket} leagueId={league.id} />
+                  <BracketView bracket={bracket} leagueId={league.id} timezone={timezone} />
                 </div>
               ))
             )}

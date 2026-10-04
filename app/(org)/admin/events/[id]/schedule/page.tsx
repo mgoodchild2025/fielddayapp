@@ -193,10 +193,10 @@ export default async function AdminSchedulePage({ params, searchParams }: { para
             <WeekPhasesEditor leagueId={id} initialPhases={weekPhaseList} maxGameWeek={maxGameWeek} />
           )}
           <RoundRobinGenerator leagueId={id} teamCount={(teams ?? []).length} maxTeams={maxParticipants} sport={sport} />
-          <AddGameForm leagueId={id} sport={sport} teams={teams ?? []} pools={pools ?? []} />
+          <AddGameForm leagueId={id} sport={sport} teams={teams ?? []} pools={pools ?? []} timezone={timezone} />
           <DelayScheduleControl leagueId={id} mode="games" />
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <InsertBreakForm leagueId={id} gameTimes={(mappedGames as any[]).map((g: any) => g.scheduledAt as string).filter(Boolean)} />
+          <InsertBreakForm leagueId={id} timezone={timezone} gameTimes={(mappedGames as any[]).map((g: any) => g.scheduledAt as string).filter(Boolean)} />
           {canImportCsv
             ? <ScheduleImport leagueId={id} sport={sport} pools={pools ?? []} />
             : (

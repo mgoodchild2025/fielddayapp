@@ -50,6 +50,8 @@ const DEFAULT_SECTION_ORDER = ['events', 'about', 'staff', 'sponsors']
 const TIER_ORDER = ['gold', 'silver', 'bronze', 'standard']
 
 interface ClubHomeProps {
+  /** Schedule/standings need sign-in: visitors get a Sign in link instead. */
+  signedIn?: boolean
   org: OrgContext & { name: string; slug: string }
   branding: Branding | null
   heroContent: { headline?: string; subheadline?: string; cta_label?: string; cta_href?: string }
@@ -122,7 +124,7 @@ function StaffRow({ staff }: { staff: StaffMember[] }) {
   )
 }
 
-export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, staff, openEvents, inSeasonEvents, upcomingEvents, timezone, spotsMap, sectionLayout }: ClubHomeProps) {
+export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, staff, openEvents, inSeasonEvents, upcomingEvents, timezone, spotsMap, sectionLayout, signedIn = false }: ClubHomeProps) {
   const headline    = heroContent.headline    || org.name
   const subheadline = heroContent.subheadline || branding?.tagline || null
   const ctaLabel    = heroContent.cta_label   || 'Register Now'
@@ -269,10 +271,10 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
               >
                 {ctaLabel}
               </Link>
-              <Link href="/schedule"
-                className="px-6 py-2.5 rounded-md font-semibold text-sm bg-white/15 text-white hover:bg-white/25 transition-colors"
+              <Link href={signedIn ? '/schedule' : '/login?redirect=%2Fschedule'}
+                className="press px-6 py-2.5 rounded-md font-semibold text-sm bg-white/15 text-white hover:bg-white/25"
               >
-                View Schedule
+                {signedIn ? 'View Schedule' : 'Sign in'}
               </Link>
             </div>
             <HeroSocialLinks social={branding} />
@@ -284,7 +286,10 @@ export function ClubHome({ org, branding, heroContent, aboutContent, sponsors, s
       <div className="border-b bg-white">
         <div className="max-w-5xl mx-auto px-6">
           <div className="flex overflow-x-auto gap-0 -mb-px">
-            {[{ href: '/events', label: 'Events' }, { href: '/schedule', label: 'Schedule' }, { href: '/standings', label: 'Standings' }].map(({ href, label }) => (
+            {(signedIn
+              ? [{ href: '/events', label: 'Events' }, { href: '/schedule', label: 'Schedule' }, { href: '/standings', label: 'Standings' }]
+              : [{ href: '/events', label: 'Events' }, { href: '/login?redirect=%2Fschedule', label: 'Sign in' }]
+            ).map(({ href, label }) => (
               <Link key={href} href={href}
                 className="shrink-0 px-5 py-3.5 text-sm font-medium text-gray-500 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors"
               >

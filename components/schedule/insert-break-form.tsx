@@ -1,5 +1,7 @@
 'use client'
 
+import { parseLocalToUtc } from '@/lib/format-time'
+
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { insertBreak } from '@/actions/schedule'
@@ -9,9 +11,11 @@ interface Props {
   leagueId: string
   /** Array of scheduled_at UTC ISO strings for all existing games (for preview count) */
   gameTimes: string[]
+  /** Org timezone: the break time is org wall-clock. */
+  timezone: string
 }
 
-export function InsertBreakForm({ leagueId, gameTimes }: Props) {
+export function InsertBreakForm({ leagueId, gameTimes, timezone }: Props) {
   const router = useRouter()
   const [breakAt, setBreakAt] = useState('')
   const [duration, setDuration] = useState(60)
@@ -21,9 +25,9 @@ export function InsertBreakForm({ leagueId, gameTimes }: Props) {
   // Count how many games would shift (scheduled_at >= breakAt)
   const affectedCount = useMemo(() => {
     if (!breakAt) return 0
-    const breakUtc = new Date(breakAt).toISOString()
-    return gameTimes.filter(t => t >= breakUtc).length
-  }, [breakAt, gameTimes])
+    const breakUtc = parseLocalToUtc(breakAt.slice(0, 10), breakAt.slice(11, 16), timezone)
+    return gameTimes.filter(t => new Date(t).getTime() >= new Date(breakUtc).getTime()).length
+  }, [breakAt, gameTimes, timezone])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -32,7 +36,8 @@ export function InsertBreakForm({ leagueId, gameTimes }: Props) {
     setLoading(true)
     setError(null)
 
-    const breakAtUtc = new Date(breakAt).toISOString()
+    // Org wall-clock → UTC with the org timezone, not the phone's.
+    const breakAtUtc = parseLocalToUtc(breakAt.slice(0, 10), breakAt.slice(11, 16), timezone)
     const result = await insertBreak({ leagueId, breakAt: breakAtUtc, durationMinutes: duration })
 
     setLoading(false)

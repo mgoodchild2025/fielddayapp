@@ -1,5 +1,7 @@
 'use client'
 
+import { parseLocalToUtc } from '@/lib/format-time'
+
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -35,9 +37,11 @@ interface Props {
   sport?: string
   teams: { id: string; name: string }[]
   pools?: { id: string; name: string }[]
+  /** Org timezone: the date/time field is org wall-clock, not the phone's. */
+  timezone: string
 }
 
-export function AddGameForm({ leagueId, sport, teams, pools = [] }: Props) {
+export function AddGameForm({ leagueId, sport, teams, pools = [], timezone }: Props) {
   const [loading, setLoading] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
 
@@ -53,9 +57,11 @@ export function AddGameForm({ leagueId, sport, teams, pools = [] }: Props) {
   async function onSubmit(data: FormData) {
     setLoading(true)
     setServerError(null)
-    // Convert datetime-local string (treated as local time by the browser) to UTC ISO
+    // The datetime-local value is the ORG's wall-clock time — convert with the
+    // org timezone (new Date(value) used the phone's, so an admin on a phone
+    // set to another zone, or travelling, put the game at the wrong time).
     const scheduledAtUtc = data.scheduledAt
-      ? new Date(data.scheduledAt).toISOString()
+      ? parseLocalToUtc(data.scheduledAt.slice(0, 10), data.scheduledAt.slice(11, 16), timezone)
       : data.scheduledAt
     const result = await addGame({
       leagueId,

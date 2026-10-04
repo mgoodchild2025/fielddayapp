@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { getCurrentOrg } from '@/lib/tenant'
+import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { PaymentsTable } from '@/components/admin/payments-table'
@@ -190,7 +190,7 @@ export default async function AdminPaymentsPage({ searchParams }: { searchParams
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Payments</h1>
-      <PaymentsTable rows={ledger} isOrgAdmin={scope.isOrgAdmin} taxRates={taxRates} initialStatus={initialStatus} />
+      <PaymentsTable rows={ledger} isOrgAdmin={scope.isOrgAdmin} taxRates={taxRates} initialStatus={initialStatus} timeZone={await getOrgTimezone(org.id)} />
     </div>
   )
 }

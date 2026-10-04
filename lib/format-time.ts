@@ -40,12 +40,21 @@ export function parseLocalToUtc(dateStr: string, timeStr: string, timezone: stri
     second: '2-digit',
     hour12: false,
   })
-  const parts = Object.fromEntries(fmt.formatToParts(refUtc).map((p) => [p.type, p.value]))
-  const tzLocal = new Date(`${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}Z`)
+  const offsetAt = (instant: Date) => {
+    const parts = Object.fromEntries(fmt.formatToParts(instant).map((p) => [p.type, p.value]))
+    const hour = parts.hour === '24' ? '00' : parts.hour
+    const tzLocal = new Date(`${parts.year}-${parts.month}-${parts.day}T${hour}:${parts.minute}:${parts.second}Z`)
+    return tzLocal.getTime() - instant.getTime()
+  }
 
-  // Step 3: compute offset and apply
-  const offsetMs = tzLocal.getTime() - refUtc.getTime()
-  return new Date(refUtc.getTime() - offsetMs).toISOString()
+  // Step 3: compute offset and apply. Two passes: the offset is first measured
+  // at the reference instant, which on a DST-change day can sit on the other
+  // side of the switch from the real answer (3:30am on fall-back day came out
+  // an hour early) — re-measure at the candidate and use that if it differs.
+  const firstOffset = offsetAt(refUtc)
+  const candidate = new Date(refUtc.getTime() - firstOffset)
+  const secondOffset = offsetAt(candidate)
+  return new Date(refUtc.getTime() - secondOffset).toISOString()
 }
 
 /**
@@ -98,4 +107,24 @@ export function formatDateOnly(
   locale = 'en-CA',
 ): string {
   return new Date(`${dateStr.slice(0, 10)}T00:00:00Z`).toLocaleDateString(locale, { ...options, timeZone: 'UTC' })
+}
+
+/**
+ * A UTC timestamp as the value of a `<input type="datetime-local">` showing
+ * the ORG's wall-clock time ("2026-09-01T19:00"). The inverse of
+ * `parseLocalToUtc` / the server's local→UTC conversion — a form must fill its
+ * fields with this, never `iso.slice(0, 16)` (that's UTC wall-clock, which the
+ * save then reads as org time and shifts by the UTC offset on every save).
+ */
+export function utcToLocalInput(iso: string | null | undefined, timeZone: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(d).map((p) => [p.type, p.value]),
+  )
+  const hour = parts.hour === '24' ? '00' : parts.hour
+  return `${parts.year}-${parts.month}-${parts.day}T${hour}:${parts.minute}`
 }

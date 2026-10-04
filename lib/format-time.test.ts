@@ -107,3 +107,20 @@ describe('formatDateOnly', () => {
     expect(inZone('America/Toronto', () => formatDateOnly('2026-09-16T00:00:00+00:00'))).toBe('Sep 16, 2026')
   })
 })
+
+describe('utcToLocalInput', () => {
+  it('shows the org wall-clock time, and round-trips through parseLocalToUtc', async () => {
+    const { utcToLocalInput, parseLocalToUtc } = await import('./format-time')
+    const tz = 'America/Toronto'
+    for (const iso of ['2026-09-01T23:00:00.000Z', '2026-11-01T08:30:00.000Z', '2026-03-08T07:00:00.000Z', '2026-01-15T05:00:00.000Z']) {
+      const v = utcToLocalInput(iso, tz)
+      expect(new Date(parseLocalToUtc(v.slice(0, 10), v.slice(11, 16), tz)).toISOString()).toBe(iso)
+    }
+    expect(utcToLocalInput('2026-09-01T23:00:00+00:00', tz)).toBe('2026-09-01T19:00')
+  })
+  it('handles empty and bad values', async () => {
+    const { utcToLocalInput } = await import('./format-time')
+    expect(utcToLocalInput(null, 'America/Toronto')).toBe('')
+    expect(utcToLocalInput('nope', 'America/Toronto')).toBe('')
+  })
+})
