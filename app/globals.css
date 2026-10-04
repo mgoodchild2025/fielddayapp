@@ -252,6 +252,17 @@ summary,
 
 }
 
+/* Where toasts sit above the bottom edge (read by the Toaster in
+   app/layout.tsx). Desktop: 32px. Phones (the tab bar shows below md): clear
+   the 56px tab bar; with the event Register bar (~64px) on top of it, clear
+   both. */
+body { --fd-toast-bottom: 32px; }
+@media (max-width: 767px) {
+  body { --fd-toast-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px); }
+  body:has([data-above-tab-bar]) { --fd-toast-bottom: calc(env(safe-area-inset-bottom, 0px) + 88px); }
+  body:has([data-mobile-tab-bar]):has([data-above-tab-bar]) { --fd-toast-bottom: calc(env(safe-area-inset-bottom, 0px) + 136px); }
+}
+
 /* Event page register bar — unlayered so it beats the bar's bottom-0 and the
    footer's pb-24 utilities. Clears the home indicator on its own; when the
    logged-in tab bar (56px + safe area) is also pinned to the bottom, sit

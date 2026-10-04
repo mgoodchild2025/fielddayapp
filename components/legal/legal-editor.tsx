@@ -194,8 +194,9 @@ function PublishDialog({
   }
 
   return (
+    // Scrolls inside the viewport so the keyboard can't hide the buttons.
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto overscroll-contain">
         <div className="px-6 py-5 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">Publish document</h2>
           <p className="text-sm text-gray-500 mt-0.5">{doc.title}</p>

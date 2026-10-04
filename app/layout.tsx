@@ -52,10 +52,15 @@ export default function RootLayout({
       <body>
         {children}
         {/* One toaster and one confirm host for the whole app (never per page).
-            On phones toasts sit above the bottom tab bar. */}
+            On phones toasts sit above the bottom tab bar (and Register bar). */}
         <Toaster
           position="bottom-center"
-          mobileOffset={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 72px)' }}
+          // Both offsets read --fd-toast-bottom (globals.css), which follows the
+          // bars actually on screen: Sonner's mobile offset stops at 600px but
+          // the tab bar shows up to 767px, and the event page's Register bar
+          // sits on top of the tab bar.
+          offset={{ bottom: 'var(--fd-toast-bottom, 32px)' }}
+          mobileOffset={{ bottom: 'var(--fd-toast-bottom, 72px)' }}
           toastOptions={{ classNames: { actionButton: '!bg-brand-primary !text-on-brand !font-semibold' } }}
         />
         <ConfirmHost />

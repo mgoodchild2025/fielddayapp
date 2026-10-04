@@ -29,7 +29,7 @@ export function EventRulesModal({ content, title = 'Event Rules', buttonLabel = 
         onClose={() => setOpen(false)}
         variant="sheet"
         labelledBy={titleId}
-        panelClassName="w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col max-h-[85vh]"
+        panelClassName="w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col max-h-[85dvh]"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Overlay } from '@/components/ui/overlay'
 
 interface Step {
   title: string
@@ -245,22 +246,24 @@ export function StripeSetupGuide({ orgSlug }: Props) {
         How to set up Stripe
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex">
-          {/* Backdrop */}
-          <div className="flex-1 bg-black/40" onClick={close} />
-
-          {/* Drawer */}
-          <div className="w-full max-w-md bg-white flex flex-col shadow-2xl">
+      {/* Shared Overlay drawer: scroll lock, Escape, focus trap, swipe right to
+          close (it was full-width on phones with nothing to tap outside). */}
+      <Overlay
+        open={open}
+        onClose={close}
+        variant="drawer"
+        labelledBy="stripe-guide-title"
+        panelClassName="w-full max-w-md h-dvh bg-white flex flex-col shadow-2xl"
+      >
             {/* Header */}
             <div className="px-6 py-4 border-b flex items-center justify-between shrink-0">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-0.5">Stripe Setup Guide</p>
-                <h2 className="text-lg font-bold text-gray-900">
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-0.5">Stripe Setup Guide</p>
+                <h2 id="stripe-guide-title" className="text-lg font-bold text-gray-900">
                   Step {currentStep + 1} of {STEPS.length}: {step.title}
                 </h2>
               </div>
-              <button onClick={close} className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 shrink-0 ml-4">
+              <button onClick={close} aria-label="Close" className="press inline-flex items-center justify-center min-h-10 min-w-10 -mr-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 shrink-0 ml-4">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
@@ -292,32 +295,28 @@ export function StripeSetupGuide({ orgSlug }: Props) {
               <button
                 onClick={() => setCurrentStep((s) => s - 1)}
                 disabled={isFirst}
-                className="px-4 py-2 rounded-md text-sm font-medium border text-gray-600 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed"
+                className="press min-h-11 px-4 rounded-md text-sm font-medium border text-gray-600 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 ← Back
               </button>
-              <span className="text-xs text-gray-400">{currentStep + 1} / {STEPS.length}</span>
+              <span className="text-xs text-gray-500">{currentStep + 1} / {STEPS.length}</span>
               {isLast ? (
                 <button
                   onClick={close}
-                  className="px-5 py-2 rounded-md text-sm font-semibold text-white"
-                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                  className="press min-h-11 px-5 rounded-md text-sm font-semibold bg-brand-primary text-on-brand"
                 >
                   Done ✓
                 </button>
               ) : (
                 <button
                   onClick={() => setCurrentStep((s) => s + 1)}
-                  className="px-5 py-2 rounded-md text-sm font-semibold text-white"
-                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                  className="press min-h-11 px-5 rounded-md text-sm font-semibold bg-brand-primary text-on-brand"
                 >
                   Next →
                 </button>
               )}
             </div>
-          </div>
-        </div>
-      )}
+      </Overlay>
     </>
   )
 }

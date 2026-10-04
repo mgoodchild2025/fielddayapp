@@ -106,7 +106,7 @@ export function EventMediaGallery({ items, showLeague = false }: { items: EventM
             )}
 
             <div
-              className="max-w-5xl max-h-[90vh] mx-14 sm:mx-20 flex flex-col items-center gap-3"
+              className="max-w-5xl max-h-[90dvh] mx-14 sm:mx-20 flex flex-col items-center gap-3"
               onClick={(e) => e.stopPropagation()}
             >
               {current.mediaType === 'video' ? (
@@ -116,7 +116,7 @@ export function EventMediaGallery({ items, showLeague = false }: { items: EventM
                   poster={current.thumbnailUrl ? cloudinaryThumb(current.thumbnailUrl, { width: 1280, crop: 'fit' }) : undefined}
                   controls
                   playsInline
-                  className="fd-result-in max-h-[75vh] w-auto rounded-lg shadow-2xl"
+                  className="fd-result-in max-h-[75dvh] w-auto rounded-lg shadow-2xl"
                 />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -126,7 +126,7 @@ export function EventMediaGallery({ items, showLeague = false }: { items: EventM
                   // behind the "Full size" link.
                   src={cloudinaryThumb(current.url, { width: 1600, crop: 'fit' })}
                   alt={current.caption ?? `Photo ${shownIndex + 1}`}
-                  className="fd-result-in max-h-[75vh] w-auto object-contain rounded-lg shadow-2xl"
+                  className="fd-result-in max-h-[75dvh] w-auto object-contain rounded-lg shadow-2xl"
                 />
               )}
               {(current.caption || current.uploaderName) && (
