@@ -14,6 +14,8 @@ import { formatGameTime } from '@/lib/format-time'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { redirectToLogin } from '@/lib/auth'
 import { BackLink } from '@/components/ui/back-link'
+import { MapLink } from '@/components/ui/map-link'
+import { MapPin } from 'lucide-react'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -77,10 +79,10 @@ export default async function GameMatchupPage({
     db
       .from('games')
       .select(`
-        id, scheduled_at, court, week_number, status, league_id, is_exhibition,
+        id, scheduled_at, court, week_number, status, league_id, is_exhibition, cancellation_reason,
         home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
         away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
-        league:leagues!games_league_id_fkey(id, name, slug, event_type, sport),
+        league:leagues!games_league_id_fkey(id, name, slug, event_type, sport, venue_name, venue_address),
         game_results(home_score, away_score, sets, status, submitted_by)
       `)
       .eq('id', gameId)
@@ -327,12 +329,34 @@ export default async function GameMatchupPage({
             </div>
           </div>
 
+          {/* Why it's off — players asked "cancelled why?" with nowhere to look. */}
+          {(isCancelled || isPostponed) && (rawGame as { cancellation_reason?: string | null }).cancellation_reason && (
+            <p className={`mt-3 text-center text-sm ${isCancelled ? 'text-red-700' : 'text-amber-800'}`}>
+              {(rawGame as { cancellation_reason?: string | null }).cancellation_reason}
+            </p>
+          )}
+
           {/* Game meta */}
           <div className="mt-4 pt-4 border-t border-gray-100 text-center space-y-1">
             <p className="text-sm text-gray-600">
               {gameDate} · {gameTime}
               {rawGame.court ? ` · ${rawGame.court}` : ''}
             </p>
+            {/* Where — with directions on game day (the page had no address). */}
+            {(league?.venue_name || league?.venue_address) && (
+              <p className="text-sm text-gray-600">
+                {league.venue_address ? (
+                  <MapLink
+                    address={league.venue_address}
+                    title={`Directions to ${league.venue_name ?? league.venue_address}`}
+                    className="inline-flex items-center gap-1 min-h-10 font-medium text-brand-primary underline-offset-2 hover:underline"
+                  >
+                    <MapPin className="w-4 h-4 shrink-0" aria-hidden />
+                    {league.venue_name ?? league.venue_address}
+                  </MapLink>
+                ) : league.venue_name}
+              </p>
+            )}
             <p className="text-xs text-gray-500">
               {league?.name ?? ''}
               {rawGame.week_number != null && league?.event_type !== 'tournament'

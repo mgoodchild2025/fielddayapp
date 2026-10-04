@@ -17,7 +17,8 @@ export function PastGamesToggle({ count, label = 'games', children }: Props) {
     <div className="mt-6">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors mb-3"
+        aria-expanded={open}
+        className="press flex items-center gap-1.5 min-h-10 text-sm font-medium text-gray-600 hover:text-gray-800 mb-2"
       >
         {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         {open ? `Hide past ${label}` : `Show past ${label} (${count})`}

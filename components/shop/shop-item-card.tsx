@@ -78,11 +78,11 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
       type="button"
       onClick={handleAdd}
       disabled={needsVariantSelection || selectedSoldOut || maxQty === 0}
-      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${
+      className={`press flex-1 rounded-lg font-bold disabled:opacity-40 disabled:cursor-not-allowed ${
         justAdded
-          ? 'bg-green-500 text-white scale-95'
-          : 'text-white hover:opacity-90 active:scale-95'
-      } ${inModal ? 'py-3 text-sm' : ''}`}
+          ? 'bg-green-600 text-white'
+          : 'text-white hover:opacity-90'
+      } ${inModal ? 'min-h-12 text-base' : 'min-h-10 text-sm'}`}
       style={justAdded ? {} : { backgroundColor: 'var(--brand-primary)' }}
     >
       {justAdded
@@ -170,12 +170,14 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
           {/* Qty + add button — pinned to the bottom so buttons align across
               equal-height cards on desktop. */}
           <div className="flex items-center gap-2 mt-auto">
-            <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden shrink-0">
+            {/* Phones: the 2-up grid left ~140px per card — a 28px stepper and
+                a squeezed two-line button. The item sheet has a full stepper. */}
+            <div className="hidden sm:flex items-center border border-gray-200 rounded-lg overflow-hidden shrink-0">
               <button
                 type="button"
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                 disabled={quantity <= 1}
-                className="w-7 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors text-base leading-none disabled:opacity-30"
+                className="w-9 h-10 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors text-base leading-none disabled:opacity-30"
                 aria-label="Decrease quantity"
               >−</button>
               <span className="w-6 text-center text-xs font-semibold text-gray-800">{quantity}</span>
@@ -183,7 +185,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
                 type="button"
                 onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
                 disabled={quantity >= maxQty}
-                className="w-7 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors text-base leading-none disabled:opacity-30"
+                className="w-9 h-10 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors text-base leading-none disabled:opacity-30"
                 aria-label="Increase quantity"
               >+</button>
             </div>

@@ -122,6 +122,7 @@ export function MfaSettings({ isEnrolled: initialEnrolled, factorId: initialFact
               <input
                 type="text"
                 inputMode="numeric"
+                autoComplete="one-time-code"
                 autoFocus
                 value={removeCode}
                 onChange={(e) => {
@@ -139,13 +140,13 @@ export function MfaSettings({ isEnrolled: initialEnrolled, factorId: initialFact
                 <button
                   onClick={handleRemove}
                   disabled={removeLoading || removeCode.length !== 6}
-                  className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-40"
+                  className="press min-h-10 px-4 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-40"
                 >
                   {removeLoading ? 'Removing…' : 'Remove'}
                 </button>
                 <button
                   onClick={() => { setRemoving(false); setRemoveCode(''); setRemoveError(null) }}
-                  className="px-3 py-1.5 rounded-lg border text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                  className="press min-h-10 px-4 rounded-lg border text-sm font-medium text-gray-600 hover:bg-gray-50"
                 >
                   Cancel
                 </button>

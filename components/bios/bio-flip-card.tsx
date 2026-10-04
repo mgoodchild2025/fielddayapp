@@ -62,7 +62,7 @@ export function BioFlipCard({ bio, career }: { bio: BioCardData; career: PlayerC
           style={{ transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
         >
           <PlayerBioCard bio={bio} />
-          <p className="mt-3 text-right font-mono text-[10px] uppercase tracking-widest text-white/40">↻ tap to flip</p>
+          <p className="mt-3 text-right font-mono text-xs uppercase tracking-widest text-white/70">↻ tap to flip</p>
           {/* Rookie ribbon: on the PHOTO corner (hockey-card convention), never
               over text — the old top-right spot collided with the chyron on
               narrow screens. Rendered last (paints above the photo without a

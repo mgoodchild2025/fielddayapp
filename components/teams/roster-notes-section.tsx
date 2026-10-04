@@ -265,7 +265,7 @@ function NoteRow({
               type="button"
               onClick={handleInvite}
               disabled={invitePending}
-              className="press flex-1 min-h-10.5 rounded-md text-xs font-semibold text-white disabled:opacity-40 transition-opacity"
+              className="press flex-1 min-h-10 rounded-md text-xs font-semibold text-white disabled:opacity-40 transition-opacity"
               style={{ backgroundColor: 'var(--brand-primary)' }}
             >
               {invitePending ? 'Sending…' : 'Send Invite'}
@@ -282,7 +282,7 @@ function NoteRow({
         <button
           type="button"
           onClick={handleDelete}
-          className="press min-h-10.5 px-3 rounded-md text-xs font-medium text-red-500 border border-red-100 hover:bg-red-50 disabled:opacity-40 transition-colors"
+          className="press min-h-10 px-3 rounded-md text-xs font-medium text-red-500 border border-red-100 hover:bg-red-50 disabled:opacity-40 transition-colors"
         >
           Remove
         </button>

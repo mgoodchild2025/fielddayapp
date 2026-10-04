@@ -195,7 +195,7 @@ export function MyGamesClient({
                 </span>
               )}
               {isCancelled ? (
-                <span className="text-xs font-medium text-red-500 bg-red-50 rounded px-1.5 py-0.5 leading-tight">
+                <span className={`text-xs font-medium rounded px-1.5 py-0.5 leading-tight ${g.status === 'postponed' ? 'text-amber-800 bg-amber-50' : 'text-red-700 bg-red-50'}`}>
                   {g.status === 'postponed' ? 'Postponed' : 'Cancelled'}
                 </span>
               ) : g.week_number != null && league?.event_type !== 'tournament' ? (
@@ -225,6 +225,9 @@ export function MyGamesClient({
           <p className="text-xs text-gray-500 mt-0.5">
             {[league?.name, g.isPlayoff ? [g.playoffTier, g.playoffRound].filter(Boolean).join(' · ') : null].filter(Boolean).join(' · ')}
           </p>
+          {isCancelled && (g as { cancellation_reason?: string | null }).cancellation_reason && (
+            <p className="text-xs text-red-700 mt-0.5">{(g as { cancellation_reason?: string | null }).cancellation_reason}</p>
+          )}
 
           {/* RSVP + attendance — only for non-cancelled, non-playoff games
               (playoff bracket games are read-only). */}

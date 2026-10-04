@@ -40,7 +40,10 @@ export function GameAttendancePanel({ gameId, teamId, initialCounts, isCaptain, 
   }
 
   return (
-    <div className="mt-2.5 pt-2.5 border-t border-gray-100">
+    // basis-full: it sits in the RSVP row (flex-wrap) — as a flex item it
+    // squeezed into a narrow column beside the RSVP buttons and pushed them
+    // around when opened. Its own full-width line instead.
+    <div className="basis-full w-full mt-2.5 pt-2.5 border-t border-gray-100">
       {/* Badge button — toggles the panel */}
       <button
         type="button"

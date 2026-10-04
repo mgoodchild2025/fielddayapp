@@ -36,7 +36,7 @@ export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], show
     <>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="md:hidden p-2 rounded opacity-80 hover:opacity-100 transition-opacity"
+        className="press md:hidden -mr-2 inline-flex items-center justify-center min-h-10 min-w-10 rounded-full opacity-90 hover:opacity-100"
         aria-label={open ? 'Close menu' : 'Open menu'}
         aria-expanded={open}
       >
@@ -63,7 +63,7 @@ export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], show
         panelStyle={{ backgroundColor: 'var(--brand-secondary)', color: 'white', height: '100dvh' }}
       >
         <div className="h-12 flex items-center justify-end px-5 border-b border-white/10">
-          <button onClick={() => setOpen(false)} className="p-2 -mr-1 opacity-70 hover:opacity-100" aria-label="Close menu">
+          <button onClick={() => setOpen(false)} className="press -mr-2 inline-flex items-center justify-center min-h-10 min-w-10 rounded-full opacity-80 hover:opacity-100" aria-label="Close menu">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>

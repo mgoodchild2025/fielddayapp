@@ -43,7 +43,7 @@ export function QRCodeDisplay({ checkinUrl, playerName, eventName, size = 200 }:
             <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Check-in QR</p>
             <button
               onClick={() => setExpanded(false)}
-              className="text-xs text-gray-400 hover:text-gray-600"
+              className="press min-h-10 -my-2 px-2 text-xs text-gray-600 hover:text-gray-800"
             >
               Collapse ↑
             </button>

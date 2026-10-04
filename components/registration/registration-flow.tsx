@@ -206,7 +206,6 @@ export function RegistrationFlow({
   // (drop-in) — so step 2 is skipped outright rather than shown as a
   // "nothing to sign, tap Continue" screen. Backs skip it too.
   const skipsWaiver = !!priorWaiverSignatureId || !waiver
-  const backPastWaiver = skipsWaiver ? 1 : 2
 
   // Progress bar entries carry their internal step number, so leaving the
   // waiver out never shifts which segment is lit.
@@ -495,7 +494,6 @@ export function RegistrationFlow({
               afterWaiver()
             }}
             onSkip={afterWaiver}
-            onBack={() => advanceStep(1)}
           />
         )}
 
@@ -527,7 +525,6 @@ export function RegistrationFlow({
                 completeRegistration(registrationId)
               }
             }}
-            onBack={() => advanceStep(backPastWaiver)}
           />
         )}
 
@@ -564,13 +561,6 @@ export function RegistrationFlow({
             >
               Complete Registration →
             </button>
-            <button
-              type="button"
-              onClick={() => advanceStep(backPastWaiver)}
-              className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              ← Back
-            </button>
           </div>
         )}
 
@@ -586,7 +576,6 @@ export function RegistrationFlow({
             priceCents={effectivePriceCents}
             merchSelections={merchSelections}
             leagueMerch={leagueMerch}
-            onBack={() => advanceStep(showAddOnsStep ? 3 : backPastWaiver)}
             acceptedMethods={acceptedMethods}
             offlineInstructions={offlineInstructions}
             onComplete={() => completeRegistration(registrationId)}
@@ -602,7 +591,6 @@ export function RegistrationFlow({
             leagueId={league.id}
             captainTeamId={newCaptainTeamId}
             captainTeamName={newCaptainTeamName}
-            onBack={() => advanceStep(backPastWaiver)}
           />
         )}
 
@@ -643,7 +631,6 @@ export function RegistrationFlow({
                 router.push(`/register/${league.slug}/success`)
               }
             }}
-            onBack={() => advanceStep(backPastWaiver)}
           />
         )}
         </div>

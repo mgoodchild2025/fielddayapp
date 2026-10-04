@@ -38,11 +38,11 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border p-8 space-y-5">
+    <div className="bg-white rounded-lg shadow-sm border p-5 sm:p-8 space-y-5">
       <GoogleAuthButton redirectTo={redirectTo} label="Continue with Google" />
       <div className="relative">
         <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
-        <div className="relative flex justify-center text-xs text-gray-400"><span className="bg-white px-2">or sign in with email</span></div>
+        <div className="relative flex justify-center text-xs text-gray-500"><span className="bg-white px-2">or sign in with email</span></div>
       </div>
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       {serverError && (

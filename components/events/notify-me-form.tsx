@@ -43,26 +43,37 @@ export function NotifyMeForm({ leagueId, source = 'coming_soon' }: Props) {
   return (
     <form onSubmit={submit} className="space-y-2 text-left">
       <div className="flex flex-col sm:flex-row gap-2">
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Name (optional)"
-          className="flex-1 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
-        />
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          className="flex-1 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
-        />
+        <label className="flex-1">
+          <span className="sr-only">Your name (optional)</span>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Name (optional)"
+            autoComplete="name"
+            className="w-full min-h-11 border rounded-md px-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
+          />
+        </label>
+        <label className="flex-1">
+          <span className="sr-only">Email</span>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            autoComplete="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="send"
+            className="w-full min-h-11 border rounded-md px-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
+          />
+        </label>
         <button
           type="submit"
           disabled={pending}
-          className="px-5 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60 whitespace-nowrap"
-          style={{ backgroundColor: 'var(--brand-primary)' }}
+          className="press min-h-11 px-5 rounded-md text-sm font-semibold bg-brand-primary text-on-brand disabled:opacity-60 whitespace-nowrap"
         >
           {pending ? 'Adding…' : 'Notify me'}
         </button>

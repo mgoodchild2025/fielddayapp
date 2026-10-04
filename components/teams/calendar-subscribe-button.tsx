@@ -22,7 +22,7 @@ export function CalendarSubscribeButton({ teamId, calendarToken, host }: Props) 
     return (
       <button
         onClick={() => setOpen(true)}
-        className="mt-4 w-full py-2 rounded-md text-sm font-medium border hover:bg-gray-50 transition-colors text-gray-600 flex items-center justify-center gap-2"
+        className="press mt-4 w-full min-h-11 rounded-md text-sm font-medium border hover:bg-gray-50 text-gray-700 flex items-center justify-center gap-2"
       >
         <Calendar className="w-4 h-4" />
         Subscribe to schedule
@@ -36,8 +36,8 @@ export function CalendarSubscribeButton({ teamId, calendarToken, host }: Props) 
         <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Subscribe to Schedule</p>
         <button
           onClick={() => setOpen(false)}
-          className="text-gray-400 hover:text-gray-600"
           aria-label="Close"
+          className="press -mr-2 -my-2 inline-flex items-center justify-center min-h-10 min-w-10 rounded-full text-gray-500 hover:text-gray-700"
         >
           <X className="w-4 h-4" />
         </button>

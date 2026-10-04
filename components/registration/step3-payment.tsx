@@ -331,8 +331,8 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
 
           {/* Discount line */}
           {appliedDiscount && discountAmountCents > 0 && (
-            <div className="flex justify-between items-center px-4 py-3 bg-green-50">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-1 px-4 py-3 bg-green-50">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
                 <span className="text-sm font-medium text-green-800">
                   Discount: {appliedDiscount.code}
                 </span>
@@ -342,7 +342,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
                 <button
                   type="button"
                   onClick={() => { setAppliedDiscount(null); setDiscountInput('') }}
-                  className="text-xs text-green-600 hover:text-red-500 underline"
+                  className="press min-h-10 px-1 text-xs text-green-700 hover:text-red-600 underline"
                 >
                   Remove
                 </button>

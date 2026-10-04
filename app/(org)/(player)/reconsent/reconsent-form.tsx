@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { acceptPlayerReconsent } from '@/actions/player-consents'
+import { clearOfflineCache } from '@/lib/push-client'
 
 export function ReconsentForm({
   versionId,
@@ -29,6 +30,9 @@ export function ReconsentForm({
   }
 
   async function signOut() {
+    // Like every other sign-out: drop the offline copies of /dashboard etc.,
+    // so the next person on a shared phone can't open them.
+    clearOfflineCache()
     const supabase = createClient()
     await supabase.auth.signOut()
     router.replace('/login')
@@ -59,7 +63,7 @@ export function ReconsentForm({
         >
           {isPending ? 'Saving…' : 'Accept and continue'}
         </button>
-        <button onClick={signOut} className="text-sm text-gray-500 hover:text-gray-700">
+        <button onClick={signOut} className="press min-h-10 px-2 text-sm text-gray-600 hover:text-gray-800">
           Sign out
         </button>
       </div>
