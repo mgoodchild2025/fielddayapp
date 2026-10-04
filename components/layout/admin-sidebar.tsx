@@ -137,18 +137,28 @@ export function AdminSidebar({ org, role }: AdminSidebarProps) {
         className="lg:hidden print:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center justify-between px-4 border-b border-white/10"
         style={{ backgroundColor: 'var(--brand-secondary)', color: 'white' }}
       >
-        <span className="font-bold text-sm" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+        <span className="font-bold text-sm truncate min-w-0" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           {org.name} — Admin
         </span>
+        <div className="flex items-center gap-1 shrink-0">
+        {/* Game night is one tap from any admin page on a phone. */}
+        <Link
+          href="/admin/courtside"
+          aria-current={pathname?.startsWith('/admin/courtside') ? 'page' : undefined}
+          className="press inline-flex items-center gap-1 min-h-10 px-3 rounded-full text-sm font-semibold bg-white/15 hover:bg-white/25 aria-[current=page]:bg-white/30"
+        >
+          ⏱ Courtside
+        </Link>
         <button
           onClick={() => setMobileOpen(true)}
-          className="p-2 rounded opacity-80 hover:opacity-100 transition-opacity"
+          className="press inline-flex items-center justify-center min-h-11 min-w-11 rounded opacity-80 hover:opacity-100"
           aria-label="Open admin menu"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
+        </div>
       </div>
 
       <Overlay

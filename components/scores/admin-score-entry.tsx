@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Overlay } from '@/components/ui/overlay'
 import { adminSetScore, adminClearScore, recordForfeit } from '@/actions/scores'
+import { toast } from 'sonner'
 
 const SET_SPORTS    = new Set(['volleyball', 'beach_volleyball'])
 const PERIOD_SPORTS = new Set(['hockey'])
@@ -70,6 +71,9 @@ interface Props {
   } | null
   /** Compact mode: renders as a full-width action button (used in mobile card rows) */
   compact?: boolean
+  /** With compact: a big filled button (Courtside) instead of the flat strip
+   *  that sits in the phone schedule card's toolbar. */
+  large?: boolean
 }
 
 function defaultSegments(mode: ScoringMode): EditSet[] {
@@ -124,7 +128,10 @@ function ScoreEntrySheet({
     startTransition(async () => {
       const result = await recordForfeit({ gameId, leagueId, forfeitSide })
       if (result.error) setError(result.error)
-      else onClose()
+      else {
+        onClose()
+        toast.success(`Forfeit recorded · ${homeTeamName} vs ${awayTeamName}`)
+      }
     })
   }
 
@@ -151,6 +158,7 @@ function ScoreEntrySheet({
         setConfirmClear(false)
       } else {
         onClose()
+        toast.success(`Score cleared · ${homeTeamName} vs ${awayTeamName}`)
       }
     })
   }
@@ -185,6 +193,9 @@ function ScoreEntrySheet({
         setError(result.error)
       } else {
         onClose()
+        // The sheet closing (and Courtside re-sorting the card into "Scored")
+        // was the only sign it worked.
+        toast.success(`Saved ${finalHome}–${finalAway} · ${homeTeamName} vs ${awayTeamName}`)
       }
     })
   }
@@ -388,9 +399,41 @@ function ScoreEntrySheet({
   )
 }
 
+// A captain submitted this score and the other captain hasn't confirmed it:
+// the admin can confirm it as-is in one tap (adminSetScore saves it confirmed).
+function ConfirmPendingButton({ gameId, leagueId, homeTeamName, awayTeamName, result }: {
+  gameId: string
+  leagueId: string
+  homeTeamName: string
+  awayTeamName: string
+  result: NonNullable<Props['existingResult']>
+}) {
+  const [isPending, startTransition] = useTransition()
+  return (
+    <button
+      disabled={isPending}
+      onClick={() =>
+        startTransition(async () => {
+          const res = await adminSetScore({
+            gameId, leagueId,
+            homeScore: result.homeScore ?? 0,
+            awayScore: result.awayScore ?? 0,
+            sets: result.sets ?? undefined,
+          })
+          if (res.error) toast.error(res.error)
+          else toast.success(`Confirmed ${result.homeScore}–${result.awayScore} · ${homeTeamName} vs ${awayTeamName}`)
+        })
+      }
+      className="press flex-1 min-h-12 rounded-lg text-base font-semibold bg-brand-primary text-on-brand disabled:opacity-50"
+    >
+      {isPending ? 'Confirming…' : `✓ Confirm ${result.homeScore}–${result.awayScore}`}
+    </button>
+  )
+}
+
 // ── Public component ──────────────────────────────────────────────────────────
 
-export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTeamName, existingResult, compact }: Props) {
+export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTeamName, existingResult, compact, large }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false)
 
   const hasScore =
@@ -417,15 +460,42 @@ export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTea
         />
       </Overlay>
 
-      {/* Compact mode: full-width action button for mobile card rows */}
-      {compact ? (
+      {/* Compact mode: full-width action button for mobile card rows (Courtside,
+          the phone schedule). A captain-submitted score gets a one-tap Confirm. */}
+      {compact && !large ? (
         <button
           onClick={() => setSheetOpen(true)}
-          className="w-full py-2.5 text-xs font-semibold text-center hover:bg-gray-50 active:bg-gray-100 transition-colors"
-          style={{ color: 'var(--brand-primary)' }}
+          className="press w-full min-h-11 text-sm font-semibold text-center text-brand-primary hover:bg-gray-50 active:bg-gray-100"
         >
           {hasScore ? 'Edit score' : 'Enter score →'}
         </button>
+      ) : compact ? (
+        existingResult?.status === 'pending' && hasScore ? (
+          <div className="flex gap-2">
+            <ConfirmPendingButton
+              gameId={gameId}
+              leagueId={leagueId}
+              homeTeamName={homeTeamName}
+              awayTeamName={awayTeamName}
+              result={existingResult}
+            />
+            <button
+              onClick={() => setSheetOpen(true)}
+              className="press min-h-12 px-4 rounded-lg border text-base font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Edit
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setSheetOpen(true)}
+            className={`press w-full min-h-12 rounded-lg text-base font-semibold ${
+              hasScore ? 'border text-gray-700 hover:bg-gray-50' : 'bg-brand-primary text-on-brand'
+            }`}
+          >
+            {hasScore ? 'Edit score' : 'Enter score →'}
+          </button>
+        )
       ) : hasScore ? (
         <button onClick={() => setSheetOpen(true)} className="group text-left" title="Click to edit score">
           <span className="font-bold tabular-nums text-sm">

@@ -128,13 +128,15 @@ export function CheckInList({ registrations, leagueId, timezone, sessionId }: Pr
 
   return (
     <div>
-      {/* Counter */}
-      <div className="mb-4">
+      {/* Counter + search stay pinned while the roster scrolls — at the door
+          you search, tap, search the next name. */}
+      <div className="sticky top-0 z-10 -mx-1 px-1 pt-1 pb-2 mb-1 bg-white/95 backdrop-blur-sm">
+      <div className="mb-2">
         <p className="text-sm font-medium">
           <span style={{ color: 'var(--brand-primary)' }}>{checkedInCount}</span>
-          <span className="text-gray-400"> / {localRegs.length} checked in</span>
+          <span className="text-gray-500"> / {localRegs.length} checked in</span>
           {hasFilters && (
-            <span className="text-gray-400 ml-1">
+            <span className="text-gray-500 ml-1">
               ({filtered.filter((r) => r.checkedInAt).length} / {filtered.length} shown)
             </span>
           )}
@@ -142,19 +144,24 @@ export function CheckInList({ registrations, leagueId, timezone, sessionId }: Pr
       </div>
 
       {/* Search + filter bar */}
-      <div className="flex flex-col sm:flex-row gap-2 mb-3">
+      <div className="flex flex-col sm:flex-row gap-2">
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search player name…"
-          className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0"
+          aria-label="Search player name"
+          enterKeyHint="search"
+          autoComplete="off"
+          autoCorrect="off"
+          className="flex-1 min-h-11 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0"
         />
         {teams.length > 0 && (
           <select
             value={teamFilter}
             onChange={(e) => setTeamFilter(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm"
+            aria-label="Filter by team"
+            className="min-h-11 border rounded-lg px-3 py-2 text-sm"
           >
             <option value="all">All teams</option>
             {teams.map((t) => (
@@ -165,11 +172,12 @@ export function CheckInList({ registrations, leagueId, timezone, sessionId }: Pr
         {hasFilters && (
           <button
             onClick={() => { setSearch(''); setTeamFilter('all') }}
-            className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border rounded-lg bg-white"
+            className="press min-h-11 px-3 text-sm text-gray-600 hover:text-gray-800 border rounded-lg bg-white"
           >
             Clear
           </button>
         )}
+      </div>
       </div>
 
       {/* Roster list */}

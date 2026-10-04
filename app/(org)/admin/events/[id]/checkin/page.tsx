@@ -8,6 +8,7 @@ import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { QRScanner } from '@/components/checkin/qr-scanner'
 import { CheckInList } from '@/components/checkin/checkin-list'
 import { TeamCheckinSelector } from '@/components/checkin/team-checkin-selector'
+import { SessionPicker } from '@/components/checkin/session-picker'
 
 const SESSION_EVENT_TYPES = ['drop_in', 'pickup']
 
@@ -224,25 +225,15 @@ export default async function AdminCheckInPage({
                 </Link>
               )}
             </div>
-            <div className="flex flex-wrap gap-2">
-              {sessionList.map((s) => {
-                const isSelected = s.id === selectedSessionId
-                return (
-                  <Link
-                    key={s.id}
-                    href={`/admin/events/${id}/checkin?session=${s.id}`}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                      isSelected
-                        ? 'text-white border-transparent'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                    } ${s.status === 'cancelled' ? 'line-through opacity-50' : ''}`}
-                    style={isSelected ? { backgroundColor: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' } : {}}
-                  >
-                    {formatSessionLabel(s.scheduled_at, timezone)}
-                  </Link>
-                )
-              })}
-            </div>
+            <SessionPicker
+              leagueId={id}
+              selectedId={selectedSessionId}
+              sessions={sessionList.map((s) => ({
+                id: s.id,
+                label: formatSessionLabel(s.scheduled_at, timezone),
+                cancelled: s.status === 'cancelled',
+              }))}
+            />
           </div>
         ) : (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">

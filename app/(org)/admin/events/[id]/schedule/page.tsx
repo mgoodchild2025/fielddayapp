@@ -16,8 +16,10 @@ import { UpgradeBadge } from '@/components/ui/upgrade-prompt'
 import { formatGameTime } from '@/lib/format-time'
 import type { SchedulePhase } from '@/lib/phases'
 
-export default async function AdminSchedulePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdminSchedulePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ filter?: string }> }) {
   const { id } = await params
+  const { filter: filterParam } = await searchParams
+  const initialFilter = filterParam === 'needs' || filterParam === 'pending' || filterParam === 'cancelled' ? filterParam : 'all'
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const db = createServiceRoleClient()
@@ -178,6 +180,7 @@ export default async function AdminSchedulePage({ params }: { params: Promise<{ 
           timezone={timezone}
           schedulePublished={schedulePublished}
           isAdmin={isOrgAdmin}
+          initialFilter={initialFilter}
         />
       </div>
 
