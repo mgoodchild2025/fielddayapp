@@ -253,7 +253,7 @@ export default async function FinancialReportPage({
             <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-2">
               vs {fmtDate(prior.from)} – {fmtDate(prior.to)}
             </h3>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-3">
               {([
                 ['Revenue', report.revenueCents, priorReport.revenueCents],
                 ['Costs', report.costCents, priorReport.costCents],

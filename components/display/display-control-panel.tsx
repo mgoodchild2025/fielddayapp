@@ -11,6 +11,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { confirmAction } from '@/components/ui/confirm-dialog'
 import { toast } from 'sonner'
+import { useUnsavedChanges } from '@/components/ui/use-unsaved-changes'
 
 // ── Layout definitions ────────────────────────────────────────────────────────
 
@@ -754,12 +755,17 @@ export function DisplayControlPanel({
   const [activeScreen, setActiveScreen] = useState(screens[0].screen)
   const [isPending, startTransition] = useTransition()
   const [error, setError]   = useState<string | null>(null)
-  const [dirty, setDirty]   = useState(false)
+  // Unsaved edits are tracked PER SCREEN: switching tabs keeps them (and the
+  // tab shows a dot) instead of quietly forgetting that Screen 1 needs saving.
+  const [dirtyScreens, setDirtyScreens] = useState<Set<number>>(() => new Set())
+  const dirty = dirtyScreens.has(activeScreen)
+  const markClean = (n: number) => setDirtyScreens((prev) => { const next = new Set(prev); next.delete(n); return next })
+  useUnsavedChanges(dirtyScreens.size > 0 && !isPending)
 
   const currentScreen = screens.find((s) => s.screen === activeScreen)!
 
   function updateScreen(updated: ScreenState) {
-    setDirty(true)
+    setDirtyScreens((prev) => new Set(prev).add(updated.screen))
     setScreens((prev) => prev.map((s) => s.screen === updated.screen ? updated : s))
   }
 
@@ -778,7 +784,7 @@ export function DisplayControlPanel({
     startTransition(async () => {
       const result = await saveDisplayConfig(leagueId, toSave.screen, toSave.config, toSave.enabled)
       if (result.error) { setError(result.error) }
-      else { toast.success(`Screen ${activeScreen} saved`, { description: `The TV display will update within ${currentScreen.config.refresh_seconds}s.` }); setDirty(false) }
+      else { toast.success(`Screen ${toSave.screen} saved`, { description: `The TV display will update within ${toSave.config.refresh_seconds}s.` }); markClean(toSave.screen) }
     })
   }
 
@@ -792,7 +798,7 @@ export function DisplayControlPanel({
     startTransition(async () => {
       const result = await saveDisplayConfig(leagueId, updated.screen, updated.config, newEnabled)
       if (result.error) { setError(result.error) }
-      else { toast.success(`Screen ${activeScreen} saved`, { description: `The TV display will update within ${currentScreen.config.refresh_seconds}s.` }); setDirty(false) }
+      else { toast.success(`Screen ${updated.screen} saved`, { description: `The TV display will update within ${updated.config.refresh_seconds}s.` }); markClean(updated.screen) }
     })
   }
 
@@ -801,6 +807,7 @@ export function DisplayControlPanel({
     setError(null)
     startTransition(async () => {
       await deleteDisplayScreen(leagueId, activeScreen)
+      markClean(activeScreen)
       const remaining = screens.filter((s) => s.screen !== activeScreen)
       if (remaining.length === 0) {
         const fresh: ScreenState = { screen: 1, enabled: false, config: defaultConfig() }
@@ -818,33 +825,38 @@ export function DisplayControlPanel({
       {/* Page header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Display Mode</h1>
-        <p className="text-gray-400 text-sm mt-1">
+        <p className="text-gray-500 text-sm mt-1">
           Configure live TV displays for {leagueName}. Each screen has its own URL.
         </p>
       </div>
 
       {/* Screen tabs */}
-      <div className="flex items-center gap-2 mb-6">
+      <div role="tablist" aria-label="Screens" className="flex flex-wrap items-center gap-2 mb-6">
         {screens.map((s) => (
           <button
             key={s.screen}
             type="button"
-            onClick={() => { setActiveScreen(s.screen); setError(null); setDirty(false) }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            role="tab"
+            aria-selected={s.screen === activeScreen}
+            onClick={() => { setActiveScreen(s.screen); setError(null) }}
+            className={`press flex items-center gap-2 min-h-10 px-4 rounded-lg text-sm font-medium border ${
               s.screen === activeScreen
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-300 hover:text-white hover:bg-gray-800'
+                ? 'bg-gray-800 border-gray-800 text-white'
+                : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
             }`}
           >
             <span>📺 Screen {s.screen}</span>
-            {s.enabled && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+            {s.enabled && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="On" />}
+            {dirtyScreens.has(s.screen) && (
+              <span className="text-[11px] font-semibold text-amber-600" title="Unsaved changes">● Unsaved</span>
+            )}
           </button>
         ))}
         {screens.length < 4 && (
           <button
             type="button"
             onClick={addScreen}
-            className="px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+            className="press min-h-10 px-3 rounded-lg text-sm font-medium text-gray-600 border border-dashed border-gray-300 hover:bg-gray-50"
           >
             + Add Screen
           </button>
@@ -853,7 +865,7 @@ export function DisplayControlPanel({
 
       {/* Status messages */}
       {error && (
-        <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-400">
+        <div role="alert" className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}

@@ -86,33 +86,42 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabe
 
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Colour</label>
-          <div className="flex items-center gap-1.5 flex-wrap">
+          {/* 40px targets around a 28px swatch. */}
+          <div className="flex items-center gap-1 flex-wrap">
             {PRESET_COLORS.map((c) => (
               <button
                 key={c}
                 type="button"
                 onClick={() => setSelectedColor(selectedColor === c ? '' : c)}
-                className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110"
-                style={{
-                  backgroundColor: c,
-                  borderColor: selectedColor === c ? 'white' : 'transparent',
-                  boxShadow: selectedColor === c ? `0 0 0 2px ${c}` : 'none',
-                }}
+                aria-pressed={selectedColor === c}
+                aria-label={`Colour ${c}`}
                 title={c}
-              />
+                className="press w-10 h-10 inline-flex items-center justify-center rounded-full"
+              >
+                <span
+                  className="w-7 h-7 rounded-full border-2"
+                  style={{
+                    backgroundColor: c,
+                    borderColor: selectedColor === c ? 'white' : 'transparent',
+                    boxShadow: selectedColor === c ? `0 0 0 2px ${c}` : 'none',
+                  }}
+                />
+              </button>
             ))}
-            {/* Custom colour picker */}
+            {/* Custom colour: the real input covers the swatch (iOS won't open
+                a zero-size colour input from its label). */}
             <label
-              className="w-6 h-6 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-gray-400 transition-colors overflow-hidden"
+              className="relative w-10 h-10 inline-flex items-center justify-center cursor-pointer"
               title="Custom colour"
             >
+              <span className="w-7 h-7 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-500 text-sm leading-none">+</span>
               <input
                 type="color"
+                aria-label="Custom colour"
                 value={selectedColor || '#3b82f6'}
                 onChange={(e) => setSelectedColor(e.target.value)}
-                className="opacity-0 absolute w-0 h-0"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
-              <span className="text-gray-500 text-xs leading-none">+</span>
             </label>
             {/* Preview swatch */}
             {selectedColor && (

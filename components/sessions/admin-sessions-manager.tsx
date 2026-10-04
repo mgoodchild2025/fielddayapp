@@ -251,9 +251,9 @@ function CreateForm({ leagueId, timezone, onDone }: { leagueId: string; timezone
   return (
     <form onSubmit={handleSubmit} className="bg-white border rounded-lg p-5 space-y-4">
       <p className="font-semibold text-sm">New Session</p>
-      {formError && <p className="text-red-500 text-xs">{formError}</p>}
+      {formError && <p role="alert" className="text-red-600 text-sm">{formError}</p>}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={LABEL}>Date &amp; Time *</label>
           <input
@@ -270,7 +270,7 @@ function CreateForm({ leagueId, timezone, onDone }: { leagueId: string; timezone
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={LABEL}>Capacity (blank = unlimited)</label>
           <input name="capacity" type="number" inputMode="numeric" min={1} placeholder="Unlimited" className={INPUT} />
@@ -308,12 +308,12 @@ function CreateForm({ leagueId, timezone, onDone }: { leagueId: string; timezone
                     key={i}
                     type="button"
                     onClick={() => toggleDay(i)}
-                    className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
+                    aria-pressed={selectedDays.includes(i)}
+                    className={`press min-h-10 min-w-11 px-2.5 rounded-md text-xs font-medium border ${
                       selectedDays.includes(i)
-                        ? 'text-white border-transparent'
+                        ? 'bg-brand-primary text-on-brand border-transparent'
                         : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                     }`}
-                    style={selectedDays.includes(i) ? { backgroundColor: 'var(--brand-primary)' } : {}}
                   >
                     {label}
                   </button>
@@ -382,9 +382,9 @@ function EditForm({ session, leagueId, timezone, onDone }: { session: Session; l
   return (
     <form onSubmit={handleSubmit} className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-3">
       <p className="font-semibold text-sm text-blue-900">Edit Session</p>
-      {formError && <p className="text-red-500 text-xs">{formError}</p>}
+      {formError && <p role="alert" className="text-red-600 text-sm">{formError}</p>}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className={LABEL}>Date &amp; Time *</label>
           <input
@@ -401,7 +401,7 @@ function EditForm({ session, leagueId, timezone, onDone }: { session: Session; l
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className={LABEL}>Capacity (blank = unlimited)</label>
           <input name="capacity" type="number" inputMode="numeric" min={1} defaultValue={session.capacity ?? ''} placeholder="Unlimited" className={INPUT} />

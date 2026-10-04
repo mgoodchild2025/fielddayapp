@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { toast } from 'sonner'
+import { useUnsavedChanges } from '@/components/ui/use-unsaved-changes'
 import { confirmAction } from '@/components/ui/confirm-dialog'
 import { updateLeague } from '@/actions/events'
 import { RichTextEditor } from '@/components/ui/rich-text-editor'
@@ -138,18 +140,13 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
   // Edited since opening? Drives the save bar and the leave/cancel guards.
   // Set from real user input bubbling to the <form> (typing, selects,
   // checkboxes, contenteditable, toggle buttons) — never from the editors'
   // programmatic syncs.
   const [dirty, setDirty] = useState(false)
-  useEffect(() => {
-    if (!open || !dirty) return
-    const warn = (e: BeforeUnloadEvent) => { e.preventDefault() }
-    window.addEventListener('beforeunload', warn)
-    return () => window.removeEventListener('beforeunload', warn)
-  }, [open, dirty])
+  // Tab close AND in-app links (the event's admin tabs, the sidebar) ask first.
+  useUnsavedChanges(open && dirty)
 
   async function cancelEdit() {
     if (dirty && !(await confirmAction({ title: 'Discard your changes?', message: 'Edits to this event haven’t been saved.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true }))) return
@@ -185,7 +182,6 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
     e.preventDefault()
     setLoading(true)
     setError(null)
-    setSuccess(false)
 
     const fd = new FormData(e.currentTarget)
     const waiverVal = fd.get('waiver_version_id') as string
@@ -257,9 +253,10 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
     if (result.error) {
       setError(result.error)
     } else {
-      setSuccess(true)
       setDirty(false)
       setOpen(false)
+      // The form closes on save, so the confirmation can't sit beside the button.
+      toast.success('Event saved')
     }
   }
 
@@ -280,7 +277,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
           )}
         </div>
         <button
-          onClick={() => { setOpen(true); setSuccess(false); setDirty(false) }}
+          onClick={() => { setOpen(true); setDirty(false) }}
           className="press min-h-9 px-2 -mr-2 text-sm text-brand-primary hover:opacity-80 font-medium"
         >
           Edit
@@ -337,13 +334,13 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
         {league.event_type === 'drop_in' && (
           <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 space-y-3">
             <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide">Registration Mode</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {[
                 { value: 'session', label: 'Per session', desc: 'Players join individual sessions' },
                 { value: 'season', label: 'Season pass', desc: 'Register once, attend all sessions' },
                 { value: 'both', label: 'Both', desc: 'Players pick: a pass for the season, or single sessions' },
               ].map((opt) => (
-                <label key={opt.value} className={`flex flex-col gap-0.5 p-3 rounded-md border cursor-pointer transition-colors ${registrationMode === opt.value ? 'border-blue-500 bg-white' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                <label key={opt.value} className={`flex flex-col gap-0.5 p-3 rounded-md border cursor-pointer transition-colors ${registrationMode === opt.value ? 'border-brand-primary bg-brand-primary/10 ring-1 ring-brand-primary' : 'border-gray-200 bg-white hover:bg-gray-50'} has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand-primary`}>
                   <input type="radio" name="registration_mode" value={opt.value} checked={registrationMode === opt.value} onChange={() => setRegistrationMode(opt.value)} className="sr-only" />
                   <span className="text-sm font-semibold">{opt.label}</span>
                   <span className="text-xs text-gray-500">{opt.desc}</span>
@@ -534,7 +531,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
                           active ? prev.filter((d) => d !== day.value) : [...prev, day.value]
                         )
                       }
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      className={`press min-h-10 px-3.5 rounded-full text-xs font-semibold ${
                         active ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                       style={active ? { backgroundColor: 'var(--brand-primary)' } : {}}
@@ -576,7 +573,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
                       key={opt.value}
                       type="button"
                       onClick={() => setSelectedSkill(active ? '' : opt.value)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      className={`press min-h-10 px-3.5 rounded-full text-xs font-semibold ${
                         active ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                       style={active ? { backgroundColor: 'var(--brand-primary)' } : {}}
@@ -598,7 +595,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
                       key={opt.value}
                       type="button"
                       onClick={() => setSelectedOfficiated(active ? '' : opt.value)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      className={`press min-h-10 px-3.5 rounded-full text-xs font-semibold ${
                         active ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                       style={active ? { backgroundColor: 'var(--brand-primary)' } : {}}

@@ -13,6 +13,8 @@ import type { RailwayDnsRecord } from '@/lib/railway'
 import { UploadStatus, Spinner } from '@/components/ui/upload-status'
 import { checkContrast, readableTextOn } from '@/lib/contrast'
 import { toast } from 'sonner'
+import { SaveBar } from '@/components/ui/save-bar'
+import { useUnsavedChanges } from '@/components/ui/use-unsaved-changes'
 
 // Minimal subset of org_branding needed by this form (avoids depending on generated DB types
 // for columns that may not yet be in the snapshot)
@@ -125,6 +127,10 @@ export function BrandingForm({
   const [domainWarning, setDomainWarning] = useState<string | null>(null)
   const [dnsRecords, setDnsRecords] = useState<RailwayDnsRecord[]>(initialDnsRecords)
   const [loading, setLoading] = useState(false)
+  // The logo uploads (and saves) on its own, so its file input doesn't count.
+  const [dirty, setDirty] = useState(false)
+  useUnsavedChanges(dirty && !loading)
+  const markDirty = (e: React.SyntheticEvent) => { if ((e.target as HTMLInputElement).type !== 'file') setDirty(true) }
   const [logoUrl, setLogoUrl] = useState<string | null>(branding?.logo_url ?? null)
   const [logoError, setLogoError] = useState<string | null>(null)
   const [logoUploading, startLogoUpload] = useTransition()
@@ -200,6 +206,7 @@ export function BrandingForm({
     if (result.error) {
       setSaveError(result.error)
     } else {
+      setDirty(false)
       toast.success('Branding saved')
       if ('domainWarning' in result && result.domainWarning) {
         setDomainWarning(result.domainWarning as string)
@@ -211,12 +218,13 @@ export function BrandingForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {saveError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
-          {saveError}
-        </div>
-      )}
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      onInput={markDirty}
+      onChange={markDirty}
+      onClick={(e) => { if ((e.target as Element).closest('button[type="button"]:not([data-no-dirty])')) setDirty(true) }}
+      className="space-y-6"
+    >
       {domainWarning && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded text-sm space-y-1">
           <p className="font-semibold">Custom domain saved — manual step required</p>
@@ -265,15 +273,16 @@ export function BrandingForm({
             />
             <button
               type="button"
+              data-no-dirty
               onClick={() => fileInputRef.current?.click()}
               disabled={logoUploading}
-              className="px-4 py-2 text-sm font-medium border rounded-md hover:bg-gray-50 disabled:opacity-60"
+              className="press min-h-10 px-4 text-sm font-medium border rounded-md hover:bg-gray-50 disabled:opacity-60"
             >
               {logoUploading ? 'Uploading…' : logoUrl ? 'Replace logo' : 'Upload logo'}
             </button>
             <p className="text-xs text-gray-400">PNG or SVG recommended · max 10 MB · auto-converted to WebP</p>
             <UploadStatus active={logoUploading} label="Uploading logo" />
-            {logoError && <p className="text-xs text-red-500">{logoError}</p>}
+            {logoError && <p role="alert" className="text-sm text-red-600">{logoError}</p>}
           </div>
         </div>
       </div>
@@ -435,14 +444,7 @@ export function BrandingForm({
         </div>
       </div>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="px-6 py-2.5 rounded-md font-semibold text-white disabled:opacity-60"
-        style={{ backgroundColor: 'var(--brand-primary)' }}
-      >
-        {loading ? 'Saving…' : 'Save Branding'}
-      </button>
+      <SaveBar dirty={dirty} saving={loading} error={saveError} label="Save branding" />
     </form>
   )
 }

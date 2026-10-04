@@ -486,15 +486,15 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
           <div className="space-y-2">
             {variants.map((v, idx) => (
               <div key={v.key} className="flex items-center gap-2">
-                <div className="flex flex-col gap-0.5">
+                <div className="flex gap-1 shrink-0">
                   <button
                     type="button"
                     onClick={() => moveVariant(v.key, 'up')}
                     disabled={idx === 0}
-                    className="p-0.5 text-gray-300 hover:text-gray-600 disabled:opacity-0 transition-colors"
-                    aria-label="Move up"
+                    className="press w-10 h-10 inline-flex items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-30"
+                    aria-label={`Move ${v.label || 'option'} up`}
                   >
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
                     </svg>
                   </button>
@@ -502,10 +502,10 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
                     type="button"
                     onClick={() => moveVariant(v.key, 'down')}
                     disabled={idx === variants.length - 1}
-                    className="p-0.5 text-gray-300 hover:text-gray-600 disabled:opacity-0 transition-colors"
-                    aria-label="Move down"
+                    className="press w-10 h-10 inline-flex items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-30"
+                    aria-label={`Move ${v.label || 'option'} down`}
                   >
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
@@ -516,25 +516,27 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
                   value={v.label}
                   onChange={(e) => updateVariant(v.key, { label: e.target.value })}
                   placeholder="e.g. Small"
-                  className="flex-1 border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30"
+                  aria-label="Option name"
+                  className="flex-1 min-w-0 min-h-10 border rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30"
                 />
 
-                <div className="relative w-28 shrink-0">
+                <div className="relative w-20 sm:w-28 shrink-0">
                   <input
                     type="number" inputMode="numeric"
                     min="0"
                     value={v.stock_quantity}
                     onChange={(e) => updateVariant(v.key, { stock_quantity: e.target.value })}
                     placeholder="∞ stock"
-                    className="w-full border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30"
+                    aria-label="Stock quantity"
+                    className="w-full min-h-10 border rounded-md px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30"
                   />
                 </div>
 
                 <button
                   type="button"
                   onClick={() => removeVariant(v.key)}
-                  className="text-gray-300 hover:text-red-500 transition-colors p-1 shrink-0"
-                  aria-label="Remove variant"
+                  className="press w-10 h-10 -mx-1 inline-flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 shrink-0"
+                  aria-label={`Remove ${v.label || 'option'}`}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -545,7 +547,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
           </div>
 
           {variants.length > 0 && (
-            <p className="text-xs text-gray-400 mt-1.5">Label · Stock qty (leave blank = unlimited)</p>
+            <p className="text-xs text-gray-500 mt-1.5">Label · Stock qty (leave blank = unlimited)</p>
           )}
         </div>
       </div>

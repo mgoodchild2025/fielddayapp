@@ -119,7 +119,7 @@ export default async function AdminMessagesPage() {
       {/* Compose */}
       <div className="bg-white rounded-lg border p-6 mb-8">
         <h2 className="text-base font-semibold mb-4">Compose Announcement</h2>
-        <ComposeMessageForm leagues={leagues ?? []} teams={teams} players={players} canSms={canSms} />
+        <ComposeMessageForm leagues={leagues ?? []} teams={teams} players={players} canSms={canSms} timeZone={timeZone} />
       </div>
 
       {/* History */}

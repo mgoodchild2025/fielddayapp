@@ -6,6 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { createLeague } from '@/actions/events'
 import { useRouter } from 'next/navigation'
+import { useUnsavedChanges } from '@/components/ui/use-unsaved-changes'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 import { RichTextEditor } from '@/components/ui/rich-text-editor'
 import { PaymentMethodsField } from '@/components/events/payment-methods-field'
 import type { PaymentMethod } from '@/lib/payment-methods'
@@ -184,7 +186,9 @@ function AccordionSection({
       {/* Mobile: tappable header */}
       <button
         type="button"
+        data-no-dirty
         onClick={onToggle}
+        aria-expanded={isOpen}
         className="md:hidden w-full flex items-center gap-3 px-4 py-4 text-left active:bg-gray-50"
       >
         <div className="flex-1 min-w-0">
@@ -254,15 +258,23 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
   const [selectedOfficiated, setSelectedOfficiated] = useState<string>('')
   const [checkinEnabled, setCheckinEnabled] = useState<boolean>(false)
   const slugEditedRef = useRef(false)
+  // Typed into since opening? Drives the save bar and the leave guards.
+  const [dirty, setDirty] = useState(false)
+  useUnsavedChanges(dirty && !loading)
 
   const {
     register,
     handleSubmit,
     watch,
     setValue,
+    setFocus,
+    setError: setFieldError,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema) as never,
+    // We focus ourselves (onInvalid): on phones the field may be in a
+    // collapsed section, which has to open first.
+    shouldFocusError: false,
     defaultValues: {
       event_type: 'league',
       sport: 'beach_volleyball',
@@ -330,18 +342,59 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
       checkin_enabled: checkinEnabled,
     })
     if (result.error) {
-      setError(
-        result.error === 'UPGRADE_REQUIRED'
-          ? 'Your plan only allows 1 active event. Upgrade to create more.'
-          : result.error
-      )
+      if (/URL slug is already used/.test(result.error)) {
+        // Show it on the field itself, with its section open.
+        setFieldError('slug', { message: result.error })
+        revealField('slug')
+      } else {
+        setError(
+          result.error === 'UPGRADE_REQUIRED'
+            ? 'Your plan only allows 1 active event. Upgrade to create more.'
+            : result.error
+        )
+      }
       setLoading(false)
     } else {
+      setDirty(false)
       const id = result.data?.id
       // For pickup / drop-in, go straight to Sessions so admin can schedule right away
       const isPickupType = data.event_type === 'pickup' || data.event_type === 'drop_in'
       router.push(isPickupType ? `/admin/events/${id}/sessions` : `/admin/events/${id}`)
     }
+  }
+
+  // Which accordion section holds each field (for jumping to an error).
+  const SECTION_OF: Record<string, string> = {
+    name: 'basics', slug: 'basics', sport: 'basics', description: 'basics', age_group: 'basics',
+    price_cents: 'pricing', payment_mode: 'pricing', drop_in_price_cents: 'pricing',
+    team_join_policy: 'pricing', pickup_join_policy: 'pricing', registration_mode: 'pricing',
+    min_team_size: 'capacity', max_team_size: 'capacity', max_teams: 'capacity', max_participants: 'capacity',
+    season_start_date: 'dates', season_end_date: 'dates', registration_opens_at: 'dates', registration_closes_at: 'dates',
+    venue_name: 'venue', venue_address: 'venue', venue_type: 'venue', venue_surface: 'venue',
+    waiver_version_id: 'waiver',
+  }
+
+  // Open the field's section, wait for it to expand, then focus + centre it.
+  function revealField(field: string) {
+    const section = SECTION_OF[field]
+    if (section) setOpenSection(section)
+    window.setTimeout(() => {
+      try { setFocus(field as keyof FormData) } catch { /* not a registered input */ }
+      const el = document.querySelector<HTMLElement>(`[name="${field}"]`)
+      el?.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+    }, section && openSection !== section ? 320 : 0)
+  }
+
+  function onInvalid(errs: Record<string, unknown>) {
+    // First error in form order, so the admin fixes them top to bottom.
+    const first = Object.keys(SECTION_OF).find((k) => k in errs) ?? Object.keys(errs)[0]
+    if (first) revealField(first)
+  }
+
+  async function cancelCreate() {
+    if (dirty && !(await confirmAction({ title: 'Discard this event?', message: 'Nothing has been saved yet.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true }))) return
+    setDirty(false)
+    router.back()
   }
 
   const dates = dateLabels(eventType)
@@ -458,13 +511,15 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
         <h1 className="text-2xl font-bold">Create Event</h1>
       </div>
 
-      {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 md:space-y-5">
+      <form
+        onSubmit={handleSubmit(onSubmit, onInvalid)}
+        onInput={() => setDirty(true)}
+        onChange={() => setDirty(true)}
+        // Toggle buttons (event type, day/skill chips) change the event too;
+        // section headers and Cancel are marked data-no-dirty.
+        onClick={(e) => { if ((e.target as Element).closest('button[type="button"]:not([data-no-dirty])')) setDirty(true) }}
+        className="space-y-3 md:space-y-5"
+      >
 
         {/* ── Event type picker — always visible ── */}
         <div className="bg-white rounded-lg border p-5">
@@ -613,7 +668,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Registration Mode
                     </label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {[
                         { value: 'session', label: 'Per session', desc: 'Players join individual sessions' },
                         { value: 'season', label: 'Season pass', desc: 'Register once, attend all sessions' },
@@ -623,9 +678,9 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                           key={opt.value}
                           className={`flex flex-col gap-0.5 p-3 rounded-md border cursor-pointer transition-colors ${
                             registrationMode === opt.value
-                              ? 'border-[var(--brand-primary)] bg-orange-50'
+                              ? 'border-brand-primary bg-brand-primary/10 ring-1 ring-brand-primary'
                               : 'border-gray-200 hover:bg-gray-50'
-                          }`}
+                          } has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand-primary`}
                         >
                           <input
                             type="radio"
@@ -720,7 +775,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                   <p className="text-sm font-semibold text-amber-800">Early Bird Pricing</p>
                   <p className="text-xs text-amber-600 mt-0.5">Offer a discounted price until the deadline. Leave blank to disable.</p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field label="Early bird price" error={errors.early_bird_price_cents?.message}>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">$</span>
@@ -862,7 +917,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
               <input {...register('season_end_date')} type="date" className={INPUT} />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Registration Opens" error={errors.registration_opens_at?.message}>
               <input
                 {...register('registration_opens_at')}
@@ -975,7 +1030,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                         active ? prev.filter((d) => d !== day) : [...prev, day]
                       )
                     }
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                    className={`press min-h-10 px-3.5 rounded-full text-xs font-semibold ${
                       active ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                     style={active ? { backgroundColor: 'var(--brand-primary)' } : {}}
@@ -1024,7 +1079,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                     key={opt.value}
                     type="button"
                     onClick={() => setSelectedSkill(active ? '' : opt.value)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                    className={`press min-h-10 px-3.5 rounded-full text-xs font-semibold ${
                       active ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                     style={active ? { backgroundColor: 'var(--brand-primary)' } : {}}
@@ -1050,7 +1105,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                     key={opt.value}
                     type="button"
                     onClick={() => setSelectedOfficiated(active ? '' : opt.value)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                    className={`press min-h-10 px-3.5 rounded-full text-xs font-semibold ${
                       active ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                     style={active ? { backgroundColor: 'var(--brand-primary)' } : {}}
@@ -1167,23 +1222,34 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
           </div>
         </AccordionSection>
 
-        {/* ── Submit ── */}
-        <div className="flex gap-3 pt-2 pb-8 md:pb-2">
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-6 py-2.5 rounded-md font-semibold text-white disabled:opacity-60"
-            style={{ backgroundColor: 'var(--brand-primary)' }}
-          >
-            {loading ? 'Creating…' : 'Create Event'}
-          </button>
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="px-6 py-2.5 rounded-md font-semibold border text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
+        {/* ── Save bar — stays in view while scrolling the long form (admin
+            <main> is the scroller); a server error shows right above it. ── */}
+        <div className="sticky bottom-0 z-10 -mx-4 md:mx-0 px-4 md:px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/95 backdrop-blur border-t md:border md:rounded-lg space-y-2">
+          {error && (
+            <p role="alert" className="fd-fade-in bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">{error}</p>
+          )}
+          <div className="flex items-center gap-3">
+            <p className="flex-1 min-w-0 text-xs text-gray-500" aria-live="polite">
+              {Object.keys(errors).length > 0
+                ? <span className="font-medium text-red-600">Fix the highlighted fields</span>
+                : dirty ? <span className="fd-fade-in font-medium text-amber-700">Not saved yet</span> : null}
+            </p>
+            <button
+              type="button"
+              data-no-dirty
+              onClick={cancelCreate}
+              className="press min-h-10 px-4 rounded-md text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="press min-h-10 px-5 rounded-md text-sm font-semibold bg-brand-primary text-on-brand disabled:opacity-60"
+            >
+              {loading ? 'Creating…' : 'Create Event'}
+            </button>
+          </div>
         </div>
       </form>
     </div>

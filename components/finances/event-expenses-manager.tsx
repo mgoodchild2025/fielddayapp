@@ -118,49 +118,65 @@ export function EventExpensesManager({
   }
 
   const form = (
-    <div className="rounded-lg border bg-gray-50 p-3 space-y-2">
-      <div className="grid grid-cols-2 gap-2">
-        <select value={category} onChange={(e) => setCategory(e.target.value as ExpenseCategory)} className="border rounded px-2 py-1.5 text-sm bg-white">
-          {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
-        </select>
-        <div className="relative">
-          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-          <input type="number" inputMode="decimal" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00 (total incl. tax)" className="w-full border rounded pl-5 pr-2 py-1.5 text-sm" />
-        </div>
+    <div className="rounded-lg border bg-gray-50 p-3 space-y-3">
+      <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
+        <FormField label="Category">
+          <select value={category} onChange={(e) => setCategory(e.target.value as ExpenseCategory)} className="w-full min-h-10 border rounded-md px-2.5 text-sm bg-white">
+            {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Amount (total incl. tax)">
+          <div className="relative">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-500 pointer-events-none">$</span>
+            <input type="number" inputMode="decimal" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="w-full min-h-10 border rounded-md pl-6 pr-2.5 text-sm bg-white" />
+          </div>
+        </FormField>
       </div>
-      <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (e.g. Court rental)" className="w-full border rounded px-2 py-1.5 text-sm" />
+      <FormField label="Description">
+        <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Court rental" className="w-full min-h-10 border rounded-md px-2.5 text-sm bg-white" />
+      </FormField>
       {hasSessions && (
-        <select value={sessionScope} onChange={(e) => setSessionScope(e.target.value)} className="w-full border rounded px-2 py-1.5 text-sm bg-white">
-          <option value="">Whole event</option>
-          {isNew && <option value={ALL_SESSIONS}>Every session (×{sessions.length})</option>}
-          {sessions.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-        </select>
+        <FormField label="For">
+          <select value={sessionScope} onChange={(e) => setSessionScope(e.target.value)} className="w-full min-h-10 border rounded-md px-2.5 text-sm bg-white">
+            <option value="">Whole event</option>
+            {isNew && <option value={ALL_SESSIONS}>Every session (×{sessions.length})</option>}
+            {sessions.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+          </select>
+        </FormField>
       )}
       {sessionScope === ALL_SESSIONS ? (
         <>
           <p className="text-xs text-gray-500">Amount is charged <strong>per session</strong> — one entry is added for each of the {sessions.length} sessions.</p>
-          <input value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="Vendor (optional)" className="w-full border rounded px-2 py-1.5 text-sm" />
+          <FormField label="Vendor (optional)">
+            <input value={vendor} onChange={(e) => setVendor(e.target.value)} className="w-full min-h-10 border rounded-md px-2.5 text-sm bg-white" />
+          </FormField>
         </>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-2">
-            <input value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="Vendor (optional)" className="border rounded px-2 py-1.5 text-sm" />
-            <input type="date" value={incurredOn} onChange={(e) => setIncurredOn(e.target.value)} className="border rounded px-2 py-1.5 text-sm text-gray-600" />
+          <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
+            <FormField label="Vendor (optional)">
+              <input value={vendor} onChange={(e) => setVendor(e.target.value)} className="w-full min-h-10 border rounded-md px-2.5 text-sm bg-white" />
+            </FormField>
+            <FormField label="Date">
+              <input type="date" value={incurredOn} onChange={(e) => setIncurredOn(e.target.value)} className="w-full min-h-10 border rounded-md px-2.5 text-sm bg-white" />
+            </FormField>
           </div>
           {/* Recoverable tax paid — feeds the report's net remittance (collected − paid) */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-              <input type="number" inputMode="decimal" step="0.01" min="0" value={tax} onChange={(e) => setTax(e.target.value)} placeholder="Tax included (HST/GST) — optional" className="w-full border rounded pl-5 pr-2 py-1.5 text-sm" />
+          <FormField label="Tax included (HST/GST) — optional">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-500 pointer-events-none">$</span>
+                <input type="number" inputMode="decimal" step="0.01" min="0" value={tax} onChange={(e) => setTax(e.target.value)} placeholder="0.00" className="w-full min-h-10 border rounded-md pl-6 pr-2.5 text-sm bg-white" />
+              </div>
+              <TaxCalc amount={amount} defaultPct={defaultTaxPct} onCalc={setTax} />
             </div>
-            <TaxCalc amount={amount} defaultPct={defaultTaxPct} onCalc={setTax} />
-          </div>
-          <p className="text-[11px] text-gray-400">Enter only the <em>recoverable</em> tax (HST/GST/QST). It&apos;s subtracted from tax collected on the financial report.</p>
+          </FormField>
+          <p className="text-xs text-gray-500">Enter only the <em>recoverable</em> tax (HST/GST/QST). It&apos;s subtracted from tax collected on the financial report.</p>
         </>
       )}
       <div className="flex items-center gap-2 justify-end">
-        <button type="button" onClick={close} className="px-3 py-1.5 rounded-md border text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
-        <button type="button" onClick={submit} disabled={pending} className="px-3 py-1.5 rounded-md text-sm font-semibold text-white disabled:opacity-60" style={{ backgroundColor: 'var(--brand-primary)' }}>
+        <button type="button" onClick={close} className="press min-h-10 px-4 rounded-md border text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+        <button type="button" onClick={submit} disabled={pending} className="press min-h-10 px-4 rounded-md text-sm font-semibold bg-brand-primary text-on-brand disabled:opacity-60">
           {pending ? 'Saving…' : isNew ? 'Save' : 'Save changes'}
         </button>
       </div>
@@ -242,5 +258,16 @@ export function EventExpensesManager({
         </div>
       )}
     </div>
+  )
+}
+
+// A visible label over each control: these forms were placeholder-only, so a
+// filled-in field (or a date) gave no clue what it was.
+function FormField({ label, className = '', children }: { label: string; className?: string; children: React.ReactNode }) {
+  return (
+    <label className={`block min-w-0 ${className}`}>
+      <span className="block text-xs font-medium text-gray-600 mb-1">{label}</span>
+      {children}
+    </label>
   )
 }

@@ -34,11 +34,14 @@ export function ComposeMessageForm({
   teams = [],
   players = [],
   canSms = false,
+  timeZone = 'America/Toronto',
 }: {
   leagues: League[]
   teams?: Team[]
   players?: Player[]
   canSms?: boolean
+  /** The org's timezone — the schedule field is read in it, not the phone's. */
+  timeZone?: string
 }) {
   const [isPending, startTransition] = useTransition()
   const [audienceType, setAudienceType] = useState<AudienceType>('org')
@@ -47,7 +50,7 @@ export function ComposeMessageForm({
   const [teamLeagueFilter, setTeamLeagueFilter] = useState('')
   const [selectedPlayers, setSelectedPlayers] = useState<Set<string>>(new Set())
   const [playerSearch, setPlayerSearch] = useState('')
-  const [result, setResult] = useState<{ error?: string; success?: boolean } | null>(null)
+  const [result, setResult] = useState<{ error?: string; success?: boolean; scheduledFor?: string } | null>(null)
 
   // Teams shown in the picker, narrowed by the selected league filter
   const filteredTeams = useMemo(() => {
@@ -99,7 +102,9 @@ export function ComposeMessageForm({
       if (res.error) {
         setResult({ error: res.error })
       } else {
-        setResult({ success: true })
+        // "Sent" for a scheduled message was wrong — say when it will go.
+        const when = String(fd.get('scheduled_for') ?? '').trim()
+        setResult({ success: true, scheduledFor: when || undefined })
         ;form.reset()
         setAudienceType('org')
         setChannel('email')
@@ -383,27 +388,37 @@ export function ComposeMessageForm({
         </label>
       </div>
 
-      {result?.error && <p className="text-sm text-red-600">{result.error}</p>}
-      {result?.success && <p className="text-sm text-green-600">Announcement sent successfully!</p>}
-
       {/* Schedule */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Schedule (optional)</label>
         <input
           name="scheduled_for"
           type="datetime-local"
-          className="border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2"
+          aria-describedby="scheduled-for-hint"
+          className="w-full sm:w-auto min-h-10 border rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
         />
-        <p className="text-xs text-gray-400 mt-1">Leave blank to send immediately.</p>
+        <p id="scheduled-for-hint" className="text-xs text-gray-500 mt-1">
+          Leave blank to send now. Times are in {timeZone.replace(/_/g, ' ')}.
+        </p>
       </div>
+
+      {/* Result right above the button that caused it. */}
+      {result?.error && <p role="alert" className="fd-fade-in text-sm text-red-600">{result.error}</p>}
+      {result?.success && (
+        <p role="status" className="fd-fade-in text-sm text-green-700">
+          {result.scheduledFor
+            // The field's value is the org's wall-clock time: format it as-is (UTC in, UTC out).
+            ? <>Scheduled for {new Date(`${result.scheduledFor}:00Z`).toLocaleString('en-CA', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} ({timeZone.replace(/_/g, ' ')}).</>
+            : 'Message sent.'}
+        </p>
+      )}
 
       <button
         type="submit"
         disabled={isPending}
-        className="px-6 py-2.5 rounded-md font-semibold text-white disabled:opacity-60"
-        style={{ backgroundColor: 'var(--brand-primary)' }}
+        className="press min-h-11 px-6 rounded-md font-semibold bg-brand-primary text-on-brand disabled:opacity-60"
       >
-        {isPending ? 'Saving…' : 'Send / Schedule'}
+        {isPending ? 'Sending…' : 'Send / Schedule'}
       </button>
     </form>
   )

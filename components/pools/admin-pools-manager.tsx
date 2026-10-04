@@ -1,5 +1,6 @@
 'use client'
 
+import { ChevronUp, ChevronDown } from 'lucide-react'
 import { useState, useTransition, useMemo } from 'react'
 import { toast } from 'sonner'
 import { confirmAction } from '@/components/ui/confirm-dialog'
@@ -477,7 +478,7 @@ export function AdminPoolsManager({ leagueId, initialPools, initialTeams, standi
                   <button
                     onClick={() => { setEditingPoolId(pool.id); setEditingName(pool.name) }}
                     disabled={isPending}
-                    className="text-xs text-gray-400 hover:text-gray-700 hover:underline disabled:opacity-40"
+                    className="press min-h-10 px-2 text-xs font-medium text-gray-600 hover:text-gray-900 hover:underline disabled:opacity-40"
                   >
                     Rename
                   </button>
@@ -493,34 +494,36 @@ export function AdminPoolsManager({ leagueId, initialPools, initialTeams, standi
             </div>
             <ul className="divide-y">
               {poolTeams.map((t, i) => (
-                <li key={t.id} className="flex items-center justify-between px-5 py-2.5">
-                  <div className="flex items-center gap-3">
-                    <div className="flex flex-col gap-0.5">
+                <li key={t.id} className="flex items-center justify-between gap-2 px-3 sm:px-5 py-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* Side by side, 40px each: the stacked ▲▼ glyphs were ~12px targets. */}
+                    <div className="flex gap-1 shrink-0">
                       <button
                         onClick={() => handleMoveInPool(pool.id, t.id, 'up')}
                         disabled={isPending || i === 0}
-                        className="text-gray-300 hover:text-gray-600 disabled:opacity-20 leading-none"
-                        title="Move up"
+                        className="press w-10 h-10 inline-flex items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-30"
+                        aria-label={`Move ${t.name} up`}
                       >
-                        ▲
+                        <ChevronUp className="w-4 h-4" aria-hidden="true" />
                       </button>
                       <button
                         onClick={() => handleMoveInPool(pool.id, t.id, 'down')}
                         disabled={isPending || i === poolTeams.length - 1}
-                        className="text-gray-300 hover:text-gray-600 disabled:opacity-20 leading-none"
-                        title="Move down"
+                        className="press w-10 h-10 inline-flex items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-30"
+                        aria-label={`Move ${t.name} down`}
                       >
-                        ▼
+                        <ChevronDown className="w-4 h-4" aria-hidden="true" />
                       </button>
                     </div>
-                    <span className="text-xs font-medium text-gray-400 w-4">{i + 1}</span>
-                    <span className="text-sm font-medium">{t.name}</span>
+                    <span className="text-xs font-medium text-gray-500 w-4 shrink-0">{i + 1}</span>
+                    <span className="text-sm font-medium truncate">{t.name}</span>
                   </div>
                   <select
                     value={pool.id}
                     disabled={isPending}
                     onChange={(e) => handleAssign(t.id, e.target.value === '' ? null : e.target.value)}
-                    className="border rounded-md px-2 py-1 text-xs focus:outline-none disabled:opacity-40"
+                    aria-label={`Pool for ${t.name}`}
+                    className="shrink-0 max-w-[40%] min-h-10 border rounded-md px-2 text-sm bg-white disabled:opacity-40"
                   >
                     {pools.map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>

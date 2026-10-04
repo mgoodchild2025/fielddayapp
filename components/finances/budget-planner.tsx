@@ -4,6 +4,9 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2 } from 'lucide-react'
 import { saveEventBudget } from '@/actions/finances'
+import { toast } from 'sonner'
+import { SaveBar } from '@/components/ui/save-bar'
+import { useUnsavedChanges } from '@/components/ui/use-unsaved-changes'
 import type { EventBudget, BudgetPricingModel } from '@/actions/finances'
 import { type BudgetCostType } from '@/lib/finance-constants'
 
@@ -29,7 +32,7 @@ export function BudgetPlanner({ leagueId, initial }: { leagueId: string; initial
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
+  const [dirty, setDirty] = useState(false)
 
   const [teams, setTeams] = useState(String(initial.budget?.expected_teams ?? ''))
   const [players, setPlayers] = useState(String(initial.budget?.expected_participants ?? ''))
@@ -100,8 +103,10 @@ export function BudgetPlanner({ leagueId, initial }: { leagueId: string; initial
   const otherModel: BudgetPricingModel = isPerTeam ? 'per_player' : 'per_team'
   const otherRecommendedCents = isPerTeam ? calc.perPlayerTarget : calc.perTeamTarget
 
+  useUnsavedChanges(dirty && !pending)
+
   function save() {
-    setError(null); setSaved(false)
+    setError(null)
     startTransition(async () => {
       const res = await saveEventBudget({
         leagueId,
@@ -114,14 +119,20 @@ export function BudgetPlanner({ leagueId, initial }: { leagueId: string; initial
         })),
       })
       if (res.error) { setError(res.error); return }
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      setDirty(false)
+      toast.success('Budget plan saved')
       router.refresh()
     })
   }
 
   return (
-    <section className="space-y-4">
+    <form
+      className="space-y-4"
+      onSubmit={(e) => { e.preventDefault(); save() }}
+      onInput={() => setDirty(true)}
+      onChange={() => setDirty(true)}
+      onClick={(e) => { if ((e.target as Element).closest('button[type="button"]:not([data-no-dirty])')) setDirty(true) }}
+    >
       <div>
         <h2 className="text-lg font-semibold text-gray-900">Pricing planner</h2>
         <p className="text-xs text-gray-400">
@@ -129,8 +140,6 @@ export function BudgetPlanner({ leagueId, initial }: { leagueId: string; initial
           change the event&rsquo;s price. Recommendations are pre-tax.
         </p>
       </div>
-
-      {error && <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>}
 
       <div className="grid lg:grid-cols-2 gap-4">
         {/* ── Inputs ───────────────────────────────────────────────────────── */}
@@ -153,21 +162,22 @@ export function BudgetPlanner({ leagueId, initial }: { leagueId: string; initial
           <div className="space-y-2 pt-1">
             <p className="text-xs font-medium text-gray-600">Projected costs</p>
             {lines.map((l) => (
-              <div key={l.key} className="flex items-center gap-2">
-                <input value={l.label} onChange={(e) => updateLine(l.key, { label: e.target.value })} placeholder="e.g. Gym rental" className="flex-1 min-w-0 border rounded px-2 py-1.5 text-sm" />
-                <select value={l.costType} onChange={(e) => updateLine(l.key, { costType: e.target.value as BudgetCostType })} className="border rounded px-1.5 py-1.5 text-sm bg-white shrink-0">
+              // Phones: the cost's name gets its own line, then type · amount · remove.
+              <div key={l.key} className="flex flex-wrap sm:flex-nowrap items-center gap-2 pb-2 border-b border-gray-100 sm:border-0 sm:pb-0">
+                <input value={l.label} onChange={(e) => updateLine(l.key, { label: e.target.value })} placeholder="e.g. Gym rental" aria-label="Cost name" className="basis-full sm:basis-auto sm:flex-1 min-w-0 min-h-10 border rounded-md px-2.5 text-sm" />
+                <select value={l.costType} onChange={(e) => updateLine(l.key, { costType: e.target.value as BudgetCostType })} aria-label="Charged" className="flex-1 sm:flex-none min-h-10 border rounded-md px-1.5 text-sm bg-white">
                   {(['fixed', 'per_team', 'per_player'] as BudgetCostType[]).map((t) => <option key={t} value={t}>{COST_TYPE_LABELS[t]}</option>)}
                 </select>
                 <div className="relative w-24 shrink-0">
                   <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-                  <input type="number" inputMode="decimal" step="0.01" min="0" value={l.amount} onChange={(e) => updateLine(l.key, { amount: e.target.value })} placeholder="0.00" className="w-full border rounded pl-5 pr-1.5 py-1.5 text-sm" />
+                  <input type="number" inputMode="decimal" step="0.01" min="0" value={l.amount} onChange={(e) => updateLine(l.key, { amount: e.target.value })} placeholder="0.00" aria-label="Amount" className="w-full min-h-10 border rounded-md pl-5 pr-1.5 text-sm" />
                 </div>
-                <button type="button" onClick={() => removeLine(l.key)} className="text-gray-300 hover:text-red-500 shrink-0" aria-label="Remove cost">
+                <button type="button" onClick={() => removeLine(l.key)} className="press w-10 h-10 inline-flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 shrink-0" aria-label={`Remove ${l.label || 'cost'}`}>
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             ))}
-            <button type="button" onClick={addLine} className="inline-flex items-center gap-1 text-sm font-medium text-[var(--brand-primary)]">
+            <button type="button" onClick={addLine} className="press inline-flex items-center gap-1 min-h-10 text-sm font-medium text-brand-primary">
               <Plus className="w-4 h-4" /> Add cost
             </button>
           </div>
@@ -246,12 +256,7 @@ export function BudgetPlanner({ leagueId, initial }: { leagueId: string; initial
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <button type="button" onClick={save} disabled={pending} className="px-4 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60" style={{ backgroundColor: 'var(--brand-primary)' }}>
-          {pending ? 'Saving…' : 'Save plan'}
-        </button>
-        {saved && <span className="fd-fade-in text-sm text-green-600">Saved</span>}
-      </div>
-    </section>
+      <SaveBar dirty={dirty} saving={pending} error={error} label="Save plan" />
+    </form>
   )
 }
