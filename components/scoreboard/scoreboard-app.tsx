@@ -17,7 +17,8 @@ import { Overlay, useRetained } from '@/components/ui/overlay'
 // derived by folding the event list, so undo is a pop and the per-set history
 // falls out for free (matching game_results.sets' {home, away}[] shape).
 
-type ScoreEvent = { t: 'A' | 'B'; d: 1 | -1 } | { t: 'set' } | { t: 'end' }
+// `folded`: End match recorded the in-progress set too — Undo takes both back.
+type ScoreEvent = { t: 'A' | 'B'; d: 1 | -1 } | { t: 'set' } | { t: 'end'; folded?: boolean }
 
 type TeamMeta = { name: string; color: string }
 
@@ -132,6 +133,13 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   const shownTeam = useRetained(editTeam)
   const [flash, setFlash] = useState<'A' | 'B' | null>(null)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  // Why the last save failed: a server refusal (shown as-is) vs no connection
+  // (retried automatically when the phone comes back online).
+  const [saveError, setSaveError] = useState<{ message: string | null; offline: boolean } | null>(null)
+  // Pocket lock: ignores panel taps until unlocked with a hold.
+  const [locked, setLocked] = useState(false)
+  const lockedRef = useRef(false)
+  useEffect(() => { lockedRef.current = locked }, [locked])
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null)
   // Post-"End set" chooser (play on vs end match) — auto-dismisses; play-on is
   // the default because the set is already recorded.
@@ -234,7 +242,29 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/scoreboard-sw.js', { scope: '/scoreboard' }).catch(() => {})
+      // The worker starts AFTER this page loaded, so the first visit's page and
+      // chunks never went through it — the board needed two online visits
+      // before it opened offline (an iPhone home-screen app's first launch at
+      // a gym with no signal failed). Hand it what this page already loaded.
+      navigator.serviceWorker.ready.then((reg) => {
+        const urls = performance.getEntriesByType('resource')
+          .map((e) => e.name)
+          .filter((u) => u.startsWith(location.origin + '/_next/static/') || u.startsWith(location.origin + '/scoreboard'))
+        reg.active?.postMessage({ type: 'cache-urls', urls: [location.pathname + location.search, ...urls] })
+      }).catch(() => {})
     }
+  }, [])
+
+  // No pull-to-refresh / rubber-band while the board is open: overscroll-none
+  // on the fixed board doesn't reach the page's own scroller, so a swipe that
+  // started on the middle bar could reload the page mid-game.
+  useEffect(() => {
+    const h = document.documentElement
+    const b = document.body
+    const prev = [h.style.overscrollBehavior, b.style.overscrollBehavior]
+    h.style.overscrollBehavior = 'none'
+    b.style.overscrollBehavior = 'none'
+    return () => { h.style.overscrollBehavior = prev[0]; b.style.overscrollBehavior = prev[1] }
   }, [])
 
   // ── Live broadcast to gym TVs (V3) ──────────────────────────────────────────
@@ -293,18 +323,29 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
     return () => clearInterval(heartbeat)
   }, [attached, a, b, setsWonA, setsWonB, sets.length, over, game.config.mode, game.teamA, game.teamB])
 
+  // Any change after a save re-arms saving: a save left the state at 'saved',
+  // so Undo → fix → End match never re-saved, while the board still said
+  // "✓ Saved as final" over the old score.
   const push = useCallback((e: ScoreEvent) => {
     setGame((g) => ({ ...g, events: [...g.events, e] }))
+    setSaveState((st) => (st === 'saving' ? st : 'idle'))
   }, [])
 
   const undo = useCallback(() => {
-    setGame((g) => ({ ...g, events: g.events.slice(0, -1) }))
+    setGame((g) => {
+      const last = g.events[g.events.length - 1]
+      // An End match that folded the in-progress set: take both back, so the
+      // set isn't left recorded as finished.
+      const n = last && last.t === 'end' && last.folded ? 2 : 1
+      return { ...g, events: g.events.slice(0, -n) }
+    })
     setSetPrompt(null)
+    setSaveState((st) => (st === 'saving' ? st : 'idle'))
   }, [])
 
   const score = useCallback(
     (team: 'A' | 'B', d: 1 | -1) => {
-      if (matchWinner) return
+      if (matchWinner || lockedRef.current) return
       push({ t: team, d })
       if (d === 1) {
         setFlash(team)
@@ -389,6 +430,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   }
 
   const onPointerDown = (team: 'A' | 'B') => (e: React.PointerEvent) => {
+    if (lockedRef.current) return
     if (gesture.current) {
       // A second simultaneous finger is ignored — but a gesture whose pointerup
       // never arrived (pointer lost mid-press) must not lock the board forever.
@@ -481,13 +523,15 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       const cur = derive(g.events)
       if (cur.over) return g
       const events: ScoreEvent[] = [...g.events]
-      if (cur.a + cur.b > 0) events.push({ t: 'set' }) // fold the in-progress set
-      events.push({ t: 'end' })
+      const folded = cur.a + cur.b > 0
+      if (folded) events.push({ t: 'set' }) // fold the in-progress set
+      events.push(folded ? { t: 'end', folded: true } : { t: 'end' })
       return { ...g, events }
     })
     setSetPrompt(null)
     setJustEnded(true)
     setMenuOpen(false)
+    setSaveState((st) => (st === 'saving' ? st : 'idle'))
   }
 
   // What a save will record. In sets mode an in-progress set with points is
@@ -498,6 +542,11 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   const effHome = isSets ? effectiveSets.filter((s) => s.home > s.away).length : a
   const effAway = isSets ? effectiveSets.filter((s) => s.away > s.home).length : b
   const setLinePreview = isSets ? effectiveSets.map((s) => `${s.home}–${s.away}`).join('  ') : null
+
+  // A captain's board on an already-CONFIRMED game never saves (the server
+  // refuses too); an admin's save replaces the confirmed result.
+  const confirmedLock = attached?.canSave === 'captain' && attached.resultStatus === 'confirmed'
+  const canSave = confirmedLock ? null : attached?.canSave ?? null
 
   // Where "done" leads for an attached board: admins loop back to Courtside,
   // everyone else returns to the event page.
@@ -519,8 +568,9 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
   // advances the winner). Set sports save sets-won as the match score plus the
   // per-set line, matching AdminScoreEntry's convention.
   const saveResult = async () => {
-    if (!attached?.canSave) return
+    if (!attached || !canSave) return
     setSaveState('saving')
+    setSaveError(null)
     const setLine = isSets && effectiveSets.length > 0 ? effectiveSets : undefined
     try {
       if (attached.kind === 'bracket') {
@@ -542,23 +592,42 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
         if (res?.error) throw new Error(res.error)
       }
       setSaveState('saved')
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : ''
+      // fetch/server-action transport failures vs a refusal from the server
+      // ("Not authenticated", "already confirmed", …): every failure used to
+      // say "couldn't reach Fieldday".
+      const offline = !navigator.onLine || /fetch|network|load failed|failed to/i.test(msg)
+      setSaveError({ message: offline || msg === 'tie' ? null : msg || null, offline })
       setSaveState('error')
     }
   }
+
+  // Back online after a failed save → try again by itself.
+  useEffect(() => {
+    if (saveState !== 'error' || !saveError?.offline) return
+    const retry = () => { void saveResult() }
+    window.addEventListener('online', retry)
+    return () => window.removeEventListener('online', retry)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveState, saveError])
 
   // One less tap: ending the match saves it (admins → confirmed final,
   // captains → submitted for the opponent to confirm). Fires only for an End
   // match tapped this session; a failed save falls back to the manual button.
   useEffect(() => {
-    if (justEnded && over && attached?.canSave && saveState === 'idle') {
+    if (justEnded && over && canSave && saveState === 'idle') {
       saveResult()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [justEnded, over])
 
   const saveButton = (className: string) =>
-    attached?.canSave ? (
+    attached && confirmedLock ? (
+      <p className="text-sm text-white/80 max-w-[260px] text-center">
+        This game&apos;s score is already confirmed, so this board won&apos;t change it. Ask an organiser if it needs fixing.
+      </p>
+    ) : attached && canSave ? (
       <div className="flex flex-col items-center gap-1.5">
         {setLinePreview && saveState !== 'saved' && (
           <p className="text-xs text-white/50 tabular-nums">
@@ -569,11 +638,11 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
           {saveState === 'saving'
             ? 'Saving…'
             : saveState === 'saved'
-            ? attached.canSave === 'admin'
+            ? canSave === 'admin'
               ? '✓ Saved as final'
               : '✓ Submitted — opponent confirms'
-            : attached.canSave === 'admin'
-            ? 'Save final score'
+            : canSave === 'admin'
+            ? attached.resultStatus === 'confirmed' ? 'Replace confirmed score' : 'Save final score'
             : 'Submit score'}
         </button>
         {saveState === 'saved' && exitHref && (
@@ -585,7 +654,14 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
           <p className="text-xs text-red-300 max-w-[240px] text-center">
             {attached.kind === 'bracket' && effHome === effAway
               ? 'Bracket matches need a winner — break the tie before saving.'
-              : 'Couldn’t reach Fieldday — the score is safe on this device. Try again when you’re back online.'}
+              : saveError?.message
+              ? <>
+                  {saveError.message}
+                  {/auth/i.test(saveError.message) && (
+                    <> <a className="underline" href={`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`}>Sign in again</a> — the score stays on this device.</>
+                  )}
+                </>
+              : 'No connection — the score is safe on this device and will save when you’re back online.'}
           </p>
         )}
       </div>
@@ -685,13 +761,15 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
             the panel around them is a group rather than a button — a button
             must not contain interactive descendants. Kept faint so the
             courtside read stays uncluttered; they come forward on focus. */}
-        <div className="flex gap-3 mt-4">
+        {/* In the panel's bottom corners, away from the centre where thumbs
+            tap for +1 (centred under the score, a quick tap could land on −). */}
+        <div className="absolute bottom-3 inset-x-3 flex justify-between pointer-events-none">
           {([['−', -1, 'Remove a point from'], ['+', 1, 'Add a point to']] as const).map(([glyph, delta, verb]) => (
             <button
               key={glyph}
               type="button"
               aria-label={`${verb} ${meta.name}`}
-              className="w-11 h-11 rounded-full bg-white/15 text-white text-2xl leading-none font-bold opacity-45 hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-white transition-opacity"
+              className="pointer-events-auto w-11 h-11 rounded-full bg-white/15 text-white text-2xl leading-none font-bold opacity-45 hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-white transition-opacity"
               // Keep the panel's gesture machine out of it: a press here is a
               // button press, never a tap on the panel behind it.
               onPointerDown={(e) => e.stopPropagation()}
@@ -711,18 +789,46 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       {/* Score changes are otherwise silent to a screen reader: the number just
           swaps in place inside a control the user is still focused on. */}
       <p className="sr-only" aria-live="polite" aria-atomic="true">
-        {game.teamA.name} {a}, {game.teamB.name} {b}
-        {game.config.mode === 'sets' ? `. Sets ${setsWonA} to ${setsWonB}.` : '.'}
+        {!editTeam && <>
+          {game.teamA.name} {a}, {game.teamB.name} {b}
+          {game.config.mode === 'sets' ? `. Sets ${setsWonA} to ${setsWonB}.` : '.'}
+        </>}
       </p>
       {panel(first)}
 
       {/* Middle bar */}
-      <div className="flex landscape:flex-col items-center justify-center gap-2 px-2 py-1.5 landscape:px-1.5 landscape:py-2 bg-[#0B1210] text-[#9db3a9] shrink-0">
+      <div className="flex flex-wrap landscape:flex-col items-center justify-center gap-2 px-2 py-1.5 landscape:px-1.5 landscape:py-2 bg-[#0B1210] text-[#9db3a9] shrink-0" style={{ touchAction: 'manipulation' }}>
+        {/* Post-set chooser lives IN the middle bar (not over a scoring
+            panel, where the next point's tap could land on End match). The
+            set is already recorded; this only offers ending the match. */}
+        {setPrompt && !matchWinner ? (
+          <>
+            <p className="text-xs text-white/90 whitespace-nowrap" role="status">
+              <span className="font-bold">Set {setPrompt.n}</span>{' '}
+              <span className="tabular-nums">{setPrompt.home}–{setPrompt.away}</span> ✓
+            </p>
+            <button
+              onClick={() => setSetPrompt(null)}
+              className="inline-flex items-center justify-center min-h-10 px-4 rounded-lg bg-white/15 hover:bg-white/25 text-white text-sm font-semibold whitespace-nowrap"
+            >
+              Play on
+            </button>
+            <button
+              onClick={endMatch}
+              className="inline-flex items-center justify-center min-h-10 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold whitespace-nowrap"
+            >
+              🏁 End match{canSave ? ' & save' : ''}
+            </button>
+          </>
+        ) : locked ? (
+          <HoldToUnlock onUnlock={() => setLocked(false)} />
+        ) : (
+          <>
         {exitHref ? (
           <a
             href={exitHref}
             aria-label={`Back to ${exitLabel}`}
-            className="text-xs font-semibold px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
+            className="inline-flex items-center justify-center text-xs font-semibold px-3 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
           >
             ←
           </a>
@@ -730,7 +836,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
           <button
             onClick={goBack}
             aria-label="Back to site"
-            className="text-xs font-semibold px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
+            className="inline-flex items-center justify-center text-xs font-semibold px-3 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
           >
             ←
           </button>
@@ -739,7 +845,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
           <button
             onClick={endSet}
             disabled={a + b === 0 || over}
-            className="text-xs font-semibold px-3 py-2 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 disabled:opacity-30 disabled:bg-white/10 text-white transition-colors whitespace-nowrap"
+            className="inline-flex items-center justify-center text-xs font-semibold px-3 min-h-10 min-w-10 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 disabled:opacity-30 disabled:bg-white/10 text-white transition-colors whitespace-nowrap"
             aria-label={`End set ${sets.length + 1}`}
           >
             End set {sets.length + 1}
@@ -748,55 +854,40 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
         <button
           onClick={undo}
           disabled={game.events.length === 0}
-          className="text-xs font-semibold px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 disabled:opacity-30 text-white transition-colors"
+          className="inline-flex items-center justify-center text-xs font-semibold px-3 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 disabled:opacity-30 text-white transition-colors"
           aria-label="Undo last score change"
         >
           ↩ Undo
         </button>
         <button
           onClick={() => setGame((g) => ({ ...g, swapped: !g.swapped }))}
-          className="text-xs font-semibold px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
+          className="inline-flex items-center justify-center text-xs font-semibold px-3 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
           aria-label="Swap sides"
         >
           ⇄ Swap
         </button>
         <button
           onClick={() => setMenuOpen(true)}
-          className="text-xs font-semibold px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
+          className="inline-flex items-center justify-center text-xs font-semibold px-3 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
           aria-label="Menu"
         >
           ⋯
         </button>
+        <button
+          onClick={() => setLocked(true)}
+          className="inline-flex items-center justify-center text-xs font-semibold px-3 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
+          aria-label="Lock the board (ignore taps until unlocked)"
+          title="Lock — for a phone in a pocket"
+        >
+          🔒
+        </button>
+          </>
+        )}
       </div>
 
       {panel(second)}
 
       <InstallHint installPrompt={installPrompt} installed={installed} onInstall={requestInstall} />
-
-      {/* Post-set chooser — the set is already recorded; this only offers the
-          match end so finishing never requires the menu. Auto-dismisses. */}
-      {setPrompt && !matchWinner && (
-        <div className="fixed inset-x-0 bottom-6 z-30 flex justify-center pointer-events-none px-4">
-          <div className="pointer-events-auto flex items-center gap-3 rounded-2xl bg-black/85 backdrop-blur px-4 py-3 shadow-xl">
-            <p className="text-sm text-white/90 whitespace-nowrap">
-              <span className="font-bold">Set {setPrompt.n}</span>{' '}
-              <span className="tabular-nums">{setPrompt.home}–{setPrompt.away}</span> ✓
-            </p>
-            <button
-              onClick={() => setSetPrompt(null)}
-              className="text-xs font-semibold px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white whitespace-nowrap"
-            >
-              Play on
-            </button>
-            <button
-              onClick={endMatch}
-              className="text-xs font-bold px-3 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white whitespace-nowrap"
-            >
-              🏁 End match{attached?.canSave ? ' & save' : ''}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Match-over overlay — shown when the scorekeeper ends the match */}
       {matchWinner && (
@@ -814,7 +905,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
             {saveButton('px-6 py-3 rounded-xl bg-emerald-500 text-white font-bold disabled:opacity-60')}
             <div className="flex gap-3">
               {!attached && (
-                <button onClick={reset} className="px-6 py-3 rounded-xl bg-white/10 text-white font-semibold">
+                <button onClick={resetWithUndo} className="px-6 py-3 rounded-xl bg-white/10 text-white font-semibold">
                   New game
                 </button>
               )}
@@ -831,7 +922,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
         {shownTeam && (<>
           <label className="block text-xs text-white/60 mb-1">Team name</label>
           <input
-            autoFocus
+            data-autofocus
             value={(shownTeam === 'A' ? game.teamA : game.teamB).name}
             onChange={(e) =>
               setGame((g) => ({
@@ -1075,9 +1166,38 @@ function InstallHint({
   )
 }
 
+/** "Hold to unlock" — a deliberate 700ms press, so a pocket tap can't do it. */
+function HoldToUnlock({ onUnlock }: { onUnlock: () => void }) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [holding, setHolding] = useState(false)
+  const start = () => {
+    setHolding(true)
+    timer.current = setTimeout(() => { setHolding(false); onUnlock() }, 700)
+  }
+  const cancel = () => {
+    setHolding(false)
+    if (timer.current) clearTimeout(timer.current)
+  }
+  return (
+    <button
+      type="button"
+      onPointerDown={start}
+      onPointerUp={cancel}
+      onPointerLeave={cancel}
+      onPointerCancel={cancel}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onUnlock() }}
+      onContextMenu={(e) => e.preventDefault()}
+      className={`inline-flex items-center justify-center min-h-10 px-4 rounded-lg text-sm font-semibold text-white transition-colors duration-700 ${holding ? 'bg-emerald-600' : 'bg-white/15'}`}
+      aria-label="Board locked — press and hold to unlock"
+    >
+      🔒 Locked — hold to unlock
+    </button>
+  )
+}
+
 function MatchOverlay({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fd-result-in fixed inset-0 z-40 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center text-center px-6">
+    <div role="dialog" aria-modal="true" aria-label="Match over" className="fd-result-in fixed inset-0 z-40 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center text-center px-6">
       {children}
     </div>
   )
