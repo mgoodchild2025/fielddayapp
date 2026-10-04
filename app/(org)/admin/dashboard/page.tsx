@@ -109,7 +109,7 @@ export default async function AdminDashboardPage() {
       .select('id, registration_id, team_id, payment_type')
       .eq('organization_id', org.id)
       .eq('status', 'pending')
-      .in('payment_method', ['cash', 'etransfer', 'cheque']),
+      .in('payment_method', ['cash', 'etransfer', 'cheque', 'other']),
 
     // Active registrations missing a waiver signature (only shown when the
     // org actually has an active waiver).

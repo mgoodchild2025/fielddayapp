@@ -16,6 +16,7 @@ export function PendingPaymentNotice({
   const methodLabel =
     payment.payment_method === 'etransfer' ? 'e-transfer'
     : payment.payment_method === 'cheque' ? 'cheque'
+    : payment.payment_method === 'other' ? null
     : 'cash'
   const amountFormatted =
     payment.amount_cents > 0
@@ -28,7 +29,7 @@ export function PendingPaymentNotice({
         ⚠ Payment outstanding{amountFormatted ? ` — ${amountFormatted}` : ''}
       </p>
       <p className="mt-0.5 text-amber-700">
-        You chose to pay by {methodLabel}. Your spot is reserved, but your registration won&apos;t be fully confirmed until your payment is received by the organiser.
+        {methodLabel ? <>You chose to pay by {methodLabel}. </> : <>Payment is arranged with the organiser. </>}Your spot is reserved, but your registration won&apos;t be fully confirmed until your payment is received by the organiser.
       </p>
       {instructions && (
         <p className="mt-1.5 text-amber-700 whitespace-pre-wrap">{instructions}</p>

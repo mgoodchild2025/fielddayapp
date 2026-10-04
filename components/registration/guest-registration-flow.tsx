@@ -144,7 +144,7 @@ export function GuestRegistrationFlow({
         const res = await fetch('/api/stripe/guest-dropin-checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ registrationId: result.registrationId, discountId: appliedDiscount?.id }),
+          body: JSON.stringify({ registrationId: result.registrationId, discountId: appliedDiscount?.id, returnTo: window.location.pathname + window.location.search }),
         })
         const body = await res.json()
         if (!res.ok || !body.url) {

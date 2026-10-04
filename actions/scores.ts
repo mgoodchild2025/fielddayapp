@@ -387,6 +387,18 @@ export async function confirmScore(gameId: string) {
   if (!adminMember && result.submitted_by === user.id) {
     return { data: null, error: 'The opposing captain must confirm this score' }
   }
+  // …nor can a co-captain of the SAME team: compare teams, not just users.
+  if (!adminMember && result.submitted_by && captainship?.team_id) {
+    const { data: submitterOnMyTeam } = await db
+      .from('team_members')
+      .select('id')
+      .eq('team_id', captainship.team_id)
+      .eq('user_id', result.submitted_by)
+      .limit(1)
+    if (submitterOnMyTeam && submitterOnMyTeam.length > 0) {
+      return { data: null, error: 'The opposing captain must confirm this score' }
+    }
+  }
 
   const { error } = await supabase
     .from('game_results')

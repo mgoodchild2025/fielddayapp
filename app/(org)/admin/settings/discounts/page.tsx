@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { getCurrentOrg } from '@/lib/tenant'
+import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
@@ -10,6 +10,7 @@ import { HelpLink } from '@/components/ui/help-link'
 export default async function AdminDiscountsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const timeZone = await getOrgTimezone(org.id)
 
   if (!await canAccess(org.id, 'discount_codes')) {
     return (
@@ -73,7 +74,7 @@ export default async function AdminDiscountsPage() {
             <tbody className="divide-y divide-gray-100 max-sm:block">
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {(codes ?? []).map((code: any) => (
-                <DiscountRow key={code.id} code={code} />
+                <DiscountRow key={code.id} code={code} timeZone={timeZone} />
               ))}
             </tbody>
           </table>

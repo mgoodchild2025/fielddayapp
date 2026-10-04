@@ -365,7 +365,7 @@ export async function leaveSession(sessionId: string, leagueId: string) {
       .delete()
       .in('registration_id', withdrawnIds)
       .eq('status', 'pending')
-      .in('payment_method', ['cash', 'etransfer', 'cheque'])
+      .in('payment_method', ['cash', 'etransfer', 'cheque', 'other'])
   }
 
   revalidatePath('/events/[slug]', 'page')

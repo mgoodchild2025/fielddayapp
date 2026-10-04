@@ -24,7 +24,7 @@ const APPLIES_LABELS: Record<string, string> = {
   all: 'All', leagues: 'Leagues', dropins: 'Drop-ins', shop: 'Shop',
 }
 
-export function DiscountRow({ code }: { code: DiscountCode }) {
+export function DiscountRow({ code, timeZone = 'America/Toronto' }: { code: DiscountCode; timeZone?: string }) {
   const router = useRouter()
   const [pending, start] = useTransition()
   // Hidden at once with Undo; the code is deleted only when Undo expires.
@@ -52,7 +52,7 @@ export function DiscountRow({ code }: { code: DiscountCode }) {
         {code.use_count}{code.max_uses ? ` / ${code.max_uses}` : ''}
       </td>
       <td data-label="Expires" className="px-4 py-3 text-sm text-gray-500 max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500">
-        {code.expires_at ? new Date(code.expires_at).toLocaleDateString('en-CA') : '—'}
+        {code.expires_at ? new Date(code.expires_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', timeZone }) : '—'}
       </td>
       <td data-label="Active" className="px-4 py-3 max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500">
         <button

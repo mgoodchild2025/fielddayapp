@@ -96,7 +96,9 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
   const [marketingEmail, setMarketingEmail] = useState(false)
   const [marketingSms, setMarketingSms] = useState(false)
   // Transactional SMS — on by default (opt-out). Persisted to the profile below.
-  const [smsOptedIn, setSmsOptedIn] = useState(true)
+  // Starts from the player's saved choice — always-true re-opted players who
+  // had turned texts off back in on every registration.
+  const [smsOptedIn, setSmsOptedIn] = useState(profile?.sms_opted_in ?? true)
 
   const isDropIn = registrationType === 'drop_in'
 
@@ -230,10 +232,16 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
                 id={name}
                 type={type}
                 autoComplete={autoComplete}
+                // The account's sign-in email: editable here, it was silently
+                // thrown away (registration never changes the login).
+                readOnly={name === 'email' && !!profile?.email}
                 aria-invalid={errors[name] ? true : undefined}
-                aria-describedby={errors[name] ? `${name}-error` : undefined}
-                className="w-full border rounded-md px-3 py-2 text-base"
+                aria-describedby={errors[name] ? `${name}-error` : name === 'email' && profile?.email ? 'email-hint' : undefined}
+                className={`w-full border rounded-md px-3 py-2 text-base ${name === 'email' && profile?.email ? 'bg-gray-50 text-gray-600' : ''}`}
               />
+              {name === 'email' && profile?.email && !errors[name] && (
+                <p id="email-hint" className="text-xs text-gray-500 mt-1">Your sign-in email</p>
+              )}
               {errors[name] && <p id={`${name}-error`} className="text-red-600 text-xs mt-1">{errors[name]?.message as string}</p>}
             </div>
           ))}

@@ -8,6 +8,7 @@ import { getOrgTaxRates, stripeTaxRateIds } from '@/lib/tax'
 import { canAccess } from '@/lib/features'
 import { createEnrollment } from '@/lib/payment-plans'
 import { checkoutRateLimiter, getClientIp } from '@/lib/rate-limit'
+import { safeRelativePath } from '@/lib/safe-redirect'
 
 const playerSchema = z.object({
   leagueId: z.string().uuid(),
@@ -16,7 +17,10 @@ const playerSchema = z.object({
   registrationId: z.string().uuid(),
   orgId: z.string().uuid(),
   discountId: z.string().uuid().optional(),   // validated discount code id
-  planId: z.string().uuid().optional(),        // payment plan — charge first instalment only
+  planId: z.string().uuid().optional(),
+  /** Where Cancel at Stripe returns to: the register URL the player was on
+   *  (keeps mode=drop_in / key / invite / session). Validated below. */
+  returnTo: z.string().max(500).optional(),        // payment plan — charge first instalment only
   merchSelections: z.array(z.object({
     itemId: z.string().uuid(),
     variantId: z.string().uuid().nullable(),
@@ -219,7 +223,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const { leagueId, leagueSlug, userId, registrationId, orgId, discountId, planId, merchSelections } = parsed.data
+  const { leagueId, leagueSlug, userId, registrationId, orgId, discountId, planId, merchSelections, returnTo } = parsed.data
 
   // A player pays their own registration. Both callers send the signed-in
   // user's own id, so anything else is a forged request.
@@ -296,16 +300,18 @@ export async function POST(request: NextRequest) {
     paymentSettings?.registration_payment_mode === 'manual' || !paymentSettings?.stripe_secret_key
   if (isManualRegistration) {
     const instructions = paymentSettings?.registration_manual_instructions ?? null
-    // Mark registration as active and record that payment instructions were shown.
-    // The 'manual' payment record lets the resume logic detect the captain/player
-    // already acknowledged payment — preventing the payment step from re-appearing.
-    // Only insert if no completed payment record exists yet.
+    // Mark the registration active (the spot is reserved) and record what's
+    // OWED as a pending offline payment. It used to be status 'manual', which
+    // the ledger counts as collected — so money never received showed in Total
+    // Collected and the player got no "payment outstanding" banner. Resume
+    // treats an active registration as settled, so the step doesn't reappear.
+    // Only insert if no payment record exists yet for this registration.
 
     const { data: existingCompletedPayment } = await db
       .from('payments')
       .select('id')
       .eq('registration_id', registrationId)
-      .in('status', ['paid', 'manual'])
+      .in('status', ['paid', 'manual', 'pending'])
       .limit(1)
       .maybeSingle()
 
@@ -320,8 +326,8 @@ export async function POST(request: NextRequest) {
           league_id: leagueId,
           amount_cents: priceCents,
           currency: league.currency,
-          status: 'manual',
-          payment_method: 'cash',
+          status: 'pending',
+          payment_method: 'other',
           payment_type: 'player',
           discount_code_id: discountApplied?.id ?? null,
           discount_cents: discountApplied?.cents ?? 0,
@@ -436,6 +442,18 @@ export async function POST(request: NextRequest) {
   })
 
   const origin = request.headers.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
+  // Cancel at Stripe goes back to the page the player was on. The bare
+  // /register/<slug> dropped drop-in mode, the session and any link key /
+  // invite: a drop-in landed in the season-pass flow at the season price and
+  // link-only players were bounced. Only same-site paths under this event's
+  // register page are accepted; otherwise rebuild what we know.
+  const safeReturn = safeRelativePath(returnTo ?? null)
+  const cancelUrl = safeReturn && (safeReturn === `/register/${leagueSlug}` || safeReturn.startsWith(`/register/${leagueSlug}?`))
+    ? `${origin}${safeReturn}`
+    : registration.registration_type === 'drop_in'
+      ? `${origin}/register/${leagueSlug}?mode=drop_in${registration.session_id ? `&session=${registration.session_id}` : ''}`
+      : `${origin}/register/${leagueSlug}`
+
 
   // ── Fully covered by a discount ($0 total, no merch) ─────────────────────
   // A Stripe Checkout session needs at least one line item; an empty cart errors.
@@ -570,7 +588,7 @@ export async function POST(request: NextRequest) {
         },
       },
       success_url: `${origin}/register/${leagueSlug}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/register/${leagueSlug}`,
+      cancel_url: cancelUrl,
     })
 
     // Save session ID on the instalment for dedup
@@ -622,7 +640,7 @@ export async function POST(request: NextRequest) {
       metadata: { registrationId, leagueId, userId, orgId, paymentType: 'player' },
     },
     success_url: `${origin}/register/${leagueSlug}/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/register/${leagueSlug}`,
+    cancel_url: cancelUrl,
   })
 
 

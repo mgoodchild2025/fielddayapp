@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { safeRelativePath } from '@/lib/safe-redirect'
 import Stripe from 'stripe'
 import { getCurrentOrg } from '@/lib/tenant'
 import { headers } from 'next/headers'
@@ -12,6 +13,8 @@ const limiter = createRateLimiter({ windowMs: 10 * 60_000, max: 8 })
 const schema = z.object({
   registrationId: z.string().uuid(),
   discountId: z.string().uuid().optional(),
+  /** The register URL the guest was on (keeps key / invite / session). */
+  returnTo: z.string().max(500).optional(),
 })
 
 /**
@@ -146,7 +149,12 @@ export async function POST(request: NextRequest) {
         paymentId: paymentId ?? '',
       },
       success_url: `${origin}/register/${league.slug}/guest-success?reg=${reg.id}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/register/${league.slug}?mode=drop_in`,
+      // Back to the page the guest was on: the bare ?mode=drop_in dropped the
+      // link key / invite, so link-only events sent guests to sign in.
+      cancel_url: (() => {
+        const back = safeRelativePath(parsed.data.returnTo ?? null)
+        return back && back.startsWith(`/register/${league.slug}?`) ? `${origin}${back}` : `${origin}/register/${league.slug}?mode=drop_in`
+      })(),
     })
 
     if (paymentId) {

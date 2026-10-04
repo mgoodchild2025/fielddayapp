@@ -360,7 +360,7 @@ export default async function DashboardPage() {
         .eq('organization_id', org.id)
         .eq('user_id', user.id)
         .eq('status', 'pending')
-        .in('payment_method', ['cash', 'etransfer', 'cheque']),
+        .in('payment_method', ['cash', 'etransfer', 'cheque', 'other']),
 
       // TEAM payments for teams this user manages. Team payment rows carry no
       // user_id (the team owes, not a person), so they can't come from the query

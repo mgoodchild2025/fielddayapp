@@ -107,7 +107,7 @@ export function DiscountForm({ leagues }: { leagues: League[] }) {
             Value * {type === 'percent' ? '(%)' : '($)'}
           </label>
           <input
-            type="number" inputMode="numeric"
+            type="number" inputMode={type === 'percent' ? 'numeric' : 'decimal'}
             min={0}
             step={type === 'percent' ? 1 : 0.01}
             value={value}
