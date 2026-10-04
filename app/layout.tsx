@@ -32,9 +32,14 @@ export const metadata: Metadata = {
   },
 }
 
+// viewport-fit=cover: the page may draw under the notch / home indicator, and
+// env(safe-area-inset-*) gets real values — fixed bars, sheets and toasts pad
+// themselves with it (globals.css, tab bar, register bar). Without it every
+// inset is 0px and those paddings did nothing.
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({

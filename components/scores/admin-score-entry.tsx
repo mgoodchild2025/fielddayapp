@@ -192,11 +192,13 @@ function ScoreEntrySheet({
   return (
       <>
         {/* Drag handle — mobile only */}
-        <div className="pt-3 pb-1 flex justify-center sm:hidden">
+        <div className="pt-3 pb-1 flex justify-center sm:hidden shrink-0">
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
         </div>
 
-        <div className="px-5 pt-3 pb-6 space-y-5">
+        {/* Scrolls on its own: nine innings (or a forfeit panel) is taller than
+            a phone, and Save lives in the pinned footer below. */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pt-3 pb-5 space-y-5">
           {/* Header */}
           <div>
             <h3 className="font-semibold text-base text-gray-900">Enter score</h3>
@@ -319,18 +321,6 @@ function ScoreEntrySheet({
 
           {error && <p className="text-sm text-red-500">{error}</p>}
 
-          <div className="flex gap-2 pt-1">
-            <button type="button" onClick={submit} disabled={isPending}
-              className="flex-1 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
-              style={{ backgroundColor: 'var(--brand-primary)' }}>
-              {isPending ? 'Saving…' : 'Save score'}
-            </button>
-            <button type="button" onClick={onClose}
-              className="flex-1 py-3 rounded-xl text-sm border text-gray-600 hover:bg-gray-50">
-              Cancel
-            </button>
-          </div>
-
           {/* Forfeit — for a no-show. Auto-fills a default win/loss score. */}
           <div className="border-t pt-3">
             {!forfeitOpen ? (
@@ -382,6 +372,18 @@ function ScoreEntrySheet({
             </div>
           )}
         </div>
+
+        {/* Pinned footer: Save is always reachable (the sheet pads for the home indicator). */}
+        <div className="shrink-0 border-t bg-white px-5 pt-3 pb-3 flex gap-2">
+          <button type="button" onClick={submit} disabled={isPending}
+            className="press flex-1 min-h-12 rounded-xl text-base font-semibold bg-brand-primary text-on-brand disabled:opacity-50">
+            {isPending ? 'Saving…' : 'Save score'}
+          </button>
+          <button type="button" onClick={onClose}
+            className="press flex-1 min-h-12 rounded-xl text-base border text-gray-600 hover:bg-gray-50">
+            Cancel
+          </button>
+        </div>
       </>
   )
 }
@@ -402,7 +404,7 @@ export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTea
         onClose={() => setSheetOpen(false)}
         variant="sheet"
         label={`Score: ${homeTeamName} vs ${awayTeamName}`}
-        panelClassName="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden"
+        panelClassName="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90dvh]"
       >
         <ScoreEntrySheet
           gameId={gameId}

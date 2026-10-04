@@ -39,6 +39,9 @@ interface Props {
   offlineInstructions?: string | null
   /** Called after an offline method is confirmed (registration already reserved). */
   onComplete?: () => void
+  /** Manual payment mode (no card checkout): leave the flow with the
+   *  registration still pending — the organizer confirms it on payment. */
+  onPendingDone?: () => void
   /** When set, this is a per-team captain paying the team fee: card uses the team
    *  checkout, offline reserves the whole team. */
   teamId?: string | null
@@ -46,7 +49,7 @@ interface Props {
   paymentPlan?: PaymentPlan | null
 }
 
-export function Step3Payment({ org, league, userId, registrationId, priceCents, merchSelections = [], leagueMerch = [], onBack, acceptedMethods = [], offlineInstructions = null, onComplete, teamId = null, paymentPlan = null, taxSuffix = '' }: Props) {
+export function Step3Payment({ org, league, userId, registrationId, priceCents, merchSelections = [], leagueMerch = [], onBack, acceptedMethods = [], offlineInstructions = null, onComplete, onPendingDone, teamId = null, paymentPlan = null, taxSuffix = '' }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [manualInstructions, setManualInstructions] = useState<string | null>(null)
@@ -242,7 +245,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
               <p className="text-sm text-amber-700">Please contact the organizer to arrange payment.</p>
             )}
           </div>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             Make a note of these instructions. Click below to finish — the organizer will mark your
             payment as received once it arrives.
           </p>
@@ -280,9 +283,18 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
               <p className="text-sm text-amber-700">Please contact the organizer to arrange payment.</p>
             )}
           </div>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             Your spot is reserved. The organizer will confirm your registration once payment is received.
           </p>
+          {onPendingDone && (
+            <button
+              type="button"
+              onClick={onPendingDone}
+              className="press w-full min-h-11 py-3 rounded-md font-semibold bg-brand-primary text-on-brand"
+            >
+              Done →
+            </button>
+          )}
         </div>
       </div>
     )

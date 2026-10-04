@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { orgIconUrl, shortAppName } from '@/lib/app-icon'
 
 /**
  * Org-branded web app manifest — makes each org's site installable to a phone
@@ -29,20 +30,26 @@ export async function GET() {
 
   const manifest = {
     name,
-    short_name: name.length > 12 ? name.split(' ')[0] : name,
+    short_name: shortAppName(name),
     description: 'Schedules, standings, and registration.',
     start_url: '/dashboard',
     scope: '/',
     display: 'standalone',
     background_color: '#ffffff',
     theme_color: themeColor,
-    icons: [
-      // The org's own logo first (best-effort — any size), then the Fieldday
-      // icons at the sizes install prompts require.
-      ...(logoUrl ? [{ src: logoUrl, sizes: 'any' }] : []),
-      { src: '/Fieldday-Icon.png', sizes: '192x192', type: 'image/png' },
-      { src: '/Fieldday-Icon.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-    ],
+    // The org's logo as real PNGs at the sizes installs use, plus a maskable
+    // one — Android picks the maskable icon for its adaptive shape, so offering
+    // only Fieldday's there put the Fieldday logo on every org's home screen.
+    icons: logoUrl
+      ? [
+          { src: orgIconUrl(logoUrl, 192), sizes: '192x192', type: 'image/png' },
+          { src: orgIconUrl(logoUrl, 512), sizes: '512x512', type: 'image/png' },
+          { src: orgIconUrl(logoUrl, 512, true), sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ]
+      : [
+          { src: '/Fieldday-Icon.png', sizes: '192x192', type: 'image/png' },
+          { src: '/Fieldday-Icon.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
     // Long-press the home-screen icon (Android/desktop; iOS ignores these).
     shortcuts: [
       { name: 'My schedule', url: '/schedule', icons: [{ src: '/Fieldday-Icon.png', sizes: '192x192' }] },

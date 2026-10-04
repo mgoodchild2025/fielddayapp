@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { BrandProvider } from '@/components/branding/brand-provider'
@@ -12,6 +12,7 @@ import { PwaRegistrar } from '@/components/pwa/pwa-registrar'
 import type { OrgBranding } from '@/types/database'
 import { taxSuffix } from '@/lib/tax'
 import { originFromHeaders } from '@/lib/public-origin'
+import { orgIconUrl, shortAppName } from '@/lib/app-icon'
 import { getOrgBrandingCached, getOrgGateCached, getPlatformMaintenanceCached, getOrgTaxRatesCached } from '@/lib/org-cache'
 
 // ── Dynamic metadata per org ─────────────────────────────────────────────────
@@ -52,11 +53,15 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     description,
 
-    // Favicon — org logo if uploaded, otherwise Fieldday platform icon
+    // Favicon — org logo if uploaded, otherwise Fieldday platform icon. The
+    // home-screen icon must be a PNG for iOS (logos are stored as WebP).
     icons: {
       icon: logoUrl ?? '/Fieldday-Icon.png',
-      apple: logoUrl ?? '/Fieldday-Icon.png',
+      apple: logoUrl ? orgIconUrl(logoUrl, 180) : '/Fieldday-Icon.png',
     },
+    // iOS labels the home-screen icon from this, not the manifest — the root
+    // layout's "Fieldday" would otherwise name every org's icon Fieldday.
+    appleWebApp: { capable: true, statusBarStyle: 'default', title: shortAppName(orgName) },
 
     // Open Graph — Facebook, iMessage, Slack, Discord, etc.
     ...(ogImage && {
@@ -76,6 +81,15 @@ export async function generateMetadata(): Promise<Metadata> {
       },
     }),
   }
+}
+
+// Browser chrome / status bar in the org's nav colour (the nav is
+// brand-secondary), so the phone's toolbar reads as part of the app.
+export async function generateViewport(): Promise<Viewport> {
+  const orgId = (await headers()).get('x-org-id')
+  if (!orgId) return {}
+  const branding = await getOrgBrandingCached(orgId)
+  return { themeColor: branding?.secondary_color ?? '#0F1F3D' }
 }
 
 export default async function OrgLayout({

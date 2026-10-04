@@ -9,6 +9,7 @@ import { Footer } from '@/components/layout/footer'
 import { GameRsvpButton } from '@/components/schedule/game-rsvp-button'
 import { GameAttendancePanel } from '@/components/schedule/game-attendance-panel'
 import { CaptainCheckinButton } from '@/components/checkin/captain-checkin-button'
+import { CaptainScoreEntry } from '@/components/scores/captain-score-entry'
 import { formatGameTime } from '@/lib/format-time'
 import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { redirectToLogin } from '@/lib/auth'
@@ -80,7 +81,7 @@ export default async function GameMatchupPage({
         home_team:teams!games_home_team_id_fkey(id, name, color, logo_url),
         away_team:teams!games_away_team_id_fkey(id, name, color, logo_url),
         league:leagues!games_league_id_fkey(id, name, slug, event_type, sport),
-        game_results(home_score, away_score, sets, status)
+        game_results(home_score, away_score, sets, status, submitted_by)
       `)
       .eq('id', gameId)
       .eq('organization_id', org.id)
@@ -360,20 +361,47 @@ export default async function GameMatchupPage({
                     initialStatus={rsvpStatus}
                   />
                 )}
-                {/* Captain check-in button — shown during game-day window */}
-                {captainTeamIdForGame && league?.id && isCheckInWindow && (
-                  <CaptainCheckinButton
-                    teamId={captainTeamIdForGame}
-                    leagueId={league.id}
-                    timezone={timezone}
-                    teamName={
-                      captainTeamIdForGame === homeTeamId
-                        ? homeTeam?.name
-                        : awayTeam?.name
-                    }
-                  />
-                )}
               </div>
+            </div>
+          )}
+
+          {/* Captain check-in — the whole game-day window (3h before → 2h after
+              start), not just until kickoff: late arrivals still get checked in. */}
+          {captainTeamIdForGame && league?.id && isCheckInWindow && !isCancelled && !isPostponed && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <CaptainCheckinButton
+                teamId={captainTeamIdForGame}
+                leagueId={league.id}
+                timezone={timezone}
+                teamName={
+                  captainTeamIdForGame === homeTeamId
+                    ? homeTeam?.name
+                    : awayTeam?.name
+                }
+              />
+            </div>
+          )}
+
+          {/* Score — once the game has started, either captain submits it and
+              the other confirms (same control as the event page's schedule).
+              Players reach this page from the Games tab, so it has to be here. */}
+          {!isUpcoming && captainTeamIdForGame && homeTeam && awayTeam && !isCompleted && !isCancelled && !isPostponed && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <CaptainScoreEntry
+                gameId={rawGame.id}
+                sport={league?.sport ?? undefined}
+                homeTeamName={homeTeam.name ?? 'Home'}
+                awayTeamName={awayTeam.name ?? 'Away'}
+                isCaptainOfHome={captainTeamIdForGame === homeTeamId}
+                isCaptainOfAway={captainTeamIdForGame === awayTeamId}
+                existingResult={result ? {
+                  homeScore: result.home_score,
+                  awayScore: result.away_score,
+                  status: result.status,
+                  submittedByOpponent: result.submitted_by != null && result.submitted_by !== user.id,
+                  sets: result.sets ?? null,
+                } : null}
+              />
             </div>
           )}
         </div>

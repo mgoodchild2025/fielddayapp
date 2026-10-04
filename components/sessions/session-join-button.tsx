@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { joinSession, leaveSession } from '@/actions/sessions'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 interface Props {
   sessionId: string
@@ -30,17 +30,19 @@ export function SessionJoinButton({
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const pathname = usePathname()
 
   if (isCancelled) return null
 
   if (!isLoggedIn) {
+    // The register link offers sign-in OR continue-as-guest and keeps the
+    // session; a bare /login lost the event entirely.
     return (
       <a
-        href="/login"
-        className="px-4 py-1.5 rounded-md text-sm font-semibold text-white"
-        style={{ backgroundColor: 'var(--brand-primary)' }}
+        href={registerUrl ?? `/login?redirect=${encodeURIComponent(pathname)}`}
+        className="press inline-flex items-center min-h-10 px-4 rounded-md text-sm font-semibold bg-brand-primary text-on-brand"
       >
-        Log in to join
+        Join →
       </a>
     )
   }
@@ -50,8 +52,7 @@ export function SessionJoinButton({
     return (
       <a
         href={registerUrl}
-        className="px-4 py-1.5 rounded-md text-sm font-semibold text-white"
-        style={{ backgroundColor: 'var(--brand-primary)' }}
+        className="press inline-flex items-center min-h-10 px-4 rounded-md text-sm font-semibold bg-brand-primary text-on-brand"
       >
         Register to join →
       </a>
@@ -73,36 +74,42 @@ export function SessionJoinButton({
               router.refresh()
             })
           }}
-          className="px-4 py-1.5 rounded-md text-sm font-semibold border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+          className="press min-h-10 px-4 rounded-md text-sm font-semibold border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
         >
           {isPending ? 'Leaving…' : 'Leave'}
         </button>
-        {error && <p className="text-[11px] text-red-600 max-w-[12rem] text-right">{error}</p>}
+        {error && <p role="alert" className="text-xs text-red-600 max-w-[12rem] text-right">{error}</p>}
       </div>
     )
   }
 
   if (isFull) {
     return (
-      <span className="px-3 py-1.5 rounded-md text-sm font-medium text-red-600 bg-red-50 border border-red-200">
+      <span className="inline-flex items-center min-h-10 px-3 rounded-md text-sm font-medium text-red-600 bg-red-50 border border-red-200">
         Full
       </span>
     )
   }
 
   return (
-    <button
-      disabled={isPending}
-      onClick={() =>
-        startTransition(async () => {
-          await joinSession(sessionId, leagueId)
-          router.refresh()
-        })
-      }
-      className="px-4 py-1.5 rounded-md text-sm font-semibold text-white disabled:opacity-40"
-      style={{ backgroundColor: 'var(--brand-primary)' }}
-    >
-      {isPending ? 'Joining…' : 'Join'}
-    </button>
+    <div className="flex flex-col items-end gap-1">
+      <button
+        disabled={isPending}
+        onClick={() => {
+          setError(null)
+          startTransition(async () => {
+            // "This session is full" (someone took the last spot), invite-only,
+            // signed out… — say so instead of quietly flipping back to Join.
+            const res = await joinSession(sessionId, leagueId)
+            if (res?.error) { setError(res.error); router.refresh(); return }
+            router.refresh()
+          })
+        }}
+        className="press min-h-10 px-4 rounded-md text-sm font-semibold bg-brand-primary text-on-brand disabled:opacity-40"
+      >
+        {isPending ? 'Joining…' : 'Join'}
+      </button>
+      {error && <p role="alert" className="text-xs text-red-600 max-w-[12rem] text-right">{error}</p>}
+    </div>
   )
 }

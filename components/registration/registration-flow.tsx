@@ -499,7 +499,13 @@ export function RegistrationFlow({
             items={leagueMerch}
             onContinue={(sels) => {
               setMerchSelections(sels)
-              advanceStep(4)
+              // Nothing picked on a free event: step 4 (payment) has nothing to
+              // show, so finish here — same as Skip — instead of a blank step.
+              if (sels.length === 0 && !showPaymentStep) {
+                completeRegistration(registrationId)
+              } else {
+                advanceStep(4)
+              }
             }}
             onSkip={() => {
               setMerchSelections([])
@@ -572,6 +578,7 @@ export function RegistrationFlow({
             acceptedMethods={acceptedMethods}
             offlineInstructions={offlineInstructions}
             onComplete={() => completeRegistration(registrationId)}
+            onPendingDone={() => router.push(`/register/${league.slug}/success`)}
             teamId={showCaptainPaymentStep ? newCaptainTeamId : null}
             paymentPlan={paymentPlan}
           />

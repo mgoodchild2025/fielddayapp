@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { TeamCheckinModal } from '@/components/checkin/team-checkin-modal'
 
 interface Team {
@@ -16,6 +17,7 @@ interface Props {
 
 export function TeamCheckinSelector({ teams, leagueId, timezone }: Props) {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
+  const router = useRouter()
 
   if (teams.length === 0) return null
 
@@ -41,7 +43,8 @@ export function TeamCheckinSelector({ teams, leagueId, timezone }: Props) {
         teamId={selectedTeamId}
         leagueId={leagueId}
         timezone={timezone}
-        onClose={() => setSelectedTeamId(null)}
+        // The roster and counter under the sheet were stale after team check-ins.
+        onClose={() => { setSelectedTeamId(null); router.refresh() }}
       />
     </>
   )

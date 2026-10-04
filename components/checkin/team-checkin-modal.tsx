@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from 'react'
 import { getTeamCheckinStatus, toggleTeamMemberCheckin } from '@/actions/team-checkin'
 import type { TeamMemberCheckinStatus } from '@/actions/team-checkin'
 import { Overlay, useRetained } from '@/components/ui/overlay'
+import { toast } from 'sonner'
 
 interface Props {
   teamId: string
@@ -23,7 +24,7 @@ export function TeamCheckinModal({ teamId, ...rest }: Omit<Props, 'teamId'> & { 
       variant="sheet"
       label="Team check-in"
       zIndex={500}
-      panelClassName="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
+      panelClassName="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[90dvh]"
     >
       {shownTeamId && <TeamCheckinContent key={shownTeamId} teamId={shownTeamId} {...rest} />}
     </Overlay>
@@ -59,18 +60,22 @@ function TeamCheckinContent({ teamId, leagueId, timezone, onClose }: Props) {
           : m,
       ),
     )
-    toggleTeamMemberCheckin(registrationId, leagueId, !currentlyCheckedIn).then(({ error }) => {
-      if (error) {
-        // Revert on failure
-        setMembers((prev) =>
-          prev.map((m) =>
-            m.registrationId === registrationId
-              ? { ...m, checkedInAt: currentlyCheckedIn ? new Date().toISOString() : null }
-              : m,
-          ),
-        )
-      }
-    })
+    const name = members.find((m) => m.registrationId === registrationId)?.fullName ?? 'player'
+    const revert = () =>
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.registrationId === registrationId
+            ? { ...m, checkedInAt: currentlyCheckedIn ? new Date().toISOString() : null }
+            : m,
+        ),
+      )
+    toggleTeamMemberCheckin(registrationId, leagueId, !currentlyCheckedIn).then(
+      ({ error }) => {
+        // Revert AND say so: a silent flip-back on gym wifi looked like a missed tap.
+        if (error) { revert(); toast.error(`Couldn't update ${name}: ${error}`) }
+      },
+      () => { revert(); toast.error(`Couldn't update ${name} — check your connection`) },
+    )
   }
 
   function handleCheckInAll() {
@@ -78,10 +83,24 @@ function TeamCheckinContent({ teamId, leagueId, timezone, onClose }: Props) {
     // Optimistic update all unchecked members
     const now = new Date().toISOString()
     setMembers((prev) => prev.map((m) => ({ ...m, checkedInAt: m.checkedInAt ?? now })))
+    const targets = uncheckedMembers
     startAllTransition(async () => {
-      await Promise.all(
-        uncheckedMembers.map((m) => toggleTeamMemberCheckin(m.registrationId, leagueId, true)),
+      const results = await Promise.all(
+        targets.map((m) =>
+          toggleTeamMemberCheckin(m.registrationId, leagueId, true).then(
+            (r) => ({ m, ok: !r.error }),
+            () => ({ m, ok: false }),
+          ),
+        ),
       )
+      // Only the saves that landed stay checked in — never "✓ All Checked In"
+      // over a failed write.
+      const failed = results.filter((r) => !r.ok).map((r) => r.m)
+      if (failed.length > 0) {
+        const failedIds = new Set(failed.map((m) => m.registrationId))
+        setMembers((prev) => prev.map((m) => (failedIds.has(m.registrationId) ? { ...m, checkedInAt: null } : m)))
+        toast.error(`Couldn't check in ${failed.map((m) => m.fullName).join(', ')} — try again`)
+      }
     })
   }
 
@@ -185,7 +204,7 @@ function TeamCheckinContent({ teamId, leagueId, timezone, onClose }: Props) {
                 <button
                   type="button"
                   onClick={() => handleToggle(member.registrationId, checkedIn)}
-                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                  className={`press shrink-0 flex items-center gap-1.5 min-h-11 px-4 rounded-full text-sm font-semibold ${
                     checkedIn
                       ? 'bg-green-100 text-green-700 hover:bg-green-200'
                       : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
