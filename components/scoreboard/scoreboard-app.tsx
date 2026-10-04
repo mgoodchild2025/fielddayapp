@@ -796,8 +796,9 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
       </p>
       {panel(first)}
 
-      {/* Middle bar */}
-      <div className="flex flex-wrap landscape:flex-col items-center justify-center gap-2 px-2 py-1.5 landscape:px-1.5 landscape:py-2 bg-[#0B1210] text-[#9db3a9] shrink-0" style={{ touchAction: 'manipulation' }}>
+      {/* Middle bar — one row at 375px with the lock (gap-1, px-2.5); wraps
+          only on narrower phones. */}
+      <div className="flex flex-wrap landscape:flex-col items-center justify-center gap-1 px-2 py-1.5 landscape:px-1.5 landscape:py-2 bg-[#0B1210] text-[#9db3a9] shrink-0" style={{ touchAction: 'manipulation' }}>
         {/* Post-set chooser lives IN the middle bar (not over a scoring
             panel, where the next point's tap could land on End match). The
             set is already recorded; this only offers ending the match. */}
@@ -828,7 +829,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
           <a
             href={exitHref}
             aria-label={`Back to ${exitLabel}`}
-            className="inline-flex items-center justify-center text-xs font-semibold px-3 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
+            className="inline-flex items-center justify-center text-xs font-semibold px-2.5 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
           >
             ←
           </a>
@@ -836,7 +837,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
           <button
             onClick={goBack}
             aria-label="Back to site"
-            className="inline-flex items-center justify-center text-xs font-semibold px-3 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
+            className="inline-flex items-center justify-center text-xs font-semibold px-2.5 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
           >
             ←
           </button>
@@ -845,7 +846,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
           <button
             onClick={endSet}
             disabled={a + b === 0 || over}
-            className="inline-flex items-center justify-center text-xs font-semibold px-3 min-h-10 min-w-10 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 disabled:opacity-30 disabled:bg-white/10 text-white transition-colors whitespace-nowrap"
+            className="inline-flex items-center justify-center text-xs font-semibold px-2.5 min-h-10 min-w-10 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 disabled:opacity-30 disabled:bg-white/10 text-white transition-colors whitespace-nowrap"
             aria-label={`End set ${sets.length + 1}`}
           >
             End set {sets.length + 1}
@@ -854,28 +855,28 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
         <button
           onClick={undo}
           disabled={game.events.length === 0}
-          className="inline-flex items-center justify-center text-xs font-semibold px-3 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 disabled:opacity-30 text-white transition-colors"
+          className="inline-flex items-center justify-center text-xs font-semibold px-2.5 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 disabled:opacity-30 text-white transition-colors"
           aria-label="Undo last score change"
         >
           ↩ Undo
         </button>
         <button
           onClick={() => setGame((g) => ({ ...g, swapped: !g.swapped }))}
-          className="inline-flex items-center justify-center text-xs font-semibold px-3 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
+          className="inline-flex items-center justify-center text-xs font-semibold px-2.5 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
           aria-label="Swap sides"
         >
           ⇄ Swap
         </button>
         <button
           onClick={() => setMenuOpen(true)}
-          className="inline-flex items-center justify-center text-xs font-semibold px-3 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
+          className="inline-flex items-center justify-center text-xs font-semibold px-2.5 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
           aria-label="Menu"
         >
           ⋯
         </button>
         <button
           onClick={() => setLocked(true)}
-          className="inline-flex items-center justify-center text-xs font-semibold px-3 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
+          className="inline-flex items-center justify-center text-xs font-semibold px-2.5 min-h-10 min-w-10 rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
           aria-label="Lock the board (ignore taps until unlocked)"
           title="Lock — for a phone in a pocket"
         >
