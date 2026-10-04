@@ -66,10 +66,20 @@ export default async function GalleryPage() {
           </section>
         )}
 
-        {(photoList.length > 0 || videos.length > 0) && photoList.length > 0 && (
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-500 mb-4">Photos</h2>
+        {/* Club photos. The grid's own "No photos yet" only when the page has
+            nothing at all — it used to sit between the videos and the event
+            photos, reading as if the gallery were empty. */}
+        {photoList.length > 0 && (
+          <>
+            {(videos.length > 0 || eventMedia.length > 0) && (
+              <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-500 mb-4">Photos</h2>
+            )}
+            <GalleryGrid photos={photoList} />
+          </>
         )}
-        <GalleryGrid photos={photoList} />
+        {photoList.length === 0 && videos.length === 0 && eventMedia.length === 0 && (
+          <GalleryGrid photos={photoList} />
+        )}
 
         {/* From events — approved player uploads across all events */}
         {eventMedia.length > 0 && (

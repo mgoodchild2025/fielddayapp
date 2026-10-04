@@ -1,4 +1,4 @@
-import Image from 'next/image'
+import { LogoImage } from './logo-image'
 import {
   IconBallVolleyball,
   IconBallFootball,
@@ -11,7 +11,6 @@ import {
   IconTrophy,
 } from '@tabler/icons-react'
 import type { Icon as TablerIcon } from '@tabler/icons-react'
-import { canOptimizeImage } from '@/lib/image-src'
 
 // Sport → Tabler icon.  Sports without a specific icon fall back to IconTrophy.
 const sportIcons: Record<string, TablerIcon> = {
@@ -68,17 +67,7 @@ export function EventAvatar({ logoUrl, name, sport, size = 'sm', className = '' 
 
   if (logoUrl) {
     return (
-      <div className={`${sizeClass} rounded-lg overflow-hidden shrink-0 bg-white ${className}`}>
-        <Image
-          src={logoUrl}
-          alt={name}
-          width={px}
-          height={px}
-          className="w-full h-full object-cover"
-          style={{ imageOrientation: 'from-image' }}
-          unoptimized={!canOptimizeImage(logoUrl)}
-        />
-      </div>
+      <LogoImage src={logoUrl} alt={name} px={px} style={{ imageOrientation: 'from-image' }} frameClassName={`${sizeClass} rounded-lg overflow-hidden shrink-0 ${className}`} />
     )
   }
 

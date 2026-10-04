@@ -475,7 +475,7 @@ export default async function TeamStatsPage({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
 
             <div className="bg-white rounded-xl border p-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Record</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">Record</p>
               <p className="text-xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-secondary)' }}>
                 {wins}W&nbsp;{losses}L{ties > 0 ? ` ${ties}T` : ''}
                 {teamStreak && (
@@ -484,39 +484,39 @@ export default async function TeamStatsPage({
                   </span>
                 )}
               </p>
-              <p className="text-[11px] text-gray-400 mt-1.5">{played} played</p>
+              <p className="text-[11px] text-gray-500 mt-1.5">{played} played</p>
             </div>
 
             <div className="bg-white rounded-xl border p-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">{ptsBox.label}</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">{ptsBox.label}</p>
               <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-primary)' }}>
                 {ptsBox.value}
               </p>
-              <p className="text-[11px] text-gray-400 mt-1.5">{ptsBox.hint}</p>
+              <p className="text-[11px] text-gray-500 mt-1.5">{ptsBox.hint}</p>
             </div>
 
             <div className="bg-white rounded-xl border p-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">{scoringUnit}</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">{scoringUnit}</p>
               <p className="text-2xl font-extrabold tracking-tight leading-none text-gray-800">
                 <span style={{ color: 'var(--brand-primary)' }}>{goalsFor}</span>
                 <span className="text-gray-300 font-light mx-0.5">–</span>
                 <span>{goalsAgainst}</span>
               </p>
-              <p className={`text-[11px] mt-1.5 ${goalDiff > 0 ? '' : goalDiff < 0 ? 'text-red-500' : 'text-gray-400'}`}
+              <p className={`text-[11px] mt-1.5 ${goalDiff > 0 ? '' : goalDiff < 0 ? 'text-red-500' : 'text-gray-500'}`}
                  style={goalDiff > 0 ? { color: 'var(--brand-primary)' } : undefined}>
                 {goalDiff > 0 ? '+' : ''}{goalDiff} {scoringUnit.toLowerCase()} diff
               </p>
             </div>
 
             <div className="bg-white rounded-xl border p-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Standing</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">Standing</p>
               {standing !== null ? (
                 <>
                   <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-primary)' }}>
                     {standing}<sup className="text-sm font-bold">{ordinal(standing)}</sup>
                     {totalTeams > 0 && <span className="text-sm font-semibold text-gray-500"> /{totalTeams}</span>}
                   </p>
-                  <p className="text-[11px] text-gray-400 mt-1.5 truncate">{league?.name}</p>
+                  <p className="text-[11px] text-gray-500 mt-1.5 truncate">{league?.name}</p>
                 </>
               ) : (
                 <p className="text-sm text-gray-500 mt-1">—</p>

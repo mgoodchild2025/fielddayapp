@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { House, CalendarDays, Trophy, CircleUser, LogIn, type LucideIcon } from 'lucide-react'
+// Events = a ticket (your registrations); the trophy belongs to Champions.
+import { House, CalendarDays, Ticket, CircleUser, LogIn, type LucideIcon } from 'lucide-react'
 
 interface Tab {
   href: string
@@ -19,7 +20,7 @@ interface Tab {
 const MEMBER_TABS: Tab[] = [
   { href: '/dashboard', label: 'Home',   Icon: House,        match: ['/dashboard'] },
   { href: '/schedule',  label: 'Games',  Icon: CalendarDays, match: ['/schedule', '/games', '/standings'] },
-  { href: '/my-events', label: 'Events', Icon: Trophy,       match: ['/my-events', '/events'] },
+  { href: '/my-events', label: 'Events', Icon: Ticket,       match: ['/my-events', '/events'] },
   { href: '/profile',   label: 'Me',     Icon: CircleUser,   match: ['/profile', '/my-teams'] },
 ]
 
@@ -47,7 +48,7 @@ export function MobileBottomNavClient({ signedIn }: { signedIn: boolean }) {
   const tabs: Tab[] = signedIn
     ? MEMBER_TABS
     : [
-        { href: '/events', label: 'Events', Icon: Trophy, match: ['/events'] },
+        { href: '/events', label: 'Events', Icon: Ticket, match: ['/events'] },
         {
           // Come back to the page they were on after signing in.
           href: pathname && pathname !== '/' ? `/login?redirect=${encodeURIComponent(pathname)}` : '/login',

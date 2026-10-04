@@ -740,7 +740,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
           />
           {sameDayGames.length > 0 && (
             <div className="mt-3 space-y-2">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 px-1">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 px-1">
                 Later that day <span className="text-gray-500 normal-case font-medium tracking-normal">· your RSVP above applies to these too</span>
               </p>
               {sameDayGames.map((g) => {
@@ -860,7 +860,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
             </h2>
             <div className="grid grid-cols-3 gap-3">
               <Link href={`/teams/${team.teamId}/stats`} className="bg-white rounded-xl border p-4 hover:shadow-sm transition-shadow block">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Record</p>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">Record</p>
                 <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-secondary)' }}>
                   <span>{team.record.wins}</span>
                   <span className="text-sm font-bold text-gray-500 ml-0.5">W</span>
@@ -875,11 +875,11 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                     </>
                   )}
                 </p>
-                <p className="text-[11px] text-gray-400 mt-1.5">{team.record.played} played</p>
+                <p className="text-[11px] text-gray-500 mt-1.5">{team.record.played} played</p>
               </Link>
 
               <Link href={`/teams/${team.teamId}/stats`} className="bg-white rounded-xl border p-4 hover:shadow-sm transition-shadow block">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Standing</p>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">Standing</p>
                 {team.record.standing !== null ? (
                   <>
                     <p className="text-2xl font-extrabold tracking-tight leading-none">
@@ -890,7 +890,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                         <span className="text-sm font-semibold text-gray-500 ml-0.5"> / {team.record.totalTeams}</span>
                       )}
                     </p>
-                    <p className="text-[11px] text-gray-400 mt-1.5 truncate">{team.leagueName}</p>
+                    <p className="text-[11px] text-gray-500 mt-1.5 truncate">{team.leagueName}</p>
                   </>
                 ) : (
                   <p className="text-sm text-gray-500 mt-1">—</p>
@@ -898,11 +898,11 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
               </Link>
 
               <Link href={`/teams/${team.teamId}/stats`} className="bg-white rounded-xl border p-4 hover:shadow-sm transition-shadow block">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">{team.record.pointsLabel}</p>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">{team.record.pointsLabel}</p>
                 <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-primary)' }}>
                   {team.record.points}
                 </p>
-                <p className="text-[11px] text-gray-400 mt-1.5">{team.record.pointsHint}</p>
+                <p className="text-[11px] text-gray-500 mt-1.5">{team.record.pointsHint}</p>
               </Link>
             </div>
           </section>
