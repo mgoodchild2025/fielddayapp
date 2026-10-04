@@ -8,6 +8,9 @@ import { ShopPaymentForm } from '@/components/payments/shop-payment-form'
 import { HelpLink } from '@/components/ui/help-link'
 import { TaxRatesManager, type TaxRateRow } from '@/components/settings/tax-rates-manager'
 import { FiscalYearForm } from '@/components/finances/fiscal-year-form'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Payment settings' }
 
 export default async function PaymentSettingsPage() {
   const headersList = await headers()

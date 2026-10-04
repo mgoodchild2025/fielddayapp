@@ -2,6 +2,9 @@ import { headers } from 'next/headers'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { CheckinSoundPicker } from '@/components/settings/checkin-sound-picker'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Check-in settings' }
 
 export default async function AdminCheckinPage() {
   const headersList = await headers()

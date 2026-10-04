@@ -447,7 +447,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
                   </button>
                 </div>
                 {discountError && (
-                  <p className="text-xs text-red-600">{discountError}</p>
+                  <p role="alert" className="text-xs text-red-600">{discountError}</p>
                 )}
               </div>
             )}

@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { PickupInvitesManager } from '@/components/events/pickup-invites-manager'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Invites' }
 
 export default async function AdminInvitesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

@@ -132,7 +132,7 @@ export function InvitePlayerButton({ orgSlug }: Props) {
                 </div>
 
                 {result?.error && (
-                  <p className="text-sm text-red-600">{result.error}</p>
+                  <p role="alert" className="text-sm text-red-600">{result.error}</p>
                 )}
 
                 <p className="text-xs text-gray-400">

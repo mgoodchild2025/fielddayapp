@@ -60,7 +60,7 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
         <p className="text-[11px] text-gray-400">Seat teams &amp; set routes on each match (✎)</p>
       </div>
 
-      {err && <p className="text-xs text-red-500">{err}</p>}
+      {err && <p role="alert" className="text-xs text-red-600">{err}</p>}
 
       <div className="space-y-1.5">
         {roundNumbers.map((rn) => {
@@ -112,7 +112,8 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
                           disabled={isPending}
                           className={`inline-flex items-center justify-center min-w-8 min-h-8 ${m.medalMatch === 'gold' ? '' : 'opacity-25 grayscale hover:opacity-75 hover:grayscale-0'}`}
                           title={m.medalMatch === 'gold' ? 'Unmark as the gold medal match' : 'Mark as the gold medal match — winner takes gold, loser takes silver'}
-                          aria-label={`Toggle gold medal match on match ${m.matchNumber}`}
+                          aria-label={`Gold medal match: match ${m.matchNumber}`}
+                          aria-pressed={m.medalMatch === 'gold'}
                         >
                           🥇
                         </button>
@@ -122,7 +123,8 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
                           disabled={isPending}
                           className={`inline-flex items-center justify-center min-w-8 min-h-8 ${m.medalMatch === 'bronze' ? '' : 'opacity-25 grayscale hover:opacity-75 hover:grayscale-0'}`}
                           title={m.medalMatch === 'bronze' ? 'Unmark as the bronze medal match' : 'Mark as the bronze medal match — winner takes bronze'}
-                          aria-label={`Toggle bronze medal match on match ${m.matchNumber}`}
+                          aria-label={`Bronze medal match: match ${m.matchNumber}`}
+                          aria-pressed={m.medalMatch === 'bronze'}
                         >
                           🥉
                         </button>

@@ -150,7 +150,7 @@ export function DnsRecordsPanel({ orgId, domain, initialRecords }: Props) {
       )}
 
       {error && (
-        <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</p>
+        <p role="alert" className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</p>
       )}
     </div>
   )

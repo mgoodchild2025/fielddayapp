@@ -197,6 +197,15 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
         panelClassName="w-screen h-dvh sm:w-full sm:max-w-sm sm:h-auto bg-black sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col"
       >
         {isActive && (<>
+          {/* Results are drawn over the camera; this says them out loud too. */}
+          <p className="sr-only" aria-live="assertive" aria-atomic="true">
+            {scanState.type === 'success' ? `${scanState.playerName} checked in${scanState.teamName ? `, ${scanState.teamName}` : ''}.`
+              : scanState.type === 'walk_in_success' ? `${scanState.playerName} added as a walk-in and checked in.`
+              : scanState.type === 'already_in' ? `${scanState.playerName} is already checked in.`
+              : scanState.type === 'not_in_session' ? `${scanState.playerName} is not registered for this session.`
+              : scanState.type === 'error' ? scanState.message
+              : ''}
+          </p>
 
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-2 bg-black/80 shrink-0" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>

@@ -59,7 +59,7 @@ export function MemberActions({ memberId, memberName, status }: Props) {
         <span className="text-gray-200">|</span>
         <button
           onClick={() => setConfirmDelete(true)}
-          className="text-xs text-red-500 hover:text-red-700 font-medium"
+          className="text-xs text-red-600 hover:text-red-700 font-medium"
           title={`Permanently delete ${memberName}`}
         >
           Delete

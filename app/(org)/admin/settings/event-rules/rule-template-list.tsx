@@ -154,7 +154,7 @@ function TemplateForm({
           minHeight="300px"
         />
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-3">
         <button
           type="submit"
@@ -191,7 +191,7 @@ function DeleteButton({ templateId, onDeleted }: { templateId: string; onDeleted
     <button
       onClick={handle}
       disabled={loading}
-      className="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50"
+      className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 disabled:opacity-50"
     >
       {loading ? '…' : 'Delete'}
     </button>

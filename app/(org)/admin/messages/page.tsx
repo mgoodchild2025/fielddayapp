@@ -4,6 +4,9 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { ComposeMessageForm } from './compose-form'
 import { DeleteAnnouncementButton } from './delete-button'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Messages' }
 
 export default async function AdminMessagesPage() {
   const headersList = await headers()

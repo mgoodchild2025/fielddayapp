@@ -1,5 +1,8 @@
 import Link from 'next/link'
 import { ClearCartOnMount } from '@/components/shop/clear-cart-on-mount'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Order confirmed' }
 
 interface Props {
   searchParams: Promise<{ manual?: string; instructions?: string; session_id?: string }>

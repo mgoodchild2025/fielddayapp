@@ -85,7 +85,7 @@ export function TotpChallenge({ factorId, redirect }: Props) {
               disabled={loading}
             />
             {error && (
-              <p className="mt-2 text-sm text-red-600">{error}</p>
+              <p role="alert" className="mt-2 text-sm text-red-600">{error}</p>
             )}
           </div>
 
@@ -129,7 +129,7 @@ export function TotpChallenge({ factorId, redirect }: Props) {
               disabled={backupLoading}
             />
             {backupError && (
-              <p className="mt-2 text-sm text-red-600">{backupError}</p>
+              <p role="alert" className="mt-2 text-sm text-red-600">{backupError}</p>
             )}
           </div>
 

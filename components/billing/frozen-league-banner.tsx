@@ -44,7 +44,7 @@ export function FrozenLeagueBanner({ graceDaysLeft }: Props) {
   // Grace expired — red lock-out
   return (
     <div className="w-full px-4 py-3 mb-4 rounded-lg text-sm bg-red-50 border border-red-200 flex items-start gap-3">
-      <Lock className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+      <Lock className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
       <div className="flex-1">
         <p className="font-semibold text-red-800">
           This league is frozen — admin writes are disabled

@@ -116,7 +116,7 @@ export function BioEditor({
       </div>
 
       <div className="p-5 space-y-3">
-        {err && <p className="text-sm text-red-500">{err}</p>}
+        {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <label className="text-xs text-gray-500">Number

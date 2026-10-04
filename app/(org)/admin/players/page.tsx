@@ -8,6 +8,9 @@ import { PlayersClient } from '@/components/players/players-client'
 import type { PlayerRow, LeagueOption } from '@/components/players/players-client'
 import { InvitePlayerButton } from '@/components/players/invite-player-form'
 import { PlayersHelpModal } from '@/components/admin/players-help-modal'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Players' }
 
 export default async function PlayersPage({
   searchParams,

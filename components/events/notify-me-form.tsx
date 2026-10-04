@@ -78,7 +78,7 @@ export function NotifyMeForm({ leagueId, source = 'coming_soon' }: Props) {
           {pending ? 'Adding…' : 'Notify me'}
         </button>
       </div>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
       <p className="text-xs text-gray-500">We&rsquo;ll only email you about this event. Unsubscribe anytime.</p>
     </form>
   )

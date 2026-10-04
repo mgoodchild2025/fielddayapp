@@ -6,6 +6,9 @@ import { Footer } from '@/components/layout/footer'
 import { EventsFilter } from '@/components/events/events-filter'
 import type { EventItem } from '@/components/events/events-filter'
 import { getEventSpotsMap } from '@/lib/event-spots'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Events' }
 
 export default async function EventsPage() {
   const headersList = await headers()

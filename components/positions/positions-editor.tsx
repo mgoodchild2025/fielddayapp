@@ -91,7 +91,7 @@ export function PositionsEditor({ sport, positions: initialPositions, isCustom }
         )}
       </ul>
 
-      {addError && <p className="text-xs text-red-600 mt-2">{addError}</p>}
+      {addError && <p role="alert" className="text-xs text-red-600 mt-2">{addError}</p>}
 
       <form onSubmit={handleAdd} className="flex gap-2 mt-3">
         <input

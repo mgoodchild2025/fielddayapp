@@ -317,6 +317,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <button
           onClick={() => setFilter('all')}
+          aria-pressed={filter === 'all'}
           className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
             filter === 'all'
               ? 'text-white'
@@ -328,6 +329,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
         </button>
         <button
           onClick={() => setFilter('needs')}
+          aria-pressed={filter === 'needs'}
           className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5 ${
             filter === 'needs'
               ? 'text-white'
@@ -347,6 +349,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
         {pendingCount > 0 && (
           <button
             onClick={() => setFilter('pending')}
+          aria-pressed={filter === 'pending'}
             className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5 ${
               filter === 'pending'
                 ? 'bg-amber-500 text-white'
@@ -364,6 +367,7 @@ export function ScheduleTable({ games, teams, pools = [], leagueId, sport, event
         {cancelledCount > 0 && (
           <button
             onClick={() => setFilter('cancelled')}
+          aria-pressed={filter === 'cancelled'}
             className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5 ${
               filter === 'cancelled'
                 ? 'bg-red-600 text-white'

@@ -6,6 +6,9 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { SelfCheckinSessionClient } from '@/components/checkin/self-checkin-session-client'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Check in' }
 
 function formatSessionTime(scheduledAt: string, timezone: string): string {
   return new Date(scheduledAt).toLocaleString('en-CA', {

@@ -12,15 +12,16 @@ interface Props {
   enabledItemPrices: Record<string, number | null> // item_id → price_override_cents
 }
 
-function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+function Toggle({ checked, onChange, disabled, label }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; label: string }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${
+      className={`relative shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 before:absolute before:-inset-2 before:content-[''] ${
         checked ? 'bg-[var(--brand-primary)]' : 'bg-gray-200'
       }`}
     >
@@ -234,7 +235,7 @@ function ItemRow({
             </div>
           )}
         </div>
-        <Toggle checked={checked} onChange={onToggle} disabled={pending} />
+        <Toggle checked={checked} onChange={onToggle} disabled={pending} label={`Sell ${item.name} with this event`} />
       </div>
 
       {/* Price override — only shown when item is enabled */}

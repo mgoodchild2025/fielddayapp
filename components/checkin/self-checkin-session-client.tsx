@@ -85,6 +85,10 @@ export function SelfCheckinSessionClient({
 
   return (
     <div className="w-full max-w-sm">
+      {/* Always mounted, so the outcome is announced. */}
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {state.phase === 'loading' ? 'Checking you in…' : state.phase === 'done' ? `${state.heading}. ${state.body}` : ''}
+      </p>
 
       {/* Pre-tap: prompt card */}
       {state.phase === 'idle' && (

@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { WaiverQrPoster } from '@/components/waivers/waiver-qr-poster'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Waiver QR code' }
 
 export default async function WaiverQrPage({
   params,

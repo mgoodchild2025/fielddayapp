@@ -4,6 +4,9 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { SponsorManager } from './sponsor-manager'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Sponsors' }
 
 export default async function SponsorsPage() {
   const headersList = await headers()

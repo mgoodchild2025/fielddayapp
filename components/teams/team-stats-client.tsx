@@ -200,11 +200,11 @@ function H2HRow({ record, showKind }: { record: H2HRecord; showKind?: boolean })
         <div className="flex items-center gap-3 shrink-0 text-xs text-gray-500 tabular-nums">
           <span className="font-bold text-emerald-600">{wins}W</span>
           {draws > 0 && <span className="font-bold text-amber-600">{draws}D</span>}
-          <span className="font-bold text-red-500">{losses}L</span>
+          <span className="font-bold text-red-600">{losses}L</span>
           <span className="text-gray-500">
             {goalsFor}–{goalsAgainst}
             {' '}
-            <span className={gd > 0 ? 'text-emerald-600' : gd < 0 ? 'text-red-500' : 'text-gray-500'}>
+            <span className={gd > 0 ? 'text-emerald-600' : gd < 0 ? 'text-red-600' : 'text-gray-500'}>
               ({gd > 0 ? '+' : ''}{gd})
             </span>
           </span>
@@ -283,15 +283,17 @@ export function TeamStatsTabs({ pastResults, upcomingResults, h2h, showKind, pla
 
   return (
     <div>
-      <div className="flex gap-1 border-b border-gray-200 mb-4 overflow-x-auto">
+      <div role="tablist" aria-label="Team stats" className="flex gap-1 border-b border-gray-200 mb-4 overflow-x-auto">
         {tabs.map(t => {
           const active = t.key === tab
           return (
             <button
               key={t.key}
               type="button"
+              role="tab"
+              aria-selected={active}
               onClick={() => setTab(t.key)}
-              className={`px-3 sm:px-4 py-2 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap transition-colors ${
+              className={`min-h-10 px-3 sm:px-4 py-2 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap transition-colors ${
                 active
                   ? 'border-[var(--brand-primary)] text-gray-900'
                   : 'border-transparent text-gray-500 hover:text-gray-600'

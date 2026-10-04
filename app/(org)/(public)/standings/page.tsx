@@ -9,6 +9,9 @@ import { Footer } from '@/components/layout/footer'
 import Link from 'next/link'
 import { EmptyState } from '@/components/ui/empty-state'
 import { BarChart3 } from 'lucide-react'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Standings' }
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   league: 'League',

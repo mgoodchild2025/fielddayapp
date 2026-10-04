@@ -31,6 +31,15 @@ import Link from 'next/link'
 import { CalendarDays, BarChart3 } from 'lucide-react'
 import { redirectToLogin } from '@/lib/auth'
 import { BackLink } from '@/components/ui/back-link'
+import type { Metadata } from 'next'
+
+export async function generateMetadata({ params }: { params: Promise<{ teamId: string }> }): Promise<Metadata> {
+  const { teamId } = await params
+  const org = await getCurrentOrg(await headers())
+  const { data } = await createServiceRoleClient()
+    .from('teams').select('name').eq('organization_id', org.id).eq('id', teamId).maybeSingle()
+  return { title: data?.name ?? 'Team' }
+}
 
 export default async function TeamDetailPage({
   params,

@@ -9,6 +9,9 @@ import { roundDisplayName } from '@/lib/bracket'
 import { PrintControls } from '@/components/print/print-controls'
 import { BracketSheet, type BracketMatch } from '@/components/print/bracket-sheet'
 import { GameScoreSheet } from '@/components/print/game-score-sheet'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Bracket (print)' }
 
 export default async function BracketPrintPage({
   params,

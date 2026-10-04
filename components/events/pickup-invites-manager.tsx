@@ -88,7 +88,7 @@ function InviteSection({
             {isPending ? 'Sending…' : 'Send Invite'}
           </button>
         </form>
-        {formError && <p className="text-sm text-red-600 mt-2">{formError}</p>}
+        {formError && <p role="alert" className="text-sm text-red-600 mt-2">{formError}</p>}
       </div>
 
       {invites.length > 0 && (
@@ -129,7 +129,7 @@ function InviteSection({
                 ) : (
                   <button
                     onClick={() => setConfirmRevokeId(invite.id)}
-                    className="text-xs text-red-500 hover:underline"
+                    className="text-xs text-red-600 hover:underline"
                   >
                     Revoke
                   </button>

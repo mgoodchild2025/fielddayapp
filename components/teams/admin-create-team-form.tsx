@@ -70,7 +70,7 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabe
     <div className="bg-white rounded-lg border p-5">
       <h3 className="font-semibold text-sm mb-4">Add Team</h3>
 
-      {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
+      {error && <p role="alert" className="text-red-600 text-xs mb-3">{error}</p>}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
         <div>
@@ -81,7 +81,7 @@ export function AdminCreateTeamForm({ leagueId, registeredPlayers = [], slotLabe
             placeholder="e.g. The Spikers"
             className="w-full border rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0"
           />
-          {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
+          {errors.name && <p role="alert" className="text-red-600 text-xs mt-1">{errors.name.message}</p>}
         </div>
 
         <div>

@@ -68,7 +68,7 @@ export function DropInSessionForm({ session, timeZone }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-lg border p-6 space-y-5">
-      {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>}
 
       <div>
         <label className={labelClass}>Session Name *</label>

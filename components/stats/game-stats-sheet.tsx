@@ -266,7 +266,7 @@ function GameStatsContent({
         {/* Footer */}
         <div className="px-4 py-4 border-t shrink-0 space-y-2">
           {error && (
-            <p className="text-xs text-red-500">{error}</p>
+            <p role="alert" className="text-xs text-red-600">{error}</p>
           )}
           <div className="flex gap-3">
             <button

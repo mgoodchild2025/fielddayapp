@@ -25,6 +25,9 @@ import { PaymentPlanConfig } from '@/components/events/payment-plan-config'
 import { RichTextContent } from '@/components/ui/rich-text-content'
 import type { Database } from '@/types/database'
 import { SubmitButton } from '@/components/ui/submit-button'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Event' }
 
 type LeagueStatus = Database['public']['Tables']['leagues']['Row']['status']
 

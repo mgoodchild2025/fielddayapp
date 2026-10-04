@@ -10,6 +10,9 @@ import { MerchandiseOrdersTable } from '@/components/merchandise/merch-orders-ta
 import { MerchItemList } from '@/components/merchandise/merch-item-list'
 import { ShopTabs } from '@/components/merchandise/shop-tabs'
 import { RecordSaleModal } from '@/components/merchandise/record-sale-modal'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Shop' }
 
 function getLowStockAlerts(items: MerchItem[]) {
   const out: string[] = []

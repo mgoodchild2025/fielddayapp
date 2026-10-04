@@ -391,6 +391,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
             type="button"
             role="switch"
             aria-checked={shopEnabled}
+            aria-label="Show in shop"
             onClick={() => setShopEnabled(!shopEnabled)}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[var(--brand-primary)] ${shopEnabled ? 'bg-[var(--brand-primary)]' : 'bg-gray-200'}`}
           >

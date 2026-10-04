@@ -3,15 +3,16 @@
 import { useState, useTransition } from 'react'
 import { setMarketingConsent } from '@/actions/player-consents'
 
-function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+function Toggle({ checked, onChange, disabled, label }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; label: string }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
+      className={`relative shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 before:absolute before:-inset-2 before:content-[''] ${
         checked ? 'bg-[var(--brand-primary)]' : 'bg-gray-200'
       }`}
     >
@@ -44,14 +45,14 @@ export function MarketingPrefs({ initialEmail, initialSms }: { initialEmail: boo
           <p className="font-medium text-gray-900">Promotional emails</p>
           <p className="text-sm text-gray-500 mt-0.5">News about leagues, events, and offers.</p>
         </div>
-        <Toggle checked={email} onChange={(v) => update('marketing_email', v)} disabled={isPending} />
+        <Toggle checked={email} onChange={(v) => update('marketing_email', v)} disabled={isPending} label="Promotional emails" />
       </div>
       <div className="flex items-center justify-between gap-4 p-5">
         <div>
           <p className="font-medium text-gray-900">Promotional SMS</p>
           <p className="text-sm text-gray-500 mt-0.5">Occasional promotional texts. Reply STOP any time.</p>
         </div>
-        <Toggle checked={sms} onChange={(v) => update('marketing_sms', v)} disabled={isPending} />
+        <Toggle checked={sms} onChange={(v) => update('marketing_sms', v)} disabled={isPending} label="Promotional SMS" />
       </div>
       <div className="px-5 py-3 flex items-center justify-between">
         <p className="text-xs text-gray-500">

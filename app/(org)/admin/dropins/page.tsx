@@ -5,6 +5,9 @@ import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import Link from 'next/link'
 import { StatusChip } from '@/components/ui/status-chip'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Drop-ins' }
 
 export default async function AdminDropInsPage() {
   const headersList = await headers()

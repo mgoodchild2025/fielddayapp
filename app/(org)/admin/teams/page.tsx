@@ -3,6 +3,9 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { TeamsTable } from '@/components/admin/teams-table'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Teams' }
 
 export default async function AdminTeamsPage() {
   const headersList = await headers()

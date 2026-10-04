@@ -44,7 +44,7 @@ export function DeleteEventButton({ leagueId, eventName }: Props) {
       <p className="text-xs text-red-600 font-medium">
         This will permanently delete &ldquo;{eventName}&rdquo; including all teams, members, registrations, and games. This cannot be undone.
       </p>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
       <div className="flex gap-2">
         <button
           onClick={handleDelete}

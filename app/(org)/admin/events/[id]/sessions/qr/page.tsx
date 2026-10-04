@@ -5,6 +5,9 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { RegistrationQrPoster } from '@/components/sessions/registration-qr-poster'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Session QR codes' }
 
 export const dynamic = 'force-dynamic'
 

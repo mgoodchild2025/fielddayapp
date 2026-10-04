@@ -6,6 +6,9 @@ import { canAccess } from '@/lib/features'
 import { getNavLinks } from '@/actions/nav-links'
 import { NavLinkManager } from '@/components/settings/nav-link-manager'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Navigation' }
 
 export default async function NavLinksPage() {
   const headersList = await headers()

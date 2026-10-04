@@ -10,6 +10,9 @@ import {
   type PtsMethod, type VolleyballMode, countsForStandings } from '@/lib/standings'
 import { TeamAvatar } from '@/components/ui/team-avatar'
 import { getLeagueConfirmedResults } from '@/lib/league-results'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Standings' }
 
 // Standings rows on this page additionally carry division/pool grouping.
 interface TeamStat extends BaseTeamStat {

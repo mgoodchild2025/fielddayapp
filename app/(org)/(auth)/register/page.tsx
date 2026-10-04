@@ -98,7 +98,7 @@ export default function RegisterPage() {
           </div>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           {serverError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+            <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
               {serverError}
             </div>
           )}
@@ -115,10 +115,11 @@ export default function RegisterPage() {
                 autoComplete={autoComplete}
                 autoCapitalize={id === 'email' ? 'none' : 'words'}
                 aria-invalid={errors[id as keyof FormData] ? true : undefined}
+                aria-describedby={errors[id as keyof FormData] ? `${id}-error` : undefined}
                 className="w-full border rounded-md px-3 py-2 text-base focus:outline-none focus:ring-2"
               />
               {errors[id as keyof FormData] && (
-                <p className="text-red-600 text-xs mt-1">{errors[id as keyof FormData]?.message}</p>
+                <p id={`${id}-error`} role="alert" className="text-red-600 text-xs mt-1">{errors[id as keyof FormData]?.message}</p>
               )}
             </div>
           ))}
@@ -131,7 +132,7 @@ export default function RegisterPage() {
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="new-password"
                 aria-invalid={errors.password ? true : undefined}
-                aria-describedby="password-hint"
+                aria-describedby={errors.password ? 'password-error' : 'password-hint'}
                 className="w-full border rounded-md px-3 py-2 pr-11 text-base focus:outline-none focus:ring-2"
               />
               <button
@@ -144,7 +145,7 @@ export default function RegisterPage() {
               </button>
             </div>
             {errors.password
-              ? <p className="text-red-600 text-xs mt-1">{errors.password.message}</p>
+              ? <p id="password-error" role="alert" className="text-red-600 text-xs mt-1">{errors.password.message}</p>
               : <p id="password-hint" className="text-gray-500 text-xs mt-1">At least 8 characters.</p>}
           </div>
           <button
@@ -156,7 +157,7 @@ export default function RegisterPage() {
           </button>
           <p className="text-sm text-center text-gray-500 pt-2">
             Already have an account?{' '}
-            <Link href={loginHref} className="hover:underline" style={{ color: 'var(--brand-primary)' }}>Sign in</Link>
+            <Link href={loginHref} className="inline-flex items-center min-h-10 font-medium text-brand-primary hover:underline">Sign in</Link>
           </p>
         </form>
         </div>

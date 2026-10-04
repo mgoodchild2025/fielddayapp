@@ -72,7 +72,7 @@ export function TaxRatesManager({ rates }: { rates: TaxRateRow[] }) {
         and offline payments record the same split. Discounts apply first, then tax.
       </p>
 
-      {err && <p className="mt-3 text-sm text-red-600">{err}</p>}
+      {err && <p role="alert" className="mt-3 text-sm text-red-600">{err}</p>}
 
       {active.length > 0 && (
         <ul className="mt-4 divide-y border rounded-lg">

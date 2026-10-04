@@ -945,6 +945,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
                   }))
                 }
                 aria-label={`Colour ${c}`}
+                aria-pressed={(shownTeam === 'A' ? game.teamA : game.teamB).color === c}
                 className="w-9 h-9 rounded-full border-2"
                 style={{ background: c, borderColor: (shownTeam === 'A' ? game.teamA : game.teamB).color === c ? 'white' : 'transparent' }}
               />
@@ -985,6 +986,7 @@ export function ScoreboardApp({ attached = null }: { attached?: AttachedGame | n
                     <button
                       key={m}
                       onClick={() => setGame((g) => ({ ...g, config: { ...g.config, mode: m } }))}
+                      aria-pressed={game.config.mode === m}
                       className={`flex-1 py-2.5 rounded-lg text-sm font-semibold ${game.config.mode === m ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white/70'}`}
                     >
                       {m === 'free' ? 'Free score' : 'Sets'}

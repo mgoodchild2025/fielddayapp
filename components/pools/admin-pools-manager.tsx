@@ -104,7 +104,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
           <p className="text-xs text-gray-500">
             {teamCount} teams · {effectiveRounds}/{rounds} rounds · {gamesPerRound} game{gamesPerRound !== 1 ? 's' : ''}/round · {totalGames} total games
           </p>
-          {result?.error && <p className="text-xs text-red-600">{result.error}</p>}
+          {result?.error && <p role="alert" className="text-xs text-red-600">{result.error}</p>}
           {result?.count != null && !result.error && (
             <p className="text-xs text-green-600">Generated {result.count} games!</p>
           )}
@@ -291,7 +291,7 @@ function SeedFromStandings({
             ))}
           </div>
 
-          {error && <p className="text-xs text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
 
           <button
             type="button"
@@ -435,7 +435,7 @@ export function AdminPoolsManager({ leagueId, initialPools, initialTeams, standi
           Add Pool
         </button>
       </form>
-      {formError && <p className="text-red-500 text-xs -mt-4">{formError}</p>}
+      {formError && <p role="alert" className="text-red-600 text-xs -mt-4">{formError}</p>}
 
       {pools.length === 0 && (
         <div className="bg-white border rounded-lg px-6 py-10 text-center text-gray-400 text-sm">

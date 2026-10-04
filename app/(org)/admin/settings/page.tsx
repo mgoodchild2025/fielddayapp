@@ -6,6 +6,9 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 import { SETTINGS_GROUPS } from '@/lib/settings-categories'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Settings' }
 const planColors: Record<string, string> = {
   starter:      'bg-gray-100 text-gray-600',
   pro:          'bg-purple-100 text-purple-700',

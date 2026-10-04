@@ -65,8 +65,9 @@ export function GlobalMaintenanceForm({ initialEnabled, initialMessage, initialU
           type="button"
           role="switch"
           aria-checked={enabled}
+          aria-label="Platform-wide maintenance mode"
           onClick={() => setEnabled(!enabled)}
-          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
             enabled ? 'bg-amber-500' : 'bg-gray-600'
           }`}
         >

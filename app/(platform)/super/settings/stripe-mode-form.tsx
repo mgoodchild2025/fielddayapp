@@ -58,7 +58,7 @@ export function StripeModeForm({ initial }: { initial: PlatformStripeModeInfo })
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-500 mt-3">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 mt-3">{error}</p>}
 
       {confirming ? (
         <div className={`mt-4 rounded-lg border p-4 ${isTest ? 'border-amber-300 bg-white' : 'border-gray-700 bg-gray-800'}`}>

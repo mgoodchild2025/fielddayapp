@@ -18,6 +18,9 @@ import type { SeasonResult, H2HRecord } from '@/components/teams/team-stats-clie
 import { formatGameTime } from '@/lib/format-time'
 import { sortStandings, isVolleyballSport, computePts, accumulateGameResult, emptyTeamStat, computeStreaks, hasStandingPosition, type TeamStatTotals, type PtsMethod, type VolleyballMode, countsForStandings } from '@/lib/standings'
 import { fetchLeaguePlayoffGames } from '@/lib/playoff-games'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Team stats' }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -479,7 +482,7 @@ export default async function TeamStatsPage({
               <p className="text-xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-secondary)' }}>
                 {wins}W&nbsp;{losses}L{ties > 0 ? ` ${ties}T` : ''}
                 {teamStreak && (
-                  <span className={`ml-2 align-middle px-1.5 py-0.5 rounded text-xs font-bold tabular-nums ${teamStreak.startsWith('W') ? 'bg-green-50 text-green-700' : teamStreak.startsWith('L') ? 'bg-red-50 text-red-500' : 'bg-gray-100 text-gray-500'}`} title={teamStreak.startsWith('W') ? `${teamStreak.slice(1)}-game win streak` : teamStreak.startsWith('L') ? `${teamStreak.slice(1)}-game losing streak` : `${teamStreak.slice(1)} straight ties`}>
+                  <span className={`ml-2 align-middle px-1.5 py-0.5 rounded text-xs font-bold tabular-nums ${teamStreak.startsWith('W') ? 'bg-green-50 text-green-700' : teamStreak.startsWith('L') ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`} title={teamStreak.startsWith('W') ? `${teamStreak.slice(1)}-game win streak` : teamStreak.startsWith('L') ? `${teamStreak.slice(1)}-game losing streak` : `${teamStreak.slice(1)} straight ties`}>
                     {teamStreak}
                   </span>
                 )}
@@ -502,7 +505,7 @@ export default async function TeamStatsPage({
                 <span className="text-gray-300 font-light mx-0.5">–</span>
                 <span>{goalsAgainst}</span>
               </p>
-              <p className={`text-[11px] mt-1.5 ${goalDiff > 0 ? '' : goalDiff < 0 ? 'text-red-500' : 'text-gray-500'}`}
+              <p className={`text-[11px] mt-1.5 ${goalDiff > 0 ? '' : goalDiff < 0 ? 'text-red-600' : 'text-gray-500'}`}
                  style={goalDiff > 0 ? { color: 'var(--brand-primary)' } : undefined}>
                 {goalDiff > 0 ? '+' : ''}{goalDiff} {scoringUnit.toLowerCase()} diff
               </p>

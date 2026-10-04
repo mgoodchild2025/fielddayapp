@@ -31,7 +31,7 @@ export function DeleteEventRowButton({ leagueId, eventName }: Props) {
     <button
       onClick={handleDelete}
       disabled={loading}
-      className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50 ml-3"
+      className="text-xs text-red-600 hover:text-red-700 disabled:opacity-50 ml-3"
     >
       {loading ? '…' : 'Delete'}
     </button>

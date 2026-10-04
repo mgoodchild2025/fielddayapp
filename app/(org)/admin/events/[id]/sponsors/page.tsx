@@ -3,6 +3,9 @@ import { getCurrentOrg } from '@/lib/tenant'
 import { requireOrgMember } from '@/lib/auth'
 import { getEventSponsorPageData } from '@/actions/event-sponsors'
 import { EventSponsorManager } from '@/components/sponsors/event-sponsor-manager'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Event sponsors' }
 
 export default async function EventSponsorsPage({
   params,

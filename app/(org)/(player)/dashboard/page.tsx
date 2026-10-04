@@ -23,6 +23,9 @@ import { nextSessionPerEvent } from '@/lib/next-sessions'
 import { redirectToLogin } from '@/lib/auth'
 import { getOrgBrandingCached } from '@/lib/org-cache'
 import { canAccess } from '@/lib/features'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Home' }
 
 export default async function DashboardPage() {
   const headersList = await headers()

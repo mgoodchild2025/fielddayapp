@@ -134,7 +134,7 @@ export function InviteSubButton({ gameId, teamId, initialSubs }: Props) {
             aria-label="Note to sub (optional)"
             className="w-full min-h-11 border rounded px-3 text-base focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)] bg-white"
           />
-          {error && <p className="text-[11px] text-red-500">{error}</p>}
+          {error && <p role="alert" className="text-[11px] text-red-600">{error}</p>}
           <div className="flex gap-1.5">
             <button
               type="button"

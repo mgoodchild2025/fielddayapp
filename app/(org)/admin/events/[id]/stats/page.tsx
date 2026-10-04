@@ -8,6 +8,9 @@ import { StatsEntryTable } from '@/components/stats/stats-entry-table'
 import type { GameForStats } from '@/components/stats/stats-entry-table'
 import type { RosterMember } from '@/components/stats/game-stats-sheet'
 import { formatGameTime } from '@/lib/format-time'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Stats' }
 
 export default async function AdminStatsPage({
   params,

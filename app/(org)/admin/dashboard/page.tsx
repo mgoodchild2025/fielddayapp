@@ -10,6 +10,9 @@ import { ExhibitionBadge } from '@/components/schedule/game-kind-badge'
 import { netRevenueSince, type RevenuePaymentRow } from '@/lib/payment-ledger'
 import { getOrgBrandingCached } from '@/lib/org-cache'
 import { parseLocalToUtc } from '@/lib/format-time'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Admin' }
 
 export default async function AdminDashboardPage() {
   const headersList = await headers()

@@ -94,7 +94,7 @@ export function AdminDivisionsManager({ leagueId, initialDivisions, initialTeams
           Add Division
         </button>
       </form>
-      {formError && <p className="text-red-500 text-xs -mt-4">{formError}</p>}
+      {formError && <p role="alert" className="text-red-600 text-xs -mt-4">{formError}</p>}
 
       {divisions.length === 0 && (
         <div className="bg-white border rounded-lg px-6 py-10 text-center text-gray-400 text-sm">

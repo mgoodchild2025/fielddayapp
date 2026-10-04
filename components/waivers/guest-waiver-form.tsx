@@ -133,7 +133,7 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
         <h2 className="font-semibold text-gray-800">Your Information</h2>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Full Name <span className="text-red-500">*</span></label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Full Name <span className="text-red-600">*</span></label>
           <input
             type="text"
             value={name}
@@ -145,7 +145,7 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-red-500">*</span></label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-red-600">*</span></label>
           <input
             type="email"
             value={email}
@@ -203,7 +203,7 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
               ⚠ A parent or legal guardian must sign for players under 18.
             </p>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Guardian Full Name <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Guardian Full Name <span className="text-red-600">*</span></label>
               <input
                 type="text"
                 value={guardianName}
@@ -257,7 +257,7 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
         {!isMinor && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Type your full name to sign <span className="text-red-500">*</span>
+              Type your full name to sign <span className="text-red-600">*</span>
             </label>
             <input
               type="text"

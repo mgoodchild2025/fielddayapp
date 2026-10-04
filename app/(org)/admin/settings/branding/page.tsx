@@ -5,6 +5,9 @@ import { canAccess } from '@/lib/features'
 import type { RailwayDnsRecord } from '@/lib/railway'
 import { verifyCnameRecords } from '@/lib/dns-check'
 import { BrandingForm } from './branding-form'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Branding' }
 
 export default async function AdminBrandingPage() {
   const headersList = await headers()

@@ -18,6 +18,19 @@ import { MapLink } from '@/components/ui/map-link'
 import { MapPin } from 'lucide-react'
 import { LiveScoreBadge } from '@/components/scoreboard/live-score-badge'
 import { inLiveWindowNow } from '@/lib/live-window'
+import type { Metadata } from 'next'
+
+export async function generateMetadata({ params }: { params: Promise<{ gameId: string }> }): Promise<Metadata> {
+  const { gameId } = await params
+  const org = await getCurrentOrg(await headers())
+  const { data } = await createServiceRoleClient()
+    .from('games')
+    .select('home_team:teams!games_home_team_id_fkey(name), away_team:teams!games_away_team_id_fkey(name)')
+    .eq('organization_id', org.id).eq('id', gameId).maybeSingle()
+  const one = (t: unknown) => (Array.isArray(t) ? t[0] : t) as { name?: string } | null
+  const home = one(data?.home_team)?.name, away = one(data?.away_team)?.name
+  return { title: home && away ? `${home} vs ${away}` : 'Game' }
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -525,7 +538,7 @@ export default async function GameMatchupPage({
                             This game
                           </span>
                         ) : gIsCancelled ? (
-                          <span className="text-xs font-semibold text-red-500 bg-red-50 rounded-full px-2 py-0.5">
+                          <span className="text-xs font-semibold text-red-600 bg-red-50 rounded-full px-2 py-0.5">
                             {g.status === 'postponed' ? 'Postponed' : 'Cancelled'}
                           </span>
                         ) : gDone ? (

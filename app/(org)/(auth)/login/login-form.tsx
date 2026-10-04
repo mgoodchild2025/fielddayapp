@@ -98,10 +98,12 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
           id="email"
           type="email"
           autoComplete="email"
+          aria-invalid={errors.email ? true : undefined}
+          aria-describedby={errors.email ? 'email-error' : undefined}
           className="w-full border rounded-md px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-offset-1"
           style={{ '--tw-ring-color': 'var(--brand-primary)' } as React.CSSProperties}
         />
-        {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+        {errors.email && <p id="email-error" role="alert" className="text-red-600 text-xs mt-1">{errors.email.message}</p>}
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">Password</label>
@@ -111,18 +113,20 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
             id="password"
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
-            className="w-full border rounded-md px-3 py-2 pr-10 text-base focus:outline-none focus:ring-2"
+            aria-invalid={errors.password ? true : undefined}
+            aria-describedby={errors.password ? 'password-error' : undefined}
+            className="w-full border rounded-md px-3 py-2 pr-11 text-base focus:outline-none focus:ring-2"
           />
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
-            className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600"
+            className="absolute inset-y-0 right-0 flex items-center justify-center w-11 text-gray-500 hover:text-gray-700"
             aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         </div>
-        {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+        {errors.password && <p id="password-error" role="alert" className="text-red-600 text-xs mt-1">{errors.password.message}</p>}
       </div>
       <button
         type="submit"

@@ -9,6 +9,9 @@ import { Footer } from '@/components/layout/footer'
 import { BioFlipCard } from '@/components/bios/bio-flip-card'
 import { CopyLinkButton } from '@/components/bios/copy-link-button'
 import { BackLink } from '@/components/ui/back-link'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Player card' }
 
 /**
  * The shareable card page (card flip C3): one player's full-size flippable

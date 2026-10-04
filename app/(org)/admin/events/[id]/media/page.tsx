@@ -10,6 +10,9 @@ import { isCloudinaryConfigured, cloudinaryApiKey, CLOUD_NAME } from '@/lib/clou
 import { EventMediaModeration } from '@/components/media/event-media-moderation'
 import { EventMediaUpload } from '@/components/media/event-media-upload'
 import { AdminCurateSocial } from '@/components/media/admin-curate-social'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Event media' }
 
 export default async function EventMediaAdminPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

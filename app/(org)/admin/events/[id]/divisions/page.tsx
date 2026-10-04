@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation'
 import { getCurrentOrg } from '@/lib/tenant'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { AdminDivisionsManager } from '@/components/divisions/admin-divisions-manager'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Divisions' }
 
 export default async function AdminDivisionsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

@@ -201,7 +201,7 @@ export default async function ChampionsPage() {
                       <div className="mb-1.5 flex items-baseline justify-between gap-3">
                         <p className="text-sm font-semibold opacity-80">{event.leagueName}</p>
                         {event.leagueSlug && (
-                          <Link href={`/events/${event.leagueSlug}`} className="text-xs opacity-60 hover:underline">
+                          <Link href={`/events/${event.leagueSlug}`} className="inline-flex items-center min-h-10 text-xs opacity-70 hover:underline">
                             View event →
                           </Link>
                         )}
@@ -232,7 +232,7 @@ function Board({ title, sub, children }: { title: string; sub: string; children:
 
 function PlayerName({ userId, name }: { userId: string | null; name: string }) {
   return userId ? (
-    <Link href={`/players/${userId}/card`} className="font-semibold text-gray-800 hover:underline">{name}</Link>
+    <Link href={`/players/${userId}/card`} prefetch={false} className="inline-block py-2 -my-2 font-semibold text-gray-800 hover:underline">{name}</Link>
   ) : (
     <span className="font-semibold text-gray-800">{name}</span>
   )

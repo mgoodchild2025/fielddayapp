@@ -8,6 +8,9 @@ import { currentFiscalYear, lastFiscalYear, sameRangeLastYear } from '@/lib/fisc
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { PrintControls } from '@/components/print/print-controls'
 import Link from 'next/link'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Financial report' }
 
 function money(cents: number): string {
   const neg = cents < 0

@@ -186,6 +186,7 @@ function ScoreModal({
                     <input
                       data-autofocus={i === 0 ? true : undefined}
                       value={set.s1}
+                      aria-label={`${match.team1Name ?? match.team1Label ?? 'TBD'}, set ${i + 1}`}
                       onChange={(e) => updateSet(i, 's1', e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
                       type="number" inputMode="numeric" pattern="[0-9]*" min={0}
@@ -197,6 +198,7 @@ function ScoreModal({
                   <div className="flex-1 flex justify-center">
                     <input
                       value={set.s2}
+                      aria-label={`${match.team2Name ?? match.team2Label ?? 'TBD'}, set ${i + 1}`}
                       onChange={(e) => updateSet(i, 's2', e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
                       type="number" inputMode="numeric" pattern="[0-9]*" min={0}
@@ -206,14 +208,15 @@ function ScoreModal({
                   </div>
                   {sets.length > 1 && (
                     <button type="button" onClick={() => setSets((p) => p.filter((_, j) => j !== i))}
-                      className="w-6 text-gray-300 hover:text-red-400 text-xl text-center">×</button>
+                      aria-label={`Remove set ${i + 1}`}
+                      className="press min-w-10 min-h-10 -mr-2 rounded-full text-gray-500 hover:text-red-600 hover:bg-red-50 text-xl text-center">×</button>
                   )}
                 </div>
               ))}
               {sets.length < 3 && (
                 <button type="button"
                   onClick={() => setSets((prev) => [...prev, { s1: '', s2: '' }])}
-                  className="text-sm text-blue-600 hover:underline pl-10">
+                  className="press min-h-10 text-sm font-medium text-brand-primary hover:underline pl-10">
                   + Add set 3
                 </button>
               )}
@@ -225,10 +228,12 @@ function ScoreModal({
                 <div className="flex items-center gap-2">
                   <button type="button"
                     onClick={() => setS1((v) => String(Math.max(0, parseInt(v || '0') - 1)))}
+                    aria-label={`One less for ${match.team1Name ?? match.team1Label ?? 'TBD'}`}
                     className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-transform flex items-center justify-center select-none">−</button>
                   <input
                     data-autofocus
                     value={s1} onChange={(e) => setS1(e.target.value)}
+                    aria-label={`${match.team1Name ?? match.team1Label ?? 'TBD'} score`}
                     onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
                     type="number" inputMode="numeric" pattern="[0-9]*" min={0}
                     className="w-14 text-4xl font-bold tabular-nums text-center border-0 bg-transparent rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
@@ -236,6 +241,7 @@ function ScoreModal({
                   />
                   <button type="button"
                     onClick={() => setS1((v) => String(parseInt(v || '0') + 1))}
+                    aria-label={`One more for ${match.team1Name ?? match.team1Label ?? 'TBD'}`}
                     className="w-10 h-10 rounded-full text-white text-xl font-bold active:scale-95 transition-transform flex items-center justify-center select-none"
                     style={{ backgroundColor: 'var(--brand-primary)' }}>+</button>
                 </div>
@@ -246,9 +252,11 @@ function ScoreModal({
                 <div className="flex items-center gap-2">
                   <button type="button"
                     onClick={() => setS2((v) => String(Math.max(0, parseInt(v || '0') - 1)))}
+                    aria-label={`One less for ${match.team2Name ?? match.team2Label ?? 'TBD'}`}
                     className="w-10 h-10 rounded-full bg-gray-100 text-xl font-bold text-gray-600 hover:bg-gray-200 active:scale-95 transition-transform flex items-center justify-center select-none">−</button>
                   <input
                     value={s2} onChange={(e) => setS2(e.target.value)}
+                    aria-label={`${match.team2Name ?? match.team2Label ?? 'TBD'} score`}
                     onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
                     type="number" inputMode="numeric" pattern="[0-9]*" min={0}
                     className="w-14 text-4xl font-bold tabular-nums text-center border-0 bg-transparent rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
@@ -256,6 +264,7 @@ function ScoreModal({
                   />
                   <button type="button"
                     onClick={() => setS2((v) => String(parseInt(v || '0') + 1))}
+                    aria-label={`One more for ${match.team2Name ?? match.team2Label ?? 'TBD'}`}
                     className="w-10 h-10 rounded-full text-white text-xl font-bold active:scale-95 transition-transform flex items-center justify-center select-none"
                     style={{ backgroundColor: 'var(--brand-primary)' }}>+</button>
                 </div>
@@ -263,7 +272,7 @@ function ScoreModal({
             </div>
           )}
 
-          {err && <p className="text-sm text-red-500">{err}</p>}
+          {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
           <div className="flex gap-2 pt-1">
             <button
               onClick={submit} disabled={isPending}
@@ -435,7 +444,7 @@ function MatchAdminActions({
               </button>
             </div>
           )}
-          {err && <p className="px-3 py-1 text-xs text-red-600 border-t">{err}</p>}
+          {err && <p role="alert" className="px-3 py-1 text-xs text-red-600 border-t">{err}</p>}
           {canEdit && (
             <div className="border-t">
               <button
@@ -491,7 +500,7 @@ function MatchAdminActions({
               </select>
             ))}
           {canAdvance && advancePicker}
-          {err && <p className="basis-full text-xs text-red-600">{err}</p>}
+          {err && <p role="alert" className="basis-full text-xs text-red-600">{err}</p>}
         </div>
       )}
     </>
@@ -634,12 +643,14 @@ function MatchCard({
                   )}
                   <span className={`truncate font-medium ${isCompleted && match.winnerTeamId === match.team1Id ? 'text-green-700' : isTbd ? 'text-gray-500' : ''}`}>
                     {match.team1Name ?? match.team1Label ?? 'TBD'}{medalFor(match.team1Id)}
+                    {isCompleted && match.winnerTeamId === match.team1Id && <span className="sr-only"> (winner)</span>}
                   </span>
                 </>
               )}
             </div>
-            <span className={`font-bold tabular-nums text-sm ml-2 ${live ? 'text-red-500' : ''}`}>
-              {live && <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 motion-safe:animate-pulse mr-1 align-middle" />}
+            <span className={`font-bold tabular-nums text-sm ml-2 ${live ? 'text-red-600' : ''}`}>
+              {live && <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 motion-safe:animate-pulse mr-1 align-middle" aria-hidden="true" />}
+              {live && <span className="sr-only">Live score: </span>}
               {isCompleted && match.score1 !== null ? match.score1 : live ? <ScoreTick value={live.a} /> : (isDeclared && match.winnerTeamId === match.team1Id ? 'W' : '')}
             </span>
           </div>
@@ -680,12 +691,13 @@ function MatchCard({
                     isTbd ? 'text-gray-500' : ''
                   }`}>
                     {isBye ? 'Bye' : (match.team2Name ?? match.team2Label ?? 'TBD')}{medalFor(match.team2Id)}
+                    {isCompleted && match.winnerTeamId === match.team2Id && <span className="sr-only"> (winner)</span>}
                   </span>
                 </>
               )}
             </div>
             <span className="font-bold tabular-nums text-sm ml-2">
-              {isCompleted && match.score2 !== null ? match.score2 : live ? <span className="text-red-500"><ScoreTick value={live.b} /></span> : (isDeclared && match.winnerTeamId === match.team2Id ? 'W' : '')}
+              {isCompleted && match.score2 !== null ? match.score2 : live ? <span className="text-red-600"><ScoreTick value={live.b} /></span> : (isDeclared && match.winnerTeamId === match.team2Id ? 'W' : '')}
             </span>
           </div>
         )}
@@ -706,7 +718,7 @@ function MatchCard({
             allTeams={allTeams} manualControls={manualControls} layout="card"
           />
         )}
-        {manualErr && <p className="px-3 py-1 text-xs text-red-600 border-t">{manualErr}</p>}
+        {manualErr && <p role="alert" className="px-3 py-1 text-xs text-red-600 border-t">{manualErr}</p>}
       </div>
     </>
   )
@@ -928,11 +940,11 @@ function BracketScoreList({
                         <div className="space-y-1.5 min-w-0 flex-1">
                           <div className={`flex items-center gap-1.5 ${isCompleted && match.winnerTeamId === match.team1Id ? 'text-green-700 font-semibold' : ''}`}>
                             {match.team1Seed && <span className="text-xs text-gray-500 w-4 shrink-0">{match.team1Seed}</span>}
-                            <span className="text-sm truncate">{match.team1Name ?? match.team1Label ?? 'TBD'}</span>
+                            <span className="text-sm truncate">{match.team1Name ?? match.team1Label ?? 'TBD'}{isCompleted && match.winnerTeamId === match.team1Id && <span className="sr-only"> (winner)</span>}</span>
                           </div>
                           <div className={`flex items-center gap-1.5 ${isCompleted && match.winnerTeamId === match.team2Id ? 'text-green-700 font-semibold' : isBye ? 'text-gray-300 italic' : ''}`}>
                             {match.team2Seed && <span className="text-xs text-gray-500 w-4 shrink-0">{match.team2Seed}</span>}
-                            <span className="text-sm truncate">{isBye ? 'Bye' : (match.team2Name ?? match.team2Label ?? 'TBD')}</span>
+                            <span className="text-sm truncate">{isBye ? 'Bye' : (match.team2Name ?? match.team2Label ?? 'TBD')}{isCompleted && match.winnerTeamId === match.team2Id && <span className="sr-only"> (winner)</span>}</span>
                           </div>
                         </div>
                         {isCompleted && (
@@ -947,11 +959,11 @@ function BracketScoreList({
                         )}
                         {!isCompleted && liveBoards[match.id] && (
                           <div className="shrink-0 text-right">
-                            <div className="text-sm font-bold tabular-nums text-red-500">
+                            <div className="text-sm font-bold tabular-nums text-red-600">
                               <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 motion-safe:animate-pulse mr-1 align-middle" />
                               <ScoreTick value={liveBoards[match.id].a} />
                             </div>
-                            <div className="text-sm font-bold tabular-nums text-red-500"><ScoreTick value={liveBoards[match.id].b} /></div>
+                            <div className="text-sm font-bold tabular-nums text-red-600"><ScoreTick value={liveBoards[match.id].b} /></div>
                           </div>
                         )}
                         {isReady && !readOnly && !liveBoards[match.id] && (
@@ -1195,7 +1207,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezon
         </div>
       )}
       {swapErr && (
-        <p className="mb-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{swapErr}</p>
+        <p role="alert" className="mb-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{swapErr}</p>
       )}
 
       {/* All-play best loser panel */}
@@ -1208,7 +1220,7 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezon
             </p>
           </div>
           {bestLoserErr && (
-            <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-1.5">{bestLoserErr}</p>
+            <p role="alert" className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-1.5">{bestLoserErr}</p>
           )}
           <button
             onClick={onAdvanceBestLoser}

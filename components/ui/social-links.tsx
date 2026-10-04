@@ -70,8 +70,8 @@ export function HeroSocialLinks({
   if (links.length === 0) return null
 
   return (
-    <div className={`flex items-center gap-3 mt-5 ${align === 'center' ? 'justify-center' : ''}`}>
-      <span className="text-xs font-medium text-white/50 uppercase tracking-widest">Follow us</span>
+    <div className={`flex items-center gap-4 mt-5 ${align === 'center' ? 'justify-center' : ''}`}>
+      <span className="text-xs font-medium text-white/70 uppercase tracking-widest">Follow us</span>
       {links.map(({ href, icon, label }) => (
         <a
           key={label}
@@ -79,7 +79,7 @@ export function HeroSocialLinks({
           target="_blank"
           rel="noopener noreferrer"
           aria-label={label}
-          className="text-white/60 hover:text-white transition-colors"
+          className="press inline-flex items-center justify-center w-10 h-10 -m-2 rounded-full text-white/70 hover:text-white"
         >
           {icon}
         </a>

@@ -25,7 +25,7 @@ function StatusBadge({ row }: { row: OrganizerRow }) {
     return <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-yellow-100 text-yellow-700">Pending</span>
   }
   if (row.status === 'declined') {
-    return <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-500">Declined</span>
+    return <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-600">Declined</span>
   }
   return null
 }
@@ -202,6 +202,7 @@ export function OrganizersPanel({
                   type="button"
                   role="switch"
                   aria-checked={organizer.show_contact_info}
+                  aria-label="Show contact info to participants"
                   onClick={() => handleToggleContactInfo(organizer)}
                   disabled={actionPending}
                   className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${organizer.show_contact_info ? '' : 'bg-gray-200'}`}
@@ -244,7 +245,7 @@ export function OrganizersPanel({
                   {addAdminPending ? 'Adding…' : 'Add'}
                 </button>
               </div>
-              {addAdminError && <p className="text-xs text-red-600 mt-1.5">{addAdminError}</p>}
+              {addAdminError && <p role="alert" className="text-xs text-red-600 mt-1.5">{addAdminError}</p>}
             </form>
           )}
 
@@ -269,7 +270,7 @@ export function OrganizersPanel({
                 {invitePending ? 'Sending…' : 'Invite'}
               </button>
             </div>
-            {inviteError && <p className="text-xs text-red-600 mt-1.5">{inviteError}</p>}
+            {inviteError && <p role="alert" className="text-xs text-red-600 mt-1.5">{inviteError}</p>}
           </form>
         </div>
       )}

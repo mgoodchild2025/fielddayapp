@@ -39,22 +39,28 @@ interface TeamAvatarProps {
   name: string
   size?: Size
   className?: string
+  /**
+   * Announce the team's name. Off by default: the avatar almost always sits
+   * next to the visible name, and reading it twice ("Spikers Spikers") is noise.
+   */
+  labelled?: boolean
 }
 
-export function TeamAvatar({ logoUrl, color, name, size = 'sm', className = '' }: TeamAvatarProps) {
+export function TeamAvatar({ logoUrl, color, name, size = 'sm', className = '', labelled = false }: TeamAvatarProps) {
   const sizeClass = sizeClasses[size]
   const px = sizePx[size]
   const initial = (name || '?')[0].toUpperCase()
 
   if (logoUrl) {
     return (
-      <LogoImage src={logoUrl} alt={name} px={px} frameClassName={`${sizeClass} rounded-full overflow-hidden shrink-0 ${className}`} />
+      <LogoImage src={logoUrl} alt={labelled ? name : ''} px={px} frameClassName={`${sizeClass} rounded-full overflow-hidden shrink-0 ${className}`} />
     )
   }
 
   if (color) {
     return (
       <div
+        {...(labelled ? { role: 'img', 'aria-label': name } : { 'aria-hidden': true })}
         className={`${sizeClass} rounded-full shrink-0 flex items-center justify-center font-semibold text-white ${className}`}
         style={{ backgroundColor: color }}
       >
@@ -65,6 +71,7 @@ export function TeamAvatar({ logoUrl, color, name, size = 'sm', className = '' }
 
   return (
     <div
+      {...(labelled ? { role: 'img', 'aria-label': name } : { 'aria-hidden': true })}
       className={`${sizeClass} rounded-full flex items-center justify-center shrink-0 font-semibold ${avatarColor(name)} ${className}`}
     >
       {initial}

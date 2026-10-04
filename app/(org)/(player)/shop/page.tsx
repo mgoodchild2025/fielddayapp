@@ -9,6 +9,9 @@ import { getShopItems } from '@/actions/merchandise'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { ShopClient } from '@/components/shop/shop-client'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Shop' }
 
 export default async function ShopPage() {
   await requireAuth()

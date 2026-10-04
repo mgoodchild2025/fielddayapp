@@ -7,6 +7,9 @@ import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { AdminPoolsManager } from '@/components/pools/admin-pools-manager'
 import { sortStandings, isVolleyballSport, accumulateGameResult, emptyTeamStat, type TeamStatTotals, type PtsMethod, type VolleyballMode, countsForStandings } from '@/lib/standings'
 import { getLeagueConfirmedResults } from '@/lib/league-results'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Pools' }
 
 export default async function AdminPoolsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

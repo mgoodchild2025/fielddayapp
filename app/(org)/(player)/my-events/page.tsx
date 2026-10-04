@@ -7,6 +7,9 @@ import { Footer } from '@/components/layout/footer'
 import { MyEventsClient } from './_client'
 import type { EventItem } from './_client'
 import { redirectToLogin } from '@/lib/auth'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'My events' }
 
 export default async function MyEventsPage() {
   const headersList = await headers()

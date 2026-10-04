@@ -9,6 +9,9 @@ import { fetchPlayerPlayoffGameRows } from '@/lib/playoff-games'
 import Link from 'next/link'
 import { redirectToLogin } from '@/lib/auth'
 import { getOrgBrandingCached } from '@/lib/org-cache'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Games' }
 
 export default async function SchedulePage() {
   const headersList = await headers()

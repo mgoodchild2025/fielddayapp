@@ -15,6 +15,9 @@ import { PushSettingsCard } from '@/components/pwa/push-settings-card'
 import { getMfaStatus } from '@/lib/mfa'
 import { redirectToLogin } from '@/lib/auth'
 import { SignOutButton } from '@/components/auth/sign-out-button'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Me' }
 
 export default async function ProfilePage() {
   const headersList = await headers()

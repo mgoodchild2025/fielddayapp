@@ -15,6 +15,9 @@ import { TeamAvatar } from '@/components/ui/team-avatar'
 import { getTeamPaymentInfo } from '@/lib/team-payments'
 import type { InstallmentRow } from '@/components/payments/installment-schedule'
 import { SubmitButton } from '@/components/ui/submit-button'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Registrations' }
 
 type PaymentEditStatus = 'paid' | 'pending' | 'refunded'
 type PaymentEditMethod = 'cash' | 'etransfer' | 'cheque' | 'stripe' | 'card' | 'other'

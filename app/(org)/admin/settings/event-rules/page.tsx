@@ -4,6 +4,9 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { canAccess } from '@/lib/features'
 import { UpgradePrompt } from '@/components/ui/upgrade-prompt'
 import { RuleTemplateList } from './rule-template-list'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Event rules' }
 
 export default async function EventRulesPage() {
   const headersList = await headers()

@@ -134,7 +134,7 @@ export function MfaSettings({ isEnrolled: initialEnrolled, factorId: initialFact
                 disabled={removeLoading}
               />
               {removeError && (
-                <p className="text-sm text-red-600 mb-2">{removeError}</p>
+                <p role="alert" className="text-sm text-red-600 mb-2">{removeError}</p>
               )}
               <div className="flex gap-2">
                 <button

@@ -240,7 +240,7 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
           )}
         </div>
 
-        {err && <p className="text-sm text-red-600">{err}</p>}
+        {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
 
         <BracketView bracket={bracket} leagueId={leagueId} isAdmin sport={sport} />
       </div>
@@ -348,7 +348,7 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
           )}
         </div>
 
-        {err && <p className="text-sm text-red-600">{err}</p>}
+        {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
 
         {noTeams ? (
           <button
@@ -424,7 +424,7 @@ export function BracketSetupWizard({ leagueId, divisionId, recommendation, seede
         </table>
       </div>
 
-      {err && <p className="text-sm text-red-600">{err}</p>}
+      {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
 
       <div className="flex gap-3">
         <button

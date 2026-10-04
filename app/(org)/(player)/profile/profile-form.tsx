@@ -159,7 +159,7 @@ export function ProfileForm({
             <p className="text-xs text-gray-500 mt-0.5">JPEG, PNG, WebP or GIF · max 5 MB</p>
             <UploadStatus active={avatarUploading} label="Uploading photo" className="mt-1" />
             {avatarError && (
-              <p className="text-xs text-red-600 mt-1">{avatarError}</p>
+              <p role="alert" className="text-xs text-red-600 mt-1">{avatarError}</p>
             )}
           </div>
         </div>
@@ -180,13 +180,13 @@ export function ProfileForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label htmlFor="profile-full-name" className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-            <input {...register('full_name')} id="profile-full-name" type="text" autoComplete="name" className="w-full border rounded-md px-3 py-2 text-base" />
-            {errors.full_name && <p className="text-red-600 text-xs mt-1">{errors.full_name.message}</p>}
+            <input {...register('full_name')} id="profile-full-name" type="text" autoComplete="name" aria-invalid={errors.full_name ? true : undefined} aria-describedby={errors.full_name ? 'profile-full-name-error' : undefined} className="w-full border rounded-md px-3 py-2 text-base" />
+            {errors.full_name && <p id="profile-full-name-error" role="alert" className="text-red-600 text-xs mt-1">{errors.full_name.message}</p>}
           </div>
           <div>
             <label htmlFor="profile-phone" className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-            <input {...register('phone')} id="profile-phone" type="tel" autoComplete="tel" className="w-full border rounded-md px-3 py-2 text-base" />
-            {errors.phone && <p className="text-red-600 text-xs mt-1">{errors.phone.message}</p>}
+            <input {...register('phone')} id="profile-phone" type="tel" autoComplete="tel" aria-invalid={errors.phone ? true : undefined} aria-describedby={errors.phone ? 'profile-phone-error' : undefined} className="w-full border rounded-md px-3 py-2 text-base" />
+            {errors.phone && <p id="profile-phone-error" role="alert" className="text-red-600 text-xs mt-1">{errors.phone.message}</p>}
             <div className="mt-2 space-y-1.5">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input {...register('email_reminders_enabled')} type="checkbox" className="rounded" />
@@ -226,8 +226,8 @@ export function ProfileForm({
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Skill Level</label>
-            <select {...register('skill_level')} className="w-full border rounded-md px-3 py-2 text-base">
+            <label htmlFor="profile-skill" className="block text-sm font-medium text-gray-700 mb-1">Skill Level</label>
+            <select {...register('skill_level')} id="profile-skill" className="w-full border rounded-md px-3 py-2 text-base">
               <option value="">Select…</option>
               <option value="beginner">Beginner</option>
               <option value="intermediate">Intermediate</option>
@@ -235,8 +235,8 @@ export function ProfileForm({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">T-Shirt Size</label>
-            <select {...register('t_shirt_size')} className="w-full border rounded-md px-3 py-2 text-base">
+            <label htmlFor="profile-shirt" className="block text-sm font-medium text-gray-700 mb-1">T-Shirt Size</label>
+            <select {...register('t_shirt_size')} id="profile-shirt" className="w-full border rounded-md px-3 py-2 text-base">
               <option value="">Select…</option>
               {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map((s) => (
                 <option key={s} value={s}>{s}</option>
@@ -267,10 +267,12 @@ export function ProfileForm({
               id="profile-emergency-phone"
               autoComplete="off"
               type="tel"
+              aria-invalid={errors.emergency_contact_phone ? true : undefined}
+              aria-describedby={errors.emergency_contact_phone ? 'profile-emergency-phone-error' : undefined}
               className="w-full border rounded-md px-3 py-2 text-base"
             />
             {errors.emergency_contact_phone && (
-              <p className="text-red-600 text-xs mt-1">{errors.emergency_contact_phone.message}</p>
+              <p id="profile-emergency-phone-error" role="alert" className="text-red-600 text-xs mt-1">{errors.emergency_contact_phone.message}</p>
             )}
           </div>
         </div>

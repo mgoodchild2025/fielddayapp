@@ -11,12 +11,13 @@ type ReminderDraft = Omit<SmsReminder, 'id'> & { key: number }
 
 let nextKey = 1
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
       onClick={() => onChange(!checked)}
       // 24px track, 40px tap area (the ::before), brand focus ring from globals.
       className={`relative shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors before:absolute before:-inset-2 before:content-[''] ${
@@ -163,7 +164,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
               multiple games in a day receive one reminder per game.
             </p>
           </div>
-          <Toggle checked={smsEnabled} onChange={setSmsEnabled} />
+          <Toggle checked={smsEnabled} onChange={setSmsEnabled} label="Pre-game SMS reminders" />
         </div>
       </div>
 
@@ -207,6 +208,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
                       ))}
                     </select>
                     <Toggle
+                      label={`Reminder ${TIMING_OPTIONS.find((o) => o.minutes === reminder.minutesBefore)?.label ?? ''} before`}
                       checked={reminder.enabled}
                       onChange={(v) => updateReminder(reminder.key, { enabled: v })}
                     />
@@ -227,7 +229,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
                   <div className="px-4 py-3">
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-medium text-gray-500">Message</label>
-                      <span className={`text-xs tabular-nums ${isOverLimit ? 'text-red-500 font-semibold' : isNearLimit ? 'text-amber-500' : 'text-gray-400'}`}>
+                      <span className={`text-xs tabular-nums ${isOverLimit ? 'text-red-600 font-semibold' : isNearLimit ? 'text-amber-500' : 'text-gray-400'}`}>
                         {reminder.messageTemplate.length}/{MAX_MESSAGE_CHARS}
                       </span>
                     </div>
@@ -283,7 +285,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
               One email per player per game day — players with multiple games receive a single combined email.
             </p>
           </div>
-          <Toggle checked={emailEnabled} onChange={setEmailEnabled} />
+          <Toggle checked={emailEnabled} onChange={setEmailEnabled} label="Email game reminders" />
         </div>
 
         {emailEnabled && (
@@ -321,7 +323,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
               invited but hasn&apos;t joined — plus instructions for inviting players.
             </p>
           </div>
-          <Toggle checked={captainPrepEnabled} onChange={setCaptainPrepEnabled} />
+          <Toggle checked={captainPrepEnabled} onChange={setCaptainPrepEnabled} label="Captain prep email" />
         </div>
 
         <div className="px-5 py-4 flex items-center gap-3 flex-wrap">
@@ -356,7 +358,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
               Send an email to admins whenever a player completes a registration.
             </p>
           </div>
-          <Toggle checked={regNotifEnabled} onChange={setRegNotifEnabled} />
+          <Toggle checked={regNotifEnabled} onChange={setRegNotifEnabled} label="Registration notifications" />
         </div>
 
         {/* Recipient row — only when enabled */}
@@ -391,7 +393,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
               Stripe payment fails.
             </p>
           </div>
-          <Toggle checked={paymentFailEnabled} onChange={setPaymentFailEnabled} />
+          <Toggle checked={paymentFailEnabled} onChange={setPaymentFailEnabled} label="Payment failure alerts" />
         </div>
       </div>
 
@@ -406,7 +408,7 @@ export function NotificationSettingsForm({ initial }: { initial: NotificationSet
               recipient setting as Registration Notifications.
             </p>
           </div>
-          <Toggle checked={merchOrderNotifEnabled} onChange={setMerchOrderNotifEnabled} />
+          <Toggle checked={merchOrderNotifEnabled} onChange={setMerchOrderNotifEnabled} label="Merchandise order notifications" />
         </div>
       </div>
 

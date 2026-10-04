@@ -13,6 +13,9 @@ import { DailyScheduleSheet } from '@/components/print/daily-schedule-sheet'
 import { FullScheduleSheet } from '@/components/print/full-schedule-sheet'
 import { GameScoreSheet } from '@/components/print/game-score-sheet'
 import { GameStatSheet } from '@/components/print/game-stat-sheet'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Schedule (print)' }
 
 export default async function SchedulePrintPage({
   params,

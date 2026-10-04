@@ -152,7 +152,7 @@ export function AlertsNudge({ orgName }: { orgName: string }) {
               {busy ? 'Turning on…' : 'Turn on alerts'}
             </button>
           )}
-          {err && <p className="mt-2 text-xs text-red-500">{err}</p>}
+          {err && <p role="alert" className="mt-2 text-xs text-red-600">{err}</p>}
         </div>
       </div>
     </div>

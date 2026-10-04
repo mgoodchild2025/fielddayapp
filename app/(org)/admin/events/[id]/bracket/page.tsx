@@ -12,6 +12,9 @@ import type { BracketData, BracketMatchData, TeamRef } from '@/components/bracke
 import type { ExistingConfig } from '@/components/bracket/playoff-config-wizard'
 import type { PoolSeedingMethod } from '@/actions/playoff-config'
 import { getLeagueConfirmedResults } from '@/lib/league-results'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Bracket' }
 
 export default async function AdminBracketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: leagueId } = await params

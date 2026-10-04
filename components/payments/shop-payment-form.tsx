@@ -86,7 +86,7 @@ export function ShopPaymentForm({ mode, instructions }: Props) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Payment instructions
-            <span className="text-red-500 ml-0.5">*</span>
+            <span className="text-red-600 ml-0.5">*</span>
           </label>
           <textarea
             value={text}
@@ -109,7 +109,7 @@ export function ShopPaymentForm({ mode, instructions }: Props) {
       )}
 
       {error && (
-        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+        <p role="alert" className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
       )}
 
       <div className="flex items-center gap-3">
