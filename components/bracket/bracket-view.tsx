@@ -3,7 +3,7 @@
 import { getRoundName, roundDisplayName, LB_ROUND_BASE, GF_ROUND } from '@/lib/bracket'
 import { recordBracketScore, swapBracketTeams, advanceBestLoser, overrideBracketSlot, declareMatchWinner, clearBracketMatchResult, type BestLoserCandidate } from '@/actions/brackets'
 import { useState, useTransition } from 'react'
-import { Overlay } from '@/components/ui/overlay'
+import { Overlay, useRetained } from '@/components/ui/overlay'
 import { useRouter } from 'next/navigation'
 import { MatchEditModal } from './match-edit-modal'
 import { TeamAvatar } from '@/components/ui/team-avatar'
@@ -746,6 +746,8 @@ function BracketScoreList({
   sport?: string
 }) {
   const [activeMatch, setActiveMatch] = useState<BracketMatchData | null>(null)
+  // Keep the last match while the sheet plays its exit.
+  const shownMatch = useRetained(activeMatch)
   const timezone = useBracketTimezone()
   const bracketSize = bracket.bracketSize
   // No channel once every match is decided.
@@ -765,12 +767,23 @@ function BracketScoreList({
 
   return (
     <div className="space-y-6">
-      {activeMatch && (
-        <ScoreModal
-          match={activeMatch} bracketId={bracket.id} leagueId={leagueId} sport={sport}
-          onClose={() => setActiveMatch(null)}
-        />
-      )}
+      {/* A sheet, like the bracket diagram's: inline it rendered at the top of
+          the list — off-screen when the tapped match was further down. */}
+      <Overlay
+        open={!!activeMatch}
+        onClose={() => setActiveMatch(null)}
+        variant="sheet"
+        label="Enter match score"
+        panelClassName="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden"
+      >
+        {shownMatch && (
+          <ScoreModal
+            key={shownMatch.id}
+            match={shownMatch} bracketId={bracket.id} leagueId={leagueId} sport={sport}
+            onClose={() => setActiveMatch(null)}
+          />
+        )}
+      </Overlay>
 
       {roundNumbers.map((rn) => {
         const matches = bracket.matches

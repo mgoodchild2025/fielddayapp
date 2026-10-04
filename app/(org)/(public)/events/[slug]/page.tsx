@@ -7,6 +7,7 @@ import { getSeasonPassQuote, type SeasonPassQuote } from '@/lib/season-pass'
 import { taxSuffix } from '@/lib/tax'
 import { getOrgBrandingCached, getOrgTaxRatesCached } from '@/lib/org-cache'
 import { EventPodium, type PodiumMedal } from '@/components/medals/event-podium'
+import { PendingPaymentNotice } from '@/components/payments/pending-payment-notice'
 import { OrgNav } from '@/components/layout/org-nav'
 import { Footer } from '@/components/layout/footer'
 import { JoinTeamByCode } from '@/components/teams/join-team-by-code'
@@ -2484,37 +2485,6 @@ export default async function EventDetailPage({
       )}
 
       <Footer org={org} />
-    </div>
-  )
-}
-
-function PendingPaymentNotice({
-  payment,
-  instructions,
-}: {
-  payment: { payment_method: string; amount_cents: number; currency: string }
-  instructions: string | null
-}) {
-  const methodLabel =
-    payment.payment_method === 'etransfer' ? 'e-transfer'
-    : payment.payment_method === 'cheque' ? 'cheque'
-    : 'cash'
-  const amountFormatted =
-    payment.amount_cents > 0
-      ? `$${(payment.amount_cents / 100).toFixed(0)} ${payment.currency.toUpperCase()}`
-      : null
-
-  return (
-    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-      <p className="font-semibold">
-        ⚠ Payment outstanding{amountFormatted ? ` — ${amountFormatted}` : ''}
-      </p>
-      <p className="mt-0.5 text-amber-700">
-        You chose to pay by {methodLabel}. Your spot is reserved, but your registration won&apos;t be fully confirmed until your payment is received by the organiser.
-      </p>
-      {instructions && (
-        <p className="mt-1.5 text-amber-700 whitespace-pre-wrap">{instructions}</p>
-      )}
     </div>
   )
 }

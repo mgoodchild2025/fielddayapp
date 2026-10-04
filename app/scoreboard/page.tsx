@@ -34,6 +34,9 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   themeColor: '#0B1210',
+  // Fullscreen landscape board: keep it inside the safe area (no notch
+  // under the score panels) rather than inheriting the app's "cover".
+  viewportFit: 'auto',
 }
 
 const JSON_LD = {

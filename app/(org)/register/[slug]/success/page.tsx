@@ -6,6 +6,7 @@ import { Footer } from '@/components/layout/footer'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { QRCodeCard } from '@/components/checkin/qr-code-display'
+import { PendingPaymentNotice } from '@/components/payments/pending-payment-notice'
 import Link from 'next/link'
 
 export default async function RegistrationSuccessPage({
@@ -28,7 +29,7 @@ export default async function RegistrationSuccessPage({
 
     db.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
 
-    db.from('leagues').select('id, name, sport, season_start_date, event_type, checkin_enabled').eq('organization_id', org.id).eq('slug', slug).single(),
+    db.from('leagues').select('id, name, sport, season_start_date, event_type, checkin_enabled, payment_instructions').eq('organization_id', org.id).eq('slug', slug).single(),
   ])
 
   // Verify-on-return fallback: if Stripe redirected back with a session_id but the
@@ -99,6 +100,37 @@ export default async function RegistrationSuccessPage({
         .maybeSingle()
     : { data: null }
 
+  // Chose cash / e-transfer / cheque: the registration is already active, so
+  // without this the page said "You're all set" and the payment instructions
+  // (shown once, on the payment step) were gone.
+  const { data: owed } = user && league
+    ? await db
+        .from('payments')
+        .select('payment_method, amount_cents, currency')
+        .eq('organization_id', org.id)
+        .eq('league_id', league.id)
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .in('payment_method', ['cash', 'etransfer', 'cheque'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : { data: null }
+  const pendingPayment = owed
+    ? { payment_method: owed.payment_method ?? 'cash', amount_cents: owed.amount_cents, currency: owed.currency }
+    : null
+  // Same instructions the payment step showed: the event's, else the org's.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let paymentInstructions: string | null = ((league as any)?.payment_instructions as string | null)?.trim() || null
+  if (pendingPayment && !paymentInstructions) {
+    const { data: orgPay } = await db
+      .from('org_payment_settings')
+      .select('registration_manual_instructions')
+      .eq('organization_id', org.id)
+      .maybeSingle()
+    paymentInstructions = orgPay?.registration_manual_instructions ?? null
+  }
+
   const { data: profile } = user
 
     ? await db.from('profiles').select('full_name').eq('id', user.id).single()
@@ -134,9 +166,18 @@ export default async function RegistrationSuccessPage({
         <p className="mt-3 text-gray-600">
           {isPending
             ? <>Your spot in <strong>{league?.name}</strong> is reserved — your registration will be confirmed once payment is completed.</>
-            : <>You&apos;re all set for <strong>{league?.name}</strong>.</>
+            : pendingPayment
+              ? <>Your spot in <strong>{league?.name}</strong> is reserved. Here&apos;s how to pay:</>
+              : <>You&apos;re all set for <strong>{league?.name}</strong>.</>
           }
         </p>
+        {pendingPayment && !isPending && (
+          <PendingPaymentNotice
+            className="mt-5"
+            payment={pendingPayment}
+            instructions={paymentInstructions}
+          />
+        )}
         {league?.season_start_date && (
           <p className="mt-2 text-gray-500 text-sm">
             Season starts {formatDateOnly(league.season_start_date, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
