@@ -106,7 +106,7 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
           <button
             type="button"
             onClick={closeCart}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-500"
+            className="press w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-600"
             aria-label="Close cart"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -174,21 +174,21 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
                         <button
                           type="button"
                           onClick={() => updateQty(idx, item.quantity - 1)}
-                          className="w-7 h-7 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors text-sm"
+                          className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors text-base"
                           aria-label="Decrease"
                         >−</button>
                         <span className="w-7 text-center text-sm font-medium text-gray-800">{item.quantity}</span>
                         <button
                           type="button"
                           onClick={() => updateQty(idx, item.quantity + 1)}
-                          className="w-7 h-7 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors text-sm"
+                          className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors text-base"
                           aria-label="Increase"
                         >+</button>
                       </div>
                       <button
                         type="button"
                         onClick={() => removeItem(idx)}
-                        className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                        className="press min-h-10 px-1 -mx-1 text-xs text-gray-600 hover:text-red-600"
                       >
                         Remove
                       </button>
@@ -214,7 +214,7 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
                   <button
                     type="button"
                     onClick={() => setShowDiscountInput(true)}
-                    className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
+                    className="press min-h-10 text-xs text-gray-600 hover:text-gray-800 underline underline-offset-2"
                   >
                     Have a discount code?
                   </button>
@@ -227,7 +227,13 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
                         onChange={e => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(null) }}
                         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleApplyDiscount() } }}
                         placeholder="DISCOUNT CODE"
-                        className="flex-1 border rounded-lg px-3 py-2 text-xs font-mono uppercase focus:outline-none focus:ring-2"
+                        aria-label="Discount code"
+                        autoCapitalize="characters"
+                        autoCorrect="off"
+                        autoComplete="off"
+                        spellCheck={false}
+                        enterKeyHint="go"
+                        className="flex-1 min-w-0 min-h-10 border rounded-lg px-3 text-base sm:text-xs font-mono uppercase focus:outline-none focus:ring-2"
                         style={{ '--tw-ring-color': 'var(--brand-primary)' } as React.CSSProperties}
                         autoFocus
                       />
@@ -235,15 +241,15 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
                         type="button"
                         onClick={handleApplyDiscount}
                         disabled={discountLoading || !discountInput.trim()}
-                        className="px-3 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
-                        style={{ backgroundColor: 'var(--brand-primary)' }}
+                        className="press min-h-10 px-4 rounded-lg text-xs font-semibold bg-brand-primary text-on-brand disabled:opacity-50"
                       >
                         {discountLoading ? '…' : 'Apply'}
                       </button>
                       <button
                         type="button"
                         onClick={() => { setShowDiscountInput(false); setDiscountInput(''); setDiscountError(null) }}
-                        className="px-2 text-gray-400 hover:text-gray-600 text-xs"
+                        aria-label="Close discount code"
+                        className="press min-h-10 min-w-10 rounded-lg text-gray-500 hover:text-gray-700 text-sm"
                       >✕</button>
                     </div>
                     {discountError && <p className="text-xs text-red-600">{discountError}</p>}
@@ -261,7 +267,7 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
                 <button
                   type="button"
                   onClick={() => { setAppliedDiscount(null); setDiscountInput('') }}
-                  className="text-green-600 hover:text-red-500 underline text-xs ml-2"
+                  className="press min-h-10 px-1 text-green-700 hover:text-red-600 underline text-xs ml-2"
                 >
                   Remove
                 </button>

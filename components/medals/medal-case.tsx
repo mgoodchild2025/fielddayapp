@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { createPortal } from 'react-dom'
+import { Overlay, useRetained } from '@/components/ui/overlay'
 
 /**
  * The Trophy Case (T2): one medal strip + one celebration modal, shared by the
@@ -80,45 +81,26 @@ function ConfettiBurst({ pieces }: { pieces: ConfettiPiece[] }) {
   )
 }
 
-function MedalModal({ medal, confetti, onClose }: { medal: MedalView; confetti: ConfettiPiece[] | null; onClose: () => void }) {
-  const closeRef = useRef<HTMLButtonElement>(null)
-
-  useEffect(() => {
-    closeRef.current?.focus()
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`${medal.label} — ${medal.leagueName}`}
-    >
-      {confetti && <ConfettiBurst pieces={confetti} />}
-      <div
-        className="relative w-full max-w-sm rounded-2xl bg-white p-7 pt-9 text-center shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+/** The celebration card's content — shown in the shared Overlay (scroll lock,
+ *  Escape, focus trap; it was a hand-rolled fixed div). */
+function MedalCard({ medal, onClose }: { medal: MedalView; onClose: () => void }) {
+  return (
+    <>
         <button
-          ref={closeRef}
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-3 top-3 rounded p-1 text-gray-300 hover:text-gray-600"
+          className="press absolute right-2 top-2 inline-flex items-center justify-center min-h-10 min-w-10 rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-100"
         >
           ✕
         </button>
 
         <div className="text-6xl leading-none drop-shadow-md" aria-hidden>{GLYPH[medal.placement]}</div>
-        <p className={`mt-3 text-[11px] font-semibold uppercase tracking-[.14em] ${TINT[medal.placement]}`}>
+        <p className={`mt-3 text-xs font-semibold uppercase tracking-[.14em] ${TINT[medal.placement]}`}>
           {medal.label}
         </p>
         <p className="mt-1 text-xl font-bold text-gray-900">{medal.teamName}</p>
         <p className="mt-2 text-sm text-gray-600">{medal.leagueName}</p>
-        <p className="mt-0.5 text-[11px] font-medium tracking-widest text-gray-500">{awardedLabel(medal.awardedAt)}</p>
+        <p className="mt-0.5 text-xs font-medium tracking-widest text-gray-500">{awardedLabel(medal.awardedAt)}</p>
 
         {medal.teammates.length > 0 && (
           <div className="mt-4 flex flex-wrap justify-center gap-1.5">
@@ -136,15 +118,13 @@ function MedalModal({ medal, confetti, onClose }: { medal: MedalView; confetti: 
         {medal.leagueSlug && (
           <Link
             href={`/events/${medal.leagueSlug}`}
-            className="mt-5 inline-block text-sm font-medium"
+            className="press mt-4 inline-flex items-center min-h-10 text-sm font-medium"
             style={{ color: 'var(--brand-primary)' }}
           >
             View the event →
           </Link>
         )}
-      </div>
-    </div>,
-    document.body
+    </>
   )
 }
 
@@ -162,6 +142,8 @@ export function MedalCase({
   title?: string
 }) {
   const [open, setOpen] = useState<{ medal: MedalView; confetti: ConfettiPiece[] | null } | null>(null)
+  // Keep the card on screen while the overlay fades out.
+  const shown = useRetained(open)
   if (medals.length === 0) return null
 
   function openMedal(m: MedalView) {
@@ -184,13 +166,14 @@ export function MedalCase({
       {title && (
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</p>
       )}
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1">
         {medals.map((m) => (
           <button
             key={m.id}
             type="button"
             onClick={() => openMedal(m)}
-            className={`${glyphClass} leading-none transition-transform hover:scale-110 focus-visible:scale-110`}
+            // At least 40px to tap, even at size sm (the glyph was ~24px).
+            className={`press ${glyphClass} leading-none inline-flex items-center justify-center min-h-10 min-w-10 rounded-lg hover:bg-gray-100`}
             title={`${m.label} — ${m.leagueName}`}
             aria-label={`${m.label} — ${m.leagueName}, ${m.teamName}`}
           >
@@ -198,7 +181,24 @@ export function MedalCase({
           </button>
         ))}
       </div>
-      {open && <MedalModal medal={open.medal} confetti={open.confetti} onClose={() => setOpen(null)} />}
+      {/* Nothing said these were tappable but a hover-only title. */}
+      {title && <p className="mt-1 text-xs text-gray-500">Tap a medal to see it.</p>}
+      <Overlay
+        open={!!open}
+        onClose={() => setOpen(null)}
+        label={shown ? `${shown.medal.label} — ${shown.medal.leagueName}` : 'Medal'}
+        panelClassName="relative w-full max-w-sm rounded-2xl bg-white p-7 pt-9 text-center shadow-2xl max-h-[90dvh] overflow-y-auto"
+      >
+        {shown && <MedalCard medal={shown.medal} onClose={() => setOpen(null)} />}
+      </Overlay>
+      {/* Confetti in its own full-screen layer above the overlay: inside the
+          panel, its entrance transform would trap the falling pieces. */}
+      {open?.confetti && createPortal(
+        <div aria-hidden className="pointer-events-none fixed inset-0 z-[60]">
+          <ConfettiBurst pieces={open.confetti} />
+        </div>,
+        document.body,
+      )}
     </div>
   )
 }

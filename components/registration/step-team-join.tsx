@@ -14,7 +14,8 @@ interface Props {
   teams: TeamOption[]
   initialTeamCode?: string | null
   onComplete: (teamId?: string) => void
-  onBack: () => void
+  /** The flow's header carries the labelled Back; only render one here when asked. */
+  onBack?: () => void
 }
 
 export function StepTeamJoin({ initialTeamCode, onComplete, onBack }: Props) {
@@ -138,13 +139,15 @@ export function StepTeamJoin({ initialTeamCode, onComplete, onBack }: Props) {
         </button>
       </div>
 
-      <button
-        type="button"
-        onClick={onBack}
-        className="press inline-flex items-center min-h-10 text-sm text-gray-500 hover:text-gray-700"
-      >
-        ← Back
-      </button>
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="press inline-flex items-center min-h-10 text-sm text-gray-500 hover:text-gray-700"
+        >
+          ← Back
+        </button>
+      )}
     </div>
   )
 }

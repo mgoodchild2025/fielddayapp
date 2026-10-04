@@ -191,8 +191,9 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
                           type="button"
                           disabled={outOfStock}
                           onClick={() => setVariant(item.id, selected ? null : v.id)}
+                          aria-pressed={selected}
                           className={`
-                            px-3 py-1.5 rounded-md text-sm font-medium border transition-all
+                            press min-h-10 px-3.5 rounded-md text-sm font-medium border
                             ${outOfStock
                               ? 'opacity-40 cursor-not-allowed line-through text-gray-400 border-gray-200 bg-gray-50'
                               : selected
@@ -221,7 +222,8 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
                     type="button"
                     onClick={() => setQuantity(item.id, -1)}
                     disabled={sel.quantity === 0}
-                    className="w-8 h-8 rounded-full border flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    aria-label={`One fewer ${item.name}`}
+                    className="press w-10 h-10 rounded-full border flex items-center justify-center text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
@@ -234,8 +236,8 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
                     type="button"
                     onClick={() => setQuantity(item.id, 1)}
                     disabled={!canAdd || atMax}
-                    className="w-8 h-8 rounded-full border flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    title={!canAdd ? 'Select a size first' : atMax ? 'No more stock available' : undefined}
+                    aria-label={`One more ${item.name}`}
+                    className="press w-10 h-10 rounded-full border flex items-center justify-center text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -244,7 +246,10 @@ export function StepAddons({ items, onContinue, onSkip, onBack }: Props) {
                 </div>
 
                 {item.variants.length > 0 && !canAdd && (
-                  <p className="text-xs text-amber-600">Select a size to add</p>
+                  <p className="text-xs text-amber-700">Select a size to add</p>
+                )}
+                {atMax && canAdd && (
+                  <p className="text-xs text-gray-500">No more in stock</p>
                 )}
 
                 {sel.quantity > 0 && (

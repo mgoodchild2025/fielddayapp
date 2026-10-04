@@ -9,6 +9,7 @@ import { signUp } from '@/actions/auth'
 import Link from 'next/link'
 import { GoogleAuthButton } from '@/components/auth/google-auth-button'
 import { safeRelativePath } from '@/lib/safe-redirect'
+import { BackLink } from '@/components/ui/back-link'
 import { Eye, EyeOff } from 'lucide-react'
 
 // One password field with a show toggle instead of "confirm password": typing
@@ -78,15 +79,22 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-dvh flex items-center justify-center px-4" style={{ backgroundColor: 'var(--brand-bg)' }}>
-      <div className="w-full max-w-md">
-        <h1 className="text-3xl font-bold uppercase mb-8 text-center" style={{ fontFamily: 'var(--brand-heading-font)' }}>
+      <div className="w-full max-w-md py-8">
+        {/* A way out, like sign-in: back to the event they came from, else home. */}
+        <div className="mb-2">
+          <BackLink
+            fallbackHref={redirectTo.startsWith('/events') ? redirectTo : '/'}
+            fallbackLabel={redirectTo.startsWith('/events') ? 'Back to the event' : 'Home'}
+          />
+        </div>
+        <h1 className="text-3xl font-bold uppercase mb-6 text-center" style={{ fontFamily: 'var(--brand-heading-font)' }}>
           Create Account
         </h1>
-        <div className="bg-white rounded-lg shadow-sm border p-8 space-y-5">
+        <div className="bg-white rounded-lg shadow-sm border p-5 sm:p-8 space-y-5">
           <GoogleAuthButton redirectTo={redirectTo} label="Sign up with Google" />
           <div className="relative">
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
-            <div className="relative flex justify-center text-xs text-gray-400"><span className="bg-white px-2">or create account with email</span></div>
+            <div className="relative flex justify-center text-xs text-gray-500"><span className="bg-white px-2">or create account with email</span></div>
           </div>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           {serverError && (

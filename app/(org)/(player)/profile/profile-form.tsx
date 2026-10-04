@@ -138,8 +138,9 @@ export function ProfileForm({
             title="Change photo"
           >
             <PlayerAvatar avatarUrl={avatarUrl} name={displayName} size="lg" />
-            {/* Hover overlay */}
-            <span className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            {/* Hover overlay — and always shown while uploading (phones have
+                no hover, so the spinner was invisible there). */}
+            <span className={`absolute inset-0 rounded-full bg-black/40 flex items-center justify-center transition-opacity pointer-events-none ${avatarUploading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
               {avatarUploading ? (
                 <svg className="w-6 h-6 text-white animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />

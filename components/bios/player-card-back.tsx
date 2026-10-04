@@ -33,9 +33,9 @@ export function PlayerCardBack({ bio, career }: { bio: BioCardData; career: Play
       ) : (
         <div className="mt-2 flex-1 space-y-3 overflow-y-auto">
           {career.tables.map((table) => (
-            <table key={table.sport} className="w-full border-collapse font-mono text-[11px]" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <table key={table.sport} className="w-full border-collapse font-mono text-xs" style={{ fontVariantNumeric: 'tabular-nums' }}>
               <thead>
-                <tr className="text-left text-[9px] uppercase tracking-wider">
+                <tr className="text-left text-[10px] uppercase tracking-wider">
                   <th className="bg-white/15 px-1.5 py-1 font-medium">Season</th>
                   <th className="bg-white/15 px-1.5 py-1 font-medium">Team</th>
                   {table.columns.map((c) => (

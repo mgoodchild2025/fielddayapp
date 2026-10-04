@@ -60,28 +60,27 @@ export function PendingJoinRequests({ teamId, initialRequests }: Props) {
       <ul className="divide-y">
         {requests.map((req) => (
           <li key={req.id} className="px-5 py-4">
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-sm font-medium truncate">{req.playerName || req.playerEmail}</p>
                 <p className="text-xs text-gray-500 truncate">{req.playerEmail}</p>
                 {req.message && (
                   <p className="text-xs text-gray-600 mt-1 italic">&ldquo;{req.message}&rdquo;</p>
                 )}
-                <p className="text-[10px] text-gray-500 mt-1">{relativeTime(req.createdAt)}</p>
+                <p className="text-xs text-gray-500 mt-1">{relativeTime(req.createdAt)}</p>
               </div>
               <div className="flex gap-2 shrink-0">
                 <button
                   onClick={() => handleApprove(req.id)}
                   disabled={pending}
-                  className="text-xs font-semibold text-white px-3 py-1.5 rounded disabled:opacity-50"
-                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                  className="press min-h-10 px-4 rounded-lg text-sm font-semibold bg-brand-primary text-on-brand disabled:opacity-50"
                 >
                   Approve
                 </button>
                 <button
                   onClick={() => handleReject(req.id)}
                   disabled={pending}
-                  className="text-xs font-semibold text-gray-500 px-3 py-1.5 rounded border hover:bg-gray-50 disabled:opacity-50"
+                  className="press min-h-10 px-4 rounded-lg border text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
                   Decline
                 </button>

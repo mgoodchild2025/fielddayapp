@@ -383,7 +383,7 @@ export default async function TeamDetailPage({
             {/* Stats link — all team members */}
             <Link
               href={`/teams/${teamId}/stats`}
-              className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              className="press inline-flex items-center justify-center min-h-10 min-w-10 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100"
               aria-label="View team stats"
               title="Team stats"
             >
@@ -412,14 +412,14 @@ export default async function TeamDetailPage({
         <div className="mt-4 flex gap-2">
           <Link
             href={`/teams/${teamId}/schedule`}
-            className="flex-1 py-2 rounded-md text-sm font-medium border hover:bg-gray-50 transition-colors text-gray-600 flex items-center justify-center gap-2"
+            className="press flex-1 min-h-11 rounded-md text-sm font-medium border hover:bg-gray-50 text-gray-700 flex items-center justify-center gap-2"
           >
             <CalendarDays className="w-4 h-4" />
             Team Schedule
           </Link>
           <Link
             href={`/teams/${teamId}/cards`}
-            className="flex-1 py-2 rounded-md text-sm font-medium border hover:bg-gray-50 transition-colors text-gray-600 flex items-center justify-center gap-2"
+            className="press flex-1 min-h-11 rounded-md text-sm font-medium border hover:bg-gray-50 text-gray-700 flex items-center justify-center gap-2"
             title="The roster as flippable player cards"
           >
             🃏 Card Binder

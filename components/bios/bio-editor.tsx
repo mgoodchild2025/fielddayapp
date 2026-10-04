@@ -120,7 +120,7 @@ export function BioEditor({
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <label className="text-xs text-gray-500">Number
-            <input value={jerseyNumber} onChange={(e) => setJerseyNumber(e.target.value)} maxLength={6} placeholder="7"
+            <input value={jerseyNumber} onChange={(e) => setJerseyNumber(e.target.value)} maxLength={6} placeholder="7" inputMode="numeric"
               className="mt-1 w-full border rounded px-2 py-1.5 text-sm" />
           </label>
           <label className="text-xs text-gray-500">Position
@@ -145,7 +145,7 @@ export function BioEditor({
         </div>
 
         <label className="block text-xs text-gray-500">
-          One good fact <span className="text-gray-300">({120 - tagline.length} left)</span>
+          One good fact <span className="text-gray-500">({120 - tagline.length} left)</span>
           <input value={tagline} onChange={(e) => setTagline(e.target.value.slice(0, 120))}
             placeholder="Serves lefty, high-fives righty."
             className="mt-1 w-full border rounded px-2 py-1.5 text-sm" />

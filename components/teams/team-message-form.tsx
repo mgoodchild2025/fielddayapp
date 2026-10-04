@@ -59,7 +59,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="mt-3 w-full py-2 rounded-md text-sm font-medium border hover:bg-gray-50 transition-colors text-gray-600"
+        className="press mt-3 w-full min-h-11 rounded-md text-sm font-medium border hover:bg-gray-50 text-gray-700"
       >
         ✉️ Message Team ({memberCount - 1} recipient{memberCount - 1 !== 1 ? 's' : ''})
       </button>
@@ -72,7 +72,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
         <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Message Team</p>
         <button
           onClick={() => { setOpen(false); reset() }}
-          className="text-gray-500 hover:text-gray-600 text-lg leading-none"
+          className="press -mr-2 -my-2 inline-flex items-center justify-center min-h-10 min-w-10 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 text-lg leading-none"
           aria-label="Close"
         >
           ×
@@ -94,7 +94,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
           onChange={(e) => setSubject(e.target.value)}
           maxLength={120}
           required
-          className="w-full border rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-full min-h-10 border rounded px-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
         />
         <textarea
           placeholder="Message…"
@@ -103,7 +103,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
           maxLength={2000}
           required
           rows={3}
-          className="w-full border rounded px-3 py-1.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-full border rounded px-3 py-2 text-base sm:text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-primary"
         />
 
         {/* Channel */}
@@ -115,7 +115,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
                 key={ch}
                 type="button"
                 onClick={() => setChannel(ch)}
-                className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
+                className={`press flex-1 min-h-10 px-3 rounded text-xs font-medium border ${
                   channel === ch
                     ? 'text-white border-transparent'
                     : 'border-gray-300 text-gray-600 bg-white hover:bg-gray-100'
@@ -129,13 +129,13 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
             ))}
           </div>
           {(channel === 'sms' || channel === 'both') && (
-            <p className="text-[10px] text-gray-500 mt-1">SMS sent to opted-in members with a phone number on file.</p>
+            <p className="text-xs text-gray-500 mt-1">SMS sent to opted-in members with a phone number on file.</p>
           )}
         </div>
 
         {/* CC options */}
         <div className="flex flex-wrap gap-3">
-          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+          <label className="flex items-center gap-2 min-h-10 text-sm text-gray-700 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={ccSelf}
@@ -144,7 +144,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
             />
             Also send to myself
           </label>
-          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+          <label className="flex items-center gap-2 min-h-10 text-sm text-gray-700 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={ccAdmins}
@@ -159,14 +159,14 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
           <button
             type="button"
             onClick={() => { setOpen(false); reset() }}
-            className="text-xs text-gray-500 hover:text-gray-600 px-3 py-1.5"
+            className="press min-h-10 px-3 text-sm text-gray-600 hover:text-gray-800"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={loading || !subject.trim() || !body.trim()}
-            className="press text-xs font-semibold text-white px-4 min-h-10.5 rounded transition-opacity disabled:opacity-50"
+            className="press text-xs font-semibold text-white px-4 min-h-10 rounded transition-opacity disabled:opacity-50"
             style={{ backgroundColor: 'var(--brand-primary)' }}
           >
             {loading ? 'Sending…' : 'Send'}

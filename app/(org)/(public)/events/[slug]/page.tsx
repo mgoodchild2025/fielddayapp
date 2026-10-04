@@ -193,7 +193,7 @@ function DateGroup({
               {/* ── Mobile layout: stacked teams ── */}
               <div className="md:hidden">
                 {/* Meta row: time · court · week */}
-                <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-2.5 tabular-nums">
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-gray-500 mb-2.5 tabular-nums">
                   <span className="font-medium text-gray-500">{gameTime}</span>
                   {game.court && <><span>·</span><span>Court {game.court}</span></>}
                   {game.week_number && showWeek && <><span>·</span><span>Wk {game.week_number}</span></>}
@@ -2129,7 +2129,7 @@ export default async function EventDetailPage({
                               {!isSeasonPickup && isJoined && !isCancelled && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Joined ✓</span>}
                               {offersSeasonPass && mySeasonRegistration && !isCancelled && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Enrolled ✓</span>}
                             </div>
-                            <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs text-gray-500">
                               <span>{s.duration_minutes} min</span>
                               {s.location_override && <><span>·</span><span>{s.location_override}</span></>}
                               {!isCancelled && (remaining === null

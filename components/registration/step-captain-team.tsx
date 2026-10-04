@@ -8,7 +8,8 @@ interface Props {
   leagueId: string
   captainTeamId: string | null
   captainTeamName: string | null
-  onBack: () => void
+  /** The flow's header carries the labelled Back; only render one here when asked. */
+  onBack?: () => void
 }
 
 export function StepCaptainTeam({ leagueId, captainTeamId, captainTeamName, onBack }: Props) {
@@ -37,13 +38,15 @@ export function StepCaptainTeam({ leagueId, captainTeamId, captainTeamName, onBa
         >
           Go to my team &amp; pay →
         </a>
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-sm text-gray-400 hover:text-gray-600"
-        >
-          ← Back
-        </button>
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="text-sm text-gray-400 hover:text-gray-600"
+          >
+            ← Back
+          </button>
+        )}
       </div>
     )
   }
@@ -103,13 +106,15 @@ export function StepCaptainTeam({ leagueId, captainTeamId, captainTeamName, onBa
         </button>
       </div>
 
-      <button
-        type="button"
-        onClick={onBack}
-        className="text-sm text-gray-400 hover:text-gray-600"
-      >
-        ← Back
-      </button>
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-sm text-gray-400 hover:text-gray-600"
+        >
+          ← Back
+        </button>
+      )}
     </div>
   )
 }
