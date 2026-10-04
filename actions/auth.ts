@@ -103,7 +103,7 @@ export async function login(input: { email: string; password: string; redirectTo
     // Plain words for the two answers people actually hit.
     const code = (error as { code?: string }).code
     if (code === 'email_not_confirmed' || /email not confirmed/i.test(error.message)) {
-      return { data: null, error: 'Please confirm your email first — tap the link we sent when you signed up (check spam too).' }
+      return { data: null, error: 'Please confirm your email first — tap the link we sent when you signed up (check spam too).', unconfirmed: true as const }
     }
     if (code === 'invalid_credentials' || /invalid login credentials/i.test(error.message)) {
       return { data: null, error: "That email and password don't match. Check them, or use “Forgot password?”." }
@@ -153,6 +153,73 @@ const signUpSchema = z.object({
   password: z.string().min(8),
   fullName: z.string().trim().min(2, 'Name must be at least 2 characters').max(100, 'Name must be 100 characters or fewer'),
 })
+
+const authEmailLimiter = createRateLimiter({ windowMs: 10 * 60_000, max: 5 })
+
+/**
+ * Password reset by EMAIL LINK that works in any browser. The browser-side
+ * resetPasswordForEmail produced a PKCE link that only worked in the browser
+ * that asked for it — opened from the Gmail app or another device it said the
+ * link "has expired". This sends a server-generated token_hash link instead
+ * (the confirm page verifies it only when the new password is submitted, so
+ * mail scanners can't use it). Never reveals whether an account exists.
+ */
+export async function requestPasswordReset(input: { email: string; redirectTo?: string }): Promise<{ error: string | null }> {
+  const email = z.string().trim().toLowerCase().email().safeParse(input.email)
+  if (!email.success) return { error: 'Enter a valid email address.' }
+  if (authEmailLimiter.check(await clientIp()).limited) {
+    return { error: 'Too many attempts. Please wait a few minutes and try again.' }
+  }
+  const origin = getPublicOrigin(await headers())
+  const service = createServiceRoleClient()
+  const { data, error } = await service.auth.admin.generateLink({ type: 'recovery', email: email.data })
+  if (!error && data?.properties?.hashed_token) {
+    const next = safeRelativePath(input.redirectTo)
+    const resetUrl = `${origin}/reset-password/confirm?token_hash=${encodeURIComponent(data.properties.hashed_token)}&type=recovery${next ? `&next=${encodeURIComponent(next)}` : ''}`
+    const { sendPasswordResetEmail } = await import('@/actions/emails')
+    await sendPasswordResetEmail({ email: email.data, resetUrl }).catch(() => {})
+  }
+  return { error: null }
+}
+
+/**
+ * "Resend confirmation link" for a sign-in refused with "confirm your email
+ * first" — signing up again fails ("already registered"), so a player who lost
+ * the email was stuck. Requires the right password (Supabase only says "not
+ * confirmed" once the password matched), so it can't be used to spam anyone.
+ */
+export async function resendConfirmation(input: { email: string; password: string }): Promise<{ error: string | null; sent?: boolean }> {
+  const parsed = z.object({ email: z.string().trim().email(), password: z.string().min(1) }).safeParse(input)
+  if (!parsed.success) return { error: 'Enter your email and password first.' }
+  if (authEmailLimiter.check(await clientIp()).limited) {
+    return { error: 'Too many attempts. Please wait a few minutes and try again.' }
+  }
+  const supabase = await createServerClient()
+  const { error } = await supabase.auth.signInWithPassword({ email: parsed.data.email, password: parsed.data.password })
+  if (!error) return { error: null, sent: false } // already confirmed — they're signed in now
+  const code = (error as { code?: string }).code
+  if (code !== 'email_not_confirmed' && !/email not confirmed/i.test(error.message)) {
+    return { error: "That email and password don't match." }
+  }
+  const headersList = await headers()
+  const origin = getPublicOrigin(headersList)
+  const callbackBase = process.env.NODE_ENV === 'development'
+    ? `${origin}/auth/callback`
+    : `https://app.${PLATFORM_DOMAIN}/auth/callback`
+  const service = createServiceRoleClient()
+  // A magic link verifies the email (confirms the account) and signs them in;
+  // the callback routes by the redirect_destination stored at sign-up.
+  const { data: link, error: linkError } = await service.auth.admin.generateLink({
+    type: 'magiclink',
+    email: parsed.data.email,
+    options: { redirectTo: callbackBase },
+  })
+  if (linkError || !link?.properties?.action_link) return { error: "Couldn't send the link — please try again in a minute." }
+  const { data: profile } = await service.from('profiles').select('full_name').eq('id', link.user.id).maybeSingle()
+  const { sendSignupConfirmation } = await import('@/actions/emails')
+  await sendSignupConfirmation({ email: parsed.data.email, fullName: profile?.full_name ?? '', confirmUrl: link.properties.action_link })
+  return { error: null, sent: true }
+}
 
 export async function signUp(input: { email: string; password: string; fullName: string; redirectTo?: string }) {
   const parsed = signUpSchema.safeParse(input)
@@ -264,10 +331,12 @@ export async function signUp(input: { email: string; password: string; fullName:
   return { data: { userId }, error: null }
 }
 
-export async function logout() {
+export async function logout(formData?: FormData) {
   const supabase = await createServerClient()
   await supabase.auth.signOut()
-  redirect('/')
+  // "Sign in as someone else" (wrong-account invite) passes where to go next.
+  const next = safeRelativePath(formData?.get('next')?.toString())
+  redirect(next ?? '/')
 }
 
 

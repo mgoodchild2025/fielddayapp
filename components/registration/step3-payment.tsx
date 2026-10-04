@@ -315,8 +315,6 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
       <div className="bg-white rounded-lg border p-6 space-y-4">
         <h2 className="font-semibold text-lg">Payment</h2>
 
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">{error}</div>}
-
         <div className="border rounded-md divide-y">
           {/* Registration fee — omit when free */}
           {registrationPriceCents > 0 && (
@@ -546,11 +544,14 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
           </div>
         )}
 
+        {/* Next to the button that failed — at the top of the card it was a
+            screen away on a phone, so a failed Pay looked like nothing happened. */}
+        {error && <div role="alert" className="fd-fade-in bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">{error}</div>}
+
         <button
           onClick={choice ? handleContinue : handleCheckout}
           disabled={loading}
-          className="w-full py-3 rounded-md font-semibold text-white disabled:opacity-60"
-          style={{ backgroundColor: 'var(--brand-primary)' }}
+          className="press w-full min-h-12 rounded-md font-semibold bg-brand-primary text-on-brand disabled:opacity-60"
         >
           {loading
             ? (selectedMethod === 'card' ? 'Redirecting to checkout…' : 'Saving…')

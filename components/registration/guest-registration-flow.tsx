@@ -130,7 +130,7 @@ export function GuestRegistrationFlow({
       phone: phone.trim() || '',
       waiverSignatureId: waiverSignatureId || null,
       inviteToken: inviteToken || undefined,
-    })
+    }).catch(() => ({ error: "Couldn't reach the server — check your connection and try again.", registrationId: null, needsPayment: false }))
     if (result.error || !result.registrationId) {
       setError(result.error ?? 'Could not complete registration.')
       setLoading(false)
@@ -185,7 +185,7 @@ export function GuestRegistrationFlow({
       guestEmail: email.trim(),
       signatureName: signer,
       guardianRelationship: isMinor ? guardianRelationship : undefined,
-    })
+    }).catch(() => ({ error: "Couldn't reach the server — check your connection and try again.", data: null }))
     if (sig.error || !sig.data?.signatureId) {
       setError(sig.error ?? 'Waiver signing failed.')
       setLoading(false)
@@ -195,8 +195,10 @@ export function GuestRegistrationFlow({
     await submit(sig.data.signatureId)
   }
 
+  // Rendered right above each stage's main button, so a failure shows where
+  // the player is looking (not at the top of a long form, off-screen).
   const errorBox = error && (
-    <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>
+    <div role="alert" className="fd-fade-in rounded-md bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">{error}</div>
   )
 
   // ── Choice ─────────────────────────────────────────────────────────────────
@@ -256,8 +258,6 @@ export function GuestRegistrationFlow({
             {manualInstructions && <span className="block text-amber-700 mt-1 whitespace-pre-wrap">{manualInstructions}</span>}
           </div>
         )}
-
-        {errorBox}
 
         <div className="space-y-3">
           <label className="block text-sm font-medium text-gray-700">
@@ -330,12 +330,13 @@ export function GuestRegistrationFlow({
           </label>
         </div>
 
+        {errorBox}
+
         <button
           type="button"
           onClick={continueFromDetails}
           disabled={loading}
-          className="w-full px-4 py-2.5 rounded-md font-semibold text-white disabled:opacity-60"
-          style={{ backgroundColor: 'var(--brand-primary)' }}
+          className="press w-full min-h-11 px-4 rounded-md font-semibold bg-brand-primary text-on-brand disabled:opacity-60"
         >
           {loading ? 'Please wait…' : waiver ? 'Continue to waiver' : priceCents > 0 && onlinePayments ? 'Continue to payment' : 'Complete registration'}
         </button>
@@ -403,8 +404,6 @@ export function GuestRegistrationFlow({
           I have read the waiver in full.
         </label>
 
-        {errorBox}
-
         {isMinor ? (
           <div className="space-y-3">
             <label className="block text-sm font-medium text-gray-700">
@@ -426,6 +425,8 @@ export function GuestRegistrationFlow({
             <input value={signatureName} onChange={(e) => setSignatureName(e.target.value)} autoComplete="name" autoCapitalize="words" enterKeyHint="done" className="mt-1 w-full border rounded-md px-3 py-2 text-base" placeholder="Your full name" />
           </label>
         )}
+
+        {errorBox}
 
         <button
           type="button"

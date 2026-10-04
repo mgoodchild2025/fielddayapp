@@ -18,11 +18,24 @@ export default async function PrivacyPage() {
   if (!user) return redirectToLogin()
 
 
-  const { data: branding } = await db
-    .from('org_branding')
-    .select('logo_url, contact_email')
-    .eq('organization_id', org.id)
-    .single()
+  const [{ data: branding }, { data: memberships }, { data: captaincies }] = await Promise.all([
+    db.from('org_branding').select('logo_url, contact_email').eq('organization_id', org.id).single(),
+    // Deleting is account-wide (every org on Fieldday), so name the others.
+    db.from('org_members').select('organization_id, organizations(name)').eq('user_id', user.id).eq('status', 'active'),
+    // Captains leave a team without one — say which, so they can hand it over first.
+    db.from('team_members').select('teams(name, leagues(status))').eq('user_id', user.id).eq('role', 'captain').eq('status', 'active'),
+  ])
+  const otherOrgNames = (memberships ?? [])
+    .filter((m) => m.organization_id !== org.id)
+    .map((m) => (Array.isArray(m.organizations) ? m.organizations[0] : m.organizations)?.name)
+    .filter((n): n is string => !!n)
+  const captainOf = (captaincies ?? [])
+    .map((c) => (Array.isArray(c.teams) ? c.teams[0] : c.teams))
+    .filter((t) => {
+      const lg = t ? (Array.isArray(t.leagues) ? t.leagues[0] : t.leagues) : null
+      return !!t && !['completed', 'archived'].includes(lg?.status ?? '')
+    })
+    .map((t) => t!.name)
 
   return (
     <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
@@ -106,7 +119,7 @@ export default async function PrivacyPage() {
                   Permanently delete your account and personal information. Payment and registration
                   records are anonymized and retained for 7 years as required by Canadian tax law.
                 </p>
-                <DeleteAccountSection />
+                <DeleteAccountSection otherOrgNames={otherOrgNames} captainOf={captainOf} />
               </div>
             </div>
           </section>

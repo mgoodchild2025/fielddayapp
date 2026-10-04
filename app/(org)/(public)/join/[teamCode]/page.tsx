@@ -94,7 +94,40 @@ export default async function JoinTeamPage({
   // This handles the post-email-confirmation case where Supabase redirects back
   // here with a simple /join/XXXXXX next param (no nested query params to mangle).
   if (user && !alreadyMember && !isFull) {
-    if (leagueRegistrationOpen && leagueSlug) {
+    // Already registered for this event? The register page sends an active
+    // registration straight to "You're registered" (and resumes a pending one
+    // past step 1, where the code is read) — so the player was never put on
+    // the team. Join them here, then continue.
+    const { data: existingReg } = leagueRegistrationOpen && leagueSlug
+      ? await db
+          .from('registrations')
+          .select('id, status')
+          .eq('organization_id', org.id)
+          .eq('league_id', (league as { id?: string } | null)?.id ?? '')
+          .eq('user_id', user.id)
+          .in('status', ['active', 'pending'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+      : { data: null }
+    const registered = existingReg && existingReg.length > 0 ? existingReg[0] : null
+
+    if (registered) {
+      await db.from('team_members' as never).upsert({
+        organization_id: org.id,
+        team_id: team.id,
+        user_id: user.id,
+        role: 'player',
+        status: 'active',
+      } as never, { onConflict: 'team_id,user_id' } as never)
+      await db.from('org_members').upsert({
+        organization_id: org.id,
+        user_id: user.id,
+        role: 'player',
+        status: 'active',
+      }, { onConflict: 'organization_id,user_id', ignoreDuplicates: true })
+      // Active: they're done — show the team. Pending: finish the flow.
+      redirect(registered.status === 'active' ? `/teams/${team.id}` : `/register/${leagueSlug}`)
+    } else if (leagueRegistrationOpen && leagueSlug) {
       // registration_open: send through the full flow — register page handles team assignment.
       redirect(`/register/${leagueSlug}?code=${code}`)
     } else if (leagueStatus === 'active' && leagueSlug) {

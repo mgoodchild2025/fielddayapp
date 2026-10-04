@@ -70,6 +70,30 @@ export default async function SubInvitePage({
 
   const { date: gameDate, time: gameTime } = formatGameTime(invite.scheduledAt, timezone)
 
+  // ── Game called off ───────────────────────────────────────────────────────
+  // The invite link outlives the game's status; don't offer Accept for a game
+  // that isn't happening.
+  if (invite.gameStatus === 'cancelled' || invite.gameStatus === 'postponed') {
+    const cancelled = invite.gameStatus === 'cancelled'
+    return (
+      <div className="min-h-dvh" style={{ backgroundColor: 'var(--brand-bg)' }}>
+        <OrgNav org={org} logoUrl={logoUrl} />
+        <div className="max-w-md mx-auto px-4 py-16 text-center space-y-3">
+          <p className="text-4xl">{cancelled ? '🚫' : '⏸'}</p>
+          <p className="text-2xl font-bold">Game {cancelled ? 'Cancelled' : 'Postponed'}</p>
+          <p className="text-gray-500 text-sm">
+            {invite.teamName}{invite.opponentName ? ` vs ${invite.opponentName}` : ''} on {gameDate} {cancelled ? 'was cancelled, so no sub is needed.' : 'was postponed. Your captain will send a new invite once it’s rescheduled.'}
+          </p>
+          <div className="pt-3 flex flex-wrap items-center justify-center gap-2">
+            <Link href={invite.leagueSlug ? `/events/${invite.leagueSlug}` : '/events'} className="press inline-flex items-center justify-center min-h-11 px-5 rounded-lg font-semibold text-sm bg-brand-primary text-on-brand">{invite.leagueSlug ? 'See the event' : 'Browse events'}</Link>
+            <Link href="/" className="press inline-flex items-center justify-center min-h-11 px-4 text-sm font-medium text-gray-600 hover:text-gray-900">Home</Link>
+          </div>
+        </div>
+        <Footer org={org} />
+      </div>
+    )
+  }
+
   // ── Not logged in ─────────────────────────────────────────────────────────
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {

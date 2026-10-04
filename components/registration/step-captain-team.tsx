@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createTeam } from '@/actions/teams'
 
@@ -17,6 +17,9 @@ export function StepCaptainTeam({ leagueId, captainTeamId, captainTeamName, onBa
   const [teamName, setTeamName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Synchronous guard: Enter + a tap (or two Enters) inside one render both saw
+  // loading=false and created two teams.
+  const creating = useRef(false)
 
   // Already have a team — just send them to it
   if (captainTeamId && captainTeamName) {
@@ -54,16 +57,25 @@ export function StepCaptainTeam({ leagueId, captainTeamId, captainTeamName, onBa
   async function handleCreate() {
     const name = teamName.trim()
     if (!name) { setError('Please enter a team name.'); return }
+    if (creating.current) return
+    creating.current = true
     setLoading(true)
     setError(null)
-    const result = await createTeam({ leagueId, name })
+    let result: Awaited<ReturnType<typeof createTeam>>
+    try {
+      result = await createTeam({ leagueId, name })
+    } catch {
+      result = { error: "Couldn't reach the server — check your connection and try again.", data: null } as Awaited<ReturnType<typeof createTeam>>
+    }
     if (result.error) {
       setError(result.error === 'EVENT_FULL'
         ? 'Sorry, this event is full — no more team spots are available.'
         : result.error)
       setLoading(false)
+      creating.current = false
       return
     }
+    // Stays "Creating team…" (and guarded) until the team page loads.
     router.push(`/teams/${result.data!.id}`)
   }
 
@@ -78,7 +90,7 @@ export function StepCaptainTeam({ leagueId, captainTeamId, captainTeamName, onBa
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">{error}</div>
+          <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">{error}</div>
         )}
 
         <div>

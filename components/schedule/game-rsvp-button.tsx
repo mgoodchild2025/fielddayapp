@@ -20,8 +20,15 @@ export function GameRsvpButton({ gameId, teamId, initialStatus }: Props) {
     const prev = status
     setStatus(next)  // optimistic
     startTransition(async () => {
-      const result = await upsertRsvp(gameId, teamId, next)
-      if (result.error) {
+      // try/catch: a dropped connection THROWS, and an error thrown inside a
+      // transition goes to the error boundary — the whole page was replaced
+      // by the error screen instead of this toast.
+      let ok = false
+      try {
+        const result = await upsertRsvp(gameId, teamId, next)
+        ok = !result.error
+      } catch { ok = false }
+      if (!ok) {
         setStatus(prev)  // revert on failure
         toast.error("Couldn't save your RSVP. Check your connection and try again.", { id: 'rsvp-error' })
       }

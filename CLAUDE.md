@@ -33,6 +33,7 @@ app/(org)/
 - `redirectToLogin()` — signed-out → `/login?redirect=<current path>` (from the proxy's `x-pathname`); `requireAuth` uses it. Never write a bare `redirect('/login')` on an org page — links from alerts, emails and shares must survive sign-in. Use `if (!user) return redirectToLogin()` (the `return` lets TypeScript narrow `user`).
 - `safeRelativePath()` (`lib/safe-redirect.ts`, tested) is the ONE check for `?redirect=` / `next=` values: same-site paths only (rejects `//host`, `/\host`, control characters). "Starts with /" alone is an open redirect.
 - **Do NOT use `requireOrgMember` on public pages** — players won't have an `org_members` row until they complete their first registration
+- **Auth emails are server-generated links** (`actions/auth.ts`): `requestPasswordReset` (admin `generateLink` type `recovery` → `/reset-password/confirm?token_hash=…&next=…`, verified only on submit, works in any browser — the browser-side PKCE link failed when opened from a mail app; never reveals whether the account exists) and `resendConfirmation` (offered on the "confirm your email first" sign-in error; needs the right password). Both rate-limited. "Forgot password?" carries `?redirect=` through to `next`. `logout` accepts a `next` form field (`SignOutButton next=…`) — used by the wrong-account invite switch.
 
 ### Key files
 | File | Purpose |
@@ -305,6 +306,7 @@ CSS variables set by `BrandProvider` from `org_branding` row:
 - **Money is computed server-side.** `lib/registration-price.ts` (`registrationBasePriceCents` + `applyDiscountCode`) is the one price for card checkout and offline payments; clients send a `discountId`, never an amount. A player may activate their own registration only when `mayActivateWithoutAdmin` allows it (per-team, free, a recorded/offline payment, or no online payments) — card payments are activated by the webhook / verified return.
 - **Internal headers**: `proxy.ts` deletes client-sent `x-org-id` and `x-impersonating` before setting its own; add any new trusted header to that list.
 - **Accounts**: never set or change a password for an existing account from a sign-up form, and never create a pre-confirmed account for an unverified email (guest claim uses the normal confirmation link).
+- **Invite links outlive their context**: `/invite/[token]` shows "Sign in as <invited email>" when another account is signed in; sub invites refuse (page + `confirmGameSub`) once the game is cancelled/postponed; `/register/[slug]` for a finished event or an under-way season shows a "Registration closed" page linking to the event instead of a 404 (drafts still 404). `/join/[code]` with an existing registration adds the player to the team directly.
 - **Email links never act on GET**: mail scanners open every link, so a link that declines/accepts/unsubscribes must land on a page with a button (see `DeclineOrganizerInvite`, and the QR check-in page `/checkin/[token]` → `TokenCheckinConfirm` — the confirmation email links to it).
 - **Uploads**: admin-only unless genuinely public; derive the extension from the vetted MIME type, and never store an unconverted SVG.
 
