@@ -4,6 +4,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getAdminScope } from '@/lib/admin-scope'
 import { canAccess } from '@/lib/features'
 import { AddGameForm } from '@/components/schedule/add-game-form'
+import { AddGameSheetButton } from '@/components/schedule/add-game-sheet'
 import { AssignSlotsCard } from '@/components/schedule/assign-slots-card'
 import { InsertBreakForm } from '@/components/schedule/insert-break-form'
 import { DelayScheduleControl } from '@/components/schedule/delay-schedule-control'
@@ -173,9 +174,10 @@ export default async function AdminSchedulePage({ params, searchParams }: { para
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {/* Game list */}
       <div className="md:col-span-2">
-        {isOrgAdmin && playsToday && (
-          <div className="md:hidden mb-4">
-            <DelayScheduleControl leagueId={id} mode="games" collapsible />
+        {isOrgAdmin && (
+          <div className="md:hidden mb-4 space-y-3">
+            <AddGameSheetButton leagueId={id} sport={sport} teams={teams ?? []} pools={pools ?? []} timezone={timezone} />
+            {playsToday && <DelayScheduleControl leagueId={id} mode="games" collapsible />}
           </div>
         )}
         {weekPhaseList.length > 0 && (

@@ -6,6 +6,7 @@ import { checkInByToken, checkInWalkIn } from '@/actions/checkin'
 import type { CheckInResult } from '@/actions/checkin'
 import { unlockAudio, playCheckinSound } from '@/lib/audio'
 import { TeamCheckinModal } from '@/components/checkin/team-checkin-modal'
+import { Overlay } from '@/components/ui/overlay'
 
 interface Props {
   leagueId: string
@@ -49,16 +50,6 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
   const [isWalkInPending, startWalkInTransition] = useTransition()
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [teamModalId, setTeamModalId] = useState<string | null>(null)
-
-  // Lock body scroll while modal is open
-  useEffect(() => {
-    if (isActive) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
-    return () => { document.body.style.overflow = '' }
-  }, [isActive])
 
   useEffect(() => {
     if (!isActive) return
@@ -194,22 +185,26 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
         </div>
       )}
 
-      {/* Scanner modal */}
-      {isActive && (
-        <div className="fixed inset-0 z-[400] sm:flex sm:items-center sm:justify-center">
-          {/* Backdrop — desktop only */}
-          <div className="hidden sm:block absolute inset-0 bg-black/70" onClick={handleClose} aria-hidden="true" />
-
-          {/* Panel — full-screen on mobile, centred card on desktop */}
-          <div className="absolute inset-0 sm:relative sm:inset-auto sm:w-full sm:max-w-sm bg-black sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+      {/* Scanner — the shared Overlay (scroll lock, Escape, focus trap; the
+          team check-in sheet opens above it at z 500). Full-screen on phones,
+          a centred card from sm. */}
+      <Overlay
+        open={isActive}
+        onClose={handleClose}
+        label="Scan player QR code"
+        zIndex={400}
+        className="max-sm:p-0"
+        panelClassName="w-screen h-dvh sm:w-full sm:max-w-sm sm:h-auto bg-black sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+      >
+        {isActive && (<>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-black/80 shrink-0">
+            <div className="flex items-center justify-between px-4 py-2 bg-black/80 shrink-0" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
               <p className="text-sm font-semibold text-white">Scan Player QR Code</p>
               <button
                 type="button"
                 onClick={handleClose}
-                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                className="press -mr-2 inline-flex items-center justify-center min-h-11 min-w-11 rounded-full text-white/80 hover:text-white hover:bg-white/10"
                 aria-label="Close scanner"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -291,7 +286,7 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
                     <button
                       onClick={() => handleWalkIn(scanState.registrationId, scanState.playerName)}
                       disabled={isWalkInPending}
-                      className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white text-amber-900 hover:bg-amber-50 disabled:opacity-60 transition-colors"
+                      className="press flex-1 min-h-11 px-4 rounded-xl text-sm font-semibold bg-white text-amber-900 hover:bg-amber-50 disabled:opacity-60"
                     >
                       {isWalkInPending ? 'Adding…' : 'Add as Walk-in'}
                     </button>
@@ -301,7 +296,7 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
                         cooldownRef.current = false
                         setScanState({ type: 'idle' })
                       }}
-                      className="px-4 py-2.5 rounded-xl text-sm font-medium border border-amber-400/50 text-white hover:bg-amber-800/60 transition-colors"
+                      className="press min-h-11 px-4 rounded-xl text-sm font-medium border border-amber-400/50 text-white hover:bg-amber-800/60"
                     >
                       Dismiss
                     </button>
@@ -328,9 +323,20 @@ export function QRScanner({ leagueId, timezone, checkinSound, sessionId }: Props
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
+
+            {/* A thumb-sized way out at the bottom (the only exit used to be a
+                32px ✕ in the top corner). */}
+            <div className="shrink-0 px-4 pt-3 bg-black" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="press w-full min-h-12 rounded-xl text-base font-semibold bg-white/15 text-white hover:bg-white/25"
+              >
+                Done scanning
+              </button>
+            </div>
+        </>)}
+      </Overlay>
     </>
   )
 }

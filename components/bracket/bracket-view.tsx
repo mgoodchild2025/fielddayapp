@@ -3,7 +3,7 @@
 import { getRoundName, roundDisplayName, LB_ROUND_BASE, GF_ROUND } from '@/lib/bracket'
 import { recordBracketScore, swapBracketTeams, advanceBestLoser, overrideBracketSlot, declareMatchWinner, clearBracketMatchResult, type BestLoserCandidate } from '@/actions/brackets'
 import { useState, useTransition } from 'react'
-import { Overlay, useRetained } from '@/components/ui/overlay'
+import { Overlay } from '@/components/ui/overlay'
 import { useRouter } from 'next/navigation'
 import { MatchEditModal } from './match-edit-modal'
 import { TeamAvatar } from '@/components/ui/team-avatar'
@@ -286,6 +286,218 @@ type SwapSlot = { matchId: string; slot: 1 | 2 }
 
 // ── Match card ────────────────────────────────────────────────────────────────
 
+/**
+ * An admin's tools for one match — score, advance without a score (hand-built
+ * brackets), clear result, edit match. One component for the diagram card
+ * (`layout="card"`, stacked rows) and the phone list (`layout="row"`, a
+ * wrapping button row), so a playoff night on a phone doesn't mean panning a
+ * 1000px diagram to hit 10px links.
+ */
+function MatchAdminActions({
+  match, bracketId, leagueId, sport, allTeams, manualControls = false, layout,
+}: {
+  match: BracketMatchData
+  bracketId: string
+  leagueId: string
+  sport?: string
+  allTeams?: TeamRef[]
+  manualControls?: boolean
+  layout: 'card' | 'row'
+}) {
+  const [scoreOpen, setScoreOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [advancePick, setAdvancePick] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const router = useRouter()
+
+  const isCompleted = match.status === 'completed'
+  const isReady = match.status === 'ready'
+  const isBye = match.isBye
+  const isDeclared = isCompleted && match.score1 === null && match.score2 === null
+
+  function run(action: () => Promise<{ error: string | null }>) {
+    setErr(null)
+    startTransition(async () => {
+      const r = await action()
+      if (r.error) { setErr(r.error); return }
+      setAdvancePick(false)
+      router.refresh()
+    })
+  }
+
+  async function clearResult() {
+    // Cascades: pulls the advanced teams back out of later rounds.
+    if (!(await confirmAction({
+      title: isDeclared ? 'Undo this result?' : 'Clear this result?',
+      message: isDeclared
+        ? 'The winner is pulled back out of the next match.'
+        : 'The score is removed and both teams are pulled back out of later matches.',
+      confirmLabel: 'Clear result',
+      destructive: true,
+    }))) return
+    run(() => clearBracketMatchResult({ matchId: match.id, bracketId, leagueId }))
+  }
+
+  const canScore = (isReady || isCompleted) && !isBye
+  const canAdvance = manualControls && !isBye && !isCompleted && !!(match.team1Id || match.team2Id)
+  // Game-linked matches clear through the Edit modal instead.
+  const canClear = isCompleted && !match.gameId
+  const canEdit = !!allTeams && !isBye
+  const card = layout === 'card'
+  const rowBtn = 'press inline-flex items-center justify-center min-h-10 px-3 rounded-lg border text-xs font-medium'
+
+  const advancePicker = advancePick && (
+    <div className={card ? 'px-2 py-1.5 space-y-1 border-t' : 'basis-full space-y-1.5 pt-1'}>
+      <p className="text-xs text-gray-500 text-center">Advance without a score:</p>
+      <div className="flex gap-1.5">
+        {([[match.team1Id, match.team1Name], [match.team2Id, match.team2Name]] as const)
+          .filter(([id]) => !!id)
+          .map(([id, name]) => (
+            <button
+              key={id}
+              type="button"
+              disabled={isPending}
+              onClick={() => run(() => declareMatchWinner({ matchId: match.id, bracketId, leagueId, winnerTeamId: id! }))}
+              className="press flex-1 min-h-10 truncate rounded-lg border border-green-200 bg-green-50 px-2 text-xs font-medium text-green-800 hover:bg-green-100 disabled:opacity-50"
+            >
+              {name ?? 'TBD'}
+            </button>
+          ))}
+        <button
+          type="button"
+          onClick={() => setAdvancePick(false)}
+          aria-label="Cancel"
+          className="press min-h-10 min-w-10 rounded-lg border text-sm text-gray-500 hover:text-gray-700"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  )
+
+  return (
+    <>
+      <Overlay
+        open={scoreOpen}
+        onClose={() => setScoreOpen(false)}
+        variant="sheet"
+        label="Enter match score"
+        panelClassName="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden"
+      >
+        <ScoreModal
+          match={match} bracketId={bracketId} leagueId={leagueId} sport={sport}
+          onClose={() => setScoreOpen(false)}
+        />
+      </Overlay>
+      {allTeams && (
+        <MatchEditModal
+          open={editOpen}
+          match={match} bracketId={bracketId} leagueId={leagueId}
+          allTeams={allTeams}
+          onClose={() => setEditOpen(false)}
+        />
+      )}
+
+      {card ? (
+        <>
+          {canScore && (
+            <div className="border-t">
+              <button
+                onClick={() => setScoreOpen(true)}
+                className="press w-full px-3 min-h-10 text-xs font-semibold text-center hover:bg-gray-50"
+                style={{ color: 'var(--brand-primary)' }}
+              >
+                {isCompleted ? 'Edit score' : 'Enter score →'}
+              </button>
+            </div>
+          )}
+          {canAdvance && (advancePick ? advancePicker : (
+            <div className="border-t">
+              <button
+                onClick={() => setAdvancePick(true)}
+                className="press w-full px-3 min-h-10 text-xs font-medium text-center text-gray-600 hover:bg-gray-50 hover:text-green-700"
+                title="Declare a winner with no score — a walkover, forfeit, or your call"
+              >
+                ✓ Advance a team
+              </button>
+            </div>
+          ))}
+          {canClear && (
+            <div className="border-t">
+              <button
+                onClick={clearResult}
+                disabled={isPending}
+                className="press w-full px-3 min-h-10 text-xs font-medium text-center text-gray-500 hover:bg-gray-50 hover:text-red-600 disabled:opacity-50"
+                title={isDeclared ? 'Undo the declared result and pull the winner back' : 'Remove the score and pull the teams back out of later matches'}
+              >
+                ↺ Clear result
+              </button>
+            </div>
+          )}
+          {err && <p className="px-3 py-1 text-xs text-red-600 border-t">{err}</p>}
+          {canEdit && (
+            <div className="border-t">
+              <button
+                onClick={() => setEditOpen(true)}
+                className="press w-full px-3 min-h-10 text-xs font-medium text-center text-gray-600 hover:bg-gray-50 hover:text-gray-800"
+              >
+                ✎ Edit match
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="border-t px-3 py-2 flex flex-wrap items-center gap-2">
+          {canScore && (
+            <button
+              onClick={() => setScoreOpen(true)}
+              className={`${rowBtn} border-transparent bg-brand-primary text-on-brand font-semibold`}
+            >
+              {isCompleted ? 'Edit score' : 'Enter score'}
+            </button>
+          )}
+          {canAdvance && !advancePick && (
+            <button onClick={() => setAdvancePick(true)} className={`${rowBtn} text-gray-700 hover:bg-gray-50`}>
+              ✓ Advance a team
+            </button>
+          )}
+          {canClear && (
+            <button onClick={clearResult} disabled={isPending} className={`${rowBtn} text-gray-600 hover:text-red-600 hover:bg-gray-50 disabled:opacity-50`}>
+              ↺ Clear result
+            </button>
+          )}
+          {canEdit && (
+            <button onClick={() => setEditOpen(true)} className={`${rowBtn} text-gray-700 hover:bg-gray-50`}>
+              ✎ Edit match
+            </button>
+          )}
+          {manualControls && allTeams && !isCompleted && !isBye && ([1, 2] as const)
+            .filter((slot) => !(slot === 1 ? match.team1Id : match.team2Id))
+            .map((slot) => (
+              <select
+                key={slot}
+                value=""
+                disabled={isPending}
+                onChange={(e) => {
+                  const teamId = e.target.value
+                  if (teamId) run(() => overrideBracketSlot({ matchId: match.id, bracketId, leagueId, slot, teamId }))
+                }}
+                aria-label={`Seat a team in slot ${slot}`}
+                className="min-h-10 max-w-full rounded-lg border border-dashed border-gray-300 bg-white px-2 text-base sm:text-xs text-gray-600"
+              >
+                <option value="">Seat a team (slot {slot})…</option>
+                {allTeams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            ))}
+          {canAdvance && advancePicker}
+          {err && <p className="basis-full text-xs text-red-600">{err}</p>}
+        </div>
+      )}
+    </>
+  )
+}
+
 function MatchCard({
   match,
   bracketId,
@@ -310,9 +522,6 @@ function MatchCard({
   /** Hand-built brackets (M3): in-place slot pickers + declare winner / clear result. */
   manualControls?: boolean
 }) {
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editOpen, setEditOpen] = useState(false)
-  const [advancePick, setAdvancePick] = useState(false)
   const [manualErr, setManualErr] = useState<string | null>(null)
   const [isManualPending, startManualTransition] = useTransition()
   const manualRouter = useRouter()
@@ -321,7 +530,6 @@ function MatchCard({
   const isTbd = match.status === 'pending'
   const isCompleted = match.status === 'completed'
   const isBye = match.isBye
-  const isReady = match.status === 'ready'
   // Declared result: completed with no score recorded (walkover / admin call)
   const isDeclared = isCompleted && match.score1 === null && match.score2 === null
 
@@ -346,7 +554,6 @@ function MatchCard({
     startManualTransition(async () => {
       const r = await action()
       if (r.error) { setManualErr(r.error); return }
-      setAdvancePick(false)
       manualRouter.refresh()
     })
   }
@@ -375,26 +582,6 @@ function MatchCard({
 
   return (
     <>
-      <Overlay
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        variant="sheet"
-        label="Enter match score"
-        panelClassName="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden"
-      >
-        <ScoreModal
-          match={match} bracketId={bracketId} leagueId={leagueId} sport={sport}
-          onClose={() => setModalOpen(false)}
-        />
-      </Overlay>
-      {isAdmin && allTeams && (
-        <MatchEditModal
-          open={editOpen}
-          match={match} bracketId={bracketId} leagueId={leagueId}
-          allTeams={allTeams}
-          onClose={() => setEditOpen(false)}
-        />
-      )}
       <div className={`w-52 rounded-lg border text-sm shadow-sm ${
         isCompleted ? 'bg-white opacity-90' : isTbd ? 'bg-gray-50 border-dashed border-gray-300' : 'bg-white'
       }`}>
@@ -513,94 +700,13 @@ function MatchCard({
           </div>
         )}
 
-        {!swapMode && isAdmin && (isReady || isCompleted) && (
-          <div className="border-t">
-            <button
-              onClick={() => setModalOpen(true)}
-              className="w-full px-3 py-2 text-xs font-semibold text-center hover:bg-gray-50 active:bg-gray-100 transition-colors"
-              style={{ color: 'var(--brand-primary)' }}
-            >
-              {isCompleted ? 'Edit score' : 'Enter score →'}
-            </button>
-          </div>
+        {!swapMode && isAdmin && (
+          <MatchAdminActions
+            match={match} bracketId={bracketId} leagueId={leagueId} sport={sport}
+            allTeams={allTeams} manualControls={manualControls} layout="card"
+          />
         )}
-        {/* Manual brackets (M3): advance a team without a score / clear a declared result */}
-        {!swapMode && manualControls && !isBye && !isCompleted && (match.team1Id || match.team2Id) && (
-          <div className="border-t">
-            {advancePick ? (
-              <div className="px-2 py-1.5 space-y-1">
-                <p className="text-[10px] text-gray-400 text-center">Advance without a score:</p>
-                <div className="flex gap-1">
-                  {([[match.team1Id, match.team1Name], [match.team2Id, match.team2Name]] as const)
-                    .filter(([id]) => !!id)
-                    .map(([id, name]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        disabled={isManualPending}
-                        onClick={() => runManual(() => declareMatchWinner({ matchId: match.id, bracketId, leagueId, winnerTeamId: id! }))}
-                        className="flex-1 truncate rounded border border-green-200 bg-green-50 px-1.5 py-1 text-[10px] font-medium text-green-700 hover:bg-green-100 disabled:opacity-50"
-                      >
-                        {name ?? 'TBD'}
-                      </button>
-                    ))}
-                  <button
-                    type="button"
-                    onClick={() => setAdvancePick(false)}
-                    className="rounded border px-1.5 py-1 text-[10px] text-gray-400 hover:text-gray-600"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setAdvancePick(true)}
-                className="w-full px-3 py-1.5 text-[10px] font-medium text-center text-gray-400 hover:bg-gray-50 hover:text-green-700 transition-colors"
-                title="Declare a winner with no score — a walkover, forfeit, or your call"
-              >
-                ✓ Advance a team
-              </button>
-            )}
-          </div>
-        )}
-        {/* Any admin, any completed match (not just hand-built brackets): undo the
-            result so teams can be reseated — the only way to fix a wrong seat after
-            a score went in. Game-linked matches go through the Edit modal instead. */}
-        {!swapMode && isAdmin && isCompleted && !match.gameId && (
-          <div className="border-t">
-            <button
-              onClick={async () => {
-                // Cascades: pulls the advanced teams back out of later rounds.
-                if (!(await confirmAction({
-                  title: isDeclared ? 'Undo this result?' : 'Clear this result?',
-                  message: isDeclared
-                    ? 'The winner is pulled back out of the next match.'
-                    : 'The score is removed and both teams are pulled back out of later matches.',
-                  confirmLabel: 'Clear result',
-                  destructive: true,
-                }))) return
-                runManual(() => clearBracketMatchResult({ matchId: match.id, bracketId, leagueId }))
-              }}
-              disabled={isManualPending}
-              className="press w-full px-3 min-h-10 text-xs font-medium text-center text-gray-500 hover:bg-gray-50 hover:text-red-600 disabled:opacity-50"
-              title={isDeclared ? 'Undo the declared result and pull the winner back' : 'Remove the score and pull the teams back out of later matches'}
-            >
-              ↺ Clear result
-            </button>
-          </div>
-        )}
-        {manualErr && <p className="px-3 py-1 text-[10px] text-red-500 border-t">{manualErr}</p>}
-        {!swapMode && isAdmin && allTeams && !isBye && (
-          <div className={isReady || isCompleted ? '' : 'border-t'}>
-            <button
-              onClick={() => setEditOpen(true)}
-              className="w-full px-3 py-1.5 text-[10px] font-medium text-center text-gray-400 hover:bg-gray-50 hover:text-gray-600 active:bg-gray-100 transition-colors"
-            >
-              ✎ Edit match
-            </button>
-          </div>
-        )}
+        {manualErr && <p className="px-3 py-1 text-xs text-red-600 border-t">{manualErr}</p>}
       </div>
     </>
   )
@@ -753,16 +859,17 @@ function BracketScoreList({
   leagueId,
   sport,
   readOnly = false,
+  allTeams,
+  manualControls = false,
 }: {
   bracket: BracketData
   leagueId: string
   sport?: string
-  /** Players: the same readable round-by-round list, without score entry. */
+  /** Players: the same readable round-by-round list, without admin tools. */
   readOnly?: boolean
+  allTeams?: TeamRef[]
+  manualControls?: boolean
 }) {
-  const [activeMatch, setActiveMatch] = useState<BracketMatchData | null>(null)
-  // Keep the last match while the sheet plays its exit.
-  const shownMatch = useRetained(activeMatch)
   const timezone = useBracketTimezone()
   const bracketSize = bracket.bracketSize
   // No channel once every match is decided.
@@ -784,21 +891,6 @@ function BracketScoreList({
     <div className="space-y-6">
       {/* A sheet, like the bracket diagram's: inline it rendered at the top of
           the list — off-screen when the tapped match was further down. */}
-      {!readOnly && <Overlay
-        open={!!activeMatch}
-        onClose={() => setActiveMatch(null)}
-        variant="sheet"
-        label="Enter match score"
-        panelClassName="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden"
-      >
-        {shownMatch && (
-          <ScoreModal
-            key={shownMatch.id}
-            match={shownMatch} bracketId={bracket.id} leagueId={leagueId} sport={sport}
-            onClose={() => setActiveMatch(null)}
-          />
-        )}
-      </Overlay>}
 
       {roundNumbers.map((rn) => {
         const matches = bracket.matches
@@ -868,16 +960,11 @@ function BracketScoreList({
                       </div>
                     </div>
 
-                    {!readOnly && (isReady || isCompleted) && !isBye && (
-                      <div className="border-t">
-                        <button
-                          onClick={() => setActiveMatch(match)}
-                          className="w-full py-2.5 text-xs font-semibold text-center hover:bg-gray-50 active:bg-gray-100 transition-colors"
-                          style={{ color: 'var(--brand-primary)' }}
-                        >
-                          {isCompleted ? 'Edit score' : 'Enter score →'}
-                        </button>
-                      </div>
+                    {!readOnly && (
+                      <MatchAdminActions
+                        match={match} bracketId={bracket.id} leagueId={leagueId} sport={sport}
+                        allTeams={allTeams} manualControls={manualControls} layout="row"
+                      />
                     )}
                   </div>
                 )
@@ -895,8 +982,9 @@ function BracketScoreList({
 export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezone, allTeams }: Props) {
   // Players start on 'auto': the readable list on phones, the diagram from
   // sm up — decided in CSS, so a phone never flashes the 1000px diagram.
-  // Admins start on the diagram as before.
-  const [view, setView] = useState<'auto' | 'bracket' | 'list'>(isAdmin ? 'bracket' : 'auto')
+  // Admins too: on a phone their list rows carry every match tool
+  // (MatchAdminActions), so playoff night doesn't mean panning the diagram.
+  const [view, setView] = useState<'auto' | 'bracket' | 'list'>('auto')
   const autoView = view === 'auto'
   const [swapMode, setSwapMode] = useState(false)
   const [swapSlotA, setSwapSlotA] = useState<SwapSlot | null>(null)
@@ -1073,14 +1161,15 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezon
             </span>
           )}
         </button>
-        {isAdmin && view === 'bracket' && (
+        {isAdmin && (view === 'bracket' || autoView) && (
           <button
             onClick={() => {
               setSwapMode((m) => !m)
               setSwapSlotA(null)
               setSwapErr(null)
             }}
-            className={`press min-h-10 px-4 rounded-full text-sm font-medium ${
+            // Swapping works on the diagram only — hidden where 'auto' shows the list.
+            className={`press min-h-10 px-4 rounded-full text-sm font-medium ${autoView ? 'max-sm:hidden' : ''} ${
               swapMode ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
@@ -1174,7 +1263,10 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezon
               )}
             </div>
           )}
-          <BracketScoreList bracket={bracket} leagueId={leagueId} sport={sport} readOnly={!isAdmin} />
+          <BracketScoreList
+            bracket={bracket} leagueId={leagueId} sport={sport} readOnly={!isAdmin}
+            allTeams={isAdmin ? allTeams : undefined} manualControls={manualControls}
+          />
         </div>
       )}
 

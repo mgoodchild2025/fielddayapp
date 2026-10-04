@@ -5,6 +5,7 @@ import { parseLocalToUtc } from '@/lib/format-time'
 import { useState, useTransition } from 'react'
 import { updateGame, deleteGame, cancelGame, postponeGame, restoreGame } from '@/actions/schedule'
 import { venueLabel } from '@/lib/venue-label'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 
 interface Team {
   id: string
@@ -66,7 +67,6 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
   const [isExhibition, setIsExhibition] = useState(game.isExhibition ?? false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-  const [confirmDelete, setConfirmDelete] = useState(false)
 
   // Cancel / postpone / restore state
   const [gameStatus, setGameStatus] = useState(game.status ?? 'scheduled')
@@ -99,7 +99,13 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
     })
   }
 
-  function handleDelete() {
+  async function handleDelete() {
+    if (!(await confirmAction({
+      title: 'Delete this game?',
+      message: 'The game and any result are removed. This can\'t be undone.',
+      confirmLabel: 'Delete game',
+      destructive: true,
+    }))) return
     startTransition(async () => {
       const result = await deleteGame(game.id, game.leagueId)
       if (result.error) {
@@ -124,7 +130,13 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
     })
   }
 
-  function handleRestoreGame() {
+  async function handleRestoreGame() {
+    // With notify on this emails both teams — not a one-tap action.
+    if (notifyTeams && !(await confirmAction({
+      title: 'Put this game back on?',
+      message: 'Both teams get a "Game back on" email and notification.',
+      confirmLabel: 'Restore and notify',
+    }))) return
     startTransition(async () => {
       const result = await restoreGame({ gameId: game.id, leagueId: game.leagueId, notify: notifyTeams })
       if (result.error) { setError(result.error) } else { setGameStatus('scheduled'); setStatusReason(''); onStatusChanged?.(game.id, 'scheduled', null) }
@@ -156,7 +168,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
               value={scheduledAt}
               onChange={(e) => setScheduledAt(e.target.value)}
               required
-              className="w-full border rounded px-2 py-1.5 text-sm"
+              className="w-full border rounded px-2 min-h-10 text-sm"
             />
           </div>
 
@@ -165,7 +177,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
             <select
               value={homeTeamId}
               onChange={(e) => { setHomeTeamId(e.target.value); if (e.target.value) setHomeTeamLabel('') }}
-              className="w-full border rounded px-2 py-1.5 text-sm"
+              className="w-full border rounded px-2 min-h-10 text-sm"
             >
               <option value="">— unassigned —</option>
               {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -176,7 +188,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
                 value={homeTeamLabel}
                 onChange={(e) => setHomeTeamLabel(e.target.value)}
                 placeholder="Label (e.g. Team 1)"
-                className="mt-1 w-full border rounded px-2 py-1.5 text-sm text-gray-600"
+                className="mt-1 w-full border rounded px-2 min-h-10 text-sm text-gray-600"
               />
             )}
           </div>
@@ -186,7 +198,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
             <select
               value={awayTeamId}
               onChange={(e) => { setAwayTeamId(e.target.value); if (e.target.value) setAwayTeamLabel('') }}
-              className="w-full border rounded px-2 py-1.5 text-sm"
+              className="w-full border rounded px-2 min-h-10 text-sm"
             >
               <option value="">— unassigned —</option>
               {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -197,7 +209,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
                 value={awayTeamLabel}
                 onChange={(e) => setAwayTeamLabel(e.target.value)}
                 placeholder="Label (e.g. Team 2)"
-                className="mt-1 w-full border rounded px-2 py-1.5 text-sm text-gray-600"
+                className="mt-1 w-full border rounded px-2 min-h-10 text-sm text-gray-600"
               />
             )}
           </div>
@@ -210,7 +222,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
                 value={court}
                 onChange={(e) => setCourt(e.target.value)}
                 placeholder="e.g. A"
-                className="w-full border rounded px-2 py-1.5 text-sm"
+                className="w-full border rounded px-2 min-h-10 text-sm"
               />
             </div>
             <div>
@@ -220,7 +232,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
                 value={weekNumber}
                 onChange={(e) => setWeekNumber(e.target.value)}
                 min={1}
-                className="w-full border rounded px-2 py-1.5 text-sm"
+                className="w-full border rounded px-2 min-h-10 text-sm"
               />
             </div>
           </div>
@@ -231,7 +243,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
               <select
                 value={poolId}
                 onChange={(e) => setPoolId(e.target.value)}
-                className="w-full border rounded px-2 py-1.5 text-sm"
+                className="w-full border rounded px-2 min-h-10 text-sm"
               >
                 <option value="">— None —</option>
                 {pools.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -278,14 +290,14 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
                   <button
                     type="button"
                     onClick={() => setStatusAction('postpone')}
-                    className="flex-1 py-1.5 rounded text-xs font-medium border border-amber-300 text-amber-700 hover:bg-amber-50"
+                    className="press flex-1 min-h-10 rounded text-xs font-medium border border-amber-300 text-amber-700 hover:bg-amber-50"
                   >
                     Postpone
                   </button>
                   <button
                     type="button"
                     onClick={() => setStatusAction('cancel')}
-                    className="flex-1 py-1.5 rounded text-xs font-medium border border-red-300 text-red-600 hover:bg-red-50"
+                    className="press flex-1 min-h-10 rounded text-xs font-medium border border-red-300 text-red-600 hover:bg-red-50"
                   >
                     Cancel Game
                   </button>
@@ -300,9 +312,9 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
                     value={statusReason}
                     onChange={(e) => setStatusReason(e.target.value)}
                     placeholder="Reason (optional — shown to players)"
-                    className="w-full border rounded px-2 py-1.5 text-xs text-gray-700"
+                    className="w-full min-h-10 border rounded px-2 text-base sm:text-xs text-gray-700"
                   />
-                  <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                  <label className="flex items-center gap-2 min-h-10 text-xs text-gray-600 cursor-pointer">
                     <input type="checkbox" checked={notifyTeams} onChange={(e) => setNotifyTeams(e.target.checked)} className="rounded" />
                     Notify both teams by email
                   </label>
@@ -311,14 +323,14 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
                       type="button"
                       onClick={statusAction === 'cancel' ? handleCancelGame : handlePostponeGame}
                       disabled={isPending}
-                      className={`flex-1 py-1.5 rounded text-xs font-semibold text-white disabled:opacity-50 ${statusAction === 'cancel' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-500 hover:bg-amber-600'}`}
+                      className={`press flex-1 min-h-10 rounded text-xs font-semibold text-white disabled:opacity-50 ${statusAction === 'cancel' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-500 hover:bg-amber-600'}`}
                     >
                       {isPending ? 'Saving…' : statusAction === 'cancel' ? 'Yes, Cancel' : 'Yes, Postpone'}
                     </button>
                     <button
                       type="button"
                       onClick={() => { setStatusAction(null); setStatusReason('') }}
-                      className="flex-1 py-1.5 rounded text-xs font-medium border text-gray-600 hover:bg-gray-50"
+                      className="press flex-1 min-h-10 rounded text-xs font-medium border text-gray-600 hover:bg-gray-50"
                     >
                       Back
                     </button>
@@ -331,7 +343,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
               {(game.cancellationReason || statusReason) && (
                 <p className="text-xs text-gray-500 italic">&ldquo;{statusReason || game.cancellationReason}&rdquo;</p>
               )}
-              <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+              <label className="flex items-center gap-2 min-h-10 text-xs text-gray-600 cursor-pointer">
                 <input type="checkbox" checked={notifyTeams} onChange={(e) => setNotifyTeams(e.target.checked)} className="rounded" />
                 Notify both teams when restoring
               </label>
@@ -339,7 +351,7 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
                 type="button"
                 onClick={handleRestoreGame}
                 disabled={isPending}
-                className="w-full py-1.5 rounded text-xs font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                className="press w-full min-h-10 rounded text-xs font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
               >
                 {isPending ? 'Restoring…' : 'Restore Game'}
               </button>
@@ -348,33 +360,13 @@ export function EditGameModal({ game, teams, pools = [], sport, onClose, onDelet
         </div>
 
         <div className="mt-3 pt-3 border-t">
-          {confirmDelete ? (
-            <div className="space-y-2">
-              <p className="text-xs text-red-700 font-medium">Delete this game and its result?</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleDelete}
-                  disabled={isPending}
-                  className="flex-1 py-1.5 rounded text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
-                >
-                  {isPending ? 'Deleting…' : 'Yes, Delete'}
-                </button>
-                <button
-                  onClick={() => setConfirmDelete(false)}
-                  className="flex-1 py-1.5 rounded text-xs font-medium border text-gray-600 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="text-xs text-red-500 hover:text-red-700 hover:underline"
-            >
-              Delete game
-            </button>
-          )}
+          <button
+            onClick={handleDelete}
+            disabled={isPending}
+            className="press min-h-10 text-xs text-red-600 hover:text-red-700 hover:underline disabled:opacity-50"
+          >
+            {isPending ? 'Deleting…' : 'Delete game'}
+          </button>
         </div>
     </>
   )

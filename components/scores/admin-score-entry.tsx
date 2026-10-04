@@ -255,7 +255,8 @@ function ScoreEntrySheet({
                   </div>
                   {sets.length > 1 && scoringMode !== 'innings' && (
                     <button type="button" onClick={() => setSets((p) => p.filter((_, j) => j !== i))}
-                      className="w-6 text-gray-300 hover:text-red-400 text-xl text-center">×</button>
+                      aria-label={`Remove set ${i + 1}`}
+                      className="press min-w-10 min-h-10 -mr-2 rounded-full text-gray-500 hover:text-red-500 hover:bg-red-50 text-xl text-center">×</button>
                   )}
                 </div>
               ))}
@@ -336,26 +337,26 @@ function ScoreEntrySheet({
           <div className="border-t pt-3">
             {!forfeitOpen ? (
               <button type="button" onClick={() => { setForfeitOpen(true); setError(null) }}
-                className="text-xs font-medium text-gray-500 hover:text-gray-700">
+                className="press min-h-10 text-xs font-medium text-gray-600 hover:text-gray-800">
                 A team didn&apos;t show? Record a forfeit →
               </button>
             ) : (
               <div className="space-y-2">
                 <p className="text-xs text-gray-500">Who forfeited?</p>
                 <button type="button" onClick={() => applyForfeit('home')} disabled={isPending}
-                  className="w-full py-2 rounded-lg text-sm font-medium border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50 text-left px-3">
+                  className="press w-full min-h-11 rounded-lg text-sm font-medium border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50 text-left px-3">
                   {homeTeamName} forfeited <span className="text-amber-500">— {awayTeamName} wins</span>
                 </button>
                 <button type="button" onClick={() => applyForfeit('away')} disabled={isPending}
-                  className="w-full py-2 rounded-lg text-sm font-medium border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50 text-left px-3">
+                  className="press w-full min-h-11 rounded-lg text-sm font-medium border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50 text-left px-3">
                   {awayTeamName} forfeited <span className="text-amber-500">— {homeTeamName} wins</span>
                 </button>
                 <button type="button" onClick={() => applyForfeit('both')} disabled={isPending}
-                  className="w-full py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-left px-3">
-                  Double forfeit <span className="text-gray-400">— loss for both, no winner</span>
+                  className="press w-full min-h-11 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-left px-3">
+                  Double forfeit <span className="text-gray-500">— loss for both, no winner</span>
                 </button>
                 <button type="button" onClick={() => setForfeitOpen(false)}
-                  className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                  className="press min-h-10 text-xs text-gray-600 hover:text-gray-800">Cancel</button>
               </div>
             )}
           </div>
@@ -366,17 +367,17 @@ function ScoreEntrySheet({
                 <div className="flex items-center gap-3">
                   <p className="text-xs text-gray-500 flex-1">Reset game to no score?</p>
                   <button type="button" onClick={clearScore} disabled={isPending}
-                    className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50">
+                    className="press min-h-10 px-2 text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50">
                     {isPending ? 'Clearing…' : 'Confirm'}
                   </button>
                   <button type="button" onClick={() => setConfirmClear(false)}
-                    className="text-xs text-gray-400 hover:text-gray-600">
+                    className="press min-h-10 px-2 text-xs text-gray-600 hover:text-gray-800">
                     Cancel
                   </button>
                 </div>
               ) : (
                 <button type="button" onClick={() => setConfirmClear(true)}
-                  className="text-xs text-gray-400 hover:text-red-500 transition-colors">
+                  className="press min-h-10 text-xs text-gray-600 hover:text-red-600">
                   Clear score
                 </button>
               )}
@@ -401,12 +402,13 @@ function ScoreEntrySheet({
 
 // A captain submitted this score and the other captain hasn't confirmed it:
 // the admin can confirm it as-is in one tap (adminSetScore saves it confirmed).
-function ConfirmPendingButton({ gameId, leagueId, homeTeamName, awayTeamName, result }: {
+function ConfirmPendingButton({ gameId, leagueId, homeTeamName, awayTeamName, result, className }: {
   gameId: string
   leagueId: string
   homeTeamName: string
   awayTeamName: string
   result: NonNullable<Props['existingResult']>
+  className?: string
 }) {
   const [isPending, startTransition] = useTransition()
   return (
@@ -424,7 +426,7 @@ function ConfirmPendingButton({ gameId, leagueId, homeTeamName, awayTeamName, re
           else toast.success(`Confirmed ${result.homeScore}–${result.awayScore} · ${homeTeamName} vs ${awayTeamName}`)
         })
       }
-      className="press flex-1 min-h-12 rounded-lg text-base font-semibold bg-brand-primary text-on-brand disabled:opacity-50"
+      className={className ?? 'press flex-1 min-h-12 rounded-lg text-base font-semibold bg-brand-primary text-on-brand disabled:opacity-50'}
     >
       {isPending ? 'Confirming…' : `✓ Confirm ${result.homeScore}–${result.awayScore}`}
     </button>
@@ -463,12 +465,33 @@ export function AdminScoreEntry({ gameId, leagueId, sport, homeTeamName, awayTea
       {/* Compact mode: full-width action button for mobile card rows (Courtside,
           the phone schedule). A captain-submitted score gets a one-tap Confirm. */}
       {compact && !large ? (
-        <button
-          onClick={() => setSheetOpen(true)}
-          className="press w-full min-h-11 text-sm font-semibold text-center text-brand-primary hover:bg-gray-50 active:bg-gray-100"
-        >
-          {hasScore ? 'Edit score' : 'Enter score →'}
-        </button>
+        existingResult?.status === 'pending' && hasScore ? (
+          // The phone schedule's "Awaiting confirmation" filter lands here:
+          // confirm the captain's score in one tap, like Courtside.
+          <div className="flex">
+            <ConfirmPendingButton
+              gameId={gameId}
+              leagueId={leagueId}
+              homeTeamName={homeTeamName}
+              awayTeamName={awayTeamName}
+              result={existingResult}
+              className="press flex-1 min-h-11 text-sm font-semibold text-center text-brand-primary hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50"
+            />
+            <button
+              onClick={() => setSheetOpen(true)}
+              className="press min-h-11 px-3 border-l text-sm text-gray-600 hover:bg-gray-50"
+            >
+              Edit score
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setSheetOpen(true)}
+            className="press w-full min-h-11 text-sm font-semibold text-center text-brand-primary hover:bg-gray-50 active:bg-gray-100"
+          >
+            {hasScore ? 'Edit score' : 'Enter score →'}
+          </button>
+        )
       ) : compact ? (
         existingResult?.status === 'pending' && hasScore ? (
           <div className="flex gap-2">

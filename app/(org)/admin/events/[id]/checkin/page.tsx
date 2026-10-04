@@ -9,6 +9,8 @@ import { QRScanner } from '@/components/checkin/qr-scanner'
 import { CheckInList } from '@/components/checkin/checkin-list'
 import { TeamCheckinSelector } from '@/components/checkin/team-checkin-selector'
 import { SessionPicker } from '@/components/checkin/session-picker'
+import { AdminAddRegistrant } from '@/components/registration/admin-add-registrant'
+import { getAdminScope } from '@/lib/admin-scope'
 
 const SESSION_EVENT_TYPES = ['drop_in', 'pickup']
 
@@ -267,6 +269,18 @@ export default async function AdminCheckInPage({
                     Capacity: {rows.length} / {selectedSession.capacity}
                   </span>
                 )}
+              </div>
+              {/* Walk-ins with no QR: add them right here (it used to live only
+                  on the Sessions tab, as an 11px link). */}
+              <div className="mb-3">
+                <AdminAddRegistrant
+                  leagueId={id}
+                  sessions={sessionList.map((s) => ({ id: s.id, label: formatSessionLabel(s.scheduled_at, timezone) }))}
+                  defaultSessionId={selectedSession.id}
+                  canRecordPayment={(await getAdminScope(org.id)).isOrgAdmin}
+                  triggerLabel="Add a walk-in"
+                  triggerClassName="press inline-flex items-center gap-1.5 min-h-11 px-4 rounded-lg text-sm font-semibold bg-brand-primary text-on-brand"
+                />
               </div>
               <CheckInList
                 registrations={rows}
