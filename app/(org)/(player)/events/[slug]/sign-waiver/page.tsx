@@ -1,6 +1,6 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { getCurrentOrg } from '@/lib/tenant'
+import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { requireAuth } from '@/lib/auth'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
@@ -19,6 +19,7 @@ export default async function SignWaiverPage({
 
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const timeZone = await getOrgTimezone(org.id)
   const supabase = await createServerClient()
   const db = createServiceRoleClient()
 
@@ -118,6 +119,7 @@ export default async function SignWaiverPage({
                   month: 'long',
                   day: 'numeric',
                   year: 'numeric',
+                  timeZone,
                 })}
               </p>
             </div>

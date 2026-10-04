@@ -16,6 +16,7 @@ import { applyRoster, rosterIsActive, EMPTY_ROSTER, type PlayoffRoster } from '@
 import { PlayoffRosterPanel } from './playoff-roster-panel'
 import { listPlayoffTemplates, savePlayoffTemplate, deletePlayoffTemplate, type SavedPlayoffTemplate } from '@/actions/playoff-templates'
 import { confirmAction } from '@/components/ui/confirm-dialog'
+import { Overlay } from '@/components/ui/overlay'
 import { undoableRemove, insertAt } from '@/components/ui/use-undoable-remove'
 
 // ── Tier name suggestions ─────────────────────────────────────────────────────
@@ -795,9 +796,15 @@ export function PlayoffConfigWizard({
     setStep('tiers')
   }
 
-  function handleSaveAsTemplate() {
-    const name = window.prompt('Template name (e.g. "10-team Gold/Silver drop-down"):')?.trim()
+  // Was window.prompt (no styling, awkward on phones, against the app rule).
+  const [templateNameOpen, setTemplateNameOpen] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+
+  function handleSaveAsTemplate(e?: React.FormEvent) {
+    e?.preventDefault()
+    const name = templateName.trim()
     if (!name) return
+    setTemplateNameOpen(false)
     const teamCount = Math.max(...tiers.map((t) => t.seedTo), 2)
     const specs: TierTemplateSpec[] = tiers.map((t) => ({
       name: t.name,
@@ -1088,13 +1095,44 @@ export function PlayoffConfigWizard({
               <span className="text-lg leading-none">+</span> Add tier
             </button>
             <button
-              onClick={handleSaveAsTemplate}
+              onClick={() => { setTemplateName(''); setTemplateNameOpen(true) }}
               disabled={isPending}
-              className="text-xs text-gray-400 hover:text-gray-600 disabled:opacity-50"
+              className="press min-h-10 text-xs text-gray-600 hover:text-gray-800 disabled:opacity-50"
               title="Save this tier layout as a reusable format template"
             >
               Save as template…
             </button>
+            <Overlay
+              open={templateNameOpen}
+              onClose={() => setTemplateNameOpen(false)}
+              variant="sheet"
+              labelledBy="save-template-title"
+              panelClassName="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl p-5"
+            >
+              <form onSubmit={handleSaveAsTemplate} className="space-y-3">
+                <h2 id="save-template-title" className="text-base font-semibold text-gray-900">Save as template</h2>
+                <label className="block text-xs font-medium text-gray-600">
+                  Template name
+                  <input
+                    data-autofocus
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    placeholder='e.g. "10-team Gold/Silver drop-down"'
+                    maxLength={80}
+                    enterKeyHint="done"
+                    className="mt-1 w-full min-h-11 border rounded-md px-3 text-base sm:text-sm"
+                  />
+                </label>
+                <div className="flex gap-2 pt-1">
+                  <button type="submit" disabled={!templateName.trim() || isPending} className="press flex-1 min-h-11 rounded-lg text-sm font-semibold bg-brand-primary text-on-brand disabled:opacity-50">
+                    Save template
+                  </button>
+                  <button type="button" onClick={() => setTemplateNameOpen(false)} className="press min-h-11 px-4 rounded-lg border text-sm text-gray-700 hover:bg-gray-50">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </Overlay>
           </div>
         </div>
 

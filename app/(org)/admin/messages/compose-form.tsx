@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useTransition } from 'react'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 import { sendAnnouncement } from '@/actions/messages'
 import { UpgradeBadge } from '@/components/ui/upgrade-prompt'
 
@@ -25,6 +26,8 @@ interface Player {
 type Channel = 'email' | 'sms' | 'both'
 type AudienceType = 'org' | 'league' | 'team' | 'players'
 type MessageClass = 'transactional' | 'commercial'
+
+const CHANNEL_WORDS: Record<string, string> = { email: 'by email', sms: 'by text', both: 'by email and text' }
 
 export function ComposeMessageForm({
   leagues,
@@ -69,13 +72,26 @@ export function ComposeMessageForm({
     })
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const fd = new FormData(e.currentTarget)
+    const form = e.currentTarget
+    const fd = new FormData(form)
     // Inject the selected player IDs as a JSON-encoded field
     if (audienceType === 'players') {
       fd.set('user_ids', JSON.stringify([...selectedPlayers]))
     }
+    // Emails/texts people — can't be unsent. (Go on a phone keyboard in the
+    // subject field used to send the blast on the spot.)
+    const who = audienceType === 'org' ? 'all members'
+      : audienceType === 'league' ? 'everyone in the selected event'
+      : audienceType === 'team' ? 'the selected team'
+      : `${selectedPlayers.size} player${selectedPlayers.size === 1 ? '' : 's'}`
+    const scheduled = !!String(fd.get('scheduled_for') ?? '').trim()
+    if (!(await confirmAction({
+      title: scheduled ? `Schedule this message to ${who}?` : `Send this message to ${who} now?`,
+      message: `It goes out ${CHANNEL_WORDS[channel] ?? 'by email'}${scheduled ? ' at the scheduled time' : ''}.`,
+      confirmLabel: scheduled ? 'Schedule' : 'Send',
+    }))) return
     setResult(null)
 
     startTransition(async () => {
@@ -84,7 +100,7 @@ export function ComposeMessageForm({
         setResult({ error: res.error })
       } else {
         setResult({ success: true })
-        ;(e.target as HTMLFormElement).reset()
+        ;form.reset()
         setAudienceType('org')
         setChannel('email')
         setMessageClass('transactional')
@@ -174,6 +190,9 @@ export function ComposeMessageForm({
             type="text"
             value={playerSearch}
             onChange={(e) => setPlayerSearch(e.target.value)}
+            // A search box inside the form: Enter/Go must not submit (send).
+            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
+            enterKeyHint="search"
             placeholder="Search by name or email…"
             className="w-full border rounded-md px-3 py-2 text-sm mb-2"
           />

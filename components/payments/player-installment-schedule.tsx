@@ -8,13 +8,14 @@ import { toast } from 'sonner'
 interface Props {
   installments: InstallmentRow[]
   currency?: string
+  timeZone?: string
 }
 
 /**
  * Player-facing wrapper around InstallmentSchedule.
  * Handles "Pay →" by creating a Stripe Checkout session and redirecting.
  */
-export function PlayerInstallmentSchedule({ installments, currency }: Props) {
+export function PlayerInstallmentSchedule({ installments, currency, timeZone }: Props) {
   const router = useRouter()
 
   async function handlePayClick(installmentId: string) {
@@ -40,6 +41,7 @@ export function PlayerInstallmentSchedule({ installments, currency }: Props) {
     <InstallmentSchedule
       installments={installments}
       currency={currency}
+      timeZone={timeZone}
       onPayClick={handlePayClick}
     />
   )

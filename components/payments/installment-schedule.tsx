@@ -19,10 +19,15 @@ interface Props {
   onPayClick?: (installmentId: string) => Promise<void>
   /** When provided, renders a "Mark paid" button for admins instead of Stripe pay. */
   onMarkPaid?: (installmentId: string) => Promise<void>
+  /** Org display timezone. */
+  timeZone?: string
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+// due_date is a timestamptz: format in the org's timezone (the server renders
+// in UTC, so an evening due time showed the next day — and disagreed with the
+// phone).
+function fmtDate(iso: string, timeZone: string) {
+  return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric', timeZone })
 }
 
 function fmtMoney(cents: number, currency = 'CAD') {
@@ -33,7 +38,7 @@ function isOverdue(row: InstallmentRow) {
   return row.status === 'pending' && new Date(row.due_date) < new Date()
 }
 
-export function InstallmentSchedule({ installments, currency = 'CAD', onPayClick, onMarkPaid }: Props) {
+export function InstallmentSchedule({ installments, currency = 'CAD', onPayClick, onMarkPaid, timeZone = 'America/Toronto' }: Props) {
   const [pendingId, setPendingId] = useState<string | null>(null)
 
   const totalCents = installments.reduce((s, i) => s + i.amount_cents, 0)
@@ -102,10 +107,10 @@ export function InstallmentSchedule({ installments, currency = 'CAD', onPayClick
                 </span>
                 <span className={`ml-2 text-xs ${overdue ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
                   {inst.status === 'paid'
-                    ? `Paid ${fmtDate(inst.due_date)}`
+                    ? `Paid ${fmtDate(inst.due_date, timeZone)}`
                     : overdue
-                      ? `Overdue — was due ${fmtDate(inst.due_date)}`
-                      : `Due ${fmtDate(inst.due_date)}`}
+                      ? `Overdue — was due ${fmtDate(inst.due_date, timeZone)}`
+                      : `Due ${fmtDate(inst.due_date, timeZone)}`}
                 </span>
               </div>
 

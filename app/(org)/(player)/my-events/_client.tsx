@@ -10,6 +10,7 @@ import { PlayerCalendar, toLocalDate } from '@/components/ui/player-calendar'
 import type { CalendarDot } from '@/components/ui/player-calendar'
 import { leagueColor } from '@/lib/league-color'
 import { EmptyState } from '@/components/ui/empty-state'
+import { formatDateOnly } from '@/lib/format-time'
 
 export interface GameDotItem {
   leagueId: string
@@ -63,9 +64,11 @@ function formatSport(s: string) {
   return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+// season_start_date is a calendar date — formatDateOnly keeps that day for
+// everyone (new Date('YYYY-MM-DD') is UTC midnight: a day early in Canada).
 function formatDate(iso: string | null) {
   if (!iso) return null
-  return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+  return formatDateOnly(iso, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function EventCard({ item, timezone, faded }: { item: EventItem; timezone: string; faded?: boolean }) {

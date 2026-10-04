@@ -153,8 +153,9 @@ export function PlayersClient({ players, leagues, currentLeague, unregisteredOnl
   return (
     <div>
       {/* ── Sticky filter bar ────────────────────────────────────────────── */}
-      {/* top-14 clears the fixed mobile admin bar (h-14); lg:top-0 resets for desktop */}
-      <div className="sticky top-14 lg:top-0 z-20 bg-[#F8F8F8] -mx-4 px-4 lg:-mx-6 lg:px-6 pt-2 pb-3 border-b border-gray-200 mb-5">
+      {/* top-0: it sticks inside the admin <main> scroller, which already
+          starts below the fixed phone bar (top-14 left a 56px gap). */}
+      <div className="sticky top-0 z-20 bg-[#F8F8F8] -mx-4 px-4 lg:-mx-6 lg:px-6 pt-2 pb-3 border-b border-gray-200 mb-5">
 
         {/* Search — full width */}
         <div className="relative">

@@ -59,7 +59,7 @@ export function MobileNav({ userName, userEmail, isAdmin, customLinks = [], show
         label="Menu"
         className="md:hidden"
         zIndex={60}
-        panelClassName="w-72 flex flex-col"
+        panelClassName="w-72 flex flex-col fd-safe-self"
         panelStyle={{ backgroundColor: 'var(--brand-secondary)', color: 'white', height: '100dvh' }}
       >
         <div className="h-12 flex items-center justify-end px-5 border-b border-white/10">

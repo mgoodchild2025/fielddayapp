@@ -315,6 +315,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                         registrationId={reg.id}
                         installments={planInstallments}
                         canMarkPaid={isOrgAdmin}
+                        timeZone={timezone}
                       />
                     )}
                   </td>

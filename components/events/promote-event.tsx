@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { confirmAction } from '@/components/ui/confirm-dialog'
 import { useRouter } from 'next/navigation'
 import { sendAnnouncement } from '@/actions/messages'
 
@@ -32,18 +33,29 @@ export function PromoteEventForm({ leagueId, eventName, registerUrl, canSms = fa
     `See you on the court!`
   )
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const fd = new FormData(e.currentTarget)
+    const form = e.currentTarget
+    const fd = new FormData(form)
     fd.set('league_id', leagueId)
     fd.set('message_class', 'commercial')
+    // Emails/texts people — confirm first (Go on a phone keyboard submits).
+    const who = audience === 'marketing' ? 'everyone who opted in to marketing'
+      : audience === 'past_participants' ? 'past participants'
+      : `the notify-me list (${interestCount})`
+    const scheduled = !!String(fd.get('scheduled_for') ?? '').trim()
+    if (!(await confirmAction({
+      title: scheduled ? `Schedule this promotion to ${who}?` : `Send this promotion to ${who} now?`,
+      message: `It goes out ${channel === 'sms' ? 'by text' : channel === 'both' ? 'by email and text' : 'by email'}${scheduled ? ' at the scheduled time' : ''}.`,
+      confirmLabel: scheduled ? 'Schedule' : 'Send',
+    }))) return
     setResult(null)
     startTransition(async () => {
       const res = await sendAnnouncement(fd)
       if (res.error) setResult({ error: res.error })
       else {
         setResult({ success: true })
-        ;(e.target as HTMLFormElement).reset()
+        ;form.reset()
         setAudience('marketing')
         setChannel('email')
         router.refresh()  // surface the just-sent promo in "Recent promotions"

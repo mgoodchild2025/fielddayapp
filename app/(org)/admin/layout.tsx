@@ -170,7 +170,7 @@ export default async function AdminLayout({
       <div className="flex flex-1 min-h-0 overflow-hidden print:block print:overflow-visible">
         <div className="print:hidden"><AdminSidebar org={org} role={memberRole} /></div>
         <main className="flex-1 overflow-y-auto print:overflow-visible">
-          <div className="p-4 lg:p-6 max-w-6xl mx-auto print:p-0 print:max-w-none">{children}</div>
+          <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:p-6 max-w-6xl mx-auto print:p-0 print:max-w-none">{children}</div>
         </main>
       </div>
     </div>

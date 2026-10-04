@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { headers } from 'next/headers'
-import { getCurrentOrg } from '@/lib/tenant'
+import { getCurrentOrg, getOrgTimezone } from '@/lib/tenant'
 import { createServerClient } from '@/lib/supabase/server'
 import { getMarketingConsent, getPlayerConsentSummary } from '@/actions/player-consents'
 import { redirectToLogin } from '@/lib/auth'
@@ -11,6 +11,7 @@ export const metadata = { title: 'Communication Preferences' }
 export default async function CommunicationsPage() {
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
+  const timeZone = await getOrgTimezone(org.id)
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return redirectToLogin()
@@ -49,7 +50,7 @@ export default async function CommunicationsPage() {
               <p className="font-medium text-gray-800">Privacy Policy</p>
               {privacy ? (
                 <p className="text-xs text-gray-500">
-                  {privacy.document_version ? `v${privacy.document_version} · ` : ''}accepted {new Date(privacy.consented_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })}
+                  {privacy.document_version ? `v${privacy.document_version} · ` : ''}accepted {new Date(privacy.consented_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric', timeZone })}
                 </p>
               ) : <p className="text-xs text-gray-500">Not on record</p>}
             </div>
@@ -60,7 +61,7 @@ export default async function CommunicationsPage() {
               <p className="font-medium text-gray-800">League Waiver</p>
               {waiver ? (
                 <p className="text-xs text-gray-500">
-                  {waiver.document_version ? `v${waiver.document_version} · ` : ''}accepted {new Date(waiver.consented_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })}
+                  {waiver.document_version ? `v${waiver.document_version} · ` : ''}accepted {new Date(waiver.consented_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric', timeZone })}
                 </p>
               ) : <p className="text-xs text-gray-500">Not on record</p>}
             </div>
