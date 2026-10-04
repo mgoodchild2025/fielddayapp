@@ -118,7 +118,7 @@ function MedalModal({ medal, confetti, onClose }: { medal: MedalView; confetti: 
         </p>
         <p className="mt-1 text-xl font-bold text-gray-900">{medal.teamName}</p>
         <p className="mt-2 text-sm text-gray-600">{medal.leagueName}</p>
-        <p className="mt-0.5 text-[11px] font-medium tracking-widest text-gray-400">{awardedLabel(medal.awardedAt)}</p>
+        <p className="mt-0.5 text-[11px] font-medium tracking-widest text-gray-500">{awardedLabel(medal.awardedAt)}</p>
 
         {medal.teammates.length > 0 && (
           <div className="mt-4 flex flex-wrap justify-center gap-1.5">

@@ -129,7 +129,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
             ))}
           </div>
           {(channel === 'sms' || channel === 'both') && (
-            <p className="text-[10px] text-gray-400 mt-1">SMS sent to opted-in members with a phone number on file.</p>
+            <p className="text-[10px] text-gray-500 mt-1">SMS sent to opted-in members with a phone number on file.</p>
           )}
         </div>
 
@@ -166,7 +166,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
           <button
             type="submit"
             disabled={loading || !subject.trim() || !body.trim()}
-            className="text-xs font-semibold text-white px-4 py-1.5 rounded transition-opacity disabled:opacity-50"
+            className="press text-xs font-semibold text-white px-4 min-h-10.5 rounded transition-opacity disabled:opacity-50"
             style={{ backgroundColor: 'var(--brand-primary)' }}
           >
             {loading ? 'Sending…' : 'Send'}

@@ -220,18 +220,17 @@ export function TeamTutorial({
 
         {/* Actions */}
         <div className="flex items-center justify-between">
-          <span className="text-[11px] text-gray-400">{step + 1} of {STEPS.length}</span>
+          <span className="text-xs text-gray-500">{step + 1} of {STEPS.length}</span>
           <div className="flex items-center gap-2">
             <button
               onClick={finish}
-              className="text-xs text-gray-500 hover:text-gray-600 transition-colors px-2 py-1.5"
+              className="press min-h-10 px-3 text-xs text-gray-600 hover:text-gray-800"
             >
               Skip
             </button>
             <button
               onClick={advance}
-              className="text-xs font-semibold px-4 py-1.5 rounded-lg text-white transition-opacity hover:opacity-90 active:opacity-75"
-              style={{ backgroundColor: 'var(--brand-primary)' }}
+              className="press min-h-10 px-4 rounded-lg text-xs font-semibold bg-brand-primary text-on-brand"
             >
               {step === STEPS.length - 1 ? 'Done ✓' : 'Next →'}
             </button>

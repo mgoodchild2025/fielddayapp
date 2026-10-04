@@ -53,7 +53,7 @@ export default async function CommunicationsPage() {
                 </p>
               ) : <p className="text-xs text-gray-500">Not on record</p>}
             </div>
-            <a href="https://fielddayapp.ca/privacy" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">View →</a>
+            <a href="https://fielddayapp.ca/privacy" target="_blank" rel="noopener noreferrer" className="inline-flex items-center min-h-10 -my-2 text-xs text-blue-600 hover:underline">View →</a>
           </div>
           <div className="flex items-center justify-between px-5 py-3">
             <div>

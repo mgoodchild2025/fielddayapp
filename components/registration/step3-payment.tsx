@@ -321,7 +321,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
             <div className="flex justify-between items-center px-4 py-3">
               <div>
                 <span className="font-medium">{league.name}</span>
-                <p className="text-xs text-gray-400 mt-0.5">Registration fee</p>
+                <p className="text-xs text-gray-500 mt-0.5">Registration fee</p>
               </div>
               <span className={`font-bold text-lg tabular-nums ${appliedDiscount ? 'line-through text-gray-400' : ''}`} style={appliedDiscount ? {} : { color: 'var(--brand-primary)' }}>
                 {formatDollars(registrationPriceCents)} {currency}
@@ -372,9 +372,9 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
                   <span className="text-xs text-gray-500 ml-1.5">{li.variantLabel}</span>
                 )}
                 {li.quantity > 1 && (
-                  <span className="text-xs text-gray-400 ml-1">× {li.quantity}</span>
+                  <span className="text-xs text-gray-500 ml-1">× {li.quantity}</span>
                 )}
-                <p className="text-xs text-gray-400 mt-0.5">Merchandise</p>
+                <p className="text-xs text-gray-500 mt-0.5">Merchandise</p>
               </div>
               <span className="font-semibold text-sm tabular-nums text-gray-800">
                 ${((li.unitPriceCents * li.quantity) / 100).toFixed(2)} {currency}
@@ -539,7 +539,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
               })}
             </div>
             {merchBlocksOffline && (
-              <p className="text-xs text-gray-400">Merchandise must be paid online by card.</p>
+              <p className="text-xs text-gray-500">Merchandise must be paid online by card.</p>
             )}
           </div>
         )}
@@ -560,7 +560,7 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
         </button>
 
         {selectedMethod === 'card' && (
-          <p className="text-xs text-center text-gray-400">
+          <p className="text-xs text-center text-gray-500">
             Secure checkout powered by Stripe. Your payment info is never stored on our servers.
           </p>
         )}

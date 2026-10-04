@@ -90,7 +90,7 @@ export function SelfCheckinSessionClient({
       {state.phase === 'idle' && (
         <div className="bg-white rounded-2xl border shadow-sm p-8 text-center space-y-5">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">{leagueName}</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1">{leagueName}</p>
             <p className="text-sm text-gray-500">{sessionLabel}</p>
             <p className="text-lg font-semibold text-gray-800 mt-2">Welcome, {playerName}</p>
           </div>

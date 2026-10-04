@@ -107,7 +107,7 @@ export function BioEditor({
     <div className="bg-white rounded-xl border overflow-hidden">
       <div className="px-5 py-3 bg-gray-50 border-b">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">My Bio Card</p>
-        <p className="text-xs text-gray-400 mt-0.5">The card shown when someone taps your name — and on event screens, if you opt in.</p>
+        <p className="text-xs text-gray-500 mt-0.5">The card shown when someone taps your name — and on event screens, if you opt in.</p>
       </div>
 
       {/* Live preview — the real card: dark like the TV, flippable like the modal */}
@@ -158,7 +158,7 @@ export function BioEditor({
             className="text-sm font-medium border rounded-md px-3 py-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
             {uploading ? 'Uploading…' : photoUrl ? 'Change card photo' : '📸 Add a card photo'}
           </button>
-          <span className="text-xs text-gray-400">No photo? Your profile picture is used.</span>
+          <span className="text-xs text-gray-500">No photo? Your profile picture is used.</span>
           <UploadStatus active={uploading} label="Uploading photo" className="basis-full" />
         </div>
 

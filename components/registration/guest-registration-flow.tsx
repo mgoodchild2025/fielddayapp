@@ -204,7 +204,7 @@ export function GuestRegistrationFlow({
     return (
       <div className="space-y-4">
         <div className="text-center">
-          <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Join</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Join</p>
           <h1 className="text-2xl font-bold text-gray-900 mt-1 leading-tight" style={{ fontFamily: 'var(--brand-heading-font)' }}>
             {league.name}
           </h1>

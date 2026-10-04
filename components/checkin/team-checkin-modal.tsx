@@ -157,7 +157,7 @@ function TeamCheckinContent({ teamId, leagueId, timezone, onClose }: Props) {
         {/* Member list */}
         <div className="overflow-y-auto flex-1">
           {loading && (
-            <div className="flex items-center justify-center py-12 text-sm text-gray-400">
+            <div className="flex items-center justify-center py-12 text-sm text-gray-500">
               Loading roster…
             </div>
           )}
@@ -167,7 +167,7 @@ function TeamCheckinContent({ teamId, leagueId, timezone, onClose }: Props) {
           )}
 
           {!loading && !error && members.length === 0 && (
-            <div className="px-5 py-12 text-center text-sm text-gray-400">
+            <div className="px-5 py-12 text-center text-sm text-gray-500">
               No registered players found for this team.
             </div>
           )}
@@ -189,7 +189,7 @@ function TeamCheckinContent({ teamId, leagueId, timezone, onClose }: Props) {
                       <span className="text-xs text-amber-600 font-medium">⚠ No waiver</span>
                     )}
                     {checkedIn && member.checkedInAt && (
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-500">
                         · {new Date(member.checkedInAt).toLocaleTimeString('en-CA', {
                           hour: 'numeric',
                           minute: '2-digit',

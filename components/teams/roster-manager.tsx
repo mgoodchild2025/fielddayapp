@@ -385,7 +385,7 @@ export function RosterManager({
         {/* ── Join code & link ── */}
         {(teamCode || joinUrl) && (
           <div className="border-t bg-gray-50 px-5 py-4 space-y-3" data-tutorial="join-info">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
               Team Join Info
             </p>
 
@@ -393,7 +393,7 @@ export function RosterManager({
             {teamCode && (
               <div className="flex items-center gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] text-gray-400 mb-0.5">Join Code</p>
+                  <p className="text-[11px] text-gray-500 mb-0.5">Join Code</p>
                   <p className="font-mono font-bold text-lg tracking-widest text-gray-800 leading-none">
                     {teamCode}
                   </p>
@@ -421,7 +421,7 @@ export function RosterManager({
             {joinUrl && (
               <div className="flex items-center gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] text-gray-400 mb-0.5">Join Link</p>
+                  <p className="text-[11px] text-gray-500 mb-0.5">Join Link</p>
                   <p className="text-xs text-gray-500 font-mono truncate">{joinUrl}</p>
                 </div>
                 <button

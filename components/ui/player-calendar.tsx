@@ -160,7 +160,7 @@ export function PlayerCalendar({ dots = [], bands = [], timezone }: Props) {
       {/* ── Day-of-week header ── */}
       <div className="grid grid-cols-7 border-b">
         {DOW_LABELS.map(d => (
-          <div key={d} className="py-2 text-center text-[10px] font-bold uppercase tracking-wider text-gray-400">
+          <div key={d} className="py-2 text-center text-[11px] font-bold uppercase tracking-wider text-gray-500">
             {d}
           </div>
         ))}
@@ -223,7 +223,7 @@ export function PlayerCalendar({ dots = [], bands = [], timezone }: Props) {
                     <span key={j} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
                   ))}
                   {extraDots > 0 && (
-                    <span className="text-[9px] text-gray-400 leading-none">+{extraDots}</span>
+                    <span className="text-[10px] font-medium text-gray-500 leading-none">+{extraDots}</span>
                   )}
                 </div>
               )}

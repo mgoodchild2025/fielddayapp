@@ -90,7 +90,7 @@ export function GameSubClient({ token, invite, gameDate, gameTime, waiver, hasEx
         {invite.message && (
           <p className="mt-3 text-sm text-gray-600 italic border-l-2 border-gray-200 pl-3">
             &ldquo;{invite.message}&rdquo;
-            {invite.inviterName && <span className="not-italic text-gray-400"> — {invite.inviterName}</span>}
+            {invite.inviterName && <span className="not-italic text-gray-500"> — {invite.inviterName}</span>}
           </p>
         )}
       </div>

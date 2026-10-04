@@ -177,7 +177,7 @@ export function AddGameForm({ leagueId, sport, teams, pools = [], timezone }: Pr
           <input type="checkbox" {...register('isExhibition')} className="rounded mt-0.5" />
           <span>
             <span className="font-medium">Exhibition game</span>
-            <span className="block text-[11px] text-gray-400">Scored like any other game, but doesn&rsquo;t count toward standings.</span>
+            <span className="block text-[11px] text-gray-500">Scored like any other game, but doesn&rsquo;t count toward standings.</span>
           </span>
         </label>
 

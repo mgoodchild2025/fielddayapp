@@ -283,7 +283,7 @@ export default async function GameMatchupPage({
                   <span className="text-3xl font-bold tabular-nums">{result.away_score}</span>
                 </div>
               ) : (
-                <span className="text-xl font-medium text-gray-400">VS</span>
+                <span className="text-xl font-medium text-gray-500">VS</span>
               )}
               {/* Status badge */}
               {isCancelled && (
@@ -422,7 +422,7 @@ export default async function GameMatchupPage({
                 </div>
                 {draws > 0 && (
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-gray-400">{draws}</p>
+                    <p className="text-2xl font-bold text-gray-500">{draws}</p>
                     <p className="text-xs text-gray-500 mt-0.5">Draws</p>
                   </div>
                 )}

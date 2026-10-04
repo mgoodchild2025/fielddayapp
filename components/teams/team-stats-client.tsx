@@ -70,7 +70,7 @@ function OutcomeBadge({ outcome }: { outcome: SeasonResult['outcome'] }) {
 /** "25–20 · 23–25 · 15–12" from this team's perspective. */
 function SetScores({ sets }: { sets: { mine: number; theirs: number }[] }) {
   return (
-    <span className="text-[11px] text-gray-400 tabular-nums">
+    <span className="text-[11px] text-gray-500 tabular-nums">
       {sets.map((s, i) => (
         <span key={i}>
           {i > 0 && <span className="text-gray-300"> · </span>}
@@ -201,10 +201,10 @@ function H2HRow({ record, showKind }: { record: H2HRecord; showKind?: boolean })
           <span className="font-bold text-emerald-600">{wins}W</span>
           {draws > 0 && <span className="font-bold text-amber-600">{draws}D</span>}
           <span className="font-bold text-red-500">{losses}L</span>
-          <span className="text-gray-400">
+          <span className="text-gray-500">
             {goalsFor}–{goalsAgainst}
             {' '}
-            <span className={gd > 0 ? 'text-emerald-600' : gd < 0 ? 'text-red-500' : 'text-gray-400'}>
+            <span className={gd > 0 ? 'text-emerald-600' : gd < 0 ? 'text-red-500' : 'text-gray-500'}>
               ({gd > 0 ? '+' : ''}{gd})
             </span>
           </span>

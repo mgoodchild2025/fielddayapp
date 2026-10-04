@@ -67,7 +67,7 @@ export function PendingJoinRequests({ teamId, initialRequests }: Props) {
                 {req.message && (
                   <p className="text-xs text-gray-600 mt-1 italic">&ldquo;{req.message}&rdquo;</p>
                 )}
-                <p className="text-[10px] text-gray-400 mt-1">{relativeTime(req.createdAt)}</p>
+                <p className="text-[10px] text-gray-500 mt-1">{relativeTime(req.createdAt)}</p>
               </div>
               <div className="flex gap-2 shrink-0">
                 <button

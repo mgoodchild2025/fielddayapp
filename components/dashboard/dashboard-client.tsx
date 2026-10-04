@@ -541,11 +541,11 @@ function MyCardSection({ myCardBio, myCareer, myCardHref }: {
       <div className="mb-2 flex items-baseline justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">My card</p>
         <span className="flex items-center gap-3">
-          <Link href="/profile#bio" className="text-xs font-medium text-gray-500 hover:text-gray-600">
+          <Link href="/profile#bio" className="inline-flex items-center min-h-10 -my-3 text-xs font-medium text-gray-600 hover:text-gray-800">
             Edit →
           </Link>
           {myCardHref && (
-            <Link href={myCardHref} className="text-xs font-medium text-gray-500 hover:text-gray-600">
+            <Link href={myCardHref} className="inline-flex items-center min-h-10 -my-3 text-xs font-medium text-gray-600 hover:text-gray-800">
               View &amp; share →
             </Link>
           )}
@@ -726,7 +726,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
         <section>
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Next Game</h2>
-            <Link href="/schedule" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
+            <Link href="/schedule" className="inline-flex items-center min-h-10 -my-3 text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
               Full schedule →
             </Link>
           </div>
@@ -771,7 +771,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Next Session</h2>
             {nextItem?.kind !== 'game' && (
-              <Link href="/schedule" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
+              <Link href="/schedule" className="inline-flex items-center min-h-10 -my-3 text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
                 Full schedule →
               </Link>
             )}
@@ -816,7 +816,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
         <section>
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Next Game</h2>
-            <Link href="/schedule" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
+            <Link href="/schedule" className="inline-flex items-center min-h-10 -my-3 text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
               Full schedule →
             </Link>
           </div>
@@ -875,7 +875,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                     </>
                   )}
                 </p>
-                <p className="text-[11px] text-gray-500 mt-1.5">{team.record.played} played</p>
+                <p className="text-xs text-gray-500 mt-1.5">{team.record.played} played</p>
               </Link>
 
               <Link href={`/teams/${team.teamId}/stats`} className="bg-white rounded-xl border p-4 hover:shadow-sm transition-shadow block">
@@ -890,7 +890,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                         <span className="text-sm font-semibold text-gray-500 ml-0.5"> / {team.record.totalTeams}</span>
                       )}
                     </p>
-                    <p className="text-[11px] text-gray-500 mt-1.5 truncate">{team.leagueName}</p>
+                    <p className="text-xs text-gray-500 mt-1.5 truncate">{team.leagueName}</p>
                   </>
                 ) : (
                   <p className="text-sm text-gray-500 mt-1">—</p>
@@ -902,7 +902,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
                 <p className="text-2xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--brand-primary)' }}>
                   {team.record.points}
                 </p>
-                <p className="text-[11px] text-gray-500 mt-1.5">{team.record.pointsHint}</p>
+                <p className="text-xs text-gray-500 mt-1.5">{team.record.pointsHint}</p>
               </Link>
             </div>
           </section>
@@ -914,7 +914,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
             <section>
               <div className="flex items-baseline justify-between mb-3">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">Recent Results</h2>
-                <Link href="/schedule" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
+                <Link href="/schedule" className="inline-flex items-center min-h-10 -my-3 text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
                   See all →
                 </Link>
               </div>
@@ -957,7 +957,7 @@ export function DashboardClient({ firstName, orgName = 'this site', timezone, ne
               <div className="flex items-baseline justify-between mb-3">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500">My Team</h2>
                 {teams.length > 1 && (
-                  <Link href="/my-teams" className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
+                  <Link href="/my-teams" className="inline-flex items-center min-h-10 -my-3 text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>
                     All teams →
                   </Link>
                 )}

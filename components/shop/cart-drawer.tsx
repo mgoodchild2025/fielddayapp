@@ -132,7 +132,7 @@ export function CartDrawer({ orgId, taxSuffix = '' }: Props) {
                 </svg>
               </div>
               <p className="text-sm font-medium text-gray-600">Your cart is empty</p>
-              <p className="text-xs text-gray-400">Add items from the shop to get started.</p>
+              <p className="text-xs text-gray-500">Add items from the shop to get started.</p>
             </div>
           ) : items.length > 0 ? (
             <div className="space-y-4">

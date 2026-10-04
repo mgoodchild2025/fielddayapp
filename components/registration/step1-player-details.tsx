@@ -258,7 +258,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
           </div>
           {!isDropIn && (
             <div>
-              <label htmlFor="t_shirt_size" className="block text-sm font-medium text-gray-700 mb-1">T-Shirt Size <span className="font-normal text-gray-400">(optional)</span></label>
+              <label htmlFor="t_shirt_size" className="block text-sm font-medium text-gray-700 mb-1">T-Shirt Size <span className="font-normal text-gray-500">(optional)</span></label>
               <select {...register('t_shirt_size')} id="t_shirt_size" className="w-full border rounded-md px-3 py-2 text-base">
                 <option value="">Select…</option>
                 {SHIRT_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -311,7 +311,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
 
       {showTeamCode && (
         <div className="bg-white rounded-lg border p-5 space-y-2">
-          <h2 className="font-semibold">Have a Team Code? <span className="text-gray-400 font-normal text-sm">(optional)</span></h2>
+          <h2 className="font-semibold">Have a Team Code? <span className="text-gray-500 font-normal text-sm">(optional)</span></h2>
           <p className="text-xs text-gray-500">If your captain gave you a 6-character code, enter it here to join your team automatically.</p>
           <div className="flex gap-2 items-start">
             <div className="flex-1">
@@ -437,7 +437,7 @@ export function Step1PlayerDetails({ org, profile, playerDetails, league, userId
             />
             <span className="text-sm text-gray-700">
               Send me promotional SMS messages.
-              <span className="block text-xs text-gray-400 mt-0.5">Standard message rates may apply. Reply STOP to unsubscribe.</span>
+              <span className="block text-xs text-gray-500 mt-0.5">Standard message rates may apply. Reply STOP to unsubscribe.</span>
             </span>
           </label>
         </div>

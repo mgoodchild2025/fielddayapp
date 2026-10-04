@@ -224,7 +224,7 @@ function Board({ title, sub, children }: { title: string; sub: string; children:
   return (
     <div className="rounded-xl border bg-white p-5">
       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</p>
-      <p className="text-[11px] text-gray-400">{sub}</p>
+      <p className="text-[11px] text-gray-500">{sub}</p>
       {children}
     </div>
   )
