@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 
 type Tab = { id: string; label: string }
@@ -12,6 +12,12 @@ type Tab = { id: string; label: string }
  * — without it a tap looked ignored until the server answered. Cleared as soon
  * as the new tab arrives. Two looks: underline row (before the season) and
  * pills (in season / completed).
+ *
+ * Scroll: switching tabs must not throw you back to the top of the page (a
+ * Link's default navigation scroll did, so every tab change felt like a full
+ * reload). Links use scroll={false}; if you were scrolled into the content,
+ * the new tab lands with the bar stuck at the top and its content right under
+ * it; if the event header was still on screen, nothing moves.
  */
 function useTappedTab(activeTab: string) {
   const [tapped, setTapped] = useState<string | null>(null)
@@ -21,13 +27,40 @@ function useTappedTab(activeTab: string) {
     setTapped(null)
   }
   const shown = tapped ?? activeTab
-  return { shown, pending: tapped !== null && tapped !== activeTab, tap: setTapped }
+
+  // `sentinel` marks where the sticky bar sits in the page flow; the bar's
+  // computed `top` is where it sticks. Their difference is the scroll offset at
+  // which the bar is exactly stuck.
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const barRef = useRef<HTMLDivElement>(null)
+  const pinRef = useRef<number | null>(null)
+
+  const tap = (id: string) => {
+    setTapped(id)
+    const sentinel = sentinelRef.current
+    const bar = barRef.current
+    if (!sentinel || !bar) return
+    const stickyTop = parseFloat(getComputedStyle(bar).top) || 0
+    const pinY = sentinel.getBoundingClientRect().top + window.scrollY - stickyTop
+    pinRef.current = window.scrollY > pinY ? pinY : null
+  }
+
+  // The new tab has rendered: put the bar back where it was stuck.
+  useLayoutEffect(() => {
+    if (pinRef.current === null) return
+    window.scrollTo({ top: pinRef.current, behavior: 'instant' })
+    pinRef.current = null
+  }, [activeTab])
+
+  return { shown, pending: tapped !== null && tapped !== activeTab, tap, sentinelRef, barRef }
 }
 
 export function EventTabNav({ slug, activeTab, tabs }: { slug: string; activeTab: string; tabs: Tab[] }) {
-  const { shown, pending, tap } = useTappedTab(activeTab)
+  const { shown, pending, tap, sentinelRef, barRef } = useTappedTab(activeTab)
   return (
-    <div data-event-tabs="" data-pending={pending ? '' : undefined} className="border-b sticky top-14 z-30 bg-white">
+    <>
+    <div ref={sentinelRef} aria-hidden="true" />
+    <div ref={barRef} data-event-tabs="" data-pending={pending ? '' : undefined} className="border-b sticky top-14 z-30 bg-white">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 relative">
         {/* Right-edge fade — visible on mobile only, hints that tabs are scrollable */}
         <div className="pointer-events-none absolute right-4 sm:right-6 inset-y-0 w-10 bg-gradient-to-l from-white to-transparent z-10 sm:hidden" />
@@ -38,6 +71,7 @@ export function EventTabNav({ slug, activeTab, tabs }: { slug: string; activeTab
               <Link
                 key={tab.id}
                 href={`/events/${slug}?tab=${tab.id}`}
+                scroll={false}
                 onClick={() => tap(tab.id)}
                 aria-current={activeTab === tab.id ? 'page' : undefined}
                 className={`relative shrink-0 px-3.5 sm:px-5 py-3.5 text-sm font-medium whitespace-nowrap transition-colors ${
@@ -58,13 +92,16 @@ export function EventTabNav({ slug, activeTab, tabs }: { slug: string; activeTab
         </nav>
       </div>
     </div>
+    </>
   )
 }
 
 export function EventTabPills({ slug, activeTab, tabs }: { slug: string; activeTab: string; tabs: Tab[] }) {
-  const { shown, pending, tap } = useTappedTab(activeTab)
+  const { shown, pending, tap, sentinelRef, barRef } = useTappedTab(activeTab)
   return (
-    <div data-event-tabs="" data-pending={pending ? '' : undefined} className="border-b sticky top-14 z-30 bg-white shadow-sm">
+    <>
+    <div ref={sentinelRef} aria-hidden="true" />
+    <div ref={barRef} data-event-tabs="" data-pending={pending ? '' : undefined} className="border-b sticky top-14 z-30 bg-white shadow-sm">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3">
         <nav aria-label="Event sections" className="flex gap-2 flex-wrap">
           {tabs.map((tab) => {
@@ -73,6 +110,7 @@ export function EventTabPills({ slug, activeTab, tabs }: { slug: string; activeT
               <Link
                 key={tab.id}
                 href={`/events/${slug}?tab=${tab.id}`}
+                scroll={false}
                 onClick={() => tap(tab.id)}
                 aria-current={activeTab === tab.id ? 'page' : undefined}
                 className={`press min-h-9 inline-flex items-center px-4 rounded-full text-sm font-semibold whitespace-nowrap ${
@@ -86,5 +124,6 @@ export function EventTabPills({ slug, activeTab, tabs }: { slug: string; activeT
         </nav>
       </div>
     </div>
+    </>
   )
 }
