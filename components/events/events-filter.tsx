@@ -151,6 +151,9 @@ function EventRow({ event, variant }: { event: EventItem; variant: 'inseason' | 
               {event.skill_level ? event.skill_level.charAt(0).toUpperCase() + event.skill_level.slice(1) : ''}
             </p>
           )}
+          {event.season_start_date && (
+            <p className="sm:hidden text-xs text-gray-500 mt-0.5">{formatDate(event.season_start_date)}</p>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-3 shrink-0">
@@ -271,10 +274,11 @@ export function EventsFilter({ events, timezone }: { events: EventItem[]; timezo
                 <button
                   key={sport}
                   onClick={() => setSelectedSport(selectedSport === sport ? null : sport)}
-                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                  aria-pressed={selectedSport === sport}
+                  className={`press shrink-0 flex items-center gap-1.5 min-h-10 px-4 rounded-full text-sm font-medium border ${
                     selectedSport === sport
-                      ? 'border-transparent text-white'
-                      : 'border-gray-200 text-gray-500 bg-white hover:bg-gray-50'
+                      ? 'border-transparent text-on-brand'
+                      : 'border-gray-200 text-gray-700 bg-white hover:bg-gray-50'
                   }`}
                   style={selectedSport === sport ? { backgroundColor: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' } : {}}
                 >
@@ -292,10 +296,11 @@ export function EventsFilter({ events, timezone }: { events: EventItem[]; timezo
                 <button
                   key={type}
                   onClick={() => setSelectedType(selectedType === type ? null : type)}
-                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                  aria-pressed={selectedType === type}
+                  className={`press shrink-0 min-h-10 px-4 rounded-full text-sm font-medium border ${
                     selectedType === type
-                      ? 'border-transparent text-white'
-                      : 'border-gray-200 text-gray-500 bg-white hover:bg-gray-50'
+                      ? 'border-transparent text-on-brand'
+                      : 'border-gray-200 text-gray-700 bg-white hover:bg-gray-50'
                   }`}
                   style={selectedType === type ? { backgroundColor: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' } : {}}
                 >

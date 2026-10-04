@@ -395,11 +395,11 @@ function MatchCard({
           onClose={() => setEditOpen(false)}
         />
       )}
-      <div className={`w-52 rounded-lg border bg-white text-sm shadow-sm ${
-        isCompleted ? 'opacity-90' : isTbd ? 'opacity-50' : ''
+      <div className={`w-52 rounded-lg border text-sm shadow-sm ${
+        isCompleted ? 'bg-white opacity-90' : isTbd ? 'bg-gray-50 border-dashed border-gray-300' : 'bg-white'
       }`}>
         {(match.court || match.scheduledAt || match.medalMatch) && (
-          <div className="px-3 pt-2 text-[10px] text-gray-400 flex items-center gap-1.5 flex-wrap">
+          <div className="px-3 pt-2 text-xs text-gray-600 flex items-center gap-1.5 flex-wrap">
             {match.medalMatch && (
               <span className={`font-semibold uppercase tracking-wide ${match.medalMatch === 'gold' ? 'text-amber-600' : 'text-orange-700'}`}>
                 {match.medalMatch === 'gold' ? '🥇 Gold Medal Match' : '🥉 Bronze Medal Match'}
@@ -428,7 +428,7 @@ function MatchCard({
             }`}
           >
             <div className="flex items-center gap-1.5 min-w-0">
-              {match.team1Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team1Seed}</span>}
+              {match.team1Seed && <span className="text-xs text-gray-500 w-4 shrink-0">{match.team1Seed}</span>}
               <span className="truncate font-medium">{match.team1Name ?? match.team1Label ?? 'TBD'}</span>
             </div>
           </button>
@@ -437,7 +437,7 @@ function MatchCard({
             isCompleted && match.winnerTeamId === match.team1Id ? 'bg-green-50' : ''
           }`}>
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              {match.team1Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team1Seed}</span>}
+              {match.team1Seed && <span className="text-xs text-gray-500 w-4 shrink-0">{match.team1Seed}</span>}
               {manualControls && !isCompleted && !match.team1Id && !match.team1Label ? (
                 slotPicker(1)
               ) : (
@@ -445,7 +445,7 @@ function MatchCard({
                   {match.team1Id && (
                     <TeamAvatar logoUrl={match.team1LogoUrl ?? null} color={match.team1Color ?? null} name={match.team1Name ?? '?'} size="xs" />
                   )}
-                  <span className={`truncate font-medium ${isCompleted && match.winnerTeamId === match.team1Id ? 'text-green-700' : isTbd ? 'text-gray-400' : ''}`}>
+                  <span className={`truncate font-medium ${isCompleted && match.winnerTeamId === match.team1Id ? 'text-green-700' : isTbd ? 'text-gray-500' : ''}`}>
                     {match.team1Name ?? match.team1Label ?? 'TBD'}{medalFor(match.team1Id)}
                   </span>
                 </>
@@ -470,7 +470,7 @@ function MatchCard({
             }`}
           >
             <div className="flex items-center gap-1.5 min-w-0">
-              {match.team2Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team2Seed}</span>}
+              {match.team2Seed && <span className="text-xs text-gray-500 w-4 shrink-0">{match.team2Seed}</span>}
               <span className="truncate font-medium">{match.team2Name ?? match.team2Label ?? 'TBD'}</span>
             </div>
           </button>
@@ -479,7 +479,7 @@ function MatchCard({
             isCompleted && match.winnerTeamId === match.team2Id ? 'bg-green-50' : ''
           }`}>
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              {match.team2Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team2Seed}</span>}
+              {match.team2Seed && <span className="text-xs text-gray-500 w-4 shrink-0">{match.team2Seed}</span>}
               {manualControls && !isCompleted && !isBye && !match.team2Id && !match.team2Label ? (
                 slotPicker(2)
               ) : (
@@ -490,7 +490,7 @@ function MatchCard({
                   <span className={`truncate font-medium ${
                     isBye ? 'text-gray-300 italic' :
                     isCompleted && match.winnerTeamId === match.team2Id ? 'text-green-700' :
-                    isTbd ? 'text-gray-400' : ''
+                    isTbd ? 'text-gray-500' : ''
                   }`}>
                     {isBye ? 'Bye' : (match.team2Name ?? match.team2Label ?? 'TBD')}{medalFor(match.team2Id)}
                   </span>
@@ -752,10 +752,13 @@ function BracketScoreList({
   bracket,
   leagueId,
   sport,
+  readOnly = false,
 }: {
   bracket: BracketData
   leagueId: string
   sport?: string
+  /** Players: the same readable round-by-round list, without score entry. */
+  readOnly?: boolean
 }) {
   const [activeMatch, setActiveMatch] = useState<BracketMatchData | null>(null)
   // Keep the last match while the sheet plays its exit.
@@ -781,7 +784,7 @@ function BracketScoreList({
     <div className="space-y-6">
       {/* A sheet, like the bracket diagram's: inline it rendered at the top of
           the list — off-screen when the tapped match was further down. */}
-      <Overlay
+      {!readOnly && <Overlay
         open={!!activeMatch}
         onClose={() => setActiveMatch(null)}
         variant="sheet"
@@ -795,7 +798,7 @@ function BracketScoreList({
             onClose={() => setActiveMatch(null)}
           />
         )}
-      </Overlay>
+      </Overlay>}
 
       {roundNumbers.map((rn) => {
         const matches = bracket.matches
@@ -819,11 +822,11 @@ function BracketScoreList({
                     key={match.id}
                     className={`bg-white rounded-lg border overflow-hidden ${
                       isReady ? 'border-orange-200' : ''
-                    } ${isPending ? 'opacity-50' : ''}`}
+                    } ${isPending ? 'bg-gray-50 border-dashed' : ''}`}
                   >
                     <div className="px-4 py-3">
                       {(match.court || match.scheduledAt) && (
-                        <p className="text-[11px] text-gray-400 mb-1">
+                        <p className="text-xs font-medium text-gray-600 mb-1">
                           {match.court && `Court ${match.court}`}
                           {match.court && match.scheduledAt && ' · '}
                           {match.scheduledAt && fmtMatchTime(match.scheduledAt, timezone)}
@@ -832,11 +835,11 @@ function BracketScoreList({
                       <div className="flex items-center justify-between gap-3">
                         <div className="space-y-1.5 min-w-0 flex-1">
                           <div className={`flex items-center gap-1.5 ${isCompleted && match.winnerTeamId === match.team1Id ? 'text-green-700 font-semibold' : ''}`}>
-                            {match.team1Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team1Seed}</span>}
+                            {match.team1Seed && <span className="text-xs text-gray-500 w-4 shrink-0">{match.team1Seed}</span>}
                             <span className="text-sm truncate">{match.team1Name ?? match.team1Label ?? 'TBD'}</span>
                           </div>
                           <div className={`flex items-center gap-1.5 ${isCompleted && match.winnerTeamId === match.team2Id ? 'text-green-700 font-semibold' : isBye ? 'text-gray-300 italic' : ''}`}>
-                            {match.team2Seed && <span className="text-[10px] text-gray-400 w-4 shrink-0">{match.team2Seed}</span>}
+                            {match.team2Seed && <span className="text-xs text-gray-500 w-4 shrink-0">{match.team2Seed}</span>}
                             <span className="text-sm truncate">{isBye ? 'Bye' : (match.team2Name ?? match.team2Label ?? 'TBD')}</span>
                           </div>
                         </div>
@@ -859,13 +862,13 @@ function BracketScoreList({
                             <div className="text-sm font-bold tabular-nums text-red-500"><ScoreTick value={liveBoards[match.id].b} /></div>
                           </div>
                         )}
-                        {isReady && (
-                          <span className="shrink-0 text-[11px] font-medium text-orange-500">No score</span>
+                        {isReady && !readOnly && !liveBoards[match.id] && (
+                          <span className="shrink-0 text-xs font-medium text-orange-600">No score</span>
                         )}
                       </div>
                     </div>
 
-                    {(isReady || isCompleted) && !isBye && (
+                    {!readOnly && (isReady || isCompleted) && !isBye && (
                       <div className="border-t">
                         <button
                           onClick={() => setActiveMatch(match)}
@@ -890,7 +893,11 @@ function BracketScoreList({
 // ── Main BracketView ──────────────────────────────────────────────────────────
 
 export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezone, allTeams }: Props) {
-  const [view, setView] = useState<'bracket' | 'list'>('bracket')
+  // Players start on 'auto': the readable list on phones, the diagram from
+  // sm up — decided in CSS, so a phone never flashes the 1000px diagram.
+  // Admins start on the diagram as before.
+  const [view, setView] = useState<'auto' | 'bracket' | 'list'>(isAdmin ? 'bracket' : 'auto')
+  const autoView = view === 'auto'
   const [swapMode, setSwapMode] = useState(false)
   const [swapSlotA, setSwapSlotA] = useState<SwapSlot | null>(null)
   const [swapErr, setSwapErr] = useState<string | null>(null)
@@ -1029,50 +1036,58 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezon
   return (
     <BracketTimezoneContext.Provider value={timezone ?? 'America/Toronto'}>
     <div>
-      {/* View toggle */}
-      {isAdmin && (
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <button
-            onClick={() => setView('bracket')}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              view === 'bracket' ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-            style={view === 'bracket' ? { backgroundColor: 'var(--brand-secondary)' } : {}}
-          >
-            Bracket
-          </button>
-          <button
-            onClick={() => setView('list')}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5 ${
-              view === 'list' ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-            style={view === 'list' ? { backgroundColor: 'var(--brand-primary)' } : {}}
-          >
-            Score list
-            {pendingScoreCount > 0 && (
-              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                view === 'list' ? 'bg-white/30' : 'bg-orange-100 text-orange-700'
-              }`}>
-                {pendingScoreCount}
-              </span>
-            )}
-          </button>
-          {view === 'bracket' && (
-            <button
-              onClick={() => {
-                setSwapMode((m) => !m)
-                setSwapSlotA(null)
-                setSwapErr(null)
-              }}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                swapMode ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              ⇄ Swap teams
-            </button>
+      {/* View toggle — everyone; Swap teams is admin-only */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <button
+          onClick={() => setView('bracket')}
+          aria-pressed={view === 'bracket'}
+          className={`press min-h-10 px-4 rounded-full text-sm font-medium ${
+            view === 'bracket'
+              ? 'bg-brand-secondary text-white'
+              : autoView
+                ? 'bg-gray-100 text-gray-700 sm:bg-brand-secondary sm:text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Bracket
+        </button>
+        <button
+          onClick={() => setView('list')}
+          aria-pressed={view === 'list'}
+          className={`press min-h-10 px-4 rounded-full text-sm font-medium flex items-center gap-1.5 ${
+            view === 'list'
+              ? 'bg-brand-primary text-on-brand'
+              : autoView
+                // max-sm: so globals.css's unlayered .bg-brand-primary text rule
+                // can't put white text on the grey sm+ pill.
+                ? 'bg-gray-100 text-gray-700 max-sm:bg-brand-primary max-sm:text-on-brand'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          {isAdmin ? 'Score list' : 'List'}
+          {isAdmin && pendingScoreCount > 0 && (
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+              view === 'list' ? 'bg-white/30' : 'bg-orange-100 text-orange-700'
+            }`}>
+              {pendingScoreCount}
+            </span>
           )}
-        </div>
-      )}
+        </button>
+        {isAdmin && view === 'bracket' && (
+          <button
+            onClick={() => {
+              setSwapMode((m) => !m)
+              setSwapSlotA(null)
+              setSwapErr(null)
+            }}
+            className={`press min-h-10 px-4 rounded-full text-sm font-medium ${
+              swapMode ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            ⇄ Swap teams
+          </button>
+        )}
+      </div>
 
       {/* Swap mode banner */}
       {isAdmin && swapMode && (
@@ -1145,13 +1160,27 @@ export function BracketView({ bracket, leagueId, isAdmin = false, sport, timezon
       )}
 
       {/* Score list */}
-      {view === 'list' && isAdmin && (
-        <BracketScoreList bracket={bracket} leagueId={leagueId} sport={sport} />
+      {(view === 'list' || autoView) && (
+        <div className={autoView ? 'sm:hidden' : undefined}>
+          {/* The diagram draws the champion beside the final; the list says it up top. */}
+          {champion && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-widest text-amber-700">Champion</p>
+              <p className="mt-0.5 text-lg font-bold text-gray-900" style={{ fontFamily: 'var(--brand-heading-font)' }}>🏆 {champion}</p>
+              {podium && (
+                <p className="mt-1 text-sm text-gray-700">
+                  🥈 {podium.silver}{podium.bronze ? ` · 🥉 ${podium.bronze}` : ''}
+                </p>
+              )}
+            </div>
+          )}
+          <BracketScoreList bracket={bracket} leagueId={leagueId} sport={sport} readOnly={!isAdmin} />
+        </div>
       )}
 
       {/* Bracket diagram */}
-      {view === 'bracket' && (
-        <div className="bg-gray-900 rounded-xl p-4 sm:p-6">
+      {(view === 'bracket' || autoView) && (
+        <div className={`bg-gray-900 rounded-xl p-4 sm:p-6 ${autoView ? 'hidden sm:block' : ''}`}>
           {isDE ? (
             /* ── Double elimination layout ─────────────────────────────── */
             <div className="space-y-8">

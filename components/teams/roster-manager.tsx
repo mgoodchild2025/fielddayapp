@@ -243,7 +243,7 @@ export function RosterManager({
                             setTimeout(() => setCopiedInviteId(null), 2000)
                           })
                         }}
-                        className="text-xs px-2 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+                        className="press text-xs px-3 min-h-10 rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
                         title="Copy invite link"
                       >
                         {copiedInviteId === inv.id ? <span key="copied" className="fd-fade-in">Copied!</span> : 'Copy link'}
@@ -251,7 +251,7 @@ export function RosterManager({
                       <button
                         onClick={() => openReminder(inv.id, inv.invitedEmail, 'invite')}
                         disabled={actionPending}
-                        className="text-xs px-2 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+                        className="press text-xs px-3 min-h-10 rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
                         title={isExpired ? 'Resend invite (expired)' : 'Resend invite'}
                       >
                         Resend
@@ -315,7 +315,7 @@ export function RosterManager({
                           <button
                             onClick={() => openReminder(m.id, m.name || m.email, 'member')}
                             disabled={actionPending}
-                            className="text-xs px-2 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+                            className="press text-xs px-3 min-h-10 rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
                             title="Send reminder"
                           >
                             Remind
@@ -325,8 +325,9 @@ export function RosterManager({
                           <button
                             onClick={() => handleRemoveMember(m.id, m.name || m.email)}
                             disabled={actionPending}
-                            className="text-xs text-red-400 hover:text-red-600 transition-colors px-1"
+                            className="press inline-flex items-center justify-center min-h-10 min-w-10 -my-2 rounded-full text-sm text-red-500 hover:text-red-700 hover:bg-red-50"
                             title="Remove from team"
+                            aria-label={`Remove ${m.name || m.email} from team`}
                           >
                             ✕
                           </button>

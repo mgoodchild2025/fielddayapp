@@ -213,13 +213,14 @@ export default async function TeamDetailPage({
   // Must be a team member OR an org admin
   if (!myMembership && !isOrgAdmin) notFound()
 
+  type MemberProfile = { full_name: string; email: string; phone: string | null; avatar_url: string | null; show_contact_info?: boolean | null }
   const allMembers = (team.team_members ?? []) as unknown as Array<{
     id: string
     role: string
     status: string
     user_id: string | null
     position: string | null
-    profile: { full_name: string; email: string; phone: string | null; avatar_url: string | null } | { full_name: string; email: string; phone: string | null; avatar_url: string | null }[] | null
+    profile: MemberProfile | MemberProfile[] | null
   }>
   const activeMembers = allMembers.filter((m) => m.status === 'active')
   const isManager = isOrgAdmin || ['captain', 'coach'].includes(myMembership?.role ?? '')
@@ -505,10 +506,22 @@ export default async function TeamDetailPage({
                             return bits ? <span className="ml-1.5 text-xs" title="Career medals">{bits}</span> : null
                           })()}
                         </p>
-                        {isMe && profile?.email && (
-                          <a href={`mailto:${profile.email}`} className="text-xs text-gray-500 hover:text-blue-600 truncate block">
-                            {profile.email}
-                          </a>
+                        {/* Contact for players who opted in ("Show my contact info to
+                            teammates" on the profile) — only teammates and admins
+                            can open this page. */}
+                        {(isMe || profile?.show_contact_info) && (profile?.email || profile?.phone) && (
+                          <p className="flex flex-wrap gap-x-3 text-xs text-gray-500">
+                            {profile?.email && (
+                              <a href={`mailto:${profile.email}`} className="hover:text-gray-800 underline-offset-2 hover:underline truncate">
+                                {profile.email}
+                              </a>
+                            )}
+                            {profile?.phone && (
+                              <a href={`tel:${profile.phone}`} className="hover:text-gray-800 underline-offset-2 hover:underline">
+                                {profile.phone}
+                              </a>
+                            )}
+                          </p>
                         )}
                       </div>
                     </div>

@@ -108,8 +108,9 @@ export function CaptainRosterManager({ teamId, initialMembers, positions = [] }:
               {!m.isMe && (
                 <button
                   onClick={() => handleRemove(m.id)}
-                  className="text-xs text-red-400 hover:text-red-600 transition-colors shrink-0 px-1"
+                  className="press shrink-0 inline-flex items-center justify-center min-h-10 min-w-10 -my-2 rounded-full text-sm text-red-500 hover:text-red-700 hover:bg-red-50"
                   title="Remove from team"
+                  aria-label={`Remove ${m.name || m.email} from team`}
                 >
                   ✕
                 </button>

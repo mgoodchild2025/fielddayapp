@@ -38,10 +38,11 @@ export default async function SubInvitePage({
         <div className="max-w-md mx-auto px-4 py-16 text-center space-y-3">
           <p className="text-4xl">🔍</p>
           <p className="text-2xl font-bold">Invite Not Found</p>
-          <p className="text-gray-500 text-sm">This invitation link is invalid or has expired.</p>
-          <Link href="/" className="mt-4 inline-block text-sm font-medium hover:underline" style={{ color: 'var(--brand-primary)' }}>
-            ← Back to home
-          </Link>
+          <p className="text-gray-500 text-sm">This invitation link is invalid or has expired. Ask whoever sent it for a new one.</p>
+          <div className="pt-3 flex flex-wrap items-center justify-center gap-2">
+            <Link href="/events" className="press inline-flex items-center justify-center min-h-11 px-5 rounded-lg font-semibold text-sm bg-brand-primary text-on-brand">Browse events</Link>
+            <Link href="/" className="press inline-flex items-center justify-center min-h-11 px-4 text-sm font-medium text-gray-600 hover:text-gray-900">Home</Link>
+          </div>
         </div>
         <Footer org={org} />
       </div>
@@ -57,6 +58,10 @@ export default async function SubInvitePage({
           <p className="text-4xl">⏱</p>
           <p className="text-2xl font-bold">Invite Expired</p>
           <p className="text-gray-500 text-sm">This sub invite has expired. Ask your captain for a new one.</p>
+          <div className="pt-3 flex flex-wrap items-center justify-center gap-2">
+            <Link href="/events" className="press inline-flex items-center justify-center min-h-11 px-5 rounded-lg font-semibold text-sm bg-brand-primary text-on-brand">Browse events</Link>
+            <Link href="/" className="press inline-flex items-center justify-center min-h-11 px-4 text-sm font-medium text-gray-600 hover:text-gray-900">Home</Link>
+          </div>
         </div>
         <Footer org={org} />
       </div>

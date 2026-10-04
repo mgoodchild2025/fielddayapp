@@ -102,6 +102,9 @@ export default async function OrganizerInvitePage({
                 : invite.status === 'declined'
                 ? 'This invitation has already been declined.'
                 : 'This invitation is no longer active.'}
+              {invite.status !== 'declined' && (
+                <span className="block mt-1 text-gray-600">Ask the organiser who invited you to send a new one.</span>
+              )}
             </div>
           )}
 

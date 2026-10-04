@@ -1723,14 +1723,6 @@ export default async function EventDetailPage({
         {/* ──────────────── OVERVIEW TAB ──────────────── */}
         {activeTab === 'overview' && (
           <div className="space-y-5 bg-gray-900 rounded-xl p-4 sm:p-6">
-            {league.description && (
-              <div className="bg-white rounded-lg border p-5">
-                <RichTextContent content={league.description} className="text-gray-700" />
-              </div>
-            )}
-
-            <EventSponsorStrip sponsors={eventSponsors} leagueId={league.id} />
-
             {/* Info grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {league.age_group && (
@@ -1899,6 +1891,16 @@ export default async function EventDetailPage({
                 </div>
               </div>
             )}
+
+            {/* Description after the facts: date, spots and venue come first so a
+                long write-up doesn't push them a screen down. */}
+            {league.description && (
+              <div className="bg-white rounded-lg border p-5">
+                <RichTextContent content={league.description} className="text-gray-700" />
+              </div>
+            )}
+
+            <EventSponsorStrip sponsors={eventSponsors} leagueId={league.id} />
 
             {/* Organizers */}
             {eventOrganizers.length > 0 && (
@@ -2184,60 +2186,7 @@ export default async function EventDetailPage({
               </div>
             )}
 
-            {/* Teams list (open registration) */}
-            {canJoinTeam && teams && teams.length > 0 && (
-              <div>
-                <h2 className="font-bold text-lg mb-3 text-white" style={{ fontFamily: 'var(--brand-heading-font)' }}>Teams</h2>
-                <div className="space-y-2">
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  {(teams as any[]).map((team: any) => {
-                    const isMember = myTeamIds.has(team.id)
-                    const inner = (
-                      <>
-                        <div className="flex items-center gap-3">
-                          <TeamAvatar
-                            logoUrl={(team as { logo_url?: string | null }).logo_url ?? null}
-                            color={team.color}
-                            name={team.name}
-                            size="sm"
-                          />
-                          <p className="font-semibold">{team.name}</p>
-                        </div>
-                        {isMember && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <span className="text-xs text-green-600 font-medium">✓ Your team</span>
-                            <ChevronRight className="w-4 h-4 text-gray-400" />
-                          </div>
-                        )}
-                      </>
-                    )
-                    if (isMember) {
-                      return (
-                        <Link
-                          key={team.id}
-                          href={`/teams/${team.id}`}
-                          prefetch={false}
-                          aria-label={`View ${team.name} team details`}
-                          className="bg-white rounded-lg border p-4 flex items-center justify-between gap-3 hover:bg-gray-50 active:bg-gray-100 transition-colors"
-                        >
-                          {inner}
-                        </Link>
-                      )
-                    }
-                    return (
-                      <div key={team.id} className="bg-white rounded-lg border p-4 flex items-center justify-between gap-3">
-                        {inner}
-                      </div>
-                    )
-                  })}
-                </div>
-                {canJoinTeam && myRegistration && (
-                  <JoinTeamByCode />
-                )}
-              </div>
-            )}
-
-            {/* Registration CTA */}
+            {/* Registration CTA — above the teams list, which can run 20+ rows */}
             {isTeamBased && (
               myRegistration ? (
                 <>
@@ -2289,6 +2238,59 @@ export default async function EventDetailPage({
                   Register Now
                 </Link>
               ) : null
+            )}
+
+            {/* Teams list (open registration) */}
+            {canJoinTeam && teams && teams.length > 0 && (
+              <div>
+                <h2 className="font-bold text-lg mb-3 text-white" style={{ fontFamily: 'var(--brand-heading-font)' }}>Teams</h2>
+                <div className="space-y-2">
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {(teams as any[]).map((team: any) => {
+                    const isMember = myTeamIds.has(team.id)
+                    const inner = (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <TeamAvatar
+                            logoUrl={(team as { logo_url?: string | null }).logo_url ?? null}
+                            color={team.color}
+                            name={team.name}
+                            size="sm"
+                          />
+                          <p className="font-semibold">{team.name}</p>
+                        </div>
+                        {isMember && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-xs text-green-600 font-medium">✓ Your team</span>
+                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                          </div>
+                        )}
+                      </>
+                    )
+                    if (isMember) {
+                      return (
+                        <Link
+                          key={team.id}
+                          href={`/teams/${team.id}`}
+                          prefetch={false}
+                          aria-label={`View ${team.name} team details`}
+                          className="bg-white rounded-lg border p-4 flex items-center justify-between gap-3 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                        >
+                          {inner}
+                        </Link>
+                      )
+                    }
+                    return (
+                      <div key={team.id} className="bg-white rounded-lg border p-4 flex items-center justify-between gap-3">
+                        {inner}
+                      </div>
+                    )
+                  })}
+                </div>
+                {canJoinTeam && myRegistration && (
+                  <JoinTeamByCode />
+                )}
+              </div>
             )}
 
             {/* Redirect notice when someone tried to navigate directly to /register */}
