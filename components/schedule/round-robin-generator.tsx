@@ -444,7 +444,7 @@ export function RoundRobinGenerator({
                   {teamCountSource === 'custom' && (
                     <div className="mt-2 space-y-1.5">
                       <input
-                        type="number" min={2} max={64}
+                        type="number" inputMode="numeric" min={2} max={64}
                         value={customCount}
                         onChange={e => setCustomCount(e.target.value)}
                         required
@@ -463,7 +463,7 @@ export function RoundRobinGenerator({
                     Team count{maxTeams ? ` (max ${maxTeams})` : ''} *
                   </label>
                   <input
-                    type="number" min={2} max={64}
+                    type="number" inputMode="numeric" min={2} max={64}
                     value={customCount}
                     onChange={e => setCustomCount(e.target.value)}
                     required
@@ -495,11 +495,11 @@ export function RoundRobinGenerator({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Simultaneous {venueLbl.toLowerCase()}s</label>
-                  <input type="number" min={1} max={20} value={wlCourts} onChange={e => setWlCourts(e.target.value)} className={inputCls} />
+                  <input type="number" inputMode="numeric" min={1} max={20} value={wlCourts} onChange={e => setWlCourts(e.target.value)} className={inputCls} />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Game duration (min)</label>
-                  <input type="number" min={5} max={240} value={wlGameDuration} onChange={e => setWlGameDuration(e.target.value)} className={inputCls} />
+                  <input type="number" inputMode="numeric" min={5} max={240} value={wlGameDuration} onChange={e => setWlGameDuration(e.target.value)} className={inputCls} />
                 </div>
               </div>
 
@@ -566,11 +566,11 @@ export function RoundRobinGenerator({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Simultaneous {venueLbl.toLowerCase()}s</label>
-                  <input type="number" min={1} max={20} value={puCourts} onChange={e => setPuCourts(e.target.value)} className={inputCls} />
+                  <input type="number" inputMode="numeric" min={1} max={20} value={puCourts} onChange={e => setPuCourts(e.target.value)} className={inputCls} />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Game duration (min)</label>
-                  <input type="number" min={5} max={240} value={puGameDuration} onChange={e => setPuGameDuration(e.target.value)} className={inputCls} />
+                  <input type="number" inputMode="numeric" min={5} max={240} value={puGameDuration} onChange={e => setPuGameDuration(e.target.value)} className={inputCls} />
                 </div>
               </div>
 
@@ -624,7 +624,7 @@ export function RoundRobinGenerator({
                   {teamCountSource === 'custom' && (
                     <div className="mt-2 space-y-1.5">
                       <input
-                        type="number" min={2} max={64}
+                        type="number" inputMode="numeric" min={2} max={64}
                         value={customCount}
                         onChange={e => setCustomCount(e.target.value)}
                         required
@@ -643,7 +643,7 @@ export function RoundRobinGenerator({
                     Team count{maxTeams ? ` (max ${maxTeams})` : ''} *
                   </label>
                   <input
-                    type="number" min={2} max={64}
+                    type="number" inputMode="numeric" min={2} max={64}
                     value={customCount}
                     onChange={e => setCustomCount(e.target.value)}
                     required
@@ -680,18 +680,18 @@ export function RoundRobinGenerator({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Game duration (min)</label>
-                  <input type="number" min={5} max={240} value={dsGameDuration} onChange={e => setDsGameDuration(e.target.value)} className={inputCls} />
+                  <input type="number" inputMode="numeric" min={5} max={240} value={dsGameDuration} onChange={e => setDsGameDuration(e.target.value)} className={inputCls} />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Break between games (min)</label>
-                  <input type="number" min={0} max={120} value={dsBreak} onChange={e => setDsBreak(e.target.value)} className={inputCls} />
+                  <input type="number" inputMode="numeric" min={0} max={120} value={dsBreak} onChange={e => setDsBreak(e.target.value)} className={inputCls} />
                 </div>
               </div>
 
               {/* Courts */}
               <div>
                 <label className="block text-xs text-gray-500 mb-0.5">Simultaneous {venueLbl.toLowerCase()}s</label>
-                <input type="number" min={1} max={10} value={dsCourts} onChange={e => setDsCourts(e.target.value)} className={inputCls} />
+                <input type="number" inputMode="numeric" min={1} max={10} value={dsCourts} onChange={e => setDsCourts(e.target.value)} className={inputCls} />
                 <p className="text-xs text-gray-500 mt-0.5">Games in a round fill all {venueLbl.toLowerCase()}s; overflow spills to the next time slot.</p>
               </div>
 
@@ -731,7 +731,7 @@ export function RoundRobinGenerator({
                     <div className="flex flex-col items-start">
                       <span className="text-[10px] text-gray-400 mb-0.5">Min</span>
                       <input
-                        type="number"
+                        type="number" inputMode="numeric"
                         min={1} max={480}
                         value={br.durationMinutes}
                         onChange={e => updateBreak(br.id, 'durationMinutes', e.target.value)}

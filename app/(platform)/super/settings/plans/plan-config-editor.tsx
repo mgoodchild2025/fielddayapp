@@ -112,7 +112,7 @@ export function PlanConfigEditor({ tiers, featureGroups, configMap }: Props) {
             <span className="text-[10px] text-gray-400">∞</span>
           </label>
           <input
-            type="number"
+            type="number" inputMode="numeric"
             min={0}
             value={isUnlimited ? '' : (cell.limit_value ?? '')}
             onChange={(e) => setLimit(tier, feat.key, e.target.value)}

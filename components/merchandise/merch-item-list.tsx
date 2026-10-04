@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { MerchItemForm } from './merch-item-form'
 import { deleteMerchandiseItem } from '@/actions/merchandise'
 import type { MerchItem } from '@/actions/merchandise'
 import { useRouter } from 'next/navigation'
+import { undoableRemove } from '@/components/ui/use-undoable-remove'
 
 /** Returns stock status for an item. Considers variants first; falls back to item-level. */
 function getStockStatus(item: MerchItem): {
@@ -51,9 +52,7 @@ export function MerchItemList({ items: initialItems }: Props) {
   // Sync local state when the server re-renders with fresh data (after router.refresh())
   useEffect(() => { setItems(initialItems) }, [initialItems])
   const [showNew, setShowNew] = useState(false)
-  const [archivingId, setArchivingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [, startTransition] = useTransition()
 
   function handleSaved(id: string) {
     setEditingId(null)
@@ -61,17 +60,16 @@ export function MerchItemList({ items: initialItems }: Props) {
     router.refresh()
   }
 
+  // Archive acts at once with Undo (it was one tap with no way back); the
+  // server archive runs when the toast closes.
   function handleArchive(itemId: string) {
     setError(null)
-    setArchivingId(itemId)
-    startTransition(async () => {
-      const result = await deleteMerchandiseItem(itemId)
-      setArchivingId(null)
-      if (result.error) {
-        setError(result.error)
-      } else {
-        setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, is_active: false } : i))
-      }
+    const item = items.find((i) => i.id === itemId)
+    setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, is_active: false } : i))
+    undoableRemove({
+      label: `Archived ${item?.name ?? 'item'}`,
+      restore: () => setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, is_active: true } : i)),
+      commit: () => deleteMerchandiseItem(itemId),
     })
   }
 
@@ -130,7 +128,9 @@ export function MerchItemList({ items: initialItems }: Props) {
                 />
               ) : (
                 <div className="bg-white rounded-lg border p-4">
-                  <div className="flex items-start justify-between gap-4">
+                  {/* Wraps on phones: Edit/Archive drop under the item instead of
+                      squeezing its name to ~90px. */}
+                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
                     {item.image_url && (
                       <div className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border bg-gray-50">
                         <Image
@@ -219,21 +219,20 @@ export function MerchItemList({ items: initialItems }: Props) {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 max-sm:w-full max-sm:justify-end">
                       <button
                         type="button"
                         onClick={() => setEditingId(item.id)}
-                        className="text-xs font-medium text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded-md border hover:bg-gray-50 transition-colors"
+                        className="press min-h-10 text-xs font-medium text-gray-700 hover:text-gray-900 px-4 rounded-md border hover:bg-gray-50"
                       >
                         Edit
                       </button>
                       <button
                         type="button"
                         onClick={() => handleArchive(item.id)}
-                        disabled={archivingId === item.id}
-                        className="text-xs font-medium text-gray-400 hover:text-red-600 px-3 py-1.5 rounded-md border hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
+                        className="press min-h-10 text-xs font-medium text-gray-600 hover:text-red-600 px-4 rounded-md border hover:border-red-200 hover:bg-red-50 disabled:opacity-50"
                       >
-                        {archivingId === item.id ? 'Archiving…' : 'Archive'}
+                        Archive
                       </button>
                     </div>
                   </div>

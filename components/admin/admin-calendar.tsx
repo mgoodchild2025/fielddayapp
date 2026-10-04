@@ -286,7 +286,7 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
         <div className="flex items-center justify-between px-4 py-3 border-b gap-2">
           <button
             onClick={() => navigate(-1)}
-            className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+            className="press inline-flex items-center justify-center min-h-10 min-w-10 rounded-md hover:bg-gray-100"
             aria-label="Previous month"
           >
             <ChevronLeft className="w-4 h-4 text-gray-600" />
@@ -309,7 +309,7 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
             <button
               onClick={toggleDrafts}
               className={[
-                'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border transition-colors',
+                'press flex items-center gap-1.5 min-h-10 text-xs font-medium px-3 rounded-md border',
                 showDrafts
                   ? 'bg-gray-800 text-white border-gray-800'
                   : 'text-gray-500 border-gray-200 hover:bg-gray-50',
@@ -322,7 +322,7 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
 
             <button
               onClick={() => navigate(1)}
-              className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+              className="press inline-flex items-center justify-center min-h-10 min-w-10 rounded-md hover:bg-gray-100"
               aria-label="Next month"
             >
               <ChevronRight className="w-4 h-4 text-gray-600" />
@@ -415,8 +415,22 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
                         {dayNum(dateStr)}
                       </span>
 
-                      {/* Day chips for scheduled leagues */}
-                      <div className="space-y-0.5 w-full">
+                      {/* Phones: dots, not links — a ~47px cell full of 9px link chips
+                          meant a tap usually navigated away instead of picking the
+                          day. The selected day's list below carries the links. */}
+                      {dayChips.length > 0 && (
+                        <div className="sm:hidden flex flex-wrap justify-center gap-0.5 mt-auto pb-0.5" aria-hidden>
+                          {dayChips.slice(0, 4).map((l) => (
+                            <span
+                              key={l.id}
+                              className={`w-1.5 h-1.5 rounded-full ${l.status === 'draft' ? 'border border-gray-400 bg-white' : palette(l.id).dot}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Day chips for scheduled leagues (sm and up) */}
+                      <div className="hidden sm:block space-y-0.5 w-full">
                         {dayChips.map((l) => {
                           const isDraft = l.status === 'draft'
                           const p = palette(l.id)
@@ -431,7 +445,7 @@ export function AdminCalendar({ leagues, year, month, timezone, currentYM, initi
                               href={`/admin/events/${l.id}`}
                               onClick={(e) => e.stopPropagation()}
                               className={[
-                                'block text-[9px] sm:text-[10px] leading-snug px-1 py-0.5 rounded truncate font-medium transition-opacity hover:opacity-80',
+                                'block text-[10px] leading-snug px-1 py-0.5 rounded truncate font-medium transition-opacity hover:opacity-80',
                                 isDraft
                                   ? 'border border-dashed border-gray-400 text-gray-500 bg-white'
                                   : p.chip,

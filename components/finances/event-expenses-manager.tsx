@@ -125,7 +125,7 @@ export function EventExpensesManager({
         </select>
         <div className="relative">
           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-          <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00 (total incl. tax)" className="w-full border rounded pl-5 pr-2 py-1.5 text-sm" />
+          <input type="number" inputMode="decimal" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00 (total incl. tax)" className="w-full border rounded pl-5 pr-2 py-1.5 text-sm" />
         </div>
       </div>
       <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (e.g. Court rental)" className="w-full border rounded px-2 py-1.5 text-sm" />
@@ -151,7 +151,7 @@ export function EventExpensesManager({
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-              <input type="number" step="0.01" min="0" value={tax} onChange={(e) => setTax(e.target.value)} placeholder="Tax included (HST/GST) — optional" className="w-full border rounded pl-5 pr-2 py-1.5 text-sm" />
+              <input type="number" inputMode="decimal" step="0.01" min="0" value={tax} onChange={(e) => setTax(e.target.value)} placeholder="Tax included (HST/GST) — optional" className="w-full border rounded pl-5 pr-2 py-1.5 text-sm" />
             </div>
             <TaxCalc amount={amount} defaultPct={defaultTaxPct} onCalc={setTax} />
           </div>

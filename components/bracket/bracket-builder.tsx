@@ -81,9 +81,9 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
                     onChange={(e) => setRenameValue(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') submitRename(rn); if (e.key === 'Escape') setRenaming(null) }}
                     placeholder={name}
-                    className="border rounded px-1.5 py-0.5 text-xs w-36"
+                    className="border rounded px-2 min-h-10 text-base sm:text-xs w-40"
                   />
-                  <button type="button" onClick={() => submitRename(rn)} className="text-green-600 hover:text-green-700" aria-label="Save round name">
+                  <button type="button" onClick={() => submitRename(rn)} className="inline-flex items-center justify-center min-w-10 min-h-10 text-green-700 hover:text-green-800" aria-label="Save round name">
                     <Check className="w-3.5 h-3.5" />
                   </button>
                 </span>
@@ -91,18 +91,18 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
                 <button
                   type="button"
                   onClick={() => { setRenaming(rn); setRenameValue(bracket.roundNames?.[String(rn)] ?? '') }}
-                  className="flex items-center gap-1 text-xs font-semibold text-gray-700 hover:text-gray-900"
+                  className="flex items-center gap-1 min-h-10 text-xs font-semibold text-gray-700 hover:text-gray-900"
                   title="Rename round (empty resets to the automatic name)"
                 >
                   {name}
-                  <Pencil className="w-3 h-3 text-gray-300" />
+                  <Pencil className="w-3 h-3 text-gray-400" />
                 </button>
               )}
 
               {/* Matches */}
               <span className="flex flex-wrap items-center gap-1 ml-1">
                 {roundMatches.map((m) => (
-                  <span key={m.id} className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] ${m.status === 'completed' ? 'border-gray-200 bg-gray-100 text-gray-400' : 'border-gray-200 text-gray-600'}`}>
+                  <span key={m.id} className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs ${m.status === 'completed' ? 'border-gray-200 bg-gray-100 text-gray-400' : 'border-gray-200 text-gray-600'}`}>
                     M{m.matchNumber}
                     {!m.isBye && (
                       <>
@@ -110,7 +110,7 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
                           type="button"
                           onClick={() => run(() => setMatchMedal({ matchId: m.id, bracketId: bracket.id, leagueId, medal: m.medalMatch === 'gold' ? null : 'gold' }))}
                           disabled={isPending}
-                          className={m.medalMatch === 'gold' ? '' : 'opacity-25 grayscale hover:opacity-75 hover:grayscale-0'}
+                          className={`inline-flex items-center justify-center min-w-8 min-h-8 ${m.medalMatch === 'gold' ? '' : 'opacity-25 grayscale hover:opacity-75 hover:grayscale-0'}`}
                           title={m.medalMatch === 'gold' ? 'Unmark as the gold medal match' : 'Mark as the gold medal match — winner takes gold, loser takes silver'}
                           aria-label={`Toggle gold medal match on match ${m.matchNumber}`}
                         >
@@ -120,7 +120,7 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
                           type="button"
                           onClick={() => run(() => setMatchMedal({ matchId: m.id, bracketId: bracket.id, leagueId, medal: m.medalMatch === 'bronze' ? null : 'bronze' }))}
                           disabled={isPending}
-                          className={m.medalMatch === 'bronze' ? '' : 'opacity-25 grayscale hover:opacity-75 hover:grayscale-0'}
+                          className={`inline-flex items-center justify-center min-w-8 min-h-8 ${m.medalMatch === 'bronze' ? '' : 'opacity-25 grayscale hover:opacity-75 hover:grayscale-0'}`}
                           title={m.medalMatch === 'bronze' ? 'Unmark as the bronze medal match' : 'Mark as the bronze medal match — winner takes bronze'}
                           aria-label={`Toggle bronze medal match on match ${m.matchNumber}`}
                         >
@@ -134,7 +134,7 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
                           type="button"
                           onClick={() => run(() => toggleMatchBye({ matchId: m.id, bracketId: bracket.id, leagueId, isBye: !m.isBye }))}
                           disabled={isPending}
-                          className={m.isBye ? 'text-amber-600 font-medium' : 'text-gray-300 hover:text-amber-600'}
+                          className={`inline-flex items-center justify-center min-w-8 min-h-8 px-1 ${m.isBye ? 'text-amber-700 font-medium' : 'text-gray-500 hover:text-amber-700'}`}
                           title={m.isBye ? 'Convert back to a normal match' : 'Convert to a bye (team 1 advances)'}
                         >
                           bye
@@ -152,7 +152,7 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
                             run(() => deleteBracketMatch({ matchId: m.id, bracketId: bracket.id, leagueId }))
                           }}
                           disabled={isPending}
-                          className="inline-flex items-center justify-center min-w-6 min-h-6 text-gray-400 hover:text-red-500"
+                          className="inline-flex items-center justify-center min-w-8 min-h-8 text-gray-500 hover:text-red-600"
                           title="Delete match"
                           aria-label={`Delete match ${m.matchNumber}`}
                         >
@@ -215,7 +215,7 @@ export function BracketBuilder({ bracket, leagueId }: { bracket: BracketData; le
           <label className="flex items-center gap-1 text-gray-500">
             matches
             <input
-              type="number" min="1" max="64"
+              type="number" inputMode="numeric" min="1" max="64"
               value={newRoundMatches}
               onChange={(e) => setNewRoundMatches(e.target.value)}
               className="border rounded px-1.5 py-0.5 w-14 text-xs"

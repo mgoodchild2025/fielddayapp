@@ -301,7 +301,7 @@ function ZoneEditor({
             <div>
               <label className="block text-xs text-gray-200 mb-1">Secs / slide</label>
               <input
-                type="number" min={4} max={60}
+                type="number" inputMode="numeric" min={4} max={60}
                 value={zone.seconds}
                 onChange={(e) => onChange({ ...zone, seconds: Math.min(60, Math.max(4, parseInt(e.target.value) || 8)) })}
                 className="w-full bg-gray-700 border border-gray-600 rounded-md px-2 py-1.5 text-sm text-white"
@@ -386,6 +386,7 @@ function ScreenEditor({
   leagueId: string
   liveStreams: { id: string; title: string | null; platform: string }[]
 }) {
+  const [copied, setCopied] = useState(false)
   const { screen, enabled, config } = state
   const tvUrl = `${displayBaseUrl}/${screen}`
 
@@ -422,16 +423,21 @@ function ScreenEditor({
               </code>
               <button
                 type="button"
-                onClick={() => navigator.clipboard.writeText(tvUrl)}
-                className="shrink-0 text-xs text-gray-300 hover:text-white px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                onClick={() => {
+                  navigator.clipboard.writeText(tvUrl).then(() => {
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 1800)
+                  }).catch(() => {})
+                }}
+                className="press shrink-0 min-h-10 min-w-16 text-xs text-gray-200 hover:text-white px-3 rounded bg-gray-700 hover:bg-gray-600"
               >
-                Copy
+                {copied ? <span key="copied" className="fd-fade-in">Copied!</span> : 'Copy'}
               </button>
               <a
                 href={tvUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 text-xs text-gray-300 hover:text-white px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                className="press shrink-0 inline-flex items-center min-h-10 text-xs text-gray-200 hover:text-white px-3 rounded bg-gray-700 hover:bg-gray-600"
               >
                 Open ↗
               </a>
@@ -441,7 +447,7 @@ function ScreenEditor({
             </p>
           </div>
           <div className="shrink-0">
-            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <label className="flex items-center gap-2.5 min-h-11 cursor-pointer select-none">
               <button
                 type="button"
                 role="switch"
@@ -651,7 +657,7 @@ function ScreenEditor({
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-300">Every</span>
                 <input
-                  type="number" min={15} max={1800}
+                  type="number" inputMode="numeric" min={15} max={1800}
                   value={config.sponsor_interstitial?.every_seconds ?? 120}
                   onChange={(e) => setConfig({ sponsor_interstitial: { ...config.sponsor_interstitial!, every_seconds: Math.max(15, parseInt(e.target.value) || 120) } })}
                   className="w-20 bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white text-right"
@@ -661,7 +667,7 @@ function ScreenEditor({
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-300">For</span>
                 <input
-                  type="number" min={3} max={60}
+                  type="number" inputMode="numeric" min={3} max={60}
                   value={config.sponsor_interstitial?.duration_seconds ?? 8}
                   onChange={(e) => setConfig({ sponsor_interstitial: { ...config.sponsor_interstitial!, duration_seconds: Math.max(3, parseInt(e.target.value) || 8) } })}
                   className="w-20 bg-gray-700 border border-gray-600 rounded-md px-2.5 py-1.5 text-sm text-white text-right"
@@ -679,7 +685,7 @@ function ScreenEditor({
           <label className="text-sm text-gray-200 w-32 shrink-0">Refresh every</label>
           <div className="flex items-center gap-2">
             <input
-              type="number"
+              type="number" inputMode="numeric"
               min={10}
               max={300}
               value={config.refresh_seconds}

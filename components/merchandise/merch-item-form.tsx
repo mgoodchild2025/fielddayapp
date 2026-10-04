@@ -303,7 +303,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
             <input
-              type="number"
+              type="number" inputMode="decimal"
               step="0.01"
               min="0"
               value={priceStr}
@@ -324,7 +324,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
             <div className="relative w-40">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
               <input
-                type="number"
+                type="number" inputMode="decimal"
                 step="0.01"
                 min="0"
                 value={costStr}
@@ -356,7 +356,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
               Stock quantity <span className="text-gray-400 font-normal">(optional — leave blank for unlimited)</span>
             </label>
             <input
-              type="number"
+              type="number" inputMode="numeric"
               min="0"
               value={stockStr}
               onChange={(e) => setStockStr(e.target.value)}
@@ -372,7 +372,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
             Low-stock alert threshold <span className="text-gray-400 font-normal">(notify when stock ≤ this number)</span>
           </label>
           <input
-            type="number"
+            type="number" inputMode="numeric"
             min="0"
             value={lowStockThreshold}
             onChange={(e) => setLowStockThreshold(e.target.value)}
@@ -521,7 +521,7 @@ export function MerchItemForm({ item, onSaved, onCancel }: Props) {
 
                 <div className="relative w-28 shrink-0">
                   <input
-                    type="number"
+                    type="number" inputMode="numeric"
                     min="0"
                     value={v.stock_quantity}
                     onChange={(e) => updateVariant(v.key, { stock_quantity: e.target.value })}

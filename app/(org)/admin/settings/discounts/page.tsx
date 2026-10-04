@@ -61,16 +61,16 @@ export default async function AdminDiscountsPage() {
       {(codes ?? []).length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-8">No discount codes yet.</p>
       ) : (
-        <div className="bg-white rounded-lg border overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-100">
-            <thead className="bg-gray-50">
+        <div className="bg-white rounded-lg border sm:overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-100 max-sm:block">
+            <thead className="bg-gray-50 max-sm:hidden">
               <tr>
                 {['Code', 'Discount', 'Uses', 'Expires', 'Active', ''].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-100 max-sm:block">
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {(codes ?? []).map((code: any) => (
                 <DiscountRow key={code.id} code={code} />

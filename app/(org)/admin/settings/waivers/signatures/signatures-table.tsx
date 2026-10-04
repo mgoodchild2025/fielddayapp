@@ -43,9 +43,10 @@ export function SignaturesTable({
   return (
     <>
       <div className="bg-white rounded-lg border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[640px]">
-            <thead>
+        {/* Phones: rows fold into cards (the 640px table hid View off-screen). */}
+        <div className="sm:overflow-x-auto">
+          <table className="w-full text-sm sm:min-w-[640px] max-sm:block">
+            <thead className="max-sm:hidden">
               <tr className="border-b bg-gray-50 text-left">
                 <th className="px-4 py-3 font-medium text-gray-500">Player</th>
                 <th className="px-4 py-3 font-medium text-gray-500">Event</th>
@@ -54,13 +55,13 @@ export function SignaturesTable({
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="max-sm:block">
               {visibleRows.map((row) => {
                 const isGuardian = !!row.guardianRelationship
                 const guardianLabel = row.guardianRelationship === 'legal_guardian' ? 'Legal guardian' : 'Parent'
                 return (
-                  <tr key={row.id} className="border-b last:border-0 hover:bg-gray-50">
-                    <td className="px-4 py-3">
+                  <tr key={row.id} className="border-b last:border-0 hover:bg-gray-50 max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-x-4 max-sm:gap-y-2 max-sm:p-4">
+                    <td className="px-4 py-3 max-sm:p-0 max-sm:w-full">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-medium">{row.playerName || '—'}</span>
                         {row.isGuest && (
@@ -74,7 +75,7 @@ export function SignaturesTable({
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-400">{row.playerEmail || '—'}</div>
+                      <div className="text-xs text-gray-500 [overflow-wrap:anywhere]">{row.playerEmail || '—'}</div>
                       {row.teamName && (
                         <div className="text-xs text-gray-500 mt-0.5">🏅 {row.teamName}</div>
                       )}
@@ -84,16 +85,16 @@ export function SignaturesTable({
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
+                    <td data-label="Event" className="px-4 py-3 text-sm text-gray-700 max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500">
                       {row.eventName || <span className="text-gray-400">—</span>}
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="Waiver" className="px-4 py-3 max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500">
                       <div className="text-sm">{row.waiverTitle || '—'}</div>
                       {row.waiverVersion && (
                         <div className="text-xs text-gray-400">v{row.waiverVersion}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                    <td data-label="Signed" className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500">
                       {row.signedAt ? (
                         <>
                           {new Date(row.signedAt).toLocaleDateString('en-CA', {
@@ -111,19 +112,20 @@ export function SignaturesTable({
                         </>
                       ) : '—'}
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-3">
+                    <td className="px-4 py-3 text-right max-sm:p-0 max-sm:w-full">
+                      <div className="flex items-center justify-end max-sm:justify-start gap-2">
                         <Link
                           href={`/admin/settings/waivers/signatures/${row.sigId}/print`}
                           target="_blank"
-                          className="text-xs text-gray-400 hover:text-gray-600"
+                          className="press inline-flex items-center justify-center min-h-10 min-w-10 text-sm text-gray-500 hover:text-gray-700"
                           title="Print / Save as PDF"
+                          aria-label="Print / Save as PDF"
                         >
                           🖨
                         </Link>
                         <Link
                           href={`/admin/settings/waivers/signatures/${row.sigId}`}
-                          className="text-xs font-medium hover:underline"
+                          className="press inline-flex items-center min-h-10 text-xs font-medium hover:underline"
                           style={{ color: 'var(--brand-primary)' }}
                         >
                           View →

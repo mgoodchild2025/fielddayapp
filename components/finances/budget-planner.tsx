@@ -137,14 +137,14 @@ export function BudgetPlanner({ leagueId, initial }: { leagueId: string; initial
         <div className="bg-white rounded-xl border p-4 space-y-3">
           <div className="grid grid-cols-3 gap-2">
             <label className="text-xs text-gray-500">Expected teams
-              <input type="number" min="0" value={teams} onChange={(e) => setTeams(e.target.value)} className="mt-1 w-full border rounded px-2 py-1.5 text-sm" />
+              <input type="number" inputMode="numeric" min="0" value={teams} onChange={(e) => setTeams(e.target.value)} className="mt-1 w-full border rounded px-2 py-1.5 text-sm" />
             </label>
             <label className="text-xs text-gray-500">Expected players
-              <input type="number" min="0" value={players} onChange={(e) => setPlayers(e.target.value)} className="mt-1 w-full border rounded px-2 py-1.5 text-sm" />
+              <input type="number" inputMode="numeric" min="0" value={players} onChange={(e) => setPlayers(e.target.value)} className="mt-1 w-full border rounded px-2 py-1.5 text-sm" />
             </label>
             <label className="text-xs text-gray-500">Target margin
               <div className="relative mt-1">
-                <input type="number" min="0" max="99" value={marginPct} onChange={(e) => setMarginPct(e.target.value)} className="w-full border rounded pl-2 pr-6 py-1.5 text-sm" />
+                <input type="number" inputMode="numeric" min="0" max="99" value={marginPct} onChange={(e) => setMarginPct(e.target.value)} className="w-full border rounded pl-2 pr-6 py-1.5 text-sm" />
                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
               </div>
             </label>
@@ -160,7 +160,7 @@ export function BudgetPlanner({ leagueId, initial }: { leagueId: string; initial
                 </select>
                 <div className="relative w-24 shrink-0">
                   <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-                  <input type="number" step="0.01" min="0" value={l.amount} onChange={(e) => updateLine(l.key, { amount: e.target.value })} placeholder="0.00" className="w-full border rounded pl-5 pr-1.5 py-1.5 text-sm" />
+                  <input type="number" inputMode="decimal" step="0.01" min="0" value={l.amount} onChange={(e) => updateLine(l.key, { amount: e.target.value })} placeholder="0.00" className="w-full border rounded pl-5 pr-1.5 py-1.5 text-sm" />
                 </div>
                 <button type="button" onClick={() => removeLine(l.key)} className="text-gray-300 hover:text-red-500 shrink-0" aria-label="Remove cost">
                   <Trash2 className="w-4 h-4" />

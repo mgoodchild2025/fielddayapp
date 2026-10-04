@@ -120,7 +120,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
             <div>
               <label className="block text-xs text-gray-500 mb-0.5">Days Between Rounds</label>
               <input
-                type="number" min={0} max={30} value={daysBetween}
+                type="number" inputMode="numeric" min={0} max={30} value={daysBetween}
                 onChange={(e) => setDaysBetween(e.target.value)}
                 className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
               />
@@ -129,7 +129,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
             <div>
               <label className="block text-xs text-gray-500 mb-0.5">Courts</label>
               <input
-                type="number" min={1} max={20} value={courts}
+                type="number" inputMode="numeric" min={1} max={20} value={courts}
                 onChange={(e) => setCourts(e.target.value)}
                 className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
               />
@@ -138,7 +138,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
             <div>
               <label className="block text-xs text-gray-500 mb-0.5">Game Duration (min)</label>
               <input
-                type="number" min={10} max={240} step={5} value={gameDuration}
+                type="number" inputMode="numeric" min={10} max={240} step={5} value={gameDuration}
                 onChange={(e) => setGameDuration(e.target.value)}
                 className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"
               />
@@ -159,7 +159,7 @@ function PoolScheduleForm({ pool, leagueId, teamCount }: { pool: Pool; leagueId:
                 Max Rounds <span className="text-gray-400 font-normal">(optional — leave blank for full round-robin)</span>
               </label>
               <input
-                type="number" min={1} max={rounds} value={maxRounds}
+                type="number" inputMode="numeric" min={1} max={rounds} value={maxRounds}
                 placeholder={`1–${rounds}`}
                 onChange={(e) => setMaxRounds(e.target.value)}
                 className="w-full border rounded-md px-2 py-1.5 text-xs focus:outline-none"

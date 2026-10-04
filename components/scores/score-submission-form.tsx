@@ -62,7 +62,7 @@ export function ScoreSubmissionForm({ gameId, homeTeamName, awayTeamName, onSucc
           <label className="block text-xs font-medium text-gray-600 mb-1 truncate">{homeTeamName}</label>
           <input
             {...register('homeScore', { valueAsNumber: true })}
-            type="number"
+            type="number" inputMode="numeric"
             min={0}
             className="w-full border rounded-md px-3 py-2 text-center text-lg font-bold focus:outline-none focus:ring-2"
           />
@@ -72,7 +72,7 @@ export function ScoreSubmissionForm({ gameId, homeTeamName, awayTeamName, onSucc
           <label className="block text-xs font-medium text-gray-600 mb-1 truncate">{awayTeamName}</label>
           <input
             {...register('awayScore', { valueAsNumber: true })}
-            type="number"
+            type="number" inputMode="numeric"
             min={0}
             className="w-full border rounded-md px-3 py-2 text-center text-lg font-bold focus:outline-none focus:ring-2"
           />

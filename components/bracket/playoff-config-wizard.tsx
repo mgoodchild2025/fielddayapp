@@ -1258,7 +1258,7 @@ export function PlayoffConfigWizard({
                       <label key={pool.id} className="flex items-center gap-2 text-sm">
                         <span className="text-gray-600 font-medium">{pool.name}</span>
                         <input
-                          type="number"
+                          type="number" inputMode="numeric"
                           min={1}
                           max={16}
                           value={advancePerPool[i] ?? ''}

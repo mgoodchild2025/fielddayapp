@@ -394,14 +394,14 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
             <Field label="Season fee">
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">$</span>
-                <input name="price_cents" type="number" min="0" step="0.01" placeholder="0.00"
+                <input name="price_cents" type="number" inputMode="decimal" min="0" step="0.01" placeholder="0.00"
                   defaultValue={(league.price_cents / 100).toFixed(2)} className="input" style={{ paddingLeft: '1.75rem' }} />
               </div>
             </Field>
             <Field label="Drop-in fee (blank = none)">
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">$</span>
-                <input name="drop_in_price_cents" type="number" min="0" step="0.01"
+                <input name="drop_in_price_cents" type="number" inputMode="decimal" min="0" step="0.01"
                   defaultValue={league.drop_in_price_cents != null ? (league.drop_in_price_cents / 100).toFixed(2) : ''}
                   placeholder="Leave blank" className="input" style={{ paddingLeft: '1.75rem' }} />
               </div>
@@ -412,7 +412,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
             <Field label="Price">
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">$</span>
-                <input name="price_cents" type="number" min="0" step="0.01" placeholder="0.00"
+                <input name="price_cents" type="number" inputMode="decimal" min="0" step="0.01" placeholder="0.00"
                   defaultValue={(league.price_cents / 100).toFixed(2)} className="input" style={{ paddingLeft: '1.75rem' }} />
               </div>
             </Field>
@@ -447,7 +447,7 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">$</span>
                   <input
                     name="early_bird_price_cents"
-                    type="number"
+                    type="number" inputMode="decimal"
                     min="0"
                     step="0.01"
                     placeholder="Leave blank to disable"
@@ -495,18 +495,18 @@ export function EditEventForm({ league, waivers, ruleTemplates, hasEarlyBird = f
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <Field label="Min Team Size">
-            <input name="min_team_size" type="number" min="1" defaultValue={league.min_team_size ?? 1} className="input" />
+            <input name="min_team_size" type="number" inputMode="numeric" min="1" defaultValue={league.min_team_size ?? 1} className="input" />
           </Field>
           <Field label="Max Team Size">
-            <input name="max_team_size" type="number" min="1" defaultValue={league.max_team_size ?? 8} className="input" />
+            <input name="max_team_size" type="number" inputMode="numeric" min="1" defaultValue={league.max_team_size ?? 8} className="input" />
           </Field>
           {league.payment_mode === 'per_team' ? (
             <Field label="Max Teams">
-              <input name="max_teams" type="number" min="1" defaultValue={league.max_teams ?? ''} placeholder="Unlimited" className="input" />
+              <input name="max_teams" type="number" inputMode="numeric" min="1" defaultValue={league.max_teams ?? ''} placeholder="Unlimited" className="input" />
             </Field>
           ) : (
             <Field label="Max Players">
-              <input name="max_participants" type="number" min="1" defaultValue={league.max_participants ?? ''} placeholder="Unlimited" className="input" />
+              <input name="max_participants" type="number" inputMode="numeric" min="1" defaultValue={league.max_participants ?? ''} placeholder="Unlimited" className="input" />
             </Field>
           )}
           {/* Keep the hidden field for the mode that isn't shown so the submit handler always has both values */}

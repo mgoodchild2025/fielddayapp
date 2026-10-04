@@ -244,7 +244,7 @@ function ItemRow({
           <div className="relative flex-1 max-w-[140px]">
             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
             <input
-              type="number"
+              type="number" inputMode="decimal"
               step="0.01"
               min="0"
               value={priceInput}

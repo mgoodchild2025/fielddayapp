@@ -94,14 +94,14 @@ export function DropInSessionForm({ session, timeZone }: Props) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className={labelClass}>Capacity *</label>
-          <input type="number" min={1} max={500} value={capacity} onChange={e => setCapacity(e.target.value)} required className={inputClass} />
+          <input type="number" inputMode="numeric" min={1} max={500} value={capacity} onChange={e => setCapacity(e.target.value)} required className={inputClass} />
         </div>
         <div>
           <label className={labelClass}>Price (CAD)</label>
           <div className="relative">
             <span className="absolute left-3 top-2 text-sm text-gray-400">$</span>
             <input
-              type="number"
+              type="number" inputMode="decimal"
               min={0}
               step="0.01"
               value={priceDollars}

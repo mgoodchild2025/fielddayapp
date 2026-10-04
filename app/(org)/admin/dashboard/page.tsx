@@ -436,14 +436,14 @@ export default async function AdminDashboardPage() {
 
       {/* ── Upcoming schedule widget ────────────────────────────────────── */}
       <div className="mt-6 bg-white rounded-lg border">
-        <div className="flex items-center justify-between px-5 py-4 border-b">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 py-4 border-b">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <CalendarDays className="w-4 h-4 text-gray-500" />
             <h2 className="font-semibold">Upcoming Schedule</h2>
-            <a href="/admin/courtside" className="text-xs font-semibold px-2.5 py-1 rounded-md text-white" style={{ backgroundColor: 'var(--brand-primary)' }}>
+            <span className="text-xs text-gray-500">next 7 days</span>
+            <a href="/admin/courtside" className="press inline-flex items-center min-h-9 text-xs font-semibold px-3 rounded-md bg-brand-primary text-on-brand">
               ⏱ Courtside
             </a>
-            <span className="text-xs text-gray-400">next 7 days</span>
           </div>
           <Link
             href="/admin/calendar"

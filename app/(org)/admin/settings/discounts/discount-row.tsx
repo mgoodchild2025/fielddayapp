@@ -42,19 +42,19 @@ export function DiscountRow({ code }: { code: DiscountCode }) {
   if (removed) return null
 
   return (
-    <tr className={`hover:bg-gray-50 ${!code.active ? 'opacity-50' : ''}`}>
-      <td className="px-4 py-3 font-mono text-sm font-bold">{code.code}</td>
-      <td className="px-4 py-3 text-sm text-gray-700">
+    <tr className={`hover:bg-gray-50 max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-x-4 max-sm:gap-y-2 max-sm:p-4 ${!code.active ? 'opacity-50' : ''}`}>
+      <td className="px-4 py-3 font-mono text-sm font-bold max-sm:p-0 max-sm:w-full">{code.code}</td>
+      <td data-label="Discount" className="px-4 py-3 text-sm text-gray-700 max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500">
         {discountLabel}
         <span className="ml-1.5 text-xs text-gray-400">· {scopeLabel}</span>
       </td>
-      <td className="px-4 py-3 text-sm text-gray-600">
+      <td data-label="Uses" className="px-4 py-3 text-sm text-gray-600 max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500">
         {code.use_count}{code.max_uses ? ` / ${code.max_uses}` : ''}
       </td>
-      <td className="px-4 py-3 text-sm text-gray-500">
+      <td data-label="Expires" className="px-4 py-3 text-sm text-gray-500 max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500">
         {code.expires_at ? new Date(code.expires_at).toLocaleDateString('en-CA') : '—'}
       </td>
-      <td className="px-4 py-3">
+      <td data-label="Active" className="px-4 py-3 max-sm:p-0 max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:before:content-[attr(data-label)] max-sm:before:text-xs max-sm:before:text-gray-500">
         <button
           onClick={() => start(async () => {
             await updateDiscount(code.id, { active: !code.active })
@@ -68,7 +68,7 @@ export function DiscountRow({ code }: { code: DiscountCode }) {
           {code.active ? 'Active' : 'Inactive'}
         </button>
       </td>
-      <td className="px-4 py-3 text-right">
+      <td className="px-4 py-3 text-right max-sm:p-0 max-sm:w-full max-sm:text-left">
         <button
           onClick={() => {
             setRemoved(true)

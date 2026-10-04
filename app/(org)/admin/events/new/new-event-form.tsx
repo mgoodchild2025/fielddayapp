@@ -659,7 +659,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                     {...register('price_cents', {
                       setValueAs: (v) => Math.round(Number(v || 0) * 100),
                     })}
-                    type="number"
+                    type="number" inputMode="decimal"
                     min={0}
                     step="0.01"
                     placeholder="0.00"
@@ -683,7 +683,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                         setValueAs: (v) =>
                           v === '' || v == null ? undefined : Math.round(Number(v) * 100),
                       })}
-                      type="number"
+                      type="number" inputMode="decimal"
                       min={0}
                       step="0.01"
                       placeholder="Leave blank"
@@ -728,7 +728,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                         {...register('early_bird_price_cents', {
                           setValueAs: (v) => (v === '' || v == null ? undefined : Math.round(Number(v) * 100)),
                         })}
-                        type="number"
+                        type="number" inputMode="decimal"
                         min={0}
                         step="0.01"
                         placeholder="Leave blank to disable"
@@ -766,7 +766,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                     {...register('min_team_size', {
                       setValueAs: (v) => (v === '' || v == null ? 4 : Number(v)),
                     })}
-                    type="number"
+                    type="number" inputMode="numeric"
                     min={1}
                     className={INPUT}
                   />
@@ -776,7 +776,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                     {...register('max_team_size', {
                       setValueAs: (v) => (v === '' || v == null ? 8 : Number(v)),
                     })}
-                    type="number"
+                    type="number" inputMode="numeric"
                     min={1}
                     className={INPUT}
                   />
@@ -787,7 +787,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                       {...register('max_teams', {
                         setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
                       })}
-                      type="number"
+                      type="number" inputMode="numeric"
                       min={1}
                       placeholder="Unlimited"
                       className={INPUT}
@@ -799,7 +799,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                       {...register('max_participants', {
                         setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
                       })}
-                      type="number"
+                      type="number" inputMode="numeric"
                       min={1}
                       placeholder="Unlimited"
                       className={INPUT}
@@ -837,7 +837,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
                 {...register('max_participants', {
                   setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
                 })}
-                type="number"
+                type="number" inputMode="numeric"
                 min={1}
                 placeholder="Unlimited"
                 className={INPUT}

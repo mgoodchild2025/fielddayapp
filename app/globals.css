@@ -68,9 +68,10 @@
    inputs — force a 16px floor on touch-size screens instead of restyling each.
    Unlayered so it beats Tailwind's text-sm utility; fields that ask for MORE
    than 16px (the score sheets' text-2xl/4xl digits) are excluded, or this
-   floor would shrink them. Desktop keeps the compact sizes. */
+   floor would shrink them. Desktop keeps the compact sizes. The rich-text
+   editor's contenteditable counts too (it zoomed the page on iOS). */
 @media (max-width: 640px) {
-  :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.text-base, .text-lg, .text-xl, .text-2xl, .text-3xl, .text-4xl, .text-5xl, .text-6xl) {
+  :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea, [contenteditable="true"]):not(.text-base, .text-lg, .text-xl, .text-2xl, .text-3xl, .text-4xl, .text-5xl, .text-6xl) {
     font-size: 16px;
   }
 }

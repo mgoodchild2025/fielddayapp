@@ -96,7 +96,7 @@ export function EventRevenueManager({ leagueId, initialRevenue }: { leagueId: st
         </select>
         <div className="relative">
           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-          <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="w-full border rounded pl-5 pr-2 py-1.5 text-sm" />
+          <input type="number" inputMode="decimal" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="w-full border rounded pl-5 pr-2 py-1.5 text-sm" />
         </div>
       </div>
       <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (e.g. 50/50 draw — week 3)" className="w-full border rounded px-2 py-1.5 text-sm" />
