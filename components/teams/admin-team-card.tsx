@@ -11,6 +11,7 @@ import { PendingJoinRequests } from '@/components/teams/pending-join-requests'
 import { RosterNotesSection } from '@/components/teams/roster-notes-section'
 import type { RosterNote } from '@/actions/roster-notes'
 import { Collapse } from '@/components/ui/collapse'
+import { formatDollars } from '@/lib/money'
 
 interface JoinRequest {
   id: string
@@ -100,7 +101,7 @@ export function AdminTeamCard({
                 fee.state === 'paid' ? (
                   <span
                     className="shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700"
-                    title={fee.amountCents != null ? `Team fee $${(fee.amountCents / 100).toFixed(0)} ${fee.currency} received` : 'Team fee received'}
+                    title={fee.amountCents != null ? `Team fee ${formatDollars(fee.amountCents)} ${fee.currency} received` : 'Team fee received'}
                   >
                     Fee paid
                   </span>

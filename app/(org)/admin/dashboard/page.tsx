@@ -11,6 +11,7 @@ import { netRevenueSince, type RevenuePaymentRow } from '@/lib/payment-ledger'
 import { getOrgBrandingCached } from '@/lib/org-cache'
 import { parseLocalToUtc } from '@/lib/format-time'
 import type { Metadata } from 'next'
+import { formatDollars } from '@/lib/money'
 
 export const metadata: Metadata = { title: 'Admin' }
 
@@ -435,7 +436,7 @@ export default async function AdminDashboardPage() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{p.status}</span>
-                  <span className="font-semibold">${(p.amount_cents / 100).toFixed(0)}</span>
+                  <span className="font-semibold">{formatDollars(p.amount_cents)}</span>
                 </div>
               </div>
               )

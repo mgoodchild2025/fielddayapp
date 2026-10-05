@@ -3,7 +3,7 @@ import { z } from 'zod'
 import Stripe from 'stripe'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createServerClient } from '@/lib/supabase/server'
-import { registrationBasePriceCents, applyDiscountCode } from '@/lib/registration-price'
+import { registrationBasePriceCents, applyDiscountCode, teamFeeCents } from '@/lib/registration-price'
 import { getOrgTaxRates, stripeTaxRateIds } from '@/lib/tax'
 import { canAccess } from '@/lib/features'
 import { createEnrollment } from '@/lib/payment-plans'
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     // unscoped lookup would happily pair one org's team with another org's
     // Stripe key.
     const [{ data: league }, { data: team }, { data: paymentSettings }] = await Promise.all([
-      db.from('leagues').select('name, price_cents, currency, max_teams').eq('id', leagueId).eq('organization_id', orgId).single(),
+      db.from('leagues').select('name, price_cents, currency, max_teams, early_bird_price_cents, early_bird_deadline').eq('id', leagueId).eq('organization_id', orgId).single(),
       db.from('teams').select('name, league_id').eq('id', teamId).eq('organization_id', orgId).single(),
 
       db.from('org_payment_settings').select('stripe_secret_key, registration_payment_mode, registration_manual_instructions').eq('organization_id', orgId).single(),
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     // the same rule the team page uses to decide whether to show the panel.
     const [{ data: teamAdmin }, { data: teamMembership }] = await Promise.all([
       db.from('org_members').select('role')
-        .eq('organization_id', orgId).eq('user_id', user.id)
+        .eq('organization_id', orgId).eq('user_id', user.id).eq('status', 'active')
         .in('role', ['org_admin', 'league_admin']).maybeSingle(),
       db.from('team_members').select('role')
         .eq('team_id', teamId).eq('user_id', user.id).eq('status', 'active').maybeSingle(),
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Apply discount server-side
-    let teamPriceCents: number = league.price_cents
+    let teamPriceCents: number = teamFeeCents(league)
     let teamDiscountApplied: { id: string } | null = null
     if (teamDiscountId && teamPriceCents > 0) {
 

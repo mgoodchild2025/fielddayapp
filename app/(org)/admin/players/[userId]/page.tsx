@@ -16,6 +16,7 @@ import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { eventStatusTone } from '@/components/ui/status-chip'
 import { SubmitButton } from '@/components/ui/submit-button'
 import type { Metadata } from 'next'
+import { formatDollars } from '@/lib/money'
 
 export const metadata: Metadata = { title: 'Player' }
 
@@ -367,7 +368,7 @@ export default async function PlayerManagementPage({
                                 className={`inline-flex items-center text-xs px-1.5 py-0.5 rounded font-medium ${paymentStatusColors[payment.status] ?? 'bg-gray-100 text-gray-500'}`}
                               >
                                 {payment.status === 'paid' || payment.status === 'manual'
-                                  ? `$${(payment.amount_cents / 100).toFixed(0)} ${payment.currency.toUpperCase()} · ${payment.payment_method}`
+                                  ? `${formatDollars(payment.amount_cents)} ${payment.currency.toUpperCase()} · ${payment.payment_method}`
                                   : payment.status}
                               </span>
                             ) : (
@@ -448,7 +449,7 @@ export default async function PlayerManagementPage({
                             {payment ? (
                               <span className={`inline-flex items-center text-xs px-1.5 py-0.5 rounded font-medium ${paymentStatusColors[payment.status] ?? 'bg-gray-100 text-gray-500'}`}>
                                 {payment.status === 'paid' || payment.status === 'manual'
-                                  ? `$${(payment.amount_cents / 100).toFixed(0)} ${payment.currency.toUpperCase()} · ${payment.payment_method}`
+                                  ? `${formatDollars(payment.amount_cents)} ${payment.currency.toUpperCase()} · ${payment.payment_method}`
                                   : payment.status}
                               </span>
                             ) : (

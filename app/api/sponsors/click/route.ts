@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { getEventSponsors } from '@/actions/event-sponsors'
 
 /**
  * Sponsor click tracker. Logs a click (per-day aggregate) then 302s to the
@@ -11,13 +12,20 @@ export async function GET(request: NextRequest) {
   const key = request.nextUrl.searchParams.get('k')
   const to = request.nextUrl.searchParams.get('u')
 
-  // Validate destination — only allow absolute http(s) URLs
+  // Only ever redirect to a website this org saved for one of its sponsors.
+  // Trusting `u` made this an open redirect: any https URL behind the org's
+  // own domain, ready-made for a phishing link.
   let dest: string | null = null
-  if (to) {
+  if (orgId && leagueId) {
     try {
-      const u = new URL(to)
-      if (u.protocol === 'http:' || u.protocol === 'https:') dest = u.toString()
-    } catch { /* invalid */ }
+      const sponsors = await getEventSponsors(leagueId, orgId)
+      const byKey = key ? sponsors.find((sp) => sp.id === key)?.website_url : null
+      const candidate = byKey ?? (to && sponsors.some((sp) => sp.website_url === to) ? to : null)
+      if (candidate) {
+        const u = new URL(candidate)
+        if (u.protocol === 'http:' || u.protocol === 'https:') dest = u.toString()
+      }
+    } catch { /* invalid URL or lookup failure → 400 below */ }
   }
 
   if (orgId && leagueId && key) {

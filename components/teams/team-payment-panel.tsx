@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { selectOfflineTeamPayment } from '@/actions/payments'
 import { validateDiscountCode, incrementDiscountUse } from '@/actions/discounts'
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ICON, type PaymentMethod } from '@/lib/payment-methods'
+import { formatDollars } from '@/lib/money'
 
 interface Props {
   teamId: string
@@ -145,7 +146,6 @@ export function TeamPaymentPanel({
     }
   }
 
-  const price = priceCents / 100
   const curr = currency.toUpperCase()
 
   if (manualInstructions !== null) {
@@ -247,7 +247,7 @@ export function TeamPaymentPanel({
                   <p className="text-xs text-gray-500 mt-0.5">{memberCount} player{memberCount !== 1 ? 's' : ''} currently on the roster</p>
                 </div>
                 <p className={`font-bold text-lg tabular-nums ${appliedDiscount ? 'line-through text-gray-500' : ''}`} style={appliedDiscount ? {} : { color: 'var(--brand-primary)' }}>
-                  ${price.toFixed(0)} {curr}
+                  {formatDollars(priceCents)} {curr}
                   {taxSuffix && <span className="ml-1 text-xs font-normal text-gray-500">{taxSuffix}</span>}
                 </p>
               </div>
@@ -370,7 +370,7 @@ export function TeamPaymentPanel({
               {loading
                 ? (selectedMethod === 'card' ? 'Redirecting to checkout…' : 'Saving…')
                 : selectedMethod === 'card'
-                  ? `Pay $${(discountedPriceCents / 100).toFixed(appliedDiscount ? 2 : 0)} ${curr} for Team →`
+                  ? `Pay ${formatDollars(discountedPriceCents)} ${curr} for Team →`
                   : `Reserve team & pay by ${PAYMENT_METHOD_LABELS[selectedMethod]} →`}
             </button>
 

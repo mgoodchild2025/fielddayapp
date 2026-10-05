@@ -48,6 +48,16 @@ export async function registrationBasePriceCents(
 }
 
 /**
+ * A per-team event's team fee before discounts and tax — early bird applies
+ * here too. The event page advertised "$X / team (Early Bird)" while the team
+ * checkout and offline paths charged the full price.
+ */
+export function teamFeeCents(league: Pick<PriceableLeague, 'price_cents' | 'early_bird_price_cents' | 'early_bird_deadline'>): number {
+  const earlyBirdActive = league.early_bird_price_cents != null && league.early_bird_deadline != null && new Date() < new Date(league.early_bird_deadline)
+  return earlyBirdActive ? league.early_bird_price_cents! : (league.price_cents ?? 0)
+}
+
+/**
  * Re-validate a discount code server-side and apply it (never trust a
  * client-computed amount). Invalid / expired / used-up / wrong-scope codes
  * apply nothing.

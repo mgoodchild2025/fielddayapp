@@ -5,6 +5,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { getPlayerPendingReconsent } from '@/actions/player-consents'
 import { ReconsentForm } from './reconsent-form'
 import { redirectToLogin } from '@/lib/auth'
+import { safeRelativePath } from '@/lib/safe-redirect'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Updated Agreements' }
@@ -14,7 +15,8 @@ export default async function ReconsentPage({
 }: {
   searchParams: Promise<{ redirect?: string }>
 }) {
-  const { redirect: redirectTo = '/dashboard' } = await searchParams
+  // Same-site paths only — `?redirect=//evil.com` was followed as-is.
+  const redirectTo = safeRelativePath((await searchParams).redirect) ?? '/dashboard'
   const headersList = await headers()
   const org = await getCurrentOrg(headersList)
   const supabase = await createServerClient()
@@ -23,7 +25,7 @@ export default async function ReconsentPage({
 
   const pending = await getPlayerPendingReconsent(org.id, user.id)
   // Nothing pending → straight through
-  if (!pending) redirect(redirectTo || '/dashboard')
+  if (!pending) redirect(redirectTo)
 
   return (
     <div className="min-h-dvh flex items-center justify-center px-4 bg-gray-50">

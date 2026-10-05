@@ -11,7 +11,7 @@ import { resolveLeagueMethods, isOfflineMethod, PAYMENT_METHOD_LABELS, type Paym
 import { sendRegistrationAdminNotification, type RegistrationPaymentMethod } from './emails'
 import { recordAuditLog, AUDIT_ACTIONS, getAuditActor } from '@/lib/audit'
 import { getOrgTaxRates, ratesForScope, computeTax } from '@/lib/tax'
-import { registrationBasePriceCents, applyDiscountCode } from '@/lib/registration-price'
+import { registrationBasePriceCents, applyDiscountCode, teamFeeCents } from '@/lib/registration-price'
 
 const selectOfflinePaymentSchema = z.object({
   registrationId: z.string().uuid(),
@@ -200,7 +200,7 @@ export async function selectOfflineTeamPayment(
 
     db.from('teams').select('id, organization_id, league_id').eq('id', parsed.data.teamId).maybeSingle(),
 
-    db.from('leagues').select('id, name, price_cents, currency, payment_methods, payment_instructions')
+    db.from('leagues').select('id, name, price_cents, currency, payment_methods, payment_instructions, early_bird_price_cents, early_bird_deadline')
       .eq('id', parsed.data.leagueId).eq('organization_id', org.id).maybeSingle(),
 
     db.from('org_payment_settings')
@@ -232,7 +232,7 @@ export async function selectOfflineTeamPayment(
   // Team fee + re-validated discount, as the card checkout computes it — never
   // the client's amount (it was trusted: a captain could record $0 owed and,
   // with $0, no payment row at all).
-  const teamDiscounted = await applyDiscountCode(db, org.id, parsed.data.discountId, league.price_cents ?? 0, 'leagues')
+  const teamDiscounted = await applyDiscountCode(db, org.id, parsed.data.discountId, teamFeeCents(league), 'leagues')
   const teamSubtotalCents = teamDiscounted.priceCents
   const teamOfflineTax = computeTax(teamSubtotalCents, ratesForScope(await getOrgTaxRates(db, org.id), 'registrations'))
   const amountCents = teamOfflineTax.totalCents

@@ -67,6 +67,7 @@ import { getEnrollmentForRegistration } from '@/lib/payment-plans'
 import { PlayerInstallmentSchedule } from '@/components/payments/player-installment-schedule'
 import { getLeagueConfirmedResults } from '@/lib/league-results'
 import type { Metadata } from 'next'
+import { formatDollars } from '@/lib/money'
 
 // The tab title and a shared link's preview name the event, not just the org.
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -1101,9 +1102,9 @@ export default async function EventDetailPage({
   const regTaxSuffix = taxSuffix(await taxRatesP, 'registrations')
   const withTax = (label: string) => regTaxSuffix ? `${label} ${regTaxSuffix}` : label
   const priceUnit = paymentMode === 'per_team' ? ' / team' : ' / player'
-  const price = effectiveRegPrice === 0 ? 'Free' : withTax(`$${(effectiveRegPrice / 100).toFixed(0)} ${league.currency?.toUpperCase()}${priceUnit}${earlyBirdActive ? ' (Early Bird)' : ''}`)
+  const price = effectiveRegPrice === 0 ? 'Free' : withTax(`${formatDollars(effectiveRegPrice)} ${league.currency?.toUpperCase()}${priceUnit}${earlyBirdActive ? ' (Early Bird)' : ''}`)
   const dropInPriceLabel = dropInPriceCents !== null
-    ? (dropInPriceCents === 0 ? 'Free drop-in' : withTax(`$${(dropInPriceCents / 100).toFixed(0)} drop-in`))
+    ? (dropInPriceCents === 0 ? 'Free drop-in' : withTax(`${formatDollars(dropInPriceCents)} drop-in`))
     : null
 
   // Sticky register bar — shown on mobile overview tab when registration is open and user isn't registered
@@ -2023,13 +2024,13 @@ export default async function EventDetailPage({
                         <p className="text-center text-sm text-gray-300 mt-2">
                           {seasonPassQuote.prorated ? (
                             <>
-                              <s className="text-gray-500">${(seasonPassQuote.fullPriceCents / 100).toFixed(0)}</s>{' '}
+                              <s className="text-gray-500">{formatDollars(seasonPassQuote.fullPriceCents)}</s>{' '}
                               <span className="font-semibold text-white">${(seasonPassQuote.priceCents / 100).toFixed(seasonPassQuote.priceCents % 100 === 0 ? 0 : 2)}</span>
                               {' — covers the remaining '}{seasonPassQuote.remainingSessions} of {seasonPassQuote.totalSessions} sessions{regTaxSuffix ? ` · ${regTaxSuffix}` : ''}
                             </>
                           ) : (
                             <>
-                              <span className="font-semibold text-white">${(seasonPassQuote.fullPriceCents / 100).toFixed(0)}</span>
+                              <span className="font-semibold text-white">{formatDollars(seasonPassQuote.fullPriceCents)}</span>
                               {seasonPassQuote.totalSessions > 0 && <>{' — covers all '}{seasonPassQuote.totalSessions} sessions</>}{regTaxSuffix ? ` · ${regTaxSuffix}` : ''}
                             </>
                           )}
@@ -2061,7 +2062,7 @@ export default async function EventDetailPage({
                 <p className="text-sm font-semibold mb-1">Drop-in Available</p>
                 <p className="text-sm text-gray-600 mb-3">
                   {isPrivatePickup ? 'You\'ve been invited to join as a drop-in.' : 'Join a single session without a full season registration.'}
-                  {dropInPriceCents ? ` Fee: ${withTax(`$${(dropInPriceCents / 100).toFixed(0)}`)}` : ' Free'}
+                  {dropInPriceCents ? ` Fee: ${withTax(`${formatDollars(dropInPriceCents)}`)}` : ' Free'}
                 </p>
                 {user ? (
                   <Link

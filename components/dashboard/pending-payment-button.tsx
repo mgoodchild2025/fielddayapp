@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { formatDollars } from '@/lib/money'
 
 interface Props {
   leagueId: string
@@ -38,7 +39,7 @@ export function PendingPaymentButton({ leagueId, leagueSlug, registrationId, org
     }
   }
 
-  const price = `$${(amountCents / 100).toFixed(0)} ${currency.toUpperCase()}`
+  const price = `${formatDollars(amountCents)} ${currency.toUpperCase()}`
 
   return (
     <div>

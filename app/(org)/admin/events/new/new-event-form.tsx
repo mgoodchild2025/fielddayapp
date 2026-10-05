@@ -12,6 +12,7 @@ import { RichTextEditor } from '@/components/ui/rich-text-editor'
 import { PaymentMethodsField } from '@/components/events/payment-methods-field'
 import type { PaymentMethod } from '@/lib/payment-methods'
 import { scrollBehavior } from '@/lib/motion'
+import { formatDollars } from '@/lib/money'
 
 function Field({
   label,
@@ -411,7 +412,7 @@ export function NewEventForm({ waivers, ruleTemplates, hasEarlyBird = false }: P
     .join(' · ')
 
   const pricingSummary = (() => {
-    const price = (priceCents ?? 0) > 0 ? `$${((priceCents ?? 0) / 100).toFixed(0)}` : 'Free'
+    const price = (priceCents ?? 0) > 0 ? `${formatDollars((priceCents ?? 0))}` : 'Free'
     const mode = withTeams ? (paymentMode === 'per_team' ? '/team' : '/player') : ''
     const joinLabels: Record<string, string> = {
       open: 'Open',
