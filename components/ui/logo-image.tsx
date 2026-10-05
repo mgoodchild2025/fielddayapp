@@ -25,7 +25,10 @@ export function LogoImage({
     if (img?.complete && img.naturalWidth > 0) setLoaded(true)
   }, [])
   return (
-    <div className={`${frameClassName} ${loaded ? 'bg-white' : 'bg-gray-200 motion-safe:animate-pulse'}`}>
+    // A span (made block), not a div: avatars sit inside <p>, <a> and <button>,
+    // where a div is invalid — the HTML parser closes the <p> before it, the
+    // server DOM stops matching React's tree, and hydration fails (#418).
+    <span className={`block ${frameClassName} ${loaded ? 'bg-white' : 'bg-gray-200 motion-safe:animate-pulse'}`}>
       <Image
         ref={ref}
         src={src}
@@ -37,6 +40,6 @@ export function LogoImage({
         style={style}
         unoptimized={!canOptimizeImage(src)}
       />
-    </div>
+    </span>
   )
 }

@@ -177,6 +177,7 @@ All three accept a `notify: boolean` parameter. When `true` and the game has ass
 - `TeamAvatar` (`components/ui/team-avatar.tsx`; `logoUrl`/`color`/`name`/`size`, deterministic coloured-initial fallback) is the one renderer — used by standings (public event tab + admin), bracket match cards, and podiums, plus the pre-existing team pages.
 - Identity travels with the data: `TeamStat` (`lib/standings.ts`) carries optional `logoUrl`/`color`; `BracketMatchData` carries per-slot `team{1,2}LogoUrl`/`Color` (both bracket loaders build a `teamMetaMap` beside the existing name map); `PodiumMedal` carries optional `logoUrl`/`color` resolved from the live team row via `medals.team_id` — medals snapshot names, so a deleted team still renders its initial.
 - Name cells that gained an avatar use `flex … min-w-0` + `truncate`, so the logo can't squeeze text off-screen on mobile.
+- Avatars (`TeamAvatar`, `EventAvatar`, `PlayerAvatar`, `LogoImage`) render `<span>`s (`block`/`flex`), never `<div>`s: they sit inside `<p>`, `<a>` and `<button>`, where a div makes the HTML parser close the `<p>` early — the server DOM stops matching and hydration fails (React #418, seen on the podium). Same rule for any component that can land in phrasing content.
 - Logo images (`TeamAvatar`, `EventAvatar`) render through `LogoImage` (`components/ui/logo-image.tsx`, client): a soft grey pulsing frame until the image loads (cached loads caught via `img.complete`), then white — never a blank white circle, never a grey ring behind transparent logos.
 
 ## Medals & the trophy case
