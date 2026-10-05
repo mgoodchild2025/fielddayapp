@@ -54,27 +54,28 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
   const ageFromDob = dob ? getAge(dob) : null
   const isMinor = ageFromDob !== null ? ageFromDob < 18 : isMinorToggle
 
-  // Track scroll progress on the waiver content
+  // Reaching the end of the text (observed against the viewport, so it works
+  // both for the inline text on phones and the scroll box on larger screens)
+  // — or ticking "I have read it" — unlocks signing.
+  const [acknowledged, setAcknowledged] = useState(false)
+  const canSign = scrolledToBottom || acknowledged
   useEffect(() => {
     const el = waiverScrollRef.current
     if (!el) return
-    function onScroll() {
-      if (!el) return
-      const atBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 20
-      if (atBottom) setScrolledToBottom(true)
-    }
-    el.addEventListener('scroll', onScroll)
-    // Auto-enable if content is short
-    onScroll()
-    return () => el.removeEventListener('scroll', onScroll)
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setScrolledToBottom(true) },
+      { threshold: 0.5 },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
 
-    if (!scrolledToBottom) {
-      setError('Please scroll through the entire waiver before signing.')
+    if (!canSign) {
+      setError('Read the waiver to the end (or tick "I have read it") before signing.')
       return
     }
     if (!agreed) {
@@ -232,21 +233,30 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
         <div className="px-5 py-3 border-b bg-gray-50">
           <p className="text-sm font-semibold text-gray-700">{waiver.title}</p>
-          {!scrolledToBottom && (
-            <p className="text-xs text-gray-400 mt-0.5">Scroll to the bottom to enable signing ↓</p>
+          {!canSign && (
+            <p className="text-xs text-gray-500 mt-0.5">Read to the end to sign ↓</p>
           )}
         </div>
+        {/* Phones: the full text inline (the page scrolls — a 256px box was
+            the only way to read it). sm+: a scroll box. */}
         <div
-          ref={waiverScrollRef}
-          className="h-64 overflow-y-auto px-5 py-4"
+          tabIndex={0}
+          role="region"
+          aria-label={`${waiver.title} text`}
+          className="sm:h-64 sm:overflow-y-auto px-5 py-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-500"
         >
           <RichTextContent content={waiver.content} className="text-gray-700 text-sm" />
           {/* Sentinel at the very bottom */}
-          <div className="h-1" />
+          <div ref={waiverScrollRef} className="h-1" />
         </div>
-        {scrolledToBottom && (
+        {scrolledToBottom ? (
           <div className="px-5 py-2 bg-green-50 border-t border-green-100">
             <p className="text-xs text-green-700 font-medium">✓ You&apos;ve read the full waiver</p>
+          </div>
+        ) : (
+          <div className="px-5 py-3 border-t flex items-start gap-2.5">
+            <input id="guest-waiver-ack" type="checkbox" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} className="mt-0.5 w-4 h-4 shrink-0" />
+            <label htmlFor="guest-waiver-ack" className="text-sm text-gray-600">I have read the waiver in full.</label>
           </div>
         )}
       </div>
@@ -293,7 +303,7 @@ export function GuestWaiverForm({ waiver, leagueId, leagueName, orgId, prefill }
 
         <button
           type="submit"
-          disabled={loading || !scrolledToBottom || !agreed || !name || !email || (!isMinor && !signatureName) || (isMinor && !guardianName)}
+          disabled={loading || !canSign || !agreed || !name || !email || (!isMinor && !signatureName) || (isMinor && !guardianName)}
           className="w-full py-3 rounded-lg font-bold text-white text-sm disabled:opacity-40 transition-opacity"
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >

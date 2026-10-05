@@ -466,16 +466,16 @@ export function Step3Payment({ org, league, userId, registrationId, priceCents, 
               <button
                 type="button"
                 onClick={() => setUsePlan(false)}
-                className={`flex-1 py-2 transition-colors ${!usePlan ? 'text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                style={!usePlan ? { backgroundColor: 'var(--brand-primary)' } : {}}
+                aria-pressed={!usePlan}
+                className={`press flex-1 min-h-11 ${!usePlan ? 'bg-brand-primary text-on-brand' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
               >
                 Pay in full
               </button>
               <button
                 type="button"
                 onClick={() => setUsePlan(true)}
-                className={`flex-1 py-2 transition-colors ${usePlan ? 'text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                style={usePlan ? { backgroundColor: 'var(--brand-primary)' } : {}}
+                aria-pressed={usePlan}
+                className={`press flex-1 min-h-11 ${usePlan ? 'bg-brand-primary text-on-brand' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
               >
                 Pay in instalments
               </button>

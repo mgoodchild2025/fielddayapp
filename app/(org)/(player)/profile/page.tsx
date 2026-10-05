@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { getCurrentOrg } from '@/lib/tenant'
+import { yearInTimezone } from '@/lib/format-time'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getPlayerMedals } from '@/lib/medal-queries'
@@ -34,9 +35,11 @@ export default async function ProfilePage() {
 
     db.from('player_details').select('*').eq('organization_id', org.id).eq('user_id', user.id).single(),
 
-    db.from('org_branding').select('logo_url').eq('organization_id', org.id).single(),
+    db.from('org_branding').select('logo_url, timezone').eq('organization_id', org.id).single(),
     getMfaStatus(),
   ])
+  // Medals group by the ORG's calendar year (the server's year is UTC).
+  const timezone = branding?.timezone ?? 'America/Toronto'
 
   // Trophy case, grouped by year (newest year first — loader sorts newest first)
   const myMedals = await getPlayerMedals(db, org.id, user.id)
@@ -60,7 +63,7 @@ export default async function ProfilePage() {
     .join(' ') || null
   const medalsByYear = Object.entries(
     myMedals.reduce<Record<string, typeof myMedals>>((acc, m) => {
-      const year = String(new Date(m.awardedAt).getFullYear())
+      const year = String(yearInTimezone(m.awardedAt, timezone))
       ;(acc[year] ??= []).push(m)
       return acc
     }, {})

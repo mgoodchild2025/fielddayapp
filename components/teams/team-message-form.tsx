@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { sendTeamMessage } from '@/actions/teams'
-import { scrollBehavior } from '@/lib/motion'
 import { safeAction } from '@/lib/action-errors'
+import { toast } from 'sonner'
 
 interface Props {
   teamId: string
@@ -20,7 +20,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
   const [ccSelf, setCcSelf] = useState(false)
   const [ccAdmins, setCcAdmins] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<'sent' | 'error' | null>(null)
+  const [result, setResult] = useState<'error' | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   function reset() {
@@ -45,14 +45,13 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
       setErrorMsg(res.error)
       setResult('error')
     } else {
-      setResult('sent')
+      // A toast, not a jump to the top of the page: the "Sent" note was in
+      // the form at the bottom and vanished 2s later, so nobody saw it.
+      toast.success('Message sent to your team')
       setSubject('')
       setBody('')
-      window.scrollTo({ top: 0, behavior: scrollBehavior() })
-      setTimeout(() => {
-        setOpen(false)
-        reset()
-      }, 2000)
+      setOpen(false)
+      reset()
     }
     setLoading(false)
   }
@@ -81,9 +80,6 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
         </button>
       </div>
 
-      {result === 'sent' && (
-        <p className="text-xs text-green-600 font-medium mb-2">✓ Message sent to all team members!</p>
-      )}
       {result === 'error' && errorMsg && (
         <p role="alert" className="text-xs text-red-600 mb-2">{errorMsg}</p>
       )}
@@ -92,6 +88,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
         <input
           type="text"
           placeholder="Subject"
+          aria-label="Subject"
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           maxLength={120}
@@ -100,6 +97,7 @@ export function TeamMessageForm({ teamId, memberCount }: Props) {
         />
         <textarea
           placeholder="Message…"
+          aria-label="Message"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           maxLength={2000}

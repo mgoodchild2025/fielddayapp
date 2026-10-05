@@ -9,6 +9,8 @@ import { PlayerAvatar } from '@/components/ui/player-avatar'
 import { Copy, Check } from 'lucide-react'
 import { confirmAction } from '@/components/ui/confirm-dialog'
 import { Overlay, useRetained } from '@/components/ui/overlay'
+import { toast } from 'sonner'
+import { safeAction } from '@/lib/action-errors'
 
 type Role = 'captain' | 'coach' | 'player' | 'sub'
 
@@ -84,6 +86,10 @@ export function RosterManager({
   const [actionPending, startActionTransition] = useTransition()
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
+  // Feedback goes in a toast: it rendered at the bottom of the roster card,
+  // a screen away from the row (or sheet) the captain had just acted on.
+  useEffect(() => { if (actionError) toast.error(actionError) }, [actionError])
+  useEffect(() => { if (actionSuccess) toast.success(actionSuccess) }, [actionSuccess])
 
   const [origin, setOrigin] = useState('')
   useEffect(() => { setOrigin(window.location.origin) }, [])
@@ -111,17 +117,24 @@ export function RosterManager({
   // ── Active member actions ──────────────────────────────────────────────────
 
   function handlePositionChange(memberId: string, position: string) {
+    const before = members.find((m) => m.id === memberId)?.position ?? null
     setMembers((prev) => prev.map((m) => m.id === memberId ? { ...m, position: position || null } : m))
     startActionTransition(async () => {
-      await setTeamMemberPosition({ memberId, teamId, position })
+      // A failed save used to leave the new position showing.
+      const result = await safeAction(setTeamMemberPosition({ memberId, teamId, position }))
+      if (result?.error) {
+        setMembers((prev) => prev.map((m) => m.id === memberId ? { ...m, position: before } : m))
+        toast.error(`Position not saved — ${result.error}`)
+      }
     })
   }
 
   function handleRoleChange(memberId: string, role: Role) {
     setMembers((prev) => prev.map((m) => m.id === memberId ? { ...m, role } : m))
     startActionTransition(async () => {
-      const result = await captainSetMemberRole(memberId, teamId, role)
-      if (result.error) setMembers(initialMembers)
+      const result = await safeAction(captainSetMemberRole(memberId, teamId, role))
+      // It used to snap back without saying why.
+      if (result.error) { setMembers(initialMembers); toast.error(result.error) }
     })
   }
 
@@ -219,7 +232,7 @@ export function RosterManager({
               {invites.map((inv) => {
                 const isExpired = new Date(inv.expiresAt) < new Date()
                 return (
-                  <li key={inv.id} className="px-4 py-3 flex items-center gap-3">
+                  <li key={inv.id} className="px-4 py-3 flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-2">
                     {/* Avatar placeholder — no account yet */}
                     <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
                       <span className="text-xs font-medium text-amber-600">?</span>
@@ -237,7 +250,9 @@ export function RosterManager({
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    {/* Phones: actions on their own row — beside the email they
+                        squeezed it to ~20px. */}
+                    <div className="flex items-center gap-1 shrink-0 max-sm:w-full max-sm:justify-end">
                       <button
                         onClick={() => {
                           const url = `${window.location.origin}/invite/${inv.token}`
@@ -262,7 +277,7 @@ export function RosterManager({
                       <button
                         onClick={() => handleCancelInvite(inv.id, inv.invitedEmail)}
                         disabled={actionPending}
-                        className="text-xs px-2 py-1 rounded border border-gray-200 text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        className="press text-xs px-3 min-h-10 rounded border border-gray-200 text-red-600 hover:bg-red-50"
                       >
                         Cancel
                       </button>
@@ -375,12 +390,6 @@ export function RosterManager({
           </>
         )}
 
-        {/* Global feedback */}
-        {(actionError || actionSuccess) && (
-          <div className={`px-5 py-2.5 text-sm border-t ${actionError ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
-            {actionError ?? actionSuccess}
-          </div>
-        )}
 
         {/* ── Join code & link ── */}
         {(teamCode || joinUrl) && (
@@ -401,7 +410,7 @@ export function RosterManager({
                 <button
                   type="button"
                   onClick={() => copyToClipboard(teamCode, 'code')}
-                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-all"
+                  className="press shrink-0 flex items-center gap-1.5 px-3 min-h-10 rounded-lg border text-xs font-medium"
                   style={
                     copiedField === 'code'
                       ? { borderColor: '#22c55e', color: '#16a34a', backgroundColor: '#f0fdf4' }
@@ -427,7 +436,7 @@ export function RosterManager({
                 <button
                   type="button"
                   onClick={() => copyToClipboard(joinUrl, 'link')}
-                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-all"
+                  className="press shrink-0 flex items-center gap-1.5 px-3 min-h-10 rounded-lg border text-xs font-medium"
                   style={
                     copiedField === 'link'
                       ? { borderColor: '#22c55e', color: '#16a34a', backgroundColor: '#f0fdf4' }

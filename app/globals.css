@@ -408,7 +408,8 @@ body { --fd-toast-bottom: 32px; }
    fast response never flickers. The tab itself lights instantly in JS. */
 @layer components {
   [data-tab-panel] { transition: opacity 150ms var(--ease-snap); }
-  body:has([data-event-tabs][data-pending]) [data-tab-panel] {
+  body:has([data-event-tabs][data-pending]) [data-tab-panel],
+  body:has([data-schedule-pending]) [data-tab-panel] {
     opacity: 0.5;
     transition: opacity 200ms var(--ease-snap) 100ms;
   }

@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useState, useEffect } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { Overlay } from '@/components/ui/overlay'
 import type { ShopItem } from '@/actions/merchandise'
 import type { CartItem } from './cart-provider'
@@ -20,6 +20,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
   const [quantity, setQuantity] = useState(1)
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedImageIdx, setSelectedImageIdx] = useState(0)
+  const swipeStart = useRef<{ x: number; y: number } | null>(null)
 
   // All images: primary + gallery
   const allImages = [item.image_url, ...(item.additional_images ?? [])].filter(Boolean) as string[]
@@ -218,8 +219,22 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
             {/* Image / carousel */}
             {allImages.length > 0 && (
               <div className="relative bg-gray-50 rounded-t-2xl overflow-hidden">
-                {/* Main image */}
-                <div className="relative w-full aspect-video sm:aspect-square">
+                {/* Main image — swipe left/right between photos (vertical
+                    drags still belong to the sheet's drag-to-dismiss). */}
+                <div
+                  className="relative w-full aspect-video sm:aspect-square touch-pan-y"
+                  data-no-drag={allImages.length > 1 ? '' : undefined}
+                  onPointerDown={(e) => { swipeStart.current = { x: e.clientX, y: e.clientY } }}
+                  onPointerUp={(e) => {
+                    const st = swipeStart.current
+                    swipeStart.current = null
+                    if (!st || allImages.length < 2) return
+                    const dx = e.clientX - st.x, dy = e.clientY - st.y
+                    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return
+                    setSelectedImageIdx((i) => (dx < 0 ? (i + 1) % allImages.length : (i - 1 + allImages.length) % allImages.length))
+                  }}
+                  onPointerCancel={() => { swipeStart.current = null }}
+                >
                   <Image
                     key={allImages[selectedImageIdx]}
                     src={allImages[selectedImageIdx]}
@@ -236,7 +251,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
                       <button
                         type="button"
                         onClick={() => setSelectedImageIdx((i) => (i - 1 + allImages.length) % allImages.length)}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
+                        className="press absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/45 text-white flex items-center justify-center hover:bg-black/60"
                         aria-label="Previous image"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -246,7 +261,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
                       <button
                         type="button"
                         onClick={() => setSelectedImageIdx((i) => (i + 1) % allImages.length)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
+                        className="press absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/45 text-white flex items-center justify-center hover:bg-black/60"
                         aria-label="Next image"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -259,15 +274,19 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
 
                 {/* Thumbnail dots / strip — only when multiple images */}
                 {allImages.length > 1 && (
-                  <div className="flex items-center justify-center gap-1.5 py-2">
+                  <div className="flex items-center justify-center py-0.5">
                     {allImages.map((src, idx) => (
+                      // 32px target around an 8px dot.
                       <button
                         key={src}
                         type="button"
                         onClick={() => setSelectedImageIdx(idx)}
-                        className={`w-2 h-2 rounded-full transition-colors ${idx === selectedImageIdx ? 'bg-gray-700' : 'bg-gray-300 hover:bg-gray-500'}`}
-                        aria-label={`View image ${idx + 1}`}
-                      />
+                        className="group w-8 h-8 inline-flex items-center justify-center"
+                        aria-label={`Image ${idx + 1} of ${allImages.length}`}
+                        aria-current={idx === selectedImageIdx ? 'true' : undefined}
+                      >
+                        <span className={`w-2 h-2 rounded-full transition-colors ${idx === selectedImageIdx ? 'bg-gray-700' : 'bg-gray-300 group-hover:bg-gray-500'}`} />
+                      </button>
                     ))}
                   </div>
                 )}
@@ -294,6 +313,7 @@ export function ShopItemCard({ item, onAddToCart, addedKey }: Props) {
               {hasVariants && (
                 <select
                   value={selectedVariantId ?? ''}
+                  aria-label="Size"
                   onChange={(e) => setSelectedVariantId(e.target.value || null)}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/30 bg-white appearance-none cursor-pointer"
                 >

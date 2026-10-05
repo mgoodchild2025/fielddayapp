@@ -128,3 +128,14 @@ export function utcToLocalInput(iso: string | null | undefined, timeZone: string
   const hour = parts.hour === '24' ? '00' : parts.hour
   return `${parts.year}-${parts.month}-${parts.day}T${hour}:${parts.minute}`
 }
+
+/** The calendar year of `date` in `timezone` (the server's getFullYear() is UTC). */
+export function yearInTimezone(date: Date | string, timezone: string): number {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return Number(new Intl.DateTimeFormat('en-CA', { year: 'numeric', timeZone: timezone }).format(d))
+}
+
+/** ISO instant of Jan 1, 00:00 of the current year in `timezone`. */
+export function startOfYearInTimezone(timezone: string, now: Date = new Date()): string {
+  return parseLocalToUtc(`${yearInTimezone(now, timezone)}-01-01`, '00:00', timezone)
+}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 // Events = a ticket (your registrations); the trophy belongs to Champions.
@@ -21,7 +21,8 @@ const MEMBER_TABS: Tab[] = [
   { href: '/dashboard', label: 'Home',   Icon: House,        match: ['/dashboard'] },
   { href: '/schedule',  label: 'Games',  Icon: CalendarDays, match: ['/schedule', '/games', '/standings'] },
   { href: '/my-events', label: 'Events', Icon: Ticket,       match: ['/my-events', '/events'] },
-  { href: '/profile',   label: 'Me',     Icon: CircleUser,   match: ['/profile', '/my-teams'] },
+  // Team pages, card binders and player cards are "your stuff": Me.
+  { href: '/profile',   label: 'Me',     Icon: CircleUser,   match: ['/profile', '/my-teams', '/teams', '/players'] },
 ]
 
 // Visitors get a slimmer bar on browsing pages; one-off flows (invites, check-in,
@@ -30,8 +31,15 @@ const VISITOR_HIDDEN = ['/checkin', '/invite', '/join', '/sub-invite', '/organiz
 
 const under = (path: string, prefix: string) => path === prefix || path.startsWith(prefix + '/')
 
+// The query string, read without useSearchParams (which would need a Suspense
+// boundary on statically rendered pages like the 404). Re-read on each render
+// — the bar re-renders on every navigation anyway.
+const noSubscribe = () => () => {}
+const readSearch = () => window.location.search
+
 export function MobileBottomNavClient({ signedIn }: { signedIn: boolean }) {
   const pathname = usePathname()
+  const search = useSyncExternalStore(noSubscribe, readSearch, () => '')
   // The tab the player just tapped. The URL only changes once the server has
   // rendered the next page, so without this the bar would keep showing the
   // old tab for that whole wait — the tap would look ignored. Cleared as soon
@@ -50,8 +58,9 @@ export function MobileBottomNavClient({ signedIn }: { signedIn: boolean }) {
     : [
         { href: '/events', label: 'Events', Icon: Ticket, match: ['/events'] },
         {
-          // Come back to the page they were on after signing in.
-          href: pathname && pathname !== '/' ? `/login?redirect=${encodeURIComponent(pathname)}` : '/login',
+          // Come back to the page they were on after signing in — query
+          // included (an event's ?tab=schedule used to be dropped).
+          href: pathname && pathname !== '/' ? `/login?redirect=${encodeURIComponent(pathname + search)}` : '/login',
           label: 'Sign in',
           Icon: LogIn,
           match: [],

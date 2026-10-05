@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { getGameStatsForEntry } from '@/actions/stats'
 import type { GameStatsEntryData } from '@/actions/stats'
 import { GameStatsSheet } from './game-stats-sheet'
+import { safeAction } from '@/lib/action-errors'
 
 interface Props {
   gameId: string
@@ -24,7 +25,7 @@ export function CaptainStatsEntry({ gameId, captainTeamId }: Props) {
     }
     setError(null)
     startLoad(async () => {
-      const res = await getGameStatsForEntry(gameId)
+      const res = await safeAction(getGameStatsForEntry(gameId))
       if (res.error || !res.data) {
         setError(res.error ?? 'Failed to load stats')
       } else {
@@ -40,8 +41,7 @@ export function CaptainStatsEntry({ gameId, captainTeamId }: Props) {
         <button
           onClick={handleOpen}
           disabled={loading}
-          className="text-xs font-semibold disabled:opacity-50"
-          style={{ color: 'var(--brand-primary)' }}
+          className="press inline-flex items-center min-h-10 text-sm font-semibold text-brand-primary disabled:opacity-50"
         >
           {loading ? 'Loading…' : '+ Enter stats'}
         </button>

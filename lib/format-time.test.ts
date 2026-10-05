@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseLocalToUtc, formatGameTime, formatDateOnly } from './format-time'
+import { parseLocalToUtc, formatGameTime, formatDateOnly, yearInTimezone, startOfYearInTimezone } from './format-time'
 
 // America/Toronto: EDT (UTC-4) in summer, EST (UTC-5) in winter.
 // DST 2026: begins Mar 8, ends Nov 1.
@@ -122,5 +122,15 @@ describe('utcToLocalInput', () => {
     const { utcToLocalInput } = await import('./format-time')
     expect(utcToLocalInput(null, 'America/Toronto')).toBe('')
     expect(utcToLocalInput('nope', 'America/Toronto')).toBe('')
+  })
+})
+
+describe('org-timezone years', () => {
+  it('evening of Dec 31 in Toronto is still last year (UTC already flipped)', () => {
+    expect(yearInTimezone('2027-01-01T02:00:00Z', 'America/Toronto')).toBe(2026)
+    expect(yearInTimezone('2027-01-01T02:00:00Z', 'UTC')).toBe(2027)
+  })
+  it('start of year is local midnight Jan 1', () => {
+    expect(startOfYearInTimezone('America/Toronto', new Date('2026-06-15T12:00:00Z'))).toBe('2026-01-01T05:00:00.000Z')
   })
 })

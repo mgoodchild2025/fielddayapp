@@ -3,6 +3,8 @@
 import { useState, useTransition } from 'react'
 import { joinSession, leaveSession } from '@/actions/sessions'
 import { usePathname, useRouter } from 'next/navigation'
+import { confirmAction } from '@/components/ui/confirm-dialog'
+import { safeAction } from '@/lib/action-errors'
 
 interface Props {
   sessionId: string
@@ -64,12 +66,22 @@ export function SessionJoinButton({
       <div className="flex flex-col items-end gap-1">
         <button
           disabled={isPending}
-          onClick={() => {
+          onClick={async () => {
             setError(null)
+            // "Leave" sits exactly where "Join" was: a stray tap gave up the
+            // spot (maybe for good on a full session) and any pending
+            // e-transfer record. Not undo-able, so ask.
+            if (!(await confirmAction({
+              title: 'Leave this session?',
+              message: 'Your spot goes to someone else — if the session fills up you may not get it back.',
+              confirmLabel: 'Leave session',
+              cancelLabel: 'Stay in',
+              destructive: true,
+            }))) return
             startTransition(async () => {
               // Surface failures: this silently swallowed errors, so a Leave
               // that couldn't write looked identical to one that worked.
-              const res = await leaveSession(sessionId, leagueId)
+              const res = await safeAction(leaveSession(sessionId, leagueId))
               if (res?.error) { setError(res.error); return }
               router.refresh()
             })

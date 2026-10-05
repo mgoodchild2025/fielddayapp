@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { exportMyData, deleteMyAccount } from '@/actions/privacy'
 import { Overlay } from '@/components/ui/overlay'
 import { clearOfflineCache } from '@/lib/push-client'
+import { safeAction } from '@/lib/action-errors'
 
 export function DataExportButton() {
   const [loading, setLoading] = useState(false)
@@ -12,7 +13,7 @@ export function DataExportButton() {
   async function handleExport() {
     setLoading(true)
     setError(null)
-    const { data, error } = await exportMyData()
+    const { data, error } = await safeAction(exportMyData())
     if (error || !data) {
       setError(error ?? 'Export failed')
       setLoading(false)
@@ -23,8 +24,12 @@ export function DataExportButton() {
     const a = document.createElement('a')
     a.href = url
     a.download = `fieldday-my-data-${new Date().toISOString().slice(0, 10)}.json`
+    // iOS Safari ignores a click on a detached anchor, and revoking the URL
+    // straight away cancels the download before it starts.
+    document.body.appendChild(a)
     a.click()
-    URL.revokeObjectURL(url)
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 10_000)
     setLoading(false)
   }
 
