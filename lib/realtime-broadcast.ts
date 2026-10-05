@@ -42,6 +42,8 @@ export type BroadcastSocketOptions = {
   heartbeatMs?: number
   /** How long a wake-up probe waits for its heartbeat reply. */
   probeMs?: number
+  /** Close the socket after the tab has been hidden this long (lifecycle mode). */
+  hiddenSuspendMs?: number
   /** Reconnect delays, last one repeats */
   backoffMs?: number[]
   /** Browser lifecycle hooks (visibility/online). Off in tests and on the server. */
@@ -58,6 +60,8 @@ export function createBroadcastSocket(opts: BroadcastSocketOptions) {
   const WS = opts.WebSocketImpl ?? (globalThis.WebSocket as unknown as new (url: string) => WsLike)
   const heartbeatMs = opts.heartbeatMs ?? 25_000
   const probeMs = opts.probeMs ?? 5_000
+  const hiddenSuspendMs = opts.hiddenSuspendMs ?? 60_000
+  let suspended = false
   const backoff = opts.backoffMs ?? [1_000, 2_000, 5_000, 10_000]
 
   const topics = new Map<string, { handler: BroadcastHandler; joinRef: string }>()
@@ -150,7 +154,7 @@ export function createBroadcastSocket(opts: BroadcastSocketOptions) {
   }
 
   function connect() {
-    if (ws || topics.size === 0) return
+    if (ws || topics.size === 0 || suspended) return
     let socket: WsLike
     try {
       socket = new WS(realtimeSocketUrl(opts.url, opts.apiKey))
@@ -188,7 +192,7 @@ export function createBroadcastSocket(opts: BroadcastSocketOptions) {
       if (ws !== socket) return
       ws = null
       stopHeartbeat()
-      scheduleReconnect()
+      if (!suspended) scheduleReconnect()
     }
   }
 
@@ -201,10 +205,31 @@ export function createBroadcastSocket(opts: BroadcastSocketOptions) {
     connect()
   }
 
+  // A tab left in the background (an event page open behind other apps all
+  // evening) kept the socket and its heartbeats going. After a minute hidden,
+  // close it without reconnecting; coming back reconnects at once.
+  let hiddenTimer: ReturnType<typeof setTimeout> | null = null
+  function suspend() {
+    suspended = true
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
+    stopHeartbeat()
+    const s = ws
+    ws = null
+    s?.close(1000, 'tab hidden')
+  }
+  function resume() {
+    if (hiddenTimer) { clearTimeout(hiddenTimer); hiddenTimer = null }
+    if (!suspended) { reconnectNow(); return }
+    suspended = false
+    attempt = 0
+    connect()
+  }
+
   if (opts.watchLifecycle && typeof window !== 'undefined') {
-    window.addEventListener('online', reconnectNow)
+    window.addEventListener('online', () => { if (!suspended) reconnectNow() })
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') reconnectNow()
+      if (document.visibilityState === 'visible') resume()
+      else if (!hiddenTimer) hiddenTimer = setTimeout(() => { hiddenTimer = null; if (document.visibilityState === 'hidden') suspend() }, hiddenSuspendMs)
     })
   }
 

@@ -81,6 +81,37 @@ export function Overlay({
 
   const panelRef = useRef<HTMLDivElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  // On-screen keyboard: phones shrink the VISUAL viewport only, so a bottom
+  // sheet (Edit Team, add registrant, payment editor…) kept its Save button
+  // under the keyboard. While open, lift the overlay's bottom edge by the
+  // keyboard's height and cap the panel to what's visible (it scrolls).
+  useEffect(() => {
+    if (!open || typeof window === 'undefined' || !window.visualViewport) return
+    const vv = window.visualViewport
+    const update = () => {
+      const root = rootRef.current
+      if (!root) return
+      const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
+      if (kb > 40) {
+        root.style.setProperty('--fd-kb', `${kb}px`)
+        root.style.setProperty('--fd-vv', `${Math.round(vv.height)}px`)
+        root.setAttribute('data-kb', '')
+      } else {
+        root.style.removeProperty('--fd-kb')
+        root.style.removeProperty('--fd-vv')
+        root.removeAttribute('data-kb')
+      }
+    }
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [open])
   const onCloseRef = useRef(onClose)
   useEffect(() => { onCloseRef.current = onClose })
   const dismiss = useCallback(() => onCloseRef.current(), [])
@@ -140,6 +171,7 @@ export function Overlay({
 
   return createPortal(
     <div
+      ref={rootRef}
       className={`fd-overlay fd-overlay--${variant} ${className}`}
       data-state={open ? 'open' : 'closed'}
       style={zIndex !== undefined ? { zIndex } : undefined}

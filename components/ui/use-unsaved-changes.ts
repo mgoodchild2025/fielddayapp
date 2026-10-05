@@ -8,7 +8,8 @@ import { confirmAction } from '@/components/ui/confirm-dialog'
  * Guards a form with unsaved edits against every way of leaving it:
  * closing/reloading the tab (`beforeunload`), tapping any in-app link (a
  * window capture-phase click handler that runs before React's — and so
- * before Next's <Link> — handler), and
+ * before Next's <Link> — handler), Back (a parked history entry + popstate),
+ * and
  * programmatic navigation that calls `confirmLeaveIfUnsaved()` first (the
  * event admin tab select, Cancel buttons).
  *
@@ -54,12 +55,41 @@ export function useUnsavedChanges(dirty: boolean) {
       e.stopPropagation()
       void confirmLeaveIfUnsaved().then((ok) => { if (ok) router.push(url.pathname + url.search + url.hash) })
     }
+    // Back (the Android back gesture, iOS edge swipe, the browser button):
+    // park a duplicate of the current history entry while the form is dirty,
+    // so Back lands on it instead of leaving. Ask; "Discard" goes back for
+    // real, "Keep editing" re-parks. The entry keeps Next's own history
+    // state, so the router treats it as the same page.
+    const GUARD = '__fdUnsavedGuard'
+    const parked = !(window.history.state && window.history.state[GUARD])
+    if (parked) window.history.pushState({ ...(window.history.state ?? {}), [GUARD]: true }, '', window.location.href)
+    let leaving = false
+    const onPopState = () => {
+      if (leaving || dirtyForms.size === 0) return
+      window.history.pushState({ ...(window.history.state ?? {}), [GUARD]: true }, '', window.location.href)
+      void confirmLeaveIfUnsaved().then((ok) => {
+        if (!ok) return
+        leaving = true
+        window.history.go(-2)
+      })
+    }
+
     window.addEventListener('beforeunload', warn)
     window.addEventListener('click', onClick, true)
+    window.addEventListener('popstate', onPopState)
     return () => {
       dirtyForms.delete(key)
       window.removeEventListener('beforeunload', warn)
       window.removeEventListener('click', onClick, true)
+      window.removeEventListener('popstate', onPopState)
+      // Saved or discarded in place: un-mark the parked entry (a history.back()
+      // here could race the router.push that usually follows a save). The
+      // duplicate stays — one extra Back on the same page, nothing lost.
+      if (!leaving && window.history.state && window.history.state[GUARD]) {
+        const rest = { ...window.history.state }
+        delete rest[GUARD]
+        window.history.replaceState(rest, '', window.location.href)
+      }
     }
   }, [dirty, router])
 }
